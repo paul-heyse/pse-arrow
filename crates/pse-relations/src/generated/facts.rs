@@ -47,8 +47,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            96u8, 87u8, 36u8, 42u8, 193u8, 122u8, 244u8, 247u8, 169u8, 204u8, 21u8,
-            188u8, 161u8, 79u8, 76u8, 252u8,
+            132u8, 7u8, 63u8, 101u8, 60u8, 157u8, 201u8, 121u8, 236u8, 12u8, 41u8, 146u8,
+            235u8, 66u8, 94u8, 128u8,
         ])
     {
         return Ok(
@@ -743,8 +743,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            76u8, 76u8, 40u8, 60u8, 178u8, 245u8, 196u8, 93u8, 251u8, 232u8, 81u8, 29u8,
-            70u8, 120u8, 185u8, 174u8,
+            94u8, 229u8, 194u8, 28u8, 157u8, 162u8, 196u8, 140u8, 163u8, 26u8, 241u8,
+            142u8, 158u8, 115u8, 4u8, 54u8,
         ])
     {
         return Ok(
@@ -858,18 +858,6 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeModelingReports(
                 super::r#runtime::r#modeling_reports::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            114u8, 45u8, 219u8, 252u8, 43u8, 54u8, 157u8, 200u8, 255u8, 101u8, 139u8,
-            171u8, 205u8, 177u8, 213u8, 98u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#RuntimeModelingStudies(
-                super::r#runtime::r#modeling_studies::Row::rows(batch)?,
             ),
         );
     }
@@ -1439,8 +1427,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            38u8, 103u8, 45u8, 120u8, 154u8, 225u8, 38u8, 51u8, 197u8, 241u8, 67u8, 7u8,
-            112u8, 253u8, 20u8, 135u8,
+            24u8, 44u8, 61u8, 87u8, 83u8, 213u8, 58u8, 253u8, 215u8, 7u8, 231u8, 72u8,
+            71u8, 55u8, 113u8, 146u8,
         ])
     {
         return Ok(
@@ -1698,9 +1686,6 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingReports(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#RuntimeModelingStudies(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeModelingTrajectoryModes(

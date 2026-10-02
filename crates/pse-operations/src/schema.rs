@@ -245,6 +245,16 @@ fn refuse(reason: MigrationRefusal, detail: impl Into<String>) -> OperationsErro
 /// Exact committed Plan 25d operational baseline; unrelated or interim sources are refused.
 pub const MIGRATION_SOURCE: &str =
     "a660d5317c58a235a0717b2d24e808153d833d6bb41753ad850cf22217c3da0d";
+/// Exact completed Plan 25e baseline; its committed histories must be catalog 1 / operations 4.
+const STUDY_MIGRATION_SOURCE: &str =
+    "60293f46ba51830bb2a376d9554cae582e4f715234fa7163c38e372994de915b";
+const FRESH_PLAN25E_ORIGIN: &str =
+    "fresh-v25e:60293f46ba51830bb2a376d9554cae582e4f715234fa7163c38e372994de915b";
+const PLAN25E_CATALOG: &str = "3aa8a326827f2b06cde68942b520e1480b0512b1112e91b15ba33f0fdff83927";
+const PLAN25E_OPERATIONS: &str = "b3e1ba34cd0f964ee1941021e52371f3d83b12373bd6b2b3656f4eebeea1c9d6";
+mod plan25e_layout {
+    include!("../test-fixtures/plan25e/layout.rs");
+}
 const PENDING_PREFIX: &str = "pse.ops.transition.v1 ";
 const CATALOG_HISTORY: &str = "pse_ops.catalog_schema_history";
 const OPERATIONS_HISTORY: &str = "pse_ops.operations_schema_history";
@@ -284,6 +294,10 @@ fn transitions() -> Result<(Vec<refinery::Migration>, Vec<refinery::Migration>),
             migration(
                 "V4__operations_ready",
                 include_str!("../migrations/V4__operations_ready.sql"),
+            )?,
+            migration(
+                "V5__study_occurrence_policy",
+                include_str!("../migrations/V5__study_occurrence_policy.sql"),
             )?,
         ],
     ))
@@ -353,19 +367,47 @@ pub(crate) async fn verify_ready(
         ));
     }
     verify_layout(client, target, false).await?;
-    if rows.iter().any(|r| r.get::<_, String>(0) == "catalog") {
-        let source = client
-            .query_one(
-                "SELECT source FROM pse_ops.schema_support_state WHERE history='catalog'",
-                &[],
+    let provenance = client
+        .query(
+            "SELECT history,source FROM pse_ops.schema_support_state ORDER BY history",
+            &[],
+        )
+        .await
+        .classify(target)?;
+    let (catalog, operations) = transitions()?;
+    for row in provenance {
+        let history = row.get::<_, String>(0);
+        let source = row.get::<_, String>(1);
+        let known_source = if history == "catalog" {
+            matches!(source.as_str(), "fresh" | MIGRATION_SOURCE)
+        } else {
+            matches!(
+                source.as_str(),
+                "fresh" | "fresh-v25e" | STUDY_MIGRATION_SOURCE
             )
-            .await
-            .classify(target)?
-            .get::<_, String>(0);
-        if source != "fresh" {
-            let (catalog, operations) = transitions()?;
-            verify_history(client, &catalog, CATALOG_HISTORY, target).await?;
-            verify_history(client, &operations, OPERATIONS_HISTORY, target).await?;
+        };
+        if !known_source {
+            return Err(refuse(
+                MigrationRefusal::NotReady,
+                "schema support provenance is not a declared lineage",
+            ));
+        }
+        let (table, declared) = if history == "catalog" {
+            (CATALOG_HISTORY, catalog.as_slice())
+        } else if source == "fresh-v25e" {
+            (OPERATIONS_HISTORY, &operations[4..])
+        } else {
+            (OPERATIONS_HISTORY, operations.as_slice())
+        };
+        if source == "fresh" {
+            if history_prefix(client, declared, table, target).await? != 0 {
+                return Err(refuse(
+                    MigrationRefusal::ChecksumConflict,
+                    "fresh schema lineage must not claim migration history",
+                ));
+            }
+        } else {
+            verify_history(client, declared, table, target).await?;
         }
     }
     Ok(())
@@ -438,7 +480,7 @@ async fn verify_layout(
     target: &crate::error::Target,
     legacy: bool,
 ) -> Result<(), OperationsError> {
-    verify_progress_layout(client, target, !legacy, !legacy, !legacy).await
+    verify_progress_layout(client, target, !legacy, !legacy, !legacy, !legacy).await
 }
 async fn verify_progress_layout(
     client: &tokio_postgres::Client,
@@ -446,6 +488,7 @@ async fn verify_progress_layout(
     support: bool,
     node_limit: bool,
     shooting: bool,
+    study_policy: bool,
 ) -> Result<(), OperationsError> {
     let rows = client.query("SELECT c.relname::text,a.attname::text,a.attnum::int,format_type(a.atttypid,a.atttypmod),NOT a.attnotnull FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='pse_ops' AND c.relkind IN ('r','p') AND a.attnum>0 AND NOT a.attisdropped AND c.relname <> ALL($1) ORDER BY c.relname,a.attnum", &[&vec!["catalog_schema_history", "operations_schema_history"]]).await.classify(target)?;
     let actual = rows
@@ -460,7 +503,12 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let expected = crate::generated::layout::COLUMNS
+    let columns = if study_policy {
+        crate::generated::layout::COLUMNS
+    } else {
+        plan25e_layout::COLUMNS
+    };
+    let expected = columns
         .iter()
         .filter(|(table, ..)| support || *table != "schema_support_state")
         .map(|(t, c, o, ty, n)| (t.to_string(), c.to_string(), *o, ty.to_string(), *n))
@@ -482,7 +530,12 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let mut expected = crate::generated::layout::CONSTRAINTS
+    let declared_constraints = if study_policy {
+        crate::generated::layout::CONSTRAINTS
+    } else {
+        plan25e_layout::CONSTRAINTS
+    };
+    let mut expected = declared_constraints
         .iter()
         .filter(|(table, ..)| support || *table != "schema_support_state")
         .map(|(table, name, kind)| (table.to_string(), name.to_string(), kind.to_string()))
@@ -506,7 +559,9 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let frozen = if support {
+    let frozen = if study_policy {
+        include_str!("../migrations/plan25f-constraint-signatures.json")
+    } else if support {
         include_str!("../migrations/plan25e-constraint-signatures.json")
     } else {
         include_str!("../migrations/plan25d-constraint-signatures.json")
@@ -535,7 +590,9 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let frozen = if support {
+    let frozen = if study_policy {
+        include_str!("../migrations/plan25f-domain-signatures.json")
+    } else if support {
         include_str!("../migrations/plan25e-domain-signatures.json")
     } else {
         include_str!("../migrations/plan25d-domain-signatures.json")
@@ -565,7 +622,9 @@ async fn verify_progress_layout(
             )
         })
         .collect::<Vec<_>>();
-    let frozen = if support {
+    let frozen = if study_policy {
+        include_str!("../migrations/plan25f-index-signatures.json")
+    } else if support {
         include_str!("../migrations/plan25e-index-signatures.json")
     } else {
         include_str!("../migrations/plan25d-index-signatures.json")
@@ -585,7 +644,12 @@ async fn verify_progress_layout(
     }
     // The hand-authored physical declaration owns these access paths and defaults.
     let mut table = None;
-    for line in PHYSICAL_SQL.lines() {
+    let physical = if study_policy {
+        PHYSICAL_SQL
+    } else {
+        include_str!("../test-fixtures/plan25e/physical.sql")
+    };
+    for line in physical.lines() {
         let fields = line.split_whitespace().collect::<Vec<_>>();
         if fields.starts_with(&["CREATE", "INDEX"]) {
             let name = fields[2];
@@ -629,7 +693,12 @@ async fn verify_progress_layout(
         .iter()
         .map(|row| row.get::<_, String>(0))
         .collect::<Vec<_>>();
-    let mut expected = crate::generated::layout::ENUMS
+    let enums = if study_policy {
+        crate::generated::layout::ENUMS
+    } else {
+        plan25e_layout::ENUMS
+    };
+    let mut expected = enums
         .iter()
         .map(|(name, _)| name.to_string())
         .collect::<Vec<_>>();
@@ -640,7 +709,7 @@ async fn verify_progress_layout(
             "owned enum domain inventory differs",
         ));
     }
-    for (name, members) in crate::generated::layout::ENUMS {
+    for (name, members) in enums {
         let qualified = format!("pse_ops.{name}");
         let rows = client.query("SELECT enumlabel::text FROM pg_enum WHERE enumtypid=$1::text::regtype ORDER BY enumsortorder", &[&qualified]).await.classify(target)?;
         let actual = rows
@@ -663,6 +732,86 @@ async fn verify_progress_layout(
         }
     }
     Ok(())
+}
+
+/// Source records and committed prefixes are one admission fact; no historical row is rewritten.
+fn admit_prefix(
+    origin: &str,
+    pending: bool,
+    catalog: usize,
+    operations: usize,
+) -> Result<(), OperationsError> {
+    let admitted = match (origin, pending) {
+        (MIGRATION_SOURCE, false) => catalog == 0 && operations == 0,
+        (MIGRATION_SOURCE, true) => {
+            catalog <= 1 && operations <= 5 && (operations == 0 || catalog == 1)
+        }
+        (STUDY_MIGRATION_SOURCE, false) => catalog == 1 && operations == 4,
+        (STUDY_MIGRATION_SOURCE, true) => catalog == 1 && (4..=5).contains(&operations),
+        (FRESH_PLAN25E_ORIGIN, false) => catalog == 0 && operations == 0,
+        (FRESH_PLAN25E_ORIGIN, true) => catalog == 0 && operations <= 1,
+        _ => false,
+    };
+    if admitted {
+        Ok(())
+    } else {
+        Err(refuse(
+            MigrationRefusal::ChecksumConflict,
+            "committed transition history disagrees with the exact recorded source",
+        ))
+    }
+}
+async fn verify_plan25e_support(
+    client: &tokio_postgres::Client,
+    target: &crate::error::Target,
+) -> Result<bool, OperationsError> {
+    let support_present = client
+        .query_one(
+            "SELECT to_regclass('pse_ops.schema_support_state') IS NOT NULL",
+            &[],
+        )
+        .await
+        .classify(target)?
+        .get::<_, bool>(0);
+    if !support_present {
+        return Err(refuse(
+            MigrationRefusal::NotReady,
+            "Plan 25e support readiness is absent",
+        ));
+    }
+    let rows = client.query("SELECT history,shared_version,target,ready,source FROM pse_ops.schema_support_state ORDER BY history", &[]).await.classify(target)?;
+    let expected = [
+        ("catalog", PLAN25E_CATALOG),
+        ("operations", PLAN25E_OPERATIONS),
+    ];
+    if rows.len() != expected.len()
+        || rows
+            .iter()
+            .zip(expected)
+            .any(|(r, (history, fingerprint))| {
+                r.get::<_, String>(0) != history
+                    || r.get::<_, i32>(1) != 1
+                    || r.get::<_, String>(2) != fingerprint
+                    || !r.get::<_, bool>(3)
+            })
+    {
+        return Err(refuse(
+            MigrationRefusal::NotReady,
+            "Plan 25e support must be complete before the follow-on transition",
+        ));
+    }
+    let fresh = rows.iter().all(|r| r.get::<_, String>(4) == "fresh");
+    if !fresh
+        && !rows
+            .iter()
+            .all(|r| r.get::<_, String>(4) == MIGRATION_SOURCE)
+    {
+        return Err(refuse(
+            MigrationRefusal::NotReady,
+            "Plan 25e support provenance is not a declared source lineage",
+        ));
+    }
+    Ok(fresh)
 }
 
 impl Store {
@@ -702,22 +851,42 @@ impl Store {
             verify_ready(&session.client, self.target()).await?;
             return Ok(Opened::Current);
         }
-        let pending = format!(
-            "{PENDING_PREFIX}{MIGRATION_SOURCE} {}",
-            SCHEMA_FINGERPRINT_HEX
-        );
-        let is_pending = comment.as_ref().and_then(|c| c.as_deref()) == Some(pending.as_str());
-        if source != Some(MIGRATION_SOURCE) && !is_pending {
-            return Err(refuse(
-                MigrationRefusal::UnknownSource,
-                "no declared transition from the exact recorded source",
-            ));
+        let pending_source = comment
+            .as_ref()
+            .and_then(|c| c.as_deref())
+            .and_then(|c| c.strip_prefix(PENDING_PREFIX))
+            .and_then(|c| c.split_once(' '))
+            .filter(|(_, target)| *target == SCHEMA_FINGERPRINT_HEX)
+            .map(|(source, _)| source);
+        let mut origin = source
+            .filter(|source| matches!(*source, MIGRATION_SOURCE | STUDY_MIGRATION_SOURCE))
+            .or_else(|| {
+                pending_source.filter(|source| {
+                    matches!(
+                        *source,
+                        MIGRATION_SOURCE | STUDY_MIGRATION_SOURCE | FRESH_PLAN25E_ORIGIN
+                    )
+                })
+            })
+            .ok_or_else(|| {
+                refuse(
+                    MigrationRefusal::UnknownSource,
+                    "no declared transition from the exact recorded source",
+                )
+            })?;
+        if source == Some(STUDY_MIGRATION_SOURCE)
+            && verify_plan25e_support(&session.client, self.target()).await?
+        {
+            origin = FRESH_PLAN25E_ORIGIN;
         }
+        let pending = format!("{PENDING_PREFIX}{origin} {SCHEMA_FINGERPRINT_HEX}");
+        let is_pending = pending_source.is_some();
         // Target declarations are frozen in SQL transitions; a later schema needs another version.
-        if !include_str!("../migrations/V4__operations_ready.sql").contains(SCHEMA_FINGERPRINT_HEX)
+        if !include_str!("../migrations/V5__study_occurrence_policy.sql")
+            .contains(SCHEMA_FINGERPRINT_HEX)
             || !include_str!("../migrations/V1__catalog_identity.sql")
                 .contains(crate::generated::CATALOG_FINGERPRINT_HEX)
-            || !include_str!("../migrations/V4__operations_ready.sql")
+            || !include_str!("../migrations/V5__study_occurrence_policy.sql")
                 .contains(crate::generated::OPERATIONS_FINGERPRINT_HEX)
         {
             return Err(refuse(
@@ -725,7 +894,29 @@ impl Store {
                 "build target has no immutable declared transition",
             ));
         }
-        let (catalog, operations) = transitions()?;
+        let (mut catalog, mut operations) = transitions()?;
+        let fresh25e = origin == FRESH_PLAN25E_ORIGIN;
+        if fresh25e && !is_pending {
+            let history_present = session
+                .client
+                .query_one(
+                    "SELECT to_regclass($1) IS NOT NULL OR to_regclass($2) IS NOT NULL",
+                    &[&CATALOG_HISTORY, &OPERATIONS_HISTORY],
+                )
+                .await
+                .classify(self.target())?
+                .get::<_, bool>(0);
+            if history_present {
+                return Err(refuse(
+                    MigrationRefusal::ChecksumConflict,
+                    "fresh Plan 25e source must have absent migration histories",
+                ));
+            }
+        }
+        if fresh25e {
+            catalog.clear();
+            operations.drain(..4);
+        }
         let catalog_prefix =
             history_prefix(&session.client, &catalog, CATALOG_HISTORY, self.target()).await?;
         let operations_prefix = history_prefix(
@@ -735,24 +926,33 @@ impl Store {
             self.target(),
         )
         .await?;
-        if operations_prefix > 0 && catalog_prefix == 0 {
-            return Err(refuse(
-                MigrationRefusal::ChecksumConflict,
-                "operations history lacks its committed catalog support prerequisite",
-            ));
-        }
-        if !is_pending && (catalog_prefix > 0 || operations_prefix > 0) {
-            return Err(refuse(
-                MigrationRefusal::ChecksumConflict,
-                "committed transition history disagrees with the recorded source",
-            ));
+        admit_prefix(origin, is_pending, catalog_prefix, operations_prefix)?;
+        if fresh25e && operations_prefix == 0 {
+            if !verify_plan25e_support(&session.client, self.target()).await? {
+                return Err(refuse(
+                    MigrationRefusal::NotReady,
+                    "fresh Plan 25e transition requires fresh support provenance",
+                ));
+            }
+        } else if origin == STUDY_MIGRATION_SOURCE && operations_prefix == 4 {
+            if verify_plan25e_support(&session.client, self.target()).await? {
+                return Err(refuse(
+                    MigrationRefusal::NotReady,
+                    "upgraded Plan 25e transition cannot claim fresh support provenance",
+                ));
+            }
         }
         verify_progress_layout(
             &session.client,
             self.target(),
-            catalog_prefix > 0,
-            operations_prefix >= 2,
-            operations_prefix >= 3,
+            fresh25e || catalog_prefix > 0,
+            fresh25e || operations_prefix >= 2,
+            fresh25e || operations_prefix >= 3,
+            if fresh25e {
+                operations_prefix == 1
+            } else {
+                operations_prefix >= 5
+            },
         )
         .await?;
         // Readiness changes only after both histories and their exact live intermediate layout agree.
@@ -763,15 +963,13 @@ impl Store {
                 .await
                 .classify(self.target())?;
         }
-        run_history(&mut session.client, &catalog, CATALOG_HISTORY).await?;
-        let mut runner = refinery::Runner::new(&operations);
-        runner.set_migration_table_name(OPERATIONS_HISTORY);
-        runner = runner.set_target(refinery::Target::Version(3));
-        runner
-            .run_async(&mut session.client)
-            .await
-            .map_err(migration_error)?;
-        verify_layout(&session.client, self.target(), false).await?;
+        if !fresh25e {
+            run_history(&mut session.client, &catalog, CATALOG_HISTORY).await?;
+        }
+        if !fresh25e && operations_prefix < 4 {
+            run_history(&mut session.client, &operations[..4], OPERATIONS_HISTORY).await?;
+            verify_progress_layout(&session.client, self.target(), true, true, true, false).await?;
+        }
         run_history(&mut session.client, &operations, OPERATIONS_HISTORY).await?;
         verify_ready(&session.client, self.target()).await?;
         self.forget_statements();

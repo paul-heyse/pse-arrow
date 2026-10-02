@@ -173,8 +173,6 @@ pub enum FactBatch {
     r#RuntimeModelingParity(Vec<super::r#runtime::r#modeling_parity::Row>),
     #[doc = stringify!(r#RuntimeModelingReports)]
     r#RuntimeModelingReports(Vec<super::r#runtime::r#modeling_reports::Row>),
-    #[doc = stringify!(r#RuntimeModelingStudies)]
-    r#RuntimeModelingStudies(Vec<super::r#runtime::r#modeling_studies::Row>),
     #[doc = stringify!(r#RuntimeModelingTrajectoryModes)]
     r#RuntimeModelingTrajectoryModes(
         Vec<super::r#runtime::r#modeling_trajectory_modes::Row>,
@@ -336,8 +334,8 @@ impl FactBatch {
             }
             Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    96u8, 87u8, 36u8, 42u8, 193u8, 122u8, 244u8, 247u8, 169u8, 204u8,
-                    21u8, 188u8, 161u8, 79u8, 76u8, 252u8,
+                    132u8, 7u8, 63u8, 101u8, 60u8, 157u8, 201u8, 121u8, 236u8, 12u8,
+                    41u8, 146u8, 235u8, 66u8, 94u8, 128u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {
@@ -684,8 +682,8 @@ impl FactBatch {
             }
             Self::r#RuntimeModelingFindings(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    76u8, 76u8, 40u8, 60u8, 178u8, 245u8, 196u8, 93u8, 251u8, 232u8,
-                    81u8, 29u8, 70u8, 120u8, 185u8, 174u8,
+                    94u8, 229u8, 194u8, 28u8, 157u8, 162u8, 196u8, 140u8, 163u8, 26u8,
+                    241u8, 142u8, 158u8, 115u8, 4u8, 54u8,
                 ])
             }
             Self::r#RuntimeModelingFixtureStatus(_) => {
@@ -740,12 +738,6 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     141u8, 102u8, 42u8, 204u8, 117u8, 51u8, 211u8, 223u8, 19u8, 60u8,
                     2u8, 176u8, 191u8, 91u8, 213u8, 98u8,
-                ])
-            }
-            Self::r#RuntimeModelingStudies(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    114u8, 45u8, 219u8, 252u8, 43u8, 54u8, 157u8, 200u8, 255u8, 101u8,
-                    139u8, 171u8, 205u8, 177u8, 213u8, 98u8,
                 ])
             }
             Self::r#RuntimeModelingTrajectoryModes(_) => {
@@ -1032,8 +1024,8 @@ impl FactBatch {
             }
             Self::r#RuntimeStudyOutcomes(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    38u8, 103u8, 45u8, 120u8, 154u8, 225u8, 38u8, 51u8, 197u8, 241u8,
-                    67u8, 7u8, 112u8, 253u8, 20u8, 135u8,
+                    24u8, 44u8, 61u8, 87u8, 83u8, 213u8, 58u8, 253u8, 215u8, 7u8, 231u8,
+                    72u8, 71u8, 55u8, 113u8, 146u8,
                 ])
             }
             Self::r#RuntimeTrajectoryEndpoints(_) => {
@@ -1124,7 +1116,6 @@ impl FactBatch {
             Self::r#RuntimeModelingNonlinearExplanations(rows) => rows.len(),
             Self::r#RuntimeModelingParity(rows) => rows.len(),
             Self::r#RuntimeModelingReports(rows) => rows.len(),
-            Self::r#RuntimeModelingStudies(rows) => rows.len(),
             Self::r#RuntimeModelingTrajectoryModes(rows) => rows.len(),
             Self::r#RuntimeNativeDependencies(rows) => rows.len(),
             Self::r#RuntimeObjectiveLevels(rows) => rows.len(),
@@ -1538,11 +1529,6 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeModelingReports(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#RuntimeModelingStudies(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2087,10 +2073,6 @@ impl FactBatch {
             Self::r#RuntimeModelingReports(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeModelingReports(vec![row.clone()]))
-            }
-            Self::r#RuntimeModelingStudies(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#RuntimeModelingStudies(vec![row.clone()]))
             }
             Self::r#RuntimeModelingTrajectoryModes(rows) => {
                 rows.get(index)
@@ -3036,17 +3018,6 @@ impl FactBatch {
             (
                 Self::r#RuntimeModelingReports(left),
                 Self::r#RuntimeModelingReports(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#RuntimeModelingStudies(left),
-                Self::r#RuntimeModelingStudies(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4084,13 +4055,6 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeModelingReports(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#RuntimeModelingStudies(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5472,17 +5436,6 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#RuntimeModelingStudies(left),
-                Self::r#RuntimeModelingStudies(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#RuntimeModelingTrajectoryModes(left),
                 Self::r#RuntimeModelingTrajectoryModes(right),
             ) => {
@@ -6653,10 +6606,6 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#source_id, &mut hash);
             }
-            Self::r#RuntimeModelingStudies(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
-            }
             Self::r#RuntimeModelingTrajectoryModes(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -7399,13 +7348,6 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#RuntimeModelingStudies(left),
-                Self::r#RuntimeModelingStudies(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#RuntimeModelingTrajectoryModes(left),
                 Self::r#RuntimeModelingTrajectoryModes(mut right),
             ) => {
@@ -7879,7 +7821,6 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#RuntimeModelingParity(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeModelingReports(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#RuntimeModelingStudies(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeModelingTrajectoryModes(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

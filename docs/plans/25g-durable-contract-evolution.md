@@ -69,7 +69,7 @@ driver, reset fallback, global loosened equality check and transform-on-open mut
 |---|---|---|---|
 | <a id="g1"></a>G1 Durable operation contracts | A1 facet purposes; I1 identity contract | Separate recorded read, consumer projection, write admission and migration | planned |
 | <a id="g2"></a>G2 Portable predicate interpretation | G1; H4 | Compile recorded semantics and remove version-bound executable predicates | planned |
-| <a id="g3"></a>G3 PostgreSQL identity and migrations | G1/I1; evolution ADR | Independent histories and explicit locked upgrades preserving catalog continuity | partial: required 25e operational transition |
+| <a id="g3"></a>G3 PostgreSQL identity and migrations | G1/I1; evolution ADR | Independent histories and explicit locked upgrades preserving catalog continuity | partial: required 25e/25f operational transitions |
 | <a id="g4"></a>G4 Artifact transformation and orphan lifecycle | G2/G3; I1 | Explicit new-version migration, retirement inventory and bounded reconciliation | planned |
 
 G3 precedes F4 and any changed persisted E/J contracts. It does not wait for their entire
@@ -200,9 +200,20 @@ recorded-format contract.
 [25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
 conditions, composite results and limits; this does not close the companion plan.
 
+## Consumed 25f prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** G3 adds an appended V5 transition from the frozen exact
+25e operational source to occurrence-based study policy/outcome rows. It preserves historical
+job/definition bytes, lifecycle and member inventory, makes unavailable historical policy explicit,
+and retains independent catalog continuity without rewriting historical hashes. Strict legacy
+marker codecs and frozen transition/source controls have focused evidence in
+[25f Verification](25f-studies-diagnostics-and-continuation.md#verification). No live store
+migration ran. G1/G2 directional interpretation, remaining G3 planning/report surfaces and G4
+artifact/orphan lifecycle remain open; real PostgreSQL preservation/restart journeys remain 25k.
+
 ## Execution and evidence
 
-The consumed 25e operational slice above is **Implemented**; the remaining scope and expected benefits are **Proposed**. Packet status is planning state;
+The consumed 25e/25f operational slices above are **Implemented**; the remaining scope and expected benefits are **Proposed**. Packet status is planning state;
 no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
 behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
@@ -221,7 +232,8 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Full-plan closure remains outstanding; the required 25e operational transition and its remaining boundaries are recorded above.
+Full-plan closure remains outstanding; the required 25e/25f operational transitions and their
+remaining boundaries are recorded above, with focused evidence owned by the linked plans.
 
 ### A mistake made and corrected
 

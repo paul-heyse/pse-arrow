@@ -14,10 +14,10 @@ INSERT INTO pse_ops.studies (study_id, attempt_id, publication_id, finalization_
     definition, state)
 VALUES (:study_id, :attempt_id, :publication_id, :finalization_job, :definition, :state);
 
---! insert_point (predecessor?)
-INSERT INTO pse_ops.study_points (study_id, point_index, binding_hash, predecessor, job_id,
-    state)
-VALUES (:study_id, :point_index, :binding_hash, :predecessor, :job_id, :state);
+--! insert_point
+INSERT INTO pse_ops.study_points (study_id, point_index, binding_hash, job_id,
+    state, revision, policy, outcome)
+VALUES (:study_id, :point_index, :binding_hash, :job_id, :state, 0, :policy, :outcome);
 
 --! insert_point_member (revision_column?, revision_id?)
 INSERT INTO pse_ops.study_point_members (study_id, point_index, catalog_name, schema_name,
@@ -26,6 +26,11 @@ INSERT INTO pse_ops.study_point_members (study_id, point_index, catalog_name, sc
 VALUES (:study_id, :point_index, :catalog_name, :schema_name, :table_name, :relation_id,
     :relation_version, :contract_fingerprint, :table_uri, :delta_version, :selection_kind,
     :revision_column, :revision_id);
+
+-- Inventory supersession is admitted by shared policy and exact prior-effect facts.
+--! remove_point_members
+DELETE FROM pse_ops.study_point_members
+WHERE study_id=:study_id::pse_ops.study_id AND point_index=:point_index;
 
 --! study
 SELECT s FROM pse_ops.studies AS s WHERE s.study_id = :study_id::pse_ops.study_id;
@@ -60,12 +65,15 @@ WHERE p.study_id = :study_id::pse_ops.study_id AND p.point_index = :point_index;
 UPDATE pse_ops.study_points SET state = :state, updated_at = now()
 WHERE study_id = :study_id::pse_ops.study_id AND point_index = :point_index;
 
--- The pending points that name a point as their predecessor.
---! dependents
+--! set_point_outcome
+UPDATE pse_ops.study_points
+SET state = :state, outcome = :outcome, revision = revision + 1, updated_at = now()
+WHERE study_id = :study_id::pse_ops.study_id AND point_index = :point_index
+  AND revision = :expected_revision;
+
+--! all_points
 SELECT p FROM pse_ops.study_points AS p
 WHERE p.study_id = :study_id::pse_ops.study_id
-  AND p.predecessor = :point_index
-  AND p.state = 'pending'
 ORDER BY p.point_index;
 
 --! unfinished_points
@@ -87,28 +95,39 @@ ORDER BY j.job_id
 FOR UPDATE;
 
 -- Each point with its job's state, current attempt and that attempt's state.
---! point_status : (predecessor?, last_error?)
-SELECT p.point_index, p.binding_hash, p.predecessor, p.state, p.job_id,
-       j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error
+--! point_status : (last_error?, termination_detail?)
+SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy, p.outcome,
+       j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error,
+       COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries
 FROM pse_ops.study_points AS p
 JOIN pse_ops.jobs AS j ON j.job_id = p.job_id
 JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id
+LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt
 WHERE p.study_id = :study_id::pse_ops.study_id
 ORDER BY p.point_index;
 
 -- One point with its job's state, current attempt and that attempt's state.
---! one_point_status : (predecessor?, last_error?)
-SELECT p.point_index, p.binding_hash, p.predecessor, p.state, p.job_id,
-       j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error
+--! one_point_status : (last_error?, termination_detail?)
+SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy, p.outcome,
+       j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error,
+       COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries
 FROM pse_ops.study_points AS p
 JOIN pse_ops.jobs AS j ON j.job_id = p.job_id
 JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id
+LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt
 WHERE p.study_id = :study_id::pse_ops.study_id AND p.point_index = :point_index;
 
 -- The result members of the completed points, in point and name order.
---! completed_members
+--! available_members
 SELECT m FROM pse_ops.study_point_members AS m
 JOIN pse_ops.study_points AS p
   ON p.study_id = m.study_id AND p.point_index = m.point_index
-WHERE m.study_id = :study_id::pse_ops.study_id AND p.state = 'completed'
+WHERE m.study_id = :study_id::pse_ops.study_id
 ORDER BY m.point_index, m.catalog_name, m.schema_name, m.table_name;
+
+-- The native dispatch fence requires current ownership and a live lease.
+--! dispatch_owner : (worker?)
+SELECT worker FROM pse_ops.attempts
+WHERE attempt_id = :attempt_id::pse_ops.attempt_id AND state = 'running'
+  AND lease_expires_at > now()
+FOR UPDATE;

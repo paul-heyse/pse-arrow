@@ -9,8 +9,9 @@ model-baseline: claude-5 (2026-08)
 # Design review
 
 Assess the architecture's ability to support expected changes and its behavioral contracts.
-Use the form requested by the user; a formal review produces one artifact in the binding's
-review location. Advice about the process does not itself request a product audit or edits.
+Use the form requested by the user; a formal review has one accountable principal document in
+the binding's review location, with supporting analysis where useful. Advice about the process
+does not itself request a product audit or edits.
 Apply domain-model assessment during a requested review or one due at the repository's declared
 cadence. Ordinary implementation work does not itself initiate a domain-model review.
 [REFERENCE.md](REFERENCE.md) supplies optional lenses and calibrated examples.
@@ -118,9 +119,88 @@ In target purpose, assess workloads required by the stated target even when the 
 excludes them; record obstructing authority changes through the binding. Do not silently expand
 a bounded requested scope into whole-system qualification.
 
-## Output
+## Synthesize the assessment
 
-Follow the selected template and relevant profile additions, with proportional detail.
+Make the review a coherent argument about the system and the decision it should inform. Explain
+the functional intent, the consequential responsibilities and design choices, what supports the
+intended capabilities, and where the design falls short. Connect evidence to causes, consequences
+and recommendations so the reader can understand the judgment without reconstructing it across
+tables. Several independent concerns may remain; do not force them into one root cause or redesign.
+
+Where findings interact, distinguish shared causes, prerequisite contracts, independent defects,
+alternative remedies and conflicting recommendations. Group manifestations of one cause while
+preserving distinct obligations needed for closure. Sharing a principle ID or component does not
+make two findings the same defect. Assess whether proposed corrections fit together: individually
+reasonable remedies can create duplicate owners, incompatible meanings or new consumer burdens.
+Explain the relevant relationships in prose or a small diagram when useful; no finding graph or
+whole-system remedy assessment is required for a bounded review.
+
+In delegated work, the coordinator reconciles shared assumptions, overlapping findings, boundary
+gaps and incompatible recommendations. Preserve the source and scope of each judgment; resolve
+disagreements through decisive evidence or retain their effect on the decision. Local positive
+assessments do not establish the adequacy of their interactions. Investigation assignments need
+not become the published document structure.
+
+## Make recommendations useful to subsequent design
+
+For consequential remedies, describe the intended behavior and responsibility boundary: what
+the corrected operation consumes, decides and produces, and what its consumers can stop
+interpreting independently. State preserved guarantees, intentional behavior changes and support
+limits where they constrain the correction. Inspected strengths can be preservation constraints,
+such as a useful lifecycle separation, an independent check or an existing semantic distinction.
+A narrow defect may need only a sentence; conceptual products do not mandate new types or services.
+
+Distinguish the evidence establishing a diagnosis from the maturity of its remedy. A sound
+finding remains reportable when the best replacement needs further design. Explain the proposed
+direction, viable alternatives and material assumptions, and what decision or evidence would
+settle or reopen the recommendation. A revised remedy need not invalidate the original diagnosis.
+Apply the standard's evidence vocabulary to these distinct claims rather than adding confidence
+scores or a second status system.
+
+Challenge a consequential remedy with a revealing legitimate case: could it reject valid work,
+erase a distinction, weaken a guarantee or transfer policy to the wrong owner? Reasoning may
+settle the question; probes remain discretionary. Relate claimed benefits to the mechanism and
+conditions that would produce them, including material integration and ownership costs.
+
+Separate consequence-based priority from prerequisite order. A lower-priority contract correction
+can enable a more urgent consumer fix. Explain the dependency through the capability or meaning
+required, not just finding numbers. Consider preservation, external consumers and intermediate
+states when transition feasibility affects a recommendation. Detailed work packages, staffing,
+schedules and migration procedures belong to subsequent planning unless explicitly requested.
+
+Connect uncertainty to the decision it affects. Distinguish unexamined breadth from a missing
+premise that could change the verdict or selected remedy; name suitable settling evidence where
+material. An unexamined area is not itself a defect. Keep the next consequential decision and
+follow-up obligation clear without inventing implementation work merely to make the review actionable.
+
+## Organize the output for its readers
+
+The investigation structure, system decomposition and published argument need not coincide.
+Group detailed discussion by coherent responsibility, question or architectural cause. Tables
+support comparison and navigation; use prose for explanations that lose meaning in wide cells.
+A compact finding index can link to richer arguments with stable finding IDs.
+
+Start with enough synthesis to explain the conclusion and its scope, then develop the supporting
+arguments at the depth needed. For a substantial topic, supporting documents can hold bounded
+analysis or evidence. Split when the reasoning is useful to consult independently; keep tightly
+coupled explanations together when separation would make readers repeatedly reconstruct them.
+Length, one file per component or one document per reviewer is not sufficient reason to split.
+
+The principal review owns the combined scope, architectural explanation, material relationships,
+overall judgment and evidence limits. Supporting documents identify their narrower role, baseline
+and consumed context, with a clear route back to that review. They may carry bounded judgments
+but do not create competing overall verdicts or disposition ledgers. Small reviews can do this
+in one compact document.
+
+Use the selected template's slots as stable content references, with relevant profile additions
+and proportional detail. Group or distribute the explanations where this improves understanding,
+keeping applicable foundation, gate and decision judgments discoverable. Preserve the selected
+standard's assessment obligations and acceptance rules; flexible presentation does not waive them.
+The template guides placement and the [reference](REFERENCE.md#synthesis-and-corrective-reasoning)
+offers calibrated examples. These are authoring considerations, not additional mandatory review stages.
+
+## Deliver the review
+
 A read-only delegated reviewer returns the complete review text and intended path to the
 coordinator, who publishes it while preserving the reviewer’s judgment.
 Keep finding IDs linkable and record standard version, inspected scope and disposition owner.

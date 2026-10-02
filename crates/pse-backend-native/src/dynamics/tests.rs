@@ -6,6 +6,7 @@ use std::sync::atomic::AtomicBool;
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
+
 #[derive(Debug)]
 struct Toy {
     c: Contract,

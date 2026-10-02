@@ -323,9 +323,22 @@ async fn admitted(signal: Option<tokio::sync::oneshot::Receiver<()>>) -> Result<
 impl super::ModelingSimulation {
     /// Start the authored simulation through the shared joined run and publication lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
+        self.start_owned(None)
+    }
+    pub(crate) fn start_attempt(
+        &self,
+        attempt: DurableAttempt,
+    ) -> Result<RunHandle, WorkflowError> {
+        self.start_owned(Some(attempt))
+    }
+    fn start_owned(&self, attempt: Option<DurableAttempt>) -> Result<RunHandle, WorkflowError> {
         let runtime = self.runtime.clone();
         let run_id: RunId = pse_operations::mint_id();
-        let mut durable = attempt_for(&runtime, None)?;
+        let mut durable = attempt_for(&runtime, attempt)?;
+        let run_id = durable
+            .as_ref()
+            .and_then(DurableAttempt::claimed_run)
+            .unwrap_or(run_id);
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
         let (submission, signal) = submission(&cancel, &progress, durable.is_some());
@@ -471,10 +484,23 @@ impl super::ShootingProblem {
 impl super::PreparedFit {
     /// Start one native fitting attempt under the existing joined job lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
+        self.start_owned(None)
+    }
+    pub(crate) fn start_attempt(
+        &self,
+        attempt: DurableAttempt,
+    ) -> Result<RunHandle, WorkflowError> {
+        self.start_owned(Some(attempt))
+    }
+    fn start_owned(&self, attempt: Option<DurableAttempt>) -> Result<RunHandle, WorkflowError> {
         let runtime = self.problem.runtime.clone();
         let prepared = self.clone();
         let run_id: RunId = pse_operations::mint_id();
-        let mut durable = attempt_for(&runtime, None)?;
+        let mut durable = attempt_for(&runtime, attempt)?;
+        let run_id = durable
+            .as_ref()
+            .and_then(DurableAttempt::claimed_run)
+            .unwrap_or(run_id);
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
         let (submission, signal) = submission(&cancel, &progress, durable.is_some());

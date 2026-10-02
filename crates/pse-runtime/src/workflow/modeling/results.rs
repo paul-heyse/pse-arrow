@@ -169,18 +169,26 @@ impl ModelingResult {
         if let Outcome::Native(native) = &self.outcome
             && let Some(cause) = native.callback_failure()
         {
-            return Some(super::super::diagnostics::observed(
+            let mut diagnostic = super::super::diagnostics::observed(
                 cause,
-                "native-callback",
-            ));
+                pse_diagnostics::DiagnosticStage::Native,
+            );
+            diagnostic
+                .observations
+                .insert("phase".into(), Observation::Text("callback".into()));
+            return Some(diagnostic);
         }
         if let Outcome::Native(native) = &self.outcome
             && let Some(cause) = native.validation_failure()
         {
-            return Some(super::super::diagnostics::observed(
+            let mut diagnostic = super::super::diagnostics::observed(
                 cause,
-                "native-validation",
-            ));
+                pse_diagnostics::DiagnosticStage::Native,
+            );
+            diagnostic
+                .observations
+                .insert("phase".into(), Observation::Text("validation".into()));
+            return Some(diagnostic);
         }
         if let Some(error) = &self.validation_error {
             return Some(error.clone());
@@ -209,16 +217,16 @@ impl ModelingResult {
         };
         let mut result = D::new(
             C::TrialRejected,
-            "modeling-result",
+            pse_diagnostics::DiagnosticStage::ModelingQualification,
             self.checks
                 .iter()
                 .filter(|c| !c.satisfied)
                 .map(|c| c.source_id.as_id())
                 .chain(violated),
             if contradiction.is_some() {
-                "modeling.qualification.infeasibility_contradicted"
+                pse_diagnostics::DiagnosticRule::ModelingQualificationInfeasibilityContradicted
             } else {
-                "modeling.qualification.rejected"
+                pse_diagnostics::DiagnosticRule::ModelingQualificationRejected
             },
         );
         if let Some(witness) = contradiction {
@@ -242,7 +250,7 @@ impl ModelingResult {
             // The witness's worst residual relative to its tolerance, at most one.
             result.observations.insert(
                 "witness_violation".into(),
-                Observation::Real(witness.quality.normalized_max),
+                Observation::number(witness.quality.normalized_max),
             );
         }
         if let Outcome::Native(native) = &self.outcome {

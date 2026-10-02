@@ -11,7 +11,7 @@ pub(crate) use modeling::{
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
     NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingKnowledge,
     NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingPackage,
-    NativeModelingResult, NativeModelingStudy, NativeModelingTrajectory,
+    NativeModelingResult, NativeModelingTrajectory, NativeStudyReport,
 };
 pub(crate) use routes::{NativeEligibility, NativeIneligible, NativeRoute};
 mod strategies;
@@ -30,7 +30,7 @@ use std::{
 };
 
 fn invalid(py: Python<'_>, message: impl Into<String>) -> PyErr {
-    errors::diagnostic(py, &native::WorkflowError::Contract(message.into()))
+    errors::diagnostic(py, &native::WorkflowError::Input(message.into()))
 }
 fn id(py: Python<'_>, value: &str) -> PyResult<pse_ids::SemanticId> {
     pse_ids::SemanticId::parse_hex(value).map_err(|e| invalid(py, e.to_string()))
@@ -811,13 +811,7 @@ impl NativeStudyHandle {
     /// Cancel the study; what the cancellation did, as JSON.
     fn cancel(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         let cancelled = blocking(py, &self.owner, self.inner.cancel(), || {})?;
-        serde_json::to_vec(&serde_json::json!({
-            "cancelled": cancelled.cancelled,
-            "stopping": cancelled.stopping,
-            "concluded": cancelled.concluded,
-            "already_concluded": cancelled.already_concluded,
-        }))
-        .map_err(|e| invalid(py, e.to_string()))
+        serde_json::to_vec(&cancelled).map_err(|e| invalid(py, e.to_string()))
     }
     /// The study's publication as JSON once committed.
     fn result(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
@@ -850,7 +844,7 @@ impl NativeStudyHandle {
                     Some(limit) => tokio::time::timeout(limit, self.inner.wait(poll))
                         .await
                         .map_err(|_| {
-                            native::WorkflowError::Contract(format!(
+                            native::WorkflowError::Input(format!(
                                 "study {study} was not published within {limit:?}"
                             ))
                         })?,

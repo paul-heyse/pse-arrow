@@ -197,9 +197,9 @@ fn priority_completed(result: &ModelingResult) -> bool {
 fn priority_failure() -> BoundaryDiagnostic {
     BoundaryDiagnostic::new(
         pse_model::diagnostic::BoundaryClass::Numerical,
-        "objective-levels",
+        pse_diagnostics::DiagnosticStage::ObjectiveLevels,
         [],
-        "objective.priority_optimization_incomplete",
+        pse_diagnostics::DiagnosticRule::ObjectivePriorityOptimizationIncomplete,
     )
 }
 
@@ -438,7 +438,7 @@ impl ModelingPackage {
                     accepted.map_or(Start::Specification, Start::Accepted),
                     Obligations::Final,
                     None,
-                    "objective-levels",
+                    pse_diagnostics::DiagnosticStage::ObjectiveLevels,
                     cancel,
                 )
                 .await;

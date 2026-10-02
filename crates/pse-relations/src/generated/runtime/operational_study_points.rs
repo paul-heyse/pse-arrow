@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    104u8, 102u8, 128u8, 226u8, 151u8, 27u8, 0u8, 153u8, 68u8, 89u8, 146u8, 30u8, 157u8,
-    117u8, 83u8, 212u8, 74u8, 172u8, 250u8, 106u8, 173u8, 154u8, 153u8, 248u8, 155u8,
-    175u8, 180u8, 153u8, 56u8, 60u8, 9u8, 172u8,
+    33u8, 206u8, 110u8, 5u8, 233u8, 143u8, 146u8, 122u8, 50u8, 25u8, 1u8, 128u8, 197u8,
+    154u8, 234u8, 59u8, 234u8, 106u8, 95u8, 125u8, 156u8, 211u8, 171u8, 18u8, 231u8,
+    45u8, 239u8, 181u8, 214u8, 56u8, 188u8, 179u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalStudyPointsRow {
     fn append(
@@ -44,15 +44,17 @@ impl crate::columnar::ArrowValue for RuntimeOperationalStudyPointsRow {
             &self.r#binding_hash,
             children[2usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#job_id, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#predecessor,
-            children[3usize].as_mut(),
+            &self.r#revision,
+            children[5usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#job_id, children[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#state, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#policy, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#updated_at,
-            children[6usize].as_mut(),
+            children[8usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -71,16 +73,16 @@ impl crate::columnar::ArrowValue for RuntimeOperationalStudyPointsRow {
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <Option<
-            i32,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <crate::generated::identities::JobId as crate::columnar::ArrowValue>::append_null(
-            children[4usize].as_mut(),
+            children[3usize].as_mut(),
         )?;
         <crate::generated::enums::StudyPointState as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
+            children[4usize].as_mut(),
         )?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -103,22 +105,28 @@ impl crate::columnar::ArrowValue for RuntimeOperationalStudyPointsRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#predecessor: <Option<
-                i32,
-            > as crate::columnar::ArrowValue>::read(
+            r#job_id: <crate::generated::identities::JobId as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#job_id: <crate::generated::identities::JobId as crate::columnar::ArrowValue>::read(
+            r#state: <crate::generated::enums::StudyPointState as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#state: <crate::generated::enums::StudyPointState as crate::columnar::ArrowValue>::read(
+            r#revision: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#updated_at: <i64 as crate::columnar::ArrowValue>::read(
+            r#policy: <String as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#outcome: <String as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#updated_at: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -178,15 +186,14 @@ impl crate::columnar::RelationRow for RuntimeOperationalStudyPointsRow {
             &self.r#binding_hash,
             columns[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#predecessor,
-            columns[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#job_id, columns[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#state, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#job_id, columns[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#revision, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#policy, columns[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, columns[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#updated_at,
-            columns[6usize].as_mut(),
+            columns[8usize].as_mut(),
         )?;
         Ok(())
     }
@@ -222,10 +229,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalStudyPointsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        19_456_usize + size_of::<Self::Builder>()
+        23_552_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        152usize
+        184usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -243,22 +250,23 @@ impl crate::columnar::RelationRow for RuntimeOperationalStudyPointsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if (self.r#predecessor).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#state).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#policy).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#outcome).len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -274,7 +282,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "study_id",
@@ -292,23 +300,33 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "predecessor",
+        name: "job_id",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "job_id",
+        name: "state",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "state",
+        name: "revision",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "updated_at",
+        name: "policy",
         position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "outcome",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "updated_at",
+        position: 8usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -319,14 +337,18 @@ pub mod columns {
     pub const POINT_INDEX: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///binding_hash
     pub const BINDING_HASH: crate::columnar::ColumnReference = super::COLUMNS[2usize];
-    ///predecessor
-    pub const PREDECESSOR: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///job_id
-    pub const JOB_ID: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const JOB_ID: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///state
-    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///revision
+    pub const REVISION: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///policy
+    pub const POLICY: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///outcome
+    pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///updated_at
-    pub const UPDATED_AT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const UPDATED_AT: crate::columnar::ColumnReference = super::COLUMNS[8usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -336,9 +358,11 @@ pub struct RuntimeOperationalStudyPointsView<'a> {
     study_id_column: &'a arrow_array::FixedSizeBinaryArray,
     point_index_column: &'a arrow_array::Int32Array,
     binding_hash_column: &'a arrow_array::FixedSizeBinaryArray,
-    predecessor_column: &'a arrow_array::Int32Array,
     job_id_column: &'a arrow_array::FixedSizeBinaryArray,
     state_column: &'a arrow_array::StringArray,
+    revision_column: &'a arrow_array::Int64Array,
+    policy_column: &'a arrow_array::StringArray,
+    outcome_column: &'a arrow_array::StringArray,
     updated_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalStudyPointsView<'a> {
@@ -388,18 +412,24 @@ impl<'a> RuntimeOperationalStudyPointsView<'a> {
             binding_hash_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(2usize).as_ref())?,
-            predecessor_column: crate::columnar::array::<
-                arrow_array::Int32Array,
-            >(batch.column(3usize).as_ref())?,
             job_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
             state_column: crate::columnar::array::<
                 arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            revision_column: crate::columnar::array::<
+                arrow_array::Int64Array,
             >(batch.column(5usize).as_ref())?,
+            policy_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            outcome_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
             updated_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -452,18 +482,6 @@ impl<'a> RuntimeOperationalStudyPointsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "predecessor",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn predecessor_column(&self) -> &'a arrow_array::Int32Array {
-        self.predecessor_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "predecessor", "`.")]
-    pub fn predecessor_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
         "job_id",
         "`, including its offsets and validity bitmap.",
     )]
@@ -472,7 +490,7 @@ impl<'a> RuntimeOperationalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "job_id", "`.")]
     pub fn job_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -484,7 +502,43 @@ impl<'a> RuntimeOperationalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "state", "`.")]
     pub fn state_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "revision",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn revision_column(&self) -> &'a arrow_array::Int64Array {
+        self.revision_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "revision", "`.")]
+    pub fn revision_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "policy",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn policy_column(&self) -> &'a arrow_array::StringArray {
+        self.policy_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "policy", "`.")]
+    pub fn policy_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "outcome",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn outcome_column(&self) -> &'a arrow_array::StringArray {
+        self.outcome_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "outcome", "`.")]
+    pub fn outcome_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -496,7 +550,7 @@ impl<'a> RuntimeOperationalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "updated_at", "`.")]
     pub fn updated_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -519,12 +573,11 @@ impl<'a> RuntimeOperationalStudyPointsView<'a> {
                 self.binding_hash_column,
                 index,
             )?,
-            r#predecessor: crate::columnar::ArrowValue::read(
-                self.predecessor_column,
-                index,
-            )?,
             r#job_id: crate::columnar::ArrowValue::read(self.job_id_column, index)?,
             r#state: crate::columnar::ArrowValue::read(self.state_column, index)?,
+            r#revision: crate::columnar::ArrowValue::read(self.revision_column, index)?,
+            r#policy: crate::columnar::ArrowValue::read(self.policy_column, index)?,
+            r#outcome: crate::columnar::ArrowValue::read(self.outcome_column, index)?,
             r#updated_at: crate::columnar::ArrowValue::read(
                 self.updated_at_column,
                 index,

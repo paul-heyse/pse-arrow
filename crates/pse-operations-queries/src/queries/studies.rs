@@ -11,14 +11,15 @@ pub struct InsertStudyParams<T1: crate::JsonSql> {
     pub definition: T1,
     pub state: pse_model::generated::enums::StudyState,
 }
-#[derive(Clone, Copy, Debug)]
-pub struct InsertPointParams {
+#[derive(Debug)]
+pub struct InsertPointParams<T1: crate::JsonSql, T2: crate::JsonSql> {
     pub study_id: pse_model::generated::identities::StudyId,
     pub point_index: i32,
     pub binding_hash: pse_ids::ContentHash,
-    pub predecessor: Option<i32>,
     pub job_id: pse_model::generated::identities::JobId,
     pub state: pse_model::generated::enums::StudyPointState,
+    pub policy: T1,
+    pub outcome: T2,
 }
 #[derive(Debug)]
 pub struct InsertPointMemberParams<
@@ -41,6 +42,11 @@ pub struct InsertPointMemberParams<
     pub selection_kind: pse_model::generated::enums::MemberSelectionKind,
     pub revision_column: Option<T5>,
     pub revision_id: Option<pse_ids::SemanticId>,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct RemovePointMembersParams {
+    pub study_id: pse_model::generated::identities::StudyId,
+    pub point_index: i32,
 }
 #[derive(Debug)]
 pub struct ListStudiesParams<
@@ -65,10 +71,13 @@ pub struct SetPointStateParams {
     pub study_id: pse_model::generated::identities::StudyId,
     pub point_index: i32,
 }
-#[derive(Clone, Copy, Debug)]
-pub struct DependentsParams {
+#[derive(Debug)]
+pub struct SetPointOutcomeParams<T1: crate::JsonSql> {
+    pub state: pse_model::generated::enums::StudyPointState,
+    pub outcome: T1,
     pub study_id: pse_model::generated::identities::StudyId,
     pub point_index: i32,
+    pub expected_revision: i64,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct OnePointStatusParams {
@@ -79,49 +88,68 @@ pub struct OnePointStatusParams {
 pub struct PointStatus {
     pub point_index: i32,
     pub binding_hash: Vec<u8>,
-    pub predecessor: Option<i32>,
     pub state: pse_model::generated::enums::StudyPointState,
     pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: serde_json::Value,
+    pub outcome: serde_json::Value,
     pub job_state: pse_model::generated::enums::JobState,
     pub attempt_id: pse_ids::SemanticId,
     pub attempt_state: pse_model::generated::enums::AttemptState,
     pub last_error: Option<String>,
+    pub termination_detail: Option<serde_json::Value>,
+    pub tries: i32,
 }
 pub struct PointStatusBorrowed<'a> {
     pub point_index: i32,
     pub binding_hash: &'a [u8],
-    pub predecessor: Option<i32>,
     pub state: pse_model::generated::enums::StudyPointState,
     pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: postgres_types::Json<&'a serde_json::value::RawValue>,
+    pub outcome: postgres_types::Json<&'a serde_json::value::RawValue>,
     pub job_state: pse_model::generated::enums::JobState,
     pub attempt_id: pse_ids::SemanticId,
     pub attempt_state: pse_model::generated::enums::AttemptState,
     pub last_error: Option<&'a str>,
+    pub termination_detail: Option<
+        postgres_types::Json<&'a serde_json::value::RawValue>,
+    >,
+    pub tries: i32,
 }
 impl<'a> From<PointStatusBorrowed<'a>> for PointStatus {
     fn from(
         PointStatusBorrowed {
             point_index,
             binding_hash,
-            predecessor,
             state,
             job_id,
+            revision,
+            policy,
+            outcome,
             job_state,
             attempt_id,
             attempt_state,
             last_error,
+            termination_detail,
+            tries,
         }: PointStatusBorrowed<'a>,
     ) -> Self {
         Self {
             point_index,
             binding_hash: binding_hash.into(),
-            predecessor,
             state,
             job_id,
+            revision,
+            policy: serde_json::from_str(policy.0.get()).unwrap(),
+            outcome: serde_json::from_str(outcome.0.get()).unwrap(),
             job_state,
             attempt_id,
             attempt_state,
             last_error: last_error.map(|v| v.into()),
+            termination_detail: termination_detail
+                .map(|v| serde_json::from_str(v.0.get()).unwrap()),
+            tries,
         }
     }
 }
@@ -129,49 +157,68 @@ impl<'a> From<PointStatusBorrowed<'a>> for PointStatus {
 pub struct OnePointStatus {
     pub point_index: i32,
     pub binding_hash: Vec<u8>,
-    pub predecessor: Option<i32>,
     pub state: pse_model::generated::enums::StudyPointState,
     pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: serde_json::Value,
+    pub outcome: serde_json::Value,
     pub job_state: pse_model::generated::enums::JobState,
     pub attempt_id: pse_ids::SemanticId,
     pub attempt_state: pse_model::generated::enums::AttemptState,
     pub last_error: Option<String>,
+    pub termination_detail: Option<serde_json::Value>,
+    pub tries: i32,
 }
 pub struct OnePointStatusBorrowed<'a> {
     pub point_index: i32,
     pub binding_hash: &'a [u8],
-    pub predecessor: Option<i32>,
     pub state: pse_model::generated::enums::StudyPointState,
     pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: postgres_types::Json<&'a serde_json::value::RawValue>,
+    pub outcome: postgres_types::Json<&'a serde_json::value::RawValue>,
     pub job_state: pse_model::generated::enums::JobState,
     pub attempt_id: pse_ids::SemanticId,
     pub attempt_state: pse_model::generated::enums::AttemptState,
     pub last_error: Option<&'a str>,
+    pub termination_detail: Option<
+        postgres_types::Json<&'a serde_json::value::RawValue>,
+    >,
+    pub tries: i32,
 }
 impl<'a> From<OnePointStatusBorrowed<'a>> for OnePointStatus {
     fn from(
         OnePointStatusBorrowed {
             point_index,
             binding_hash,
-            predecessor,
             state,
             job_id,
+            revision,
+            policy,
+            outcome,
             job_state,
             attempt_id,
             attempt_state,
             last_error,
+            termination_detail,
+            tries,
         }: OnePointStatusBorrowed<'a>,
     ) -> Self {
         Self {
             point_index,
             binding_hash: binding_hash.into(),
-            predecessor,
             state,
             job_id,
+            revision,
+            policy: serde_json::from_str(policy.0.get()).unwrap(),
+            outcome: serde_json::from_str(outcome.0.get()).unwrap(),
             job_state,
             attempt_id,
             attempt_state,
             last_error: last_error.map(|v| v.into()),
+            termination_detail: termination_detail
+                .map(|v| serde_json::from_str(v.0.get()).unwrap()),
+            tries,
         }
     }
 }
@@ -879,6 +926,85 @@ where
         Ok(mapped)
     }
 }
+pub struct OptionStringQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(&tokio_postgres::Row) -> Result<Option<&str>, tokio_postgres::Error>,
+    mapper: fn(Option<&str>) -> T,
+}
+impl<'c, 'a, 's, C, T: 'c, const N: usize> OptionStringQuery<'c, 'a, 's, C, T, N>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(
+        self,
+        mapper: fn(Option<&str>) -> R,
+    ) -> OptionStringQuery<'c, 'a, 's, C, R, N> {
+        OptionStringQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
 pub struct InsertStudyStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn insert_study() -> InsertStudyStmt {
     InsertStudyStmt(
@@ -957,7 +1083,7 @@ impl<
 pub struct InsertPointStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn insert_point() -> InsertPointStmt {
     InsertPointStmt(
-        "INSERT INTO pse_ops.study_points (study_id, point_index, binding_hash, predecessor, job_id, state) VALUES ($1, $2, $3, $4, $5, $6)",
+        "INSERT INTO pse_ops.study_points (study_id, point_index, binding_hash, job_id, state, revision, policy, outcome) VALUES ($1, $2, $3, $4, $5, 0, $6, $7)",
         None,
     )
 }
@@ -969,20 +1095,21 @@ impl InsertPointStmt {
         self.1 = Some(client.prepare(self.0).await?);
         Ok(self)
     }
-    async fn bind<'c, 'a, 's, C: GenericClient>(
+    async fn bind<'c, 'a, 's, C: GenericClient, T1: crate::JsonSql, T2: crate::JsonSql>(
         &'s self,
         client: &'c C,
         study_id: &'a pse_model::generated::identities::StudyId,
         point_index: &'a i32,
         binding_hash: &'a pse_ids::ContentHash,
-        predecessor: &'a Option<i32>,
         job_id: &'a pse_model::generated::identities::JobId,
         state: &'a pse_model::generated::enums::StudyPointState,
+        policy: &'a T1,
+        outcome: &'a T2,
     ) -> Result<u64, tokio_postgres::Error> {
         client
             .execute(
                 self.0,
-                &[study_id, point_index, binding_hash, predecessor, job_id, state],
+                &[study_id, point_index, binding_hash, job_id, state, policy, outcome],
             )
             .await
     }
@@ -990,11 +1117,13 @@ impl InsertPointStmt {
 impl<
     'a,
     C: GenericClient + Send + Sync,
+    T1: crate::JsonSql,
+    T2: crate::JsonSql,
 > crate::client::async_::Params<
     'a,
     'a,
     'a,
-    InsertPointParams,
+    InsertPointParams<T1, T2>,
     std::pin::Pin<
         Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
     >,
@@ -1003,7 +1132,7 @@ impl<
     fn params(
         &'a self,
         client: &'a C,
-        params: &'a InsertPointParams,
+        params: &'a InsertPointParams<T1, T2>,
     ) -> std::pin::Pin<
         Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
     > {
@@ -1014,9 +1143,10 @@ impl<
                     &params.study_id,
                     &params.point_index,
                     &params.binding_hash,
-                    &params.predecessor,
                     &params.job_id,
                     &params.state,
+                    &params.policy,
+                    &params.outcome,
                 ),
         )
     }
@@ -1129,6 +1259,53 @@ impl<
                     &params.revision_id,
                 ),
         )
+    }
+}
+pub struct RemovePointMembersStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn remove_point_members() -> RemovePointMembersStmt {
+    RemovePointMembersStmt(
+        "DELETE FROM pse_ops.study_point_members WHERE study_id=$1::pse_ops.study_id AND point_index=$2",
+        None,
+    )
+}
+impl RemovePointMembersStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    async fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        study_id: &'a pse_model::generated::identities::StudyId,
+        point_index: &'a i32,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client.execute(self.0, &[study_id, point_index]).await
+    }
+}
+impl<
+    'a,
+    C: GenericClient + Send + Sync,
+> crate::client::async_::Params<
+    'a,
+    'a,
+    'a,
+    RemovePointMembersParams,
+    std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    >,
+    C,
+> for RemovePointMembersStmt {
+    fn params(
+        &'a self,
+        client: &'a C,
+        params: &'a RemovePointMembersParams,
+    ) -> std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    > {
+        Box::pin(self.bind(client, &params.study_id, &params.point_index))
     }
 }
 pub struct StudyStmt(&'static str, Option<tokio_postgres::Statement>);
@@ -1527,14 +1704,14 @@ impl<
         Box::pin(self.bind(client, &params.state, &params.study_id, &params.point_index))
     }
 }
-pub struct DependentsStmt(&'static str, Option<tokio_postgres::Statement>);
-pub fn dependents() -> DependentsStmt {
-    DependentsStmt(
-        "SELECT p FROM pse_ops.study_points AS p WHERE p.study_id = $1::pse_ops.study_id AND p.predecessor = $2 AND p.state = 'pending' ORDER BY p.point_index",
+pub struct SetPointOutcomeStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn set_point_outcome() -> SetPointOutcomeStmt {
+    SetPointOutcomeStmt(
+        "UPDATE pse_ops.study_points SET state = $1, outcome = $2, revision = revision + 1, updated_at = now() WHERE study_id = $3::pse_ops.study_id AND point_index = $4 AND revision = $5",
         None,
     )
 }
-impl DependentsStmt {
+impl SetPointOutcomeStmt {
     pub async fn prepare<'a, C: GenericClient>(
         mut self,
         client: &'a C,
@@ -1542,62 +1719,89 @@ impl DependentsStmt {
         self.1 = Some(client.prepare(self.0).await?);
         Ok(self)
     }
-    fn bind<'c, 'a, 's, C: GenericClient>(
+    async fn bind<'c, 'a, 's, C: GenericClient, T1: crate::JsonSql>(
+        &'s self,
+        client: &'c C,
+        state: &'a pse_model::generated::enums::StudyPointState,
+        outcome: &'a T1,
+        study_id: &'a pse_model::generated::identities::StudyId,
+        point_index: &'a i32,
+        expected_revision: &'a i64,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client
+            .execute(self.0, &[state, outcome, study_id, point_index, expected_revision])
+            .await
+    }
+}
+impl<
+    'a,
+    C: GenericClient + Send + Sync,
+    T1: crate::JsonSql,
+> crate::client::async_::Params<
+    'a,
+    'a,
+    'a,
+    SetPointOutcomeParams<T1>,
+    std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    >,
+    C,
+> for SetPointOutcomeStmt {
+    fn params(
+        &'a self,
+        client: &'a C,
+        params: &'a SetPointOutcomeParams<T1>,
+    ) -> std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    > {
+        Box::pin(
+            self
+                .bind(
+                    client,
+                    &params.state,
+                    &params.outcome,
+                    &params.study_id,
+                    &params.point_index,
+                    &params.expected_revision,
+                ),
+        )
+    }
+}
+pub struct AllPointsStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn all_points() -> AllPointsStmt {
+    AllPointsStmt(
+        "SELECT p FROM pse_ops.study_points AS p WHERE p.study_id = $1::pse_ops.study_id ORDER BY p.point_index",
+        None,
+    )
+}
+impl AllPointsStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
         &'s self,
         client: &'c C,
         study_id: &'a pse_model::generated::identities::StudyId,
-        point_index: &'a i32,
     ) -> PsemodelGeneratedRuntimeOperationalstudypointsRuntimeOperationalStudyPointsRowQuery<
         'c,
         'a,
         's,
         C,
         pse_model::generated::runtime::operational_study_points::RuntimeOperationalStudyPointsRow,
-        2,
+        1,
     > {
         PsemodelGeneratedRuntimeOperationalstudypointsRuntimeOperationalStudyPointsRowQuery {
             client,
-            params: [study_id, point_index],
+            params: [study_id],
             query: self.0,
             cached: self.1.as_ref(),
             extractor: |row| Ok(row.try_get(0)?),
             mapper: |it| it.into(),
         }
-    }
-}
-impl<
-    'c,
-    'a,
-    's,
-    C: GenericClient,
-> crate::client::async_::Params<
-    'c,
-    'a,
-    's,
-    DependentsParams,
-    PsemodelGeneratedRuntimeOperationalstudypointsRuntimeOperationalStudyPointsRowQuery<
-        'c,
-        'a,
-        's,
-        C,
-        pse_model::generated::runtime::operational_study_points::RuntimeOperationalStudyPointsRow,
-        2,
-    >,
-    C,
-> for DependentsStmt {
-    fn params(
-        &'s self,
-        client: &'c C,
-        params: &'a DependentsParams,
-    ) -> PsemodelGeneratedRuntimeOperationalstudypointsRuntimeOperationalStudyPointsRowQuery<
-        'c,
-        'a,
-        's,
-        C,
-        pse_model::generated::runtime::operational_study_points::RuntimeOperationalStudyPointsRow,
-        2,
-    > {
-        self.bind(client, &params.study_id, &params.point_index)
     }
 }
 pub struct UnfinishedPointsStmt(&'static str, Option<tokio_postgres::Statement>);
@@ -1700,7 +1904,7 @@ impl LockPointJobsStmt {
 pub struct PointStatusStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn point_status() -> PointStatusStmt {
     PointStatusStmt(
-        "SELECT p.point_index, p.binding_hash, p.predecessor, p.state, p.job_id, j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error FROM pse_ops.study_points AS p JOIN pse_ops.jobs AS j ON j.job_id = p.job_id JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id WHERE p.study_id = $1::pse_ops.study_id ORDER BY p.point_index",
+        "SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy, p.outcome, j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error, COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries FROM pse_ops.study_points AS p JOIN pse_ops.jobs AS j ON j.job_id = p.job_id JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt WHERE p.study_id = $1::pse_ops.study_id ORDER BY p.point_index",
         None,
     )
 }
@@ -1728,13 +1932,17 @@ impl PointStatusStmt {
                 Ok(PointStatusBorrowed {
                     point_index: row.try_get(0)?,
                     binding_hash: row.try_get(1)?,
-                    predecessor: row.try_get(2)?,
-                    state: row.try_get(3)?,
-                    job_id: row.try_get(4)?,
-                    job_state: row.try_get(5)?,
-                    attempt_id: row.try_get(6)?,
-                    attempt_state: row.try_get(7)?,
-                    last_error: row.try_get(8)?,
+                    state: row.try_get(2)?,
+                    job_id: row.try_get(3)?,
+                    revision: row.try_get(4)?,
+                    policy: row.try_get(5)?,
+                    outcome: row.try_get(6)?,
+                    job_state: row.try_get(7)?,
+                    attempt_id: row.try_get(8)?,
+                    attempt_state: row.try_get(9)?,
+                    last_error: row.try_get(10)?,
+                    termination_detail: row.try_get(11)?,
+                    tries: row.try_get(12)?,
                 })
             },
             mapper: |it| PointStatus::from(it),
@@ -1744,7 +1952,7 @@ impl PointStatusStmt {
 pub struct OnePointStatusStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn one_point_status() -> OnePointStatusStmt {
     OnePointStatusStmt(
-        "SELECT p.point_index, p.binding_hash, p.predecessor, p.state, p.job_id, j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error FROM pse_ops.study_points AS p JOIN pse_ops.jobs AS j ON j.job_id = p.job_id JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id WHERE p.study_id = $1::pse_ops.study_id AND p.point_index = $2",
+        "SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy, p.outcome, j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error, COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries FROM pse_ops.study_points AS p JOIN pse_ops.jobs AS j ON j.job_id = p.job_id JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt WHERE p.study_id = $1::pse_ops.study_id AND p.point_index = $2",
         None,
     )
 }
@@ -1773,13 +1981,17 @@ impl OnePointStatusStmt {
                 Ok(OnePointStatusBorrowed {
                     point_index: row.try_get(0)?,
                     binding_hash: row.try_get(1)?,
-                    predecessor: row.try_get(2)?,
-                    state: row.try_get(3)?,
-                    job_id: row.try_get(4)?,
-                    job_state: row.try_get(5)?,
-                    attempt_id: row.try_get(6)?,
-                    attempt_state: row.try_get(7)?,
-                    last_error: row.try_get(8)?,
+                    state: row.try_get(2)?,
+                    job_id: row.try_get(3)?,
+                    revision: row.try_get(4)?,
+                    policy: row.try_get(5)?,
+                    outcome: row.try_get(6)?,
+                    job_state: row.try_get(7)?,
+                    attempt_id: row.try_get(8)?,
+                    attempt_state: row.try_get(9)?,
+                    last_error: row.try_get(10)?,
+                    termination_detail: row.try_get(11)?,
+                    tries: row.try_get(12)?,
                 })
             },
             mapper: |it| OnePointStatus::from(it),
@@ -1807,14 +2019,14 @@ impl<
         self.bind(client, &params.study_id, &params.point_index)
     }
 }
-pub struct CompletedMembersStmt(&'static str, Option<tokio_postgres::Statement>);
-pub fn completed_members() -> CompletedMembersStmt {
-    CompletedMembersStmt(
-        "SELECT m FROM pse_ops.study_point_members AS m JOIN pse_ops.study_points AS p ON p.study_id = m.study_id AND p.point_index = m.point_index WHERE m.study_id = $1::pse_ops.study_id AND p.state = 'completed' ORDER BY m.point_index, m.catalog_name, m.schema_name, m.table_name",
+pub struct AvailableMembersStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn available_members() -> AvailableMembersStmt {
+    AvailableMembersStmt(
+        "SELECT m FROM pse_ops.study_point_members AS m JOIN pse_ops.study_points AS p ON p.study_id = m.study_id AND p.point_index = m.point_index WHERE m.study_id = $1::pse_ops.study_id ORDER BY m.point_index, m.catalog_name, m.schema_name, m.table_name",
         None,
     )
 }
-impl CompletedMembersStmt {
+impl AvailableMembersStmt {
     pub async fn prepare<'a, C: GenericClient>(
         mut self,
         client: &'a C,
@@ -1841,6 +2053,36 @@ impl CompletedMembersStmt {
             cached: self.1.as_ref(),
             extractor: |row| Ok(row.try_get(0)?),
             mapper: |it| it.into(),
+        }
+    }
+}
+pub struct DispatchOwnerStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn dispatch_owner() -> DispatchOwnerStmt {
+    DispatchOwnerStmt(
+        "SELECT worker FROM pse_ops.attempts WHERE attempt_id = $1::pse_ops.attempt_id AND state = 'running' AND lease_expires_at > now() FOR UPDATE",
+        None,
+    )
+}
+impl DispatchOwnerStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        attempt_id: &'a pse_model::generated::identities::AttemptId,
+    ) -> OptionStringQuery<'c, 'a, 's, C, Option<String>, 1> {
+        OptionStringQuery {
+            client,
+            params: [attempt_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.map(|v| v.into()),
         }
     }
 }

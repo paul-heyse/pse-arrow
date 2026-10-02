@@ -56,5 +56,16 @@ pse_diagnostics::impl_diagnostic! {
     forward(_this) { None },
     help(_this) { None },
     related(_this) { None },
-    source(_this) { None }
+    source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticFacts, DiagnosticRule as R, DiagnosticObservation as O};
+        let mut facts = DiagnosticFacts {rule:Some(match this {Self::Budget{..}=>R::AuthoringBudget, Self::Syntax{..} | Self::AmbiguousUnaryPower{..} | Self::NonFiniteNumber{..}=>R::AuthoringSyntax}), ..Default::default()};
+        facts.observe("detail",O::Text(this.to_string()));
+        match this {
+            Self::Syntax{offset,expected,found,..} => {facts.observe("offset",O::Integer(i64::from(*offset)));facts.observe("expected",O::Text(expected.clone()));facts.observe("found",O::Text(found.clone()));}
+            Self::AmbiguousUnaryPower{offset}|Self::NonFiniteNumber{offset}=>facts.observe("offset",O::Integer(i64::from(*offset))),
+            Self::Budget{limit,allowed,needed}=>{facts.observe("limit",O::Text((*limit).into()));for (key,value) in [("allowed",allowed),("needed",needed)]{facts.observe(key,i64::try_from(*value).map_or_else(|_|O::Text(value.to_string()),O::Integer));}}
+        }
+        facts
+    }
 }

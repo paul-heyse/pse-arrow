@@ -10,13 +10,14 @@ pub use pse_model::generated::r#enums::{
     ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole,
     CompositionBasis, ComputationKind, ConstraintScalingScheme, ConversionKind,
     CovarianceApproximation, DerivationGranularity, DerivedQuantity, Determinism,
-    DiagnosticCode, DiagnosticSeverity, DiffsolLinear, DiffsolMethod, DualQualification,
-    DynamicSensitivity, DynamicsMethod, EndpointPolicy, EntityKind, EventDirection,
-    EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FeralOrdering,
-    FeralScaling, FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
-    IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
-    IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver, JobState,
-    KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
+    DiagnosticCode, DiagnosticNonfiniteObservation, DiagnosticObservationKind,
+    DiagnosticRule, DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod,
+    DualQualification, DynamicSensitivity, DynamicsMethod, EndpointPolicy, EntityKind,
+    EventDirection, EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass,
+    FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives, HessianMode,
+    HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy, InputConsumptionKind,
+    IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+    JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
     ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
     ModelingApplicabilityBasis, ModelingApplicabilityKind, ModelingApplicabilityOutcome,
     ModelingCellKind, ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
@@ -48,7 +49,10 @@ pub use pse_model::generated::r#enums::{
     ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
     Severity, ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
     Stability, StateSign, StoredSeedKind, StoredSolutionOrigin, StructuralScopeKind,
-    StudyPointState, StudyState, SubjectRule, TearMethod, TerminationClass,
+    StudyAvailability, StudyContinuationPermission, StudyEffectState, StudyLegacyKind,
+    StudyLifecycle, StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
+    StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
+    StudyUnavailableSeedPolicy, SubjectRule, TearMethod, TerminationClass,
     TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
     WeightNormalization, WithheldReason,
 };
@@ -657,6 +661,75 @@ impl crate::columnar::ArrowValue for DiagnosticCode {
             })
     }
 }
+impl crate::columnar::ArrowValue for DiagnosticNonfiniteObservation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for DiagnosticObservationKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(DiagnosticObservationKind).to_owned(),
+                enumeration: stringify!(DiagnosticObservationKind).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
+impl crate::columnar::ArrowValue for DiagnosticRule {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(DiagnosticRule).to_owned(),
+                enumeration: stringify!(DiagnosticRule).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
 impl crate::columnar::ArrowValue for DiagnosticSeverity {
     fn append(
         &self,
@@ -674,6 +747,31 @@ impl crate::columnar::ArrowValue for DiagnosticSeverity {
         index: usize,
     ) -> Result<Self, crate::RelationError> {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for DiagnosticStage {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(DiagnosticStage).to_owned(),
+                enumeration: stringify!(DiagnosticStage).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for DiffsolLinear {
@@ -3552,6 +3650,101 @@ impl crate::columnar::ArrowValue for StructuralScopeKind {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for StudyAvailability {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudyContinuationPermission {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudyEffectState {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudyLegacyKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudyLifecycle {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for StudyPointState {
     fn append(
         &self,
@@ -3571,7 +3764,140 @@ impl crate::columnar::ArrowValue for StudyPointState {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for StudyResultRole {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudyRetryFailure {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudySeedNeed {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudySeedRole {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudySeedUnavailable {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudyStartKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for StudyState {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StudyUnavailableSeedPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

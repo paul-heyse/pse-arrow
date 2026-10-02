@@ -18,12 +18,15 @@ pub struct ModelingVariableState {
 pub struct ModelingCaseBindings {
     /// Values by modeling-language path, in canonical physical units.
     pub values: BTreeMap<String, f64>,
+    /// Contextually admitted member coordinates, composed after authored defaults.
+    pub members: BTreeMap<SemanticId, f64>,
     /// Structural variable specifications by modeling-language path.
     pub variables: BTreeMap<String, ModelingVariableState>,
 }
 impl From<&pse_modeling::specialize::Fixture> for ModelingCaseBindings {
     fn from(fixture: &pse_modeling::specialize::Fixture) -> Self {
         Self {
+            members: BTreeMap::new(),
             values: fixture
                 .specifications
                 .iter()
@@ -126,6 +129,14 @@ impl PreparedModeling {
                 )));
             }
             values.scalars.insert(*id, *value);
+        }
+        for (member, value) in &case.members {
+            if !self.admitted.inputs.contains(member) || !value.is_finite() {
+                return Err(CompileError::Missing(format!(
+                    "admitted member {member} is not a finite independent coordinate"
+                )));
+            }
+            values.scalars.insert(*member, *value);
         }
         Ok(values)
     }

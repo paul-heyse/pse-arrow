@@ -63,7 +63,7 @@ the resulting context-complete products; it owns caching and source/mathematical
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
 | <a id="h1"></a>H1 Context-complete document reuse | Current document owner | Make incremental and clean loading equivalent, including identity-bearing binary wrappers | partial: 25c prerequisite slice |
-| <a id="h2"></a>H2 Checked occurrences and grammar | H1 | Parse once at check with complete attribution; migrate consumers and logic | partial: 25c/25d prerequisite slices |
+| <a id="h2"></a>H2 Checked occurrences and grammar | H1 | Parse once at check with complete attribution; migrate consumers and logic | partial: 25c/25d/25f prerequisite slices |
 | <a id="h3"></a>H3 Explicit validation context | Current composition roots | Eliminate ambient installation and lock-held implementation construction | planned |
 | <a id="h4"></a>H4 Predicates and dead mechanisms | H2/H3; A1 | Share real boundary predicates/facet projections and remove unused front doors/enforcement claims | planned |
 
@@ -183,9 +183,22 @@ slice is integrated. Implicit relation/branch/operational selector syntax, rende
 [25d Verification](25d-mathematical-realization-and-response.md#verification) owns commands,
 conditions, composite results and limits; this does not close the enclosing packets.
 
+## Consumed 25f prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** Study requests now pass through source-owned typed
+admission. Compiler-owned demand resolves submitted case overlay paths once; admitted bindings
+retain canonical members, full quantity meaning, source revision and physical context. Horizon
+input/prior/trajectory values are admitted once against their owning physical targets; replay
+validates canonical entries and exact operation destinations against pinned source. Neither
+executor reconstructs a scalar study overlay or converts units again. Focused source/physical
+admission and replay controls are owned by
+[25f Verification](25f-studies-diagnostics-and-continuation.md#verification). Wider H1/H2
+document/grammar migration and H3/H4 validation-context/predicate consolidation remain open;
+cross-owner journeys remain 25k.
+
 ## Execution and evidence
 
-The consumed 25c/25d prerequisite slices above are **Implemented**; their focused evidence
+The consumed 25c/25d/25f prerequisite slices above are **Implemented**; their focused evidence
 is owned by the linked plans. The remaining packet scope and expected benefits are **Proposed**. No full-packet
 completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
@@ -205,7 +218,7 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25c/25d prerequisite slices and
+Full-plan closure remains outstanding. The implemented 25c/25d/25f prerequisite slices and
 their remaining boundaries are recorded above; the linked plans own their focused evidence.
 
 ### A mistake made and corrected

@@ -44,6 +44,7 @@ fn admit(workspace: &mut CompilerWorkspace, root: DeclarationId) -> Result<Arc<A
 }
 fn bounded(lower: Option<f64>, upper: Option<f64>) -> ModelingCaseBindings {
     ModelingCaseBindings {
+        members: BTreeMap::new(),
         values: BTreeMap::new(),
         variables: BTreeMap::from([(
             "n".into(),
@@ -200,6 +201,7 @@ fn integer_requires_finite_bounds() {
     );
     // A case that fixes the variable leaves no search range to bound.
     let fixed = ModelingCaseBindings {
+        members: BTreeMap::new(),
         values: BTreeMap::from([("n".into(), 2.0)]),
         variables: BTreeMap::from([(
             "n".into(),

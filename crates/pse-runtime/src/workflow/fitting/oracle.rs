@@ -1551,7 +1551,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(
-            matches!(error, WorkflowError::Contract(ref message) if message == "all-fixed fitting evaluates directly and cannot apply required native presolve passes")
+            matches!(error, WorkflowError::Input(ref message) if message == "all-fixed fitting evaluates directly and cannot apply required native presolve passes")
         );
     }
     #[cfg(not(feature = "solver-ipopt"))]
@@ -1600,7 +1600,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(
-            matches!(error, WorkflowError::Contract(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance")
+            matches!(error, WorkflowError::Input(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance")
         );
         let mut b = source(false);
         Arc::make_mut(&mut b.fit_declarations).fits[0].observations[0].experiment_id =
@@ -1617,7 +1617,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(
-            matches!(error, WorkflowError::Contract(ref message) if message == "fit observation or dynamic profile ownership")
+            matches!(error, WorkflowError::Input(ref message) if message == "fit observation or dynamic profile ownership")
         );
     }
     #[tokio::test]

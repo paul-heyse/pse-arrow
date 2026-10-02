@@ -852,31 +852,6 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     final = history[0].result()
     assert final is not None
     assert final.accepted
-    study = package.study(
-        (declaration(207), declaration(207)), settings, predecessors=(None, 0)
-    )
-    assert study.count == 2
-    assert study.unattempted == 0
-    assert study.failure(0) is None
-    assert study.failure(1) is None
-    second = study.result(1)
-    assert second is not None
-    assert second.accepted
-    isolated = package.study(
-        (declaration(207), declaration(250), declaration(207), declaration(207)),
-        settings,
-        predecessors=(None, None, 1, None),
-    )
-    assert isolated.count == 4
-    assert isolated.unattempted == 0
-    assert isolated.result(0) is not None
-    assert isolated.result(3) is not None
-    assert isolated.result(1) is None
-    assert isolated.failure(1) is not None
-    assert isolated.result(2) is None
-    failed_predecessor = isolated.failure(2)
-    assert failed_predecessor is not None
-    assert failed_predecessor.rule == "modeling.study.predecessor"
     with pytest.raises(pse.InspectionError, match="authored integration procedure"):
         package.simulate(
             declaration(207),
@@ -888,24 +863,14 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
                 parameter_scales=[],
             ),
         )
-    with pytest.raises(pse.InspectionError, match="earlier point"):
-        package.study((declaration(207),), settings, predecessors=(0,))
     initialization_table = initialized.table()
-    study_table = study.table()
-    isolated_table = isolated.table()
     reports = pa.table(extracted.table("runtime.modeling_reports"))
     validation = pa.table(result.table("runtime.modeling_checks"))
     del extracted, conformance, result, package, runtime
-    del initialized, history, study, final, second
+    del initialized, history, final
     initial = pa.table(initialization_table).to_pylist()[0]
     assert initial["complete"]
     assert initial["attempts"][0]["kind"] == "original"
-    assert pa.table(study_table).to_pylist()[0]["points"][1]["predecessor"] == 0
-    isolated_rows = pa.table(isolated_table).to_pylist()[0]["points"]
-    assert isolated_rows[1]["error"] is not None
-    assert isolated_rows[1]["result_id"] is None
-    assert isolated_rows[2]["predecessor"] == 1
-    assert not isolated_rows[2]["accepted"]
     assert reports.column("value").to_pylist() == [2.0]
     # An annotated hard range retains its closure layer and cannot select an
     # empirical evidence permission policy.

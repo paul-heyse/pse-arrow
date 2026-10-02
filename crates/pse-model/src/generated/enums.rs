@@ -2447,6 +2447,145 @@ impl crate::SemanticFrame for DiagnosticCode {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum DiagnosticNonfiniteObservation {
+    ///nan
+    #[serde(rename = "nan")]
+    Nan,
+    ///positive_infinity
+    #[serde(rename = "positive_infinity")]
+    PositiveInfinity,
+    ///negative_infinity
+    #[serde(rename = "negative_infinity")]
+    NegativeInfinity,
+}
+impl crate::SemanticEq for DiagnosticNonfiniteObservation {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl DiagnosticNonfiniteObservation {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [
+        Self::Nan,
+        Self::PositiveInfinity,
+        Self::NegativeInfinity,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Nan => "nan",
+            Self::PositiveInfinity => "positive_infinity",
+            Self::NegativeInfinity => "negative_infinity",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Nan => 0usize,
+            Self::PositiveInfinity => 1usize,
+            Self::NegativeInfinity => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Nan => None,
+            Self::PositiveInfinity => None,
+            Self::NegativeInfinity => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DiagnosticNonfiniteObservation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DiagnosticNonfiniteObservation))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(DiagnosticNonfiniteObservation)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["nan", "positive_infinity",
+            "negative_infinity"] }
+        )
+    }
+}
+impl core::str::FromStr for DiagnosticNonfiniteObservation {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "nan" => Ok(Self::Nan),
+            "positive_infinity" => Ok(Self::PositiveInfinity),
+            "negative_infinity" => Ok(Self::NegativeInfinity),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(DiagnosticNonfiniteObservation).to_owned(),
+                    enumeration: stringify!(DiagnosticNonfiniteObservation).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type DiagnosticObservationKind = pse_diagnostics::DiagnosticObservationKind;
+impl crate::SemanticEq for DiagnosticObservationKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for DiagnosticObservationKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DiagnosticObservationKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type DiagnosticRule = pse_diagnostics::DiagnosticRule;
+impl crate::SemanticEq for DiagnosticRule {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for DiagnosticRule {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DiagnosticRule {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum DiagnosticSeverity {
     ///error
     #[serde(rename = "error")]
@@ -2528,6 +2667,23 @@ impl core::str::FromStr for DiagnosticSeverity {
                 })
             }
         }
+    }
+}
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type DiagnosticStage = pse_diagnostics::DiagnosticStage;
+impl crate::SemanticEq for DiagnosticStage {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for DiagnosticStage {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DiagnosticStage {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -18111,6 +18267,488 @@ impl core::str::FromStr for StructuralScopeKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum StudyAvailability {
+    ///none
+    #[serde(rename = "none")]
+    None,
+    ///partial
+    #[serde(rename = "partial")]
+    Partial,
+    ///complete
+    #[serde(rename = "complete")]
+    Complete,
+}
+impl crate::SemanticEq for StudyAvailability {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyAvailability {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::None, Self::Partial, Self::Complete];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Partial => "partial",
+            Self::Complete => "complete",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::None => 0usize,
+            Self::Partial => 1usize,
+            Self::Complete => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::None => None,
+            Self::Partial => None,
+            Self::Complete => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyAvailability {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyAvailability))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyAvailability)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "partial", "complete"] }
+        )
+    }
+}
+impl core::str::FromStr for StudyAvailability {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "none" => Ok(Self::None),
+            "partial" => Ok(Self::Partial),
+            "complete" => Ok(Self::Complete),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyAvailability).to_owned(),
+                    enumeration: stringify!(StudyAvailability).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyContinuationPermission {
+    ///require_usable
+    #[serde(rename = "require_usable")]
+    RequireUsable,
+    ///allow_seed_only
+    #[serde(rename = "allow_seed_only")]
+    AllowSeedOnly,
+}
+impl crate::SemanticEq for StudyContinuationPermission {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyContinuationPermission {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::RequireUsable, Self::AllowSeedOnly];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::RequireUsable => "require_usable",
+            Self::AllowSeedOnly => "allow_seed_only",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::RequireUsable => 0usize,
+            Self::AllowSeedOnly => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::RequireUsable => None,
+            Self::AllowSeedOnly => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyContinuationPermission {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyContinuationPermission))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(StudyContinuationPermission)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["require_usable", "allow_seed_only"] }
+        )
+    }
+}
+impl core::str::FromStr for StudyContinuationPermission {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "require_usable" => Ok(Self::RequireUsable),
+            "allow_seed_only" => Ok(Self::AllowSeedOnly),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyContinuationPermission).to_owned(),
+                    enumeration: stringify!(StudyContinuationPermission).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyEffectState {
+    ///absent
+    #[serde(rename = "absent")]
+    Absent,
+    ///present
+    #[serde(rename = "present")]
+    Present,
+    ///unknown
+    #[serde(rename = "unknown")]
+    Unknown,
+    ///idempotent
+    #[serde(rename = "idempotent")]
+    Idempotent,
+}
+impl crate::SemanticEq for StudyEffectState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyEffectState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::Absent,
+        Self::Present,
+        Self::Unknown,
+        Self::Idempotent,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Absent => "absent",
+            Self::Present => "present",
+            Self::Unknown => "unknown",
+            Self::Idempotent => "idempotent",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Absent => 0usize,
+            Self::Present => 1usize,
+            Self::Unknown => 2usize,
+            Self::Idempotent => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Absent => None,
+            Self::Present => None,
+            Self::Unknown => None,
+            Self::Idempotent => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyEffectState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyEffectState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyEffectState)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["absent", "present", "unknown", "idempotent"]
+            }
+        )
+    }
+}
+impl core::str::FromStr for StudyEffectState {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "absent" => Ok(Self::Absent),
+            "present" => Ok(Self::Present),
+            "unknown" => Ok(Self::Unknown),
+            "idempotent" => Ok(Self::Idempotent),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyEffectState).to_owned(),
+                    enumeration: stringify!(StudyEffectState).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyLegacyKind {
+    ///legacy_unavailable
+    #[serde(rename = "legacy_unavailable")]
+    LegacyUnavailable,
+}
+impl crate::SemanticEq for StudyLegacyKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyLegacyKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 1usize] = [Self::LegacyUnavailable];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::LegacyUnavailable => "legacy_unavailable",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::LegacyUnavailable => 0usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::LegacyUnavailable => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyLegacyKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyLegacyKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyLegacyKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["legacy_unavailable"] })
+    }
+}
+impl core::str::FromStr for StudyLegacyKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "legacy_unavailable" => Ok(Self::LegacyUnavailable),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyLegacyKind).to_owned(),
+                    enumeration: stringify!(StudyLegacyKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyLifecycle {
+    ///active
+    #[serde(rename = "active")]
+    Active,
+    ///terminal
+    #[serde(rename = "terminal")]
+    Terminal,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+}
+impl crate::SemanticEq for StudyLifecycle {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyLifecycle {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Active, Self::Terminal, Self::Cancelled];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Terminal => "terminal",
+            Self::Cancelled => "cancelled",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Active => 0usize,
+            Self::Terminal => 1usize,
+            Self::Cancelled => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Active => None,
+            Self::Terminal => None,
+            Self::Cancelled => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyLifecycle {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyLifecycle))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyLifecycle)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["active", "terminal", "cancelled"] }
+        )
+    }
+}
+impl core::str::FromStr for StudyLifecycle {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "active" => Ok(Self::Active),
+            "terminal" => Ok(Self::Terminal),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyLifecycle).to_owned(),
+                    enumeration: stringify!(StudyLifecycle).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum StudyPointState {
     ///pending
     #[serde(rename = "pending")]
@@ -18230,6 +18868,639 @@ impl core::str::FromStr for StudyPointState {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum StudyResultRole {
+    ///case_result
+    #[serde(rename = "case_result")]
+    CaseResult,
+    ///trajectory
+    #[serde(rename = "trajectory")]
+    Trajectory,
+    ///parameter_estimates
+    #[serde(rename = "parameter_estimates")]
+    ParameterEstimates,
+    ///parameter_covariance
+    #[serde(rename = "parameter_covariance")]
+    ParameterCovariance,
+    ///profile_intervals
+    #[serde(rename = "profile_intervals")]
+    ProfileIntervals,
+    ///horizon_history
+    #[serde(rename = "horizon_history")]
+    HorizonHistory,
+}
+impl crate::SemanticEq for StudyResultRole {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyResultRole {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 6usize] = [
+        Self::CaseResult,
+        Self::Trajectory,
+        Self::ParameterEstimates,
+        Self::ParameterCovariance,
+        Self::ProfileIntervals,
+        Self::HorizonHistory,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CaseResult => "case_result",
+            Self::Trajectory => "trajectory",
+            Self::ParameterEstimates => "parameter_estimates",
+            Self::ParameterCovariance => "parameter_covariance",
+            Self::ProfileIntervals => "profile_intervals",
+            Self::HorizonHistory => "horizon_history",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::CaseResult => 0usize,
+            Self::Trajectory => 1usize,
+            Self::ParameterEstimates => 2usize,
+            Self::ParameterCovariance => 3usize,
+            Self::ProfileIntervals => 4usize,
+            Self::HorizonHistory => 5usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::CaseResult => None,
+            Self::Trajectory => None,
+            Self::ParameterEstimates => None,
+            Self::ParameterCovariance => None,
+            Self::ProfileIntervals => None,
+            Self::HorizonHistory => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyResultRole {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyResultRole))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyResultRole)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["case_result", "trajectory",
+            "parameter_estimates", "parameter_covariance", "profile_intervals",
+            "horizon_history"] }
+        )
+    }
+}
+impl core::str::FromStr for StudyResultRole {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "case_result" => Ok(Self::CaseResult),
+            "trajectory" => Ok(Self::Trajectory),
+            "parameter_estimates" => Ok(Self::ParameterEstimates),
+            "parameter_covariance" => Ok(Self::ParameterCovariance),
+            "profile_intervals" => Ok(Self::ProfileIntervals),
+            "horizon_history" => Ok(Self::HorizonHistory),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyResultRole).to_owned(),
+                    enumeration: stringify!(StudyResultRole).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyRetryFailure {
+    ///transient
+    #[serde(rename = "transient")]
+    Transient,
+    ///deterministic
+    #[serde(rename = "deterministic")]
+    Deterministic,
+}
+impl crate::SemanticEq for StudyRetryFailure {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyRetryFailure {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Transient, Self::Deterministic];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Transient => "transient",
+            Self::Deterministic => "deterministic",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Transient => 0usize,
+            Self::Deterministic => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Transient => None,
+            Self::Deterministic => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyRetryFailure {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyRetryFailure))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyRetryFailure)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["transient", "deterministic"] }
+        )
+    }
+}
+impl core::str::FromStr for StudyRetryFailure {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "transient" => Ok(Self::Transient),
+            "deterministic" => Ok(Self::Deterministic),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyRetryFailure).to_owned(),
+                    enumeration: stringify!(StudyRetryFailure).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudySeedNeed {
+    ///not_needed
+    #[serde(rename = "not_needed")]
+    NotNeeded,
+    ///required
+    #[serde(rename = "required")]
+    Required,
+}
+impl crate::SemanticEq for StudySeedNeed {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudySeedNeed {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::NotNeeded, Self::Required];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotNeeded => "not_needed",
+            Self::Required => "required",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::NotNeeded => 0usize,
+            Self::Required => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::NotNeeded => None,
+            Self::Required => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudySeedNeed {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudySeedNeed))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudySeedNeed)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["not_needed", "required"] }
+        )
+    }
+}
+impl core::str::FromStr for StudySeedNeed {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "not_needed" => Ok(Self::NotNeeded),
+            "required" => Ok(Self::Required),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudySeedNeed).to_owned(),
+                    enumeration: stringify!(StudySeedNeed).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudySeedRole {
+    ///primal_solution
+    #[serde(rename = "primal_solution")]
+    PrimalSolution,
+    ///parameter_estimates
+    #[serde(rename = "parameter_estimates")]
+    ParameterEstimates,
+    ///trajectory
+    #[serde(rename = "trajectory")]
+    Trajectory,
+    ///horizon_state
+    #[serde(rename = "horizon_state")]
+    HorizonState,
+}
+impl crate::SemanticEq for StudySeedRole {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudySeedRole {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::PrimalSolution,
+        Self::ParameterEstimates,
+        Self::Trajectory,
+        Self::HorizonState,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PrimalSolution => "primal_solution",
+            Self::ParameterEstimates => "parameter_estimates",
+            Self::Trajectory => "trajectory",
+            Self::HorizonState => "horizon_state",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::PrimalSolution => 0usize,
+            Self::ParameterEstimates => 1usize,
+            Self::Trajectory => 2usize,
+            Self::HorizonState => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::PrimalSolution => None,
+            Self::ParameterEstimates => None,
+            Self::Trajectory => None,
+            Self::HorizonState => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudySeedRole {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudySeedRole))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudySeedRole)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["primal_solution", "parameter_estimates",
+            "trajectory", "horizon_state"] }
+        )
+    }
+}
+impl core::str::FromStr for StudySeedRole {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "primal_solution" => Ok(Self::PrimalSolution),
+            "parameter_estimates" => Ok(Self::ParameterEstimates),
+            "trajectory" => Ok(Self::Trajectory),
+            "horizon_state" => Ok(Self::HorizonState),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudySeedRole).to_owned(),
+                    enumeration: stringify!(StudySeedRole).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudySeedUnavailable {
+    ///absent
+    #[serde(rename = "absent")]
+    Absent,
+    ///incompatible
+    #[serde(rename = "incompatible")]
+    Incompatible,
+}
+impl crate::SemanticEq for StudySeedUnavailable {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudySeedUnavailable {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Absent, Self::Incompatible];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Absent => "absent",
+            Self::Incompatible => "incompatible",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Absent => 0usize,
+            Self::Incompatible => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Absent => None,
+            Self::Incompatible => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudySeedUnavailable {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudySeedUnavailable))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(StudySeedUnavailable)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["absent", "incompatible"] }
+        )
+    }
+}
+impl core::str::FromStr for StudySeedUnavailable {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "absent" => Ok(Self::Absent),
+            "incompatible" => Ok(Self::Incompatible),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudySeedUnavailable).to_owned(),
+                    enumeration: stringify!(StudySeedUnavailable).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyStartKind {
+    ///fresh
+    #[serde(rename = "fresh")]
+    Fresh,
+    ///not_needed
+    #[serde(rename = "not_needed")]
+    NotNeeded,
+    ///continuation
+    #[serde(rename = "continuation")]
+    Continuation,
+    ///explicit
+    #[serde(rename = "explicit")]
+    Explicit,
+    ///fresh_fallback
+    #[serde(rename = "fresh_fallback")]
+    FreshFallback,
+}
+impl crate::SemanticEq for StudyStartKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyStartKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Fresh,
+        Self::NotNeeded,
+        Self::Continuation,
+        Self::Explicit,
+        Self::FreshFallback,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fresh => "fresh",
+            Self::NotNeeded => "not_needed",
+            Self::Continuation => "continuation",
+            Self::Explicit => "explicit",
+            Self::FreshFallback => "fresh_fallback",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Fresh => 0usize,
+            Self::NotNeeded => 1usize,
+            Self::Continuation => 2usize,
+            Self::Explicit => 3usize,
+            Self::FreshFallback => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Fresh => None,
+            Self::NotNeeded => None,
+            Self::Continuation => None,
+            Self::Explicit => None,
+            Self::FreshFallback => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyStartKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyStartKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyStartKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["fresh", "not_needed", "continuation",
+            "explicit", "fresh_fallback"] }
+        )
+    }
+}
+impl core::str::FromStr for StudyStartKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "fresh" => Ok(Self::Fresh),
+            "not_needed" => Ok(Self::NotNeeded),
+            "continuation" => Ok(Self::Continuation),
+            "explicit" => Ok(Self::Explicit),
+            "fresh_fallback" => Ok(Self::FreshFallback),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyStartKind).to_owned(),
+                    enumeration: stringify!(StudyStartKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum StudyState {
     ///open
     #[serde(rename = "open")]
@@ -18305,6 +19576,99 @@ impl core::str::FromStr for StudyState {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(StudyState).to_owned(),
                     enumeration: stringify!(StudyState).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyUnavailableSeedPolicy {
+    ///refuse
+    #[serde(rename = "refuse")]
+    Refuse,
+    ///fresh_on_unavailable
+    #[serde(rename = "fresh_on_unavailable")]
+    FreshOnUnavailable,
+}
+impl crate::SemanticEq for StudyUnavailableSeedPolicy {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyUnavailableSeedPolicy {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Refuse, Self::FreshOnUnavailable];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Refuse => "refuse",
+            Self::FreshOnUnavailable => "fresh_on_unavailable",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Refuse => 0usize,
+            Self::FreshOnUnavailable => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Refuse => None,
+            Self::FreshOnUnavailable => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyUnavailableSeedPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyUnavailableSeedPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(StudyUnavailableSeedPolicy)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["refuse", "fresh_on_unavailable"] }
+        )
+    }
+}
+impl core::str::FromStr for StudyUnavailableSeedPolicy {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "refuse" => Ok(Self::Refuse),
+            "fresh_on_unavailable" => Ok(Self::FreshOnUnavailable),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyUnavailableSeedPolicy).to_owned(),
+                    enumeration: stringify!(StudyUnavailableSeedPolicy).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -19418,6 +20782,16 @@ impl crate::HeapUsage for DerivedQuantity {
     }
 }
 impl crate::SemanticFrame for DerivedQuantity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for DiagnosticNonfiniteObservation {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DiagnosticNonfiniteObservation {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -20722,6 +22096,56 @@ impl crate::SemanticFrame for StructuralScopeKind {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for StudyAvailability {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyAvailability {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyContinuationPermission {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyContinuationPermission {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyEffectState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyEffectState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyLegacyKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyLegacyKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyLifecycle {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyLifecycle {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for StudyPointState {
     fn heap_bytes(&self) -> usize {
         0
@@ -20732,12 +22156,82 @@ impl crate::SemanticFrame for StudyPointState {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for StudyResultRole {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyResultRole {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyRetryFailure {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyRetryFailure {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudySeedNeed {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudySeedNeed {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudySeedRole {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudySeedRole {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudySeedUnavailable {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudySeedUnavailable {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyStartKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyStartKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for StudyState {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for StudyState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyUnavailableSeedPolicy {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyUnavailableSeedPolicy {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

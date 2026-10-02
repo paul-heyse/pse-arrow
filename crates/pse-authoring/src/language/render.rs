@@ -487,7 +487,7 @@ fn print_block(
                             }};
                             statements.push(format!("failure {} {lineage};", failure.class.as_str()));
                         }
-                        statements.extend(f.diagnostics.iter().map(|d| format!("diagnose {} at({});", quoted(&d.rule), d.members.join(", "))));
+                        statements.extend(f.diagnostics.iter().map(|d| format!("diagnose {} at({});", quoted(d.rule.as_str()), d.members.join(", "))));
                         statements.extend(f.specifications.iter().map(|s|format!("{} {}{};",s.kind.as_str(),s.target,s.expression.as_ref().map_or_else(String::new,|e|format!(" = {e}")))));
                         Ok::<_,AuthoringError>(format!(" fixture {{ {} }}", statements.join(" ")))
                     })?

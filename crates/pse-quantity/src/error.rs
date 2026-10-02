@@ -3,18 +3,8 @@
 
 //! Every error this crate returns, with its blueprint §23.2 class.
 //!
-//! The classes are spelled as `#[diagnostic(code(...))]` in Rust path form, which is what
-//! `tests/governance/tests/error_taxonomy.rs` and the §23.2 table agree on. The variants
-//! split along those classes on purpose:
-//!
-//! - a registry that does not load, an unknown identity or a broken rational exponent is
-//!   `validation::invariant` — the data is wrong before any expression is typed;
-//! - no rule, or more than one rule, for a composition is
-//!   `compile::math::quantity_operation_unsupported`, never a dimension-only fallback
-//!   (§8.3);
-//! - a mismatch between two complete quantity types is `compile::math::unit_inconsistent`;
-//! - a literal that violates an operator's domain restriction before any solver runs is
-//!   `compile::math::domain_violation_static`.
+//! Source variants declare detailed identities; each code derives its coarse failure class.
+//! Quantity refusals retain complete operand and free-index contracts as structured evidence.
 //!
 //! Messages name identities through `Display` (lowercase hexadecimal) and never through a
 //! `Debug` rendering, so nothing here can grow a hash-container iteration order (§5.3).
@@ -349,15 +339,20 @@ pse_diagnostics::impl_diagnostic! {
 pse_diagnostics::impl_diagnostic! {
     QuantityError,
     code(this) { match this {
-            Self::Registry { .. } | Self::Dimension(..) | Self::UnknownId { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+            Self::Registry { .. } | Self::Dimension(..) => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+            Self::UnknownId { .. } => Some(pse_diagnostics::DiagnosticCode::QuantityUnknownId),
+            Self::Incompatible { .. } => Some(pse_diagnostics::DiagnosticCode::QuantityIncompatible),
+            Self::UnitConvertMismatch { .. } => Some(pse_diagnostics::DiagnosticCode::QuantityUnitConversion),
+            Self::ContractMismatch { .. } => Some(pse_diagnostics::DiagnosticCode::QuantityContractMismatch),
+            Self::NonfiniteMagnitude { .. } | Self::NonfiniteConversion { .. } => Some(pse_diagnostics::DiagnosticCode::QuantityNonfinite),
             Self::InferencePrecondition { .. } | Self::OperationUnsupported { .. } | Self::UnregisteredResultType { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathQuantityOperationUnsupported),
 
 
 
-            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } | Self::UnknownUnitSymbol { .. } | Self::AffineUnitFactor { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
+            Self::AmbiguousLiteral { .. } | Self::UnknownUnitSymbol { .. } | Self::AffineUnitFactor { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
 
 
-            Self::StaticDomain { .. } | Self::NonfiniteMagnitude { .. } | Self::NonfiniteConversion { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic),
+            Self::StaticDomain { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic),
 
 
             _ => None,
@@ -427,7 +422,7 @@ mod tests {
         let id = SemanticId::NIL;
         assert_eq!(
             code_of(&QuantityError::UnknownId { kind: "unit", id }),
-            Some(pse_diagnostics::DiagnosticCode::ValidationInvariant)
+            Some(pse_diagnostics::DiagnosticCode::QuantityUnknownId)
         );
         assert_eq!(
             code_of(&QuantityError::Dimension(DimensionError::ZeroDenominator)),
@@ -448,7 +443,7 @@ mod tests {
                 operands: Vec::new(),
                 hint: None,
             }),
-            Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent)
+            Some(pse_diagnostics::DiagnosticCode::QuantityIncompatible)
         );
         assert_eq!(
             code_of(&QuantityError::StaticDomain {
@@ -464,7 +459,7 @@ mod tests {
                 unit: id.into(),
                 value: f64::NAN,
             }),
-            Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
+            Some(pse_diagnostics::DiagnosticCode::QuantityNonfinite)
         );
         assert_eq!(
             code_of(&QuantityError::NonfiniteConversion {
@@ -475,7 +470,7 @@ mod tests {
                 scale: 2.0,
                 offset: 0.0,
             }),
-            Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
+            Some(pse_diagnostics::DiagnosticCode::QuantityNonfinite)
         );
     }
 
@@ -505,6 +500,37 @@ mod tests {
             actual: QuantityTypeId::from_id(SemanticId::from_bytes([1; 16])),
         };
         assert!(error.to_string().starts_with("reference_state mismatch"));
+    }
+
+    #[test]
+    fn source_facts_preserve_complete_operand_contract_and_free_index_identity() {
+        let quantity = QuantityTypeId::from_bytes([1; 16]);
+        let index = crate::BoundIndexRef::new(
+            crate::BoundIndexId::from_bytes([2; 16]),
+            crate::DomainId::from_bytes([3; 16]),
+            crate::EntityKindId::from_bytes([4; 16]),
+        );
+        let error = QuantityError::Incompatible {
+            reason: IncompatibilityReason::PointPlusPoint,
+            operands: vec![(quantity, crate::IndexSet::try_from_iter([index]).unwrap())],
+            hint: None,
+        };
+        let facts = error.diagnostic_facts();
+        assert_eq!(
+            facts.rule,
+            Some(pse_diagnostics::DiagnosticRule::QuantityIncompatible)
+        );
+        assert_eq!(
+            error.diagnostic_code(),
+            facts.rule.map(pse_diagnostics::DiagnosticRule::code)
+        );
+        let pse_diagnostics::DiagnosticObservation::Contracts(contracts) =
+            &facts.observations["operands"]
+        else {
+            panic!("operand contract missing");
+        };
+        assert_eq!(contracts[0].quantity, [1; 16]);
+        assert_eq!(contracts[0].indices, vec![[[2; 16], [3; 16], [4; 16]]]);
     }
 
     #[test]

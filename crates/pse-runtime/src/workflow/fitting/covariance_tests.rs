@@ -113,7 +113,7 @@ async fn covariance_withheld_without_declared_sigma() {
         .await
         .unwrap_err();
     assert!(
-        matches!(error, WorkflowError::Contract(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance"),
+        matches!(error, WorkflowError::Input(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance"),
         "{error:?}"
     );
 }

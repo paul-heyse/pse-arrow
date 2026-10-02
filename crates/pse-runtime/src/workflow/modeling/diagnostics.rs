@@ -177,53 +177,137 @@ impl ModelingDiagnosticPolicy {
 /// Structural and missing-value defects are invalid-model errors; scaling, conditioning
 /// and near-bound observations are numerical warnings or information, never an invalid
 /// model. Every rule this module declares has an explicit arm.
-fn disposition(kind: &str) -> (BoundaryClass, Severity) {
+#[derive(Clone, Copy)]
+enum FindingKind {
+    DomainPotentialEvaluationError,
+    EquationCancelingTerms,
+    EquationLargeResidual,
+    EquationMismatchedTerm,
+    EquationTermEvaluationFailed,
+    JacobianConditionEstimate,
+    JacobianExtremeColumn,
+    JacobianExtremeEntry,
+    JacobianExtremeRow,
+    JacobianNumericalRankDeficiency,
+    JacobianParallelColumns,
+    JacobianParallelRows,
+    StructuralOverdetermined,
+    StructuralUnderdetermined,
+    VariableFixedZero,
+    VariableLargeValue,
+    VariableMissingValue,
+    VariableNearLowerBound,
+    VariableNearUpperBound,
+    VariableNonfinite,
+    VariableOnlyInInequalities,
+    VariableOutsideLowerBound,
+    VariableOutsideUpperBound,
+    VariableSmallValue,
+    VariableUnused,
+}
+impl FindingKind {
+    fn rule(self) -> pse_diagnostics::DiagnosticRule {
+        match self {
+            Self::DomainPotentialEvaluationError => {
+                pse_diagnostics::DiagnosticRule::DomainPotentialEvaluationError
+            }
+            Self::EquationCancelingTerms => pse_diagnostics::DiagnosticRule::EquationCancelingTerms,
+            Self::EquationLargeResidual => pse_diagnostics::DiagnosticRule::EquationLargeResidual,
+            Self::EquationMismatchedTerm => pse_diagnostics::DiagnosticRule::EquationMismatchedTerm,
+            Self::EquationTermEvaluationFailed => {
+                pse_diagnostics::DiagnosticRule::EquationTermEvaluationFailed
+            }
+            Self::JacobianConditionEstimate => {
+                pse_diagnostics::DiagnosticRule::JacobianConditionEstimate
+            }
+            Self::JacobianExtremeColumn => pse_diagnostics::DiagnosticRule::JacobianExtremeColumn,
+            Self::JacobianExtremeEntry => pse_diagnostics::DiagnosticRule::JacobianExtremeEntry,
+            Self::JacobianExtremeRow => pse_diagnostics::DiagnosticRule::JacobianExtremeRow,
+            Self::JacobianNumericalRankDeficiency => {
+                pse_diagnostics::DiagnosticRule::JacobianNumericalRankDeficiency
+            }
+            Self::JacobianParallelColumns => {
+                pse_diagnostics::DiagnosticRule::JacobianParallelColumns
+            }
+            Self::JacobianParallelRows => pse_diagnostics::DiagnosticRule::JacobianParallelRows,
+            Self::StructuralOverdetermined => {
+                pse_diagnostics::DiagnosticRule::StructuralOverdetermined
+            }
+            Self::StructuralUnderdetermined => {
+                pse_diagnostics::DiagnosticRule::StructuralUnderdetermined
+            }
+            Self::VariableFixedZero => pse_diagnostics::DiagnosticRule::VariableFixedZero,
+            Self::VariableLargeValue => pse_diagnostics::DiagnosticRule::VariableLargeValue,
+            Self::VariableMissingValue => pse_diagnostics::DiagnosticRule::VariableMissingValue,
+            Self::VariableNearLowerBound => pse_diagnostics::DiagnosticRule::VariableNearLowerBound,
+            Self::VariableNearUpperBound => pse_diagnostics::DiagnosticRule::VariableNearUpperBound,
+            Self::VariableNonfinite => pse_diagnostics::DiagnosticRule::VariableNonfinite,
+            Self::VariableOnlyInInequalities => {
+                pse_diagnostics::DiagnosticRule::VariableOnlyInInequalities
+            }
+            Self::VariableOutsideLowerBound => {
+                pse_diagnostics::DiagnosticRule::VariableOutsideLowerBound
+            }
+            Self::VariableOutsideUpperBound => {
+                pse_diagnostics::DiagnosticRule::VariableOutsideUpperBound
+            }
+            Self::VariableSmallValue => pse_diagnostics::DiagnosticRule::VariableSmallValue,
+            Self::VariableUnused => pse_diagnostics::DiagnosticRule::VariableUnused,
+        }
+    }
+}
+fn disposition(kind: FindingKind) -> (BoundaryClass, Severity) {
     use BoundaryClass as C;
     use Severity as S;
     match kind {
-        "structural.underdetermined" | "structural.overdetermined" | "variable.missing_value" => {
-            (C::InvalidModel, S::Error)
-        }
-        "variable.nonfinite" => (C::Nonfinite, S::Error),
-        "variable.unused"
-        | "variable.only_in_inequalities"
-        | "domain.potential_evaluation_error" => (C::InvalidModel, S::Info),
-        "variable.outside_lower_bound"
-        | "variable.outside_upper_bound"
-        | "equation.large_residual"
-        | "jacobian.parallel_rows"
-        | "jacobian.parallel_columns"
-        | "jacobian.numerical_rank_deficiency" => (C::Numerical, S::Warning),
-        "variable.near_lower_bound"
-        | "variable.near_upper_bound"
-        | "variable.fixed_zero"
-        | "variable.large_value"
-        | "variable.small_value"
-        | "jacobian.extreme_entry"
-        | "jacobian.extreme_row"
-        | "jacobian.extreme_column"
-        | "jacobian.condition_estimate"
-        | "equation.mismatched_term"
-        | "equation.canceling_terms" => (C::Numerical, S::Info),
-        "equation.term_evaluation_failed" => (C::TrialRejected, S::Warning),
-        _ => (C::Internal, S::Error),
+        FindingKind::StructuralUnderdetermined
+        | FindingKind::StructuralOverdetermined
+        | FindingKind::VariableMissingValue => (C::InvalidModel, S::Error),
+        FindingKind::VariableNonfinite => (C::Nonfinite, S::Error),
+        FindingKind::VariableUnused
+        | FindingKind::VariableOnlyInInequalities
+        | FindingKind::DomainPotentialEvaluationError => (C::InvalidModel, S::Info),
+        FindingKind::VariableOutsideLowerBound
+        | FindingKind::VariableOutsideUpperBound
+        | FindingKind::EquationLargeResidual
+        | FindingKind::JacobianParallelRows
+        | FindingKind::JacobianParallelColumns
+        | FindingKind::JacobianNumericalRankDeficiency => (C::Numerical, S::Warning),
+        FindingKind::VariableNearLowerBound
+        | FindingKind::VariableNearUpperBound
+        | FindingKind::VariableFixedZero
+        | FindingKind::VariableLargeValue
+        | FindingKind::VariableSmallValue
+        | FindingKind::JacobianExtremeEntry
+        | FindingKind::JacobianExtremeRow
+        | FindingKind::JacobianExtremeColumn
+        | FindingKind::JacobianConditionEstimate
+        | FindingKind::EquationMismatchedTerm
+        | FindingKind::EquationCancelingTerms => (C::Numerical, S::Info),
+        FindingKind::EquationTermEvaluationFailed => (C::TrialRejected, S::Warning),
     }
 }
 fn finding(
-    kind: &str,
+    kind: FindingKind,
     ids: impl IntoIterator<Item = SemanticId>,
     score: Option<f64>,
     threshold: Option<f64>,
 ) -> BoundaryDiagnostic {
     let (class, severity) = disposition(kind);
-    let mut f =
-        BoundaryDiagnostic::new(class, "modeling.diagnostics", ids, kind).with_severity(severity);
+    let mut f = BoundaryDiagnostic::new(
+        class,
+        pse_diagnostics::DiagnosticStage::ModelingDiagnostics,
+        ids,
+        kind.rule(),
+    )
+    .with_severity(severity);
     if let Some(v) = score {
-        f.observations.insert("value".into(), Observation::Real(v));
+        f.observations
+            .insert("value".into(), Observation::number(v));
     }
     if let Some(v) = threshold {
         f.observations
-            .insert("threshold".into(), Observation::Real(v));
+            .insert("threshold".into(), Observation::number(v));
     }
     f
 }
@@ -259,6 +343,7 @@ pub(super) fn attribute(
         if let Some(l) = lineage {
             diagnostic.locations.push(SourceLocation {
                 source: *id,
+                revision: None,
                 path: l.path.clone(),
                 name: None,
                 start: None,
@@ -514,13 +599,13 @@ impl ModelingPackage {
             }
             if !equality && !inequality && !objective {
                 report.push(
-                    finding("variable.unused", [id], None, None),
+                    finding(FindingKind::VariableUnused, [id], None, None),
                     maximum,
                     product,
                 );
             } else if inequality && !equality {
                 report.push(
-                    finding("variable.only_in_inequalities", [id], None, None),
+                    finding(FindingKind::VariableOnlyInInequalities, [id], None, None),
                     maximum,
                     product,
                 );
@@ -529,8 +614,8 @@ impl ModelingPackage {
         report.statistics.extend(counts);
         let structural = prepared.case.structure();
         for (name, part) in [
-            ("structural.underdetermined", &structural.under),
-            ("structural.overdetermined", &structural.over),
+            (FindingKind::StructuralUnderdetermined, &structural.under),
+            (FindingKind::StructuralOverdetermined, &structural.over),
         ] {
             if !part.rows.is_empty() || !part.columns.is_empty() {
                 report.push(
@@ -547,7 +632,12 @@ impl ModelingPackage {
         }
         for (id, status) in &prepared.case.compiled().presolve.obligations {
             if *status != pse_math::presolve::ObligationStatus::Discharged {
-                let mut f = finding("domain.potential_evaluation_error", [*id], None, None);
+                let mut f = finding(
+                    FindingKind::DomainPotentialEvaluationError,
+                    [*id],
+                    None,
+                    None,
+                );
                 f.observations.insert(
                     "box_status".into(),
                     Observation::Text(status.as_str().into()),
@@ -559,7 +649,7 @@ impl ModelingPackage {
             let id = variable.port.id;
             let Some(value) = values.scalars.get(&id).copied() else {
                 report.push(
-                    finding("variable.missing_value", [id], None, None),
+                    finding(FindingKind::VariableMissingValue, [id], None, None),
                     maximum,
                     product,
                 );
@@ -567,7 +657,7 @@ impl ModelingPackage {
             };
             if !value.is_finite() {
                 report.push(
-                    finding("variable.nonfinite", [id], Some(value), None),
+                    finding(FindingKind::VariableNonfinite, [id], Some(value), None),
                     maximum,
                     product,
                 );
@@ -578,7 +668,7 @@ impl ModelingPackage {
             if variable.fixed && value.abs() <= policy.variable_zero * magnitude {
                 report.push(
                     finding(
-                        "variable.fixed_zero",
+                        FindingKind::VariableFixedZero,
                         [id],
                         Some(value),
                         Some(policy.variable_zero * magnitude),
@@ -590,7 +680,7 @@ impl ModelingPackage {
             if normalized > policy.variable_large {
                 report.push(
                     finding(
-                        "variable.large_value",
+                        FindingKind::VariableLargeValue,
                         [id],
                         Some(normalized),
                         Some(policy.variable_large),
@@ -602,7 +692,7 @@ impl ModelingPackage {
             if normalized > policy.variable_zero && normalized < policy.variable_small {
                 report.push(
                     finding(
-                        "variable.small_value",
+                        FindingKind::VariableSmallValue,
                         [id],
                         Some(normalized),
                         Some(policy.variable_small),
@@ -611,9 +701,19 @@ impl ModelingPackage {
                     product,
                 );
             }
-            for (name, bound, sign) in [
-                ("lower", variable.lower, 1.),
-                ("upper", variable.upper, -1.),
+            for (bound, sign, outside, near_bound) in [
+                (
+                    variable.lower,
+                    1.,
+                    FindingKind::VariableOutsideLowerBound,
+                    FindingKind::VariableNearLowerBound,
+                ),
+                (
+                    variable.upper,
+                    -1.,
+                    FindingKind::VariableOutsideUpperBound,
+                    FindingKind::VariableNearUpperBound,
+                ),
             ] {
                 if let Some(bound) = bound {
                     let distance = sign * (value - bound);
@@ -621,23 +721,13 @@ impl ModelingPackage {
                         + policy.near_bound_relative * bound.abs().max(magnitude);
                     if distance < -policy.bound_violation {
                         report.push(
-                            finding(
-                                &format!("variable.outside_{name}_bound"),
-                                [id],
-                                Some(-distance),
-                                Some(policy.bound_violation),
-                            ),
+                            finding(outside, [id], Some(-distance), Some(policy.bound_violation)),
                             maximum,
                             product,
                         );
                     } else if distance <= near {
                         report.push(
-                            finding(
-                                &format!("variable.near_{name}_bound"),
-                                [id],
-                                Some(distance),
-                                Some(near),
-                            ),
+                            finding(near_bound, [id], Some(distance), Some(near)),
                             maximum,
                             product,
                         );
@@ -704,7 +794,7 @@ impl ModelingPackage {
                     if residual > policy.residual * scale {
                         report.push(
                             finding(
-                                "equation.large_residual",
+                                FindingKind::EquationLargeResidual,
                                 [row.id],
                                 Some(residual),
                                 Some(policy.residual * scale),
@@ -720,7 +810,7 @@ impl ModelingPackage {
                     {
                         report.push(
                             finding(
-                                "jacobian.extreme_entry",
+                                FindingKind::JacobianExtremeEntry,
                                 [row_ids[i], columns[j]],
                                 Some(value),
                                 None,
@@ -733,8 +823,12 @@ impl ModelingPackage {
                 match matrix {
                     Ok(matrix) => {
                         for (norms, ids, kind) in [
-                            (&matrix.row_norms, &row_ids, "jacobian.extreme_row"),
-                            (&matrix.column_norms, &columns, "jacobian.extreme_column"),
+                            (&matrix.row_norms, &row_ids, FindingKind::JacobianExtremeRow),
+                            (
+                                &matrix.column_norms,
+                                &columns,
+                                FindingKind::JacobianExtremeColumn,
+                            ),
                         ] {
                             for (id, value) in ids.iter().zip(norms) {
                                 if *value > policy.jacobian_large || *value < policy.jacobian_small
@@ -756,14 +850,14 @@ impl ModelingPackage {
                             .iter()
                             .map(|p| {
                                 (
-                                    "jacobian.parallel_rows",
+                                    FindingKind::JacobianParallelRows,
                                     [rows[p.first], rows[p.second]],
                                     p.cosine,
                                 )
                             })
                             .chain(matrix.parallel_columns.iter().map(|p| {
                                 (
-                                    "jacobian.parallel_columns",
+                                    FindingKind::JacobianParallelColumns,
                                     [cols[p.first], cols[p.second]],
                                     p.cosine,
                                 )
@@ -806,7 +900,7 @@ impl ModelingPackage {
                             }
                             report.push(
                                 finding(
-                                    "jacobian.numerical_rank_deficiency",
+                                    FindingKind::JacobianNumericalRankDeficiency,
                                     members,
                                     Some(matrix.rank as f64),
                                     Some(matrix.cutoff),
@@ -821,9 +915,9 @@ impl ModelingPackage {
                         report.complete = false;
                         let mut f = BoundaryDiagnostic::new(
                             BoundaryClass::Inconclusive,
-                            "modeling.diagnostics",
+                            pse_diagnostics::DiagnosticStage::ModelingDiagnostics,
                             [],
-                            "jacobian.analysis_inconclusive",
+                            pse_diagnostics::DiagnosticRule::JacobianAnalysisInconclusive,
                         )
                         .with_severity(Severity::Warning);
                         f.observations
@@ -835,7 +929,7 @@ impl ModelingPackage {
                 match condition {
                     Some(Ok(Some(estimate))) => report.push(
                         finding(
-                            "jacobian.condition_estimate",
+                            FindingKind::JacobianConditionEstimate,
                             locations(),
                             Some(estimate),
                             None,
@@ -844,7 +938,12 @@ impl ModelingPackage {
                         product,
                     ),
                     Some(Ok(None)) => {
-                        let mut f = finding("jacobian.condition_estimate", locations(), None, None);
+                        let mut f = finding(
+                            FindingKind::JacobianConditionEstimate,
+                            locations(),
+                            None,
+                            None,
+                        );
                         f.observations.insert(
                             "reason".into(),
                             Observation::Text("singular at the sparse LU pivot tolerance".into()),
@@ -855,9 +954,9 @@ impl ModelingPackage {
                         report.complete = false;
                         let mut f = BoundaryDiagnostic::new(
                             BoundaryClass::Inconclusive,
-                            "modeling.diagnostics",
+                            pse_diagnostics::DiagnosticStage::ModelingDiagnostics,
                             [],
-                            "jacobian.analysis_inconclusive",
+                            pse_diagnostics::DiagnosticRule::JacobianAnalysisInconclusive,
                         )
                         .with_severity(Severity::Warning);
                         f.observations
@@ -871,9 +970,9 @@ impl ModelingPackage {
                 report.complete = false;
                 let mut f = BoundaryDiagnostic::new(
                     BoundaryClass::TrialRejected,
-                    "modeling.diagnostics",
+                    pse_diagnostics::DiagnosticStage::ModelingDiagnostics,
                     [],
-                    "candidate.evaluation_failed",
+                    pse_diagnostics::DiagnosticRule::CandidateEvaluationFailed,
                 );
                 f.observations
                     .insert("reason".into(), Observation::Text(error.to_string()));
@@ -924,7 +1023,7 @@ impl ModelingPackage {
                     for index in &result.mismatched {
                         report.push(
                             finding(
-                                "equation.mismatched_term",
+                                FindingKind::EquationMismatchedTerm,
                                 [*equation, terms[*index].0],
                                 Some(magnitudes[equation][*index]),
                                 Some(policy.terms.mismatch),
@@ -936,7 +1035,7 @@ impl ModelingPackage {
                     for set in &result.cancellations {
                         report.push(
                             finding(
-                                "equation.canceling_terms",
+                                FindingKind::EquationCancelingTerms,
                                 std::iter::once(*equation).chain(set.iter().map(|i| terms[*i].0)),
                                 None,
                                 Some(policy.terms.cancellation),
@@ -949,7 +1048,7 @@ impl ModelingPackage {
             }
             Err(error) => {
                 report.complete = false;
-                let mut f = finding("equation.term_evaluation_failed", [], None, None);
+                let mut f = finding(FindingKind::EquationTermEvaluationFailed, [], None, None);
                 f.observations
                     .insert("reason".into(), Observation::Text(error.to_string()));
                 report.push(f, maximum, product);
@@ -1020,7 +1119,7 @@ mod tests {
             report
                 .findings
                 .iter()
-                .any(|f| f.rule == "variable.missing_value")
+                .any(|f| f.rule == pse_diagnostics::DiagnosticRule::VariableMissingValue)
         );
         assert!(
             package
@@ -1048,7 +1147,7 @@ mod tests {
             report
                 .findings
                 .iter()
-                .any(|f| f.rule == "variable.outside_upper_bound")
+                .any(|f| f.rule == pse_diagnostics::DiagnosticRule::VariableOutsideUpperBound)
         );
         assert!(
             package
@@ -1214,17 +1313,14 @@ mod tests {
             .unwrap();
         assert_eq!(samples.stop, DiagnosticSampleStop::Cancelled);
         assert_eq!(samples.unattempted, 3);
-        assert!(
-            report
-                .findings
-                .iter()
-                .any(|f| f.rule == "jacobian.parallel_rows" && f.locations.len() == 2)
-        );
+        assert!(report.findings.iter().any(|f| f.rule
+            == pse_diagnostics::DiagnosticRule::JacobianParallelRows
+            && f.locations.len() == 2));
         // The square Jacobian [[1, 1], [2, 2]] is singular for the sparse LU as well.
         let condition = report
             .findings
             .iter()
-            .find(|f| f.rule == "jacobian.condition_estimate")
+            .find(|f| f.rule == pse_diagnostics::DiagnosticRule::JacobianConditionEstimate)
             .unwrap();
         assert!(!condition.observations.contains_key("value"));
         assert!(condition.observations.contains_key("reason"));
@@ -1232,14 +1328,13 @@ mod tests {
             report
                 .findings
                 .iter()
-                .any(|f| f.rule == "equation.canceling_terms")
+                .any(|f| f.rule == pse_diagnostics::DiagnosticRule::EquationCancelingTerms)
         );
-        assert!(
-            !report
-                .findings
-                .iter()
-                .any(|f| f.rule.starts_with("structural."))
-        );
+        assert!(!report.findings.iter().any(|f| matches!(
+            f.rule,
+            pse_diagnostics::DiagnosticRule::StructuralUnderdetermined
+                | pse_diagnostics::DiagnosticRule::StructuralOverdetermined
+        )));
         #[cfg(feature = "solver-kinsol")]
         {
             let physical = super::super::super::tests::physical();
@@ -1275,10 +1370,15 @@ mod tests {
                 report
                     .findings
                     .iter()
-                    .any(|f| f.rule == "structural.underdetermined")
+                    .any(|f| f.rule == pse_diagnostics::DiagnosticRule::StructuralUnderdetermined)
             );
             assert_eq!(report.statistics["unused_variables"], 1);
-            assert!(report.findings.iter().any(|f| f.rule == "variable.unused"));
+            assert!(
+                report
+                    .findings
+                    .iter()
+                    .any(|f| f.rule == pse_diagnostics::DiagnosticRule::VariableUnused)
+            );
         }
         #[cfg(feature = "solver-highs")]
         {

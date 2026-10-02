@@ -615,7 +615,9 @@ impl Contract {
     }
 }
 /// Explicit final-result obligation, independent of the requested output grid.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct EndpointRequirement {
     /// Registry-owned completion policy.
@@ -642,7 +644,7 @@ pub struct EndpointAssessment {
     pub missing_observations: Vec<f64>,
 }
 /// Finite integration policy. Tolerances apply to the normalized state coordinates.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
     /// Native method selected from the required trial semantics; automatic when absent.
@@ -678,6 +680,7 @@ pub struct Profile {
     /// Maximum retained event records.
     pub max_events: usize,
     /// Cooperative outer time allowance, including callbacks and resets.
+    #[schemars(with = "ClosedDuration")]
     pub time_limit: Duration,
     /// Maximum retained scalar cells, including sensitivities and event states.
     pub max_cells: usize,
@@ -705,12 +708,69 @@ pub struct Profile {
     /// Native initialization controls, available in the linked profile.
     #[cfg(feature = "diffsol")]
     #[serde(with = "initial_options")]
+    #[schemars(with = "initial_options::Remote")]
     pub initialization: Arc<diffsol::InitialConditionSolverOptions<f64>>,
     /// Native BDF/nonlinear/error-control settings.
     #[cfg(feature = "diffsol")]
     #[serde(with = "ode_options")]
+    #[schemars(with = "ode_options::Remote")]
     pub native: Arc<diffsol::OdeSolverOptions<f64>>,
 }
+
+/// Serde's standard Duration visitor refuses unknown fields; schemars's standard
+/// projection retains its integer bounds but omits that object closure.
+struct ClosedDuration;
+impl schemars::JsonSchema for ClosedDuration {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("ClosedDuration")
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        let mut schema = <Duration as schemars::JsonSchema>::json_schema(generator);
+        schema.insert(
+            "additionalProperties".into(),
+            serde_json::Value::Bool(false),
+        );
+        schema
+    }
+}
+#[cfg(test)]
+mod duration_schema_unit {
+    use super::*;
+
+    #[test]
+    fn dynamics_profile_duration_schema_matches_closed_serde_representation() {
+        let mut profile = Profile::default();
+        profile.time_limit = Duration::new(7, 123);
+        let encoded = serde_json::to_value(&profile).unwrap();
+        assert_eq!(
+            encoded["time_limit"],
+            serde_json::json!({"secs": 7, "nanos": 123})
+        );
+        let decoded: Profile = serde_json::from_value(encoded.clone()).unwrap();
+        assert_eq!(decoded.time_limit, profile.time_limit);
+        let mut extra = encoded.clone();
+        extra["time_limit"]["seconds"] = serde_json::json!(8);
+        assert!(serde_json::from_value::<Profile>(extra).is_err());
+        let mut overflow = encoded;
+        overflow["time_limit"]["secs"] = serde_json::json!(u64::MAX);
+        overflow["time_limit"]["nanos"] = serde_json::json!(u32::MAX);
+        assert!(serde_json::from_value::<Profile>(overflow).is_err());
+        let schema = schemars::schema_for!(Profile).to_value();
+        assert_eq!(
+            schema["properties"]["time_limit"]["$ref"],
+            "#/$defs/ClosedDuration"
+        );
+        assert_eq!(
+            schema["$defs"]["ClosedDuration"]["additionalProperties"],
+            false
+        );
+        assert_eq!(
+            schema["$defs"]["ClosedDuration"]["required"],
+            serde_json::json!(["secs", "nanos"])
+        );
+    }
+}
+
 /// One contract parameter held piecewise constant: it takes a new value at each change
 /// time. The integration parameter vector holds one value per interval, `times.len() + 1`
 /// of them, and a sensitivity column for each, so sensitivities cross every change
@@ -731,7 +791,7 @@ pub struct Profile {
 /// // A change takes effect at its time.
 /// assert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.5), vec![4.0, 9.0]);
 /// ```
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduledInput {
     /// Position of the input in the contract's parameter order.
@@ -1786,12 +1846,13 @@ pub(crate) fn guards_at_zero(guards: &[f64], events: &[Event]) -> usize {
 #[cfg(feature = "diffsol")]
 mod initial_options {
     use super::*;
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(
         remote = "diffsol::InitialConditionSolverOptions<f64>",
         deny_unknown_fields
     )]
-    struct Remote {
+    #[schemars(rename = "DiffsolInitialConditionOptions")]
+    pub(super) struct Remote {
         use_linesearch: bool,
         max_linesearch_iterations: usize,
         max_newton_iterations: usize,
@@ -1815,9 +1876,10 @@ mod initial_options {
 #[cfg(feature = "diffsol")]
 mod ode_options {
     use super::*;
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(remote = "diffsol::OdeSolverOptions<f64>", deny_unknown_fields)]
-    struct Remote {
+    #[schemars(rename = "DiffsolOdeSolverOptions")]
+    pub(super) struct Remote {
         max_nonlinear_solver_iterations: usize,
         max_error_test_failures: usize,
         max_nonlinear_solver_failures: usize,

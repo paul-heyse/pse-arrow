@@ -42,6 +42,7 @@ solver-scip = ["pse-runtime/solver-scip"]
 force-validate = ["pse-relations/force-validate"]
 
 [dependencies]
+pse-diagnostics.workspace = true
 pse-modeling.workspace = true
 pse-model.workspace = true
 pyo3-async-runtimes.workspace = true

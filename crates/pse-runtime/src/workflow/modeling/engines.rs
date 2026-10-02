@@ -147,9 +147,9 @@ impl ModelingInitializationAttempt {
                 Ok(result) => result.diagnostic().unwrap_or_else(|| {
                     BoundaryDiagnostic::new(
                         BoundaryClass::Internal,
-                        "initialization",
+                        pse_diagnostics::DiagnosticStage::Initialization,
                         [],
-                        "modeling.initialization.outcome",
+                        pse_diagnostics::DiagnosticRule::ModelingInitializationOutcome,
                     )
                 }),
             });
@@ -158,7 +158,7 @@ impl ModelingInitializationAttempt {
                 "stage".into(),
                 pse_model::diagnostic::Observation::Text(stage.clone()),
             );
-            if diagnostic.rule == "modeling.qualification.rejected" {
+            if diagnostic.rule == pse_diagnostics::DiagnosticRule::ModelingQualificationRejected {
                 diagnostic.sources.extend(&self.stage_sources);
                 diagnostic.sources.sort_unstable();
                 diagnostic.sources.dedup();
@@ -177,32 +177,53 @@ impl ModelingInitializationAttempt {
         use crate::math::solves::Outcome;
         use pse_backend_native::solve::Termination as T;
         match &self.result {
-            Err(error) => matches!(
-                error.boundary_diagnostic().class,
-                BoundaryClass::TrialRejected | BoundaryClass::Numerical
-            ),
+            Err(error) => scientific_attempt_retry(error.boundary_diagnostic().class),
             Ok(result) => match &result.outcome {
-                Outcome::Rejected(error) => matches!(
+                Outcome::Rejected(error) => scientific_attempt_retry(
                     WorkflowError::Math(crate::math::MathRuntimeError::Shared(error.clone()))
                         .boundary_diagnostic()
                         .class,
-                    BoundaryClass::TrialRejected | BoundaryClass::Numerical
                 ),
                 Outcome::Constant(_) => true,
-                Outcome::Native(native) => {
-                    matches!(
-                        native.termination.category,
-                        T::Success
-                            | T::Acceptable
-                            | T::FeasibleOnly
-                            | T::Infeasible
-                            | T::Inconclusive
-                            | T::IterationLimit
-                            | T::Numerical
-                    ) || pse_backend_native::callback::retryable_evaluation(native)
-                }
+                Outcome::Native(native) => match native.termination.category {
+                    T::Success
+                    | T::Acceptable
+                    | T::FeasibleOnly
+                    | T::Infeasible
+                    | T::Inconclusive
+                    | T::IterationLimit
+                    | T::Numerical => true,
+                    T::Evaluation => pse_backend_native::callback::retryable_evaluation(native),
+                    T::Unbounded
+                    | T::InfeasibleOrUnbounded
+                    | T::Limit
+                    | T::NodeLimit
+                    | T::ResourceExhausted
+                    | T::ObjectiveLimit
+                    | T::SolutionLimit
+                    | T::TimeLimit
+                    | T::Cancelled
+                    | T::Panic
+                    | T::Invalid => false,
+                },
             },
         }
+    }
+}
+/// Scientific initialization retries are independent of durable effect/replay permission.
+const fn scientific_attempt_retry(class: BoundaryClass) -> bool {
+    match class {
+        BoundaryClass::TrialRejected | BoundaryClass::Numerical => true,
+        BoundaryClass::InvalidModel
+        | BoundaryClass::Nonfinite
+        | BoundaryClass::Inconclusive
+        | BoundaryClass::Unsupported
+        | BoundaryClass::Cancelled
+        | BoundaryClass::ResourceLimit
+        | BoundaryClass::Conflict
+        | BoundaryClass::Incompatible
+        | BoundaryClass::Infrastructure
+        | BoundaryClass::Internal => false,
     }
 }
 /// Attempts retain their own report/specification. A failed attempt never publishes a seed.
@@ -227,33 +248,6 @@ pub struct ModelingInitializationReport {
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
 
-/// A predecessor is an explicit accepted-value dependency, never an implicit previous point.
-#[derive(Clone, Debug)]
-pub struct ModelingStudyPoint {
-    /// The point's analysis, or why it could not be declared.
-    pub execution: Result<DeclaredExecution, Arc<WorkflowError>>,
-    /// Earlier point whose candidate seeds this one.
-    pub predecessor: Option<usize>,
-    /// Case values and declared parameters this point replaces, composed over its
-    /// analysis for the point only, as in a durable study.
-    pub overlay: crate::workflow::PointOverlay,
-}
-/// A point failure is represented independently of neighboring cases.
-#[derive(Clone, Debug)]
-pub struct ModelingStudyReport {
-    /// Identity of this study run.
-    pub run_id: RunId,
-    pub(super) runtime: Runtime,
-    pub(super) points: Vec<(Option<DeclarationId>, Option<InstanceId>, Option<usize>)>,
-    /// Attempted points in order.
-    pub outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>>,
-    /// Points not attempted after cancellation.
-    pub unattempted: usize,
-    /// Structural preparations and value rebinds this study performed, and no concurrent
-    /// operation's (A6): points of one structure prepare it once and rebind values.
-    pub preparations: crate::math::PreparationCounts,
-    pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
-}
 pub(super) fn bounded_error(error: impl std::fmt::Display) -> String {
     use std::fmt::Write;
     struct Message {
@@ -332,89 +326,6 @@ impl ModelingPackage {
         )
         .await
     }
-    /// Independent points continue after failure; dependent points require their selected
-    /// predecessor, whose candidate must permit seeding. All points run as one staged
-    /// sequence: points of one structure prepare it once and rebind values (A6).
-    pub async fn study(
-        &self,
-        points: Vec<ModelingStudyPoint>,
-        maximum_points: usize,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingStudyReport, WorkflowError> {
-        if maximum_points == 0 || maximum_points > 4096 || points.len() > maximum_points {
-            return Err(contract("bounded study extent"));
-        }
-        for (i, p) in points.iter().enumerate() {
-            if p.predecessor.is_some_and(|j| j >= i) {
-                return Err(contract("study predecessor must identify an earlier point"));
-            }
-        }
-        let bytes = points
-            .len()
-            .checked_mul(size_of::<Result<ModelingResult, BoundaryDiagnostic>>() + 4096)
-            .ok_or_else(|| contract("study outcome extent"))?;
-        let owner = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:study-outcomes", bytes)?;
-        let count = points.len();
-        let point_sources = points
-            .iter()
-            .map(|p| {
-                (
-                    p.execution.as_ref().ok().map(|e| e.analysis.root),
-                    p.execution.as_ref().ok().map(|e| e.analysis.instance),
-                    p.predecessor,
-                )
-            })
-            .collect();
-        let mut staged = Staged::open(&self.runtime, None)?;
-        let (outcomes, preparations) = crate::math::counted(async {
-            let mut outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>> = vec![];
-            let mut points = std::collections::VecDeque::from(points);
-            while let Some(p) = points.pop_front() {
-                if cancel.token().is_cancelled() {
-                    break;
-                }
-                // Consecutive independent points that select one batching adapter run as
-                // one parallel batch (Plan 22 N5); each is still bound, assessed and
-                // recorded alone.
-                let Some(backend) = batching(&p) else {
-                    outcomes.push(self.study_point(&mut staged, p, cancel).await);
-                    continue;
-                };
-                let mut analyses = Vec::new();
-                if let Ok(execution) = p.execution {
-                    analyses.push(execution.analysis);
-                }
-                while let Some(next) = points.front()
-                    && batching(next) == Some(backend)
-                    && let Some(Ok(execution)) = points.pop_front().map(|p| p.execution)
-                {
-                    analyses.push(execution.analysis);
-                }
-                for result in staged
-                    .batch(self, &analyses, Obligations::Final, cancel)
-                    .await
-                {
-                    outcomes.push(result.map_err(|error| error.boundary_diagnostic()));
-                }
-            }
-            outcomes
-        })
-        .await;
-        staged.close().await;
-        Ok(ModelingStudyReport {
-            run_id: pse_operations::mint_id(),
-            runtime: self.runtime.clone(),
-            points: point_sources,
-            unattempted: count - outcomes.len(),
-            outcomes,
-            preparations,
-            _owner: owner,
-        })
-    }
     /// A sum-of-squares bound on the optimum of `analysis`'s polynomial program (Plan 22 N5;
     /// I5): a lower bound on a minimization, an upper bound on a maximization, from the
     /// moment relaxation of `order` (or the least its degree admits). It is labelled
@@ -436,120 +347,6 @@ impl ModelingPackage {
             .math()
             .sos_bound(&prepared.solve, order)
             .await?)
-    }
-    /// One study point. A failed point is recorded and isolated: it seeds nothing, and only
-    /// points that name it as their predecessor are refused.
-    #[expect(
-        clippy::result_large_err,
-        reason = "the outcome is kept unboxed in the study's public `outcomes`; boxing here only adds an allocation"
-    )]
-    async fn study_point(
-        &self,
-        staged: &mut Staged,
-        point: ModelingStudyPoint,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingResult, BoundaryDiagnostic> {
-        let execution = match point.execution {
-            Ok(execution) => execution,
-            Err(error) => {
-                staged.refuse();
-                return Err(error.boundary_diagnostic());
-            }
-        };
-        let analysis = &execution.analysis;
-        let overlay = Overlay {
-            values: point.overlay.values,
-            parameters: point.overlay.parameters,
-            ..Overlay::default()
-        };
-        let start = point.predecessor.map_or(Start::Specification, Start::Seed);
-        if let Some(previous) = point.predecessor
-            && staged.seed(start).is_none()
-        {
-            staged.refuse();
-            let mut error = BoundaryDiagnostic::new(
-                BoundaryClass::Conflict,
-                "modeling-study",
-                [analysis.root.as_id(), analysis.instance.as_id()],
-                "modeling.study.predecessor",
-            );
-            error.observations.insert(
-                "predecessor".into(),
-                pse_model::diagnostic::Observation::Integer(previous as i64),
-            );
-            return Err(error);
-        }
-        if let DeclaredProcedure::Initialize(policy) = &execution.procedure {
-            let mut selected = overlay.compose(analysis);
-            let seed = staged.seed(start).unwrap_or_default();
-            let paths = &execution.model.compiled().model.paths;
-            for (id, value) in &seed {
-                let Some((path, _)) = paths.iter().find(|(_, member)| *member == id) else {
-                    continue;
-                };
-                // A predecessor starts free coordinates; the point's explicit values and fixes retain precedence.
-                if selected.case.values.contains_key(path)
-                    || selected
-                        .case
-                        .variables
-                        .get(path)
-                        .is_some_and(|state| state.fixed == Some(true))
-                {
-                    continue;
-                }
-                selected.case.values.insert(path.clone(), *value);
-            }
-            for (id, value) in &overlay.parameters {
-                let Some((path, _)) = paths.iter().find(|(_, member)| *member == id) else {
-                    continue;
-                };
-                selected.case.values.insert(path.clone(), *value);
-            }
-            let report = self
-                .initialize_model(&selected, policy.clone(), cancel)
-                .await
-                .map_err(|e| e.boundary_diagnostic())?;
-            let result = report
-                .attempts
-                .last()
-                .and_then(|a| a.result.as_ref().ok())
-                .filter(|_| report.completed)
-                .cloned()
-                .ok_or_else(|| {
-                    report.failure.unwrap_or_else(|| {
-                        BoundaryDiagnostic::new(
-                            BoundaryClass::Numerical,
-                            "modeling-study",
-                            [analysis.root.as_id()],
-                            "modeling.study.initialization",
-                        )
-                    })
-                })?;
-            staged.retain_external(&result);
-            return Ok(result);
-        }
-        if !matches!(execution.procedure, DeclaredProcedure::Solve) {
-            return Err(BoundaryDiagnostic::new(
-                BoundaryClass::Unsupported,
-                "modeling-study",
-                [analysis.root.as_id()],
-                "modeling.study.procedure",
-            ));
-        }
-        staged
-            .step(
-                self,
-                analysis,
-                &overlay,
-                start,
-                Obligations::Final,
-                None,
-                "modeling-study",
-                cancel,
-            )
-            .await
-            .result
-            .map_err(|error| error.boundary_diagnostic())
     }
     /// Accepted values advance through immutable stage overlays. Homotopy retries from
     /// the last accepted point, shrinks failures and qualifies the final original model.
@@ -576,7 +373,7 @@ impl ModelingPackage {
             .checked_add(policy.time_limit)
             .ok_or_else(|| contract("initialization deadline overflow"))?;
         let (base, interruption) = bounded(
-            "initialization",
+            pse_diagnostics::DiagnosticStage::Initialization,
             Some(deadline),
             cancel,
             |child| async move {
@@ -615,7 +412,7 @@ impl ModelingPackage {
         // step fixes the same assignment.
         let discrete = &policy.discrete;
         let (assignment, interruption) = bounded(
-            "initialization",
+            pse_diagnostics::DiagnosticStage::Initialization,
             Some(deadline),
             cancel,
             |child| async move { self.discrete_assignment(analysis, discrete, &child).await },
@@ -695,10 +492,10 @@ struct Initializer<'a> {
     report: ModelingInitializationReport,
 }
 impl Initializer<'_> {
-    fn stop(&mut self, class: BoundaryClass, rule: &'static str) -> bool {
+    fn stop(&mut self, class: BoundaryClass, rule: pse_diagnostics::DiagnosticRule) -> bool {
         self.report.failure = Some(BoundaryDiagnostic::new(
             class,
-            "initialization",
+            pse_diagnostics::DiagnosticStage::Initialization,
             [self.analysis.root.as_id(), self.analysis.instance.as_id()],
             rule,
         ));
@@ -714,7 +511,7 @@ impl Initializer<'_> {
         if self.report.attempts.len() == self.policy.maximum_attempts {
             self.stop(
                 BoundaryClass::ResourceLimit,
-                "modeling.initialization.attempt_limit",
+                pse_diagnostics::DiagnosticRule::ModelingInitializationAttemptLimit,
             );
             return None;
         }
@@ -732,7 +529,7 @@ impl Initializer<'_> {
                 self.accepted.map_or(Start::Specification, Start::Accepted),
                 obligations,
                 Some(self.deadline),
-                "initialization",
+                pse_diagnostics::DiagnosticStage::Initialization,
                 self.cancel,
             )
             .await;
@@ -866,7 +663,7 @@ impl Initializer<'_> {
             if !initial && fraction <= progress {
                 return self.stop(
                     BoundaryClass::TrialRejected,
-                    "modeling.initialization.step_precision",
+                    pse_diagnostics::DiagnosticRule::ModelingInitializationStepPrecision,
                 );
             }
             let parameters = match continuation_values(continuations, fraction) {
@@ -902,7 +699,7 @@ impl Initializer<'_> {
                     if step < self.policy.minimum_step {
                         return self.stop(
                             BoundaryClass::TrialRejected,
-                            "modeling.initialization.minimum_step",
+                            pse_diagnostics::DiagnosticRule::ModelingInitializationMinimumStep,
                         );
                     }
                 }
@@ -947,29 +744,6 @@ fn continuation_values(
             Ok((*id, f64::from_bits(bits)))
         })
         .collect()
-}
-
-/// The batching adapter an independent study point explicitly selects (Plan 22 N5): the
-/// point joins a batch with its neighbours that select the same one.
-fn batching(point: &ModelingStudyPoint) -> Option<pse_backend_native::solve::Backend> {
-    let execution = point.execution.as_ref().ok()?;
-    if !matches!(execution.procedure, DeclaredProcedure::Solve) {
-        return None;
-    }
-    let analysis = &execution.analysis;
-    match analysis.solver.selection {
-        // A batch binds the points' own analyses; a point with an overlay runs alone.
-        pse_backend_native::solve::SolverSelection::Explicit(backend)
-            if point.predecessor.is_none()
-                && point.overlay == crate::workflow::PointOverlay::default()
-                && pse_backend_native::execution::adapter(backend)
-                    .capability()
-                    .batch =>
-        {
-            Some(backend)
-        }
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -1165,7 +939,7 @@ mod tests {
         );
     }
     #[tokio::test]
-    async fn kernel_study_isolates_failures_and_initialization_restores_original_specification() {
+    async fn initialization_restores_original_specification() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
@@ -1183,6 +957,7 @@ mod tests {
             bindings: Bindings::default(),
             limits: Limits::default(),
             case: ModelingCaseBindings {
+                members: BTreeMap::new(),
                 values: BTreeMap::new(),
                 variables: BTreeMap::from([(
                     "x".into(),
@@ -1199,57 +974,6 @@ mod tests {
         };
         let cancel = crate::CancelSource::new();
         let before = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-        let mut failing = analysis.clone();
-        failing.case.values.insert("x".into(), 0.);
-        let declared = package
-            .declared_execution(
-                root,
-                analysis.compiler,
-                analysis.solver.clone(),
-                analysis.numerical.clone(),
-                analysis.limits,
-                &cancel,
-            )
-            .await
-            .unwrap();
-        let point_execution = |analysis: ModelingAnalysis| DeclaredExecution {
-            analysis,
-            ..declared.clone()
-        };
-        let study = package
-            .study(
-                vec![
-                    ModelingStudyPoint {
-                        execution: Ok(point_execution(analysis.clone())),
-                        predecessor: None,
-                        overlay: Default::default(),
-                    },
-                    ModelingStudyPoint {
-                        execution: Ok(point_execution(failing)),
-                        predecessor: None,
-                        overlay: Default::default(),
-                    },
-                    ModelingStudyPoint {
-                        execution: Ok(point_execution(analysis.clone())),
-                        predecessor: None,
-                        overlay: Default::default(),
-                    },
-                    ModelingStudyPoint {
-                        execution: Ok(point_execution(analysis.clone())),
-                        predecessor: Some(1),
-                        overlay: Default::default(),
-                    },
-                ],
-                4,
-                &cancel,
-            )
-            .await
-            .unwrap();
-        assert_eq!(study.unattempted, 0);
-        assert!(study.outcomes[0].as_ref().unwrap().accepted);
-        assert!(!study.outcomes[1].as_ref().unwrap().accepted);
-        assert!(study.outcomes[2].as_ref().unwrap().accepted);
-        assert!(study.outcomes[3].is_err());
         let policy = ModelingInitialization {
             stages: vec!["easy".into()],
             homotopy: true,
@@ -1484,7 +1208,11 @@ mod discrete_tests {
     async fn initialization_refuses_nonintegral_discrete_start() {
         let refusal = |error: &WorkflowError| {
             let diagnostic = error.boundary_diagnostic();
-            assert_eq!(diagnostic.rule, "modeling.domain", "{error}");
+            assert_eq!(
+                diagnostic.rule,
+                pse_diagnostics::DiagnosticRule::ModelingDomain,
+                "{error}"
+            );
             let text = |name: &str| match diagnostic.observations.get(name) {
                 Some(Observation::Text(value)) => value.clone(),
                 other => panic!("{name}: {other:?}"),
@@ -1535,7 +1263,7 @@ mod discrete_tests {
             package
                 .initialize_model(&analysis, declared(&[("n", 2.), ("x", 1.)]), &cancel)
                 .await
-                .is_err_and(|e| matches!(e, WorkflowError::Contract(_)))
+                .is_err_and(|e| matches!(e, WorkflowError::Input(_)))
         );
         // A declared integral value overrides the non-integral start.
         let report = package

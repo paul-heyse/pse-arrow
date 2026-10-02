@@ -15,12 +15,16 @@ pub struct RuntimeOperationalStudyPointsRow {
     pub r#point_index: i32,
     ///binding_hash
     pub r#binding_hash: pse_ids::ContentHash,
-    ///predecessor
-    pub r#predecessor: Option<i32>,
     ///job_id
     pub r#job_id: crate::generated::identities::JobId,
     ///state
     pub r#state: crate::generated::enums::StudyPointState,
+    ///revision
+    pub r#revision: i64,
+    ///policy
+    pub r#policy: String,
+    ///outcome
+    pub r#outcome: String,
     ///updated_at
     pub r#updated_at: i64,
 }
@@ -31,10 +35,11 @@ impl crate::SemanticEq for RuntimeOperationalStudyPointsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#binding_hash,
                 &other.r#binding_hash,
-            )
-            && crate::SemanticEq::semantic_eq(&self.r#predecessor, &other.r#predecessor)
-            && crate::SemanticEq::semantic_eq(&self.r#job_id, &other.r#job_id)
+            ) && crate::SemanticEq::semantic_eq(&self.r#job_id, &other.r#job_id)
             && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
+            && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
+            && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
+            && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
             && crate::SemanticEq::semantic_eq(&self.r#updated_at, &other.r#updated_at)
     }
 }
@@ -53,12 +58,16 @@ impl crate::SemanticFrame for RuntimeOperationalStudyPointsRow {
         crate::SemanticFrame::frame(&self.r#point_index, hash);
         hash.str(stringify!(r#binding_hash));
         crate::SemanticFrame::frame(&self.r#binding_hash, hash);
-        hash.str(stringify!(r#predecessor));
-        crate::SemanticFrame::frame(&self.r#predecessor, hash);
         hash.str(stringify!(r#job_id));
         crate::SemanticFrame::frame(&self.r#job_id, hash);
         hash.str(stringify!(r#state));
         crate::SemanticFrame::frame(&self.r#state, hash);
+        hash.str(stringify!(r#revision));
+        crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#policy));
+        crate::SemanticFrame::frame(&self.r#policy, hash);
+        hash.str(stringify!(r#outcome));
+        crate::SemanticFrame::frame(&self.r#outcome, hash);
         hash.str(stringify!(r#updated_at));
         crate::SemanticFrame::frame(&self.r#updated_at, hash);
     }
@@ -69,9 +78,11 @@ impl crate::HeapUsage for RuntimeOperationalStudyPointsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#point_index))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#binding_hash))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#predecessor))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#job_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#policy))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#updated_at))
     }
 }

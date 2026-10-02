@@ -20,7 +20,7 @@ use crate::authoring_driver::document::{
     OwnedDocumentSet, load_package_documents_owned, package_checksum,
 };
 use crate::math::settings::SolveSettings;
-use pse_ids::{ContentHash, SemanticId};
+use pse_ids::ContentHash;
 use pse_model::{document::Version, generated::enums::ModelingAnalysisRoute};
 use pse_operations::{
     attempts::{AttemptKind, NewAttempt},
@@ -34,7 +34,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 /// The payload version this build executes: the store's `payload_version` column and the
 /// document's own `version` ([`JobPayload`]).
-pub const JOB_PAYLOAD_VERSION: i32 = 4;
+pub const JOB_PAYLOAD_VERSION: i32 = 5;
 
 /// How a job's solve is started.
 #[derive(
@@ -63,13 +63,13 @@ pub enum JobStart {
     },
 }
 
-/// Version 4 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+/// Version 5 of a durable job's payload: the one task a job runs. Unknown fields, tasks
 /// and versions are refused.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct JobPayload {
     /// Document version.
-    pub version: Version<4>,
+    pub version: Version<5>,
     /// The task.
     pub task: JobTask,
 }
@@ -90,6 +90,8 @@ impl JobPayload {
 pub enum JobTask {
     /// Solve one authored case once, possibly as one point of a study.
     Modeling(Box<ModelingJob>),
+    /// Run one admitted occurrence through its existing operation owner.
+    StudyOperation(Box<StudyOperationJob>),
     /// Publish a concluded study: its summary and every completed point's result members,
     /// as the study's one publication (Plan 22 O7).
     StudyFinalization(StudyFinalization),
@@ -122,44 +124,36 @@ pub struct ModelingJob {
     /// predecessor's stored solution instead.
     #[serde(default)]
     pub start: JobStart,
-    /// The study point this job runs (Plan 22 O7).
-    #[serde(default)]
-    pub study: Option<StudyPointBinding>,
 }
 
-/// The binding of one study point (Plan 22 O7): which point of which study the job runs,
-/// its value bindings and the earlier point that seeds it.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+/// One immutable admitted occurrence and its package source bundles.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyOperationJob {
+    /// Physical source bundle.
+    pub physical: ContentHash,
+    /// Modeling source bundle closure.
+    pub modeling: Vec<ContentHash>,
+    /// The exact admitted occurrence copied mechanically from StudyDefinition.
+    pub point: StudyPointBinding,
+}
+
+/// Binding, occurrence policy and operation share one immutable authority.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyPointBinding {
-    /// The study.
+    /// Study identity.
     pub study_id: StudyId,
-    /// The point's index in the study.
+    /// Occurrence key, independent of binding identity.
     pub point_index: u32,
-    /// The hash of the point's value bindings: its case, route and overlay.
+    /// Canonical binding identity.
     pub binding_hash: ContentHash,
-    /// The values the point replaces in its case.
-    #[serde(default)]
-    pub overlay: PointOverlay,
-    /// The earlier point whose stored solution this one starts from; the point runs only
-    /// once that point completed.
-    #[serde(default)]
-    pub predecessor: Option<u32>,
-}
-
-/// Values a study point replaces in its authored case, composed over the original for the
-/// point only.
-#[derive(
-    Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(deny_unknown_fields)]
-pub struct PointOverlay {
-    /// Case values by path.
-    #[serde(default)]
-    pub values: BTreeMap<String, f64>,
-    /// Declared parameters by identity.
-    #[serde(default)]
-    pub parameters: BTreeMap<SemanticId, f64>,
+    /// Physically admitted assignments.
+    pub binding: super::AdmittedBinding,
+    /// Shared typed dependencies and start policy.
+    pub policy: pse_model::study::PointPolicy,
+    /// Reconstructable operation owned by the immutable definition.
+    pub operation: super::StudyOperation,
 }
 
 impl ModelingJob {
@@ -321,11 +315,6 @@ impl Operations {
         retry: RetryPolicy,
         priority: i32,
     ) -> Result<Enqueued, WorkflowError> {
-        if job.study.is_some() {
-            return Err(contract(
-                "a study point is enqueued with its study (Runtime::start_study)",
-            ));
-        }
         let request_identity = job.request_identity()?;
         let payload =
             serde_json::to_value(JobPayload::new(JobTask::Modeling(Box::new(job.clone()))))
@@ -374,6 +363,7 @@ impl Runtime {
         &self,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
         let operations = operations(self)?;
+        self.reconcile_study_receipts().await?;
         let Some(claimed) = operations
             .store()
             .jobs()
@@ -405,44 +395,72 @@ impl Runtime {
         if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
             return ran(attempt.abandon(&error).await);
         }
-        let modeling = match decode(&claimed) {
-            Ok(JobTask::Modeling(modeling)) => *modeling,
-            Ok(JobTask::StudyFinalization(task)) => {
-                // Publishing a concluded study runs no solve; it ends under this try's lease.
-                let published = tokio::select! {
-                    published = self.finalize_study(operations, task.study_id, &cancel) => published,
-                    () = cancel.cancelled() => Err(WorkflowError::Math(
-                        crate::math::MathRuntimeError::Cancelled,
-                    )),
-                };
-                let outcome = published.map(|published| {
-                    format!(
-                        "study {} published as {}",
-                        task.study_id, published.publication_id
-                    )
-                });
-                return ran(attempt.end_task(outcome).await);
+        let task = match decode(&claimed) {
+            Ok(task) => task,
+            Err(error) => return ran(attempt.abandon(&error).await),
+        };
+        let handle = match task {
+            JobTask::StudyFinalization(task) => {
+                let published = tokio::select! { published = self.finalize_study(operations,task.study_id,&cancel) => published, () = cancel.cancelled() => Err(crate::math::MathRuntimeError::Cancelled.into()) };
+                return ran(attempt
+                    .end_task(published.map(|published| {
+                        format!(
+                            "study {} published as {}",
+                            task.study_id, published.publication_id
+                        )
+                    }))
+                    .await);
             }
-            Err(error) => return ran(attempt.abandon(&error).await),
+            JobTask::Modeling(modeling) => {
+                let preparation = tokio::select! { prepared = self.prepare_job(operations,&claimed,*modeling,&cancel) => prepared, () = cancel.cancelled() => Err(crate::math::MathRuntimeError::Cancelled.into()) };
+                let (prepared, applied, _) = match preparation {
+                    Ok(prepared) => prepared,
+                    Err(error) => return ran(attempt.abandon(&error).await),
+                };
+                attempt.tap().observe(&applied.event());
+                self.start_attempt(vec![prepared], attempt)?
+            }
+            JobTask::StudyOperation(task) => {
+                let mut point = match operations.point_context(&task.point).await {
+                    Ok(point) => point,
+                    Err(error) => return ran(attempt.abandon(&error).await),
+                };
+                attempt.set_point(point.clone());
+                let preparation = tokio::select! { prepared = self.prepare_study_job(operations,&task,&cancel) => prepared, () = cancel.cancelled() => Err(crate::math::MathRuntimeError::Cancelled.into()) };
+                let (prepared, seed, acquisition_error) = match preparation {
+                    Ok(prepared) => prepared,
+                    Err(error) => return ran(attempt.abandon(&error).await),
+                };
+                let action = match operations
+                    .store()
+                    .studies()
+                    .admit_dispatch(
+                        task.point.study_id,
+                        task.point.policy.key,
+                        job,
+                        claimed.attempt_id,
+                        operations.worker(),
+                        point.revision,
+                        seed,
+                    )
+                    .await
+                {
+                    Ok(action) => action,
+                    Err(error) => return ran(attempt.abandon(&error.into()).await),
+                };
+                use pse_model::study::ActionKind;
+                match action {
+                    ActionKind::Start(start) => { point.revision += 1; point.start = Some(start); attempt.set_point(point); prepared.start_attempt(self,&cancel,attempt).await? }
+                    ActionKind::Refuse(refusal) => {
+                        let mut diagnostic = super::study_execution::policy_refusal(&refusal);
+                        if let Some(error) = acquisition_error { diagnostic.causes.push(error.boundary_diagnostic()); }
+                        return ran(attempt.abandon(&diagnostic.into()).await);
+                    }
+                    ActionKind::Cancel => return ran(attempt.abandon(&crate::math::MathRuntimeError::Cancelled.into()).await),
+                    ActionKind::Reconcile | ActionKind::Wait(_) => return ran(attempt.abandon(&contract("study policy requires reconciliation or input acquisition before native dispatch")).await),
+                }
+            }
         };
-        // A cancellation request stops the try in any phase, including source loading.
-        let preparation = tokio::select! {
-            prepared = self.prepare_job(operations, &claimed, modeling, &cancel) => prepared,
-            () = cancel.cancelled() => Err(WorkflowError::Math(
-                crate::math::MathRuntimeError::Cancelled,
-            )),
-        };
-        let (prepared, applied, point) = match preparation {
-            Ok(prepared) => prepared,
-            Err(error) => return ran(attempt.abandon(&error).await),
-        };
-        // A study point's try writes its result members under the study's intent.
-        if let Some(point) = point {
-            attempt.set_point(point);
-        }
-        // The attempt's stream records how the solve started, before its native events.
-        attempt.tap().observe(&applied.event());
-        let handle = self.start_attempt(vec![prepared], attempt)?;
         let result = tokio::select! {
             result = handle.wait() => result?,
             () = cancel.cancelled() => {
@@ -545,31 +563,158 @@ impl Runtime {
                 "durable algebraic job requires the authored solve procedure",
             ));
         }
-        let mut analysis = execution.analysis;
-        let Some(binding) = job.study else {
-            let prepared = package.prepare_analysis(&analysis, cancel).await?;
-            let (prepared, applied) = start(operations, claimed, job.start, prepared).await?;
-            return Ok((prepared, applied, None));
+        let analysis = execution.analysis;
+        let prepared = package.prepare_analysis(&analysis, cancel).await?;
+        let (prepared, applied) = start(operations, claimed, job.start, prepared).await?;
+        Ok((prepared, applied, None))
+    }
+
+    async fn prepare_study_job(
+        &self,
+        operations: &Operations,
+        job: &StudyOperationJob,
+        cancel: &crate::CancelSource,
+    ) -> Result<
+        (
+            super::PreparedStudyOperation,
+            Option<pse_model::study::SeedFact>,
+            Option<WorkflowError>,
+        ),
+        WorkflowError,
+    > {
+        use pse_model::study::{SeedAvailability, SeedFact, SeedNeed, StartPolicy};
+        if job.point.binding.identity() != job.point.binding_hash
+            || job.point.policy.key.0 != job.point.point_index
+        {
+            return Err(contract("study job binding or occurrence identity differs"));
+        }
+        let stored = operations.store().studies().row(job.point.study_id).await?;
+        let definition: super::StudyDefinition = serde_json::from_str(&stored.definition)
+            .map_err(|error| contract(format!("immutable study definition: {error}")))?;
+        definition.validate_roles()?;
+        let defined = definition
+            .points
+            .iter()
+            .find(|point| point.policy.key == job.point.policy.key)
+            .ok_or_else(|| contract("study occurrence is absent from its immutable definition"))?;
+        let replay = super::StudyPointDefinition {
+            operation: job.point.operation.clone(),
+            binding_hash: job.point.binding_hash,
+            binding: job.point.binding.clone(),
+            policy: job.point.policy.clone(),
         };
-        let point = operations.point_context(&binding).await?;
-        analysis.case.values.extend(binding.overlay.values.clone());
-        let prepared = package
-            .prepare_analysis_attempt(
-                &analysis,
-                super::modeling::cases::CaseOverrides {
-                    parameters: binding.overlay.parameters.clone(),
-                    ..Default::default()
-                },
-                cancel,
-            )
+        let checksum = |point: &super::StudyPointDefinition| {
+            pse_backend_native::identity::of(pse_ids::Frame::DurableJobRequestV2, point)
+                .map_err(crate::math::MathRuntimeError::from)
+        };
+        if checksum(defined)? != checksum(&replay)?
+            || definition.physical != job.physical
+            || definition.modeling != job.modeling
+        {
+            return Err(contract("study job differs from the immutable definition"));
+        }
+        let physical = self
+            .physical_from_sources(&operations.sources(&job.physical).await?, cancel)
             .await?;
-        let (prepared, applied) = match binding.predecessor {
-            Some(predecessor) => {
-                super::study::predecessor_start(operations, &binding, predecessor, prepared).await?
-            }
-            None => start(operations, claimed, job.start, prepared).await?,
+        let mut modeling = Vec::with_capacity(job.modeling.len());
+        for bundle in &job.modeling {
+            modeling.push(operations.sources(bundle).await?);
+        }
+        let package = self.package_from_sources(&modeling, physical)?;
+        let prepared = package
+            .prepare_bound_operation(&job.point.operation, &job.point.binding, cancel)
+            .await?;
+        if prepared.seed_need() != job.point.policy.seed_need {
+            return Err(contract("immutable study operation seed need differs"));
+        }
+        if prepared.seed_need() == SeedNeed::NotNeeded
+            || matches!(job.point.policy.start, StartPolicy::Fresh)
+        {
+            return Ok((prepared, None, None));
+        }
+        let super::PreparedStudyOperation::DeclaredCase(case) = prepared else {
+            return Err(contract("operation has no admitted seed input"));
         };
-        Ok((prepared, applied, Some(point)))
+        let (role, found) = match &job.point.policy.start {
+            StartPolicy::Explicit { role, seed } => (*role, Some(*seed)),
+            StartPolicy::Continuation(edge) => {
+                let predecessor = operations
+                    .store()
+                    .studies()
+                    .point(job.point.study_id, edge.predecessor.0)
+                    .await?;
+                let target = case
+                    .solve
+                    .compatibility()
+                    .ok_or_else(|| contract("missing seed compatibility"))?;
+                let preparation = case
+                    .solve
+                    .seed_preparation_identity()
+                    .ok_or_else(|| contract("missing seed preparation"))?;
+                let stored = operations
+                    .store()
+                    .solutions()
+                    .latest_of_attempt(
+                        predecessor.attempt_id,
+                        &target.layout,
+                        &preparation,
+                        target.backend,
+                    )
+                    .await?;
+                (edge.role, stored.map(|stored| stored.solution_id))
+            }
+            StartPolicy::Fresh => {
+                return Ok((
+                    super::PreparedStudyOperation::DeclaredCase(case),
+                    None,
+                    None,
+                ));
+            }
+        };
+        let Some(seed) = found else {
+            return Ok((
+                super::PreparedStudyOperation::DeclaredCase(case),
+                Some(SeedFact {
+                    role,
+                    availability: SeedAvailability::Absent,
+                }),
+                None,
+            ));
+        };
+        match case
+            .as_ref()
+            .clone()
+            .with_stored_start(operations, super::StoredStart::Solution(seed))
+            .await
+        {
+            Ok(seeded) => Ok((
+                super::PreparedStudyOperation::DeclaredCase(Box::new(seeded)),
+                Some(SeedFact {
+                    role,
+                    availability: SeedAvailability::Compatible { seed },
+                }),
+                None,
+            )),
+            Err(error) => {
+                let availability = if matches!(
+                    error,
+                    WorkflowError::Operations(pse_operations::OperationsError::NotFound { .. })
+                ) {
+                    SeedAvailability::Absent
+                } else if error.boundary_diagnostic().class
+                    == pse_model::diagnostic::BoundaryClass::Incompatible
+                {
+                    SeedAvailability::Incompatible
+                } else {
+                    SeedAvailability::InternalFailure
+                };
+                Ok((
+                    super::PreparedStudyOperation::DeclaredCase(case),
+                    Some(SeedFact { role, availability }),
+                    Some(error),
+                ))
+            }
+        }
     }
 
     pub(super) async fn physical_from_sources(
@@ -787,10 +932,7 @@ mod decode_tests {
         restated["version"] = serde_json::json!(JOB_PAYLOAD_VERSION + 1);
         for document in [restated, serde_json::json!({ "from": "a newer build" })] {
             let error = decode(&claimed(JOB_PAYLOAD_VERSION, document));
-            assert!(
-                matches!(error, Err(WorkflowError::Contract(_))),
-                "{error:?}"
-            );
+            assert!(matches!(error, Err(WorkflowError::Input(_))), "{error:?}");
         }
     }
 }

@@ -82,6 +82,7 @@ fn package(runtime: Runtime) -> (ModelingPackage, [DeclarationId; 3]) {
 }
 fn fixed(values: &[(&str, f64)], fixed: &[&str]) -> ModelingCaseBindings {
     ModelingCaseBindings {
+        members: std::collections::BTreeMap::new(),
         values: values.iter().map(|(p, v)| ((*p).to_owned(), *v)).collect(),
         variables: fixed
             .iter()

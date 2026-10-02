@@ -334,22 +334,25 @@ pub(crate) async fn release(
             reason: format!("job {job} is {}, not waiting", locked.state.as_str()),
         });
     }
-    attempts::apply(
-        tx,
-        target,
-        locked.attempt_id,
-        AttemptState::Queued,
-        note,
-        None,
-    )
-    .await?;
+    // Effect reconciliation may suspend a retry whose new try was already queued.
+    if attempts::fetch(tx, target, locked.attempt_id).await?.state != AttemptState::Queued {
+        attempts::apply(
+            tx,
+            target,
+            locked.attempt_id,
+            AttemptState::Queued,
+            note,
+            None,
+        )
+        .await?;
+    }
     attempts::notify(tx, target, JOBS_CHANNEL, &job.to_string()).await
 }
 
 /// Requeue `job` as `next`, a new attempt whose parent is its current attempt, when the
 /// retry policy allows another try; otherwise end the job as failed. A cancellation
 /// requested on the previous attempt ends the job as cancelled instead.
-async fn requeue(
+pub(crate) async fn requeue(
     tx: &Tx<'_>,
     target: &Target,
     job: &RuntimeOperationalJobsRow,

@@ -319,6 +319,28 @@ pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
             .map(|value| member(value.as_str(), value.description()))
             .collect(),
     ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::DiagnosticRule",
+        pse_diagnostics::DiagnosticRule::ALL
+            .iter()
+            .map(|v| member(v.as_str(), v.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::DiagnosticStage",
+        pse_diagnostics::DiagnosticStage::ALL
+            .iter()
+            .map(|v| member(v.as_str(), v.description()))
+            .collect(),
+    ));
+
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::DiagnosticObservationKind",
+        pse_diagnostics::DiagnosticObservationKind::ALL
+            .iter()
+            .map(|v| member(v.as_str(), v.description()))
+            .collect(),
+    ));
 }
 
 #[cfg(test)]
@@ -360,6 +382,7 @@ mod tests {
                 pse_vocabulary::InvariantKind, pse_vocabulary::Severity,
                 pse_vocabulary::Determinism, pse_vocabulary::OperationEffect,
                 pse_diagnostics::DiagnosticCode, pse_diagnostics::FailureClass,
+                pse_diagnostics::DiagnosticRule, pse_diagnostics::DiagnosticStage, pse_diagnostics::DiagnosticObservationKind,
                 pse_quantity::Opcode, pse_quantity::ScaleKind, pse_quantity::QuantityAdditionKind,
                 pse_quantity::QuantityKindCategory, pse_quantity::BasisKind,
                 pse_quantity::CompositionBasis, pse_quantity::RateBasis,
@@ -375,7 +398,7 @@ mod tests {
             assert_eq!(declared, expected, "{path}");
         }
         assert_eq!(
-            sourced, 28,
+            sourced, 31,
             "every source-owned vocabulary is declared as sourced"
         );
     }

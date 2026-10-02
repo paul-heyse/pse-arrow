@@ -95,15 +95,25 @@ impl ModelingPackage {
                 report.stop = DiagnosticSampleStop::TimeLimit;
                 break;
             }
-            if prepared.validate_point(&values).is_err() {
+            if let Err(error) = prepared.validate_point(&values) {
                 report.outcomes.push((
                     id,
-                    Err(BoundaryDiagnostic::new(
-                        BoundaryClass::InvalidModel,
-                        "modeling.diagnostic_samples",
-                        [id],
-                        "sample changes frozen inputs; prepare another case",
-                    )),
+                    Err({
+                        let mut diagnostic = BoundaryDiagnostic::new(
+                            BoundaryClass::InvalidModel,
+                            pse_diagnostics::DiagnosticStage::ModelingDiagnosticSamples,
+                            [id],
+                            pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
+                        );
+                        diagnostic.observations.insert(
+                            "detail".into(),
+                            Observation::Text(
+                                "sample changes frozen inputs; prepare another case".into(),
+                            ),
+                        );
+                        diagnostic.causes.push(error.boundary_diagnostic());
+                        diagnostic
+                    }),
                 ));
                 report.unattempted -= 1;
                 remaining = remaining.saturating_sub(1);

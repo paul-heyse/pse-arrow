@@ -27,21 +27,24 @@ from pse._build import (
     _NativeModelingNonlinearExplanation,
     _NativeModelingPackage,
     _NativeModelingResult,
-    _NativeModelingStudy,
     _NativeModelingTrajectory,
+    _NativeStudyReport,
 )
 from pse._inspection import TableStream
-from pse._runs import PreparedOperation, StudyHandle, Workspace
+from pse._runs import PreparedOperation, RunResult, StudyHandle, Workspace
 from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
 from pse.contracts.authored import (
     AuthoredFitCasesRow,
     AuthoredModelingDeclarationsRow,
 )
 from pse.contracts.documents import (
+    Conclusion,
     FitUncertainty,
-    PointOverlay,
+    PointOutcome,
     PreparationCounts,
     SolveSettings,
+    StudyDefinition,
+    StudyRequest,
 )
 from pse.contracts.enums import (
     FitDerivatives,
@@ -347,10 +350,10 @@ class ModelingInitialization:
 
 
 @attrs.frozen
-class ModelingStudy:
+class StudyReport:
     """Independent outcomes with explicit accepted-predecessor dependencies."""
 
-    _handle: _NativeModelingStudy
+    _handle: _NativeStudyReport
 
     def findings(self) -> TableStream:
         return TableStream(self._handle.findings())
@@ -372,9 +375,16 @@ class ModelingStudy:
         """The study's own structural preparations and value rebinds."""
         return codec.decode_json(self._handle.preparations, PreparationCounts)
 
-    def result(self, index: int) -> ModelingResult | None:
+    def result(self, index: int) -> RunResult | None:
         handle = self._handle.result(index)
-        return None if handle is None else ModelingResult(handle)
+        return None if handle is None else RunResult(handle)
+
+    def outcome(self, index: int) -> PointOutcome:
+        return codec.decode_json(self._handle.outcome(index), PointOutcome)
+
+    @property
+    def conclusion(self) -> Conclusion:
+        return codec.decode_json(self._handle.conclusion, Conclusion)
 
     def failure(self, index: int) -> DiagnosticReport | None:
         return self._handle.failure(index)
@@ -886,93 +896,60 @@ class ModelingPackage:
             )
         )
 
+    def admit_study(self, request: StudyRequest) -> StudyDefinition:
+        """Resolve physical bindings and operation capabilities once in this revision."""
+        return codec.decode_json(
+            self._handle.admit_study(codec.encode_json(request)), StudyDefinition
+        )
+
     @overload
     def study(
-        self,
-        case_ids: tuple[DeclarationId, ...],
-        settings: SolveSettings,
-        *,
-        predecessors: tuple[int | None, ...] = (),
-        maximum_points: int = 1024,
-        overlays: tuple[PointOverlay, ...] = (),
-    ) -> ModelingStudy: ...
+        self, definition: StudyDefinition, *, maximum_points: int = 1024
+    ) -> StudyReport: ...
 
     @overload
     def study(
         self,
-        case_ids: tuple[DeclarationId, ...],
-        settings: SolveSettings,
+        definition: StudyDefinition,
         *,
-        predecessors: tuple[int | None, ...] = (),
-        maximum_points: int = 1024,
         runtime: "Runtime",
         workspace: Workspace,
-        overlays: tuple[PointOverlay, ...] = (),
+        maximum_points: int = 1024,
         max_tries: int = 1,
         priority: int = 0,
     ) -> StudyHandle: ...
 
     def study(
         self,
-        case_ids: tuple[DeclarationId, ...],
-        settings: SolveSettings,
+        definition: StudyDefinition,
         *,
-        predecessors: tuple[int | None, ...] = (),
         maximum_points: int = 1024,
         runtime: "Runtime | None" = None,
         workspace: Workspace | None = None,
-        overlays: tuple[PointOverlay, ...] = (),
         max_tries: int = 1,
         priority: int = 0,
-    ) -> "ModelingStudy | StudyHandle":
-        """Execute authored cases; failures do not suppress independent points.
+    ) -> "StudyReport | StudyHandle":
+        """Execute one admitted occurrence definition in this process or through workers.
 
-        Without ``runtime`` the points run in order in this process and the
-        returned study holds their results and its own preparation counts (the
-        library path): points of one structure prepare it once and rebind their
-        values. With a durable ``runtime`` the study is stored in its
-        operational store and run by workers: a point with a predecessor waits
-        for it and starts from its stored solution, and the study publishes
-        once in ``workspace``.
-
-        Args:
-            case_ids: The authored case of each point.
-            settings: The solve settings of every point.
-            predecessors: For each point, the earlier point it starts from.
-            maximum_points: The largest in-process study accepted.
-            runtime: A durable runtime whose workers run the study.
-            workspace: The registered workspace the study publishes in.
-            overlays: For each point, the case values and parameters it replaces.
-            max_tries: How often each point and the finalization may be tried.
-            priority: The priority of the study's jobs.
-
-        Returns:
-            The in-process study, or the durable study's handle.
+        The definition pins every operation and canonical binding. Its dependency and start
+        policies preserve scientific permission separately from operational completion.
+        Use ``admit_study`` to create it from the generated request contract.
         """
         if runtime is None:
             if workspace is not None:
-                message = "a workspace selects a durable study; pass runtime"
-                raise ValueError(message)
-            return ModelingStudy(
+                raise ValueError("a workspace selects a durable study; pass runtime")
+            return StudyReport(
                 self._handle.study(
-                    [case.to_hex() for case in case_ids],
-                    codec.encode_json(settings),
-                    predecessors=list(predecessors),
-                    overlays=[codec.encode_json(overlay) for overlay in overlays],
-                    maximum_points=maximum_points,
+                    codec.encode_json(definition), maximum_points=maximum_points
                 )
             )
         if workspace is None:
-            message = "a durable study publishes in a workspace"
-            raise ValueError(message)
+            raise ValueError("a durable study publishes in a workspace")
         return StudyHandle(
             self._handle.start_study(
                 runtime._handle,  # noqa: SLF001 - same native boundary
                 msgspec.json.encode(workspace),
-                [case.to_hex() for case in case_ids],
-                codec.encode_json(settings),
-                predecessors=list(predecessors),
-                overlays=[codec.encode_json(overlay) for overlay in overlays],
+                codec.encode_json(definition),
                 max_tries=max_tries,
                 priority=priority,
             )

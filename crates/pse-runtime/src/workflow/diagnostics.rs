@@ -2,562 +2,90 @@
 // Copyright (c) 2026 Paul Heyse
 //! Attach only source evidence supplied by the compiler or native boundary.
 use super::{RunReport, RunResult};
-use pse_model::diagnostic::{
-    BoundaryClass as Class, BoundaryDiagnostic, Observation, SourceLocation,
-};
-use std::error::Error as _;
+use pse_model::diagnostic::{BoundaryClass as Class, BoundaryDiagnostic, Observation};
+
+use pse_diagnostics::TypedDiagnostic;
+use pse_model::diagnostic::{DiagnosticProjection, DiagnosticRule, DiagnosticStage, project_facts};
 
 impl super::WorkflowError {
-    /// Structured preparation/execution failure, retaining native source identities.
+    /// The source owner supplies typed facts and scientific evidence.
     pub fn boundary_diagnostic(&self) -> BoundaryDiagnostic {
-        if let Self::ConditionalAdmission { diagnostic, .. }
-        | Self::ModelingAdmission { diagnostic, .. } = self
-        {
-            return diagnostic.as_ref().clone();
-        }
-        observed(self, "workflow")
+        DiagnosticProjection::boundary_diagnostic(self, DiagnosticStage::Workflow)
     }
 }
-
-pub(super) fn observed(
-    error: &(dyn std::error::Error + 'static),
-    stage: &str,
-) -> BoundaryDiagnostic {
-    let mut result = BoundaryDiagnostic::new(Class::Internal, stage, [], "workflow.unclassified");
-    result
-        .observations
-        .insert("detail".into(), Observation::Text(error.to_string()));
-    let mut actual_instance = None;
-    let mut current = Some(error);
-    while let Some(error) = current {
-        if let Some(boundary) = error.downcast_ref::<BoundaryDiagnostic>() {
-            return boundary.clone();
-        }
-        if let Some(modeling) = error.downcast_ref::<pse_modeling::ModelingError>() {
-            return modeling.boundary_diagnostic();
-        }
-        if let Some(authoring) = error.downcast_ref::<pse_authoring::AuthoringError>() {
-            use pse_authoring::AuthoringError as E;
-            result.class = Class::InvalidModel;
-            let (rule, span) = match authoring {
-                E::Syntax { at, .. } => ("authoring.syntax", Some(*at)),
-                E::Contract { at, .. } => ("authoring.contract", *at),
-                E::UnknownKey { at, .. } => ("authoring.unknown_key", Some(*at)),
-                E::MissingId { at, .. } => ("authoring.missing_id", Some(*at)),
-                E::UnresolvedTarget { at, .. } => ("authoring.unresolved_target", Some(*at)),
-                E::Budget { .. } => {
-                    result.class = Class::ResourceLimit;
-                    ("authoring.budget", None)
+impl DiagnosticProjection for super::WorkflowError {
+    fn boundary_diagnostic(&self, stage: DiagnosticStage) -> BoundaryDiagnostic {
+        match self {
+            Self::Boundary(d) => d.as_ref().clone(),
+            Self::ConditionalAdmission { diagnostic, cause }
+            | Self::ModelingAdmission { diagnostic, cause } => {
+                let mut d = diagnostic.as_ref().clone();
+                if d.causes.is_empty() {
+                    d.causes.push(cause.boundary_diagnostic(stage));
                 }
-                E::DocumentIo { .. } => ("authoring.document_io", None),
-                E::DerivedWrite { .. } => ("authoring.derived_write", None),
-                E::RenameNamed { .. } => ("authoring.rename_named", None),
-                E::UnknownRowKey { .. } => ("authoring.unknown_row_key", None),
-                E::PackageUnresolved { .. } => ("authoring.package_unresolved", None),
-                E::PackageVersionConflict { .. } => ("authoring.package_version_conflict", None),
-                E::SchemaVersionMismatch { .. } => ("authoring.schema_version", None),
-            };
-            result.rule = rule.into();
-            if let Some(span) = span {
-                result.sources.push(span.document_id);
-                result.locations.push(SourceLocation {
-                    source: span.document_id,
-                    path: format!("document/{}", span.document_id),
-                    name: None,
-                    start: Some(span.start),
-                    end: Some(span.end),
-                });
+                d
             }
-        }
-        if let Some(super::WorkflowError::Contract(_)) =
-            error.downcast_ref::<super::WorkflowError>()
-        {
-            result.class = Class::InvalidModel;
-            result.rule = "workflow.contract".into();
-        }
-        if let Some(error) = error.downcast_ref::<pse_math::MathError>() {
-            use pse_math::MathError as E;
-            result.rule = match error {
-                E::Instance { .. } => result.rule.as_str(),
-                E::Validity(_) => "math.validity",
-                E::Applicability(_) => "math.applicability",
-                E::Domain { .. } => "math.domain",
-                E::OutsideRange { .. } => "math.range",
-                E::Evaluation { .. } => "math.evaluation",
-                E::Provider { .. } => "math.provider",
-                E::Cancelled => "math.cancelled",
-                E::Limit(_) | E::SlotLimit { .. } | E::WorkLimit { .. } => "math.limit",
-                E::Contract(_) => "math.contract",
-                E::Quantity(_) => "math.quantity",
-                E::Library(_) => "math.library",
-                E::CoefficientRange => "math.coefficient_range",
-                E::Native { .. } => "math.native",
+            Self::Math(e) => e.boundary_diagnostic(stage),
+            Self::Typed(e) => e.boundary_diagnostic(stage),
+            Self::Shared(e) => DiagnosticProjection::boundary_diagnostic(e.as_ref(), stage),
+            Self::Authoring(e) => e.boundary_diagnostic(stage),
+            Self::Engine(e) => pse_model::diagnostic::project_typed(e, stage),
+            Self::Operations(e) => {
+                let mut diagnostic = pse_model::diagnostic::project_typed(e, stage);
+                diagnostic.rule = DiagnosticRule::WorkflowOperations;
+                diagnostic
             }
-            .into();
-            match error {
-                E::Instance { instance, .. } => {
-                    actual_instance = Some(*instance);
-                    result.sources.push(*instance);
-                    for observation in &mut result.applicability {
-                        observation.instance = Some(*instance);
+            Self::Input(_)
+            | Self::Internal(_)
+            | Self::EphemeralPublication { .. }
+            | Self::PublicationUnresolved { .. }
+            | Self::LegacyWorkspace { .. }
+            | Self::ExportLeaseExpired { .. }
+            | Self::UnknownPayloadVersion { .. } => {
+                let mut d = project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
+                d.rule = match self {
+                    Self::Input(_) => DiagnosticRule::WorkflowInput,
+                    Self::Internal(_) => DiagnosticRule::WorkflowInternal,
+                    Self::EphemeralPublication { .. } => {
+                        DiagnosticRule::WorkflowEphemeralPublication
                     }
-                }
-                // Plan 23 H5: a rejected validity predicate carries its typed lineage.
-                E::Validity(lineage) => {
-                    result.sources.push(lineage.source);
-                    result.sources.extend(lineage.form);
-                    result.sources.extend(&lineage.sets);
-                    result.sources.extend(&lineage.members);
-                    result.validity = Some(lineage.as_ref().clone());
-                    result.class = Class::TrialRejected;
-                }
-                E::Applicability(assessment) => {
-                    result.class = Class::TrialRejected;
-                    result.applicability = assessment.observations.clone();
-                    for observation in &mut result.applicability {
-                        observation.instance = actual_instance;
+                    Self::PublicationUnresolved { .. } => {
+                        DiagnosticRule::WorkflowPublicationUnresolved
                     }
-                    for observation in &assessment.observations {
-                        result.sources.extend(observation.claim.id);
-                        result.sources.push(observation.claim.form);
-                        result.sources.extend(&observation.claim.records);
-                    }
-                }
-                E::Domain { source_id, .. }
-                | E::OutsideRange { source_id, .. }
-                | E::Evaluation { source_id, .. } => {
-                    result.sources.push(*source_id);
-                    result.class = Class::TrialRejected;
-                }
-                E::Provider {
-                    source_id,
-                    provider,
-                    ..
-                } => {
-                    result.sources.extend([*source_id, *provider]);
-                    result
-                        .observations
-                        .insert("provider".into(), Observation::Text(provider.to_hex()));
-                    result.class = Class::TrialRejected;
-                }
-                E::Cancelled => result.class = Class::Cancelled,
-                E::Limit(_) | E::SlotLimit { .. } | E::WorkLimit { .. } => {
-                    result.class = Class::ResourceLimit;
-                }
-                E::Contract(_) | E::Quantity(_) => result.class = Class::InvalidModel,
-                E::Library(_) => result.class = Class::Infrastructure,
-                E::CoefficientRange => result.class = Class::Infrastructure,
-                // The inner typed native cause is classified when the chain reaches it.
-                E::Native { source_id, .. } => result.sources.push(*source_id),
-            }
-            if let E::OutsideRange {
-                target,
-                value,
-                lower,
-                upper,
-                ..
-            } = error
-            {
-                result.sources.push(*target);
-                for (name, value) in [
-                    ("value", Some(*value)),
-                    ("lower", *lower),
-                    ("upper", *upper),
-                ] {
-                    if let Some(value) = value {
-                        result
-                            .observations
-                            .insert(name.into(), Observation::Real(value));
-                    }
-                }
-            }
-            if let E::Evaluation { order, .. } = error {
-                result.observations.insert(
-                    "derivative_order".into(),
-                    Observation::Integer(match order {
-                        pse_kernels::DerivativeOrder::Value => 0,
-                        pse_kernels::DerivativeOrder::First => 1,
-                        pse_kernels::DerivativeOrder::Second => 2,
-                    }),
-                );
-            }
-            if let E::SlotLimit {
-                required,
-                available,
-            } = error
-            {
-                for (name, value) in [("required_slots", required), ("available_slots", available)]
-                {
-                    result.observations.insert(
-                        name.into(),
-                        i64::try_from(*value).map_or_else(
-                            |_| Observation::Text(value.to_string()),
-                            Observation::Integer,
-                        ),
-                    );
-                }
-            }
-            if let E::WorkLimit {
-                source_id,
-                resource,
-                required,
-                available,
-                components,
-            } = error
-            {
-                result.sources.push(*source_id);
-                result
-                    .observations
-                    .insert("resource".into(), Observation::Text((*resource).into()));
-                for (name, value) in [
-                    ("required_operations", required),
-                    ("available_operations", available),
-                    ("taylor_components", components),
-                ] {
-                    result.observations.insert(
-                        name.into(),
-                        i64::try_from(*value).map_or_else(
-                            |_| Observation::Text(value.to_string()),
-                            Observation::Integer,
-                        ),
-                    );
-                }
-            }
-        }
-        if let Some(error) = error.downcast_ref::<pse_backend_native::ProblemError>() {
-            problem(error, &mut result);
-        }
-        if let Some(error) = error.downcast_ref::<crate::math::MathRuntimeError>() {
-            use crate::math::MathRuntimeError as E;
-            match error {
-                E::Cancelled => result.class = Class::Cancelled,
-                E::Limit(_) | E::Retiring | E::Pool(_) => result.class = Class::ResourceLimit,
-                E::Infrastructure(_) => result.class = Class::Infrastructure,
-                _ => {}
-            }
-        }
-        if let Some(error) = error.downcast_ref::<pse_kernels::ProviderError>() {
-            use pse_kernels::ProviderError as E;
-            result.class = match error {
-                E::Cancelled => Class::Cancelled,
-                E::Limit(_) => Class::ResourceLimit,
-                E::Contract(_) => Class::InvalidModel,
-                E::Terminal(_) => Class::Infrastructure,
-                E::Trial(_)
-                | E::OutsideEnvelope { .. }
-                | E::Singular(_)
-                | E::RegimeCrossing { .. } => Class::TrialRejected,
-            };
-            result.observations.insert(
-                "provider_recoverable".into(),
-                Observation::Boolean(error.recoverable()),
-            );
-            if let E::RegimeCrossing {
-                selector,
-                bound,
-                selected,
-            } = error
-            {
-                result.sources.extend([*selector, *bound, *selected]);
-            }
-            if let E::OutsideEnvelope {
-                axis,
-                value,
-                lower,
-                upper,
-            } = error
-            {
-                result
-                    .observations
-                    .insert("provider_axis".into(), Observation::Text(axis.clone()));
-                for (name, value) in [
-                    ("provider_value", *value),
-                    ("provider_lower", *lower),
-                    ("provider_upper", *upper),
-                ] {
-                    if value.is_finite() {
-                        result
-                            .observations
-                            .insert(name.into(), Observation::Real(value));
-                    }
-                }
-            }
-        }
-        if let Some(error) = error.downcast_ref::<pse_compiler::workspace::CompileError>() {
-            use pse_compiler::workspace::CompileError as E;
-            result.rule = match error {
-                E::Missing(_) => "compiler.missing",
-                E::Syntax { .. } => "compiler.syntax",
-                E::Math(_) => "compiler.math",
-                E::Modeling(_) => "compiler.modeling",
-                E::Structure(_) => "compiler.structure",
-                E::Cancelled => "compiler.cancelled",
-                E::Limit(_) => "compiler.limit",
-            }
-            .into();
-            result.class = match error {
-                E::Cancelled => Class::Cancelled,
-                E::Limit(_) => Class::ResourceLimit,
-                _ => Class::InvalidModel,
-            };
-            if let E::Syntax {
-                definition,
-                source_index,
-                error,
-            } = error
-            {
-                let (start, end) = match error.as_ref() {
-                    pse_authoring::dsl::DslError::Syntax { span, .. } => {
-                        (Some(span.start), Some(span.end))
-                    }
-                    pse_authoring::dsl::DslError::AmbiguousUnaryPower { offset }
-                    | pse_authoring::dsl::DslError::NonFiniteNumber { offset } => {
-                        (Some(*offset), Some(*offset))
-                    }
-                    pse_authoring::dsl::DslError::Budget { .. } => {
-                        result.class = Class::ResourceLimit;
-                        (None, None)
-                    }
+                    Self::LegacyWorkspace { .. } => DiagnosticRule::WorkflowLegacyWorkspace,
+                    Self::ExportLeaseExpired { .. } => DiagnosticRule::WorkflowExportExpired,
+                    Self::UnknownPayloadVersion { .. } => DiagnosticRule::WorkflowJobPayloadVersion,
+                    Self::Boundary(_)
+                    | Self::ConditionalAdmission { .. }
+                    | Self::ModelingAdmission { .. }
+                    | Self::Math(_)
+                    | Self::Typed(_)
+                    | Self::Shared(_)
+                    | Self::Authoring(_)
+                    | Self::Engine(_)
+                    | Self::Operations(_) => d.rule,
                 };
-                result.sources.push(*definition);
-                result.locations.push(SourceLocation {
-                    source: *definition,
-                    path: format!("definition/{definition}/source/{source_index}"),
-                    name: None,
-                    start,
-                    end,
-                });
+                if matches!(
+                    self,
+                    Self::EphemeralPublication { .. }
+                        | Self::LegacyWorkspace { .. }
+                        | Self::ExportLeaseExpired { .. }
+                        | Self::UnknownPayloadVersion { .. }
+                ) {
+                    d.class = Class::Incompatible;
+                }
+                d.observations
+                    .insert("detail".into(), Observation::Text(self.to_string()));
+                d
             }
         }
-        current = if let Some(workflow) = error.downcast_ref::<super::WorkflowError>() {
-            match workflow {
-                super::WorkflowError::Boundary(error) => Some(error.as_ref()),
-                super::WorkflowError::ConditionalAdmission { diagnostic, .. }
-                | super::WorkflowError::ModelingAdmission { diagnostic, .. } => {
-                    Some(diagnostic.as_ref())
-                }
-                super::WorkflowError::Math(error) => Some(error),
-                super::WorkflowError::Engine(error) => Some(error),
-                super::WorkflowError::Authoring(error) => Some(error),
-                super::WorkflowError::Shared(error) => Some(error.as_ref()),
-                super::WorkflowError::Contract(_) => None,
-                // Retryable store failures are infrastructure; refusals of the durable
-                // contract (an illegal transition, a lost lease) are conflicts.
-                super::WorkflowError::Operations(error) => {
-                    result.class = if error.is_retryable() {
-                        Class::Infrastructure
-                    } else {
-                        Class::Conflict
-                    };
-                    result.rule = "workflow.operations".into();
-                    None
-                }
-                super::WorkflowError::EphemeralPublication { .. } => {
-                    result.class = Class::Incompatible;
-                    result.rule = "workflow.ephemeral_publication".into();
-                    None
-                }
-                super::WorkflowError::UnknownPayloadVersion { .. } => {
-                    result.class = Class::Incompatible;
-                    result.rule = "workflow.job_payload_version".into();
-                    None
-                }
-                super::WorkflowError::PublicationUnresolved { .. } => {
-                    result.class = Class::Infrastructure;
-                    result.rule = "workflow.publication_unresolved".into();
-                    None
-                }
-                super::WorkflowError::LegacyWorkspace { .. } => {
-                    result.class = Class::Incompatible;
-                    result.rule = "workflow.legacy_workspace".into();
-                    None
-                }
-                super::WorkflowError::ExportLeaseExpired { .. } => {
-                    result.class = Class::Incompatible;
-                    result.rule = "workflow.export_expired".into();
-                    None
-                }
-            }
-        } else if let Some(driver) = error.downcast_ref::<crate::authoring_driver::DriverError>() {
-            use crate::authoring_driver::DriverError as E;
-            match driver {
-                E::Authoring(e) => Some(e),
-                E::Catalog(e) => Some(e),
-                E::Resource(e) => Some(e),
-                E::Allocation(e) => Some(e),
-                E::Relation(e) => Some(e),
-            }
-        } else if let Some(pse_math::MathError::Instance { cause, .. }) =
-            error.downcast_ref::<pse_math::MathError>()
-        {
-            Some(cause.as_ref())
-        } else if let Some(error) = error.downcast_ref::<crate::math::MathRuntimeError>() {
-            use crate::math::MathRuntimeError as E;
-            match error {
-                E::Math(e) => Some(e),
-                E::Solve(e) => Some(e),
-                E::Shared(e) => Some(e.as_ref()),
-                E::Compile(e) => Some(e),
-                _ => error.source(),
-            }
-        } else if let Some(pse_backend_native::ProblemError::Math(e)) =
-            error.downcast_ref::<pse_backend_native::ProblemError>()
-        {
-            Some(e)
-        } else if let Some(pse_backend_native::ProblemError::Provider(e)) =
-            error.downcast_ref::<pse_backend_native::ProblemError>()
-        {
-            Some(e)
-        } else if let Some(pse_compiler::workspace::CompileError::Math(e)) =
-            error.downcast_ref::<pse_compiler::workspace::CompileError>()
-        {
-            Some(e.as_ref())
-        } else if let Some(pse_compiler::workspace::CompileError::Modeling(e)) =
-            error.downcast_ref::<pse_compiler::workspace::CompileError>()
-        {
-            Some(e)
-        } else {
-            error.source()
-        };
     }
-    result.sources.sort_unstable();
-    result.sources.dedup();
-    result
 }
-/// Classify a native failure by its typed cause (DP-21). Structural failures keep their
-/// row and column identities; native statuses keep their code and name.
-fn problem(error: &pse_backend_native::ProblemError, result: &mut BoundaryDiagnostic) {
-    use pse_backend_native::{LimitKind, ProblemError as E};
-    let (class, rule) = match error {
-        E::RouteRefused(decision) => {
-            result.observations.insert(
-                "route_intent".into(),
-                Observation::Text(decision.intent.as_str().into()),
-            );
-            result.observations.insert(
-                "route_selection".into(),
-                Observation::Text(format!("{:?}", decision.selection)),
-            );
-            result.observations.insert(
-                "route_classes".into(),
-                Observation::Text(
-                    decision
-                        .classes
-                        .iter()
-                        .map(|c| c.as_str())
-                        .collect::<Vec<_>>()
-                        .join(","),
-                ),
-            );
-            result.observations.insert(
-                "route_eligibility".into(),
-                Observation::Text(
-                    decision
-                        .eligibility
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join(" | "),
-                ),
-            );
-            if let Some(structure) = &decision.structure {
-                result.observations.insert(
-                    "structural_mode".into(),
-                    Observation::Text(format!("{:?}", structure.mode)),
-                );
-                if let Some((rows, columns)) = &structure.refusal {
-                    result.sources.extend(rows);
-                    result.sources.extend(columns);
-                }
-            }
-            if decision
-                .structure
-                .as_ref()
-                .is_some_and(|structure| structure.refusal.is_some())
-            {
-                (Class::InvalidModel, "native.structural")
-            } else {
-                (Class::Unsupported, "native.route_refused")
-            }
-        }
-        E::Unavailable { backend, .. } => {
-            result
-                .observations
-                .insert("backend".into(), Observation::Text(backend.as_str().into()));
-            (Class::Unsupported, "native.unavailable")
-        }
-        E::Unsupported(_) => (Class::Unsupported, "native.unsupported"),
-        // Retained state that cannot serve a step requiring its reuse: the request is
-        // valid, and the state it names is incompatible with it.
-        E::Reuse { backend, refusal } => {
-            result
-                .observations
-                .insert("backend".into(), Observation::Text(backend.as_str().into()));
-            let reason = match refusal {
-                pse_backend_native::ReuseRefusal::Foreign(held) => {
-                    result.observations.insert(
-                        "held_backend".into(),
-                        Observation::Text(held.as_str().into()),
-                    );
-                    "foreign"
-                }
-                pse_backend_native::ReuseRefusal::Structure => "structure",
-                pse_backend_native::ReuseRefusal::DroppedOptions(keys) => {
-                    result
-                        .observations
-                        .insert("dropped_options".into(), Observation::Text(keys.join(",")));
-                    "dropped_options"
-                }
-            };
-            result
-                .observations
-                .insert("reuse_refusal".into(), Observation::Text(reason.into()));
-            (Class::Incompatible, "native.reuse")
-        }
-        E::Contract(_) => (Class::InvalidModel, "native.contract"),
-        E::Structural { rows, columns, .. } => {
-            result.sources.extend(rows);
-            result.sources.extend(columns);
-            (Class::InvalidModel, "native.structural")
-        }
-        E::Numerical { status, .. } => {
-            if let Some(status) = status {
-                result.observations.insert(
-                    "native_backend".into(),
-                    Observation::Text(status.backend.as_str().into()),
-                );
-                result
-                    .observations
-                    .insert("native_code".into(), Observation::Integer(status.code));
-                result.observations.insert(
-                    "native_status".into(),
-                    Observation::Text(status.name.clone()),
-                );
-            }
-            // DP-21: an algorithmic failure without a model cause.
-            (Class::Numerical, "native.numerical")
-        }
-        E::Limit { kind, .. } => {
-            result.observations.insert(
-                "limit".into(),
-                Observation::Text(
-                    match kind {
-                        LimitKind::Time => "time",
-                        LimitKind::Work => "work",
-                        LimitKind::Memory => "memory",
-                    }
-                    .into(),
-                ),
-            );
-            (Class::ResourceLimit, "native.limit")
-        }
-        E::Cancelled => (Class::Cancelled, "native.cancelled"),
-        E::Internal(_) => (Class::Internal, "native.internal"),
-        // Typed causes are classified by their own owners further down the chain.
-        E::Math(_) | E::Provider(_) => return,
-    };
-    result.class = class;
-    result.rule = rule.into();
+pub(super) fn observed(
+    error: &dyn DiagnosticProjection,
+    stage: DiagnosticStage,
+) -> BoundaryDiagnostic {
+    error.boundary_diagnostic(stage)
 }
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
@@ -571,8 +99,8 @@ impl RunResult {
                 .iter()
                 .filter_map(|s| s.validation_failure())
                 .map(|cause| {
-                    let mut diagnostic = observed(cause, "shooting");
-                    diagnostic.rule = "shooting.candidate_validation".into();
+                    let mut diagnostic = observed(cause, DiagnosticStage::Shooting);
+                    diagnostic.rule = DiagnosticRule::ShootingCandidateValidation;
                     diagnostic
                 })
                 .chain(r.validation_error.clone())
@@ -582,8 +110,12 @@ impl RunResult {
                 .diagnostic
                 .iter()
                 .map(|d| {
-                    let mut diagnostic = observed(d.cause.as_ref(), "fit");
-                    diagnostic.rule = d.rule.as_str().into();
+                    let mut diagnostic = observed(d.cause.as_ref(), DiagnosticStage::Fit);
+                    diagnostic.rule = match d.rule {
+                        super::FitRule::FinalEvaluation => DiagnosticRule::FitFinalEvaluation,
+                        super::FitRule::ObjectiveOverflow => DiagnosticRule::FitObjectiveOverflow,
+                        super::FitRule::ResponseRank => DiagnosticRule::FitResponseRank,
+                    };
                     diagnostic
                 })
                 .chain(
@@ -591,8 +123,8 @@ impl RunResult {
                         .iter()
                         .filter_map(|s| s.validation_failure())
                         .map(|cause| {
-                            let mut diagnostic = observed(cause, "fit");
-                            diagnostic.rule = "fit.candidate_validation".into();
+                            let mut diagnostic = observed(cause, DiagnosticStage::Fit);
+                            diagnostic.rule = DiagnosticRule::FitCandidateValidation;
                             diagnostic
                         }),
                 )
@@ -616,7 +148,7 @@ mod tests {
             super::super::WorkflowError::Math(crate::math::MathRuntimeError::Compile(error.into()));
         let diagnostic = wrapped.boundary_diagnostic();
         assert_eq!(diagnostic.class, Class::Unsupported);
-        assert_eq!(diagnostic.rule, "modeling.capability");
+        assert_eq!(diagnostic.rule, DiagnosticRule::ModelingCapability);
         assert_eq!(diagnostic.sources, vec![declaration]);
         assert!(
             matches!(&diagnostic.observations["detail"], Observation::Text(value) if value == "synthetic capability")
@@ -658,9 +190,9 @@ mod tests {
         };
         let error = refused.select(SolverSelection::Auto).unwrap_err();
         assert!(matches!(error, ProblemError::RouteRefused(_)), "{error:?}");
-        let diagnostic = observed(&error, "routing");
+        let diagnostic = observed(&error, DiagnosticStage::Routing);
         assert_eq!(diagnostic.class, Class::Unsupported);
-        assert_eq!(diagnostic.rule, "native.route_refused");
+        assert_eq!(diagnostic.rule, DiagnosticRule::NativeRouteRefused);
         // An explicitly selected adapter outside the linked inventory is unavailable.
         let error = refused
             .select(SolverSelection::Explicit(Backend::Ipopt))
@@ -669,7 +201,10 @@ mod tests {
             matches!(error, ProblemError::RouteRefused(ref decision) if matches!(decision.refusal, Some(pse_backend_native::routing::Refusal::Unavailable(Backend::Ipopt)))),
             "{error:?}"
         );
-        assert_eq!(observed(&error, "routing").class, Class::Unsupported);
+        assert_eq!(
+            observed(&error, DiagnosticStage::Routing).class,
+            Class::Unsupported
+        );
         // Internal invariants and numerical failures are never an invalid model.
         for (error, class) in [
             (ProblemError::internal("postcondition"), Class::Internal),
@@ -696,7 +231,11 @@ mod tests {
                 Class::Infrastructure,
             ),
         ] {
-            assert_eq!(observed(&error, "native").class, class, "{error:?}");
+            assert_eq!(
+                observed(&error, DiagnosticStage::Native).class,
+                class,
+                "{error:?}"
+            );
         }
         // A refused reuse names the option keys the step drops (PS-10).
         let refused = observed(
@@ -707,9 +246,9 @@ mod tests {
                     "warm_start_bound_push".into(),
                 ]),
             },
-            "native",
+            DiagnosticStage::Native,
         );
-        assert_eq!(refused.rule, "native.reuse");
+        assert_eq!(refused.rule, DiagnosticRule::NativeReuse);
         assert!(matches!(
             &refused.observations["dropped_options"],
             Observation::Text(keys) if keys == "mu_init,warm_start_bound_push"
@@ -729,11 +268,11 @@ mod tests {
         let error = pse_math::MathError::Native {
             source_id: block,
             retained: inner.retained_bytes(),
-            cause: Box::new(inner),
+            cause: pse_model::diagnostic::DiagnosticCause::new(inner),
         };
-        let d = observed(&error, "implicit");
+        let d = observed(&error, DiagnosticStage::Implicit);
         assert_eq!(d.class, Class::InvalidModel);
-        assert_eq!(d.rule, "native.structural");
+        assert_eq!(d.rule, DiagnosticRule::NativeStructural);
         let mut expected = vec![block, rows[0], columns[0]];
         expected.sort_unstable();
         assert_eq!(d.sources, expected);
@@ -741,7 +280,7 @@ mod tests {
     #[test]
     fn unattributed_failure_never_acquires_a_guessed_source() {
         let e = pse_backend_native::ProblemError::Contract("presolve evaluation failed".into());
-        assert!(observed(&e, "presolve").sources.is_empty());
+        assert!(observed(&e, DiagnosticStage::Presolve).sources.is_empty());
     }
     #[test]
     fn derivative_work_limit_retains_quantitative_witness_through_wrappers() {
@@ -757,7 +296,7 @@ mod tests {
             super::super::WorkflowError::Math(crate::math::MathRuntimeError::Compile(error.into()));
         let diagnostic = wrapped.boundary_diagnostic();
         assert_eq!(diagnostic.class, Class::ResourceLimit);
-        assert_eq!(diagnostic.rule, "math.limit");
+        assert_eq!(diagnostic.rule, DiagnosticRule::MathLimit);
         assert_eq!(diagnostic.sources, vec![source_id]);
         assert!(matches!(
             diagnostic.observations["required_operations"],
@@ -782,7 +321,7 @@ mod tests {
             super::super::WorkflowError::Math(crate::math::MathRuntimeError::Compile(error.into()));
         let diagnostic = wrapped.boundary_diagnostic();
         assert_eq!(diagnostic.class, Class::ResourceLimit);
-        assert_eq!(diagnostic.rule, "math.limit");
+        assert_eq!(diagnostic.rule, DiagnosticRule::MathLimit);
         assert!(matches!(
             diagnostic.observations["required_slots"],
             Observation::Integer(16_385)
@@ -803,7 +342,7 @@ mod tests {
                 requirement: "positive",
             }),
         };
-        let d = observed(&e, "evaluation");
+        let d = observed(&e, DiagnosticStage::Evaluation);
         assert_eq!(d.sources, vec![instance, source_id]);
         assert_eq!(d.class, Class::TrialRejected);
     }
@@ -834,7 +373,7 @@ mod tests {
                     upper: 400.,
                 },
             },
-            "property",
+            DiagnosticStage::Property,
         );
         assert_eq!(d.class, Class::TrialRejected);
         assert_eq!(d.sources.len(), 2);
@@ -844,12 +383,171 @@ mod tests {
         ));
         let d = observed(
             &pse_kernels::ProviderError::Terminal("native failure".into()),
-            "property",
+            DiagnosticStage::Property,
         );
         assert_eq!(d.class, Class::Infrastructure);
         assert!(matches!(
             d.observations["provider_recoverable"],
             Observation::Boolean(false)
         ));
+    }
+    #[test]
+    fn mixed_aggregate_retains_every_repeated_typed_cause_and_detail() {
+        let original = pse_engine::EngineError::Multiple {
+            errors: vec![
+                pse_engine::EngineError::Internal {
+                    message: "first invariant".into(),
+                },
+                pse_engine::EngineError::Cancelled,
+                pse_engine::EngineError::Internal {
+                    message: "first invariant".into(),
+                },
+            ],
+        };
+        let diagnostic = super::super::WorkflowError::Engine(original).boundary_diagnostic();
+        assert_eq!(
+            diagnostic.code,
+            pse_diagnostics::DiagnosticCode::DiagnosticAggregate
+        );
+        assert_eq!(diagnostic.rule, DiagnosticRule::DiagnosticAggregate);
+        assert_eq!(diagnostic.causes.len(), 3);
+        assert_eq!(
+            diagnostic.causes[1].code,
+            pse_diagnostics::DiagnosticCode::RuntimeCancelled
+        );
+        for index in [0, 2] {
+            assert_eq!(
+                diagnostic.causes[index].code,
+                pse_diagnostics::DiagnosticCode::InternalInvariant
+            );
+            assert!(
+                matches!(&diagnostic.causes[index].observations["detail"], Observation::Text(detail) if detail.contains("first invariant"))
+            );
+        }
+    }
+    #[test]
+    fn operational_semantic_disposition_does_not_depend_on_retry_permission() {
+        let error = pse_operations::OperationsError::CorruptValue {
+            column: "study.outcome",
+            detail: "unknown closed member".into(),
+        };
+        assert!(!error.is_retryable());
+        let diagnostic = super::super::WorkflowError::Operations(error).boundary_diagnostic();
+        assert_eq!(
+            diagnostic.code,
+            pse_diagnostics::DiagnosticCode::InternalInvariant
+        );
+        assert_eq!(diagnostic.class, Class::Internal);
+    }
+    #[test]
+    fn detailed_taxonomy_survives_syntax_identity_units_evaluation_resource_cancel_panic_and_invariant()
+     {
+        use super::super::WorkflowError;
+        use pse_diagnostics::DiagnosticCode as Code;
+        let id = pse_ids::SemanticId::from_bytes([3; 16]);
+        let expected = pse_quantity::QuantityTypeId::from_id(id);
+        let actual =
+            pse_quantity::QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([4; 16]));
+        let cases = [
+            (
+                WorkflowError::Math(crate::math::MathRuntimeError::Compile(
+                    pse_compiler::workspace::CompileError::Syntax {
+                        definition: id,
+                        source_index: 0,
+                        error: std::sync::Arc::new(
+                            pse_authoring::dsl::parse_expr("x + )").unwrap_err(),
+                        ),
+                    },
+                )),
+                Code::AuthoringParseSyntax,
+                Class::InvalidModel,
+            ),
+            (
+                WorkflowError::Math(crate::math::MathRuntimeError::Math(
+                    pse_math::MathError::Quantity(pse_quantity::QuantityError::UnknownId {
+                        kind: "quantity_type",
+                        id,
+                    }),
+                )),
+                Code::QuantityUnknownId,
+                Class::InvalidModel,
+            ),
+            (
+                WorkflowError::Math(crate::math::MathRuntimeError::Math(
+                    pse_math::MathError::Quantity(pse_quantity::QuantityError::ContractMismatch {
+                        component: pse_quantity::ContractComponent::Kind,
+                        expected,
+                        actual,
+                    }),
+                )),
+                Code::QuantityContractMismatch,
+                Class::InvalidModel,
+            ),
+            (
+                WorkflowError::Math(crate::math::MathRuntimeError::Math(
+                    pse_math::MathError::Evaluation {
+                        source_id: id,
+                        order: pse_kernels::DerivativeOrder::Value,
+                        detail: "evaluation failed".into(),
+                    },
+                )),
+                Code::MathEvaluation,
+                Class::TrialRejected,
+            ),
+            (
+                WorkflowError::Math(crate::math::MathRuntimeError::Limit("work")),
+                Code::RuntimeResourceLimit,
+                Class::ResourceLimit,
+            ),
+            (
+                WorkflowError::Math(crate::math::MathRuntimeError::Cancelled),
+                Code::RuntimeCancelled,
+                Class::Cancelled,
+            ),
+            (
+                WorkflowError::Math(crate::math::MathRuntimeError::Panic("caught panic".into())),
+                Code::WorkflowPanic,
+                Class::Internal,
+            ),
+            (
+                WorkflowError::Internal("postcondition".into()),
+                Code::WorkflowInternal,
+                Class::Internal,
+            ),
+        ];
+        for (error, code, class) in cases {
+            let diagnostic = error.boundary_diagnostic();
+            assert_eq!(diagnostic.code, code);
+            assert_eq!(diagnostic.class, class);
+            let encoded = serde_json::to_vec(&diagnostic).unwrap();
+            let decoded: BoundaryDiagnostic = serde_json::from_slice(&encoded).unwrap();
+            assert_eq!(decoded.code, code);
+            assert_eq!(decoded.failure_class(), code.class());
+            assert_eq!(decoded.sources, diagnostic.sources);
+        }
+    }
+    #[test]
+    fn unit_refusal_keeps_both_complete_operand_contracts_through_runtime_and_codec() {
+        let expected =
+            pse_quantity::QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([5; 16]));
+        let actual =
+            pse_quantity::QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([6; 16]));
+        let error = super::super::WorkflowError::Math(crate::math::MathRuntimeError::Math(
+            pse_math::MathError::Quantity(pse_quantity::QuantityError::ContractMismatch {
+                component: pse_quantity::ContractComponent::Basis,
+                expected,
+                actual,
+            }),
+        ));
+        let diagnostic = error.boundary_diagnostic();
+        let encoded = serde_json::to_vec(&diagnostic).unwrap();
+        let decoded: BoundaryDiagnostic = serde_json::from_slice(&encoded).unwrap();
+        let Observation::Contracts(contracts) = &decoded.observations["operands"] else {
+            panic!("operand contracts were flattened")
+        };
+        assert_eq!(
+            contracts.iter().map(|c| c.quantity).collect::<Vec<_>>(),
+            vec![*expected.as_bytes(), *actual.as_bytes()]
+        );
     }
 }

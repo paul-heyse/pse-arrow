@@ -927,147 +927,206 @@ mod scip_tests;
 mod measurement_tests;
 
 impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
-    fn boundary_diagnostic(&self, stage: pse_diagnostics::DiagnosticStage) -> pse_model::diagnostic::BoundaryDiagnostic {
-        use pse_model::diagnostic::{BoundaryClass as Class, BoundaryDiagnostic, Observation, DiagnosticProjection};
-        use pse_diagnostics::TypedDiagnostic;
+    fn boundary_diagnostic(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
         use ProblemError as E;
-        match self { Self::Math(error) => return error.boundary_diagnostic(stage), Self::Provider(error) => return error.boundary_diagnostic(stage),
-            Self::Unavailable{..} | Self::RouteRefused(_) | Self::Contract(_) | Self::Unsupported(_) | Self::Reuse{..} | Self::Structural{..} | Self::Numerical{..} | Self::Limit{..} | Self::Cancelled | Self::Internal(_) => {} }
+        use pse_diagnostics::TypedDiagnostic;
+        use pse_model::diagnostic::{BoundaryClass as Class, BoundaryDiagnostic, Observation};
+        match self {
+            Self::Math(error) => return error.boundary_diagnostic(stage),
+            Self::Provider(error) => return error.boundary_diagnostic(stage),
+            Self::Unavailable { .. }
+            | Self::RouteRefused(_)
+            | Self::Contract(_)
+            | Self::Unsupported(_)
+            | Self::Reuse { .. }
+            | Self::Structural { .. }
+            | Self::Numerical { .. }
+            | Self::Limit { .. }
+            | Self::Cancelled
+            | Self::Internal(_) => {}
+        }
         let error = self;
-        let mut result = BoundaryDiagnostic::new(Class::Internal, stage, [], pse_diagnostics::DiagnosticRule::NativeInternal)
-            .with_code(self.diagnostic_code().unwrap_or(pse_diagnostics::DiagnosticCode::InternalInvariant));
-    let (class, rule) = match error {
-        E::RouteRefused(decision) => {
-            result.observations.insert(
-                "route_intent".into(),
-                Observation::Text(decision.intent.as_str().into()),
-            );
-            result.observations.insert(
-                "route_selection".into(),
-                Observation::Text(format!("{:?}", decision.selection)),
-            );
-            result.observations.insert(
-                "route_classes".into(),
-                Observation::Text(
-                    decision
-                        .classes
-                        .iter()
-                        .map(|c| c.as_str())
-                        .collect::<Vec<_>>()
-                        .join(","),
-                ),
-            );
-            result.observations.insert(
-                "route_eligibility".into(),
-                Observation::Text(
-                    decision
-                        .eligibility
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join(" | "),
-                ),
-            );
-            if let Some(structure) = &decision.structure {
+        let mut result = BoundaryDiagnostic::new(
+            Class::Internal,
+            stage,
+            [],
+            pse_diagnostics::DiagnosticRule::NativeInternal,
+        )
+        .with_code(
+            self.diagnostic_code()
+                .unwrap_or(pse_diagnostics::DiagnosticCode::InternalInvariant),
+        );
+        let (class, rule) = match error {
+            E::RouteRefused(decision) => {
                 result.observations.insert(
-                    "structural_mode".into(),
-                    Observation::Text(format!("{:?}", structure.mode)),
+                    "route_intent".into(),
+                    Observation::Text(decision.intent.as_str().into()),
                 );
-                if let Some((rows, columns)) = &structure.refusal {
-                    result.sources.extend(rows);
-                    result.sources.extend(columns);
-                }
-            }
-            if decision
-                .structure
-                .as_ref()
-                .is_some_and(|structure| structure.refusal.is_some())
-            {
-                (Class::InvalidModel, pse_diagnostics::DiagnosticRule::NativeStructural)
-            } else {
-                (Class::Unsupported, pse_diagnostics::DiagnosticRule::NativeRoute_refused)
-            }
-        }
-        E::Unavailable { backend, .. } => {
-            result
-                .observations
-                .insert("backend".into(), Observation::Text(backend.as_str().into()));
-            (Class::Unsupported, pse_diagnostics::DiagnosticRule::NativeUnavailable)
-        }
-        E::Unsupported(_) => (Class::Unsupported, pse_diagnostics::DiagnosticRule::NativeUnsupported),
-        // Retained state that cannot serve a step requiring its reuse: the request is
-        // valid, and the state it names is incompatible with it.
-        E::Reuse { backend, refusal } => {
-            result
-                .observations
-                .insert("backend".into(), Observation::Text(backend.as_str().into()));
-            let reason = match refusal {
-                pse_backend_native::ReuseRefusal::Foreign(held) => {
+                result.observations.insert(
+                    "route_selection".into(),
+                    Observation::Text(format!("{:?}", decision.selection)),
+                );
+                result.observations.insert(
+                    "route_classes".into(),
+                    Observation::Text(
+                        decision
+                            .classes
+                            .iter()
+                            .map(|c| c.as_str())
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    ),
+                );
+                result.observations.insert(
+                    "route_eligibility".into(),
+                    Observation::Text(
+                        decision
+                            .eligibility
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" | "),
+                    ),
+                );
+                if let Some(structure) = &decision.structure {
                     result.observations.insert(
-                        "held_backend".into(),
-                        Observation::Text(held.as_str().into()),
+                        "structural_mode".into(),
+                        Observation::Text(format!("{:?}", structure.mode)),
                     );
-                    "foreign"
+                    if let Some((rows, columns)) = &structure.refusal {
+                        result.sources.extend(rows);
+                        result.sources.extend(columns);
+                    }
                 }
-                pse_backend_native::ReuseRefusal::Structure => "structure",
-                pse_backend_native::ReuseRefusal::DroppedOptions(keys) => {
-                    result
-                        .observations
-                        .insert("dropped_options".into(), Observation::Text(keys.join(",")));
-                    "dropped_options"
+                if decision
+                    .structure
+                    .as_ref()
+                    .is_some_and(|structure| structure.refusal.is_some())
+                {
+                    (
+                        Class::InvalidModel,
+                        pse_diagnostics::DiagnosticRule::NativeStructural,
+                    )
+                } else {
+                    (
+                        Class::Unsupported,
+                        pse_diagnostics::DiagnosticRule::NativeRouteRefused,
+                    )
                 }
-            };
-            result
-                .observations
-                .insert("reuse_refusal".into(), Observation::Text(reason.into()));
-            (Class::Incompatible, pse_diagnostics::DiagnosticRule::NativeReuse)
-        }
-        E::Contract(_) => (Class::InvalidModel, pse_diagnostics::DiagnosticRule::NativeContract),
-        E::Structural { rows, columns, .. } => {
-            result.sources.extend(rows);
-            result.sources.extend(columns);
-            (Class::InvalidModel, pse_diagnostics::DiagnosticRule::NativeStructural)
-        }
-        E::Numerical { status, .. } => {
-            if let Some(status) = status {
-                result.observations.insert(
-                    "native_backend".into(),
-                    Observation::Text(status.backend.as_str().into()),
-                );
+            }
+            E::Unavailable { backend, .. } => {
                 result
                     .observations
-                    .insert("native_code".into(), Observation::Integer(status.code));
-                result.observations.insert(
-                    "native_status".into(),
-                    Observation::Text(status.name.clone()),
-                );
+                    .insert("backend".into(), Observation::Text(backend.as_str().into()));
+                (
+                    Class::Unsupported,
+                    pse_diagnostics::DiagnosticRule::NativeUnavailable,
+                )
             }
-            // DP-21: an algorithmic failure without a model cause.
-            (Class::Numerical, pse_diagnostics::DiagnosticRule::NativeNumerical)
-        }
-        E::Limit { kind, .. } => {
-            result.observations.insert(
-                "limit".into(),
-                Observation::Text(
-                    match kind {
-                        LimitKind::Time => "time",
-                        LimitKind::Work => "work",
-                        LimitKind::Memory => "memory",
+            E::Unsupported(_) => (
+                Class::Unsupported,
+                pse_diagnostics::DiagnosticRule::NativeUnsupported,
+            ),
+            // Retained state that cannot serve a step requiring its reuse: the request is
+            // valid, and the state it names is incompatible with it.
+            E::Reuse { backend, refusal } => {
+                result
+                    .observations
+                    .insert("backend".into(), Observation::Text(backend.as_str().into()));
+                let reason = match refusal {
+                    ReuseRefusal::Foreign(held) => {
+                        result.observations.insert(
+                            "held_backend".into(),
+                            Observation::Text(held.as_str().into()),
+                        );
+                        "foreign"
                     }
-                    .into(),
-                ),
-            );
-            (Class::ResourceLimit, pse_diagnostics::DiagnosticRule::NativeLimit)
-        }
-        E::Cancelled => (Class::Cancelled, pse_diagnostics::DiagnosticRule::NativeCancelled),
-        E::Internal(_) => (Class::Internal, pse_diagnostics::DiagnosticRule::NativeInternal),
-        // Typed causes are classified by their own owners further down the chain.
-        E::Math(_) | E::Provider(_) => return result,
-    };
-    result.class = class;
-    result.rule = rule;
-        result.observations.insert("detail".into(), Observation::Text(self.to_string()));
-        result.sources.sort_unstable(); result.sources.dedup();
+                    ReuseRefusal::Structure => "structure",
+                    ReuseRefusal::DroppedOptions(keys) => {
+                        result
+                            .observations
+                            .insert("dropped_options".into(), Observation::Text(keys.join(",")));
+                        "dropped_options"
+                    }
+                };
+                result
+                    .observations
+                    .insert("reuse_refusal".into(), Observation::Text(reason.into()));
+                (
+                    Class::Incompatible,
+                    pse_diagnostics::DiagnosticRule::NativeReuse,
+                )
+            }
+            E::Contract(_) => (
+                Class::InvalidModel,
+                pse_diagnostics::DiagnosticRule::NativeContract,
+            ),
+            E::Structural { rows, columns, .. } => {
+                result.sources.extend(rows);
+                result.sources.extend(columns);
+                (
+                    Class::InvalidModel,
+                    pse_diagnostics::DiagnosticRule::NativeStructural,
+                )
+            }
+            E::Numerical { status, .. } => {
+                if let Some(status) = status {
+                    result.observations.insert(
+                        "native_backend".into(),
+                        Observation::Text(status.backend.as_str().into()),
+                    );
+                    result
+                        .observations
+                        .insert("native_code".into(), Observation::Integer(status.code));
+                    result.observations.insert(
+                        "native_status".into(),
+                        Observation::Text(status.name.clone()),
+                    );
+                }
+                // DP-21: an algorithmic failure without a model cause.
+                (
+                    Class::Numerical,
+                    pse_diagnostics::DiagnosticRule::NativeNumerical,
+                )
+            }
+            E::Limit { kind, .. } => {
+                result.observations.insert(
+                    "limit".into(),
+                    Observation::Text(
+                        match kind {
+                            LimitKind::Time => "time",
+                            LimitKind::Work => "work",
+                            LimitKind::Memory => "memory",
+                        }
+                        .into(),
+                    ),
+                );
+                (
+                    Class::ResourceLimit,
+                    pse_diagnostics::DiagnosticRule::NativeLimit,
+                )
+            }
+            E::Cancelled => (
+                Class::Cancelled,
+                pse_diagnostics::DiagnosticRule::NativeCancelled,
+            ),
+            E::Internal(_) => (
+                Class::Internal,
+                pse_diagnostics::DiagnosticRule::NativeInternal,
+            ),
+            // Typed causes are classified by their own owners further down the chain.
+            E::Math(_) | E::Provider(_) => return result,
+        };
+        result.class = class;
+        result.rule = rule;
+        result
+            .observations
+            .insert("detail".into(), Observation::Text(self.to_string()));
+        result.sources.sort_unstable();
+        result.sources.dedup();
         result
     }
 }

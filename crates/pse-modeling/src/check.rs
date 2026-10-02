@@ -753,7 +753,7 @@ fn check_declarations(
                     || fixture
                         .diagnostics
                         .iter()
-                        .any(|d| d.rule.trim().is_empty() || d.members.is_empty())
+                        .any(|d| d.members.is_empty())
                 {
                     return Err(invalid(
                         row.declaration_id,

@@ -103,7 +103,7 @@ impl ModelingPackage {
             .checked_add(policy.time_limit)
             .ok_or_else(|| contract("explanation deadline overflow"))?;
         let (prepared, interruption) = crate::workflow::staged::bounded(
-            "nonlinear explanation",
+            pse_diagnostics::DiagnosticStage::NonlinearExplanation,
             Some(deadline),
             cancel,
             |child| async move { self.prepare_diagnostics(analysis, &child).await },
@@ -176,21 +176,24 @@ impl ModelingPackage {
             {
                 report.complete = false;
                 let (class, rule) = if cancel.token().is_cancelled() {
-                    (BoundaryClass::Cancelled, "modeling.nonlinear.cancelled")
+                    (
+                        BoundaryClass::Cancelled,
+                        pse_diagnostics::DiagnosticRule::ModelingNonlinearCancelled,
+                    )
                 } else if Instant::now() >= deadline {
                     (
                         BoundaryClass::ResourceLimit,
-                        "modeling.nonlinear.time_limit",
+                        pse_diagnostics::DiagnosticRule::ModelingNonlinearTimeLimit,
                     )
                 } else {
                     (
                         BoundaryClass::ResourceLimit,
-                        "modeling.nonlinear.attempt_limit",
+                        pse_diagnostics::DiagnosticRule::ModelingNonlinearAttemptLimit,
                     )
                 };
                 report.stop = Some(BoundaryDiagnostic::new(
                     class,
-                    "nonlinear-explanation",
+                    pse_diagnostics::DiagnosticStage::NonlinearExplanation,
                     [analysis.root.as_id(), analysis.instance.as_id()],
                     rule,
                 ));
@@ -214,7 +217,7 @@ impl ModelingPackage {
                 .min(deadline.saturating_duration_since(Instant::now()));
             let seed = prepared.model.values.scalars.clone();
             let (result, interruption) = crate::workflow::staged::bounded(
-                "nonlinear explanation",
+                pse_diagnostics::DiagnosticStage::NonlinearExplanation,
                 Some(deadline),
                 cancel,
                 |child| async move {
@@ -270,9 +273,9 @@ impl ModelingPackage {
                                 .unwrap_or_else(|| {
                                     BoundaryDiagnostic::new(
                                         BoundaryClass::Inconclusive,
-                                        "nonlinear-explanation",
+                                        pse_diagnostics::DiagnosticStage::NonlinearExplanation,
                                         [analysis.root.as_id(), analysis.instance.as_id()],
-                                        "modeling.nonlinear.initial_inconclusive",
+                                        pse_diagnostics::DiagnosticRule::ModelingNonlinearInitialInconclusive,
                                     )
                                 }),
                         );
@@ -551,7 +554,7 @@ mod tests {
         );
         assert_eq!(
             first.diagnostic().unwrap().rule,
-            "modeling.qualification.rejected"
+            pse_diagnostics::DiagnosticRule::ModelingQualificationRejected
         );
         assert_eq!(report.candidate_rows.len(), 2, "{}", summarize());
         // The least-infeasible point names the rows it leaves violated (ADR-0109 item 3).
@@ -614,7 +617,7 @@ mod tests {
         assert!(!partial.complete);
         assert_eq!(
             partial.stop.as_ref().unwrap().rule,
-            "modeling.nonlinear.attempt_limit"
+            pse_diagnostics::DiagnosticRule::ModelingNonlinearAttemptLimit
         );
         assert_eq!(
             partial.stop.as_ref().unwrap().class,

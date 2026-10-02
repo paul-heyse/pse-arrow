@@ -602,27 +602,19 @@ fn declare_studies(b: &mut RegistryBuilder) {
                 column("study_id", T::id()).with_fk("runtime.operational_studies", "study_id"),
                 column("point_index", int32()),
                 column("binding_hash", T::hash()),
-                column("predecessor", int32()).optional(),
                 job_ref("job_id"),
                 column("state", T::enumeration("StudyPointState")),
+                column("revision", int64()),
+                column("policy", json()),
+                column("outcome", json()),
                 column("updated_at", ts()),
             ],
-            "One study point: its value bindings by hash, the earlier point whose stored solution seeds it, its job (whose current attempt is the point's try) and its state. A point with a predecessor waits until the predecessor completed, and is cancelled when the predecessor fails or is cancelled.",
+            "One occurrence, distinct from reusable binding content. The versioned study definition owns admitted operations and bindings; policy is its mechanically derived shared point policy. Outcome retains aggregate scientific facts, typed diagnostic, chosen start, effect knowledge and every try. Revision fences pure actions under the study lock; job/attempt lifecycle remains operational state.",
         )
-        // Each job runs one point; a binding appears once per study.
+        // Each job runs one requested occurrence; equal bindings may repeat.
         .unique("job_id", &["job_id"])
-        .unique("binding", &["study_id", "binding_hash"])
-        .foreign_key(
-            "predecessor",
-            &["study_id", "predecessor"],
-            "runtime.operational_study_points",
-            &["study_id", "point_index"],
-        )
         .check("point_index_nonnegative", "\"point_index\" >= 0")
-        .check(
-            "predecessor_is_earlier",
-            "\"predecessor\" IS NULL OR (\"predecessor\" >= 0 AND \"predecessor\" < \"point_index\")",
-        ),
+        .check("revision_nonnegative", "\"revision\" >= 0"),
     );
     b.declare_relation(
         store(

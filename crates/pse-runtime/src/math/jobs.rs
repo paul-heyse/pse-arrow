@@ -260,7 +260,7 @@ impl MathService {
                     work(flag)
                 }).map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining, not receipt of an early result, witnesses TLS destruction.
-                let result=tokio::task::spawn_blocking(move||handle.join()).await.map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?.map_err(|_|MathRuntimeError::Infrastructure("native worker panic".into()))?;
+                let result=tokio::task::spawn_blocking(move||handle.join()).await.map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?.map_err(|_|MathRuntimeError::Panic("native worker panic".into()))?;
                 let result = result.and_then(|(value, retained)| {
                     // A product beyond the working allowance is charged at its actual extent.
                     if let Some(more) = retained.checked_sub(lease.size()).filter(|n| *n > 0) { lease.try_grow(more)?; }

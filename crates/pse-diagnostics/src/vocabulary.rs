@@ -42,6 +42,11 @@ macro_rules! vocabulary {
                 match value { $($text => Some(Self::$variant),)* _ => None }
             }
         }
+        impl schemars::JsonSchema for $name {
+            fn schema_name() -> std::borrow::Cow<'static,str> { stringify!($name).into() }
+            fn schema_id() -> std::borrow::Cow<'static,str> { concat!(module_path!(),"::",stringify!($name)).into() }
+            fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema { schemars::json_schema!({"type":"string","enum":Self::ALL.iter().map(|v|v.as_str()).collect::<Vec<_>>()}) }
+        }
         impl From<$name> for String { fn from(value: $name) -> Self { value.as_str().to_owned() } }
         impl TryFrom<String> for $name { type Error = VocabularyError; fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() } }
         impl std::fmt::Display for $name {
@@ -318,10 +323,41 @@ codes! {
     StudySeedIncompatible => ("study.seed.incompatible", ValidationInvariant, "study seed incompatible refusal."),
     StudySeedInternal => ("study.seed.internal", InternalInvariant, "study seed internal refusal."),
     StudyOperationUnsupported => ("study.operation.unsupported", CapabilityBackend, "study operation unsupported refusal."),
+    ModelingConditionalUnitAdmissionUnsupported => ("modeling.conditional_unit.admission.unsupported", CapabilityBackend, "Conditional-unit admission unsupported disposition."),
+    ModelingConditionalUnitAdmissionCancelled => ("modeling.conditional_unit.admission.cancelled", RuntimeCancelled, "Conditional-unit admission cancelled disposition."),
+    ModelingConditionalUnitAdmissionResourceLimit => ("modeling.conditional_unit.admission.resource_limit", RuntimeResourceLimit, "Conditional-unit admission resource limit disposition."),
+    ModelingConditionalUnitAdmissionNonfinite => ("modeling.conditional_unit.admission.nonfinite", SolveEvaluationError, "Conditional-unit admission nonfinite disposition."),
+    ModelingConditionalUnitAdmissionInfrastructure => ("modeling.conditional_unit.admission.infrastructure", RuntimeInfrastructure, "Conditional-unit admission infrastructure disposition."),
+    ModelingConditionalUnitAdmissionConflict => ("modeling.conditional_unit.admission.conflict", RuntimeInfrastructure, "Conditional-unit admission conflict disposition."),
+    ModelingConditionalUnitAdmissionIncompatible => ("modeling.conditional_unit.admission.incompatible", RuntimeInfrastructure, "Conditional-unit admission incompatible disposition."),
+    ModelingConditionalUnitAdmissionInternal => ("modeling.conditional_unit.admission.internal", InternalInvariant, "Conditional-unit admission internal disposition."),
+    ModelingConditionalUnitAdmissionInconclusive => ("modeling.conditional_unit.admission.inconclusive", SolveSolverError, "Conditional-unit admission inconclusive disposition."),
+    StudyPolicyAdmission => ("study.policy.admission", ValidationInvariant, "Invalid admitted study graph or occurrence fact."),
 }
 
-impl From<DiagnosticCode> for String { fn from(value: DiagnosticCode) -> Self { value.as_str().to_owned() } }
-impl TryFrom<String> for DiagnosticCode { type Error = VocabularyError; fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() } }
+impl schemars::JsonSchema for DiagnosticCode {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "DiagnosticCode".into()
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        "pse_diagnostics::DiagnosticCode".into()
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({"type":"string","enum":Self::ALL.iter().map(|v|v.as_str()).collect::<Vec<_>>()})
+    }
+}
+
+impl From<DiagnosticCode> for String {
+    fn from(value: DiagnosticCode) -> Self {
+        value.as_str().to_owned()
+    }
+}
+impl TryFrom<String> for DiagnosticCode {
+    type Error = VocabularyError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
 
 impl std::str::FromStr for DiagnosticCode {
     type Err = VocabularyError;
@@ -483,6 +519,27 @@ vocabulary! { DiagnosticRule as "diagnostic_rule" {
     StudySeedIncompatible => ("study.seed.incompatible", "study seed incompatible refusal."),
     StudySeedInternal => ("study.seed.internal", "study seed internal refusal."),
     StudyOperationUnsupported => ("study.operation.unsupported", "study operation unsupported refusal."),
+    ModelingConditionalUnitAdmissionUnsupported => ("modeling.conditional_unit.admission.unsupported", "Conditional-unit admission unsupported disposition."),
+    ModelingConditionalUnitAdmissionCancelled => ("modeling.conditional_unit.admission.cancelled", "Conditional-unit admission cancelled disposition."),
+    ModelingConditionalUnitAdmissionResourceLimit => ("modeling.conditional_unit.admission.resource_limit", "Conditional-unit admission resource limit disposition."),
+    ModelingConditionalUnitAdmissionNonfinite => ("modeling.conditional_unit.admission.nonfinite", "Conditional-unit admission nonfinite disposition."),
+    ModelingConditionalUnitAdmissionInfrastructure => ("modeling.conditional_unit.admission.infrastructure", "Conditional-unit admission infrastructure disposition."),
+    ModelingConditionalUnitAdmissionConflict => ("modeling.conditional_unit.admission.conflict", "Conditional-unit admission conflict disposition."),
+    ModelingConditionalUnitAdmissionIncompatible => ("modeling.conditional_unit.admission.incompatible", "Conditional-unit admission incompatible disposition."),
+    ModelingConditionalUnitAdmissionInternal => ("modeling.conditional_unit.admission.internal", "Conditional-unit admission internal disposition."),
+    ModelingConditionalUnitAdmissionInconclusive => ("modeling.conditional_unit.admission.inconclusive", "Conditional-unit admission inconclusive disposition."),
+    StudyPolicyAdmission => ("study.policy.admission", "Invalid admitted study graph or occurrence fact."),
+} }
+
+vocabulary! { DiagnosticObservationKind as "diagnostic_observation_kind" {
+    Missing => ("missing", "Evidence was unavailable."),
+    Real => ("real", "Finite numerical evidence."),
+    Nonfinite => ("nonfinite", "Explicitly tagged nonfinite numerical failure evidence."),
+    Physical => ("physical", "Finite physical evidence with immutable quantity/unit/context contracts."),
+    Integer => ("integer", "An exact count or status."),
+    Boolean => ("boolean", "A checked predicate."),
+    Text => ("text", "Native status or explanatory detail."),
+    Contracts => ("contracts", "Ordered complete quantity/free-index operand contracts."),
 } }
 
 vocabulary! { DiagnosticStage as "diagnostic_stage" {
@@ -521,6 +578,13 @@ vocabulary! { DiagnosticStage as "diagnostic_stage" {
     StudyAdmission => ("study.admission", "study admission boundary."),
     StudyPolicy => ("study.policy", "study policy boundary."),
     StudyBinding => ("study.binding", "study binding boundary."),
+    Applicability => ("applicability", "applicability boundary."),
+    ModelingConservationTransfer => ("modeling-conservation-transfer", "modeling conservation transfer boundary."),
+    ModelingEventReset => ("modeling-event-reset", "modeling event reset boundary."),
+    NonlinearExplanation => ("nonlinear-explanation", "nonlinear explanation boundary."),
+    ObjectiveLevels => ("objective-levels", "objective levels boundary."),
+    ShootingTrajectoryProjection => ("shooting-trajectory-projection", "shooting trajectory projection boundary."),
+    Test => ("test", "test boundary."),
 } }
 
 impl DiagnosticRule {
@@ -533,7 +597,9 @@ impl DiagnosticRule {
             Self::AuthoringDocumentIo => DiagnosticCode::AuthoringDocumentIo,
             Self::AuthoringMissingId => DiagnosticCode::AuthoringMissingId,
             Self::AuthoringPackageUnresolved => DiagnosticCode::AuthoringPackageUnresolved,
-            Self::AuthoringPackageVersionConflict => DiagnosticCode::AuthoringPackageVersionConflict,
+            Self::AuthoringPackageVersionConflict => {
+                DiagnosticCode::AuthoringPackageVersionConflict
+            }
             Self::AuthoringRenameNamed => DiagnosticCode::AuthoringRenameNamed,
             Self::AuthoringSchemaVersion => DiagnosticCode::AuthoringSchemaVersion,
             Self::AuthoringSyntax => DiagnosticCode::AuthoringSyntax,
@@ -562,7 +628,9 @@ impl DiagnosticRule {
             Self::JacobianExtremeColumn => DiagnosticCode::JacobianExtremeColumn,
             Self::JacobianExtremeEntry => DiagnosticCode::JacobianExtremeEntry,
             Self::JacobianExtremeRow => DiagnosticCode::JacobianExtremeRow,
-            Self::JacobianNumericalRankDeficiency => DiagnosticCode::JacobianNumericalRankDeficiency,
+            Self::JacobianNumericalRankDeficiency => {
+                DiagnosticCode::JacobianNumericalRankDeficiency
+            }
             Self::JacobianParallelColumns => DiagnosticCode::JacobianParallelColumns,
             Self::JacobianParallelRows => DiagnosticCode::JacobianParallelRows,
             Self::MathApplicability => DiagnosticCode::MathApplicability,
@@ -581,28 +649,50 @@ impl DiagnosticRule {
             Self::ModelingBudget => DiagnosticCode::ModelingBudget,
             Self::ModelingCancelled => DiagnosticCode::ModelingCancelled,
             Self::ModelingCapability => DiagnosticCode::ModelingCapability,
-            Self::ModelingConditionalUnitAdmissionInvalidModel => DiagnosticCode::ModelingConditionalUnitAdmissionInvalidModel,
-            Self::ModelingConditionalUnitAdmissionNumerical => DiagnosticCode::ModelingConditionalUnitAdmissionNumerical,
-            Self::ModelingConditionalUnitAdmissionTrialRejected => DiagnosticCode::ModelingConditionalUnitAdmissionTrialRejected,
+            Self::ModelingConditionalUnitAdmissionInvalidModel => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionInvalidModel
+            }
+            Self::ModelingConditionalUnitAdmissionNumerical => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionNumerical
+            }
+            Self::ModelingConditionalUnitAdmissionTrialRejected => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionTrialRejected
+            }
             Self::ModelingContract => DiagnosticCode::ModelingContract,
             Self::ModelingDiagnosticSamples => DiagnosticCode::ModelingDiagnosticSamples,
             Self::ModelingDiagnostics => DiagnosticCode::ModelingDiagnostics,
             Self::ModelingDomain => DiagnosticCode::ModelingDomain,
             Self::ModelingDomainTightened => DiagnosticCode::ModelingDomainTightened,
-            Self::ModelingDynamicAlgebraicResetUnsupported => DiagnosticCode::ModelingDynamicAlgebraicResetUnsupported,
-            Self::ModelingDynamicInventoryTransferEventUnsupported => DiagnosticCode::ModelingDynamicInventoryTransferEventUnsupported,
-            Self::ModelingInitializationAttemptLimit => DiagnosticCode::ModelingInitializationAttemptLimit,
-            Self::ModelingInitializationIncomplete => DiagnosticCode::ModelingInitializationIncomplete,
-            Self::ModelingInitializationMinimumStep => DiagnosticCode::ModelingInitializationMinimumStep,
+            Self::ModelingDynamicAlgebraicResetUnsupported => {
+                DiagnosticCode::ModelingDynamicAlgebraicResetUnsupported
+            }
+            Self::ModelingDynamicInventoryTransferEventUnsupported => {
+                DiagnosticCode::ModelingDynamicInventoryTransferEventUnsupported
+            }
+            Self::ModelingInitializationAttemptLimit => {
+                DiagnosticCode::ModelingInitializationAttemptLimit
+            }
+            Self::ModelingInitializationIncomplete => {
+                DiagnosticCode::ModelingInitializationIncomplete
+            }
+            Self::ModelingInitializationMinimumStep => {
+                DiagnosticCode::ModelingInitializationMinimumStep
+            }
             Self::ModelingInitializationOutcome => DiagnosticCode::ModelingInitializationOutcome,
-            Self::ModelingInitializationStepPrecision => DiagnosticCode::ModelingInitializationStepPrecision,
+            Self::ModelingInitializationStepPrecision => {
+                DiagnosticCode::ModelingInitializationStepPrecision
+            }
             Self::ModelingNonlinearAttemptLimit => DiagnosticCode::ModelingNonlinearAttemptLimit,
             Self::ModelingNonlinearCancelled => DiagnosticCode::ModelingNonlinearCancelled,
-            Self::ModelingNonlinearInitialInconclusive => DiagnosticCode::ModelingNonlinearInitialInconclusive,
+            Self::ModelingNonlinearInitialInconclusive => {
+                DiagnosticCode::ModelingNonlinearInitialInconclusive
+            }
             Self::ModelingNonlinearTimeLimit => DiagnosticCode::ModelingNonlinearTimeLimit,
             Self::ModelingObjective => DiagnosticCode::ModelingObjective,
             Self::ModelingProvenance => DiagnosticCode::ModelingProvenance,
-            Self::ModelingQualificationInfeasibilityContradicted => DiagnosticCode::ModelingQualificationInfeasibilityContradicted,
+            Self::ModelingQualificationInfeasibilityContradicted => {
+                DiagnosticCode::ModelingQualificationInfeasibilityContradicted
+            }
             Self::ModelingQualificationRejected => DiagnosticCode::ModelingQualificationRejected,
             Self::ModelingRealization => DiagnosticCode::ModelingRealization,
             Self::ModelingStagedStart => DiagnosticCode::ModelingStagedStart,
@@ -621,7 +711,9 @@ impl DiagnosticRule {
             Self::NativeStructural => DiagnosticCode::NativeStructural,
             Self::NativeUnavailable => DiagnosticCode::NativeUnavailable,
             Self::NativeUnsupported => DiagnosticCode::NativeUnsupported,
-            Self::ObjectivePriorityOptimizationIncomplete => DiagnosticCode::ObjectivePriorityOptimizationIncomplete,
+            Self::ObjectivePriorityOptimizationIncomplete => {
+                DiagnosticCode::ObjectivePriorityOptimizationIncomplete
+            }
             Self::ShootingCandidateValidation => DiagnosticCode::ShootingCandidateValidation,
             Self::ShootingEvaluation => DiagnosticCode::ShootingEvaluation,
             Self::StructuralOverdetermined => DiagnosticCode::StructuralOverdetermined,
@@ -663,6 +755,34 @@ impl DiagnosticRule {
             Self::StudySeedIncompatible => DiagnosticCode::StudySeedIncompatible,
             Self::StudySeedInternal => DiagnosticCode::StudySeedInternal,
             Self::StudyOperationUnsupported => DiagnosticCode::StudyOperationUnsupported,
+            Self::ModelingConditionalUnitAdmissionUnsupported => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionUnsupported
+            }
+            Self::ModelingConditionalUnitAdmissionCancelled => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionCancelled
+            }
+            Self::ModelingConditionalUnitAdmissionResourceLimit => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionResourceLimit
+            }
+            Self::ModelingConditionalUnitAdmissionNonfinite => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionNonfinite
+            }
+            Self::ModelingConditionalUnitAdmissionInfrastructure => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionInfrastructure
+            }
+            Self::ModelingConditionalUnitAdmissionConflict => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionConflict
+            }
+            Self::ModelingConditionalUnitAdmissionIncompatible => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionIncompatible
+            }
+            Self::ModelingConditionalUnitAdmissionInternal => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionInternal
+            }
+            Self::ModelingConditionalUnitAdmissionInconclusive => {
+                DiagnosticCode::ModelingConditionalUnitAdmissionInconclusive
+            }
+            Self::StudyPolicyAdmission => DiagnosticCode::StudyPolicyAdmission,
         }
     }
 }

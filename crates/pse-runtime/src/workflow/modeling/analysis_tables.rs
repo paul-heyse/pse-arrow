@@ -143,77 +143,9 @@ pub(in crate::workflow) fn finding_row(
     ordinal: i64,
     f: &pse_model::diagnostic::BoundaryDiagnostic,
 ) -> pse_model::generated::runtime::modeling_findings::Row {
-    use pse_model::generated::runtime::modeling_findings::*;
-    use pse_model::{diagnostic::Observation, generated::enums::NativeMetricKind as K};
-    RuntimeModelingFindingsRow {
-        run_id,
-        ordinal,
-        class: f.class,
-        severity: f.severity,
-        stage: f.stage.clone(),
-        rule: f.rule.clone(),
-        sources: f.sources.clone(),
-        observations: f
-            .observations
-            .iter()
-            .map(|(name, value)| {
-                let mut row = RuntimeModelingFindingsFieldObservationsItem {
-                    name: name.clone(),
-                    kind: K::Unavailable,
-                    real: None,
-                    real_kind: None,
-                    integer: None,
-                    boolean: None,
-                    text: None,
-                };
-                match value {
-                    Observation::Real(v) => {
-                        row.kind = K::Real;
-                        let (kind, value) = real_evidence(*v);
-                        row.real = value;
-                        row.real_kind = Some(kind);
-                    }
-                    Observation::Integer(v) => {
-                        row.kind = K::Integer;
-                        row.integer = Some(*v);
-                    }
-                    Observation::Boolean(v) => {
-                        row.kind = K::Boolean;
-                        row.boolean = Some(*v);
-                    }
-                    Observation::Text(v) => {
-                        row.kind = K::Text;
-                        row.text = Some(v.clone());
-                    }
-                }
-                row
-            })
-            .collect(),
-        locations: f
-            .locations
-            .iter()
-            .map(|l| RuntimeModelingFindingsFieldLocationsItem {
-                source_id: l.source,
-                path: l.path.clone(),
-                name: l.name.clone(),
-                start: l.start.map(i64::from),
-                end: l.end.map(i64::from),
-            })
-            .collect(),
-        // Plan 23 H5: a rejected validity predicate's typed lineage.
-        validity: f
-            .validity
-            .as_ref()
-            .map(|v| RuntimeModelingFindingsFieldValidity {
-                layer: v.layer,
-                source_id: v.source,
-                form_id: v.form,
-                set_ids: v.sets.clone(),
-                variables: v.variables.iter().map(|v| i64::from(*v)).collect(),
-                member_ids: v.members.clone(),
-            }),
-    }
+    super::super::diagnostic_rows::project_finding(run_id, ordinal, f)
 }
+
 fn export_finding_rows(
     runtime: &Runtime,
     rows: Vec<pse_model::generated::runtime::modeling_findings::Row>,
@@ -494,58 +426,6 @@ impl ModelingInitializationReport {
                             failure_ordinal: a.diagnostic().map(|_| index as i64 + 1),
                             interruption_class: a.interruption.as_ref().map(|i| i.class),
                             interruption: a.interruption.as_ref().map(engines::bounded_error),
-                        }
-                    })
-                    .collect(),
-            }
-        })
-    }
-}
-impl ModelingStudyReport {
-    /// The findings of the study points as a checked `modeling_findings` relation.
-    pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
-        export_finding_rows(
-            &self.runtime,
-            self.outcomes
-                .iter()
-                .enumerate()
-                .filter_map(|(index, outcome)| {
-                    let failure = match outcome {
-                        Err(error) => Some(error.clone()),
-                        Ok(value) => value.diagnostic(),
-                    }?;
-                    Some(finding_row(self.run_id, index as i64, &failure))
-                })
-                .collect(),
-        )
-    }
-    /// The study row, one nested entry per point, as a checked `modeling_studies` relation.
-    pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
-        use pse_model::generated::runtime::modeling_studies::*;
-        if self.outcomes.len().checked_add(self.unattempted) != Some(self.points.len()) {
-            return Err(contract("study result source coordinate extent"));
-        }
-        one(&self.runtime, self._owner.size(), || {
-            RuntimeModelingStudiesRow {
-                run_id: self.run_id,
-                unattempted: self.unattempted as i64,
-                points: self
-                    .outcomes
-                    .iter()
-                    .zip(&self.points)
-                    .enumerate()
-                    .map(|(index, (result, (root_id, instance_id, predecessor)))| {
-                        RuntimeModelingStudiesFieldPointsItem {
-                            root_id: *root_id,
-                            instance_id: *instance_id,
-                            predecessor: predecessor.map(|v| v as i64),
-                            result_id: result.as_ref().ok().map(|r| r.run_id),
-                            accepted: result.as_ref().is_ok_and(|r| r.accepted),
-                            error: result.as_ref().err().map(ToString::to_string),
-                            failure_ordinal: match result {
-                                Err(_) => Some(index as i64),
-                                Ok(value) => value.diagnostic().map(|_| index as i64),
-                            },
                         }
                     })
                     .collect(),

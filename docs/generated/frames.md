@@ -89,6 +89,7 @@ Derived in: pse-compiler.
 | `MathLocalOccurrenceV3` | `pse.math.local-occurrence.v3` | Checked expression occurrences and complete contextual admission products. |
 | `MathResolvedAdmissionsV1` | `pse.math.resolved-admissions.v1` | Retained physical inference selections, operand conversions and numerical scales. |
 | `MathResolvedAdmissionsV2` | `pse.math.resolved-admissions.v2` | Checked expression occurrences and complete contextual admission products. |
+| `StudyBindingV1` | `pse.study.binding.v1` | Canonical member/value/physical-context binding content, distinct from an occurrence. |
 | `MathBodyV2` | `pse.math.body.v2` | A mathematical body including its retained physical admission product. |
 | `MathBodyV3` | `pse.math.body.v3` | Checked expression occurrences and complete contextual admission products. |
 | `MathPhysicalInventoryV5` | `pse.math.physical-inventory.v5` | A physical inventory, including unit compositions and derived-kind definitions (ADR-0124), and the names and typed conditions its quantity types and reference states are addressed by (ADR-0123 Outcome 6). |

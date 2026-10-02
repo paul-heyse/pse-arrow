@@ -19,6 +19,7 @@ impl Case {
         bounds: &[(&str, Option<f64>, Option<f64>)],
     ) -> Result<Self> {
         let case = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::new(),
             variables: bounds
                 .iter()

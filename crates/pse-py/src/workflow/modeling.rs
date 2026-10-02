@@ -596,9 +596,9 @@ impl NativeModelingPackage {
                         .collect::<Vec<_>>();
                     let align=|values:Option<BTreeMap<String,f64>>,ids:&[SemanticId]|->Result<Option<Vec<f64>>,native::WorkflowError>{
                     values.map(|values|{
-                        let values=values.into_iter().map(|(key,v)|SemanticId::parse_hex(&key).map(|id|(id,v)).map_err(|e|native::WorkflowError::Contract(e.to_string()))).collect::<Result<BTreeMap<_,_>,_>>()?;
-                        if values.len()!=ids.len(){return Err(native::WorkflowError::Contract("local penalties require every source coordinate exactly once".into()));}
-                        ids.iter().map(|id|values.get(id).copied().ok_or_else(||native::WorkflowError::Contract("local penalty source coordinate absent".into()))).collect()
+                        let values=values.into_iter().map(|(key,v)|SemanticId::parse_hex(&key).map(|id|(id,v)).map_err(|e|native::WorkflowError::Input(e.to_string()))).collect::<Result<BTreeMap<_,_>,_>>()?;
+                        if values.len()!=ids.len(){return Err(native::WorkflowError::Input("local penalties require every source coordinate exactly once".into()));}
+                        ids.iter().map(|id|values.get(id).copied().ok_or_else(||native::WorkflowError::Input("local penalty source coordinate absent".into()))).collect()
                     }).transpose()
                 };
                     if relaxation.is_none()
@@ -606,7 +606,7 @@ impl NativeModelingPackage {
                             || upper_penalties.is_some()
                             || row_penalties.is_some())
                     {
-                        return Err(native::WorkflowError::Contract(
+                        return Err(native::WorkflowError::Input(
                             "local penalties require explicit global relaxation penalties".into(),
                         ));
                     }
@@ -614,7 +614,7 @@ impl NativeModelingPackage {
                         .map(|(lower, upper, row)| {
                             let finite = |v: f64| {
                                 pse_model::scalars::FiniteBound::try_new(v).map_err(|e| {
-                                    native::WorkflowError::Contract(format!(
+                                    native::WorkflowError::Input(format!(
                                         "global relaxation penalty: {e}"
                                     ))
                                 })
@@ -817,146 +817,84 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    /// Run a study in this process. `overlays` holds each point's encoded `PointOverlay`.
-    #[pyo3(signature=(case_ids, settings, *, predecessors=Vec::new(), overlays=Vec::new(), maximum_points=1024))]
+    /// Admit the generated request once under this immutable selected revision.
+    fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<Vec<u8>> {
+        let request: native::StudyRequest =
+            serde_json::from_slice(request).map_err(|e| invalid(py, e.to_string()))?;
+        let sources = self.sources.as_deref().cloned().unwrap_or_default();
+        let physical = pse_runtime::authoring_driver::document::package_checksum(&sources.physical);
+        let modeling = sources
+            .modeling
+            .iter()
+            .map(pse_runtime::authoring_driver::document::package_checksum)
+            .collect();
+        let cancel = CancelSource::new();
+        let definition = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .admit_study_points(physical, modeling, &request.points, &cancel),
+            || cancel.cancel(),
+        )?;
+        serde_json::to_vec(&definition).map_err(|e| invalid(py, e.to_string()))
+    }
+    /// Execute the same admitted document accepted by the durable adapter.
+    #[pyo3(signature=(definition, *, maximum_points=1024))]
     fn study(
         &self,
         py: Python<'_>,
-        case_ids: Vec<String>,
-        settings: &[u8],
-        predecessors: Vec<Option<usize>>,
-        overlays: Vec<Vec<u8>>,
+        definition: &[u8],
         maximum_points: usize,
-    ) -> PyResult<NativeModelingStudy> {
-        let settings = settings::solve_profile(py, settings)?;
-        if maximum_points == 0
-            || maximum_points > 4096
-            || case_ids.len() > maximum_points
-            || !predecessors.is_empty() && predecessors.len() != case_ids.len()
-            || !overlays.is_empty() && overlays.len() != case_ids.len()
-        {
-            return Err(invalid(
-                py,
-                "invalid bounded study extent, predecessor or overlay list",
-            ));
-        }
-        let overlays = overlays
-            .iter()
-            .map(|overlay| settings::point_overlay(py, overlay))
-            .collect::<PyResult<Vec<_>>>()?;
-        if predecessors
-            .iter()
-            .enumerate()
-            .any(|(i, p)| p.is_some_and(|j| j >= i))
-        {
-            return Err(invalid(
-                py,
-                "study predecessor must identify an earlier point",
-            ));
-        }
-        let ids = case_ids
-            .iter()
-            .map(|v| declaration(py, v))
-            .collect::<PyResult<Vec<_>>>()?;
+    ) -> PyResult<NativeStudyReport> {
+        let definition: native::StudyDefinition =
+            serde_json::from_slice(definition).map_err(|e| invalid(py, e.to_string()))?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
-            async {
-                let mut points = Vec::new();
-                for (index, root) in ids.into_iter().enumerate() {
-                    let analysis = self
-                        .inner
-                        .declared_execution(
-                            root,
-                            Default::default(),
-                            settings.clone(),
-                            Default::default(),
-                            self.limits,
-                            &cancel,
-                        )
-                        .await
-                        .map_err(Arc::new);
-                    points.push(native::ModelingStudyPoint {
-                        execution: analysis,
-                        predecessor: predecessors.get(index).copied().flatten(),
-                        overlay: overlays.get(index).cloned().unwrap_or_default(),
-                    });
-                }
-                self.inner.study(points, maximum_points, &cancel).await
-            },
+            self.inner.study(&definition, maximum_points, &cancel),
             || cancel.cancel(),
         )?;
-        Ok(NativeModelingStudy {
+        Ok(NativeStudyReport {
             inner: Arc::new(inner),
+            owner: self.owner.clone(),
         })
     }
-    /// Start a durable study of authored cases in `runtime`'s operational store (Plan 22
-    /// O7): workers run the points, and the study publishes once in `workspace` (a
-    /// workspace JSON document). `overlays` holds each point's encoded `PointOverlay`.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one study: store, workspace, points, settings, dependencies, overlays and job policy"
-    )]
-    #[pyo3(signature=(runtime, workspace, case_ids, settings, *, predecessors=Vec::new(), overlays=Vec::new(), max_tries=1, priority=0))]
+    /// Persist the same admitted document and its exact source bundles.
+    #[pyo3(signature=(runtime, workspace, definition, *, max_tries=1, priority=0))]
     fn start_study(
         &self,
         py: Python<'_>,
         runtime: &NativeRuntime,
         workspace: &[u8],
-        case_ids: Vec<String>,
-        settings: &[u8],
-        predecessors: Vec<Option<u32>>,
-        overlays: Vec<Vec<u8>>,
+        definition: &[u8],
         max_tries: u32,
         priority: i32,
     ) -> PyResult<NativeStudyHandle> {
         let sources = self.sources.as_ref().ok_or_else(|| {
             invalid(
                 py,
-                "a durable study runs the package's authored documents; this package was changed in memory",
+                "a durable study requires the selected package's immutable source documents",
             )
         })?;
-        if !predecessors.is_empty() && predecessors.len() != case_ids.len()
-            || !overlays.is_empty() && overlays.len() != case_ids.len()
-        {
-            return Err(invalid(
-                py,
-                "a study's predecessors and overlays name every point or none",
-            ));
-        }
         let workspace: native::Workspace =
             serde_json::from_slice(workspace).map_err(|e| invalid(py, e.to_string()))?;
-        let settings = settings::solve_settings(py, settings)?;
-        let points = case_ids
-            .iter()
-            .enumerate()
-            .map(|(index, case)| {
-                Ok(native::StudyPoint {
-                    case: declaration(py, case)?,
-                    overlay: overlays
-                        .get(index)
-                        .map(|overlay| settings::point_overlay(py, overlay))
-                        .transpose()?
-                        .unwrap_or_default(),
-                    predecessor: predecessors.get(index).copied().flatten(),
-                })
-            })
-            .collect::<PyResult<Vec<_>>>()?;
-        let plan = native::StudyPlan {
-            sources: sources.as_ref().clone(),
-            settings,
-            points,
-            retry: native::RetryPolicy {
-                max_tries,
-                ..native::RetryPolicy::ONCE
-            },
-            priority,
+        let definition: native::StudyDefinition =
+            serde_json::from_slice(definition).map_err(|e| invalid(py, e.to_string()))?;
+        let retry = native::RetryPolicy {
+            max_tries,
+            ..native::RetryPolicy::ONCE
         };
         let inner = blocking(
             py,
             &runtime.owner,
-            runtime.inner.start_study(&workspace, plan),
+            runtime.inner.start_defined_study(
+                &workspace,
+                sources.as_ref().clone(),
+                definition,
+                retry,
+                priority,
+            ),
             || {},
         )?;
         Ok(NativeStudyHandle {
@@ -1423,9 +1361,9 @@ impl NativeModelingTrajectory {
         let id = relation(py, name)?;
         py.detach(|| {
             self.inner.tables().and_then(|mut tables| {
-                tables.remove(&id).ok_or_else(|| {
-                    native::WorkflowError::Contract("trajectory table absent".into())
-                })
+                tables
+                    .remove(&id)
+                    .ok_or_else(|| native::WorkflowError::Input("trajectory table absent".into()))
             })
         })
         .map(inspection::TableStream::from_batch)
@@ -1744,11 +1682,12 @@ impl NativeModelingInitializationAttempt {
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
-pub(crate) struct NativeModelingStudy {
-    inner: Arc<native::ModelingStudyReport>,
+pub(crate) struct NativeStudyReport {
+    inner: Arc<native::StudyReport>,
+    owner: Arc<runtime::Runtime>,
 }
 #[pymethods]
-impl NativeModelingStudy {
+impl NativeStudyReport {
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
@@ -1759,30 +1698,43 @@ impl NativeModelingStudy {
             .map(inspection::TableStream::from_batch)
             .map_err(|e| errors::diagnostic(py, &e))
     }
-
     #[getter]
     fn unattempted(&self) -> usize {
-        self.inner.unattempted
+        self.inner
+            .outcomes
+            .iter()
+            .filter(|point| point.attempts.is_empty())
+            .count()
     }
     #[getter]
     fn count(&self) -> usize {
         self.inner.outcomes.len()
     }
-    /// The study's own structural preparations and value rebinds as an encoded
-    /// `PreparationCounts` document.
     #[getter]
     fn preparations(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        serde_json::to_vec(&self.inner.preparations)
-            .map_err(|e| invalid(py, format!("preparation counts: {e}")))
+        serde_json::to_vec(&self.inner.preparations).map_err(|e| invalid(py, e.to_string()))
     }
-    fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeModelingResult>> {
-        let result = self
+    #[getter]
+    fn conclusion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        serde_json::to_vec(&self.inner.decision.conclusion).map_err(|e| invalid(py, e.to_string()))
+    }
+    fn outcome(&self, py: Python<'_>, index: usize) -> PyResult<Vec<u8>> {
+        let outcome = self
             .inner
             .outcomes
             .get(index)
-            .ok_or_else(|| invalid(py, "study point index outside report"))?;
-        Ok(result.as_ref().ok().map(|r| NativeModelingResult {
-            inner: Arc::new(r.clone()),
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        serde_json::to_vec(outcome).map_err(|e| invalid(py, e.to_string()))
+    }
+    fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeRunResult>> {
+        let result = self
+            .inner
+            .results
+            .get(index)
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        Ok(result.as_ref().map(|inner| NativeRunResult {
+            owner: self.owner.clone(),
+            inner: inner.clone(),
         }))
     }
     fn failure(
@@ -1790,18 +1742,15 @@ impl NativeModelingStudy {
         py: Python<'_>,
         index: usize,
     ) -> PyResult<Option<inspection::DiagnosticReport>> {
-        let result = self
+        let outcome = self
             .inner
             .outcomes
             .get(index)
-            .ok_or_else(|| invalid(py, "study point index outside report"))?;
-        Ok(match result {
-            Err(error) => Some(inspection::DiagnosticReport::observe(error)),
-            Ok(result) => result
-                .diagnostic()
-                .as_ref()
-                .map(|e| inspection::DiagnosticReport::observe(e)),
-        })
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        Ok(outcome
+            .diagnostic
+            .as_ref()
+            .map(inspection::DiagnosticReport::observe))
     }
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -1887,7 +1836,7 @@ impl NativeModelingConformance {
         py.detach(|| {
             self.inner.admission_tables().and_then(|mut tables| {
                 tables.remove(&id).ok_or_else(|| {
-                    native::WorkflowError::Contract("conformance admission table absent".into())
+                    native::WorkflowError::Input("conformance admission table absent".into())
                 })
             })
         })
@@ -2000,7 +1949,7 @@ impl NativeModelingResult {
         py.detach(|| {
             self.inner.tables().and_then(|mut tables| {
                 tables.remove(&relation).ok_or_else(|| {
-                    native::WorkflowError::Contract("modeling result relation absent".into())
+                    native::WorkflowError::Input("modeling result relation absent".into())
                 })
             })
         })

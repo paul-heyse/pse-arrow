@@ -75,6 +75,32 @@ propagation beyond `tracing` task propagation inside the engine.
 > CHECK and foreign-key violations are a typed invariant violation, not `Internal` (Plan 22
 > B2, implemented).
 
+> Supplement: [ADR-0148](../../adr/0148-studies-diagnostics-and-admitted-bindings.md)
+> (proposed; maintainer-authorized Plan 25f implementation).
+
+A source-owned diagnostic interface supplies detailed code, closed rule/stage, affected
+identities, revision-bound locations, typed observations and ordered causes. Lower owners
+project their own variants; upper owners retain the typed cause without a central downcast
+classifier or rendered-message interpretation. Request admission (`WorkflowError::Input`),
+internal defects and typed source failures have separate contracts. Contextual owners enrich
+otherwise unattributed locations recursively with the selected revision, preserving existing
+source attribution.
+
+`BoundaryDiagnostic` exists before any model, attempt result or table. Its codec distinguishes
+missing evidence, finite values, physical quantities with complete operand contracts, and
+explicit NaN/infinity observations. The finite physical input domain does not admit those
+nonfinite observations as physical values. Detailed diagnostic identity is authoritative;
+coarse `FailureClass`, boundary disposition, severity, scientific usability and retry are
+separate purpose-specific projections. A coarse class never reconstructs the detailed code.
+Closed numerical/qualification rules are validated at authored admission. Rust, generated
+relations, durable termination documents and Python reports retain the same structured envelope.
+`DiagnosticReport.envelope()` exposes the complete document, including nested causes.
+
+Initialization uses its declared scientific attempt policy and exhaustive native-stop
+projections. Durable retry additionally reads operation and publication-effect state; a
+transient infrastructure code alone cannot authorize repeating an unknown publication effect.
+Scientific refusal diagnostics and available members survive operational failure or cancellation.
+
 **Ownership.** `pse-diagnostics` declares one vocabulary: `FailureClass` (coarse class)
 and `DiagnosticCode` (detailed code, each mapped to one class). The registry projects
 both into generated enums, Arrow and Python contracts; nothing else declares a code.
@@ -129,14 +155,11 @@ and `solve.limit`, and the detailed codes `compile.math.cyclic_expression`,
 produces them; solver terminations are result tags instead. They remain declared
 vocabulary, not evidence of a supported failure path.
 
-**Boundary classes.** `pse-model::diagnostic::BoundaryClass` maps the shared boundary
-vocabulary: invalid model → `validation.invariant`; unsupported → `capability.backend`;
-resource limit → `runtime.resource_limit`; trial rejected or nonfinite →
-`solve.evaluation_error`; infrastructure, conflict or incompatible →
-`runtime.infrastructure`; cancelled → `runtime.cancelled`; internal →
-`internal.invariant`; numerical or inconclusive → `solve.solver_error`. `numerical` is an
-algorithmic failure without a model cause; `inconclusive` is an analysis that could not
-reach its conclusion.
+**Boundary classes.** `pse-model::diagnostic::BoundaryClass` is a purpose-specific
+boundary disposition. Source-owned detailed codes retain their declared coarse `FailureClass`;
+`disposition` supplies an exhaustive boundary projection. `numerical` is an algorithmic
+failure without a model cause; `inconclusive` is an analysis that could not reach its conclusion.
+Neither severity nor retry permission changes diagnostic identity.
 
 **Severity.** Every boundary diagnostic also carries a `DiagnosticSeverity`: `error`
 (the default), `warning` or `info`. Severity is independent of class, and a warning never

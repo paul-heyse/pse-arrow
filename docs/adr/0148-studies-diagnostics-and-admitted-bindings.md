@@ -7,8 +7,8 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-04, AP-06, DP-01, DP-04, DP-19, DP-21, PS-01, PS-10]
 blueprint: [§5.3, §19.3, §20.6, §21.5, §23.2]
-review: docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#f05
-evidence: Proposed
+review: docs/design_review/reviews/design_review_studies-diagnostics-and-admitted-bindings_2026-10-01.md
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A new operation needs a seed or result role the admitted study contract cannot represent.
@@ -41,7 +41,7 @@ Ordering, usable-result and seed dependencies have distinct meanings. Continuati
 
 ### Consequences
 
-Both executors consume the same policy and operation-owned descriptors. Generated request documents, durable definitions and terminal envelopes receive new versions. The operational schema removes content-based point uniqueness and stores derived dependency facts. Historical identities remain unchanged and missing historical evidence stays unavailable.
+Both executors consume the same policy and operation-owned descriptors. Generated request documents, durable definitions and terminal envelopes receive new versions. The operational schema removes content-based point uniqueness and stores immutable typed policy, outcome history and pre-effect member receipts. Historical identities remain unchanged and missing historical evidence stays unavailable.
 
 ### Compensating controls
 
@@ -49,7 +49,7 @@ Focused matrices distinguish scientific usability, seed permission, operational 
 
 ### Confirmation
 
-This record precedes implementation and is Proposed. Plan 25f owns implementation and scoped test evidence. Hashing/Python-boundary decision review and decision-PR acceptance remain separate from functional completion; integrated journeys execute in 25k.
+**Implemented/Tested, 2026-10-01:** [Plan 25f Verification](../plans/25f-studies-diagnostics-and-continuation.md#verification) names the focused diagnostic, physical binding, shared policy, terminal-history, native occurrence and generated Python controls. The linked independent review assesses the implemented hashing/Python boundary at that bounded scope. This record remains proposed pending its decision-PR acceptance; integrated durable journeys and assembled qualification execute in 25k.
 
 ## Pros and cons
 

@@ -9,7 +9,11 @@ use crate::generated::enums::{
 use pse_ids::{FramedHasher, SemanticId};
 
 /// Immutable attribution of an instantiated scientific claim.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "ApplicabilityClaim")]
 pub struct Claim {
     /// Absent exactly for undeclared evidence, which is unknown.
     pub id: Option<SemanticId>,
@@ -38,7 +42,11 @@ pub struct Claim {
     pub reason: Option<String>,
 }
 /// Authorization retains its declaration and scope, with fixed named targets.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "ApplicabilityPermission")]
 pub struct Permission {
     /// Authored authorization identity.
     pub id: SemanticId,
@@ -72,17 +80,26 @@ impl Permission {
     }
 }
 /// Numerical inputs are recorded in the lowering's canonical physical units.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "ApplicabilityInput")]
 pub struct Input {
     /// Declared argument name.
     pub name: String,
-    /// Actual value at the demanded application.
+    /// Actual value at the demanded application; the wire retains explicit IEEE evidence.
+    #[serde(
+        serialize_with = "crate::diagnostic::serialize_numeric_observation",
+        deserialize_with = "crate::diagnostic::deserialize_numeric_observation"
+    )]
+    #[schemars(with = "crate::diagnostic::NumericObservationSchema")]
     pub value: f64,
     /// Actual physical quantity type; values use its canonical unit.
     pub quantity_type: SemanticId,
 }
 /// One typed observation, including alternative evidence which was not required.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "ApplicabilityObservation")]
 pub struct Observation {
     /// Complete scientific attribution.
     pub claim: Claim,

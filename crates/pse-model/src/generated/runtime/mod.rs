@@ -65,8 +65,6 @@ pub mod r#modeling_parity;
 ///Generated relation contract.
 pub mod r#modeling_reports;
 ///Generated relation contract.
-pub mod r#modeling_studies;
-///Generated relation contract.
 pub mod r#modeling_trajectory_modes;
 ///Generated relation contract.
 pub mod r#native_dependencies;

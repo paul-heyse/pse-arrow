@@ -32,6 +32,18 @@ use std::{
 };
 
 impl Runtime {
+    /// Validate a reconstructed horizon through its owner before study scheduling.
+    pub(in crate::workflow) async fn admit_horizon(
+        &self,
+        horizon: Horizon,
+        cancel: &crate::CancelSource,
+    ) -> Result<(), WorkflowError> {
+        if cancel.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled.into());
+        }
+        Admitted::new(self, horizon, cancel).await.map(|_| ())
+    }
+
     /// Start a rolling horizon (Plan 22 Y5c; ADR-0110 Outcome 5): one run of closed-loop
     /// samples over one native session. Everything the loop needs is admitted before any
     /// effect: the plant, its driven inputs and measured outputs, and each stage's
@@ -48,11 +60,28 @@ impl Runtime {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
+        self.start_horizon_owned(horizon, cancel, None).await
+    }
+    pub(crate) async fn start_horizon_attempt(
+        &self,
+        horizon: Horizon,
+        cancel: &crate::CancelSource,
+        attempt: DurableAttempt,
+    ) -> Result<RunHandle, WorkflowError> {
+        self.start_horizon_owned(horizon, cancel, Some(attempt))
+            .await
+    }
+    async fn start_horizon_owned(
+        &self,
+        horizon: Horizon,
+        cancel: &crate::CancelSource,
+        attempt: Option<DurableAttempt>,
+    ) -> Result<RunHandle, WorkflowError> {
         if cancel.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled.into());
         }
         let admitted = Arc::new(Admitted::new(self, horizon, cancel).await?);
-        let durable = attempt_for(self, None)?;
+        let durable = attempt_for(self, attempt)?;
         let progress = progress_for(admitted.history, durable.as_ref());
         let opened = match durable {
             None => Some(Staged::open(self, Some(progress.clone()))?),
@@ -62,7 +91,10 @@ impl Runtime {
         let checks = cancel.clone();
         let (sender, receiver) = tokio::sync::watch::channel(None);
         let runtime = self.clone();
-        let run_id: RunId = pse_operations::mint_id();
+        let run_id: RunId = durable
+            .as_ref()
+            .and_then(DurableAttempt::claimed_run)
+            .unwrap_or_else(pse_operations::mint_id);
         let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
         let stream = progress.clone();
         tokio::spawn(async move {

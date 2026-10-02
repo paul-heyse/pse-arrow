@@ -5868,6 +5868,7 @@ version = "0.0.1"
 dependencies = [
  "miette",
  "postgres-types",
+ "schemars",
  "serde",
  "thiserror 2.0.20",
 ]
@@ -6016,6 +6017,8 @@ dependencies = [
  "pse-workspace-hack",
  "refinery",
  "rustls",
+ "schemars",
+ "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
@@ -6053,6 +6056,7 @@ dependencies = [
  "pse-buildinfo",
  "pse-catalog",
  "pse-columnar",
+ "pse-diagnostics",
  "pse-engine",
  "pse-ids",
  "pse-kernels",

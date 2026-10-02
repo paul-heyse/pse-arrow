@@ -545,7 +545,7 @@ async fn transient_fit_deadline_is_time_limit() {
         Some(native::solve::Termination::TimeLimit)
     );
     assert_eq!(
-        crate::workflow::diagnostics::observed(&error, "fit").class,
+        crate::workflow::diagnostics::observed(&error, pse_diagnostics::DiagnosticStage::Fit).class,
         pse_model::diagnostic::BoundaryClass::ResourceLimit
     );
     // Cancellation of the attempt is a cancellation.

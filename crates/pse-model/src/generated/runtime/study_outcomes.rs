@@ -8,27 +8,1850 @@
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldStart {
+    ///kind
+    pub r#kind: crate::generated::enums::StudyStartKind,
+    ///predecessor
+    pub r#predecessor: Option<i64>,
+    ///role
+    pub r#role: Option<crate::generated::enums::StudySeedRole>,
+    ///seed_id
+    pub r#seed_id: Option<crate::generated::identities::SolutionId>,
+    ///unavailable
+    pub r#unavailable: Option<crate::generated::enums::StudySeedUnavailable>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldStart {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#predecessor, &other.r#predecessor)
+            && crate::SemanticEq::semantic_eq(&self.r#role, &other.r#role)
+            && crate::SemanticEq::semantic_eq(&self.r#seed_id, &other.r#seed_id)
+            && crate::SemanticEq::semantic_eq(&self.r#unavailable, &other.r#unavailable)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldStart {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem {
+    ///bound_index
+    pub r#bound_index: pse_ids::SemanticId,
+    ///domain
+    pub r#domain: pse_ids::SemanticId,
+    ///kind
+    pub r#kind: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#bound_index, &other.r#bound_index)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem {
+    ///quantity
+    pub r#quantity: pse_ids::SemanticId,
+    ///indices
+    pub r#indices: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem,
+    >,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticObservationsItem {
+    ///name
+    pub r#name: String,
+    ///kind
+    pub r#kind: crate::generated::enums::DiagnosticObservationKind,
+    ///real
+    pub r#real: Option<f64>,
+    ///real_kind
+    pub r#real_kind: Option<crate::generated::enums::ModelingRealValueKind>,
+    ///integer
+    pub r#integer: Option<i64>,
+    ///boolean
+    pub r#boolean: Option<bool>,
+    ///text
+    pub r#text: Option<String>,
+    ///quantity
+    pub r#quantity: Option<pse_ids::SemanticId>,
+    ///unit
+    pub r#unit: Option<pse_ids::SemanticId>,
+    ///context
+    pub r#context: Option<pse_ids::ContentHash>,
+    ///contracts
+    pub r#contracts: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem,
+    >,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticObservationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#real, &other.r#real)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#integer, &other.r#integer)
+            && crate::SemanticEq::semantic_eq(&self.r#boolean, &other.r#boolean)
+            && crate::SemanticEq::semantic_eq(&self.r#text, &other.r#text)
+            && crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#unit, &other.r#unit)
+            && crate::SemanticEq::semantic_eq(&self.r#context, &other.r#context)
+            && crate::SemanticEq::semantic_eq(&self.r#contracts, &other.r#contracts)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticObservationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticLocationsItem {
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///revision
+    pub r#revision: Option<pse_ids::ContentHash>,
+    ///path
+    pub r#path: String,
+    ///name
+    pub r#name: Option<String>,
+    ///start
+    pub r#start: Option<i64>,
+    ///end
+    pub r#end: Option<i64>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticLocationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
+            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
+            && crate::SemanticEq::semantic_eq(&self.r#end, &other.r#end)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticLocationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticValidity {
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///form_id
+    pub r#form_id: Option<pse_ids::SemanticId>,
+    ///set_ids
+    pub r#set_ids: Vec<pse_ids::SemanticId>,
+    ///variables
+    pub r#variables: Vec<i64>,
+    ///member_ids
+    pub r#member_ids: Vec<pse_ids::SemanticId>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticValidity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#form_id, &other.r#form_id)
+            && crate::SemanticEq::semantic_eq(&self.r#set_ids, &other.r#set_ids)
+            && crate::SemanticEq::semantic_eq(&self.r#variables, &other.r#variables)
+            && crate::SemanticEq::semantic_eq(&self.r#member_ids, &other.r#member_ids)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticValidity {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemClaim {
+    ///id
+    pub r#id: Option<pse_ids::SemanticId>,
+    ///coverage
+    pub r#coverage: Option<pse_ids::SemanticId>,
+    ///owner
+    pub r#owner: pse_ids::SemanticId,
+    ///owner_lineage
+    pub r#owner_lineage: Vec<pse_ids::SemanticId>,
+    ///evidence
+    pub r#evidence: Option<pse_ids::SemanticId>,
+    ///form
+    pub r#form: pse_ids::SemanticId,
+    ///call
+    pub r#call: pse_ids::SemanticId,
+    ///records
+    pub r#records: Vec<pse_ids::SemanticId>,
+    ///dependencies
+    pub r#dependencies: Vec<pse_ids::SemanticId>,
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///basis
+    pub r#basis: Option<crate::generated::enums::ModelingApplicabilityBasis>,
+    ///reason
+    pub r#reason: Option<String>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemClaim {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#coverage, &other.r#coverage)
+            && crate::SemanticEq::semantic_eq(&self.r#owner, &other.r#owner)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#owner_lineage,
+                &other.r#owner_lineage,
+            ) && crate::SemanticEq::semantic_eq(&self.r#evidence, &other.r#evidence)
+            && crate::SemanticEq::semantic_eq(&self.r#form, &other.r#form)
+            && crate::SemanticEq::semantic_eq(&self.r#call, &other.r#call)
+            && crate::SemanticEq::semantic_eq(&self.r#records, &other.r#records)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#dependencies,
+                &other.r#dependencies,
+            ) && crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#basis, &other.r#basis)
+            && crate::SemanticEq::semantic_eq(&self.r#reason, &other.r#reason)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemClaim {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem {
+    ///name
+    pub r#name: String,
+    ///value
+    pub r#value: Option<f64>,
+    ///real_kind
+    pub r#real_kind: crate::generated::enums::ModelingRealValueKind,
+    ///quantity_type
+    pub r#quantity_type: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#quantity_type,
+                &other.r#quantity_type,
+            )
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemPermissionsItem {
+    ///id
+    pub r#id: pse_ids::SemanticId,
+    ///scope
+    pub r#scope: pse_ids::SemanticId,
+    ///target_kind
+    pub r#target_kind: crate::generated::enums::ModelingPermissionTarget,
+    ///targets
+    pub r#targets: Vec<pse_ids::SemanticId>,
+    ///allow_unknown
+    pub r#allow_unknown: bool,
+    ///allow_extrapolation
+    pub r#allow_extrapolation: bool,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemPermissionsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#scope, &other.r#scope)
+            && crate::SemanticEq::semantic_eq(&self.r#target_kind, &other.r#target_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#targets, &other.r#targets)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_unknown,
+                &other.r#allow_unknown,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_extrapolation,
+                &other.r#allow_extrapolation,
+            )
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemPermissionsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem {
+    ///claim
+    pub r#claim: RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemClaim,
+    ///instance
+    pub r#instance: Option<pse_ids::SemanticId>,
+    ///inputs
+    pub r#inputs: Vec<RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem>,
+    ///outcome
+    pub r#outcome: crate::generated::enums::ModelingApplicabilityOutcome,
+    ///required
+    pub r#required: bool,
+    ///permissions
+    pub r#permissions: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemPermissionsItem,
+    >,
+    ///unknown_allowed
+    pub r#unknown_allowed: bool,
+    ///extrapolation_allowed
+    pub r#extrapolation_allowed: bool,
+    ///admitted
+    pub r#admitted: bool,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#claim, &other.r#claim)
+            && crate::SemanticEq::semantic_eq(&self.r#instance, &other.r#instance)
+            && crate::SemanticEq::semantic_eq(&self.r#inputs, &other.r#inputs)
+            && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
+            && crate::SemanticEq::semantic_eq(&self.r#required, &other.r#required)
+            && crate::SemanticEq::semantic_eq(&self.r#permissions, &other.r#permissions)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#unknown_allowed,
+                &other.r#unknown_allowed,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#extrapolation_allowed,
+                &other.r#extrapolation_allowed,
+            ) && crate::SemanticEq::semantic_eq(&self.r#admitted, &other.r#admitted)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    ///bound_index
+    pub r#bound_index: pse_ids::SemanticId,
+    ///domain
+    pub r#domain: pse_ids::SemanticId,
+    ///kind
+    pub r#kind: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#bound_index, &other.r#bound_index)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem {
+    ///quantity
+    pub r#quantity: pse_ids::SemanticId,
+    ///indices
+    pub r#indices: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem,
+    >,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItem {
+    ///name
+    pub r#name: String,
+    ///kind
+    pub r#kind: crate::generated::enums::DiagnosticObservationKind,
+    ///real
+    pub r#real: Option<f64>,
+    ///real_kind
+    pub r#real_kind: Option<crate::generated::enums::ModelingRealValueKind>,
+    ///integer
+    pub r#integer: Option<i64>,
+    ///boolean
+    pub r#boolean: Option<bool>,
+    ///text
+    pub r#text: Option<String>,
+    ///quantity
+    pub r#quantity: Option<pse_ids::SemanticId>,
+    ///unit
+    pub r#unit: Option<pse_ids::SemanticId>,
+    ///context
+    pub r#context: Option<pse_ids::ContentHash>,
+    ///contracts
+    pub r#contracts: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem,
+    >,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#real, &other.r#real)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#integer, &other.r#integer)
+            && crate::SemanticEq::semantic_eq(&self.r#boolean, &other.r#boolean)
+            && crate::SemanticEq::semantic_eq(&self.r#text, &other.r#text)
+            && crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#unit, &other.r#unit)
+            && crate::SemanticEq::semantic_eq(&self.r#context, &other.r#context)
+            && crate::SemanticEq::semantic_eq(&self.r#contracts, &other.r#contracts)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem {
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///revision
+    pub r#revision: Option<pse_ids::ContentHash>,
+    ///path
+    pub r#path: String,
+    ///name
+    pub r#name: Option<String>,
+    ///start
+    pub r#start: Option<i64>,
+    ///end
+    pub r#end: Option<i64>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
+            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
+            && crate::SemanticEq::semantic_eq(&self.r#end, &other.r#end)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity {
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///form_id
+    pub r#form_id: Option<pse_ids::SemanticId>,
+    ///set_ids
+    pub r#set_ids: Vec<pse_ids::SemanticId>,
+    ///variables
+    pub r#variables: Vec<i64>,
+    ///member_ids
+    pub r#member_ids: Vec<pse_ids::SemanticId>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#form_id, &other.r#form_id)
+            && crate::SemanticEq::semantic_eq(&self.r#set_ids, &other.r#set_ids)
+            && crate::SemanticEq::semantic_eq(&self.r#variables, &other.r#variables)
+            && crate::SemanticEq::semantic_eq(&self.r#member_ids, &other.r#member_ids)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemClaim {
+    ///id
+    pub r#id: Option<pse_ids::SemanticId>,
+    ///coverage
+    pub r#coverage: Option<pse_ids::SemanticId>,
+    ///owner
+    pub r#owner: pse_ids::SemanticId,
+    ///owner_lineage
+    pub r#owner_lineage: Vec<pse_ids::SemanticId>,
+    ///evidence
+    pub r#evidence: Option<pse_ids::SemanticId>,
+    ///form
+    pub r#form: pse_ids::SemanticId,
+    ///call
+    pub r#call: pse_ids::SemanticId,
+    ///records
+    pub r#records: Vec<pse_ids::SemanticId>,
+    ///dependencies
+    pub r#dependencies: Vec<pse_ids::SemanticId>,
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///basis
+    pub r#basis: Option<crate::generated::enums::ModelingApplicabilityBasis>,
+    ///reason
+    pub r#reason: Option<String>,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemClaim {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#coverage, &other.r#coverage)
+            && crate::SemanticEq::semantic_eq(&self.r#owner, &other.r#owner)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#owner_lineage,
+                &other.r#owner_lineage,
+            ) && crate::SemanticEq::semantic_eq(&self.r#evidence, &other.r#evidence)
+            && crate::SemanticEq::semantic_eq(&self.r#form, &other.r#form)
+            && crate::SemanticEq::semantic_eq(&self.r#call, &other.r#call)
+            && crate::SemanticEq::semantic_eq(&self.r#records, &other.r#records)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#dependencies,
+                &other.r#dependencies,
+            ) && crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#basis, &other.r#basis)
+            && crate::SemanticEq::semantic_eq(&self.r#reason, &other.r#reason)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemClaim {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem {
+    ///name
+    pub r#name: String,
+    ///value
+    pub r#value: Option<f64>,
+    ///real_kind
+    pub r#real_kind: crate::generated::enums::ModelingRealValueKind,
+    ///quantity_type
+    pub r#quantity_type: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#quantity_type,
+                &other.r#quantity_type,
+            )
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    ///id
+    pub r#id: pse_ids::SemanticId,
+    ///scope
+    pub r#scope: pse_ids::SemanticId,
+    ///target_kind
+    pub r#target_kind: crate::generated::enums::ModelingPermissionTarget,
+    ///targets
+    pub r#targets: Vec<pse_ids::SemanticId>,
+    ///allow_unknown
+    pub r#allow_unknown: bool,
+    ///allow_extrapolation
+    pub r#allow_extrapolation: bool,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#scope, &other.r#scope)
+            && crate::SemanticEq::semantic_eq(&self.r#target_kind, &other.r#target_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#targets, &other.r#targets)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_unknown,
+                &other.r#allow_unknown,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_extrapolation,
+                &other.r#allow_extrapolation,
+            )
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem {
+    ///claim
+    pub r#claim: RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemClaim,
+    ///instance
+    pub r#instance: Option<pse_ids::SemanticId>,
+    ///inputs
+    pub r#inputs: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem,
+    >,
+    ///outcome
+    pub r#outcome: crate::generated::enums::ModelingApplicabilityOutcome,
+    ///required
+    pub r#required: bool,
+    ///permissions
+    pub r#permissions: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemPermissionsItem,
+    >,
+    ///unknown_allowed
+    pub r#unknown_allowed: bool,
+    ///extrapolation_allowed
+    pub r#extrapolation_allowed: bool,
+    ///admitted
+    pub r#admitted: bool,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#claim, &other.r#claim)
+            && crate::SemanticEq::semantic_eq(&self.r#instance, &other.r#instance)
+            && crate::SemanticEq::semantic_eq(&self.r#inputs, &other.r#inputs)
+            && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
+            && crate::SemanticEq::semantic_eq(&self.r#required, &other.r#required)
+            && crate::SemanticEq::semantic_eq(&self.r#permissions, &other.r#permissions)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#unknown_allowed,
+                &other.r#unknown_allowed,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#extrapolation_allowed,
+                &other.r#extrapolation_allowed,
+            ) && crate::SemanticEq::semantic_eq(&self.r#admitted, &other.r#admitted)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnosticCausesItem {
+    ///tree_path
+    pub r#tree_path: Vec<i64>,
+    ///code
+    pub r#code: crate::generated::enums::DiagnosticCode,
+    ///class
+    pub r#class: crate::generated::enums::NativeBoundaryClass,
+    ///severity
+    pub r#severity: crate::generated::enums::DiagnosticSeverity,
+    ///stage
+    pub r#stage: crate::generated::enums::DiagnosticStage,
+    ///rule
+    pub r#rule: crate::generated::enums::DiagnosticRule,
+    ///sources
+    pub r#sources: Vec<pse_ids::SemanticId>,
+    ///observations
+    pub r#observations: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItem,
+    >,
+    ///locations
+    pub r#locations: Vec<RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem>,
+    ///validity
+    pub r#validity: Option<RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity>,
+    ///applicability
+    pub r#applicability: Vec<
+        RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem,
+    >,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnosticCausesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#tree_path, &other.r#tree_path)
+            && crate::SemanticEq::semantic_eq(&self.r#code, &other.r#code)
+            && crate::SemanticEq::semantic_eq(&self.r#class, &other.r#class)
+            && crate::SemanticEq::semantic_eq(&self.r#severity, &other.r#severity)
+            && crate::SemanticEq::semantic_eq(&self.r#stage, &other.r#stage)
+            && crate::SemanticEq::semantic_eq(&self.r#rule, &other.r#rule)
+            && crate::SemanticEq::semantic_eq(&self.r#sources, &other.r#sources)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#observations,
+                &other.r#observations,
+            ) && crate::SemanticEq::semantic_eq(&self.r#locations, &other.r#locations)
+            && crate::SemanticEq::semantic_eq(&self.r#validity, &other.r#validity)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#applicability,
+                &other.r#applicability,
+            )
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnosticCausesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldDiagnostic {
+    ///code
+    pub r#code: crate::generated::enums::DiagnosticCode,
+    ///class
+    pub r#class: crate::generated::enums::NativeBoundaryClass,
+    ///severity
+    pub r#severity: crate::generated::enums::DiagnosticSeverity,
+    ///stage
+    pub r#stage: crate::generated::enums::DiagnosticStage,
+    ///rule
+    pub r#rule: crate::generated::enums::DiagnosticRule,
+    ///sources
+    pub r#sources: Vec<pse_ids::SemanticId>,
+    ///observations
+    pub r#observations: Vec<RuntimeStudyOutcomesFieldDiagnosticObservationsItem>,
+    ///locations
+    pub r#locations: Vec<RuntimeStudyOutcomesFieldDiagnosticLocationsItem>,
+    ///validity
+    pub r#validity: Option<RuntimeStudyOutcomesFieldDiagnosticValidity>,
+    ///applicability
+    pub r#applicability: Vec<RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem>,
+    ///causes
+    pub r#causes: Vec<RuntimeStudyOutcomesFieldDiagnosticCausesItem>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldDiagnostic {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#code, &other.r#code)
+            && crate::SemanticEq::semantic_eq(&self.r#class, &other.r#class)
+            && crate::SemanticEq::semantic_eq(&self.r#severity, &other.r#severity)
+            && crate::SemanticEq::semantic_eq(&self.r#stage, &other.r#stage)
+            && crate::SemanticEq::semantic_eq(&self.r#rule, &other.r#rule)
+            && crate::SemanticEq::semantic_eq(&self.r#sources, &other.r#sources)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#observations,
+                &other.r#observations,
+            ) && crate::SemanticEq::semantic_eq(&self.r#locations, &other.r#locations)
+            && crate::SemanticEq::semantic_eq(&self.r#validity, &other.r#validity)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#applicability,
+                &other.r#applicability,
+            ) && crate::SemanticEq::semantic_eq(&self.r#causes, &other.r#causes)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldDiagnostic {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemStart {
+    ///kind
+    pub r#kind: crate::generated::enums::StudyStartKind,
+    ///predecessor
+    pub r#predecessor: Option<i64>,
+    ///role
+    pub r#role: Option<crate::generated::enums::StudySeedRole>,
+    ///seed_id
+    pub r#seed_id: Option<crate::generated::identities::SolutionId>,
+    ///unavailable
+    pub r#unavailable: Option<crate::generated::enums::StudySeedUnavailable>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldAttemptsItemStart {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#predecessor, &other.r#predecessor)
+            && crate::SemanticEq::semantic_eq(&self.r#role, &other.r#role)
+            && crate::SemanticEq::semantic_eq(&self.r#seed_id, &other.r#seed_id)
+            && crate::SemanticEq::semantic_eq(&self.r#unavailable, &other.r#unavailable)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemStart {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem {
+    ///bound_index
+    pub r#bound_index: pse_ids::SemanticId,
+    ///domain
+    pub r#domain: pse_ids::SemanticId,
+    ///kind
+    pub r#kind: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#bound_index, &other.r#bound_index)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem {
+    ///quantity
+    pub r#quantity: pse_ids::SemanticId,
+    ///indices
+    pub r#indices: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem,
+    >,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItem {
+    ///name
+    pub r#name: String,
+    ///kind
+    pub r#kind: crate::generated::enums::DiagnosticObservationKind,
+    ///real
+    pub r#real: Option<f64>,
+    ///real_kind
+    pub r#real_kind: Option<crate::generated::enums::ModelingRealValueKind>,
+    ///integer
+    pub r#integer: Option<i64>,
+    ///boolean
+    pub r#boolean: Option<bool>,
+    ///text
+    pub r#text: Option<String>,
+    ///quantity
+    pub r#quantity: Option<pse_ids::SemanticId>,
+    ///unit
+    pub r#unit: Option<pse_ids::SemanticId>,
+    ///context
+    pub r#context: Option<pse_ids::ContentHash>,
+    ///contracts
+    pub r#contracts: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem,
+    >,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#real, &other.r#real)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#integer, &other.r#integer)
+            && crate::SemanticEq::semantic_eq(&self.r#boolean, &other.r#boolean)
+            && crate::SemanticEq::semantic_eq(&self.r#text, &other.r#text)
+            && crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#unit, &other.r#unit)
+            && crate::SemanticEq::semantic_eq(&self.r#context, &other.r#context)
+            && crate::SemanticEq::semantic_eq(&self.r#contracts, &other.r#contracts)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem {
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///revision
+    pub r#revision: Option<pse_ids::ContentHash>,
+    ///path
+    pub r#path: String,
+    ///name
+    pub r#name: Option<String>,
+    ///start
+    pub r#start: Option<i64>,
+    ///end
+    pub r#end: Option<i64>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
+            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
+            && crate::SemanticEq::semantic_eq(&self.r#end, &other.r#end)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity {
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///form_id
+    pub r#form_id: Option<pse_ids::SemanticId>,
+    ///set_ids
+    pub r#set_ids: Vec<pse_ids::SemanticId>,
+    ///variables
+    pub r#variables: Vec<i64>,
+    ///member_ids
+    pub r#member_ids: Vec<pse_ids::SemanticId>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#form_id, &other.r#form_id)
+            && crate::SemanticEq::semantic_eq(&self.r#set_ids, &other.r#set_ids)
+            && crate::SemanticEq::semantic_eq(&self.r#variables, &other.r#variables)
+            && crate::SemanticEq::semantic_eq(&self.r#member_ids, &other.r#member_ids)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemClaim {
+    ///id
+    pub r#id: Option<pse_ids::SemanticId>,
+    ///coverage
+    pub r#coverage: Option<pse_ids::SemanticId>,
+    ///owner
+    pub r#owner: pse_ids::SemanticId,
+    ///owner_lineage
+    pub r#owner_lineage: Vec<pse_ids::SemanticId>,
+    ///evidence
+    pub r#evidence: Option<pse_ids::SemanticId>,
+    ///form
+    pub r#form: pse_ids::SemanticId,
+    ///call
+    pub r#call: pse_ids::SemanticId,
+    ///records
+    pub r#records: Vec<pse_ids::SemanticId>,
+    ///dependencies
+    pub r#dependencies: Vec<pse_ids::SemanticId>,
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///basis
+    pub r#basis: Option<crate::generated::enums::ModelingApplicabilityBasis>,
+    ///reason
+    pub r#reason: Option<String>,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemClaim {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#coverage, &other.r#coverage)
+            && crate::SemanticEq::semantic_eq(&self.r#owner, &other.r#owner)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#owner_lineage,
+                &other.r#owner_lineage,
+            ) && crate::SemanticEq::semantic_eq(&self.r#evidence, &other.r#evidence)
+            && crate::SemanticEq::semantic_eq(&self.r#form, &other.r#form)
+            && crate::SemanticEq::semantic_eq(&self.r#call, &other.r#call)
+            && crate::SemanticEq::semantic_eq(&self.r#records, &other.r#records)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#dependencies,
+                &other.r#dependencies,
+            ) && crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#basis, &other.r#basis)
+            && crate::SemanticEq::semantic_eq(&self.r#reason, &other.r#reason)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemClaim {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem {
+    ///name
+    pub r#name: String,
+    ///value
+    pub r#value: Option<f64>,
+    ///real_kind
+    pub r#real_kind: crate::generated::enums::ModelingRealValueKind,
+    ///quantity_type
+    pub r#quantity_type: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#quantity_type,
+                &other.r#quantity_type,
+            )
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemPermissionsItem {
+    ///id
+    pub r#id: pse_ids::SemanticId,
+    ///scope
+    pub r#scope: pse_ids::SemanticId,
+    ///target_kind
+    pub r#target_kind: crate::generated::enums::ModelingPermissionTarget,
+    ///targets
+    pub r#targets: Vec<pse_ids::SemanticId>,
+    ///allow_unknown
+    pub r#allow_unknown: bool,
+    ///allow_extrapolation
+    pub r#allow_extrapolation: bool,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemPermissionsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#scope, &other.r#scope)
+            && crate::SemanticEq::semantic_eq(&self.r#target_kind, &other.r#target_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#targets, &other.r#targets)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_unknown,
+                &other.r#allow_unknown,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_extrapolation,
+                &other.r#allow_extrapolation,
+            )
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemPermissionsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem {
+    ///claim
+    pub r#claim: RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemClaim,
+    ///instance
+    pub r#instance: Option<pse_ids::SemanticId>,
+    ///inputs
+    pub r#inputs: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem,
+    >,
+    ///outcome
+    pub r#outcome: crate::generated::enums::ModelingApplicabilityOutcome,
+    ///required
+    pub r#required: bool,
+    ///permissions
+    pub r#permissions: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemPermissionsItem,
+    >,
+    ///unknown_allowed
+    pub r#unknown_allowed: bool,
+    ///extrapolation_allowed
+    pub r#extrapolation_allowed: bool,
+    ///admitted
+    pub r#admitted: bool,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#claim, &other.r#claim)
+            && crate::SemanticEq::semantic_eq(&self.r#instance, &other.r#instance)
+            && crate::SemanticEq::semantic_eq(&self.r#inputs, &other.r#inputs)
+            && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
+            && crate::SemanticEq::semantic_eq(&self.r#required, &other.r#required)
+            && crate::SemanticEq::semantic_eq(&self.r#permissions, &other.r#permissions)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#unknown_allowed,
+                &other.r#unknown_allowed,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#extrapolation_allowed,
+                &other.r#extrapolation_allowed,
+            ) && crate::SemanticEq::semantic_eq(&self.r#admitted, &other.r#admitted)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    ///bound_index
+    pub r#bound_index: pse_ids::SemanticId,
+    ///domain
+    pub r#domain: pse_ids::SemanticId,
+    ///kind
+    pub r#kind: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#bound_index, &other.r#bound_index)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem {
+    ///quantity
+    pub r#quantity: pse_ids::SemanticId,
+    ///indices
+    pub r#indices: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem,
+    >,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItem {
+    ///name
+    pub r#name: String,
+    ///kind
+    pub r#kind: crate::generated::enums::DiagnosticObservationKind,
+    ///real
+    pub r#real: Option<f64>,
+    ///real_kind
+    pub r#real_kind: Option<crate::generated::enums::ModelingRealValueKind>,
+    ///integer
+    pub r#integer: Option<i64>,
+    ///boolean
+    pub r#boolean: Option<bool>,
+    ///text
+    pub r#text: Option<String>,
+    ///quantity
+    pub r#quantity: Option<pse_ids::SemanticId>,
+    ///unit
+    pub r#unit: Option<pse_ids::SemanticId>,
+    ///context
+    pub r#context: Option<pse_ids::ContentHash>,
+    ///contracts
+    pub r#contracts: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem,
+    >,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#real, &other.r#real)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#integer, &other.r#integer)
+            && crate::SemanticEq::semantic_eq(&self.r#boolean, &other.r#boolean)
+            && crate::SemanticEq::semantic_eq(&self.r#text, &other.r#text)
+            && crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#unit, &other.r#unit)
+            && crate::SemanticEq::semantic_eq(&self.r#context, &other.r#context)
+            && crate::SemanticEq::semantic_eq(&self.r#contracts, &other.r#contracts)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem {
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///revision
+    pub r#revision: Option<pse_ids::ContentHash>,
+    ///path
+    pub r#path: String,
+    ///name
+    pub r#name: Option<String>,
+    ///start
+    pub r#start: Option<i64>,
+    ///end
+    pub r#end: Option<i64>,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
+            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
+            && crate::SemanticEq::semantic_eq(&self.r#end, &other.r#end)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity {
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///source_id
+    pub r#source_id: pse_ids::SemanticId,
+    ///form_id
+    pub r#form_id: Option<pse_ids::SemanticId>,
+    ///set_ids
+    pub r#set_ids: Vec<pse_ids::SemanticId>,
+    ///variables
+    pub r#variables: Vec<i64>,
+    ///member_ids
+    pub r#member_ids: Vec<pse_ids::SemanticId>,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
+            && crate::SemanticEq::semantic_eq(&self.r#form_id, &other.r#form_id)
+            && crate::SemanticEq::semantic_eq(&self.r#set_ids, &other.r#set_ids)
+            && crate::SemanticEq::semantic_eq(&self.r#variables, &other.r#variables)
+            && crate::SemanticEq::semantic_eq(&self.r#member_ids, &other.r#member_ids)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemClaim {
+    ///id
+    pub r#id: Option<pse_ids::SemanticId>,
+    ///coverage
+    pub r#coverage: Option<pse_ids::SemanticId>,
+    ///owner
+    pub r#owner: pse_ids::SemanticId,
+    ///owner_lineage
+    pub r#owner_lineage: Vec<pse_ids::SemanticId>,
+    ///evidence
+    pub r#evidence: Option<pse_ids::SemanticId>,
+    ///form
+    pub r#form: pse_ids::SemanticId,
+    ///call
+    pub r#call: pse_ids::SemanticId,
+    ///records
+    pub r#records: Vec<pse_ids::SemanticId>,
+    ///dependencies
+    pub r#dependencies: Vec<pse_ids::SemanticId>,
+    ///layer
+    pub r#layer: crate::generated::enums::ModelingValidityLayer,
+    ///basis
+    pub r#basis: Option<crate::generated::enums::ModelingApplicabilityBasis>,
+    ///reason
+    pub r#reason: Option<String>,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemClaim {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#coverage, &other.r#coverage)
+            && crate::SemanticEq::semantic_eq(&self.r#owner, &other.r#owner)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#owner_lineage,
+                &other.r#owner_lineage,
+            ) && crate::SemanticEq::semantic_eq(&self.r#evidence, &other.r#evidence)
+            && crate::SemanticEq::semantic_eq(&self.r#form, &other.r#form)
+            && crate::SemanticEq::semantic_eq(&self.r#call, &other.r#call)
+            && crate::SemanticEq::semantic_eq(&self.r#records, &other.r#records)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#dependencies,
+                &other.r#dependencies,
+            ) && crate::SemanticEq::semantic_eq(&self.r#layer, &other.r#layer)
+            && crate::SemanticEq::semantic_eq(&self.r#basis, &other.r#basis)
+            && crate::SemanticEq::semantic_eq(&self.r#reason, &other.r#reason)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemClaim {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemInputsItem {
+    ///name
+    pub r#name: String,
+    ///value
+    pub r#value: Option<f64>,
+    ///real_kind
+    pub r#real_kind: crate::generated::enums::ModelingRealValueKind,
+    ///quantity_type
+    pub r#quantity_type: pse_ids::SemanticId,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#real_kind, &other.r#real_kind)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#quantity_type,
+                &other.r#quantity_type,
+            )
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    ///id
+    pub r#id: pse_ids::SemanticId,
+    ///scope
+    pub r#scope: pse_ids::SemanticId,
+    ///target_kind
+    pub r#target_kind: crate::generated::enums::ModelingPermissionTarget,
+    ///targets
+    pub r#targets: Vec<pse_ids::SemanticId>,
+    ///allow_unknown
+    pub r#allow_unknown: bool,
+    ///allow_extrapolation
+    pub r#allow_extrapolation: bool,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#scope, &other.r#scope)
+            && crate::SemanticEq::semantic_eq(&self.r#target_kind, &other.r#target_kind)
+            && crate::SemanticEq::semantic_eq(&self.r#targets, &other.r#targets)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_unknown,
+                &other.r#allow_unknown,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#allow_extrapolation,
+                &other.r#allow_extrapolation,
+            )
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem {
+    ///claim
+    pub r#claim: RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemClaim,
+    ///instance
+    pub r#instance: Option<pse_ids::SemanticId>,
+    ///inputs
+    pub r#inputs: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemInputsItem,
+    >,
+    ///outcome
+    pub r#outcome: crate::generated::enums::ModelingApplicabilityOutcome,
+    ///required
+    pub r#required: bool,
+    ///permissions
+    pub r#permissions: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemPermissionsItem,
+    >,
+    ///unknown_allowed
+    pub r#unknown_allowed: bool,
+    ///extrapolation_allowed
+    pub r#extrapolation_allowed: bool,
+    ///admitted
+    pub r#admitted: bool,
+}
+impl crate::SemanticEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#claim, &other.r#claim)
+            && crate::SemanticEq::semantic_eq(&self.r#instance, &other.r#instance)
+            && crate::SemanticEq::semantic_eq(&self.r#inputs, &other.r#inputs)
+            && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
+            && crate::SemanticEq::semantic_eq(&self.r#required, &other.r#required)
+            && crate::SemanticEq::semantic_eq(&self.r#permissions, &other.r#permissions)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#unknown_allowed,
+                &other.r#unknown_allowed,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#extrapolation_allowed,
+                &other.r#extrapolation_allowed,
+            ) && crate::SemanticEq::semantic_eq(&self.r#admitted, &other.r#admitted)
+    }
+}
+impl PartialEq
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem {
+    ///tree_path
+    pub r#tree_path: Vec<i64>,
+    ///code
+    pub r#code: crate::generated::enums::DiagnosticCode,
+    ///class
+    pub r#class: crate::generated::enums::NativeBoundaryClass,
+    ///severity
+    pub r#severity: crate::generated::enums::DiagnosticSeverity,
+    ///stage
+    pub r#stage: crate::generated::enums::DiagnosticStage,
+    ///rule
+    pub r#rule: crate::generated::enums::DiagnosticRule,
+    ///sources
+    pub r#sources: Vec<pse_ids::SemanticId>,
+    ///observations
+    pub r#observations: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItem,
+    >,
+    ///locations
+    pub r#locations: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem,
+    >,
+    ///validity
+    pub r#validity: Option<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity,
+    >,
+    ///applicability
+    pub r#applicability: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem,
+    >,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#tree_path, &other.r#tree_path)
+            && crate::SemanticEq::semantic_eq(&self.r#code, &other.r#code)
+            && crate::SemanticEq::semantic_eq(&self.r#class, &other.r#class)
+            && crate::SemanticEq::semantic_eq(&self.r#severity, &other.r#severity)
+            && crate::SemanticEq::semantic_eq(&self.r#stage, &other.r#stage)
+            && crate::SemanticEq::semantic_eq(&self.r#rule, &other.r#rule)
+            && crate::SemanticEq::semantic_eq(&self.r#sources, &other.r#sources)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#observations,
+                &other.r#observations,
+            ) && crate::SemanticEq::semantic_eq(&self.r#locations, &other.r#locations)
+            && crate::SemanticEq::semantic_eq(&self.r#validity, &other.r#validity)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#applicability,
+                &other.r#applicability,
+            )
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItemDiagnostic {
+    ///code
+    pub r#code: crate::generated::enums::DiagnosticCode,
+    ///class
+    pub r#class: crate::generated::enums::NativeBoundaryClass,
+    ///severity
+    pub r#severity: crate::generated::enums::DiagnosticSeverity,
+    ///stage
+    pub r#stage: crate::generated::enums::DiagnosticStage,
+    ///rule
+    pub r#rule: crate::generated::enums::DiagnosticRule,
+    ///sources
+    pub r#sources: Vec<pse_ids::SemanticId>,
+    ///observations
+    pub r#observations: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItem,
+    >,
+    ///locations
+    pub r#locations: Vec<RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem>,
+    ///validity
+    pub r#validity: Option<RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity>,
+    ///applicability
+    pub r#applicability: Vec<
+        RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem,
+    >,
+    ///causes
+    pub r#causes: Vec<RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnostic {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#code, &other.r#code)
+            && crate::SemanticEq::semantic_eq(&self.r#class, &other.r#class)
+            && crate::SemanticEq::semantic_eq(&self.r#severity, &other.r#severity)
+            && crate::SemanticEq::semantic_eq(&self.r#stage, &other.r#stage)
+            && crate::SemanticEq::semantic_eq(&self.r#rule, &other.r#rule)
+            && crate::SemanticEq::semantic_eq(&self.r#sources, &other.r#sources)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#observations,
+                &other.r#observations,
+            ) && crate::SemanticEq::semantic_eq(&self.r#locations, &other.r#locations)
+            && crate::SemanticEq::semantic_eq(&self.r#validity, &other.r#validity)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#applicability,
+                &other.r#applicability,
+            ) && crate::SemanticEq::semantic_eq(&self.r#causes, &other.r#causes)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItemDiagnostic {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct RuntimeStudyOutcomesFieldAttemptsItem {
+    ///attempt_id
+    pub r#attempt_id: Option<crate::generated::identities::AttemptId>,
+    ///lifecycle
+    pub r#lifecycle: Option<crate::generated::enums::AttemptState>,
+    ///usable
+    pub r#usable: bool,
+    ///seed_permission
+    pub r#seed_permission: bool,
+    ///candidate_use
+    pub r#candidate_use: Option<crate::generated::enums::CandidateUse>,
+    ///effect
+    pub r#effect: crate::generated::enums::StudyEffectState,
+    ///start
+    pub r#start: Option<RuntimeStudyOutcomesFieldAttemptsItemStart>,
+    ///diagnostic
+    pub r#diagnostic: Option<RuntimeStudyOutcomesFieldAttemptsItemDiagnostic>,
+}
+impl crate::SemanticEq for RuntimeStudyOutcomesFieldAttemptsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#attempt_id, &other.r#attempt_id)
+            && crate::SemanticEq::semantic_eq(&self.r#lifecycle, &other.r#lifecycle)
+            && crate::SemanticEq::semantic_eq(&self.r#usable, &other.r#usable)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#seed_permission,
+                &other.r#seed_permission,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#candidate_use,
+                &other.r#candidate_use,
+            ) && crate::SemanticEq::semantic_eq(&self.r#effect, &other.r#effect)
+            && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
+            && crate::SemanticEq::semantic_eq(&self.r#diagnostic, &other.r#diagnostic)
+    }
+}
+impl PartialEq for RuntimeStudyOutcomesFieldAttemptsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
 pub struct RuntimeStudyOutcomesRow {
     ///study_id
     pub r#study_id: crate::generated::identities::StudyId,
     ///point_index
     pub r#point_index: i64,
     ///case_id
-    pub r#case_id: crate::generated::identities::DeclarationId,
+    pub r#case_id: Option<crate::generated::identities::DeclarationId>,
     ///binding_hash
     pub r#binding_hash: pse_ids::ContentHash,
-    ///predecessor
-    pub r#predecessor: Option<i64>,
     ///state
     pub r#state: crate::generated::enums::StudyPointState,
     ///attempt_id
-    pub r#attempt_id: crate::generated::identities::AttemptId,
+    pub r#attempt_id: Option<crate::generated::identities::AttemptId>,
     ///attempt_state
-    pub r#attempt_state: crate::generated::enums::AttemptState,
+    pub r#attempt_state: Option<crate::generated::enums::AttemptState>,
+    ///result_id
+    pub r#result_id: Option<crate::generated::identities::RunId>,
     ///member_catalog
     pub r#member_catalog: Option<String>,
-    ///error
-    pub r#error: Option<String>,
+    ///usable
+    pub r#usable: bool,
+    ///seed_permission
+    pub r#seed_permission: bool,
+    ///candidate_use
+    pub r#candidate_use: Option<crate::generated::enums::CandidateUse>,
+    ///effect
+    pub r#effect: crate::generated::enums::StudyEffectState,
+    ///start
+    pub r#start: Option<RuntimeStudyOutcomesFieldStart>,
+    ///diagnostic
+    pub r#diagnostic: Option<RuntimeStudyOutcomesFieldDiagnostic>,
+    ///attempts
+    pub r#attempts: Vec<RuntimeStudyOutcomesFieldAttemptsItem>,
 }
 impl crate::SemanticEq for RuntimeStudyOutcomesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -38,18 +1861,27 @@ impl crate::SemanticEq for RuntimeStudyOutcomesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#binding_hash,
                 &other.r#binding_hash,
-            )
-            && crate::SemanticEq::semantic_eq(&self.r#predecessor, &other.r#predecessor)
-            && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
+            ) && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
             && crate::SemanticEq::semantic_eq(&self.r#attempt_id, &other.r#attempt_id)
             && crate::SemanticEq::semantic_eq(
                 &self.r#attempt_state,
                 &other.r#attempt_state,
-            )
+            ) && crate::SemanticEq::semantic_eq(&self.r#result_id, &other.r#result_id)
             && crate::SemanticEq::semantic_eq(
                 &self.r#member_catalog,
                 &other.r#member_catalog,
-            ) && crate::SemanticEq::semantic_eq(&self.r#error, &other.r#error)
+            ) && crate::SemanticEq::semantic_eq(&self.r#usable, &other.r#usable)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#seed_permission,
+                &other.r#seed_permission,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#candidate_use,
+                &other.r#candidate_use,
+            ) && crate::SemanticEq::semantic_eq(&self.r#effect, &other.r#effect)
+            && crate::SemanticEq::semantic_eq(&self.r#start, &other.r#start)
+            && crate::SemanticEq::semantic_eq(&self.r#diagnostic, &other.r#diagnostic)
+            && crate::SemanticEq::semantic_eq(&self.r#attempts, &other.r#attempts)
     }
 }
 impl PartialEq for RuntimeStudyOutcomesRow {
@@ -59,6 +1891,1342 @@ impl PartialEq for RuntimeStudyOutcomesRow {
 }
 /// The concrete generated relation row.
 pub type Row = RuntimeStudyOutcomesRow;
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldStart {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#predecessor));
+        crate::SemanticFrame::frame(&self.r#predecessor, hash);
+        hash.str(stringify!(r#role));
+        crate::SemanticFrame::frame(&self.r#role, hash);
+        hash.str(stringify!(r#seed_id));
+        crate::SemanticFrame::frame(&self.r#seed_id, hash);
+        hash.str(stringify!(r#unavailable));
+        crate::SemanticFrame::frame(&self.r#unavailable, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldStart {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#predecessor))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#role))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unavailable))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#bound_index));
+        crate::SemanticFrame::frame(&self.r#bound_index, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItemIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bound_index))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticObservationsItemContractsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnosticObservationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#real));
+        crate::SemanticFrame::frame(&self.r#real, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#integer));
+        crate::SemanticFrame::frame(&self.r#integer, hash);
+        hash.str(stringify!(r#boolean));
+        crate::SemanticFrame::frame(&self.r#boolean, hash);
+        hash.str(stringify!(r#text));
+        crate::SemanticFrame::frame(&self.r#text, hash);
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#unit));
+        crate::SemanticFrame::frame(&self.r#unit, hash);
+        hash.str(stringify!(r#context));
+        crate::SemanticFrame::frame(&self.r#context, hash);
+        hash.str(stringify!(r#contracts));
+        crate::SemanticFrame::frame(&self.r#contracts, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticObservationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boolean))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#context))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#contracts))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnosticLocationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#revision));
+        crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#start));
+        crate::SemanticFrame::frame(&self.r#start, hash);
+        hash.str(stringify!(r#end));
+        crate::SemanticFrame::frame(&self.r#end, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticLocationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#end))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnosticValidity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#form_id));
+        crate::SemanticFrame::frame(&self.r#form_id, hash);
+        hash.str(stringify!(r#set_ids));
+        crate::SemanticFrame::frame(&self.r#set_ids, hash);
+        hash.str(stringify!(r#variables));
+        crate::SemanticFrame::frame(&self.r#variables, hash);
+        hash.str(stringify!(r#member_ids));
+        crate::SemanticFrame::frame(&self.r#member_ids, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticValidity {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#set_ids))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#variables))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_ids))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemClaim {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#coverage));
+        crate::SemanticFrame::frame(&self.r#coverage, hash);
+        hash.str(stringify!(r#owner));
+        crate::SemanticFrame::frame(&self.r#owner, hash);
+        hash.str(stringify!(r#owner_lineage));
+        crate::SemanticFrame::frame(&self.r#owner_lineage, hash);
+        hash.str(stringify!(r#evidence));
+        crate::SemanticFrame::frame(&self.r#evidence, hash);
+        hash.str(stringify!(r#form));
+        crate::SemanticFrame::frame(&self.r#form, hash);
+        hash.str(stringify!(r#call));
+        crate::SemanticFrame::frame(&self.r#call, hash);
+        hash.str(stringify!(r#records));
+        crate::SemanticFrame::frame(&self.r#records, hash);
+        hash.str(stringify!(r#dependencies));
+        crate::SemanticFrame::frame(&self.r#dependencies, hash);
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#basis));
+        crate::SemanticFrame::frame(&self.r#basis, hash);
+        hash.str(stringify!(r#reason));
+        crate::SemanticFrame::frame(&self.r#reason, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemClaim {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coverage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner_lineage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#call))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#records))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dependencies))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#basis))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reason))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#quantity_type));
+        crate::SemanticFrame::frame(&self.r#quantity_type, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemInputsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_type))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemPermissionsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#scope));
+        crate::SemanticFrame::frame(&self.r#scope, hash);
+        hash.str(stringify!(r#target_kind));
+        crate::SemanticFrame::frame(&self.r#target_kind, hash);
+        hash.str(stringify!(r#targets));
+        crate::SemanticFrame::frame(&self.r#targets, hash);
+        hash.str(stringify!(r#allow_unknown));
+        crate::SemanticFrame::frame(&self.r#allow_unknown, hash);
+        hash.str(stringify!(r#allow_extrapolation));
+        crate::SemanticFrame::frame(&self.r#allow_extrapolation, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItemPermissionsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#targets))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_unknown))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_extrapolation))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#claim));
+        crate::SemanticFrame::frame(&self.r#claim, hash);
+        hash.str(stringify!(r#instance));
+        crate::SemanticFrame::frame(&self.r#instance, hash);
+        hash.str(stringify!(r#inputs));
+        crate::SemanticFrame::frame(&self.r#inputs, hash);
+        hash.str(stringify!(r#outcome));
+        crate::SemanticFrame::frame(&self.r#outcome, hash);
+        hash.str(stringify!(r#required));
+        crate::SemanticFrame::frame(&self.r#required, hash);
+        hash.str(stringify!(r#permissions));
+        crate::SemanticFrame::frame(&self.r#permissions, hash);
+        hash.str(stringify!(r#unknown_allowed));
+        crate::SemanticFrame::frame(&self.r#unknown_allowed, hash);
+        hash.str(stringify!(r#extrapolation_allowed));
+        crate::SemanticFrame::frame(&self.r#extrapolation_allowed, hash);
+        hash.str(stringify!(r#admitted));
+        crate::SemanticFrame::frame(&self.r#admitted, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticApplicabilityItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#claim))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inputs))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#required))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permissions))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unknown_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extrapolation_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admitted))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#bound_index));
+        crate::SemanticFrame::frame(&self.r#bound_index, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bound_index))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItemContractsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#real));
+        crate::SemanticFrame::frame(&self.r#real, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#integer));
+        crate::SemanticFrame::frame(&self.r#integer, hash);
+        hash.str(stringify!(r#boolean));
+        crate::SemanticFrame::frame(&self.r#boolean, hash);
+        hash.str(stringify!(r#text));
+        crate::SemanticFrame::frame(&self.r#text, hash);
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#unit));
+        crate::SemanticFrame::frame(&self.r#unit, hash);
+        hash.str(stringify!(r#context));
+        crate::SemanticFrame::frame(&self.r#context, hash);
+        hash.str(stringify!(r#contracts));
+        crate::SemanticFrame::frame(&self.r#contracts, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticCausesItemObservationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boolean))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#context))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#contracts))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#revision));
+        crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#start));
+        crate::SemanticFrame::frame(&self.r#start, hash);
+        hash.str(stringify!(r#end));
+        crate::SemanticFrame::frame(&self.r#end, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticCausesItemLocationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#end))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#form_id));
+        crate::SemanticFrame::frame(&self.r#form_id, hash);
+        hash.str(stringify!(r#set_ids));
+        crate::SemanticFrame::frame(&self.r#set_ids, hash);
+        hash.str(stringify!(r#variables));
+        crate::SemanticFrame::frame(&self.r#variables, hash);
+        hash.str(stringify!(r#member_ids));
+        crate::SemanticFrame::frame(&self.r#member_ids, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticCausesItemValidity {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#set_ids))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#variables))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_ids))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemClaim {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#coverage));
+        crate::SemanticFrame::frame(&self.r#coverage, hash);
+        hash.str(stringify!(r#owner));
+        crate::SemanticFrame::frame(&self.r#owner, hash);
+        hash.str(stringify!(r#owner_lineage));
+        crate::SemanticFrame::frame(&self.r#owner_lineage, hash);
+        hash.str(stringify!(r#evidence));
+        crate::SemanticFrame::frame(&self.r#evidence, hash);
+        hash.str(stringify!(r#form));
+        crate::SemanticFrame::frame(&self.r#form, hash);
+        hash.str(stringify!(r#call));
+        crate::SemanticFrame::frame(&self.r#call, hash);
+        hash.str(stringify!(r#records));
+        crate::SemanticFrame::frame(&self.r#records, hash);
+        hash.str(stringify!(r#dependencies));
+        crate::SemanticFrame::frame(&self.r#dependencies, hash);
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#basis));
+        crate::SemanticFrame::frame(&self.r#basis, hash);
+        hash.str(stringify!(r#reason));
+        crate::SemanticFrame::frame(&self.r#reason, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemClaim {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coverage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner_lineage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#call))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#records))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dependencies))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#basis))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reason))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#quantity_type));
+        crate::SemanticFrame::frame(&self.r#quantity_type, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_type))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#scope));
+        crate::SemanticFrame::frame(&self.r#scope, hash);
+        hash.str(stringify!(r#target_kind));
+        crate::SemanticFrame::frame(&self.r#target_kind, hash);
+        hash.str(stringify!(r#targets));
+        crate::SemanticFrame::frame(&self.r#targets, hash);
+        hash.str(stringify!(r#allow_unknown));
+        crate::SemanticFrame::frame(&self.r#allow_unknown, hash);
+        hash.str(stringify!(r#allow_extrapolation));
+        crate::SemanticFrame::frame(&self.r#allow_extrapolation, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#targets))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_unknown))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_extrapolation))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#claim));
+        crate::SemanticFrame::frame(&self.r#claim, hash);
+        hash.str(stringify!(r#instance));
+        crate::SemanticFrame::frame(&self.r#instance, hash);
+        hash.str(stringify!(r#inputs));
+        crate::SemanticFrame::frame(&self.r#inputs, hash);
+        hash.str(stringify!(r#outcome));
+        crate::SemanticFrame::frame(&self.r#outcome, hash);
+        hash.str(stringify!(r#required));
+        crate::SemanticFrame::frame(&self.r#required, hash);
+        hash.str(stringify!(r#permissions));
+        crate::SemanticFrame::frame(&self.r#permissions, hash);
+        hash.str(stringify!(r#unknown_allowed));
+        crate::SemanticFrame::frame(&self.r#unknown_allowed, hash);
+        hash.str(stringify!(r#extrapolation_allowed));
+        crate::SemanticFrame::frame(&self.r#extrapolation_allowed, hash);
+        hash.str(stringify!(r#admitted));
+        crate::SemanticFrame::frame(&self.r#admitted, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldDiagnosticCausesItemApplicabilityItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#claim))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inputs))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#required))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permissions))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unknown_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extrapolation_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admitted))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnosticCausesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#tree_path));
+        crate::SemanticFrame::frame(&self.r#tree_path, hash);
+        hash.str(stringify!(r#code));
+        crate::SemanticFrame::frame(&self.r#code, hash);
+        hash.str(stringify!(r#class));
+        crate::SemanticFrame::frame(&self.r#class, hash);
+        hash.str(stringify!(r#severity));
+        crate::SemanticFrame::frame(&self.r#severity, hash);
+        hash.str(stringify!(r#stage));
+        crate::SemanticFrame::frame(&self.r#stage, hash);
+        hash.str(stringify!(r#rule));
+        crate::SemanticFrame::frame(&self.r#rule, hash);
+        hash.str(stringify!(r#sources));
+        crate::SemanticFrame::frame(&self.r#sources, hash);
+        hash.str(stringify!(r#observations));
+        crate::SemanticFrame::frame(&self.r#observations, hash);
+        hash.str(stringify!(r#locations));
+        crate::SemanticFrame::frame(&self.r#locations, hash);
+        hash.str(stringify!(r#validity));
+        crate::SemanticFrame::frame(&self.r#validity, hash);
+        hash.str(stringify!(r#applicability));
+        crate::SemanticFrame::frame(&self.r#applicability, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnosticCausesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tree_path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#code))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#class))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#severity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sources))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#locations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#applicability))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldDiagnostic {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#code));
+        crate::SemanticFrame::frame(&self.r#code, hash);
+        hash.str(stringify!(r#class));
+        crate::SemanticFrame::frame(&self.r#class, hash);
+        hash.str(stringify!(r#severity));
+        crate::SemanticFrame::frame(&self.r#severity, hash);
+        hash.str(stringify!(r#stage));
+        crate::SemanticFrame::frame(&self.r#stage, hash);
+        hash.str(stringify!(r#rule));
+        crate::SemanticFrame::frame(&self.r#rule, hash);
+        hash.str(stringify!(r#sources));
+        crate::SemanticFrame::frame(&self.r#sources, hash);
+        hash.str(stringify!(r#observations));
+        crate::SemanticFrame::frame(&self.r#observations, hash);
+        hash.str(stringify!(r#locations));
+        crate::SemanticFrame::frame(&self.r#locations, hash);
+        hash.str(stringify!(r#validity));
+        crate::SemanticFrame::frame(&self.r#validity, hash);
+        hash.str(stringify!(r#applicability));
+        crate::SemanticFrame::frame(&self.r#applicability, hash);
+        hash.str(stringify!(r#causes));
+        crate::SemanticFrame::frame(&self.r#causes, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldDiagnostic {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#code))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#class))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#severity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sources))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#locations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#applicability))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#causes))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldAttemptsItemStart {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#predecessor));
+        crate::SemanticFrame::frame(&self.r#predecessor, hash);
+        hash.str(stringify!(r#role));
+        crate::SemanticFrame::frame(&self.r#role, hash);
+        hash.str(stringify!(r#seed_id));
+        crate::SemanticFrame::frame(&self.r#seed_id, hash);
+        hash.str(stringify!(r#unavailable));
+        crate::SemanticFrame::frame(&self.r#unavailable, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldAttemptsItemStart {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#predecessor))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#role))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unavailable))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#bound_index));
+        crate::SemanticFrame::frame(&self.r#bound_index, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItemIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bound_index))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItemContractsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#real));
+        crate::SemanticFrame::frame(&self.r#real, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#integer));
+        crate::SemanticFrame::frame(&self.r#integer, hash);
+        hash.str(stringify!(r#boolean));
+        crate::SemanticFrame::frame(&self.r#boolean, hash);
+        hash.str(stringify!(r#text));
+        crate::SemanticFrame::frame(&self.r#text, hash);
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#unit));
+        crate::SemanticFrame::frame(&self.r#unit, hash);
+        hash.str(stringify!(r#context));
+        crate::SemanticFrame::frame(&self.r#context, hash);
+        hash.str(stringify!(r#contracts));
+        crate::SemanticFrame::frame(&self.r#contracts, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticObservationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boolean))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#context))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#contracts))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#revision));
+        crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#start));
+        crate::SemanticFrame::frame(&self.r#start, hash);
+        hash.str(stringify!(r#end));
+        crate::SemanticFrame::frame(&self.r#end, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticLocationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#end))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#form_id));
+        crate::SemanticFrame::frame(&self.r#form_id, hash);
+        hash.str(stringify!(r#set_ids));
+        crate::SemanticFrame::frame(&self.r#set_ids, hash);
+        hash.str(stringify!(r#variables));
+        crate::SemanticFrame::frame(&self.r#variables, hash);
+        hash.str(stringify!(r#member_ids));
+        crate::SemanticFrame::frame(&self.r#member_ids, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticValidity {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#set_ids))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#variables))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_ids))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemClaim {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#coverage));
+        crate::SemanticFrame::frame(&self.r#coverage, hash);
+        hash.str(stringify!(r#owner));
+        crate::SemanticFrame::frame(&self.r#owner, hash);
+        hash.str(stringify!(r#owner_lineage));
+        crate::SemanticFrame::frame(&self.r#owner_lineage, hash);
+        hash.str(stringify!(r#evidence));
+        crate::SemanticFrame::frame(&self.r#evidence, hash);
+        hash.str(stringify!(r#form));
+        crate::SemanticFrame::frame(&self.r#form, hash);
+        hash.str(stringify!(r#call));
+        crate::SemanticFrame::frame(&self.r#call, hash);
+        hash.str(stringify!(r#records));
+        crate::SemanticFrame::frame(&self.r#records, hash);
+        hash.str(stringify!(r#dependencies));
+        crate::SemanticFrame::frame(&self.r#dependencies, hash);
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#basis));
+        crate::SemanticFrame::frame(&self.r#basis, hash);
+        hash.str(stringify!(r#reason));
+        crate::SemanticFrame::frame(&self.r#reason, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemClaim {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coverage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner_lineage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#call))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#records))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dependencies))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#basis))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reason))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#quantity_type));
+        crate::SemanticFrame::frame(&self.r#quantity_type, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemInputsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_type))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemPermissionsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#scope));
+        crate::SemanticFrame::frame(&self.r#scope, hash);
+        hash.str(stringify!(r#target_kind));
+        crate::SemanticFrame::frame(&self.r#target_kind, hash);
+        hash.str(stringify!(r#targets));
+        crate::SemanticFrame::frame(&self.r#targets, hash);
+        hash.str(stringify!(r#allow_unknown));
+        crate::SemanticFrame::frame(&self.r#allow_unknown, hash);
+        hash.str(stringify!(r#allow_extrapolation));
+        crate::SemanticFrame::frame(&self.r#allow_extrapolation, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItemPermissionsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#targets))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_unknown))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_extrapolation))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#claim));
+        crate::SemanticFrame::frame(&self.r#claim, hash);
+        hash.str(stringify!(r#instance));
+        crate::SemanticFrame::frame(&self.r#instance, hash);
+        hash.str(stringify!(r#inputs));
+        crate::SemanticFrame::frame(&self.r#inputs, hash);
+        hash.str(stringify!(r#outcome));
+        crate::SemanticFrame::frame(&self.r#outcome, hash);
+        hash.str(stringify!(r#required));
+        crate::SemanticFrame::frame(&self.r#required, hash);
+        hash.str(stringify!(r#permissions));
+        crate::SemanticFrame::frame(&self.r#permissions, hash);
+        hash.str(stringify!(r#unknown_allowed));
+        crate::SemanticFrame::frame(&self.r#unknown_allowed, hash);
+        hash.str(stringify!(r#extrapolation_allowed));
+        crate::SemanticFrame::frame(&self.r#extrapolation_allowed, hash);
+        hash.str(stringify!(r#admitted));
+        crate::SemanticFrame::frame(&self.r#admitted, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticApplicabilityItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#claim))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inputs))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#required))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permissions))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unknown_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extrapolation_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admitted))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#bound_index));
+        crate::SemanticFrame::frame(&self.r#bound_index, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItemIndicesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bound_index))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#indices));
+        crate::SemanticFrame::frame(&self.r#indices, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItemContractsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#real));
+        crate::SemanticFrame::frame(&self.r#real, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#integer));
+        crate::SemanticFrame::frame(&self.r#integer, hash);
+        hash.str(stringify!(r#boolean));
+        crate::SemanticFrame::frame(&self.r#boolean, hash);
+        hash.str(stringify!(r#text));
+        crate::SemanticFrame::frame(&self.r#text, hash);
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#unit));
+        crate::SemanticFrame::frame(&self.r#unit, hash);
+        hash.str(stringify!(r#context));
+        crate::SemanticFrame::frame(&self.r#context, hash);
+        hash.str(stringify!(r#contracts));
+        crate::SemanticFrame::frame(&self.r#contracts, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemObservationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boolean))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#context))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#contracts))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#revision));
+        crate::SemanticFrame::frame(&self.r#revision, hash);
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#start));
+        crate::SemanticFrame::frame(&self.r#start, hash);
+        hash.str(stringify!(r#end));
+        crate::SemanticFrame::frame(&self.r#end, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemLocationsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#end))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#source_id));
+        crate::SemanticFrame::frame(&self.r#source_id, hash);
+        hash.str(stringify!(r#form_id));
+        crate::SemanticFrame::frame(&self.r#form_id, hash);
+        hash.str(stringify!(r#set_ids));
+        crate::SemanticFrame::frame(&self.r#set_ids, hash);
+        hash.str(stringify!(r#variables));
+        crate::SemanticFrame::frame(&self.r#variables, hash);
+        hash.str(stringify!(r#member_ids));
+        crate::SemanticFrame::frame(&self.r#member_ids, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemValidity {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#set_ids))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#variables))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_ids))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemClaim {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#coverage));
+        crate::SemanticFrame::frame(&self.r#coverage, hash);
+        hash.str(stringify!(r#owner));
+        crate::SemanticFrame::frame(&self.r#owner, hash);
+        hash.str(stringify!(r#owner_lineage));
+        crate::SemanticFrame::frame(&self.r#owner_lineage, hash);
+        hash.str(stringify!(r#evidence));
+        crate::SemanticFrame::frame(&self.r#evidence, hash);
+        hash.str(stringify!(r#form));
+        crate::SemanticFrame::frame(&self.r#form, hash);
+        hash.str(stringify!(r#call));
+        crate::SemanticFrame::frame(&self.r#call, hash);
+        hash.str(stringify!(r#records));
+        crate::SemanticFrame::frame(&self.r#records, hash);
+        hash.str(stringify!(r#dependencies));
+        crate::SemanticFrame::frame(&self.r#dependencies, hash);
+        hash.str(stringify!(r#layer));
+        crate::SemanticFrame::frame(&self.r#layer, hash);
+        hash.str(stringify!(r#basis));
+        crate::SemanticFrame::frame(&self.r#basis, hash);
+        hash.str(stringify!(r#reason));
+        crate::SemanticFrame::frame(&self.r#reason, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemClaim {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coverage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner_lineage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#form))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#call))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#records))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dependencies))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#layer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#basis))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reason))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#real_kind));
+        crate::SemanticFrame::frame(&self.r#real_kind, hash);
+        hash.str(stringify!(r#quantity_type));
+        crate::SemanticFrame::frame(&self.r#quantity_type, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemInputsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#real_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_type))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#scope));
+        crate::SemanticFrame::frame(&self.r#scope, hash);
+        hash.str(stringify!(r#target_kind));
+        crate::SemanticFrame::frame(&self.r#target_kind, hash);
+        hash.str(stringify!(r#targets));
+        crate::SemanticFrame::frame(&self.r#targets, hash);
+        hash.str(stringify!(r#allow_unknown));
+        crate::SemanticFrame::frame(&self.r#allow_unknown, hash);
+        hash.str(stringify!(r#allow_extrapolation));
+        crate::SemanticFrame::frame(&self.r#allow_extrapolation, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItemPermissionsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#targets))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_unknown))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allow_extrapolation))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#claim));
+        crate::SemanticFrame::frame(&self.r#claim, hash);
+        hash.str(stringify!(r#instance));
+        crate::SemanticFrame::frame(&self.r#instance, hash);
+        hash.str(stringify!(r#inputs));
+        crate::SemanticFrame::frame(&self.r#inputs, hash);
+        hash.str(stringify!(r#outcome));
+        crate::SemanticFrame::frame(&self.r#outcome, hash);
+        hash.str(stringify!(r#required));
+        crate::SemanticFrame::frame(&self.r#required, hash);
+        hash.str(stringify!(r#permissions));
+        crate::SemanticFrame::frame(&self.r#permissions, hash);
+        hash.str(stringify!(r#unknown_allowed));
+        crate::SemanticFrame::frame(&self.r#unknown_allowed, hash);
+        hash.str(stringify!(r#extrapolation_allowed));
+        crate::SemanticFrame::frame(&self.r#extrapolation_allowed, hash);
+        hash.str(stringify!(r#admitted));
+        crate::SemanticFrame::frame(&self.r#admitted, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItemApplicabilityItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#claim))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inputs))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#required))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#permissions))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unknown_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extrapolation_allowed))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admitted))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#tree_path));
+        crate::SemanticFrame::frame(&self.r#tree_path, hash);
+        hash.str(stringify!(r#code));
+        crate::SemanticFrame::frame(&self.r#code, hash);
+        hash.str(stringify!(r#class));
+        crate::SemanticFrame::frame(&self.r#class, hash);
+        hash.str(stringify!(r#severity));
+        crate::SemanticFrame::frame(&self.r#severity, hash);
+        hash.str(stringify!(r#stage));
+        crate::SemanticFrame::frame(&self.r#stage, hash);
+        hash.str(stringify!(r#rule));
+        crate::SemanticFrame::frame(&self.r#rule, hash);
+        hash.str(stringify!(r#sources));
+        crate::SemanticFrame::frame(&self.r#sources, hash);
+        hash.str(stringify!(r#observations));
+        crate::SemanticFrame::frame(&self.r#observations, hash);
+        hash.str(stringify!(r#locations));
+        crate::SemanticFrame::frame(&self.r#locations, hash);
+        hash.str(stringify!(r#validity));
+        crate::SemanticFrame::frame(&self.r#validity, hash);
+        hash.str(stringify!(r#applicability));
+        crate::SemanticFrame::frame(&self.r#applicability, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldAttemptsItemDiagnosticCausesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tree_path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#code))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#class))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#severity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sources))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#locations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#applicability))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldAttemptsItemDiagnostic {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#code));
+        crate::SemanticFrame::frame(&self.r#code, hash);
+        hash.str(stringify!(r#class));
+        crate::SemanticFrame::frame(&self.r#class, hash);
+        hash.str(stringify!(r#severity));
+        crate::SemanticFrame::frame(&self.r#severity, hash);
+        hash.str(stringify!(r#stage));
+        crate::SemanticFrame::frame(&self.r#stage, hash);
+        hash.str(stringify!(r#rule));
+        crate::SemanticFrame::frame(&self.r#rule, hash);
+        hash.str(stringify!(r#sources));
+        crate::SemanticFrame::frame(&self.r#sources, hash);
+        hash.str(stringify!(r#observations));
+        crate::SemanticFrame::frame(&self.r#observations, hash);
+        hash.str(stringify!(r#locations));
+        crate::SemanticFrame::frame(&self.r#locations, hash);
+        hash.str(stringify!(r#validity));
+        crate::SemanticFrame::frame(&self.r#validity, hash);
+        hash.str(stringify!(r#applicability));
+        crate::SemanticFrame::frame(&self.r#applicability, hash);
+        hash.str(stringify!(r#causes));
+        crate::SemanticFrame::frame(&self.r#causes, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldAttemptsItemDiagnostic {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#code))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#class))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#severity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stage))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sources))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#locations))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#applicability))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#causes))
+    }
+}
+impl crate::SemanticFrame for RuntimeStudyOutcomesFieldAttemptsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#attempt_id));
+        crate::SemanticFrame::frame(&self.r#attempt_id, hash);
+        hash.str(stringify!(r#lifecycle));
+        crate::SemanticFrame::frame(&self.r#lifecycle, hash);
+        hash.str(stringify!(r#usable));
+        crate::SemanticFrame::frame(&self.r#usable, hash);
+        hash.str(stringify!(r#seed_permission));
+        crate::SemanticFrame::frame(&self.r#seed_permission, hash);
+        hash.str(stringify!(r#candidate_use));
+        crate::SemanticFrame::frame(&self.r#candidate_use, hash);
+        hash.str(stringify!(r#effect));
+        crate::SemanticFrame::frame(&self.r#effect, hash);
+        hash.str(stringify!(r#start));
+        crate::SemanticFrame::frame(&self.r#start, hash);
+        hash.str(stringify!(r#diagnostic));
+        crate::SemanticFrame::frame(&self.r#diagnostic, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeStudyOutcomesFieldAttemptsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lifecycle))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#usable))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_permission))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#candidate_use))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#effect))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#diagnostic))
+    }
+}
 impl crate::SemanticFrame for RuntimeStudyOutcomesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#study_id));
@@ -69,18 +3237,30 @@ impl crate::SemanticFrame for RuntimeStudyOutcomesRow {
         crate::SemanticFrame::frame(&self.r#case_id, hash);
         hash.str(stringify!(r#binding_hash));
         crate::SemanticFrame::frame(&self.r#binding_hash, hash);
-        hash.str(stringify!(r#predecessor));
-        crate::SemanticFrame::frame(&self.r#predecessor, hash);
         hash.str(stringify!(r#state));
         crate::SemanticFrame::frame(&self.r#state, hash);
         hash.str(stringify!(r#attempt_id));
         crate::SemanticFrame::frame(&self.r#attempt_id, hash);
         hash.str(stringify!(r#attempt_state));
         crate::SemanticFrame::frame(&self.r#attempt_state, hash);
+        hash.str(stringify!(r#result_id));
+        crate::SemanticFrame::frame(&self.r#result_id, hash);
         hash.str(stringify!(r#member_catalog));
         crate::SemanticFrame::frame(&self.r#member_catalog, hash);
-        hash.str(stringify!(r#error));
-        crate::SemanticFrame::frame(&self.r#error, hash);
+        hash.str(stringify!(r#usable));
+        crate::SemanticFrame::frame(&self.r#usable, hash);
+        hash.str(stringify!(r#seed_permission));
+        crate::SemanticFrame::frame(&self.r#seed_permission, hash);
+        hash.str(stringify!(r#candidate_use));
+        crate::SemanticFrame::frame(&self.r#candidate_use, hash);
+        hash.str(stringify!(r#effect));
+        crate::SemanticFrame::frame(&self.r#effect, hash);
+        hash.str(stringify!(r#start));
+        crate::SemanticFrame::frame(&self.r#start, hash);
+        hash.str(stringify!(r#diagnostic));
+        crate::SemanticFrame::frame(&self.r#diagnostic, hash);
+        hash.str(stringify!(r#attempts));
+        crate::SemanticFrame::frame(&self.r#attempts, hash);
     }
 }
 impl crate::HeapUsage for RuntimeStudyOutcomesRow {
@@ -90,11 +3270,17 @@ impl crate::HeapUsage for RuntimeStudyOutcomesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#point_index))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#case_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#binding_hash))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#predecessor))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_state))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#result_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_catalog))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#error))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#usable))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_permission))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#candidate_use))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#effect))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#start))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#diagnostic))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempts))
     }
 }

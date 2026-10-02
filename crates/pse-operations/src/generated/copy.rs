@@ -310,15 +310,17 @@ pub const STUDY_POINT_MEMBERS: CopyIn = CopyIn {
 /// The binary copy into `study_points` (runtime.operational_study_points).
 pub const STUDY_POINTS: CopyIn = CopyIn {
     table: "study_points",
-    statement: "COPY pse_ops.\"study_points\" (\"study_id\", \"point_index\", \"binding_hash\", \"predecessor\", \"job_id\", \"state\", \"updated_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"study_id\", \"point_index\", \"binding_hash\", \"predecessor\", \"job_id\", \"state\", \"updated_at\" FROM pse_ops.\"study_points\" WHERE false",
+    statement: "COPY pse_ops.\"study_points\" (\"study_id\", \"point_index\", \"binding_hash\", \"job_id\", \"state\", \"revision\", \"policy\", \"outcome\", \"updated_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"study_id\", \"point_index\", \"binding_hash\", \"job_id\", \"state\", \"revision\", \"policy\", \"outcome\", \"updated_at\" FROM pse_ops.\"study_points\" WHERE false",
     columns: &[
         "study_id",
         "point_index",
         "binding_hash",
-        "predecessor",
         "job_id",
         "state",
+        "revision",
+        "policy",
+        "outcome",
         "updated_at",
     ],
 };

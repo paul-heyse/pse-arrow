@@ -128,6 +128,9 @@ pub enum MathRuntimeError {
     /// A previous shared load is still joining after its last waiter departed.
     #[error("math program load is retiring; retry after completion")]
     Retiring,
+    /// A caught worker panic, distinct from resource or infrastructure refusal.
+    #[error("math worker panic: {0}")]
+    Panic(String),
     /// Supervisor/thread failure.
     #[error("math infrastructure: {0}")]
     Infrastructure(String),
@@ -145,9 +148,17 @@ impl MathRuntimeError {
                 kind: LimitKind::Memory,
                 detail: detail.into(),
             },
-            Self::Pool(e) => ProblemError::memory(e.to_string()),
+            Self::Pool(e) => ProblemError::Math(pse_math::MathError::Typed {
+                retained: size_of_val(&e) + e.to_string().len(),
+                cause: pse_model::diagnostic::DiagnosticCause::new(Self::Pool(e)),
+            }),
             Self::Shared(e) => Arc::try_unwrap(e).map_or_else(
-                |e| ProblemError::internal(e.to_string()),
+                |e| {
+                    ProblemError::Math(pse_math::MathError::Typed {
+                        cause: pse_model::diagnostic::DiagnosticCause::new(Self::Shared(e)),
+                        retained: size_of::<Self>(),
+                    })
+                },
                 Self::into_problem,
             ),
             Self::Compile(CompileError::Cancelled) => ProblemError::Cancelled,
@@ -155,16 +166,30 @@ impl MathRuntimeError {
                 kind: LimitKind::Work,
                 detail: detail.into(),
             },
-            Self::Compile(e) => ProblemError::internal(e.to_string()),
-            Self::Retiring | Self::Infrastructure(_) => ProblemError::internal(self.to_string()),
+            Self::Compile(e) => ProblemError::Math(pse_math::MathError::Typed {
+                retained: e.retained_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::new(e),
+            }),
+            Self::Retiring | Self::Infrastructure(_) | Self::Panic(_) => {
+                ProblemError::Math(pse_math::MathError::Typed {
+                    retained: size_of::<Self>(),
+                    cause: pse_model::diagnostic::DiagnosticCause::new(self),
+                })
+            }
         }
     }
 }
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
-    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>None} },
+    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
     forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None} },
-    help(_this) { None },related(_this) { None },source(_this) { None }
+    help(_this) { None },related(_this) { None },source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticRule as R, DiagnosticFacts, DiagnosticObservation as O};
+        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(R::MathLimit), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_)=>None },..Default::default() };
+        if !matches!(this,Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)) {facts.observe("detail",O::Text(this.to_string()));}
+        facts
+    }
 }
 /// Working allowance of a job that runs inside a held workspace lease. The workspace lease
 /// already covers the compiler's working set, so the job charges only its native thread
@@ -554,3 +579,27 @@ impl MathService {
 
 #[cfg(test)]
 mod tests;
+
+impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
+    fn boundary_diagnostic(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        use pse_diagnostics::TypedDiagnostic;
+        use pse_model::diagnostic::project_facts;
+        match self {
+            Self::Solve(e) => e.boundary_diagnostic(stage),
+            Self::Compile(e) => e.boundary_diagnostic(stage),
+            Self::Math(e) => e.boundary_diagnostic(stage),
+            Self::Shared(e) => e.boundary_diagnostic(stage),
+            Self::Pool(_)
+            | Self::Limit(_)
+            | Self::Cancelled
+            | Self::Retiring
+            | Self::Infrastructure(_)
+            | Self::Panic(_) => {
+                project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage)
+            }
+        }
+    }
+}

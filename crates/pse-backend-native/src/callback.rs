@@ -38,7 +38,8 @@ pub fn classify(error: &ProblemError) -> Failure {
             }
             E::Cancelled => Failure::Stopped(Termination::Cancelled),
             E::Provider { cause, .. } => provider(cause),
-            E::Native { cause, .. } => cause
+            E::Native { cause, .. } | E::Typed { cause, .. } => cause
+                .as_error()
                 .downcast_ref::<ProblemError>()
                 .map_or(Failure::Fatal, classify),
             E::Contract(_)
@@ -247,7 +248,8 @@ fn regime_crossing(error: &ProblemError) -> bool {
             E::Provider { cause, .. } => {
                 matches!(cause, pse_kernels::ProviderError::RegimeCrossing { .. })
             }
-            E::Native { cause, .. } => cause
+            E::Native { cause, .. } | E::Typed { cause, .. } => cause
+                .as_error()
                 .downcast_ref::<ProblemError>()
                 .is_some_and(regime_crossing),
             _ => false,

@@ -1,35 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Studies coordinated across workers (Plan 22 O7; architecture S15).
-//!
-//! **Creation.** One transaction stores the study, its coordinating attempt (kind `study`),
-//! its publication intent, its finalization job and every point's job with its attempt.
-//! A point without a predecessor is queued at once; a point with one, and the
-//! finalization, wait (job state `waiting`, attempt `planned`).
-//!
-//! **A point follows its job.** Every repository function that moves a job — a claim, a
-//! finished try, the stale sweep, a cancellation — calls `job_changed` in its own
-//! transaction, so a point is pending while its job is waiting or queued, assigned while a
-//! try runs, and completed, failed or cancelled with its job. A completed point's result
-//! members are recorded in that same transaction.
-//!
-//! **Predecessors.** A completed point releases the points that name it as their
-//! predecessor. A point that fails or is cancelled cancels them instead, transitively:
-//! they never ran, so their attempts end cancelled with the `unattempted` termination and
-//! their jobs record which predecessor did not complete.
-//!
-//! **Conclusion.** The transaction that makes the last point terminal ends the study's
-//! attempt — completed when every point completed, partial when some did, failed when none
-//! did, cancelled when the study was cancelled — and releases the finalization job, which
-//! publishes the study. A coordinating attempt never holds a lease
-//! ([`crate::lifecycle::COORDINATING`]), so it never goes stale and its intent stays live.
-//!
-//! Point transitions of one study are serialized by the study row. Lock order: job rows,
-//! then their attempts, then the study row, then the jobs and attempts of the points it
-//! releases or cancels, then the study's own attempt.
+//! Durable adapter of the shared occurrence policy. Operations own transactional I/O;
+//! the policy consumes scientific permissions supplied by operation owners. Queue claims
+//! admit acquisition only, and native dispatch is fenced by the current revision and lease.
+//! Outcomes retain every try, structured diagnostics, start provenance and effect facts.
 
+use crate::study_policy;
 use pse_ids::ContentHash;
+use pse_model::study::*;
 use pse_operations_queries::client::Params as _;
 use pse_operations_queries::queries::{catalog as catalog_statements, studies as statements};
 
@@ -73,10 +52,10 @@ pub struct NewStudy {
 /// One point of a new study.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewPoint {
-    /// The hash of the point's value bindings; unique within the study.
+    /// Reusable binding content identity; equal bindings can be requested repeatedly.
     pub binding_hash: ContentHash,
-    /// The earlier point whose stored solution seeds this one; the point waits for it.
-    pub predecessor: Option<u32>,
+    /// Mechanically derived occurrence policy from the immutable study definition.
+    pub policy: PointPolicy,
     /// The point's job and first attempt.
     pub job: NewJob,
 }
@@ -97,30 +76,118 @@ pub struct StudyCreated {
 }
 
 /// One point with its job's state and current attempt.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct PointStatus {
-    /// The point.
+    /// Occurrence identity, independent of position and binding content.
     pub point_index: u32,
-    /// Its value bindings by hash.
+    /// Reusable binding identity; duplicates are allowed.
     pub binding_hash: ContentHash,
-    /// The point that seeds it.
-    pub predecessor: Option<u32>,
-    /// Its state.
+    /// Current point lifecycle.
     pub state: StudyPointState,
-    /// Its job.
+    /// Revision fences acquisition and dispatch.
+    pub revision: u64,
+    /// None for a preserved historical row requiring explicit readmission.
+    pub policy: Option<PointPolicy>,
+    /// Historical attribution retained without granting current execution permission.
+    pub legacy: Option<LegacyUnavailable>,
+    /// None for a historical row with unavailable aggregate facts.
+    pub outcome: Option<PointOutcome>,
+    /// Exact pre-effect native publication ticket, interpreted only by its owner.
+    pub receipt: Option<serde_json::Value>,
+    /// Original try owning the currently attached member inventory.
+    pub member_attempt: Option<AttemptId>,
+    /// Job identity and lifecycle.
     pub job_id: JobId,
-    /// The job's state.
+    /// Job lifecycle.
     pub job_state: JobState,
-    /// The job's current attempt: the point's latest try.
+    /// Current try identity.
     pub attempt_id: AttemptId,
-    /// That attempt's state.
+    /// Current try lifecycle.
     pub attempt_state: AttemptState,
-    /// Why the job last failed or was cancelled.
+    /// Current try number.
+    pub tries: u32,
+    /// Retained terminal detail, never a rendered message as authority.
+    pub termination_detail: Option<serde_json::Value>,
+    /// Human-readable job audit context.
     pub last_error: Option<String>,
 }
 
+/// Explicit historical marker; it never supplies current scientific permissions.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LegacyUnavailable {
+    /// Marker codec version.
+    pub version: pse_model::document::Version<1>,
+    /// Exact closed marker spelling.
+    pub kind: LegacyKind,
+    /// Former positional predecessor retained as historical attribution only.
+    #[serde(default)]
+    pub predecessor: Option<u32>,
+    /// Former content identity, retained without recomputation.
+    #[serde(default)]
+    pub binding_hash: Option<ContentHash>,
+}
+/// Registry-owned closed historical marker vocabulary.
+pub use pse_model::generated::enums::StudyLegacyKind as LegacyKind;
+fn legacy_marker(
+    document: &serde_json::Value,
+    column: &'static str,
+) -> Result<Option<LegacyUnavailable>, OperationsError> {
+    if document.get("kind").and_then(serde_json::Value::as_str) != Some("legacy_unavailable") {
+        return Ok(None);
+    }
+    serde_json::from_value(document.clone())
+        .map(Some)
+        .map_err(|error| OperationsError::CorruptValue {
+            column,
+            detail: error.to_string(),
+        })
+}
+fn decode_current<T: serde::de::DeserializeOwned>(
+    document: &serde_json::Value,
+    column: &'static str,
+) -> Result<Option<T>, OperationsError> {
+    if legacy_marker(document, column)?.is_some() {
+        return Ok(None);
+    }
+    serde_json::from_value(document.clone())
+        .map(Some)
+        .map_err(|error| OperationsError::CorruptValue {
+            column,
+            detail: error.to_string(),
+        })
+}
+
+/// Operational envelope retaining the pre-effect receipt alongside scientific facts.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StoredPointOutcome {
+    version: pse_model::document::Version<1>,
+    outcome: PointOutcome,
+    receipt: Option<serde_json::Value>,
+    member_attempt: Option<AttemptId>,
+}
+fn stored_outcome(
+    outcome: &PointOutcome,
+    receipt: Option<serde_json::Value>,
+    member_attempt: Option<AttemptId>,
+) -> StoredPointOutcome {
+    StoredPointOutcome {
+        version: Default::default(),
+        outcome: outcome.clone(),
+        receipt,
+        member_attempt,
+    }
+}
+
+fn encode(value: &impl serde::Serialize) -> Result<serde_json::Value, OperationsError> {
+    serde_json::to_value(value).map_err(|error| OperationsError::InvalidRequest {
+        reason: format!("study fact encoding: {error}"),
+    })
+}
+
 /// A study as the store holds it.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct StudyRecord {
     /// The study row.
     pub study: RuntimeOperationalStudiesRow,
@@ -152,7 +219,10 @@ impl StudyFilter {
 }
 
 /// What cancelling a study did.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct StudyCancel {
     /// Points that had not started, now cancelled.
     pub cancelled: Vec<u32>,
@@ -215,20 +285,35 @@ async fn set_point(
     tx: &Tx<'_>,
     target: &Target,
     study: StudyId,
-    point: i32,
-    state: StudyPointState,
+    point: &PointStatus,
+    outcome: &PointOutcome,
 ) -> Result<(), OperationsError> {
-    statements::set_point_state()
+    let changed = statements::set_point_outcome()
         .params(
             tx,
-            &statements::SetPointStateParams {
-                state,
+            &statements::SetPointOutcomeParams {
+                state: outcome.lifecycle,
+                outcome: &encode(&stored_outcome(
+                    outcome,
+                    point.receipt.clone(),
+                    point.member_attempt,
+                ))?,
                 study_id: study,
-                point_index: point,
+                point_index: index(point.point_index)?,
+                expected_revision: i64::try_from(point.revision).map_err(|_| {
+                    OperationsError::InvalidRequest {
+                        reason: "study revision exceeds storage".into(),
+                    }
+                })?,
             },
         )
         .await
         .classify(target)?;
+    if changed != 1 {
+        return Err(OperationsError::InvalidRequest {
+            reason: "study point revision changed while applying policy".into(),
+        });
+    }
     Ok(())
 }
 
@@ -255,6 +340,8 @@ async fn set_study(
 macro_rules! point_status {
     ($row:expr) => {{
         let row = $row;
+        let stored: Option<StoredPointOutcome> =
+            decode_current(&row.outcome, "study_points.outcome")?;
         Ok::<_, OperationsError>(PointStatus {
             point_index: stored_index(row.point_index)?,
             binding_hash: ContentHash::try_from_slice(&row.binding_hash).map_err(|error| {
@@ -263,7 +350,22 @@ macro_rules! point_status {
                     detail: error.to_string(),
                 }
             })?,
-            predecessor: row.predecessor.map(stored_index).transpose()?,
+            revision: u64::try_from(row.revision).map_err(|error| {
+                OperationsError::CorruptValue {
+                    column: "study_points.revision",
+                    detail: error.to_string(),
+                }
+            })?,
+            legacy: legacy_marker(&row.policy, "study_points.policy")?,
+            policy: decode_current(&row.policy, "study_points.policy")?,
+            outcome: stored.as_ref().map(|stored| stored.outcome.clone()),
+            receipt: stored.as_ref().and_then(|stored| stored.receipt.clone()),
+            member_attempt: stored.and_then(|stored| stored.member_attempt),
+            tries: u32::try_from(row.tries).map_err(|error| OperationsError::CorruptValue {
+                column: "jobs.tries",
+                detail: error.to_string(),
+            })?,
+            termination_detail: row.termination_detail,
             state: row.state,
             job_id: JobId::from_id(row.job_id),
             job_state: row.job_state,
@@ -289,130 +391,450 @@ async fn points(
         .collect()
 }
 
-/// Cancel a point that never ran: its waiting or queued job and its planned or queued
-/// attempt end cancelled, recording `reason`.
-async fn cancel_unstarted(
+fn policy_snapshot(
+    points: &[PointStatus],
+    seed: Option<(OccurrenceKey, SeedFact)>,
+) -> Result<(OccurrenceGraph, Vec<PointFacts>), OperationsError> {
+    let unavailable = || {
+        OperationsError::InvalidRequest { reason: "historical study policy or scientific facts are unavailable; explicit readmission is required".into() }
+    };
+    let graph = OccurrenceGraph {
+        points: points
+            .iter()
+            .map(|point| point.policy.clone().ok_or_else(unavailable))
+            .collect::<Result<_, _>>()?,
+    };
+    let facts = points
+        .iter()
+        .map(|point| {
+            let outcome = point.outcome.as_ref().ok_or_else(unavailable)?;
+            let policy = point.policy.as_ref().ok_or_else(unavailable)?;
+            if policy.key.0 != point.point_index || outcome.key != policy.key {
+                return Err(OperationsError::CorruptValue {
+                    column: "study_points.policy",
+                    detail: "occurrence keys differ from the stored row".into(),
+                });
+            }
+            let selected = seed
+                .as_ref()
+                .filter(|(key, _)| *key == policy.key)
+                .map(|(_, fact)| fact.clone())
+                .or_else(|| match &policy.start {
+                    StartPolicy::Fresh => None,
+                    StartPolicy::Continuation(edge) => Some(SeedFact {
+                        role: edge.role,
+                        availability: SeedAvailability::Unresolved,
+                    }),
+                    StartPolicy::Explicit { role, .. } => Some(SeedFact {
+                        role: *role,
+                        availability: SeedAvailability::Unresolved,
+                    }),
+                });
+            let retry_failure = point
+                .termination_detail
+                .as_ref()
+                .and_then(|detail| detail.get("retry_failure"))
+                .cloned()
+                .map(serde_json::from_value)
+                .transpose()
+                .map_err(|error| OperationsError::CorruptValue {
+                    column: "attempts.termination_detail",
+                    detail: error.to_string(),
+                })?;
+            Ok(PointFacts {
+                key: policy.key,
+                revision: point.revision,
+                lifecycle: outcome.lifecycle,
+                native_started: outcome.start.is_some()
+                    && outcome.lifecycle == StudyPointState::Assigned,
+                scientific: outcome.scientific.clone(),
+                attempt_count: point.tries,
+                retry_failure,
+                effect: outcome.effect,
+                seed: selected,
+            })
+        })
+        .collect::<Result<_, OperationsError>>()?;
+    Ok((graph, facts))
+}
+
+async fn apply_unstarted(
     tx: &Tx<'_>,
     target: &Target,
     study: StudyId,
-    point: &RuntimeOperationalStudyPointsRow,
-    termination: RuntimeTermination,
-    reason: &str,
+    point: &PointStatus,
+    action: &ActionKind,
 ) -> Result<(), OperationsError> {
+    let mut outcome = point
+        .outcome
+        .clone()
+        .ok_or_else(|| OperationsError::InvalidRequest {
+            reason: "historical occurrence requires readmission".into(),
+        })?;
+    let (state, reason) = match action {
+        ActionKind::Cancel => (StudyPointState::Cancelled, "study cancelled".to_owned()),
+        ActionKind::Refuse(refusal) => {
+            outcome.diagnostic = Some(refusal.boundary_diagnostic());
+            (
+                StudyPointState::Failed,
+                format!("study dependency policy refused: {refusal:?}"),
+            )
+        }
+        _ => return Ok(()),
+    };
     let job = jobs::lock_job(tx, target, point.job_id).await?;
     if !matches!(job.state, JobState::Waiting | JobState::Queued) {
-        return Err(OperationsError::InvalidRequest {
-            reason: format!(
-                "point {} of study {study} has a {} job; only work that has not started is cancelled here",
-                point.point_index,
-                job.state.as_str()
-            ),
-        });
+        return Ok(());
     }
-    let note = TransitionNote::by(ACTOR)
-        .because(reason)
-        .terminated(Termination {
-            code: TerminationCode::Runtime(termination),
-            detail: None,
-        });
     attempts::apply(
         tx,
         target,
         job.attempt_id,
         AttemptState::Cancelled,
-        &note,
+        &TransitionNote::by(ACTOR)
+            .because(&reason)
+            .terminated(Termination {
+                code: TerminationCode::Runtime(RuntimeTermination::Unattempted),
+                detail: outcome.diagnostic.as_ref().map(encode).transpose()?,
+            }),
         None,
     )
     .await?;
-    jobs::set_job_state(tx, target, job.job_id, JobState::Cancelled, Some(reason)).await?;
-    set_point(
+    jobs::set_job_state(
         tx,
         target,
-        study,
-        point.point_index,
-        StudyPointState::Cancelled,
+        point.job_id,
+        if state == StudyPointState::Cancelled {
+            JobState::Cancelled
+        } else {
+            JobState::Failed
+        },
+        Some(&reason),
     )
-    .await
+    .await?;
+    outcome.lifecycle = state;
+    set_point(tx, target, study, point, &outcome).await
 }
 
-/// Cancel the pending points that wait on `point`, and theirs in turn: `point` did not
-/// complete, so they can never start.
-async fn cancel_dependents(
+async fn apply_policy(
     tx: &Tx<'_>,
     target: &Target,
-    study: StudyId,
-    point: i32,
-    outcome: StudyPointState,
-) -> Result<(), OperationsError> {
-    let mut pending = vec![(point, outcome)];
-    while let Some((predecessor, outcome)) = pending.pop() {
-        let dependents = statements::dependents()
-            .params(
-                tx,
-                &statements::DependentsParams {
-                    study_id: study,
-                    point_index: predecessor,
-                },
-            )
-            .all()
-            .await
-            .classify(target)?;
-        let reason = format!(
-            "predecessor point {predecessor} {}",
-            match outcome {
-                StudyPointState::Failed => "failed",
-                _ => "was cancelled",
+    study: &RuntimeOperationalStudiesRow,
+) -> Result<StudyDecision, OperationsError> {
+    loop {
+        let snapshot = points(tx, target, study.study_id).await?;
+        let (graph, facts) = policy_snapshot(&snapshot, None)?;
+        let cancel = attempts::fetch(tx, target, study.attempt_id)
+            .await?
+            .cancel_requested;
+        let decision = study_policy::transition(&graph, &facts, cancel).map_err(|error| {
+            OperationsError::InvalidRequest {
+                reason: error.to_string(),
             }
-        );
-        for dependent in dependents {
-            cancel_unstarted(
-                tx,
-                target,
-                study,
-                &dependent,
-                RuntimeTermination::Unattempted,
-                &reason,
-            )
-            .await?;
-            pending.push((dependent.point_index, StudyPointState::Cancelled));
+        })?;
+        let mut changed = false;
+        for (point, action) in snapshot.iter().zip(&decision.actions) {
+            if point.revision != action.expected_revision {
+                return Err(OperationsError::InvalidRequest {
+                    reason: "stale study policy action".into(),
+                });
+            }
+            match &action.kind {
+                ActionKind::Start(_) | ActionKind::Wait(WaitReason::SeedResolution { .. })
+                    if point.job_state == JobState::Waiting =>
+                {
+                    jobs::release(
+                        tx,
+                        target,
+                        point.job_id,
+                        &TransitionNote::by(ACTOR)
+                            .because("study policy admitted input acquisition"),
+                    )
+                    .await?;
+                }
+                ActionKind::Cancel | ActionKind::Refuse(_)
+                    if matches!(point.job_state, JobState::Waiting | JobState::Queued) =>
+                {
+                    apply_unstarted(tx, target, study.study_id, point, &action.kind).await?;
+                    changed = true;
+                }
+                _ => {}
+            }
+        }
+        if !changed {
+            return Ok(decision);
         }
     }
-    Ok(())
 }
 
-/// Release the pending points that wait on a completed point.
-async fn release_dependents(
-    tx: &Tx<'_>,
-    target: &Target,
-    study: StudyId,
-    point: i32,
-) -> Result<(), OperationsError> {
-    let dependents = statements::dependents()
-        .params(
-            tx,
-            &statements::DependentsParams {
-                study_id: study,
-                point_index: point,
-            },
+fn attached_member(
+    row: &RuntimeOperationalStudyPointMembersRow,
+) -> Result<MemberDescriptor, OperationsError> {
+    Ok(MemberDescriptor {
+        catalog_name: row.catalog_name.clone(),
+        schema_name: row.schema_name.clone(),
+        table_name: row.table_name.clone(),
+        relation_id: row.relation_id,
+        relation_version: row.relation_version,
+        contract_fingerprint: row.contract_fingerprint,
+        table_uri: row.table_uri.clone(),
+        delta_version: row.delta_version,
+        selection: crate::catalog::stored_selection(
+            row.selection_kind,
+            row.revision_column.as_ref(),
+            row.revision_id,
         )
-        .all()
-        .await
-        .classify(target)?;
-    let note = TransitionNote::by(ACTOR).because(format!("predecessor point {point} completed"));
-    for dependent in dependents {
-        jobs::release(tx, target, dependent.job_id, &note).await?;
-    }
-    Ok(())
+        .ok_or_else(|| OperationsError::CorruptValue {
+            column: "study_point_members.selection_kind",
+            detail: "inconsistent selection".into(),
+        })?,
+    })
 }
-
+fn point_terminal_diagnostic(
+    detail: &serde_json::Value,
+    attempt_id: AttemptId,
+    lifecycle: AttemptState,
+) -> Result<Option<PointAttemptOutcome>, OperationsError> {
+    let Some(diagnostic) = detail
+        .get("cause")
+        .and_then(|cause| cause.get("diagnostic"))
+    else {
+        return Ok(None);
+    };
+    let diagnostic = serde_json::from_value(diagnostic.clone()).map_err(|error| {
+        OperationsError::CorruptValue {
+            column: "attempts.termination_detail",
+            detail: error.to_string(),
+        }
+    })?;
+    Ok(Some(PointAttemptOutcome {
+        attempt_id: Some(attempt_id),
+        lifecycle: Some(lifecycle),
+        diagnostic: Some(diagnostic),
+        scientific: ScientificFacts::default(),
+        start: None,
+        effect: EffectState::Absent,
+    }))
+}
+fn retained_diagnostic(
+    detail: &serde_json::Value,
+) -> Result<Option<pse_model::diagnostic::BoundaryDiagnostic>, OperationsError> {
+    let value = detail
+        .get("point")
+        .and_then(|point| point.get("diagnostic"))
+        .filter(|value| !value.is_null())
+        .or_else(|| {
+            detail
+                .get("cause")
+                .and_then(|cause| cause.get("diagnostic"))
+                .filter(|value| !value.is_null())
+        });
+    value
+        .map(|value| {
+            serde_json::from_value(value.clone()).map_err(|error| OperationsError::CorruptValue {
+                column: "attempts.termination_detail",
+                detail: error.to_string(),
+            })
+        })
+        .transpose()
+}
+fn stale_attempt_outcome(
+    prior: &RuntimeOperationalAttemptsRow,
+    outcome: &PointOutcome,
+) -> Result<PointAttemptOutcome, OperationsError> {
+    use pse_model::diagnostic::{
+        BoundaryClass, BoundaryDiagnostic, DiagnosticRule, DiagnosticStage, Observation,
+    };
+    let mut diagnostic = BoundaryDiagnostic::new(
+        BoundaryClass::Infrastructure,
+        DiagnosticStage::Workflow,
+        [],
+        DiagnosticRule::WorkflowOperations,
+    );
+    diagnostic.observations.insert(
+        "attempt_id".into(),
+        Observation::Text(prior.attempt_id.to_string()),
+    );
+    diagnostic.observations.insert(
+        "attempt_state".into(),
+        Observation::Text(prior.state.as_str().into()),
+    );
+    diagnostic.observations.insert(
+        "event".into(),
+        Observation::Text(
+            if prior.state == AttemptState::Stale {
+                "lease_expired"
+            } else {
+                "attempt_superseded"
+            }
+            .into(),
+        ),
+    );
+    if let Some(worker) = &prior.worker {
+        diagnostic
+            .observations
+            .insert("worker".into(), Observation::Text(worker.clone()));
+    }
+    if let Some(expiry) = prior.lease_expires_at {
+        diagnostic
+            .observations
+            .insert("lease_expires_at".into(), Observation::Integer(expiry));
+    }
+    if let Some(detail) = &prior.termination_detail {
+        let detail =
+            serde_json::from_str(detail).map_err(|error| OperationsError::CorruptValue {
+                column: "attempts.termination_detail",
+                detail: error.to_string(),
+            })?;
+        if let Some(mut retained) = retained_diagnostic(&detail)? {
+            retained.causes.push(diagnostic);
+            diagnostic = retained;
+        }
+    }
+    Ok(PointAttemptOutcome {
+        attempt_id: Some(prior.attempt_id),
+        lifecycle: Some(prior.state),
+        diagnostic: Some(diagnostic),
+        scientific: outcome.scientific.clone(),
+        start: outcome.start.clone(),
+        effect: if outcome.start.is_some() {
+            EffectState::Unknown
+        } else {
+            EffectState::Absent
+        },
+    })
+}
+fn includes_diagnostic(
+    existing: &pse_model::diagnostic::BoundaryDiagnostic,
+    incoming: &pse_model::diagnostic::BoundaryDiagnostic,
+) -> Result<bool, OperationsError> {
+    if encode(existing)? == encode(incoming)? {
+        return Ok(true);
+    }
+    for cause in &existing.causes {
+        if includes_diagnostic(cause, incoming)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+/// Enrich repeated terminal callbacks without replacing already retained scientific,
+/// start or effect facts. The operational row supplies the current attempt lifecycle.
+fn retain_attempt(
+    outcome: &mut PointOutcome,
+    incoming: PointAttemptOutcome,
+) -> Result<bool, OperationsError> {
+    if let Some(existing) = outcome
+        .attempts
+        .iter_mut()
+        .find(|existing| existing.attempt_id == incoming.attempt_id)
+    {
+        let previous = existing.diagnostic.as_ref().map(encode).transpose()?;
+        existing.lifecycle = incoming.lifecycle.or(existing.lifecycle);
+        if let Some(diagnostic) = incoming.diagnostic {
+            match &mut existing.diagnostic {
+                Some(retained) if !includes_diagnostic(retained, &diagnostic)? => {
+                    retained.causes.push(diagnostic)
+                }
+                None => existing.diagnostic = Some(diagnostic),
+                _ => {}
+            }
+        }
+        if outcome.diagnostic.as_ref().map(encode).transpose()? == previous
+            || outcome.diagnostic.is_none()
+        {
+            outcome.diagnostic = existing.diagnostic.clone();
+        }
+        return Ok(false);
+    }
+    outcome.attempts.push(incoming);
+    Ok(true)
+}
+fn exact_member_receipt(
+    existing: &MemberDescriptor,
+    incoming: &MemberDescriptor,
+) -> Result<(), OperationsError> {
+    if existing == incoming {
+        return Ok(());
+    }
+    Err(OperationsError::InvalidRequest {
+        reason: "exact native member receipt conflicts with attached descriptor/version".into(),
+    })
+}
+fn member_attachment(
+    previous: Option<AttemptId>,
+    incoming: AttemptId,
+    history: &[PointAttemptOutcome],
+) -> Result<bool, OperationsError> {
+    if previous.is_none() || previous == Some(incoming) {
+        return Ok(false);
+    }
+    if !history.iter().any(|attempt| {
+        attempt.attempt_id == previous
+            && matches!(
+                attempt.effect,
+                EffectState::Absent | EffectState::Idempotent
+            )
+    }) {
+        return Err(OperationsError::InvalidRequest {
+            reason: "member inventory supersession requires known-safe original effect".into(),
+        });
+    }
+    Ok(true)
+}
 async fn insert_members(
     tx: &Tx<'_>,
     target: &Target,
     study: StudyId,
-    point: i32,
+    point: &mut PointStatus,
+    owner: AttemptId,
+    outcome: &PointOutcome,
     members: &[MemberDescriptor],
 ) -> Result<(), OperationsError> {
+    if members.is_empty() {
+        return Ok(());
+    }
+    if member_attachment(point.member_attempt, owner, &outcome.attempts)? {
+        statements::remove_point_members()
+            .params(
+                tx,
+                &statements::RemovePointMembersParams {
+                    study_id: study,
+                    point_index: index(point.point_index)?,
+                },
+            )
+            .await
+            .classify(target)?;
+    }
+    let mut attached = std::collections::BTreeMap::new();
+    for row in statements::available_members()
+        .bind(tx, &study)
+        .all()
+        .await
+        .classify(target)?
+    {
+        if row.point_index == index(point.point_index)? {
+            let member = attached_member(&row)?;
+            attached.insert(
+                (
+                    member.catalog_name.clone(),
+                    member.schema_name.clone(),
+                    member.table_name.clone(),
+                ),
+                member,
+            );
+        }
+    }
     for member in members {
+        let name = (
+            member.catalog_name.clone(),
+            member.schema_name.clone(),
+            member.table_name.clone(),
+        );
+        if let Some(existing) = attached.get(&name) {
+            exact_member_receipt(existing, member)?;
+            continue;
+        }
         let (selection_kind, revision_column, revision_id) =
             crate::catalog::flattened_selection(member)?;
         statements::insert_point_member()
@@ -420,7 +842,7 @@ async fn insert_members(
                 tx,
                 &statements::InsertPointMemberParams {
                     study_id: study,
-                    point_index: point,
+                    point_index: index(point.point_index)?,
                     catalog_name: member.catalog_name.as_str(),
                     schema_name: member.schema_name.as_str(),
                     table_name: member.table_name.as_str(),
@@ -436,7 +858,9 @@ async fn insert_members(
             )
             .await
             .classify(target)?;
+        attached.insert(name, member.clone());
     }
+    point.member_attempt = Some(owner);
     Ok(())
 }
 
@@ -447,34 +871,32 @@ async fn conclude(
     target: &Target,
     study: &RuntimeOperationalStudiesRow,
 ) -> Result<(), OperationsError> {
-    let points = points(tx, target, study.study_id).await?;
-    let total = points.len();
-    let completed = points
+    let decision = apply_policy(tx, target, study).await?;
+    if decision
+        .actions
         .iter()
-        .filter(|point| point.state == StudyPointState::Completed)
-        .count();
-    let attempt = attempts::fetch(tx, target, study.attempt_id).await?;
-    let summary = format!("{completed} of {total} points completed");
-    let (state, note) = if attempt.cancel_requested {
-        (
-            AttemptState::Cancelled,
-            TransitionNote::by(ACTOR)
-                .because(format!("study cancelled; {summary}"))
-                .terminated(Termination {
-                    code: TerminationCode::Runtime(RuntimeTermination::Cancelled),
-                    detail: None,
-                }),
-        )
+        .any(|action| matches!(action.kind, ActionKind::Reconcile))
+        || decision.conclusion.lifecycle == StudyLifecycle::Active
+        || points(tx, target, study.study_id)
+            .await?
+            .iter()
+            .any(|point| !is_terminal(point.state))
+    {
+        return Ok(());
+    }
+    let state = if decision.conclusion.lifecycle == StudyLifecycle::Cancelled {
+        AttemptState::Cancelled
     } else {
-        let state = if completed == total {
-            AttemptState::Completed
-        } else if completed > 0 {
-            AttemptState::Partial
-        } else {
-            AttemptState::Failed
-        };
-        (state, TransitionNote::by(ACTOR).because(summary))
+        match decision.conclusion.availability {
+            Availability::Complete => AttemptState::Completed,
+            Availability::Partial => AttemptState::Partial,
+            Availability::None => AttemptState::Failed,
+        }
     };
+    let note = TransitionNote::by(ACTOR).because(format!(
+        "study scientific availability: {:?}",
+        decision.conclusion.availability
+    ));
     attempts::apply(tx, target, study.attempt_id, state, &note, None).await?;
     let release = TransitionNote::by(ACTOR).because("every point is terminal");
     jobs::release(tx, target, study.finalization_job, &release).await?;
@@ -508,63 +930,122 @@ pub(crate) async fn job_changed(
         });
     };
     let study = lock_study(tx, target, found.study_id).await?;
-    // Read again under the study's lock: point rows change only under it.
-    let point = statements::point()
-        .params(
-            tx,
-            &statements::PointParams {
-                study_id: found.study_id,
-                point_index: found.point_index,
-            },
-        )
-        .one()
-        .await
-        .classify(target)?;
-    let job_row = jobs::lock_job(tx, target, job).await?;
-    let next = point_state(job_row.state);
-    if !members.is_empty() && next != StudyPointState::Completed {
-        return Err(OperationsError::InvalidRequest {
-            reason: format!(
-                "point {} of study {} is {}; members are recorded only with a completed point",
-                point.point_index,
-                study.study_id,
-                next.as_str()
-            ),
-        });
-    }
-    if next == point.state {
+    let snapshot = points(tx, target, study.study_id).await?;
+    let point = snapshot
+        .iter()
+        .find(|point| point.job_id == job)
+        .ok_or_else(|| OperationsError::NotFound {
+            entity: "study point job",
+            id: job.to_string(),
+        })?;
+    // Legacy unavailable rows remain readable but cannot reenter the current executor.
+    let Some(mut outcome) = point.outcome.clone() else {
         return Ok(());
-    }
-    if is_terminal(point.state) {
-        return Err(OperationsError::InvalidRequest {
-            reason: format!(
-                "point {} of study {} is already {}; its job cannot become {}",
-                point.point_index,
-                study.study_id,
-                point.state.as_str(),
-                job_row.state.as_str()
-            ),
-        });
-    }
-    set_point(tx, target, study.study_id, point.point_index, next).await?;
-    match next {
-        StudyPointState::Completed => {
-            insert_members(tx, target, study.study_id, point.point_index, members).await?;
-            release_dependents(tx, target, study.study_id, point.point_index).await?;
+    };
+    let current = attempts::fetch(tx, target, point.attempt_id).await?;
+    if outcome.lifecycle == StudyPointState::Assigned
+        && point.attempt_state != AttemptState::Running
+    {
+        let prior = if matches!(
+            current.state,
+            AttemptState::Stale | AttemptState::Superseded
+        ) {
+            Some(current.clone())
+        } else if let Some(parent) = current.parent_attempt {
+            Some(attempts::fetch(tx, target, parent).await?)
+        } else {
+            None
+        };
+        if let Some(prior) = prior
+            .filter(|prior| matches!(prior.state, AttemptState::Stale | AttemptState::Superseded))
+        {
+            let attempt = stale_attempt_outcome(&prior, &outcome)?;
+            outcome.effect = attempt.effect;
+            outcome.diagnostic = attempt.diagnostic.clone();
+            retain_attempt(&mut outcome, attempt)?;
         }
-        StudyPointState::Failed | StudyPointState::Cancelled => {
-            cancel_dependents(tx, target, study.study_id, point.point_index, next).await?;
-        }
-        StudyPointState::Pending | StudyPointState::Assigned => return Ok(()),
     }
-    let unfinished = statements::unfinished_points()
-        .bind(tx, &study.study_id)
-        .one()
-        .await
-        .classify(target)?;
-    if unfinished == 0 && study.state == StudyState::Open {
+    outcome.lifecycle = point_state(point.job_state);
+    if outcome.effect == EffectState::Unknown && point.job_state == JobState::Queued {
+        jobs::set_job_state(
+            tx,
+            target,
+            point.job_id,
+            JobState::Waiting,
+            Some("publication effect requires reconciliation"),
+        )
+        .await?;
+    }
+    if let Some(detail) = &point.termination_detail {
+        let terminal = if current.termination_detail.is_some() {
+            current.clone()
+        } else if let Some(parent) = current.parent_attempt {
+            attempts::fetch(tx, target, parent).await?
+        } else {
+            current.clone()
+        };
+        let mut supplied = detail
+            .get("point")
+            .filter(|value| !value.is_null())
+            .map(|value| {
+                serde_json::from_value::<PointAttemptOutcome>(value.clone()).map_err(|error| {
+                    OperationsError::CorruptValue {
+                        column: "attempts.termination_detail",
+                        detail: error.to_string(),
+                    }
+                })
+            })
+            .transpose()?;
+        // Decode/version failure can precede runtime PointContext. Preserve its typed
+        // terminal cause using the actual row, without granting scientific permission.
+        if supplied.is_none()
+            && detail
+                .get("cause")
+                .and_then(|cause| cause.get("diagnostic"))
+                .is_some()
+        {
+            supplied = point_terminal_diagnostic(detail, terminal.attempt_id, terminal.state)?;
+        }
+        if let Some(mut attempt) = supplied {
+            if attempt.attempt_id != Some(terminal.attempt_id) {
+                return Err(OperationsError::CorruptValue {
+                    column: "attempts.termination_detail",
+                    detail: "terminal point envelope names a different attempt".into(),
+                });
+            }
+            attempt.lifecycle = Some(terminal.state);
+            if retain_attempt(&mut outcome, attempt.clone())? {
+                outcome.scientific = attempt.scientific.clone();
+                outcome.diagnostic = attempt.diagnostic.clone();
+                outcome.start = attempt.start.clone();
+                outcome.effect = attempt.effect;
+            }
+        }
+    }
+    if outcome.lifecycle == StudyPointState::Pending {
+        outcome.start = None;
+    }
+    let owner = outcome
+        .attempts
+        .last()
+        .and_then(|attempt| attempt.attempt_id)
+        .unwrap_or(point.attempt_id);
+    let mut attached = point.clone();
+    insert_members(
+        tx,
+        target,
+        study.study_id,
+        &mut attached,
+        owner,
+        &outcome,
+        members,
+    )
+    .await?;
+    set_point(tx, target, study.study_id, &attached, &outcome).await?;
+    if study.state == StudyState::Open {
         conclude(tx, target, &study).await?;
     }
+
     Ok(())
 }
 
@@ -619,15 +1100,17 @@ impl<'s> Studies<'s> {
             {
                 return invalid(format!("point {position} runs a study attempt"));
             }
-            if point
-                .predecessor
-                .is_some_and(|predecessor| predecessor as usize >= position)
-            {
-                return invalid(format!(
-                    "point {position}'s predecessor is not an earlier point"
-                ));
-            }
         }
+        let graph = OccurrenceGraph {
+            points: study
+                .points
+                .iter()
+                .map(|point| point.policy.clone())
+                .collect(),
+        };
+        study_policy::admit(&graph).map_err(|error| OperationsError::InvalidRequest {
+            reason: error.to_string(),
+        })?;
         let target = self.target();
         let mut client = self.store.client().await?;
         let tx = client.transaction().await.classify(target)?;
@@ -692,10 +1175,12 @@ impl<'s> Studies<'s> {
             .classify(target)?;
         let mut point_jobs = Vec::with_capacity(study.points.len());
         let mut queued = false;
-        for (position, point) in study.points.iter().enumerate() {
+        for point in &study.points {
             let job_id: JobId = crate::mint_id();
             attempts::insert(&tx, target, &point.job.attempt, Some(ACTOR)).await?;
-            let state = if point.predecessor.is_some() {
+            let state = if !point.policy.dependencies.is_empty()
+                || matches!(point.policy.start, StartPolicy::Continuation(_))
+            {
                 JobState::Waiting
             } else {
                 let note = TransitionNote::by(ACTOR).because("study point queued");
@@ -711,7 +1196,9 @@ impl<'s> Studies<'s> {
                 queued = true;
                 JobState::Queued
             };
-            if !jobs::insert_job(&tx, target, job_id, &point.job, state).await? {
+            let mut point_job = point.job.clone();
+            point_job.retry.max_tries = point.policy.attempt_limit;
+            if !jobs::insert_job(&tx, target, job_id, &point_job, state).await? {
                 return invalid(format!(
                     "idempotency key {} already names a job",
                     point.job.idempotency_key
@@ -722,9 +1209,22 @@ impl<'s> Studies<'s> {
                     &tx,
                     &statements::InsertPointParams {
                         study_id: study.study_id,
-                        point_index: index(u32::try_from(position).unwrap_or(u32::MAX))?,
+                        point_index: index(point.policy.key.0)?,
                         binding_hash: point.binding_hash,
-                        predecessor: point.predecessor.map(index).transpose()?,
+                        policy: &encode(&point.policy)?,
+                        outcome: &encode(&stored_outcome(
+                            &PointOutcome {
+                                key: point.policy.key,
+                                lifecycle: StudyPointState::Pending,
+                                scientific: ScientificFacts::default(),
+                                diagnostic: None,
+                                start: None,
+                                effect: EffectState::Absent,
+                                attempts: vec![],
+                            },
+                            None,
+                            None,
+                        ))?,
                         job_id,
                         state: StudyPointState::Pending,
                     },
@@ -733,6 +1233,8 @@ impl<'s> Studies<'s> {
                 .classify(target)?;
             point_jobs.push(job_id);
         }
+        let stored = lock_study(&tx, target, study.study_id).await?;
+        apply_policy(&tx, target, &stored).await?;
         if queued {
             attempts::notify(&tx, target, jobs::JOBS_CHANNEL, &study.study_id.to_string()).await?;
         }
@@ -827,6 +1329,279 @@ impl<'s> Studies<'s> {
         point_status!(row)
     }
 
+    /// Recompute shared policy under study and job locks, fence the current lease and
+    /// record the chosen start before native dispatch. A claim admits acquisition only.
+    pub async fn admit_dispatch(
+        &self,
+        study: StudyId,
+        key: OccurrenceKey,
+        job: JobId,
+        attempt: AttemptId,
+        worker: &str,
+        expected_revision: u64,
+        seed: Option<SeedFact>,
+    ) -> Result<ActionKind, OperationsError> {
+        let target = self.target();
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let locked = jobs::lock_job(&tx, target, job).await?;
+        let owner = statements::dispatch_owner()
+            .bind(&tx, &attempt)
+            .opt()
+            .await
+            .classify(target)?
+            .flatten();
+        if locked.state != JobState::Running
+            || locked.attempt_id != attempt
+            || owner.as_deref() != Some(worker)
+        {
+            return Err(OperationsError::LeaseLost {
+                attempt,
+                worker: worker.into(),
+            });
+        }
+        let row = lock_study(&tx, target, study).await?;
+        let snapshot = points(&tx, target, study).await?;
+        let point = snapshot
+            .iter()
+            .find(|point| point.point_index == key.0 && point.job_id == job)
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "study point",
+                id: format!("{study}/{}", key.0),
+            })?;
+        if point.revision != expected_revision {
+            return Err(OperationsError::InvalidRequest {
+                reason: "study acquisition revision changed".into(),
+            });
+        }
+        let (graph, facts) = policy_snapshot(&snapshot, seed.map(|fact| (key, fact)))?;
+        let cancelled = attempts::fetch(&tx, target, row.attempt_id)
+            .await?
+            .cancel_requested
+            || attempts::fetch(&tx, target, attempt)
+                .await?
+                .cancel_requested;
+        let decision = study_policy::transition(&graph, &facts, cancelled).map_err(|error| {
+            OperationsError::InvalidRequest {
+                reason: error.to_string(),
+            }
+        })?;
+        let action = decision
+            .actions
+            .into_iter()
+            .find(|action| action.occurrence == key)
+            .ok_or_else(|| OperationsError::InvalidRequest {
+                reason: "missing policy action".into(),
+            })?;
+        if let ActionKind::Start(start) = &action.kind {
+            let mut outcome =
+                point
+                    .outcome
+                    .clone()
+                    .ok_or_else(|| OperationsError::InvalidRequest {
+                        reason: "historical occurrence requires readmission".into(),
+                    })?;
+            outcome.start = Some(start.clone());
+            let mut dispatched = point.clone();
+            dispatched.receipt = None;
+            set_point(&tx, target, study, &dispatched, &outcome).await?;
+        }
+        tx.commit().await.classify(target)?;
+        Ok(action.kind)
+    }
+
+    /// Persist the exact receipt before the native write begins, fenced by dispatch and lease.
+    pub async fn record_receipt(
+        &self,
+        study: StudyId,
+        key: OccurrenceKey,
+        job: JobId,
+        attempt: AttemptId,
+        worker: &str,
+        expected_revision: u64,
+        scientific: ScientificFacts,
+        diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+        receipt: serde_json::Value,
+    ) -> Result<(), OperationsError> {
+        let target = self.target();
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let locked = jobs::lock_job(&tx, target, job).await?;
+        let owner = statements::dispatch_owner()
+            .bind(&tx, &attempt)
+            .opt()
+            .await
+            .classify(target)?
+            .flatten();
+        if locked.state != JobState::Running
+            || locked.attempt_id != attempt
+            || owner.as_deref() != Some(worker)
+        {
+            return Err(OperationsError::LeaseLost {
+                attempt,
+                worker: worker.into(),
+            });
+        }
+        lock_study(&tx, target, study).await?;
+        let snapshot = points(&tx, target, study).await?;
+        let point = snapshot
+            .iter()
+            .find(|p| p.point_index == key.0 && p.job_id == job)
+            .ok_or_else(|| OperationsError::InvalidRequest {
+                reason: "receipt occurrence differs from dispatch".into(),
+            })?;
+        let mut outcome = point
+            .outcome
+            .clone()
+            .ok_or_else(|| OperationsError::InvalidRequest {
+                reason: "historical occurrence cannot write".into(),
+            })?;
+        if point.revision != expected_revision || outcome.start.is_none() || point.receipt.is_some()
+        {
+            return Err(OperationsError::InvalidRequest {
+                reason: "receipt dispatch revision changed or ticket already exists".into(),
+            });
+        }
+        outcome.scientific = scientific;
+        outcome.diagnostic = diagnostic;
+        outcome.effect = EffectState::Unknown;
+        let mut updated = point.clone();
+        updated.receipt = Some(receipt);
+        set_point(&tx, target, study, &updated, &outcome).await?;
+        tx.commit().await.classify(target)
+    }
+
+    /// Record receipt-owner reconciliation knowledge under a revision fence. Unknown
+    /// effects never release work; a present non-idempotent effect cannot be retried.
+    pub async fn reconcile_effect(
+        &self,
+        study: StudyId,
+        key: OccurrenceKey,
+        expected_revision: u64,
+        effect: EffectState,
+    ) -> Result<(), OperationsError> {
+        self.reconcile_receipt(study, key, expected_revision, effect, None, &[])
+            .await
+    }
+
+    /// Apply exact native member receipts without promoting scientific availability.
+    pub async fn reconcile_receipt(
+        &self,
+        study: StudyId,
+        key: OccurrenceKey,
+        expected_revision: u64,
+        effect: EffectState,
+        receipt_attempt: Option<AttemptId>,
+        members: &[MemberDescriptor],
+    ) -> Result<(), OperationsError> {
+        if effect == EffectState::Unknown && members.is_empty() {
+            return Err(OperationsError::InvalidRequest {
+                reason: "reconciliation supplied no new receipt knowledge".into(),
+            });
+        }
+        let target = self.target();
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        statements::lock_point_jobs()
+            .bind(&tx, &study)
+            .all()
+            .await
+            .classify(target)?;
+        let row = lock_study(&tx, target, study).await?;
+        let snapshot = points(&tx, target, study).await?;
+        let point = snapshot
+            .iter()
+            .find(|point| point.point_index == key.0)
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "study occurrence",
+                id: format!("{study}/{}", key.0),
+            })?;
+        let mut outcome = point
+            .outcome
+            .clone()
+            .ok_or_else(|| OperationsError::InvalidRequest {
+                reason: "historical policy requires readmission".into(),
+            })?;
+        if point.revision != expected_revision || outcome.effect != EffectState::Unknown {
+            return Err(OperationsError::InvalidRequest {
+                reason: "reconciliation facts changed".into(),
+            });
+        }
+        if effect == EffectState::Absent
+            && (point.receipt.is_some() || point.job_state == JobState::Running)
+        {
+            return Err(OperationsError::InvalidRequest {
+                reason: "unwritten effect requires a closed dispatch fence".into(),
+            });
+        }
+        outcome.effect = effect;
+        if effect != EffectState::Unknown {
+            if let Some(attempt) = outcome
+                .attempts
+                .iter_mut()
+                .rev()
+                .find(|a| receipt_attempt.is_none_or(|id| a.attempt_id == Some(id)))
+            {
+                attempt.effect = effect;
+            }
+        }
+        if effect == EffectState::Present && point.job_state == JobState::Waiting {
+            let note = TransitionNote::by(ACTOR).because("present effect cannot be retried");
+            attempts::apply(
+                &tx,
+                target,
+                point.attempt_id,
+                AttemptState::Cancelled,
+                &note,
+                None,
+            )
+            .await?;
+            jobs::set_job_state(
+                &tx,
+                target,
+                point.job_id,
+                JobState::Failed,
+                note.reason.as_deref(),
+            )
+            .await?;
+            outcome.lifecycle = StudyPointState::Failed;
+        }
+        let mut attached = point.clone();
+        let owner = receipt_attempt.unwrap_or(point.attempt_id);
+        insert_members(&tx, target, study, &mut attached, owner, &outcome, members).await?;
+        set_point(&tx, target, study, &attached, &outcome).await?;
+        let revised = points(&tx, target, study).await?;
+        let (graph, facts) = policy_snapshot(&revised, None)?;
+        let cancelled = attempts::fetch(&tx, target, row.attempt_id)
+            .await?
+            .cancel_requested;
+        let decision = study_policy::transition(&graph, &facts, cancelled).map_err(|e| {
+            OperationsError::InvalidRequest {
+                reason: e.to_string(),
+            }
+        })?;
+        if matches!(effect, EffectState::Absent | EffectState::Idempotent)
+            && point.job_state == JobState::Failed
+            && decision
+                .actions
+                .iter()
+                .any(|a| a.occurrence == key && matches!(a.kind, ActionKind::Start(_)))
+        {
+            let job = jobs::lock_job(&tx, target, point.job_id).await?;
+            jobs::requeue(
+                &tx,
+                target,
+                &job,
+                crate::mint_id(),
+                "receipt established safe transient retry",
+            )
+            .await?;
+            job_changed(&tx, target, point.job_id, &[]).await?;
+        }
+        conclude(&tx, target, &row).await?;
+        tx.commit().await.classify(target)
+    }
+
     /// The study whose coordinating attempt is `attempt`, if any.
     ///
     /// # Errors
@@ -890,19 +1665,19 @@ impl<'s> Studies<'s> {
             .classify(self.target())
     }
 
-    /// The result members of the completed points, each with its point, in point and
+    /// All recorded result members, independent of terminal lifecycle, each with its point, in point and
     /// name order: what the study's publication commits besides its summary.
     ///
     /// # Errors
     ///
     /// [`OperationsError::CorruptValue`] for an inconsistent stored selection; classified
     /// driver failures.
-    pub async fn completed_members(
+    pub async fn available_members(
         &self,
         study: StudyId,
     ) -> Result<Vec<(u32, MemberDescriptor)>, OperationsError> {
         let client = self.store.client().await?;
-        statements::completed_members()
+        statements::available_members()
             .bind(&client, &study)
             .all()
             .await
@@ -977,55 +1752,27 @@ impl<'s> Studies<'s> {
                 id: row.attempt_id.to_string(),
             });
         }
-        let reason = format!("study cancelled by {actor}");
         for point in points(&tx, target, study).await? {
-            match point.state {
-                StudyPointState::Pending => {
-                    let stored = statements::point()
-                        .params(
-                            &tx,
-                            &statements::PointParams {
-                                study_id: study,
-                                point_index: index(point.point_index)?,
-                            },
-                        )
-                        .one()
-                        .await
-                        .classify(target)?;
-                    cancel_unstarted(
-                        &tx,
-                        target,
-                        study,
-                        &stored,
-                        RuntimeTermination::Cancelled,
-                        &reason,
-                    )
-                    .await?;
-                    outcome.cancelled.push(point.point_index);
-                }
-                StudyPointState::Assigned => {
-                    pse_operations_queries::queries::cancellation::request_cancel()
-                        .bind(&tx, &point.attempt_id)
-                        .await
-                        .classify(target)?;
-                    attempts::notify(
-                        &tx,
-                        target,
-                        crate::cancellation::CANCEL_CHANNEL,
-                        &point.attempt_id.to_string(),
-                    )
-                    .await?;
-                    outcome.stopping.push(point.point_index);
-                }
-                StudyPointState::Completed
-                | StudyPointState::Failed
-                | StudyPointState::Cancelled => {}
+            if point.state == StudyPointState::Assigned {
+                pse_operations_queries::queries::cancellation::request_cancel()
+                    .bind(&tx, &point.attempt_id)
+                    .await
+                    .classify(target)?;
+                attempts::notify(
+                    &tx,
+                    target,
+                    crate::cancellation::CANCEL_CHANNEL,
+                    &point.attempt_id.to_string(),
+                )
+                .await?;
+                outcome.stopping.push(point.point_index);
+            } else if point.state == StudyPointState::Pending {
+                outcome.cancelled.push(point.point_index);
             }
         }
-        if outcome.stopping.is_empty() {
-            conclude(&tx, target, &row).await?;
-            outcome.concluded = true;
-        }
+        let _ = actor;
+        conclude(&tx, target, &row).await?;
+        outcome.concluded = lock_study(&tx, target, study).await?.state == StudyState::Concluded;
         tx.commit().await.classify(target)?;
         Ok(outcome)
     }
@@ -1076,5 +1823,257 @@ impl<'s> Studies<'s> {
             }
         }
         tx.commit().await.classify(target)
+    }
+}
+
+#[cfg(test)]
+mod study_codec_unit {
+    use super::*;
+    #[test]
+    fn pre_context_failure_unit_retains_typed_terminal_diagnostic_without_scientific_promotion() {
+        let id = crate::mint_id();
+        let mut diagnostic = Refusal::SeedInternal {
+            predecessor: Some(OccurrenceKey(2)),
+            role: SeedRole::PrimalSolution,
+        }
+        .boundary_diagnostic();
+        diagnostic.causes.push(
+            Refusal::SeedUnavailable {
+                predecessor: Some(OccurrenceKey(2)),
+                role: SeedRole::PrimalSolution,
+                reason: SeedUnavailable::Incompatible,
+            }
+            .boundary_diagnostic(),
+        );
+        let detail = serde_json::json!({"version":2,"cause":{"kind":"error","diagnostic":diagnostic},"point":null});
+        let projected = point_terminal_diagnostic(&detail, id, AttemptState::Failed)
+            .unwrap()
+            .unwrap();
+        assert_eq!(projected.attempt_id, Some(id));
+        assert_eq!(projected.lifecycle, Some(AttemptState::Failed));
+        let retained = projected.diagnostic.unwrap();
+        assert_eq!(retained.code, diagnostic.code);
+        assert_eq!(retained.rule, diagnostic.rule);
+        assert_eq!(retained.causes[0].code, diagnostic.causes[0].code);
+        assert_eq!(
+            encode(&retained.observations).unwrap(),
+            encode(&diagnostic.observations).unwrap()
+        );
+        assert_eq!(encode(&retained).unwrap(), encode(&diagnostic).unwrap());
+        assert_eq!(projected.scientific, ScientificFacts::default());
+        assert!(projected.start.is_none());
+        assert_eq!(projected.effect, EffectState::Absent);
+    }
+
+    #[test]
+    fn stale_history_unit_repeated_callbacks_enrich_one_attempt_without_promoting_facts() {
+        use pse_model::generated::enums::AttemptKind;
+        let id = crate::mint_id();
+        let original = Refusal::SeedInternal {
+            predecessor: None,
+            role: SeedRole::PrimalSolution,
+        }
+        .boundary_diagnostic();
+        let mut prior = RuntimeOperationalAttemptsRow {
+            attempt_id: id,
+            run_id: crate::mint_id(),
+            kind: AttemptKind::Modeling,
+            request_identity: ContentHash::from_bytes([7; 32]),
+            preparation_identity: None,
+            state: AttemptState::Stale,
+            state_version: 3,
+            parent_attempt: None,
+            worker: Some("original-worker".into()),
+            lease_expires_at: Some(91),
+            heartbeat_at: Some(81),
+            cancel_requested: false,
+            cancel_requested_at: None,
+            termination_class: None,
+            termination_native: None,
+            termination_run_state: None,
+            termination_trajectory: None,
+            termination_runtime: None,
+            termination_rule: None,
+            termination_detail: None,
+            created_at: 0,
+            updated_at: 91,
+            started_at: Some(1),
+            finished_at: Some(91),
+        };
+        let mut outcome = PointOutcome {
+            key: OccurrenceKey(2),
+            lifecycle: StudyPointState::Assigned,
+            scientific: ScientificFacts {
+                usable: false,
+                seed_permission: true,
+                candidate_use: Some(pse_model::generated::enums::CandidateUse::SeedOnly),
+            },
+            diagnostic: None,
+            start: Some(StartProvenance::Fresh),
+            effect: EffectState::Absent,
+            attempts: vec![],
+        };
+        let stale = stale_attempt_outcome(&prior, &outcome).unwrap();
+        assert_eq!(stale.effect, EffectState::Unknown);
+        assert_eq!(
+            encode(&stale.diagnostic.as_ref().unwrap().observations["event"]).unwrap(),
+            serde_json::json!({"kind":"text","value":"lease_expired"})
+        );
+        assert!(retain_attempt(&mut outcome, stale).unwrap());
+        let mut enrichment = point_terminal_diagnostic(
+            &serde_json::json!({"cause":{"diagnostic":original},"point":null}),
+            id,
+            AttemptState::Superseded,
+        )
+        .unwrap()
+        .unwrap();
+        assert!(!retain_attempt(&mut outcome, enrichment.clone()).unwrap());
+        assert!(!retain_attempt(&mut outcome, enrichment.clone()).unwrap());
+        assert_eq!(outcome.attempts.len(), 1);
+        let retained = &outcome.attempts[0];
+        assert_eq!(retained.lifecycle, Some(AttemptState::Superseded));
+        assert_eq!(retained.start, Some(StartProvenance::Fresh));
+        assert_eq!(retained.scientific, outcome.scientific);
+        assert_eq!(retained.effect, EffectState::Unknown);
+        assert_eq!(retained.diagnostic.as_ref().unwrap().causes.len(), 1);
+        assert_eq!(
+            retained.diagnostic.as_ref().unwrap().causes[0].code,
+            original.code
+        );
+        // A row with an existing typed cause keeps that cause as its primary diagnosis.
+        prior.state = AttemptState::Superseded;
+        prior.termination_detail =
+            Some(serde_json::json!({"cause":{"diagnostic":original},"point":null}).to_string());
+        enrichment = stale_attempt_outcome(&prior, &outcome).unwrap();
+        assert_eq!(enrichment.diagnostic.as_ref().unwrap().code, original.code);
+        assert_eq!(
+            encode(&enrichment.diagnostic.as_ref().unwrap().causes[0].observations["event"])
+                .unwrap(),
+            serde_json::json!({"kind":"text","value":"attempt_superseded"})
+        );
+    }
+
+    #[test]
+    fn member_receipt_unit_is_exact_and_retry_supersession_requires_safe_original_effect() {
+        use pse_model::generated::structures::MemberDescriptorSelection;
+        let member = MemberDescriptor {
+            catalog_name: "point_2".into(),
+            schema_name: "results".into(),
+            table_name: "x".into(),
+            relation_id: pse_ids::SemanticId::from_bytes([1; 16]),
+            relation_version: 1,
+            contract_fingerprint: ContentHash::from_bytes([1; 32]),
+            table_uri: "memory:///point2/try1/x".into(),
+            delta_version: 4,
+            selection: MemberDescriptorSelection::from_full(),
+        };
+        assert!(exact_member_receipt(&member, &member).is_ok());
+        let mut changed = member.clone();
+        changed.delta_version += 1;
+        assert!(exact_member_receipt(&member, &changed).is_err());
+        let mut changed = member.clone();
+        changed.table_uri = "memory:///point2/try2/x".into();
+        assert!(exact_member_receipt(&member, &changed).is_err());
+        let first = crate::mint_id();
+        let second = crate::mint_id();
+        let mut history = vec![PointAttemptOutcome {
+            attempt_id: Some(first),
+            lifecycle: Some(AttemptState::Failed),
+            diagnostic: None,
+            scientific: ScientificFacts::default(),
+            start: Some(StartProvenance::Fresh),
+            effect: EffectState::Unknown,
+        }];
+        assert!(!member_attachment(Some(first), first, &history).unwrap());
+        assert!(member_attachment(Some(first), second, &history).is_err());
+        history[0].effect = EffectState::Idempotent;
+        assert!(member_attachment(Some(first), second, &history).unwrap());
+    }
+
+    #[test]
+    fn pre_effect_receipt_envelope_unit_preserves_scientific_facts_and_closed_version() {
+        let outcome = PointOutcome {
+            key: OccurrenceKey(4),
+            lifecycle: StudyPointState::Assigned,
+            scientific: ScientificFacts {
+                usable: false,
+                candidate_use: Some(pse_model::generated::enums::CandidateUse::SeedOnly),
+                seed_permission: true,
+            },
+            diagnostic: Some(
+                Refusal::SeedInternal {
+                    predecessor: None,
+                    role: SeedRole::PrimalSolution,
+                }
+                .boundary_diagnostic(),
+            ),
+            start: Some(StartProvenance::Fresh),
+            effect: EffectState::Unknown,
+            attempts: vec![],
+        };
+        let receipt = serde_json::json!({"native":"owner request"});
+        let json = encode(&stored_outcome(&outcome, Some(receipt.clone()), None)).unwrap();
+        let decoded = decode_current::<StoredPointOutcome>(&json, "outcome")
+            .unwrap()
+            .unwrap();
+        assert_eq!(decoded.receipt, Some(receipt));
+        assert_eq!(decoded.outcome.scientific, outcome.scientific);
+        assert_eq!(decoded.outcome.effect, EffectState::Unknown);
+        assert_eq!(
+            decoded.outcome.diagnostic.unwrap().code,
+            outcome.diagnostic.unwrap().code
+        );
+        let mut broken = json;
+        broken["version"] = serde_json::json!(2);
+        assert!(decode_current::<StoredPointOutcome>(&broken, "outcome").is_err());
+        assert!(
+            decode_current::<StoredPointOutcome>(&serde_json::json!({"usable":true}), "outcome")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn legacy_markers_retain_identity_and_never_grant_policy_or_usable_facts() {
+        let marker = serde_json::json!({"version":1,"kind":"legacy_unavailable","predecessor":2,"binding_hash":ContentHash::from_bytes([4;32])});
+        let decoded: LegacyUnavailable = serde_json::from_value(marker.clone()).unwrap();
+        assert_eq!(decoded.predecessor, Some(2));
+        assert_eq!(decoded.binding_hash, Some(ContentHash::from_bytes([4; 32])));
+        let encoded = marker;
+        assert!(
+            decode_current::<PointPolicy>(&encoded, "policy")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            decode_current::<PointOutcome>(&encoded, "outcome")
+                .unwrap()
+                .is_none()
+        );
+        for broken in [
+            serde_json::json!({"version":2,"kind":"legacy_unavailable"}),
+            serde_json::json!({"version":1,"kind":"legacy_unavailable","usable":true}),
+            serde_json::json!({"version":1,"kind":"legacy_unavailable","predecessor":"2"}),
+        ] {
+            assert!(decode_current::<PointPolicy>(&broken, "policy").is_err());
+        }
+        let point = PointStatus {
+            point_index: 7,
+            binding_hash: ContentHash::from_bytes([4; 32]),
+            state: StudyPointState::Completed,
+            revision: 0,
+            policy: None,
+            legacy: None,
+            outcome: None,
+            receipt: None,
+            member_attempt: None,
+            job_id: crate::mint_id(),
+            job_state: JobState::Completed,
+            attempt_id: crate::mint_id(),
+            attempt_state: AttemptState::Completed,
+            tries: 1,
+            termination_detail: None,
+            last_error: None,
+        };
+        assert!(policy_snapshot(&[point], None).is_err());
     }
 }

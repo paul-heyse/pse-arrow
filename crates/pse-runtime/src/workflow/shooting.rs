@@ -1186,7 +1186,10 @@ impl ShootingProblem {
             let point = match oracle.evaluate(&x) {
                 Ok(point) => point,
                 Err(error) => {
-                    let diagnostic = super::diagnostics::observed(&error, "shooting");
+                    let diagnostic = super::diagnostics::observed(
+                        &error,
+                        pse_diagnostics::DiagnosticStage::Shooting,
+                    );
                     if let Some(native) = report.solve.as_mut() {
                         native.record_validation_failure(error);
                     }

@@ -138,7 +138,7 @@ fn runtime(cli: &Cli) -> Result<Runtime, String> {
 fn identity(text: &str) -> Result<PublicationId, WorkflowError> {
     pse_ids::SemanticId::parse_hex(text)
         .map(PublicationId::from)
-        .map_err(|error| WorkflowError::Contract(format!("publication {text}: {error}")))
+        .map_err(|error| WorkflowError::Input(format!("publication {text}: {error}")))
 }
 
 fn report(error: &WorkflowError) {
@@ -184,12 +184,12 @@ async fn run(cli: Cli, runtime: Runtime) -> Result<(), WorkflowError> {
                 )
                 .await?;
             let json = serde_json::to_string(&receipt)
-                .map_err(|error| WorkflowError::Contract(error.to_string()))?;
+                .map_err(|error| WorkflowError::Input(error.to_string()))?;
             println!("{json}");
         }
         Command::Release { receipt } => {
             let receipt: ExportReceipt = serde_json::from_str(&receipt)
-                .map_err(|error| WorkflowError::Contract(format!("receipt: {error}")))?;
+                .map_err(|error| WorkflowError::Input(format!("receipt: {error}")))?;
             let held = runtime.release_export(&receipt).await?;
             println!(
                 "export lease {} {}",

@@ -44,6 +44,7 @@ fn profile(selection: SolverSelection) -> crate::math::solves::SolverProfile {
 }
 fn case(values: &[(&str, f64)]) -> ModelingCaseBindings {
     ModelingCaseBindings {
+        members: BTreeMap::new(),
         values: values.iter().map(|(p, v)| ((*p).to_owned(), *v)).collect(),
         variables: BTreeMap::new(),
     }
@@ -261,7 +262,7 @@ async fn gdp_indicator_matches_hull() {
 /// point that changes a parameter its enclosure consumed recomputes it with the products
 /// that depend on it, and never prepares the structure again (ADR-0104).
 #[tokio::test]
-async fn derived_big_m_follows_value_only_study_points() {
+async fn derived_big_m_follows_value_only_bindings() {
     let (package, root) = package(
         &GDP.replace("REALIZATION", "bigm(derived)")
             .replace(
@@ -285,41 +286,32 @@ async fn derived_big_m_follows_value_only_study_points() {
         numerical: NumericalInputs::default(),
     };
     let limits = [50.0, 70.0, 90.0];
-    let declared = package
-        .declared_execution(
-            root,
-            analysis.compiler,
-            analysis.solver.clone(),
-            analysis.numerical.clone(),
-            analysis.limits,
-            &crate::CancelSource::new(),
-        )
-        .await
-        .unwrap();
-    let points = limits
-        .iter()
-        .map(|limit| {
-            let mut analysis = analysis.clone();
-            analysis.case.values.insert("limit".into(), *limit);
-            ModelingStudyPoint {
-                execution: Ok(DeclaredExecution {
-                    analysis,
-                    ..declared.clone()
-                }),
-                predecessor: None,
-                overlay: Default::default(),
-            }
-        })
-        .collect();
+    let cancel = crate::CancelSource::new();
     let service = package.runtime.native().clone();
     let before = service.preparations();
-    let report = package
-        .study(points, 8, &crate::CancelSource::new())
-        .await
-        .unwrap();
+    let mut staged = crate::workflow::staged::Staged::open(&package.runtime, None).unwrap();
+    let mut results = Vec::new();
+    for (index, limit) in limits.iter().enumerate() {
+        let mut analysis = analysis.clone();
+        analysis.case.values.insert("limit".into(), *limit);
+        let preparation = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        results.push(
+            staged
+                .run(
+                    preparation,
+                    assessment::Obligations::Final,
+                    pse_operations::mint_id(),
+                    index,
+                    None,
+                    &cancel,
+                )
+                .await
+                .unwrap(),
+        );
+    }
+    staged.close().await;
     let end = service.preparations();
-    for (limit, outcome) in limits.into_iter().zip(&report.outcomes) {
-        let result = outcome.as_ref().unwrap();
+    for (limit, result) in limits.into_iter().zip(&results) {
         assert!(result.accepted, "{limit}: {:?}", result.diagnostic());
         let cost = result.reports.iter().find(|r| r.label == "cost").unwrap();
         // The small unit serves 60 W only when its limit admits it.

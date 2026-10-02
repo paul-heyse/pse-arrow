@@ -278,13 +278,14 @@ impl<'a> Emitter<'a> {
     /// Record every named schema of a document, refusing two different types of one name.
     fn collect(&mut self, document: &Document) -> Result<String, SchemaError> {
         let mut root = document.schema.clone();
+        let title = text(&root, "title")
+            .ok_or_else(|| error(format!("document {} has no title", document.name)))?
+            .to_owned();
+        normalize_root_references(&mut root, &title);
         let definitions = root
             .as_object_mut()
             .and_then(|object| object.remove("$defs"))
             .unwrap_or(Value::Object(serde_json::Map::new()));
-        let title = text(&root, "title")
-            .ok_or_else(|| error(format!("document {} has no title", document.name)))?
-            .to_owned();
         if let Some(object) = root.as_object_mut() {
             // As a root it is titled; as a definition elsewhere it is named instead.
             object.remove("$schema");
@@ -300,7 +301,10 @@ impl<'a> Emitter<'a> {
         for (name, schema) in named {
             match self.definitions.get(&name) {
                 Some(existing) if *existing != schema => {
-                    return Err(error(format!("two different types are named {name}")));
+                    return Err(error(format!(
+                        "two different types are named {name} in document {}",
+                        document.name
+                    )));
                 }
                 Some(_) => {}
                 None => {
@@ -574,6 +578,31 @@ impl<'a> Emitter<'a> {
             ["number"] => annotated("float", &constraints(schema)),
             ["string"] => annotated("str", &constraints(schema)),
             ["array"] => {
+                if let Some(prefix) = schema.get("prefixItems").and_then(Value::as_array) {
+                    let length = u64::try_from(prefix.len())
+                        .map_err(|_| error("tuple schema extent exceeds u64"))?;
+                    if schema.get("minItems").and_then(Value::as_u64) != Some(length)
+                        || schema.get("maxItems").and_then(Value::as_u64) != Some(length)
+                    {
+                        return Err(error(
+                            "a heterogeneous tuple must declare its exact closed arity",
+                        ));
+                    }
+                    let members = prefix
+                        .iter()
+                        .map(|item| self.annotation(item))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let tuple = if members.is_empty() {
+                        "tuple[()]".to_owned()
+                    } else {
+                        format!("tuple[{}]", members.join(", "))
+                    };
+                    return Ok(if nullable {
+                        format!("{tuple} | None")
+                    } else {
+                        tuple
+                    });
+                }
                 let items = schema
                     .get("items")
                     .ok_or_else(|| error(format!("an array without items {schema}")))?;
@@ -581,12 +610,14 @@ impl<'a> Emitter<'a> {
                 let fixed = schema
                     .get("minItems")
                     .zip(schema.get("maxItems"))
-                    .and_then(|(low, high)| (low == high).then(|| low.as_u64()).flatten())
-                    .filter(|length| (1..=8).contains(length));
+                    .and_then(|(low, high)| (low == high).then(|| low.as_u64()).flatten());
                 match fixed {
-                    Some(length) => format!(
-                        "tuple[{}]",
-                        vec![item; usize::try_from(length).unwrap_or(1)].join(", ")
+                    Some(length) => annotated(
+                        &format!("tuple[{item}, ...]"),
+                        &[
+                            format!("min_length={length}"),
+                            format!("max_length={length}"),
+                        ],
                     ),
                     None => format!("tuple[{item}, ...]"),
                 }
@@ -620,6 +651,29 @@ impl<'a> Emitter<'a> {
         } else {
             base
         })
+    }
+}
+
+/// Schemars refers to a recursive document root as `#`, but to the same owner
+/// nested in another document by its named definition. Only that exact root
+/// reference changes in the emitter's private schema set; published schemas and
+/// all field/constraint definitions remain unchanged.
+fn normalize_root_references(value: &mut Value, title: &str) {
+    match value {
+        Value::Object(object) => {
+            if object.get("$ref").and_then(Value::as_str) == Some("#") {
+                object.insert("$ref".into(), Value::String(format!("#/$defs/{title}")));
+            }
+            for value in object.values_mut() {
+                normalize_root_references(value, title);
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                normalize_root_references(value, title);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -750,7 +804,7 @@ mod tests {
             "    hessian: enums.HessianMode = enums.HessianMode.LIMITED_MEMORY",
             "    choice: Choice\n",
             "    items: tuple[str, ...] = msgspec.field(default_factory=tuple)",
-            "    pair: tuple[float, float] | None = None",
+            "    pair: Annotated[tuple[float, ...], msgspec.Meta(min_length=2, max_length=2)] | None = None",
         ] {
             assert!(source.contains(expected), "{expected}\n{source}");
         }
@@ -779,6 +833,83 @@ mod tests {
             "$defs": {"HessianMode": {"type": "string", "enum": ["exact"]}},
         });
         assert!(python(registry, &[document(wrong)]).is_err());
+    }
+
+    #[test]
+    fn python_documents_deduplicate_root_and_nested_contracts_but_refuse_differences() {
+        let registry = crate::registry().unwrap();
+        let shared = serde_json::json!({
+            "type": "object", "additionalProperties": false,
+            "required": ["count", "children"],
+            "properties": {
+                "count": {"type": "integer", "minimum": 1},
+                "children": {"type": "array", "items": {"$ref": "#/$defs/Shared"}},
+            },
+        });
+        let mut root = shared.clone();
+        root["title"] = serde_json::json!("Shared");
+        root["$schema"] = serde_json::json!("https://json-schema.org/draft/2020-12/schema");
+        root["properties"]["children"]["items"]["$ref"] = serde_json::json!("#");
+        let nested = serde_json::json!({
+            "title": "Envelope", "type": "object", "additionalProperties": false,
+            "required": ["value"],
+            "properties": {"value": {"$ref": "#/$defs/Shared"}},
+            "$defs": {"Shared": shared},
+        });
+        let source = python(
+            registry,
+            &[document(root.clone()), document(nested.clone())],
+        )
+        .unwrap();
+        assert_eq!(source.matches("class Shared(").count(), 1);
+        let mut changed = nested;
+        changed["$defs"]["Shared"]["properties"]["count"]["minimum"] = serde_json::json!(2);
+        let failure = python(registry, &[document(root), document(changed)]).unwrap_err();
+        assert!(
+            failure
+                .to_string()
+                .contains("two different types are named Shared")
+        );
+    }
+
+    #[test]
+    fn python_documents_preserve_closed_heterogeneous_tuple_positions() {
+        let registry = crate::registry().unwrap();
+        let schema = serde_json::json!({
+            "title": "TupleProbe", "type": "object", "additionalProperties": false,
+            "required": ["move"],
+            "properties": {"move": {
+                "type": "array", "prefixItems": [
+                    {"type": "string"}, {"type": "integer", "minimum": 0},
+                ], "minItems": 2, "maxItems": 2,
+            }},
+        });
+        let source = python(registry, &[document(schema.clone())]).unwrap();
+        assert!(source.contains("move: tuple[str, Annotated[int, msgspec.Meta(ge=0)]]"));
+        let mut open = schema.clone();
+        open["properties"]["move"]
+            .as_object_mut()
+            .unwrap()
+            .remove("maxItems");
+        assert!(python(registry, &[document(open)]).is_err());
+        let mut unequal = schema;
+        unequal["properties"]["move"]["minItems"] = serde_json::json!(1);
+        assert!(python(registry, &[document(unequal)]).is_err());
+    }
+
+    #[test]
+    fn python_documents_preserve_fixed_homogeneous_array_extents() {
+        let registry = crate::registry().unwrap();
+        let schema = serde_json::json!({
+            "title": "ByteContract", "type": "object", "additionalProperties": false,
+            "required": ["quantity"],
+            "properties": {"quantity": {
+                "type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 255},
+                "minItems": 16, "maxItems": 16,
+            }},
+        });
+        let source = python(registry, &[document(schema)]).unwrap();
+        assert!(source.contains("quantity: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...], msgspec.Meta(min_length=16, max_length=16)]"));
     }
 
     #[test]

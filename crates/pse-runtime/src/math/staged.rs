@@ -260,9 +260,7 @@ impl NativeSession {
                                 // foreign state inside its adapter scope before releasing it.
                                 retained.clear();
                                 retained.release();
-                                Err(MathRuntimeError::Infrastructure(
-                                    "native session step panic".into(),
-                                ))
+                                Err(MathRuntimeError::Panic("native session step panic".into()))
                             }
                         }
                     }
@@ -540,10 +538,7 @@ mod admission_tests {
         entered.notified().await;
         assert_eq!(service.cpu.available_permits(), 0);
         gate.release();
-        assert!(matches!(
-            waiting.await,
-            Err(MathRuntimeError::Infrastructure(_))
-        ));
+        assert!(matches!(waiting.await, Err(MathRuntimeError::Panic(_))));
         session
             .run(2, None, &cancelled, |retained, _, _| {
                 assert!(retained.is_empty());

@@ -240,7 +240,7 @@ impl InnerSolver for Kinsol {
             other => MathError::Native {
                 source_id: problem.id,
                 retained: other.retained_bytes(),
-                cause: Box::new(other),
+                cause: pse_model::diagnostic::DiagnosticCause::new(other),
             },
         };
         let controls = Controls {
@@ -504,7 +504,7 @@ mod tests {
         };
         assert_eq!(*source_id, deficient.id);
         let Some(ProblemError::Structural { rows, columns, .. }) =
-            cause.downcast_ref::<ProblemError>()
+            cause.as_error().downcast_ref::<ProblemError>()
         else {
             panic!("structural identities were not retained: {cause:?}");
         };

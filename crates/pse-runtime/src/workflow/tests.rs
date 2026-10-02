@@ -15,7 +15,11 @@ pub(super) fn free_discrete_refusal(error: &WorkflowError) -> (String, String) {
     use pse_model::diagnostic::{BoundaryClass, Observation};
     let diagnostic = error.boundary_diagnostic();
     assert_eq!(diagnostic.class, BoundaryClass::Unsupported, "{error}");
-    assert_eq!(diagnostic.rule, "modeling.domain", "{error}");
+    assert_eq!(
+        diagnostic.rule,
+        pse_diagnostics::DiagnosticRule::ModelingDomain,
+        "{error}"
+    );
     let text = |name: &str| match diagnostic.observations.get(name) {
         Some(Observation::Text(value)) => value.clone(),
         other => panic!("{name}: {other:?}"),

@@ -2,7 +2,7 @@
 name: implementer
 description: "Implement a delegated code change. Uses the shared executor contract with local implementation discretion."
 model: sonnet
-effort: xhigh
+effort: high
 ---
 
 # Implementer

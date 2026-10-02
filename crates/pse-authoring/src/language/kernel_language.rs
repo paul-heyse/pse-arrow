@@ -608,7 +608,10 @@ fn fixture_diagnostics_parse_and_render() {
         .and_then(|s| s.fixture.clone())
         .unwrap();
     assert_eq!(fixture.diagnostics.len(), 2);
-    assert_eq!(fixture.diagnostics[0].rule, "jacobian.parallel_rows");
+    assert_eq!(
+        fixture.diagnostics[0].rule,
+        pse_diagnostics::DiagnosticRule::JacobianParallelRows
+    );
     assert_eq!(fixture.diagnostics[0].members, ["root.e[a]", "root.e[b]"]);
     assert_eq!(fixture.diagnostics[1].members, ["root.x"]);
     let printed = render(&rows).unwrap();
@@ -1392,4 +1395,17 @@ fn fixture_route_procedure_endpoint_roundtrip_and_legacy_refusal() {
             "{clauses}"
         );
     }
+}
+
+#[test]
+fn fixture_diagnostics_refuses_unknown_authored_rule_before_specialization() {
+    let source = r#"package p { def D { var x: Scalar; eq e: x == 1; } test t fixture { dof 0; route steady; procedure solve; diagnose "jacobian.paralell_rows" at(root.x); } { child root: D = D(); } }"#;
+    let error = parse(
+        source,
+        SemanticId::NIL,
+        IdentityPolicy::Named,
+        ParseBudget::default(),
+    )
+    .unwrap_err();
+    assert!(matches!(error, crate::AuthoringError::Syntax { .. }));
 }

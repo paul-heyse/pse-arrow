@@ -1,9 +1,9 @@
 ---
 title: "25f: Studies, diagnostics and continuation"
-status: in-progress
+status: done
 date: 2026-09-30
-adrs: []
-review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
+adrs: [ADR-0148]
+review_sources: [docs/design_review/reviews/design_review_studies-diagnostics-and-admitted-bindings_2026-10-01.md, docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s10]
 ---
 
@@ -73,11 +73,11 @@ Unsupported operation/dependency combinations refuse before scheduling.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="f1"></a>F1 Detailed failures and projections | Existing diagnostic/operation owners | Establish typed failure envelopes, closed rules and exhaustive projections | partial: 25c prerequisite slice |
-| <a id="f2"></a>F2 Contextual typed bindings | A1; I1; H1 | Resolve and physically admit overlays once, with deterministic composition | planned |
-| <a id="f3"></a>F3 Pure occurrence policy | F1/F2; E2/E3/E4 | One study definition and pure dependency/start/conclusion operation | planned |
-| <a id="f4"></a>F4 Executor and durable cutover | F3; G3 | Both executors apply the same policy; retain every terminal typed failure and occurrence | planned |
-| <a id="f5"></a>F5 General run points and provenance | F4; E5 | Expose admitted solve/simulation/fit/horizon points and consistent route/result projections | planned |
+| <a id="f1"></a>F1 Detailed failures and projections | Existing diagnostic/operation owners | Establish typed failure envelopes, closed rules and exhaustive projections | complete |
+| <a id="f2"></a>F2 Contextual typed bindings | A1; I1; H1 | Resolve and physically admit overlays once, with deterministic composition | complete |
+| <a id="f3"></a>F3 Pure occurrence policy | F1/F2; E2/E3/E4 | One study definition and pure dependency/start/conclusion operation | complete |
+| <a id="f4"></a>F4 Executor and durable cutover | F3; G3 | Both executors apply the same policy; retain every terminal typed failure and occurrence | complete |
+| <a id="f5"></a>F5 General run points and provenance | F4; E5 | Expose admitted solve/simulation/fit/horizon points and consistent route/result projections | complete |
 
 F1 is an early contract, independent of the eventual study engine and store migration. Its
 persistent vocabulary consumers wait for G3. F2 likewise admits bindings before durable storage.
@@ -207,43 +207,134 @@ identity and J generation. This document does not duplicate their authorities.
 
 ## Consumed 25c prerequisite slice
 
-**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional-unit admission uses a typed WorkflowError envelope with a closed modeling.conditional_unit.admission rule family, source identities and retained mathematical cause. The affected workflow diagnostic traversal migrates with it. General failure envelopes, projections, studies, bindings and retry policy remain open. The maintainer authorized only this required slice and its complete affected consumer migration. This packet remains partial; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
+**Implemented/Tested, 2026-10-01; scoped focused verification recorded in [25c Verification](25c-process-composition-and-conservation.md#verification):** Conditional-unit admission uses a typed WorkflowError envelope with a closed modeling.conditional_unit.admission rule family, source identities and retained mathematical cause. The affected workflow diagnostic traversal migrates with it. At that checkpoint, general failure envelopes, projections, studies, bindings and retry policy remained open; they are completed below. The maintainer authorized that required slice and its complete affected consumer migration; [25c](25c-process-composition-and-conservation.md) owns the slice evidence.
 
 ## Consumed 25e prerequisite slice
 
-**Implemented/Tested, 2026-10-01:** Required E-consumer projections now use typed candidate qualifiers/refusals and retained admission facts. Structural admission errors preserve their original native cause plus authored paths. Existing study/durable consumers retain authored routes and shared scientific permission; the wider F1 failure envelope and F3–F5 occurrence-policy redesign remain open.
+**Implemented/Tested, 2026-10-01:** Required E-consumer projections now use typed candidate qualifiers/refusals and retained admission facts. Structural admission errors preserve their original native cause plus authored paths. Existing study/durable consumers retain authored routes and shared scientific permission; the wider F1 failure envelope and F3–F5 occurrence-policy redesign remained open at that checkpoint and are completed below.
 [25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
-conditions, composite results and limits; this does not close the companion plan.
+conditions, composite results and limits; that earlier slice alone did not close this plan.
 
-## Execution and evidence
+## Verification
 
-The consumed prerequisite slices above are **Implemented**; their focused evidence is owned
-by the linked plans. The remaining packet scope and expected benefits are **Proposed**. No full-packet
-completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
-owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
-behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
-delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
-Full integration, formatting, lint and performance qualification run once in
-[25k](25k-integrated-qualification-and-closure.md), after the series' functional scope is complete.
+**Tested, 2026-10-01:** Focused controls ran locally on Linux, using the pinned nightly,
+locked dependencies and explicit `pse-relations/force-validate` through the recipes. Failure
+baseline: zero. Commands below ran inside `direnv exec .`; native recipes supplied the linked
+solvers, licensed environment and default 120 GiB memory cap. Nextest used its default profile
+and concurrency; excluded tests were not exercised. These controls establish the named
+mechanisms, not integrated durable restart or whole-product qualification.
 
-Use current recipe-owned checks such as `just check-package <pkg>` and
-`just unit-package <pkg> <filter>`; select isolated tests rather than broad suites hidden under
-a unit label. The acceptance scenarios above define what those tests must establish, not claims
-that tests with particular names already exist. Cross-owner scientific/storage journeys are authored
-with the functional work and executed in 25k. Record state, decisions and next steps during work;
-record actual commands, conditions and failures against zero in the final qualification evidence.
+| Command (inside `direnv exec .`) | Result against zero failures | Established scope |
+|---|---|---|
+| `just unit-package pse-model 'test(diagnostic::tests)'` | 5/5 passed | Authoritative codes, closed envelope/location/operand contracts, recursive causes, finite physical observations and tagged IEEE evidence |
+| `just unit-package pse-operations 'test(study_policy_unit) \| test(study_codec_unit)'` | 18/18 passed | Shared dependency/start/conclusion matrices, scientific permission independent of operational state, retry/effect rules, versioned histories, pre-context failures and same-attempt enrichment |
+| `just unit-native-package pse-runtime native-solvers 'test(occurrence_execution_tests) \| test(binding_admission_unit) \| test(diagnostic_rows) \| test(workflow::diagnostics) \| test(study_operation_unit) \| test(study_request_codec_unit)'` | 35/35 composite passed after repairing compiler path-demand admission, signed-zero identity and fixture assumptions; final selection 35/35 | Physical contracts, affine/pressure conversion, duplicate aliases, rename/revision identity, distinct occurrences, dependency refusal, cancellation, parameter composition, actual native batching and task-local preparation counts; shared diagnostic/result projection and descriptor codecs |
+| `just unit-native-package pse-runtime native-solvers 'test(study_operation_admission_tests)'` | 4/4 composite passed after correcting physical/controller fixture requirements | Existing simulation, fit and horizon owners; canonical horizon input/prior/trajectory values; replay correspondence and physical mismatch refusal |
+| `just unit-native-package pse-runtime native-solvers 'test(initialization_restores_original_specification) \| test(kernel_initialization_retries_typed_preparation_rejections) \| test(kernel_initialization_shrinks_failed_native_nonlinear_steps) \| test(kernel_initialization_retries_callback_trials_without_event_history) \| test(derived_big_m_follows_value_only_bindings) \| test(pounce_convex_batched_study)'` | 6/6 passed | Existing initialization stop/retry/restoration policy, value-dependent Big-M and native Pounce batch agreement with analytic/HiGHS controls |
+| `just unit-package pse-operations 'test(migration_frozen_source_identity_and_history_ownership) \| test(migration_plan25e_frozen_source_identity_and_follow_on_target) \| test(migration_source_and_history_prefix_are_admitted_together) \| test(migration_follow_on_preserves_enum_order_and_complete_layout_signatures)'` | 4/4 passed | Frozen exact 25e source/history admission and appended V5 target/layout preservation declarations; no live database execution |
+| `just unit-package pse-runtime 'test(study_operation_unit) \| test(study_job_v5_codec_unit) \| test(termination_detail_v2_codec_unit)'` | 7/7 passed | Operation descriptors, JobPayloadV5 and TerminationDetailV2 strict version/shape round trips |
+| `just unit-package pse-catalog 'test(member_ticket_unit)'` | 1/1 passed | Exact publication-ticket inventory/version/attempt admission before I/O |
+| `just unit-package pse-codegen 'test(codegen::documents::tests::)'` | 6/6 passed | Strict owner-schema equality including recursive roots, heterogeneous tuple positions/arity and constrained fixed arrays |
+| `bash scripts/memory-cap.sh just unit-package pse-backend-native 'test(dynamics_profile_duration_schema_matches_closed_serde_representation)'` | 1/1 passed | Closed duration schema matches existing serde representation |
+| `just unit-package pse-schema 'test(modeling_identities_declared)'` | 1/1 passed | Surviving declared modeling identities after deleting the legacy study relation |
+| `just py-unit-native python/pse/tests/test_studies.py -q` | 6/6 composite passed after fixture corrections and rebuilding the extension property; 3 integration/sweep tests deselected | Repeated occurrences and owned results, typed dependency refusal, normalized binding identity, recursive physical mismatch envelope/closed byte-array shapes, controller tuple positions and rejection of caller-supplied seed capability |
+| `just py-unit-native python/pse/tests/test_native_boundary_contracts.py::test_generated_settings_admit_native_defaults_and_expose_named_diagnostics python/pse/tests/test_native_workflow.py::test_compiler_failure_retains_typed_authored_source_span -q` | 3/3 passed | Generated native settings/named diagnostics and two retained typed authored-source-span cases |
+
+**Interface-checked, 2026-10-01:** `just check-package pse-runtime` and
+`just check-package pse-py` passed all-target compilation with explicit force-validation.
+Native focused selections also compiled their affected native consumers. Source compilation
+and stale consumers were repaired before the final passes; this is composite evidence.
+Current project compile errors/warnings: zero. The dependency future-incompatibility notice
+for `proc-macro-error2 v2.0.1` remains outside that source-warning claim.
+
+**Implemented:** `direnv exec . just codegen` passed all six schema targets, physical fixture
+outputs, native bindings and hakari. `direnv exec . just py-sync-native` rebuilt the editable
+native boundary and generated API stubs from the compiled PyO3 metadata. The native diagnostic
+envelope property was checked against that rebuilt extension.
+
+Forcing a `pse-py` Rust unit harness with `unit-native-package` failed at linking against
+CPython: that crate declares `test=false` and builds an extension module. No Rust inspection
+unit executed in that mode. The supported Python adapter controls above supply boundary
+execution evidence instead. One Python selector invocation collected no tests because the
+recipe split a spaced selector; explicit node IDs corrected the invocation.
+
+The independent [contract review](../design_review/reviews/design_review_studies-diagnostics-and-admitted-bindings_2026-10-01.md)
+returned **Accept** at its bounded **Implemented/Tested** scope and records the corrections.
+Its findings concern signed zero, result-role admission, shared refusals, recursive source
+attribution, physical horizon replay, repeat receipt attachment and early/stale terminal-history
+preservation; all corrections are implemented with focused controls.
+ADR-0148 remains proposed pending its decision-PR route; that status is separate from functional
+completion.
+
+Integrated PostgreSQL migration/preservation, worker restart/fencing/receipt recovery and mixed
+operation journeys, the 1000-point sweep, broader native/Python/parity campaigns, formatting,
+hygiene, governance, docs publishing and performance measurement are **not_run** here. They
+remain assigned to [25k](25k-integrated-qualification-and-closure.md). No live development
+store was migrated, no throughput/scaling claim is made and no broad qualification is implied.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25c prerequisite slice and its
-remaining boundaries are recorded above; 25c owns its focused execution evidence.
+**Implemented/Tested:** F1–F5 are functionally complete at the focused scope above. Source-owned
+failure projections preserve detailed codes, closed rules/stages, physical and explicitly tagged
+nonfinite observations, revision-bound locations and recursive causes through Rust, generated
+Python and durable records. Coarse class, disposition, severity, scientific usability and retry
+remain separate purpose-specific decisions.
+
+Typed assignment admission resolves compiler-demanded paths/member references against an
+immutable revision, checks complete physical meaning and composes canonical member values once.
+The `StudyBindingV1` frame records normalized content independently of occurrence identity;
+explicit-ID compatible renames preserve content identity while replay still requires the exact
+revision. Canonical signed-zero bits remain distinct. Horizon input/prior/trajectory values use
+that same physical admission; reconstruction checks their operation-owned destination/member
+correspondence without converting values again.
+
+One admitted definition and one pure policy govern in-process and durable solve, simulation,
+fit and horizon points through existing operation owners. Equal bindings retain distinct runs,
+explicit continuation/default/refusal choices and every requested occurrence. E remains the
+aggregate scientific authority. Both adapters project the same typed outcomes; failures and
+cancellations need no fabricated scientific result. Terminal attempt history also retains
+pre-context decoding and stale-attempt failures without duplicating a recorded attempt.
+
+The durable adapter rereads policy under existing locks, live leases and revision fencing.
+Pre-effect publication tickets commit before native writes; unresolved/partial effects block
+replay and retain actual members. Receipt attachment is idempotent only for the exact descriptor;
+conflicts refuse, and safe attempt supersession retains previous effect/history knowledge.
+Required G3 evolution freezes the exact 25e source and appends V5 while preserving historical
+identities, payloads and links. Missing old policy/scientific facts remain explicitly unavailable.
+Generated boundaries carry the new versions and closed transport shapes.
+
+Legacy case-array study APIs, executor-local policies, path-keyed numeric overlays,
+content-based point uniqueness, duplicate study outcome relations and their obsolete callers,
+tests and fixtures were removed. No compatibility executor remains. Architectural owners
+blueprint §5.3, §19.3, §20.6, §21.5 and §23.2 and revision 93 describe the enduring contracts.
+The [series coordinator](25-design-remediation.md) owns adopted finding dispositions. This
+completed record remains available while the active series consumes its evidence.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction, not a hypothetical planning example.
+The first overlay implementation treated the optional compiler path map as a complete target
+inventory, so otherwise valid path bindings failed admission. Explicit submitted path demands
+now go through the existing compiler once, and workers receive admitted member coordinates.
+Ordinary unit conversion also erased canonical signed-zero identity; the canonical-input path
+now preserves A's canonical bits without changing represented-unit conversion semantics.
+
+Independent review then exposed repeated receipt attachment being treated as a conflict after
+partial recovery. Exact descriptors are now admitted idempotently, conflicting descriptors still
+refuse, and a newer safe attempt may replace the point inventory without losing old attempt
+history. Targeted controls verify these distinctions. Python fixture/header/result-row and
+native-extension rebuild assumptions were corrected before the final six-test selection passed.
 
 ### Deviations from the plan, deliberate
 
-None recorded. A changed architectural decision follows its owning ADR/design route.
+Only prerequisites required for this cutover were pulled forward from G3, H, I and J: preserving
+V5 evolution, source-owned admission facts, binding/resource identity and generated boundaries.
+Their wider plans remain open. No separate workflow engine, automatic uncertain-effect retry
+or scientific permission inferred from catalog/member counts was added.
+
+Functional closure uses targeted checks as authorized by the maintainer. Authored cross-owner
+PostgreSQL/restart/publication and mixed-operation journeys execute in 25k, together with the
+series' aggregate static and performance qualification. The unsupported Rust extension harness
+is reported separately from the successful supported Python execution. ADR acceptance remains
+on its decision route; functional closure does not change its status.

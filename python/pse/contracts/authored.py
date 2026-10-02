@@ -311,7 +311,7 @@ class AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure:
 class AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem:
     """Declared relation row or nested value."""
 
-    rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    rule: e.DiagnosticRule = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticRule))
     members: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 

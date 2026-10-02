@@ -1,0 +1,338 @@
+[
+  [
+    "attempt_transitions",
+    "attempt_transitions_pkey",
+    "CREATE UNIQUE INDEX attempt_transitions_pkey ON pse_ops.attempt_transitions USING btree (attempt_id, seq)",
+    true,
+    true
+  ],
+  [
+    "attempts",
+    "attempts_lease_idx",
+    "CREATE INDEX attempts_lease_idx ON pse_ops.attempts USING btree (lease_expires_at) WHERE (state = 'running'::pse_ops.attempt_state)",
+    true,
+    true
+  ],
+  [
+    "attempts",
+    "attempts_parent_idx",
+    "CREATE INDEX attempts_parent_idx ON pse_ops.attempts USING btree (parent_attempt) WHERE (parent_attempt IS NOT NULL)",
+    true,
+    true
+  ],
+  [
+    "attempts",
+    "attempts_pkey",
+    "CREATE UNIQUE INDEX attempts_pkey ON pse_ops.attempts USING btree (attempt_id)",
+    true,
+    true
+  ],
+  [
+    "attempts",
+    "attempts_run_idx",
+    "CREATE INDEX attempts_run_idx ON pse_ops.attempts USING btree (run_id)",
+    true,
+    true
+  ],
+  [
+    "attempts",
+    "attempts_state_idx",
+    "CREATE INDEX attempts_state_idx ON pse_ops.attempts USING btree (state, created_at)",
+    true,
+    true
+  ],
+  [
+    "incumbents",
+    "incumbents_pkey",
+    "CREATE UNIQUE INDEX incumbents_pkey ON pse_ops.incumbents USING btree (attempt_id, seq)",
+    true,
+    true
+  ],
+  [
+    "jobs",
+    "jobs_attempt_id_key",
+    "CREATE UNIQUE INDEX jobs_attempt_id_key ON pse_ops.jobs USING btree (attempt_id)",
+    true,
+    true
+  ],
+  [
+    "jobs",
+    "jobs_claim_idx",
+    "CREATE INDEX jobs_claim_idx ON pse_ops.jobs USING btree (priority DESC, available_at, job_id) WHERE (state = 'queued'::pse_ops.job_state)",
+    true,
+    true
+  ],
+  [
+    "jobs",
+    "jobs_idempotency_key_key",
+    "CREATE UNIQUE INDEX jobs_idempotency_key_key ON pse_ops.jobs USING btree (idempotency_key)",
+    true,
+    true
+  ],
+  [
+    "jobs",
+    "jobs_pkey",
+    "CREATE UNIQUE INDEX jobs_pkey ON pse_ops.jobs USING btree (job_id)",
+    true,
+    true
+  ],
+  [
+    "progress_events",
+    "progress_events_attempt_idx",
+    "CREATE INDEX progress_events_attempt_idx ON pse_ops.progress_events USING btree (attempt_id, step, seq)",
+    true,
+    true
+  ],
+  [
+    "progress_events",
+    "progress_events_pkey",
+    "CREATE UNIQUE INDEX progress_events_pkey ON pse_ops.progress_events USING btree (attempt_id, seq)",
+    true,
+    true
+  ],
+  [
+    "progress_values",
+    "progress_values_pkey",
+    "CREATE UNIQUE INDEX progress_values_pkey ON pse_ops.progress_values USING btree (attempt_id, seq, name)",
+    true,
+    true
+  ],
+  [
+    "publication_heads",
+    "publication_heads_pkey",
+    "CREATE UNIQUE INDEX publication_heads_pkey ON pse_ops.publication_heads USING btree (workspace_id)",
+    true,
+    true
+  ],
+  [
+    "publication_intents",
+    "publication_intents_attempt_idx",
+    "CREATE INDEX publication_intents_attempt_idx ON pse_ops.publication_intents USING btree (attempt_id)",
+    true,
+    true
+  ],
+  [
+    "publication_intents",
+    "publication_intents_identity_key",
+    "CREATE UNIQUE INDEX publication_intents_identity_key ON pse_ops.publication_intents USING btree (publication_id, workspace_id, attempt_id)",
+    true,
+    true
+  ],
+  [
+    "publication_intents",
+    "publication_intents_member_prefix_key",
+    "CREATE UNIQUE INDEX publication_intents_member_prefix_key ON pse_ops.publication_intents USING btree (member_prefix)",
+    true,
+    true
+  ],
+  [
+    "publication_intents",
+    "publication_intents_pkey",
+    "CREATE UNIQUE INDEX publication_intents_pkey ON pse_ops.publication_intents USING btree (publication_id)",
+    true,
+    true
+  ],
+  [
+    "publication_intents",
+    "publication_intents_workspace_idx",
+    "CREATE INDEX publication_intents_workspace_idx ON pse_ops.publication_intents USING btree (workspace_id, prepared_at) WHERE (reclaimed_at IS NULL)",
+    true,
+    true
+  ],
+  [
+    "publication_members",
+    "publication_members_pkey",
+    "CREATE UNIQUE INDEX publication_members_pkey ON pse_ops.publication_members USING btree (publication_id, role, catalog_name, schema_name, table_name)",
+    true,
+    true
+  ],
+  [
+    "publication_members",
+    "publication_members_version_idx",
+    "CREATE INDEX publication_members_version_idx ON pse_ops.publication_members USING btree (table_uri, delta_version)",
+    true,
+    true
+  ],
+  [
+    "publication_windows",
+    "publication_windows_pkey",
+    "CREATE UNIQUE INDEX publication_windows_pkey ON pse_ops.publication_windows USING btree (publication_id, table_uri, from_version)",
+    true,
+    true
+  ],
+  [
+    "publication_windows",
+    "publication_windows_table_idx",
+    "CREATE INDEX publication_windows_table_idx ON pse_ops.publication_windows USING btree (table_uri, from_version)",
+    true,
+    true
+  ],
+  [
+    "publications",
+    "publications_attempt_id_key",
+    "CREATE UNIQUE INDEX publications_attempt_id_key ON pse_ops.publications USING btree (attempt_id)",
+    true,
+    true
+  ],
+  [
+    "publications",
+    "publications_pkey",
+    "CREATE UNIQUE INDEX publications_pkey ON pse_ops.publications USING btree (publication_id)",
+    true,
+    true
+  ],
+  [
+    "publications",
+    "publications_workspace_idx",
+    "CREATE INDEX publications_workspace_idx ON pse_ops.publications USING btree (workspace_id, committed_at)",
+    true,
+    true
+  ],
+  [
+    "reader_leases",
+    "reader_leases_active_idx",
+    "CREATE INDEX reader_leases_active_idx ON pse_ops.reader_leases USING btree (publication_id, expires_at) WHERE (released_at IS NULL)",
+    true,
+    true
+  ],
+  [
+    "reader_leases",
+    "reader_leases_pkey",
+    "CREATE UNIQUE INDEX reader_leases_pkey ON pse_ops.reader_leases USING btree (lease_id)",
+    true,
+    true
+  ],
+  [
+    "retention_marks",
+    "retention_marks_pkey",
+    "CREATE UNIQUE INDEX retention_marks_pkey ON pse_ops.retention_marks USING btree (publication_id)",
+    true,
+    true
+  ],
+  [
+    "schema_support_state",
+    "schema_support_state_pkey",
+    "CREATE UNIQUE INDEX schema_support_state_pkey ON pse_ops.schema_support_state USING btree (history)",
+    true,
+    true
+  ],
+  [
+    "settlements",
+    "settlements_attempt_idx",
+    "CREATE INDEX settlements_attempt_idx ON pse_ops.settlements USING btree (attempt_id, settled_at)",
+    true,
+    true
+  ],
+  [
+    "settlements",
+    "settlements_pkey",
+    "CREATE UNIQUE INDEX settlements_pkey ON pse_ops.settlements USING btree (settlement_id)",
+    true,
+    true
+  ],
+  [
+    "solutions",
+    "solutions_pkey",
+    "CREATE UNIQUE INDEX solutions_pkey ON pse_ops.solutions USING btree (solution_id)",
+    true,
+    true
+  ],
+  [
+    "solutions",
+    "solutions_seed_idx",
+    "CREATE INDEX solutions_seed_idx ON pse_ops.solutions USING btree (compatibility_stamp, preparation_identity, kind, created_at DESC)",
+    true,
+    true
+  ],
+  [
+    "source_bundles",
+    "source_bundles_pkey",
+    "CREATE UNIQUE INDEX source_bundles_pkey ON pse_ops.source_bundles USING btree (bundle_hash)",
+    true,
+    true
+  ],
+  [
+    "source_documents",
+    "source_documents_pkey",
+    "CREATE UNIQUE INDEX source_documents_pkey ON pse_ops.source_documents USING btree (bundle_hash, path)",
+    true,
+    true
+  ],
+  [
+    "studies",
+    "studies_attempt_id_key",
+    "CREATE UNIQUE INDEX studies_attempt_id_key ON pse_ops.studies USING btree (attempt_id)",
+    true,
+    true
+  ],
+  [
+    "studies",
+    "studies_finalization_job_key",
+    "CREATE UNIQUE INDEX studies_finalization_job_key ON pse_ops.studies USING btree (finalization_job)",
+    true,
+    true
+  ],
+  [
+    "studies",
+    "studies_pkey",
+    "CREATE UNIQUE INDEX studies_pkey ON pse_ops.studies USING btree (study_id)",
+    true,
+    true
+  ],
+  [
+    "studies",
+    "studies_publication_id_key",
+    "CREATE UNIQUE INDEX studies_publication_id_key ON pse_ops.studies USING btree (publication_id)",
+    true,
+    true
+  ],
+  [
+    "study_point_members",
+    "study_point_members_pkey",
+    "CREATE UNIQUE INDEX study_point_members_pkey ON pse_ops.study_point_members USING btree (study_id, point_index, catalog_name, schema_name, table_name)",
+    true,
+    true
+  ],
+  [
+    "study_points",
+    "study_points_job_id_key",
+    "CREATE UNIQUE INDEX study_points_job_id_key ON pse_ops.study_points USING btree (job_id)",
+    true,
+    true
+  ],
+  [
+    "study_points",
+    "study_points_pending_idx",
+    "CREATE INDEX study_points_pending_idx ON pse_ops.study_points USING btree (study_id, point_index) WHERE (state = 'pending'::pse_ops.study_point_state)",
+    true,
+    true
+  ],
+  [
+    "study_points",
+    "study_points_pkey",
+    "CREATE UNIQUE INDEX study_points_pkey ON pse_ops.study_points USING btree (study_id, point_index)",
+    true,
+    true
+  ],
+  [
+    "workspaces",
+    "workspaces_name_key",
+    "CREATE UNIQUE INDEX workspaces_name_key ON pse_ops.workspaces USING btree (name)",
+    true,
+    true
+  ],
+  [
+    "workspaces",
+    "workspaces_pkey",
+    "CREATE UNIQUE INDEX workspaces_pkey ON pse_ops.workspaces USING btree (workspace_id)",
+    true,
+    true
+  ],
+  [
+    "workspaces",
+    "workspaces_root_uri_key",
+    "CREATE UNIQUE INDEX workspaces_root_uri_key ON pse_ops.workspaces USING btree (root_uri)",
+    true,
+    true
+  ]
+]

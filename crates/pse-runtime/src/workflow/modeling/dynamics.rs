@@ -177,7 +177,7 @@ impl ModelingTrajectory {
         if let Some(error) = &self.report.error {
             return Some(super::super::diagnostics::observed(
                 error,
-                "modeling-trajectory",
+                pse_diagnostics::DiagnosticStage::ModelingTrajectory,
             ));
         }
         let class = match self.report.termination {
@@ -187,12 +187,12 @@ impl ModelingTrajectory {
         };
         let mut error = D::new(
             class,
-            "modeling-trajectory",
+            pse_diagnostics::DiagnosticStage::ModelingTrajectory,
             self.checks
                 .iter()
                 .filter(|c| !c.satisfied)
                 .map(|c| c.source_id.as_id()),
-            "modeling.trajectory.rejected",
+            pse_diagnostics::DiagnosticRule::ModelingTrajectoryRejected,
         );
         error.observations.insert(
             "termination".into(),
@@ -200,7 +200,7 @@ impl ModelingTrajectory {
         );
         error.observations.insert(
             "completed_time".into(),
-            Observation::Real(self.report.completed_time),
+            Observation::number(self.report.completed_time),
         );
         Some(error)
     }
@@ -1632,9 +1632,9 @@ impl ModelingPackage {
                     if matching.is_empty() || matching.iter().any(|e| e.next.is_none()) {
                         let mut refusal = pse_model::diagnostic::BoundaryDiagnostic::new(
                             pse_model::diagnostic::BoundaryClass::Unsupported,
-                            "modeling-conservation-transfer",
+                            pse_diagnostics::DiagnosticStage::ModelingConservationTransfer,
                             [balance.id, balance.lineage.declaration.into(), *guard],
-                            "modeling.dynamic.inventory_transfer.event.unsupported",
+                            pse_diagnostics::DiagnosticRule::ModelingDynamicInventoryTransferEventUnsupported,
                         );
                         refusal.observations.insert("capability".into(), pse_model::diagnostic::Observation::Text(
                             "a permitted inventory transfer requires the same resolved guard occurrence as a nonterminal authored event".into(),
@@ -2834,7 +2834,7 @@ mod tests {
                     };
                     assert_eq!(
                         refusal.rule,
-                        "modeling.dynamic.inventory_transfer.event.unsupported"
+                        pse_diagnostics::DiagnosticRule::ModelingDynamicInventoryTransferEventUnsupported
                     );
                     assert_eq!(refusal.sources.len(), 3);
                     assert!(refusal.sources.contains(&stock_source.into()));
@@ -3164,7 +3164,7 @@ mod tests {
         );
         assert_eq!(
             diagnostic.rule,
-            "modeling.dynamic.algebraic_reset.unsupported"
+            pse_diagnostics::DiagnosticRule::ModelingDynamicAlgebraicResetUnsupported
         );
         assert_eq!(diagnostic.sources.len(), 2);
     }
@@ -4136,6 +4136,7 @@ mod tests {
         );
         // Fixed for the segment, the discrete input is an ordinary parameter of integration.
         let fixed = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::from([("units".into(), 1.)]),
             variables: BTreeMap::from([(
                 "units".into(),
@@ -4544,12 +4545,15 @@ mod tests {
             pse_backend_native::callback::classify(&error),
             pse_backend_native::callback::Failure::Trial
         );
-        let diagnostic = crate::workflow::diagnostics::observed(&error, "dynamic-test");
+        let diagnostic = crate::workflow::diagnostics::observed(
+            &error,
+            pse_diagnostics::DiagnosticStage::DynamicTest,
+        );
         assert_eq!(
             diagnostic.class,
             pse_model::diagnostic::BoundaryClass::TrialRejected
         );
-        assert_eq!(diagnostic.rule, "math.range");
+        assert_eq!(diagnostic.rule, pse_diagnostics::DiagnosticRule::MathRange);
         assert_eq!(diagnostic.sources.len(), 2);
         for (name, value) in [("value", 3_f64), ("lower", 0.), ("upper", 2.)] {
             assert!(
@@ -4569,6 +4573,7 @@ mod tests {
             .unwrap();
         let profile = prepared.profile.clone();
         let case = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::new(),
             variables: BTreeMap::from([(
                 "x[0{s}]".into(),

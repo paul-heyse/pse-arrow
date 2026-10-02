@@ -241,7 +241,7 @@ async fn conditional_unit_reference_request_declares_original_inventories_and_ro
     );
     assert_eq!(
         diagnostic.rule,
-        "modeling.conditional_unit.admission.unsupported"
+        pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionUnsupported
     );
     let mixer = &fixture.request.units[1];
     assert!(diagnostic.sources.contains(&mixer.node));

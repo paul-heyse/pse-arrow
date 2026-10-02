@@ -540,32 +540,45 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 
 ## `modeling_findings`
 
-Attributed diagnostic findings with a class and a severity; a warning is never an invalid model. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices. Version three adds, exactly on a rejected authored validity predicate, its lineage (Plan 23 H5): its layer (ADR-0123 Outcome 4); the declaration stating it, the form itself, the relation or kind declaring the envelope, or the closure range's annotation; for the form and data layers the form, the parameter sets, table rows or entities, whose values bound it and the positions of the form's declared arguments it constrains; and for the closure layer the model members its range bounds.
+Attributed diagnostics retain authoritative detailed code, independent disposition/severity, closed stage and rule, complete structured observations, revision-bound locations, validity/applicability evidence and every ordered cause with its tree path. Version four retains the same envelope when scientific result tables do not exist (ADR-0148).
 
-Version: 3. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
+Version: 4. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
 | `ordinal` | `Int64` | false | `key` | — | — |
+| `code` | `enum:DiagnosticCode` | false | `payload` | — | — |
 | `class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
 | `severity` | `enum:DiagnosticSeverity` | false | `payload` | — | — |
-| `stage` | `Utf8` | false | `payload` | — | — |
-| `rule` | `Utf8` | false | `payload` | — | — |
+| `stage` | `enum:DiagnosticStage` | false | `payload` | — | — |
+| `rule` | `enum:DiagnosticRule` | false | `payload` | — | — |
 | `sources` | `List` | false | `payload` | — | — |
 | `sources.item` | `semantic_id` | false | `payload` | — | — |
 | `observations` | `List` | false | `payload` | — | — |
 | `observations.item` | `Struct` | false | `payload` | — | — |
 | `observations.item.name` | `Utf8` | false | `payload` | — | — |
-| `observations.item.kind` | `enum:NativeMetricKind` | false | `payload` | — | — |
+| `observations.item.kind` | `enum:DiagnosticObservationKind` | false | `payload` | — | — |
 | `observations.item.real` | `Float64` | true | `payload` | — | — |
 | `observations.item.real_kind` | `enum:ModelingRealValueKind` | true | `payload` | — | — |
 | `observations.item.integer` | `Int64` | true | `payload` | — | — |
 | `observations.item.boolean` | `Boolean` | true | `payload` | — | — |
 | `observations.item.text` | `Utf8` | true | `payload` | — | — |
+| `observations.item.quantity` | `semantic_id` | true | `payload` | — | — |
+| `observations.item.unit` | `semantic_id` | true | `payload` | — | — |
+| `observations.item.context` | `content_hash` | true | `payload` | — | — |
+| `observations.item.contracts` | `List` | false | `payload` | — | — |
+| `observations.item.contracts.item` | `Struct` | false | `payload` | — | — |
+| `observations.item.contracts.item.quantity` | `semantic_id` | false | `payload` | — | — |
+| `observations.item.contracts.item.indices` | `List` | false | `payload` | — | — |
+| `observations.item.contracts.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `observations.item.contracts.item.indices.item.bound_index` | `semantic_id` | false | `payload` | — | — |
+| `observations.item.contracts.item.indices.item.domain` | `semantic_id` | false | `payload` | — | — |
+| `observations.item.contracts.item.indices.item.kind` | `semantic_id` | false | `payload` | — | — |
 | `locations` | `List` | false | `payload` | — | — |
 | `locations.item` | `Struct` | false | `payload` | — | — |
 | `locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `locations.item.revision` | `content_hash` | true | `payload` | — | — |
 | `locations.item.path` | `Utf8` | false | `payload` | — | — |
 | `locations.item.name` | `Utf8` | true | `payload` | — | — |
 | `locations.item.start` | `Int64` | true | `payload` | — | — |
@@ -580,6 +593,133 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
 | `validity.variables.item` | `Int64` | false | `payload` | — | — |
 | `validity.member_ids` | `List` | false | `payload` | — | — |
 | `validity.member_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `applicability` | `List` | false | `payload` | — | — |
+| `applicability.item` | `Struct` | false | `payload` | — | — |
+| `applicability.item.claim` | `Struct` | false | `payload` | — | — |
+| `applicability.item.claim.id` | `semantic_id` | true | `payload` | — | — |
+| `applicability.item.claim.coverage` | `semantic_id` | true | `payload` | — | — |
+| `applicability.item.claim.owner` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.claim.owner_lineage` | `List` | false | `payload` | — | — |
+| `applicability.item.claim.owner_lineage.item` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.claim.evidence` | `semantic_id` | true | `payload` | — | — |
+| `applicability.item.claim.form` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.claim.call` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.claim.records` | `List` | false | `payload` | — | — |
+| `applicability.item.claim.records.item` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.claim.dependencies` | `List` | false | `payload` | — | — |
+| `applicability.item.claim.dependencies.item` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.claim.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `applicability.item.claim.basis` | `enum:ModelingApplicabilityBasis` | true | `payload` | — | — |
+| `applicability.item.claim.reason` | `Utf8` | true | `payload` | — | — |
+| `applicability.item.instance` | `semantic_id` | true | `payload` | — | — |
+| `applicability.item.inputs` | `List` | false | `payload` | — | — |
+| `applicability.item.inputs.item` | `Struct` | false | `payload` | — | — |
+| `applicability.item.inputs.item.name` | `Utf8` | false | `payload` | — | — |
+| `applicability.item.inputs.item.value` | `Float64` | true | `payload` | — | — |
+| `applicability.item.inputs.item.real_kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `applicability.item.inputs.item.quantity_type` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.outcome` | `enum:ModelingApplicabilityOutcome` | false | `payload` | — | — |
+| `applicability.item.required` | `Boolean` | false | `payload` | — | — |
+| `applicability.item.permissions` | `List` | false | `payload` | — | — |
+| `applicability.item.permissions.item` | `Struct` | false | `payload` | — | — |
+| `applicability.item.permissions.item.id` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.permissions.item.scope` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.permissions.item.target_kind` | `enum:ModelingPermissionTarget` | false | `payload` | — | — |
+| `applicability.item.permissions.item.targets` | `List` | false | `payload` | — | — |
+| `applicability.item.permissions.item.targets.item` | `semantic_id` | false | `payload` | — | — |
+| `applicability.item.permissions.item.allow_unknown` | `Boolean` | false | `payload` | — | — |
+| `applicability.item.permissions.item.allow_extrapolation` | `Boolean` | false | `payload` | — | — |
+| `applicability.item.unknown_allowed` | `Boolean` | false | `payload` | — | — |
+| `applicability.item.extrapolation_allowed` | `Boolean` | false | `payload` | — | — |
+| `applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
+| `causes` | `List` | false | `payload` | — | — |
+| `causes.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.tree_path` | `List` | false | `payload` | — | — |
+| `causes.item.tree_path.item` | `Int64` | false | `payload` | — | — |
+| `causes.item.code` | `enum:DiagnosticCode` | false | `payload` | — | — |
+| `causes.item.class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
+| `causes.item.severity` | `enum:DiagnosticSeverity` | false | `payload` | — | — |
+| `causes.item.stage` | `enum:DiagnosticStage` | false | `payload` | — | — |
+| `causes.item.rule` | `enum:DiagnosticRule` | false | `payload` | — | — |
+| `causes.item.sources` | `List` | false | `payload` | — | — |
+| `causes.item.sources.item` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.observations` | `List` | false | `payload` | — | — |
+| `causes.item.observations.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.observations.item.name` | `Utf8` | false | `payload` | — | — |
+| `causes.item.observations.item.kind` | `enum:DiagnosticObservationKind` | false | `payload` | — | — |
+| `causes.item.observations.item.real` | `Float64` | true | `payload` | — | — |
+| `causes.item.observations.item.real_kind` | `enum:ModelingRealValueKind` | true | `payload` | — | — |
+| `causes.item.observations.item.integer` | `Int64` | true | `payload` | — | — |
+| `causes.item.observations.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `causes.item.observations.item.text` | `Utf8` | true | `payload` | — | — |
+| `causes.item.observations.item.quantity` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.observations.item.unit` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.observations.item.context` | `content_hash` | true | `payload` | — | — |
+| `causes.item.observations.item.contracts` | `List` | false | `payload` | — | — |
+| `causes.item.observations.item.contracts.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.observations.item.contracts.item.quantity` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.observations.item.contracts.item.indices` | `List` | false | `payload` | — | — |
+| `causes.item.observations.item.contracts.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.observations.item.contracts.item.indices.item.bound_index` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.observations.item.contracts.item.indices.item.domain` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.observations.item.contracts.item.indices.item.kind` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.locations` | `List` | false | `payload` | — | — |
+| `causes.item.locations.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
+| `causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
+| `causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |
+| `causes.item.locations.item.end` | `Int64` | true | `payload` | — | — |
+| `causes.item.validity` | `Struct` | true | `payload` | — | — |
+| `causes.item.validity.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `causes.item.validity.source_id` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.validity.form_id` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.validity.set_ids` | `List` | false | `payload` | — | — |
+| `causes.item.validity.set_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.validity.variables` | `List` | false | `payload` | — | — |
+| `causes.item.validity.variables.item` | `Int64` | false | `payload` | — | — |
+| `causes.item.validity.member_ids` | `List` | false | `payload` | — | — |
+| `causes.item.validity.member_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability` | `List` | false | `payload` | — | — |
+| `causes.item.applicability.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim` | `Struct` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.id` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.applicability.item.claim.coverage` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.applicability.item.claim.owner` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.owner_lineage` | `List` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.owner_lineage.item` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.evidence` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.applicability.item.claim.form` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.call` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.records` | `List` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.records.item` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.dependencies` | `List` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.dependencies.item` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `causes.item.applicability.item.claim.basis` | `enum:ModelingApplicabilityBasis` | true | `payload` | — | — |
+| `causes.item.applicability.item.claim.reason` | `Utf8` | true | `payload` | — | — |
+| `causes.item.applicability.item.instance` | `semantic_id` | true | `payload` | — | — |
+| `causes.item.applicability.item.inputs` | `List` | false | `payload` | — | — |
+| `causes.item.applicability.item.inputs.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.applicability.item.inputs.item.name` | `Utf8` | false | `payload` | — | — |
+| `causes.item.applicability.item.inputs.item.value` | `Float64` | true | `payload` | — | — |
+| `causes.item.applicability.item.inputs.item.real_kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `causes.item.applicability.item.inputs.item.quantity_type` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.outcome` | `enum:ModelingApplicabilityOutcome` | false | `payload` | — | — |
+| `causes.item.applicability.item.required` | `Boolean` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions` | `List` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item` | `Struct` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item.id` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item.scope` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item.target_kind` | `enum:ModelingPermissionTarget` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item.targets` | `List` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item.targets.item` | `semantic_id` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item.allow_unknown` | `Boolean` | false | `payload` | — | — |
+| `causes.item.applicability.item.permissions.item.allow_extrapolation` | `Boolean` | false | `payload` | — | — |
+| `causes.item.applicability.item.unknown_allowed` | `Boolean` | false | `payload` | — | — |
+| `causes.item.applicability.item.extrapolation_allowed` | `Boolean` | false | `payload` | — | — |
+| `causes.item.applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
 
 ## `modeling_fixture_status`
 
@@ -913,26 +1053,6 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, target_id, so
 | `transfer_context.coordinates.item` | `semantic_id` | false | `payload` | — | — |
 | `transfer_context.direction` | `enum:ModelingTransferDirection` | false | `payload` | — | — |
 | `value` | `Float64` | false | `payload` | — | — |
-
-## `modeling_studies`
-
-Ordered study outcomes including declaration preparation failures and explicit accepted-predecessor dependencies. Unattempted points remain distinct from failed attempts.
-
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `run_id` | `semantic_id` | false | `key` | — | — |
-| `unattempted` | `Int64` | false | `payload` | — | — |
-| `points` | `List` | false | `payload` | — | — |
-| `points.item` | `Struct` | false | `payload` | — | — |
-| `points.item.root_id` | `semantic_id` | true | `payload` | — | — |
-| `points.item.instance_id` | `semantic_id` | true | `payload` | — | — |
-| `points.item.predecessor` | `Int64` | true | `payload` | — | — |
-| `points.item.result_id` | `semantic_id` | true | `payload` | — | — |
-| `points.item.accepted` | `Boolean` | false | `payload` | — | — |
-| `points.item.error` | `Utf8` | true | `payload` | — | — |
-| `points.item.failure_ordinal` | `Int64` | true | `payload` | — | — |
 
 ## `modeling_trajectory_modes`
 
@@ -1757,7 +1877,7 @@ Native row check `table_uri_nonempty` (must be true):
 
 ## `operational_study_points`
 
-One study point: its value bindings by hash, the earlier point whose stored solution seeds it, its job (whose current attempt is the point's try) and its state. A point with a predecessor waits until the predecessor completed, and is cancelled when the predecessor fails or is cancelled.
+One occurrence, distinct from reusable binding content. The versioned study definition owns admitted operations and bindings; policy is its mechanically derived shared point policy. Outcome retains aggregate scientific facts, typed diagnostic, chosen start, effect knowledge and every try. Revision fences pure actions under the study lock; job/attempt lifecycle remains operational state.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index`.
 
@@ -1766,9 +1886,11 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index`.
 | `study_id` | `semantic_id` | false | `key` | `runtime.operational_studies.study_id` | — |
 | `point_index` | `Int32` | false | `key` | — | — |
 | `binding_hash` | `content_hash` | false | `payload` | — | — |
-| `predecessor` | `Int32` | true | `payload` | — | — |
 | `job_id` | `semantic_id` | false | `payload` | `runtime.operational_jobs.job_id` | — |
 | `state` | `enum:StudyPointState` | false | `payload` | — | — |
+| `revision` | `Int64` | false | `payload` | — | — |
+| `policy` | `Utf8` | false | `payload` | — | — |
+| `outcome` | `Utf8` | false | `payload` | — | — |
 | `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
 Native row check `point_index_nonnegative` (must be true):
@@ -1777,10 +1899,10 @@ Native row check `point_index_nonnegative` (must be true):
 "point_index" >= 0
 ```
 
-Native row check `predecessor_is_earlier` (must be true):
+Native row check `revision_nonnegative` (must be true):
 
 ```sql
-"predecessor" IS NULL OR ("predecessor" >= 0 AND "predecessor" < "point_index")
+"revision" >= 0
 ```
 
 ## `operational_workspaces`
@@ -2372,34 +2494,391 @@ Version: 1. Snapshot class: `derived`. Primary key: `request_identity, step`.
 
 ## `study_outcomes`
 
-The outcome of every point of a durable study, published once with the study: its authored case and value bindings by hash, the earlier point that seeded it, its final state, the attempt that ended it and that attempt's state. A completed point's result members are published under `member_catalog`; a failed or cancelled point contributes no members and records why in `error`.
+One common scientific and operational outcome per requested study occurrence, in either executor. Repeated bindings are independent occurrences. A terminal failure needs no scientific result table. Available members, cancellation, scientific permission, retained typed diagnostics and every attempt's actual start/effect history remain independent facts.
 
-Version: 1. Snapshot class: `derived`. Primary key: `study_id, point_index`.
+Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `study_id` | `semantic_id` | false | `key` | — | — |
 | `point_index` | `Int64` | false | `key` | — | — |
-| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | true | `payload` | — | — |
 | `binding_hash` | `content_hash` | false | `payload` | — | — |
-| `predecessor` | `Int64` | true | `payload` | — | — |
 | `state` | `enum:StudyPointState` | false | `payload` | — | — |
-| `attempt_id` | `semantic_id` | false | `payload` | — | — |
-| `attempt_state` | `enum:AttemptState` | false | `payload` | — | — |
+| `attempt_id` | `semantic_id` | true | `payload` | — | — |
+| `attempt_state` | `enum:AttemptState` | true | `payload` | — | — |
+| `result_id` | `semantic_id` | true | `payload` | — | — |
 | `member_catalog` | `Utf8` | true | `payload` | — | — |
-| `error` | `Utf8` | true | `payload` | — | — |
-
-Native row check `members_of_completed_points` (must be true):
-
-```sql
-("state" = 'completed') = ("member_catalog" IS NOT NULL)
-```
-
-Native row check `predecessor_is_earlier` (must be true):
-
-```sql
-"predecessor" IS NULL OR "predecessor" < "point_index"
-```
+| `usable` | `Boolean` | false | `payload` | — | — |
+| `seed_permission` | `Boolean` | false | `payload` | — | — |
+| `candidate_use` | `enum:CandidateUse` | true | `payload` | — | — |
+| `effect` | `enum:StudyEffectState` | false | `payload` | — | — |
+| `start` | `Struct` | true | `payload` | — | — |
+| `start.kind` | `enum:StudyStartKind` | false | `payload` | — | — |
+| `start.predecessor` | `Int64` | true | `payload` | — | — |
+| `start.role` | `enum:StudySeedRole` | true | `payload` | — | — |
+| `start.seed_id` | `semantic_id` | true | `payload` | — | — |
+| `start.unavailable` | `enum:StudySeedUnavailable` | true | `payload` | — | — |
+| `diagnostic` | `Struct` | true | `payload` | — | — |
+| `diagnostic.code` | `enum:DiagnosticCode` | false | `payload` | — | — |
+| `diagnostic.class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
+| `diagnostic.severity` | `enum:DiagnosticSeverity` | false | `payload` | — | — |
+| `diagnostic.stage` | `enum:DiagnosticStage` | false | `payload` | — | — |
+| `diagnostic.rule` | `enum:DiagnosticRule` | false | `payload` | — | — |
+| `diagnostic.sources` | `List` | false | `payload` | — | — |
+| `diagnostic.sources.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.observations` | `List` | false | `payload` | — | — |
+| `diagnostic.observations.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.observations.item.name` | `Utf8` | false | `payload` | — | — |
+| `diagnostic.observations.item.kind` | `enum:DiagnosticObservationKind` | false | `payload` | — | — |
+| `diagnostic.observations.item.real` | `Float64` | true | `payload` | — | — |
+| `diagnostic.observations.item.real_kind` | `enum:ModelingRealValueKind` | true | `payload` | — | — |
+| `diagnostic.observations.item.integer` | `Int64` | true | `payload` | — | — |
+| `diagnostic.observations.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `diagnostic.observations.item.text` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.observations.item.quantity` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.observations.item.unit` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.observations.item.context` | `content_hash` | true | `payload` | — | — |
+| `diagnostic.observations.item.contracts` | `List` | false | `payload` | — | — |
+| `diagnostic.observations.item.contracts.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.observations.item.contracts.item.quantity` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.observations.item.contracts.item.indices` | `List` | false | `payload` | — | — |
+| `diagnostic.observations.item.contracts.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.observations.item.contracts.item.indices.item.bound_index` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.observations.item.contracts.item.indices.item.domain` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.observations.item.contracts.item.indices.item.kind` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.locations` | `List` | false | `payload` | — | — |
+| `diagnostic.locations.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `diagnostic.locations.item.path` | `Utf8` | false | `payload` | — | — |
+| `diagnostic.locations.item.name` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.locations.item.start` | `Int64` | true | `payload` | — | — |
+| `diagnostic.locations.item.end` | `Int64` | true | `payload` | — | — |
+| `diagnostic.validity` | `Struct` | true | `payload` | — | — |
+| `diagnostic.validity.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `diagnostic.validity.source_id` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.validity.form_id` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.validity.set_ids` | `List` | false | `payload` | — | — |
+| `diagnostic.validity.set_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.validity.variables` | `List` | false | `payload` | — | — |
+| `diagnostic.validity.variables.item` | `Int64` | false | `payload` | — | — |
+| `diagnostic.validity.member_ids` | `List` | false | `payload` | — | — |
+| `diagnostic.validity.member_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability` | `List` | false | `payload` | — | — |
+| `diagnostic.applicability.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim` | `Struct` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.id` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.applicability.item.claim.coverage` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.applicability.item.claim.owner` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.owner_lineage` | `List` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.owner_lineage.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.evidence` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.applicability.item.claim.form` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.call` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.records` | `List` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.records.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.dependencies` | `List` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.dependencies.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `diagnostic.applicability.item.claim.basis` | `enum:ModelingApplicabilityBasis` | true | `payload` | — | — |
+| `diagnostic.applicability.item.claim.reason` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.applicability.item.instance` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.applicability.item.inputs` | `List` | false | `payload` | — | — |
+| `diagnostic.applicability.item.inputs.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.applicability.item.inputs.item.name` | `Utf8` | false | `payload` | — | — |
+| `diagnostic.applicability.item.inputs.item.value` | `Float64` | true | `payload` | — | — |
+| `diagnostic.applicability.item.inputs.item.real_kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `diagnostic.applicability.item.inputs.item.quantity_type` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.outcome` | `enum:ModelingApplicabilityOutcome` | false | `payload` | — | — |
+| `diagnostic.applicability.item.required` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions` | `List` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item.id` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item.scope` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item.target_kind` | `enum:ModelingPermissionTarget` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item.targets` | `List` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item.targets.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item.allow_unknown` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.applicability.item.permissions.item.allow_extrapolation` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.applicability.item.unknown_allowed` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.applicability.item.extrapolation_allowed` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.causes` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.tree_path` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.tree_path.item` | `Int64` | false | `payload` | — | — |
+| `diagnostic.causes.item.code` | `enum:DiagnosticCode` | false | `payload` | — | — |
+| `diagnostic.causes.item.class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
+| `diagnostic.causes.item.severity` | `enum:DiagnosticSeverity` | false | `payload` | — | — |
+| `diagnostic.causes.item.stage` | `enum:DiagnosticStage` | false | `payload` | — | — |
+| `diagnostic.causes.item.rule` | `enum:DiagnosticRule` | false | `payload` | — | — |
+| `diagnostic.causes.item.sources` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.sources.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.name` | `Utf8` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.kind` | `enum:DiagnosticObservationKind` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.real` | `Float64` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.real_kind` | `enum:ModelingRealValueKind` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.integer` | `Int64` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.text` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.quantity` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.unit` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.context` | `content_hash` | true | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts.item.quantity` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts.item.indices` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts.item.indices.item.bound_index` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts.item.indices.item.domain` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.observations.item.contracts.item.indices.item.kind` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.locations` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.locations.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |
+| `diagnostic.causes.item.locations.item.end` | `Int64` | true | `payload` | — | — |
+| `diagnostic.causes.item.validity` | `Struct` | true | `payload` | — | — |
+| `diagnostic.causes.item.validity.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `diagnostic.causes.item.validity.source_id` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.validity.form_id` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.validity.set_ids` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.validity.set_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.validity.variables` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.validity.variables.item` | `Int64` | false | `payload` | — | — |
+| `diagnostic.causes.item.validity.member_ids` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.validity.member_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.id` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.coverage` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.owner` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.owner_lineage` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.owner_lineage.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.evidence` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.form` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.call` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.records` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.records.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.dependencies` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.dependencies.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.basis` | `enum:ModelingApplicabilityBasis` | true | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.claim.reason` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.instance` | `semantic_id` | true | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.inputs` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.inputs.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.inputs.item.name` | `Utf8` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.inputs.item.value` | `Float64` | true | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.inputs.item.real_kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.inputs.item.quantity_type` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.outcome` | `enum:ModelingApplicabilityOutcome` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.required` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item` | `Struct` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item.id` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item.scope` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item.target_kind` | `enum:ModelingPermissionTarget` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item.targets` | `List` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item.targets.item` | `semantic_id` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item.allow_unknown` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.permissions.item.allow_extrapolation` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.unknown_allowed` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.extrapolation_allowed` | `Boolean` | false | `payload` | — | — |
+| `diagnostic.causes.item.applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
+| `attempts` | `List` | false | `payload` | — | — |
+| `attempts.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.attempt_id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.lifecycle` | `enum:AttemptState` | true | `payload` | — | — |
+| `attempts.item.usable` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.seed_permission` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.candidate_use` | `enum:CandidateUse` | true | `payload` | — | — |
+| `attempts.item.effect` | `enum:StudyEffectState` | false | `payload` | — | — |
+| `attempts.item.start` | `Struct` | true | `payload` | — | — |
+| `attempts.item.start.kind` | `enum:StudyStartKind` | false | `payload` | — | — |
+| `attempts.item.start.predecessor` | `Int64` | true | `payload` | — | — |
+| `attempts.item.start.role` | `enum:StudySeedRole` | true | `payload` | — | — |
+| `attempts.item.start.seed_id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.start.unavailable` | `enum:StudySeedUnavailable` | true | `payload` | — | — |
+| `attempts.item.diagnostic` | `Struct` | true | `payload` | — | — |
+| `attempts.item.diagnostic.code` | `enum:DiagnosticCode` | false | `payload` | — | — |
+| `attempts.item.diagnostic.class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
+| `attempts.item.diagnostic.severity` | `enum:DiagnosticSeverity` | false | `payload` | — | — |
+| `attempts.item.diagnostic.stage` | `enum:DiagnosticStage` | false | `payload` | — | — |
+| `attempts.item.diagnostic.rule` | `enum:DiagnosticRule` | false | `payload` | — | — |
+| `attempts.item.diagnostic.sources` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.sources.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.name` | `Utf8` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.kind` | `enum:DiagnosticObservationKind` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.real` | `Float64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.real_kind` | `enum:ModelingRealValueKind` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.integer` | `Int64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.text` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.quantity` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.unit` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.context` | `content_hash` | true | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts.item.quantity` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts.item.indices` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts.item.indices.item.bound_index` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts.item.indices.item.domain` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.observations.item.contracts.item.indices.item.kind` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.locations` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.path` | `Utf8` | false | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.name` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.start` | `Int64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.locations.item.end` | `Int64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.validity` | `Struct` | true | `payload` | — | — |
+| `attempts.item.diagnostic.validity.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `attempts.item.diagnostic.validity.source_id` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.validity.form_id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.validity.set_ids` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.validity.set_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.validity.variables` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.validity.variables.item` | `Int64` | false | `payload` | — | — |
+| `attempts.item.diagnostic.validity.member_ids` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.validity.member_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.coverage` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.owner` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.owner_lineage` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.owner_lineage.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.evidence` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.form` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.call` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.records` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.records.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.dependencies` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.dependencies.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.basis` | `enum:ModelingApplicabilityBasis` | true | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.claim.reason` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.instance` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.inputs` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.inputs.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.inputs.item.name` | `Utf8` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.inputs.item.value` | `Float64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.inputs.item.real_kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.inputs.item.quantity_type` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.outcome` | `enum:ModelingApplicabilityOutcome` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.required` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item.id` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item.scope` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item.target_kind` | `enum:ModelingPermissionTarget` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item.targets` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item.targets.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item.allow_unknown` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.permissions.item.allow_extrapolation` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.unknown_allowed` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.extrapolation_allowed` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.tree_path` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.tree_path.item` | `Int64` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.code` | `enum:DiagnosticCode` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.severity` | `enum:DiagnosticSeverity` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.stage` | `enum:DiagnosticStage` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.rule` | `enum:DiagnosticRule` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.sources` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.sources.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.name` | `Utf8` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.kind` | `enum:DiagnosticObservationKind` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.real` | `Float64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.real_kind` | `enum:ModelingRealValueKind` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.integer` | `Int64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.text` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.quantity` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.unit` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.context` | `content_hash` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts.item.quantity` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts.item.indices` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts.item.indices.item.bound_index` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts.item.indices.item.domain` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.observations.item.contracts.item.indices.item.kind` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.revision` | `content_hash` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.path` | `Utf8` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.name` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.start` | `Int64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.locations.item.end` | `Int64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity` | `Struct` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.source_id` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.form_id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.set_ids` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.set_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.variables` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.variables.item` | `Int64` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.member_ids` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.validity.member_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.coverage` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.owner` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.owner_lineage` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.owner_lineage.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.evidence` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.form` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.call` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.records` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.records.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.dependencies` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.dependencies.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.layer` | `enum:ModelingValidityLayer` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.basis` | `enum:ModelingApplicabilityBasis` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.claim.reason` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.instance` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.inputs` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.inputs.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.inputs.item.name` | `Utf8` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.inputs.item.value` | `Float64` | true | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.inputs.item.real_kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.inputs.item.quantity_type` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.outcome` | `enum:ModelingApplicabilityOutcome` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.required` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item.id` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item.scope` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item.target_kind` | `enum:ModelingPermissionTarget` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item.targets` | `List` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item.targets.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item.allow_unknown` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.permissions.item.allow_extrapolation` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.unknown_allowed` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.extrapolation_allowed` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.diagnostic.causes.item.applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
 
 ## `trajectory_endpoints`
 

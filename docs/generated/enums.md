@@ -341,6 +341,324 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `template.guard_undecidable` | `` | false |
 | `user.model` | `` | false |
 | `validation.invariant` | `` | false |
+| `authoring.budget` | `` | false |
+| `authoring.contract` | `` | false |
+| `authoring.derived_write` | `` | false |
+| `authoring.document_io` | `` | false |
+| `authoring.missing_id` | `` | false |
+| `authoring.package_unresolved` | `` | false |
+| `authoring.package_version_conflict` | `` | false |
+| `authoring.rename_named` | `` | false |
+| `authoring.schema_version` | `` | false |
+| `authoring.syntax` | `` | false |
+| `authoring.unknown_key` | `` | false |
+| `authoring.unknown_row_key` | `` | false |
+| `authoring.unresolved_target` | `` | false |
+| `candidate.evaluation_failed` | `` | false |
+| `compiler.cancelled` | `` | false |
+| `compiler.limit` | `` | false |
+| `compiler.math` | `` | false |
+| `compiler.missing` | `` | false |
+| `compiler.modeling` | `` | false |
+| `compiler.structure` | `` | false |
+| `compiler.syntax` | `` | false |
+| `domain.potential_evaluation_error` | `` | false |
+| `equation.canceling_terms` | `` | false |
+| `equation.large_residual` | `` | false |
+| `equation.mismatched_term` | `` | false |
+| `equation.term_evaluation_failed` | `` | false |
+| `fit.candidate_validation` | `` | false |
+| `fit.final_evaluation` | `` | false |
+| `fit.objective_overflow` | `` | false |
+| `fit.response_rank` | `` | false |
+| `jacobian.analysis_inconclusive` | `` | false |
+| `jacobian.condition_estimate` | `` | false |
+| `jacobian.extreme_column` | `` | false |
+| `jacobian.extreme_entry` | `` | false |
+| `jacobian.extreme_row` | `` | false |
+| `jacobian.numerical_rank_deficiency` | `` | false |
+| `jacobian.parallel_columns` | `` | false |
+| `jacobian.parallel_rows` | `` | false |
+| `math.applicability` | `` | false |
+| `math.cancelled` | `` | false |
+| `math.coefficient_range` | `` | false |
+| `math.contract` | `` | false |
+| `math.domain` | `` | false |
+| `math.evaluation` | `` | false |
+| `math.library` | `` | false |
+| `math.limit` | `` | false |
+| `math.native` | `` | false |
+| `math.provider` | `` | false |
+| `math.quantity` | `` | false |
+| `math.range` | `` | false |
+| `math.validity` | `` | false |
+| `modeling.budget` | `` | false |
+| `modeling.cancelled` | `` | false |
+| `modeling.capability` | `` | false |
+| `modeling.conditional_unit.admission.invalid_model` | `` | false |
+| `modeling.conditional_unit.admission.numerical` | `` | false |
+| `modeling.conditional_unit.admission.trial_rejected` | `` | false |
+| `modeling.contract` | `` | false |
+| `modeling.diagnostic_samples` | `` | false |
+| `modeling.diagnostics` | `` | false |
+| `modeling.domain` | `` | false |
+| `modeling.domain.tightened` | `` | false |
+| `modeling.dynamic.algebraic_reset.unsupported` | `` | false |
+| `modeling.dynamic.inventory_transfer.event.unsupported` | `` | false |
+| `modeling.initialization.attempt_limit` | `` | false |
+| `modeling.initialization.incomplete` | `` | false |
+| `modeling.initialization.minimum_step` | `` | false |
+| `modeling.initialization.outcome` | `` | false |
+| `modeling.initialization.step_precision` | `` | false |
+| `modeling.nonlinear.attempt_limit` | `` | false |
+| `modeling.nonlinear.cancelled` | `` | false |
+| `modeling.nonlinear.initial_inconclusive` | `` | false |
+| `modeling.nonlinear.time_limit` | `` | false |
+| `modeling.objective` | `` | false |
+| `modeling.provenance` | `` | false |
+| `modeling.qualification.infeasibility_contradicted` | `` | false |
+| `modeling.qualification.rejected` | `` | false |
+| `modeling.realization` | `` | false |
+| `modeling.staged.start` | `` | false |
+| `modeling.study.initialization` | `` | false |
+| `modeling.study.predecessor` | `` | false |
+| `modeling.study.procedure` | `` | false |
+| `modeling.trajectory.incomplete` | `` | false |
+| `modeling.trajectory.rejected` | `` | false |
+| `native.cancelled` | `` | false |
+| `native.contract` | `` | false |
+| `native.internal` | `` | false |
+| `native.limit` | `` | false |
+| `native.numerical` | `` | false |
+| `native.reuse` | `` | false |
+| `native.route_refused` | `` | false |
+| `native.structural` | `` | false |
+| `native.unavailable` | `` | false |
+| `native.unsupported` | `` | false |
+| `objective.priority_optimization_incomplete` | `` | false |
+| `shooting.candidate_validation` | `` | false |
+| `shooting.evaluation` | `` | false |
+| `structural.overdetermined` | `` | false |
+| `structural.underdetermined` | `` | false |
+| `variable.fixed_zero` | `` | false |
+| `variable.large_value` | `` | false |
+| `variable.missing_value` | `` | false |
+| `variable.near_lower_bound` | `` | false |
+| `variable.near_upper_bound` | `` | false |
+| `variable.nonfinite` | `` | false |
+| `variable.only_in_inequalities` | `` | false |
+| `variable.outside_lower_bound` | `` | false |
+| `variable.outside_upper_bound` | `` | false |
+| `variable.small_value` | `` | false |
+| `variable.unused` | `` | false |
+| `workflow.contract` | `` | false |
+| `workflow.ephemeral_publication` | `` | false |
+| `workflow.export_expired` | `` | false |
+| `workflow.job_payload_version` | `` | false |
+| `workflow.legacy_workspace` | `` | false |
+| `workflow.operations` | `` | false |
+| `workflow.publication_unresolved` | `` | false |
+| `workflow.unclassified` | `` | false |
+| `quantity.unknown_id` | `` | false |
+| `quantity.contract_mismatch` | `` | false |
+| `quantity.unit_conversion` | `` | false |
+| `quantity.incompatible` | `` | false |
+| `quantity.nonfinite` | `` | false |
+| `workflow.input` | `` | false |
+| `workflow.internal` | `` | false |
+| `workflow.panic` | `` | false |
+| `diagnostic.aggregate` | `` | false |
+| `study.binding.target` | `` | false |
+| `study.binding.duplicate` | `` | false |
+| `study.binding.physical` | `` | false |
+| `study.binding.revision` | `` | false |
+| `study.dependency.unusable` | `` | false |
+| `study.seed.unavailable` | `` | false |
+| `study.seed.incompatible` | `` | false |
+| `study.seed.internal` | `` | false |
+| `study.operation.unsupported` | `` | false |
+| `modeling.conditional_unit.admission.unsupported` | `` | false |
+| `modeling.conditional_unit.admission.cancelled` | `` | false |
+| `modeling.conditional_unit.admission.resource_limit` | `` | false |
+| `modeling.conditional_unit.admission.nonfinite` | `` | false |
+| `modeling.conditional_unit.admission.infrastructure` | `` | false |
+| `modeling.conditional_unit.admission.conflict` | `` | false |
+| `modeling.conditional_unit.admission.incompatible` | `` | false |
+| `modeling.conditional_unit.admission.internal` | `` | false |
+| `modeling.conditional_unit.admission.inconclusive` | `` | false |
+| `study.policy.admission` | `` | false |
+
+## `DiagnosticNonfiniteObservation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `nan` | `` | false |
+| `positive_infinity` | `` | false |
+| `negative_infinity` | `` | false |
+
+## `DiagnosticObservationKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `missing` | `` | false |
+| `real` | `` | false |
+| `nonfinite` | `` | false |
+| `physical` | `` | false |
+| `integer` | `` | false |
+| `boolean` | `` | false |
+| `text` | `` | false |
+| `contracts` | `` | false |
+
+## `DiagnosticRule`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `authoring.budget` | `` | false |
+| `authoring.contract` | `` | false |
+| `authoring.derived_write` | `` | false |
+| `authoring.document_io` | `` | false |
+| `authoring.missing_id` | `` | false |
+| `authoring.package_unresolved` | `` | false |
+| `authoring.package_version_conflict` | `` | false |
+| `authoring.rename_named` | `` | false |
+| `authoring.schema_version` | `` | false |
+| `authoring.syntax` | `` | false |
+| `authoring.unknown_key` | `` | false |
+| `authoring.unknown_row_key` | `` | false |
+| `authoring.unresolved_target` | `` | false |
+| `candidate.evaluation_failed` | `` | false |
+| `compiler.cancelled` | `` | false |
+| `compiler.limit` | `` | false |
+| `compiler.math` | `` | false |
+| `compiler.missing` | `` | false |
+| `compiler.modeling` | `` | false |
+| `compiler.structure` | `` | false |
+| `compiler.syntax` | `` | false |
+| `domain.potential_evaluation_error` | `` | false |
+| `equation.canceling_terms` | `` | false |
+| `equation.large_residual` | `` | false |
+| `equation.mismatched_term` | `` | false |
+| `equation.term_evaluation_failed` | `` | false |
+| `fit.candidate_validation` | `` | false |
+| `fit.final_evaluation` | `` | false |
+| `fit.objective_overflow` | `` | false |
+| `fit.response_rank` | `` | false |
+| `jacobian.analysis_inconclusive` | `` | false |
+| `jacobian.condition_estimate` | `` | false |
+| `jacobian.extreme_column` | `` | false |
+| `jacobian.extreme_entry` | `` | false |
+| `jacobian.extreme_row` | `` | false |
+| `jacobian.numerical_rank_deficiency` | `` | false |
+| `jacobian.parallel_columns` | `` | false |
+| `jacobian.parallel_rows` | `` | false |
+| `math.applicability` | `` | false |
+| `math.cancelled` | `` | false |
+| `math.coefficient_range` | `` | false |
+| `math.contract` | `` | false |
+| `math.domain` | `` | false |
+| `math.evaluation` | `` | false |
+| `math.library` | `` | false |
+| `math.limit` | `` | false |
+| `math.native` | `` | false |
+| `math.provider` | `` | false |
+| `math.quantity` | `` | false |
+| `math.range` | `` | false |
+| `math.validity` | `` | false |
+| `modeling.budget` | `` | false |
+| `modeling.cancelled` | `` | false |
+| `modeling.capability` | `` | false |
+| `modeling.conditional_unit.admission.invalid_model` | `` | false |
+| `modeling.conditional_unit.admission.numerical` | `` | false |
+| `modeling.conditional_unit.admission.trial_rejected` | `` | false |
+| `modeling.contract` | `` | false |
+| `modeling.diagnostic_samples` | `` | false |
+| `modeling.diagnostics` | `` | false |
+| `modeling.domain` | `` | false |
+| `modeling.domain.tightened` | `` | false |
+| `modeling.dynamic.algebraic_reset.unsupported` | `` | false |
+| `modeling.dynamic.inventory_transfer.event.unsupported` | `` | false |
+| `modeling.initialization.attempt_limit` | `` | false |
+| `modeling.initialization.incomplete` | `` | false |
+| `modeling.initialization.minimum_step` | `` | false |
+| `modeling.initialization.outcome` | `` | false |
+| `modeling.initialization.step_precision` | `` | false |
+| `modeling.nonlinear.attempt_limit` | `` | false |
+| `modeling.nonlinear.cancelled` | `` | false |
+| `modeling.nonlinear.initial_inconclusive` | `` | false |
+| `modeling.nonlinear.time_limit` | `` | false |
+| `modeling.objective` | `` | false |
+| `modeling.provenance` | `` | false |
+| `modeling.qualification.infeasibility_contradicted` | `` | false |
+| `modeling.qualification.rejected` | `` | false |
+| `modeling.realization` | `` | false |
+| `modeling.staged.start` | `` | false |
+| `modeling.study.initialization` | `` | false |
+| `modeling.study.predecessor` | `` | false |
+| `modeling.study.procedure` | `` | false |
+| `modeling.trajectory.incomplete` | `` | false |
+| `modeling.trajectory.rejected` | `` | false |
+| `native.cancelled` | `` | false |
+| `native.contract` | `` | false |
+| `native.internal` | `` | false |
+| `native.limit` | `` | false |
+| `native.numerical` | `` | false |
+| `native.reuse` | `` | false |
+| `native.route_refused` | `` | false |
+| `native.structural` | `` | false |
+| `native.unavailable` | `` | false |
+| `native.unsupported` | `` | false |
+| `objective.priority_optimization_incomplete` | `` | false |
+| `shooting.candidate_validation` | `` | false |
+| `shooting.evaluation` | `` | false |
+| `structural.overdetermined` | `` | false |
+| `structural.underdetermined` | `` | false |
+| `variable.fixed_zero` | `` | false |
+| `variable.large_value` | `` | false |
+| `variable.missing_value` | `` | false |
+| `variable.near_lower_bound` | `` | false |
+| `variable.near_upper_bound` | `` | false |
+| `variable.nonfinite` | `` | false |
+| `variable.only_in_inequalities` | `` | false |
+| `variable.outside_lower_bound` | `` | false |
+| `variable.outside_upper_bound` | `` | false |
+| `variable.small_value` | `` | false |
+| `variable.unused` | `` | false |
+| `workflow.contract` | `` | false |
+| `workflow.ephemeral_publication` | `` | false |
+| `workflow.export_expired` | `` | false |
+| `workflow.job_payload_version` | `` | false |
+| `workflow.legacy_workspace` | `` | false |
+| `workflow.operations` | `` | false |
+| `workflow.publication_unresolved` | `` | false |
+| `workflow.unclassified` | `` | false |
+| `quantity.unknown_id` | `` | false |
+| `quantity.contract_mismatch` | `` | false |
+| `quantity.unit_conversion` | `` | false |
+| `quantity.incompatible` | `` | false |
+| `quantity.nonfinite` | `` | false |
+| `workflow.input` | `` | false |
+| `workflow.internal` | `` | false |
+| `workflow.panic` | `` | false |
+| `diagnostic.aggregate` | `` | false |
+| `study.binding.target` | `` | false |
+| `study.binding.duplicate` | `` | false |
+| `study.binding.physical` | `` | false |
+| `study.binding.revision` | `` | false |
+| `study.dependency.unusable` | `` | false |
+| `study.seed.unavailable` | `` | false |
+| `study.seed.incompatible` | `` | false |
+| `study.seed.internal` | `` | false |
+| `study.operation.unsupported` | `` | false |
+| `modeling.conditional_unit.admission.unsupported` | `` | false |
+| `modeling.conditional_unit.admission.cancelled` | `` | false |
+| `modeling.conditional_unit.admission.resource_limit` | `` | false |
+| `modeling.conditional_unit.admission.nonfinite` | `` | false |
+| `modeling.conditional_unit.admission.infrastructure` | `` | false |
+| `modeling.conditional_unit.admission.conflict` | `` | false |
+| `modeling.conditional_unit.admission.incompatible` | `` | false |
+| `modeling.conditional_unit.admission.internal` | `` | false |
+| `modeling.conditional_unit.admission.inconclusive` | `` | false |
+| `study.policy.admission` | `` | false |
 
 ## `DiagnosticSeverity`
 
@@ -349,6 +667,53 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `error` | `` | false |
 | `warning` | `` | false |
 | `info` | `` | false |
+
+## `DiagnosticStage`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `workflow` | `` | false |
+| `modeling` | `` | false |
+| `routing` | `` | false |
+| `native` | `` | false |
+| `implicit` | `` | false |
+| `presolve` | `` | false |
+| `evaluation` | `` | false |
+| `property` | `` | false |
+| `fit` | `` | false |
+| `shooting` | `` | false |
+| `simulation` | `` | false |
+| `initialization` | `` | false |
+| `modeling.admission` | `` | false |
+| `modeling.conditional_unit.admission` | `` | false |
+| `modeling.diagnostics` | `` | false |
+| `modeling.diagnostic_samples` | `` | false |
+| `modeling.nonlinear` | `` | false |
+| `modeling.qualification` | `` | false |
+| `modeling.staged` | `` | false |
+| `modeling.study` | `` | false |
+| `modeling.trajectory` | `` | false |
+| `modeling.dynamic` | `` | false |
+| `dynamic-test` | `` | false |
+| `fitting` | `` | false |
+| `horizon` | `` | false |
+| `compiler` | `` | false |
+| `authoring` | `` | false |
+| `quantity` | `` | false |
+| `diagnostic` | `` | false |
+| `binding` | `` | false |
+| `study` | `` | false |
+| `continuation` | `` | false |
+| `study.admission` | `` | false |
+| `study.policy` | `` | false |
+| `study.binding` | `` | false |
+| `applicability` | `` | false |
+| `modeling-conservation-transfer` | `` | false |
+| `modeling-event-reset` | `` | false |
+| `nonlinear-explanation` | `` | false |
+| `objective-levels` | `` | false |
+| `shooting-trajectory-projection` | `` | false |
+| `test` | `` | false |
 
 ## `DiffsolLinear`
 
@@ -1859,6 +2224,44 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `conditional` | `` | false |
 | `partial` | `` | false |
 
+## `StudyAvailability`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `partial` | `` | false |
+| `complete` | `` | false |
+
+## `StudyContinuationPermission`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `require_usable` | `` | false |
+| `allow_seed_only` | `` | false |
+
+## `StudyEffectState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `absent` | `` | false |
+| `present` | `` | false |
+| `unknown` | `` | false |
+| `idempotent` | `` | false |
+
+## `StudyLegacyKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `legacy_unavailable` | `` | false |
+
+## `StudyLifecycle`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `active` | `` | false |
+| `terminal` | `` | false |
+| `cancelled` | `` | false |
+
 ## `StudyPointState`
 
 | Member | IDAES name | Deprecated |
@@ -1869,6 +2272,57 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `failed` | `` | false |
 | `cancelled` | `` | false |
 
+## `StudyResultRole`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `case_result` | `` | false |
+| `trajectory` | `` | false |
+| `parameter_estimates` | `` | false |
+| `parameter_covariance` | `` | false |
+| `profile_intervals` | `` | false |
+| `horizon_history` | `` | false |
+
+## `StudyRetryFailure`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `transient` | `` | false |
+| `deterministic` | `` | false |
+
+## `StudySeedNeed`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_needed` | `` | false |
+| `required` | `` | false |
+
+## `StudySeedRole`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `primal_solution` | `` | false |
+| `parameter_estimates` | `` | false |
+| `trajectory` | `` | false |
+| `horizon_state` | `` | false |
+
+## `StudySeedUnavailable`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `absent` | `` | false |
+| `incompatible` | `` | false |
+
+## `StudyStartKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `fresh` | `` | false |
+| `not_needed` | `` | false |
+| `continuation` | `` | false |
+| `explicit` | `` | false |
+| `fresh_fallback` | `` | false |
+
 ## `StudyState`
 
 | Member | IDAES name | Deprecated |
@@ -1876,6 +2330,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `open` | `` | false |
 | `concluded` | `` | false |
 | `published` | `` | false |
+
+## `StudyUnavailableSeedPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `refuse` | `` | false |
+| `fresh_on_unavailable` | `` | false |
 
 ## `SubjectRule`
 

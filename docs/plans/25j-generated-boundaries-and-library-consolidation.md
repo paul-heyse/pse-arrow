@@ -64,8 +64,8 @@ No accepted ADR is edited in place and no new crate is required.
 
 | Packet | Prerequisites | Responsibility and target | Deletion | Status |
 |---|---|---|---|---|
-| <a id="j1"></a>J1 Owned document and admission boundary | F1/F2/F3; E2/E4; C1 | Move adapter-owned request meanings into the Rust owner; register actual request/results with generation; use one typed document bridge | Ad hoc JSON shape construction, adapter policy and duplicate schema definitions for migrated operations | planned |
-| <a id="j2"></a>J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | partial: 25d prerequisite slice |
+| <a id="j1"></a>J1 Owned document and admission boundary | F1/F2/F3; E2/E4; C1 | Move adapter-owned request meanings into the Rust owner; register actual request/results with generation; use one typed document bridge | Ad hoc JSON shape construction, adapter policy and duplicate schema definitions for migrated operations | partial: 25e/25f prerequisite slices |
+| <a id="j2"></a>J2 Python consumer cutover | J1; F2/F3/F4, E2/E3/E4 and C1 interfaces as applicable; G2 for changed persisted representations | Generate models, enums and native stubs; migrate all Python/public Rust boundary consumers and defaults | Hand-written mirrors, string enum getters, parallel wire types and copied defaults | partial: 25d/25e/25f prerequisite slices |
 | <a id="j3"></a>J3 Generator/library consolidation | F1 and I1 utility contracts | Generate common vocabulary surfaces; use adopted graph/cardinality mechanisms; review regenerated outputs | Bespoke emitter DFS, repeated enum glue and quadratic cardinality/uniqueness mechanisms | planned |
 
 J1/J2 proceed by complete operation slices after their owner is ready; they need not wait for
@@ -158,6 +158,20 @@ owns commands, conditions, composite results and limits; this does not close J2.
 [25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
 conditions, composite results and limits; this does not close the companion plan.
 
+## Consumed 25f prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** J1/J2 expose Rust-owned StudyRequest, StudyDefinition,
+operation/binding documents, status/outcomes and full diagnostic envelopes through generated
+Python/schema/native boundaries. The replaced case-array study API and handwritten mirrors are
+deleted. Closed records/tagged variants, source-owned semantic vocabulary, fixed-array lengths
+and heterogeneous tuple positions retain their constraints in generation; diagnostic observations
+preserve explicit nonfinite evidence. Focused codecs, generator controls and Python constructor/
+decoder checks are owned by
+[25f Verification](25f-studies-diagnostics-and-continuation.md#verification). Wider J1/J2
+request/default migration and J3 graph/cardinality/strum mechanics remain open. The consumed
+semantic vocabulary slice does not close F24 or the full enum-mechanism consolidation;
+cross-language workflow qualification remains 25k.
+
 ## Proposed acceptance and handoff
 
 Focused checks use isolated Rust request/codec units and Python constructor/decoder units,
@@ -184,8 +198,8 @@ survived. The coordinator resolves F18/F26 only after all their component obliga
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25d prerequisite slice is recorded
-above; 25d owns its focused evidence. Remaining work is Proposed.
+Full-plan closure remains outstanding. The implemented 25d/25e/25f prerequisite slices are
+recorded above; the linked plans own their focused evidence. Remaining work is Proposed.
 
 ### A mistake made and corrected
 

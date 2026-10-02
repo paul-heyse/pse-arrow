@@ -17,8 +17,6 @@ pub mod diagnostic;
 pub mod document;
 /// Declared variable-domain semantics over the generated registry enum (ADR-0103).
 pub mod domain;
-/// Pure occurrence, dependency and outcome facts shared by study executors.
-pub mod study;
 /// Constraint forms left to native constraint handlers (ADR-0104).
 pub mod forms;
 /// The model and case a run's lineage and its numerical requirements name.
@@ -32,6 +30,8 @@ pub mod postgres;
 mod postgres_tests;
 /// Validated single-value setting domains (ADR-0116 Outcome 8).
 pub mod scalars;
+/// Pure occurrence, dependency and outcome facts shared by study executors.
+pub mod study;
 #[cfg(test)]
 mod vocabulary_tests;
 /// An invalid declared semantic enum member.

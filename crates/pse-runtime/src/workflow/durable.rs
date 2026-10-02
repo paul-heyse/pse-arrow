@@ -484,15 +484,24 @@ impl DurableAttempt {
         // A completed point writes its members while its lease is still renewed; a write
         // failure is infrastructure, so the point is retried as a new try.
         let mut members = Vec::new();
-        if let Some(point) = &self.point
-            && matches!(
-                outcome.state,
-                AttemptState::Completed | AttemptState::Partial
-            )
+        if let Some(point) = &mut self.point {
+            point.scientific = super::study_operations::scientific_facts(result);
+            point.diagnostic = super::study_execution::result_diagnostic(result)
+                .map(|d| d.with_revision(point.source_revision));
+        }
+        if let Some(point) = &mut self.point
+            && result.tables().is_ok()
         {
             match result.write_point_members(point, self.attempt).await {
-                Ok(written) => members = written,
-                Err(error) => outcome = infrastructure(&error),
+                Ok(written) => {
+                    members = written;
+                    if let Some(point) = &mut self.point {
+                        point.effect = pse_model::study::EffectState::Idempotent;
+                    }
+                }
+                Err(error) => {
+                    outcome = infrastructure(&error);
+                }
             }
         }
         if let Some(heartbeat) = self.heartbeat.take() {
@@ -611,7 +620,48 @@ impl DurableAttempt {
         outcome: &Outcome,
         members: Vec<pse_operations::catalog::MemberDescriptor>,
     ) -> Result<RuntimeOperationalAttemptsRow, WorkflowError> {
-        let note = outcome.note(self.operations.worker());
+        let mut note = outcome.note(self.operations.worker());
+        if let Some(termination) = &mut note.termination
+            && let Some(value) = &mut termination.detail
+        {
+            let mut detail: TerminationDetail = serde_json::from_value(value.clone())
+                .map_err(|error| super::contract(format!("typed termination detail: {error}")))?;
+            detail.retry_failure =
+                (outcome.state == AttemptState::Failed).then_some(if outcome.retryable {
+                    pse_model::study::RetryFailure::Transient
+                } else {
+                    pse_model::study::RetryFailure::Deterministic
+                });
+            if let Some(point) = &self.point {
+                let diagnostic = match &mut detail.cause {
+                    TerminationCause::Error { diagnostic }
+                    | TerminationCause::Infrastructure { diagnostic } => {
+                        *diagnostic = diagnostic.clone().with_revision(point.source_revision);
+                        if let Some(scientific) = &point.diagnostic {
+                            diagnostic.causes.push(scientific.clone());
+                        }
+                        Some(diagnostic.clone())
+                    }
+                    TerminationCause::Assessment { diagnostics, .. } => {
+                        for diagnostic in diagnostics {
+                            *diagnostic = diagnostic.clone().with_revision(point.source_revision);
+                        }
+                        point.diagnostic.clone()
+                    }
+                };
+                detail.point = Some(pse_model::study::PointAttemptOutcome {
+                    attempt_id: Some(self.attempt),
+                    lifecycle: Some(outcome.state),
+                    diagnostic,
+                    scientific: point.scientific.clone(),
+                    start: point.start.clone(),
+                    effect: point.effect,
+                });
+                detail.effect = point.effect;
+            }
+            *value = serde_json::to_value(detail)
+                .map_err(|error| super::contract(format!("typed termination detail: {error}")))?;
+        }
         let store = &self.operations.store;
         match self.claim {
             None => Ok(store
@@ -619,8 +669,16 @@ impl DurableAttempt {
                 .transition(self.attempt, outcome.state, &note)
                 .await?),
             Some(claim) => {
-                let retry = (outcome.state == AttemptState::Failed && outcome.retryable)
-                    .then(pse_operations::mint_id);
+                let retry = (outcome.state == AttemptState::Failed
+                    && outcome.retryable
+                    && self.point.as_ref().is_none_or(|point| {
+                        matches!(
+                            point.effect,
+                            pse_model::study::EffectState::Absent
+                                | pse_model::study::EffectState::Idempotent
+                        )
+                    }))
+                .then(pse_operations::mint_id);
                 let finished = store
                     .jobs()
                     .finish(
@@ -678,30 +736,34 @@ fn identities(
 /// Version 1 of the typed detail of an attempt's termination, stored as the attempt's
 /// termination-detail document (ADR-0116 Outcome 6): the typed values that explain why the
 /// try ended as it did.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TerminationDetail {
     /// Document version.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<2>,
     /// Why the try ended.
     pub cause: TerminationCause,
+    /// Typed occurrence try, including failures before native admission.
+    pub point: Option<pse_model::study::PointAttemptOutcome>,
+    /// Purpose-specific retry classification; severity does not grant retries.
+    pub retry_failure: Option<pse_model::study::RetryFailure>,
+    /// Publication knowledge is independent of attempt lifecycle.
+    pub effect: pse_model::study::EffectState,
 }
 
 /// The cause of a try's end, beside its typed termination code.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TerminationCause {
     /// The run failed with an error, or cancellation stopped it.
     Error {
         /// The error's message.
-        message: String,
-        /// The violated named contract the error reports.
-        rule: String,
+        diagnostic: pse_model::diagnostic::BoundaryDiagnostic,
     },
     /// Infrastructure failed the try; it is retried under the job's policy.
     Infrastructure {
-        /// The error's message.
-        message: String,
+        /// Preserved original typed cause and observations.
+        diagnostic: pse_model::diagnostic::BoundaryDiagnostic,
     },
     /// The joined run was assessed.
     Assessment {
@@ -709,6 +771,8 @@ pub enum TerminationCause {
         usable: bool,
         /// The use of each requested candidate, in request order.
         candidate_use: Vec<CandidateUse>,
+        /// Original scientific diagnostic envelopes, retained without rendered-string reconstruction.
+        diagnostics: Vec<pse_model::diagnostic::BoundaryDiagnostic>,
     },
 }
 
@@ -716,6 +780,9 @@ fn termination(code: TerminationCode, cause: TerminationCause) -> Option<Termina
     let detail = TerminationDetail {
         version: pse_model::document::Version,
         cause,
+        point: None,
+        retry_failure: None,
+        effect: pse_model::study::EffectState::Absent,
     };
     Some(Termination {
         code,
@@ -739,8 +806,7 @@ fn failure(error: &WorkflowError, cancelled: bool) -> Outcome {
         _ => false,
     };
     let detail = TerminationCause::Error {
-        message: error.to_string(),
-        rule: error.boundary_diagnostic().rule,
+        diagnostic: error.boundary_diagnostic(),
     };
     if cancelled || is_cancel {
         Outcome {
@@ -768,11 +834,15 @@ fn infrastructure(error: &WorkflowError) -> Outcome {
         termination: termination(
             TerminationCode::Runtime(RuntimeTermination::Infrastructure),
             TerminationCause::Infrastructure {
-                message: error.to_string(),
+                diagnostic: error.boundary_diagnostic(),
             },
         ),
         reason: error.to_string(),
-        retryable: true,
+        retryable: match error {
+            WorkflowError::Operations(error) => error.is_retryable(),
+            WorkflowError::Math(crate::math::MathRuntimeError::Infrastructure(_)) => true,
+            _ => false,
+        },
     }
 }
 
@@ -816,6 +886,10 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
     let detail = TerminationCause::Assessment {
         usable: result.usable(),
         candidate_use: uses,
+        diagnostics: result.completion().map_or_else(
+            |error| vec![error.boundary_diagnostic()],
+            |completion| completion.diagnostics.clone(),
+        ),
     };
     let (state, reason) = if cancelled {
         (AttemptState::Cancelled, "cancellation requested")

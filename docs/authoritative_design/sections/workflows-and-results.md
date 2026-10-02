@@ -463,88 +463,81 @@ Authored report annotations project selected scalar/indexed observations into
 dispositions have their own generated relations. Reading a result never reruns a model.
 Clones and exported Arrow buffers share allocation ownership through the last reader.
 
-### 19.3 Sweeps and reuse
+### 19.3 Studies and reuse
 
-> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — a
-> dependent point starts only from a predecessor whose candidate permits it. Plan 22 A6
-> (implemented) runs a study as one staged sequence over package views.
-> [ADR-0114](../../adr/0114-typed-operational-store.md) — durable studies across workers,
-> published once (Plan 22 O7, implemented).
-> [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md) — POUNCE-convex's batched
-> parallel solves serve a study's independent points (Plan 22 N5, implemented).
+> Supplement: [ADR-0148](../../adr/0148-studies-diagnostics-and-admitted-bindings.md)
+> (proposed; maintainer-authorized Plan 25f implementation). The shared occurrence contract
+> replaces the former in-process predecessor policy and durable automatic fresh fallback.
+> Existing preparation, session and batching mechanisms remain owned by ADR-0106/0109/0114.
 
-`ModelingPackage::study` executes a finite inventory of points, at most 4,096 and at most the
-caller's cap, as one staged sequence with explicit predecessor relationships; a predecessor
-must be an earlier point. Each point is one step: it starts from its specification, or,
-when it names a predecessor, from that point's solved values (`Start::Seed`,
-[§17.6](numerical-execution.md#section-17-6)), which must come from a result or a
-`seed_only` candidate ([§16.6](numerical-execution.md#section-16-6)); otherwise the point is
-refused with `modeling.study.predecessor`. A failed point is recorded and isolated: it drops
-the retained native session and seeds nothing, independent points continue, and only the
-points that name it are refused (`failed_point_isolated_in_study`). Points not attempted
-after cancellation remain visible as a count. Points of one structure share the package's
-prepared view and rebind values ([§14.4](mathematics-and-compilation.md#section-14-4)), so a
-study whose points differ only in values prepares one view; the compiler reuses equal checked
-structure and library programs while values and requested analyses remain explicit inputs.
-Dynamic rebinding retains the same ownership contract. Runtime cache clearing removes
-retained programs without invalidating active workers; historical campaign measurements do
-not qualify the new seed.
+**Admission and bindings.** `ModelingPackage::admit_study_points` admits a typed request
+against one immutable modeling revision and physical context. A `StudyDefinition` records
+ordered occurrences with unique keys, reconstructable operation descriptors, canonical bindings,
+explicit dependencies, start selection and attempt limits. Seed consumption comes from the
+operation owner rather than an author-supplied claim. Both executors validate decoded definitions,
+including source/context, binding identity, route/procedure and producer/consumer seed roles.
 
-**Preparation counts.** A study reports its own structural preparations and value rebinds
-(`ModelingStudyReport::preparations`, `PreparationCounts`): solver-view preparations
-(`views`: a case plan, structural analysis and artifact requests built from a bound
-structure), value-independent observation programs compiled (`observations`), and value
-rebinds that rebuilt value-dependent products because a consumed value changed
-(`rebuilt`) or shared every product (`shared`). The math service counts each in its runtime
-totals and in every enclosing counted operation, a task-local scope, so concurrent studies
-on one runtime each count only their own work. An in-process study takes per-point overlays
-(`PointOverlay`: case values by path and declared parameters), composed over the point's
-analysis as a durable worker composes them; a point with an overlay runs alone rather than
-joining a batch. The counts are a published boundary document (schema
-`preparation-counts`, [§21.5](#section-21-5)); Python reads them as
-`ModelingStudy.preparations`, and `ModelingPackage.study(..., overlays=)` passes overlays
-to an in-process study as it does to a durable one. *Tested* by `study_results_carry_preparation_counts` (two concurrent
-five-point overlay studies, one view and four rebuilds each, summing to the runtime counts;
-runtime units) and `test_flash_sweep_prepares_structure_once` (a BT ideal flash swept over
-366–369 K: one view, and every later point a rebind; Python integration).
+Submitted assignments name paths or member identities and complete quantity/unit meaning.
+Admission resolves writable targets, compares complete physical contracts through A's checked
+conversion, rejects conflicting aliases and composes replacements over authored defaults once.
+Overlay workers consume canonical member coordinates without resolving submitted paths or
+converting again. Paths and supplied units remain attribution. Signed zero retains its identity bits. The binding
+content identity is [§5.3](identity-and-publication.md#section-5-3); equal content can share
+preparation but never merges occurrence, run or attempt identity. Horizon inputs, estimator
+priors and controller trajectories follow the same physical admission before their existing
+owner receives numerical coordinates. Their operation-owned destination paths are reconstructed
+by that owner and checked against the persisted canonical member identities; replay does not
+convert the admitted values again.
 
-**Batched points** (Plan 22 N5). Consecutive independent points that explicitly select an
-adapter whose record declares `batch` ([§18.9](numerical-execution.md#section-18-9)) run as
-one batch: each is bound from its specification and assessed on its own
-(`Staged::batch`), the session admits the batch once on the first point's threads
-(`NativeSession::batch`), `MathService::execute_batch` admits each point's start as a
-single step would and solves the coefficient programs together
-(`execution::coefficients_batch`, `BackendExecution::execute_batch`), and every point is
-recovered, re-checked against its original model, qualified and recorded as its own step.
-POUNCE-convex, the one batching adapter, solves a batch of quadratic programs with one
-options set through `solve_qp_batch_parallel_warm` on the admitted threads, each instance
-factored serially, and any other batch instance by instance; the previous batch's solutions
-of the same layout warm-start the next. Points that cannot join a batch run in turn.
-*Tested* by `pounce_convex_batched_study` (eight points on two threads, each equal to HiGHS
-within 1e-6, runtime units) and `pounce_convex_batch_matches_single_solves` (native backend
-units).
+**One pure policy.** `pse-model::study` owns the semantic facts; `pse-operations::study_policy`
+consumes them without database, artifact or native solver effects. Ordering edges wait for a
+terminal predecessor, including failure. Usable-result edges require E's aggregate scientific
+permission. Continuation defaults to a usable compatible predecessor seed; seed-only permission
+and fresh fallback on declared absence/incompatibility require explicit recorded choices.
+Internal acquisition errors never authorize fallback. An explicit incompatible seed refuses.
+A seed-free operation records `NotNeeded` while retaining its declared dependency condition.
 
-**Durable studies.** `Runtime::start_study` (Python `ModelingPackage.study(..., runtime=,
-workspace=)`) runs a study's points as jobs across any number of worker processes and
-publishes it once (scenario S15). It stores the package's sources and a typed, versioned
-`StudyDefinition`, then creates in one transaction the study's own coordinating attempt
-(kind `study`, [§20.6](identity-and-publication.md#section-20-6)), the study's one
-publication intent for that attempt, one job per point carrying its `StudyPointBinding`
-(study, index, binding hash, typed overlay, predecessor), and a waiting finalization job.
-A point with a predecessor waits (its job `waiting`, its attempt `planned`) until the
-predecessor completes, then starts from the predecessor's newest compatible stored
-solution, or fresh with the reason recorded in its `job.start` event; a predecessor that
-fails or is cancelled cancels its dependents transitively as `unattempted`. A completed
-try writes its result tables under the intent's prefix and records them in
-`study_point_members` in the transaction that completes the point. When the last point is
-terminal, the study's attempt ends (completed, partial, failed or cancelled) and the
-finalization is released: it writes `runtime.study_outcomes`, one row per point, and
-commits one publication of the study's attempt with that summary and every completed
-point's members, so a failed point contributes nothing and contaminates nothing.
-Cancelling a study stops the points not yet started, asks running tries to stop and still
-publishes what completed. A durable study needs the package's authored documents, so a
-package changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) is refused.
-`Runtime.studies()` lists studies and `StudyHandle` reports, cancels and waits on one.
+The transition returns an action per occurrence with its expected state revision: Wait, Start,
+Refuse, Cancel or Reconcile. Its conclusion keeps scientific availability and operational
+lifecycle separate. Every requested occurrence remains observable, including unstarted
+cancellation, preparation failure and dependency refusal. Attempt outcomes retain source-owned
+diagnostics, scientific decisions, chosen start and publication-effect knowledge independently
+of available result members. A partial multi-result run remains governed by E's final decision;
+counting tables or selecting the first result cannot promote it.
+
+**Execution and preparation.** `ModelingPackage::study` consumes the admitted definition within
+the caller's bound and the shared maximum. `StudyReport` retains outcomes and original joined
+`RunResult` objects; its table and findings use the same row projectors as durable finalization.
+A solve uses the existing staged mathematical session; simulations, fits and horizons invoke
+their existing operation owners. Unsupported operation/dependency combinations refuse before
+scheduling. Independent fresh case preparations can share the existing `Staged::batch` operation.
+Each remains independently assessed and recorded. The native adapter owns batching eligibility,
+thread admission and fallback to individual execution.
+
+`StudyReport.preparations` projects the mathematical service's task-local `PreparationCounts`:
+views, observation programs, value-dependent rebuilds and shares. Counting includes preparation
+and execution and stays local to concurrent studies. Equal structures reuse compiler/library
+products while admitted values remain explicit inputs. Historic measurements retain their
+original scope; the owning [Plan 25f](../../plans/25f-studies-diagnostics-and-continuation.md)
+records replacement-control evidence and [25k](../../plans/25k-integrated-qualification-and-closure.md)
+owns assembled qualification.
+
+**Durable adapter.** `Runtime::start_study` admits a raw request; `start_defined_study` consumes
+the same immutable definition as the in-process executor and verifies its exact stored source
+bundles. Creation owns one coordinating study attempt, publication intent, job per occurrence
+and finalization job. A claim permits input/seed acquisition. Under the existing locks, live
+lease and revision fence, native dispatch rereads facts and applies the shared policy's chosen
+start. Retry keeps the occurrence key and adds an attempt. Only declared transient failure with
+known absent or proven idempotent effect permits replay; unknown effects reconcile first through
+the existing native member-receipt owner ([§20.6](identity-and-publication.md#section-20-6)).
+
+Finalization publishes one structured `runtime.study_outcomes` row per requested occurrence
+and every actually recorded member, including members available after partial failure or
+cancellation. Member availability is not inferred from operational completion. Cancellation
+prevents new native dispatch while completed work remains inspectable. Source-backed durable
+packages retain exact authored documents; an in-memory package without that closure cannot be
+submitted for durable reconstruction. The preserving schema transition retains historical
+identities and payloads, marking absent historical policy/scientific facts explicitly unavailable.
 
 ### 19.4 Parameter estimation
 
@@ -937,7 +930,7 @@ does not prove the consumer registered the extension types.
 > generated msgspec types; validated scalar settings (Plan 22 B5, implemented). As built, the
 > job payload carries the typed `SolveSettings` document and a `JobStart` policy; the
 > `JobProfile` that ADR-0116 Outcome 6 names was deleted with payload version 1, and the
-> payload is at version 3 (`JobPayload`, with a `ModelingJob` or a study finalization).
+> payload is at version 5 (`JobPayload`, including admitted study operations and finalization).
 > [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration crossing the boundary is a registry enum with one Rust type
 > (Plan 22 B4, implemented).
 
@@ -957,7 +950,8 @@ separately.
 
 **Boundary documents.** The Rust serde type owns each Rust-owned document: the backend,
 solve, Diffsol and IDAS settings, the job payload, the termination detail, the source
-manifest, the study definition and a study's preparation counts. schemars derives its JSON
+manifest, study request/definition/outcomes/status/cancellation, complete boundary diagnostics
+and a study's preparation counts. schemars derives its JSON
 Schema (draft 2020-12) into `docs/generated/schema/`, and a closed emitter
 (`pse-codegen::codegen::documents`) turns the schemas into frozen msgspec `Struct` types in
 `python/pse/contracts/documents/`: every

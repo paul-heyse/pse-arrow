@@ -52,7 +52,8 @@ WHERE i.attempt_id = a.attempt_id
   AND NOT EXISTS (SELECT 1 FROM resumable AS r WHERE r.attempt_id = i.attempt_id);
 
 -- Captured solutions (Plan 22 I13) go with their stream: those no remaining incumbent, no
--- unfinished job's stored start and no waiting study point's predecessor seed names.
+-- unfinished job's explicit start names. Open studies conservatively retain every
+-- producer run's captures, including retry ancestors; retention grants no execution permission.
 -- Output seeds are never pruned here.
 --! delete_unreferenced_captures
 DELETE FROM pse_ops.solutions AS s
@@ -65,9 +66,16 @@ WHERE s.origin = 'incumbent'
       AND (j.payload #>> '{task,start,solution}')::uuid = s.solution_id)
   AND NOT EXISTS (
     SELECT 1 FROM pse_ops.study_points AS p
-    JOIN pse_ops.study_points AS q ON q.study_id = p.study_id AND q.point_index = p.predecessor
-    JOIN pse_ops.jobs AS j ON j.job_id = q.job_id
-    WHERE p.state IN ('pending', 'assigned') AND j.attempt_id = s.created_by);
+    JOIN pse_ops.studies AS study ON study.study_id = p.study_id
+    JOIN pse_ops.jobs AS j ON j.job_id = p.job_id
+    JOIN pse_ops.attempts AS current ON current.attempt_id = j.attempt_id
+    JOIN pse_ops.attempts AS producer ON producer.attempt_id = s.created_by
+    WHERE study.state = 'open' AND current.run_id = producer.run_id)
+  AND NOT EXISTS (
+    SELECT 1 FROM pse_ops.jobs AS j
+    WHERE j.state IN ('waiting', 'queued', 'running')
+      AND j.payload #>> '{task,point,policy,start,kind}' = 'explicit'
+      AND j.payload #>> '{task,point,policy,start,seed}' = s.solution_id::text);
 
 --! existing_incumbent_seqs
 SELECT seq FROM pse_ops.incumbents

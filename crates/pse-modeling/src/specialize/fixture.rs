@@ -541,7 +541,7 @@ impl Engine<'_, '_> {
         // of an equation or variable member of the fixture's instance.
         let mut diagnostics = Vec::with_capacity(contract.diagnostics.len());
         for expected in &contract.diagnostics {
-            if expected.rule.is_empty() || expected.members.is_empty() {
+            if expected.members.is_empty() {
                 return Err(invalid(
                     at,
                     "an expected diagnostic names its rule and members",
@@ -568,9 +568,7 @@ impl Engine<'_, '_> {
             }
             self.reserve(1 + members.len())?;
             diagnostics.push(FixtureDiagnostic {
-                rule: expected.rule.parse().map_err(|error| ModelingError::Contract {
-                    declaration: declaration.declaration_id.as_id(), message: error.to_string(),
-                })?,
+                rule: expected.rule,
                 members,
             });
         }

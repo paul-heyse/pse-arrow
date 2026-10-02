@@ -1455,9 +1455,11 @@ for crate::generated::r#runtime::r#operational_study_points::RuntimeOperationalS
                 "study_id",
                 "point_index",
                 "binding_hash",
-                "predecessor",
                 "job_id",
                 "state",
+                "revision",
+                "policy",
+                "outcome",
                 "updated_at",
             ],
         )?;
@@ -1465,9 +1467,11 @@ for crate::generated::r#runtime::r#operational_study_points::RuntimeOperationalS
             r#study_id: record.value()?,
             r#point_index: record.value()?,
             r#binding_hash: record.value()?,
-            r#predecessor: record.value()?,
             r#job_id: record.value()?,
             r#state: record.value()?,
+            r#revision: record.value()?,
+            r#policy: record.json()?,
+            r#outcome: record.json()?,
             r#updated_at: record.micros()?,
         };
         record.finish()?;

@@ -113,9 +113,9 @@ fn structured_refusal_serialization_preserves_instance_scope_and_independent_per
     observation.admitted = false;
     let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
         pse_model::diagnostic::BoundaryClass::TrialRejected,
-        "applicability",
+        pse_diagnostics::DiagnosticStage::Applicability,
         vec![id(5), id(7)],
-        "Required empirical evidence is unknown",
+        pse_diagnostics::DiagnosticRule::MathApplicability,
     );
     diagnostic.applicability.push(observation.clone());
     let encoded = serde_json::to_vec(&diagnostic).unwrap();

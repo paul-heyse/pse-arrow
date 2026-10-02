@@ -1,44 +1,27 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Durable studies across workers (Plan 22 O7; architecture S15).
-//!
-//! [`Runtime::start_study`] stores a study's sources, its typed definition and, in one store
-//! transaction, the study's coordinating attempt, its one publication intent (Plan 22 X9),
-//! a job per point (payload v3 with the point's [`StudyPointBinding`]) and a waiting
-//! finalization job. Workers claim points concurrently:
-//! - a point with a predecessor becomes claimable only once the predecessor completed, and
-//!   starts from the predecessor's stored solution (`StartSource::Stored`), falling back to
-//!   its authored start with a recorded reason when that solution does not fit;
-//! - a completed try writes the point's result members under the intent's prefix
-//!   (`points/{index}/{attempt}/`), named in catalog `point_{index}`, with receipts naming
-//!   the point's attempt, and records them with the point;
-//! - a failed point contributes no members and is recorded in the summary; the points
-//!   that wait on it are cancelled.
-//!
-//! The transaction that makes the last point terminal ends the study's attempt and
-//! releases the finalization job, which writes the summary relation `runtime.study_outcomes`
-//! under the same prefix and commits one publication of the study's attempt containing
-//! the summary and every completed point's members. The ephemeral in-process study
-//! ([`super::ModelingPackage::study`]) stays the library path; this is the one durable path.
+//! One immutable admitted study definition used by both executors. Durable creation stores
+//! exact source bundles, operations, physically admitted bindings and typed point policy.
+//! Workers acquire inputs, ask the shared policy for a fenced start, and retain outcomes
+//! independently of result availability. Finalization publishes every recorded member and
+//! one structured outcome for each requested occurrence.
+
 use super::{
-    Operations, Runtime, WorkflowError, contract,
+    AdmittedBinding, OperationRequest, OperationSource, Operations, PointOverlay,
+    PreparationSettings, Runtime, StudyOperation, WorkflowError, contract,
     publication::{Published, Workspace, candidate_record},
     worker::{
-        AppliedStart, JOB_PAYLOAD_VERSION, JobPayload, JobStart, JobTask, ModelingJob,
-        PointOverlay, StudyFinalization, StudyPointBinding,
+        JOB_PAYLOAD_VERSION, JobPayload, JobTask, StudyFinalization, StudyOperationJob,
+        StudyPointBinding,
     },
 };
 use datafusion::common::ResolvedTableReference;
 use pse_catalog::artifact::{ArtifactPlan, RelationOutput};
 use pse_columnar::CancellationToken;
 use pse_ids::{ContentHash, SemanticId};
-use pse_model::{
-    document::Version,
-    generated::{
-        enums::{ModelingAnalysisRoute, PublicationKind},
-        identities::DeclarationId,
-    },
-};
+use pse_model::study::{OccurrenceGraph, PointPolicy};
+pub use pse_model::study::{PointAttemptOutcome, PointOutcome};
+use pse_model::{document::Version, generated::enums::PublicationKind};
 use pse_operations::{
     OperationsError,
     attempts::{AttemptId, AttemptKind, NewAttempt, RunId},
@@ -72,15 +55,42 @@ pub struct PackageSources {
     pub modeling: Vec<BTreeMap<String, Vec<u8>>>,
 }
 
+/// Authored policy choices; seed consumption is supplied only by operation admission.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyPointPolicy {
+    /// Requested occurrence identity.
+    pub key: pse_model::study::OccurrenceKey,
+    /// Explicit ordering and scientific-result dependencies.
+    pub dependencies: Vec<pse_model::study::Dependency>,
+    /// Explicit start/seed selection.
+    pub start: pse_model::study::StartPolicy,
+    /// Maximum tries including the first.
+    pub attempt_limit: u32,
+}
+
 /// One point of a study to start.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct StudyPoint {
-    /// The authored case the point solves.
-    pub case: DeclarationId,
-    /// The values the point replaces in its case.
+    /// Supported existing operation and its complete inputs.
+    pub operation: OperationRequest,
+    /// Existing preparation controls, serialized without a second default authority.
+    pub preparation: PreparationSettings,
+    /// Submitted physical assignments, admitted once before any point is scheduled.
     pub overlay: PointOverlay,
-    /// The earlier point whose stored solution this one starts from.
-    pub predecessor: Option<u32>,
+    /// Occurrence identity and explicit dependency/start policy.
+    pub policy: StudyPointPolicy,
+}
+
+/// Raw request admitted once into the immutable executable definition.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyRequest {
+    /// Document version.
+    pub version: Version<1>,
+    /// Ordered occurrence requests.
+    pub points: Vec<StudyPoint>,
 }
 
 /// A durable study to start.
@@ -88,8 +98,6 @@ pub struct StudyPoint {
 pub struct StudyPlan {
     /// The package closure's sources, stored content-addressed for the workers.
     pub sources: PackageSources,
-    /// The solve settings of every point.
-    pub settings: crate::math::settings::SolveSettings,
     /// The points, in index order.
     pub points: Vec<StudyPoint>,
     /// How often each point and the finalization may be tried.
@@ -98,53 +106,84 @@ pub struct StudyPlan {
     pub priority: i32,
 }
 
-/// Version 2 of a study's definition: the store's `definition` document and the content of
+/// Version 3 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyDefinition {
     /// Document version.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// The source bundle of the physical package.
     pub physical: ContentHash,
     /// The source bundles of the modeling package closure, in load order.
     pub modeling: Vec<ContentHash>,
-    /// The solve settings of every point.
-    pub settings: crate::math::settings::SolveSettings,
     /// The points, in index order.
     pub points: Vec<StudyPointDefinition>,
 }
 
 /// One point of a study's definition.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyPointDefinition {
-    /// The authored route admitted when this point was queued.
-    pub route: ModelingAnalysisRoute,
-    /// The authored case.
-    pub case: DeclarationId,
+    /// Reconstructable admitted descriptor of one existing operation.
+    pub operation: StudyOperation,
     /// The hash of the point's value bindings.
     pub binding_hash: ContentHash,
-    /// The values the point replaces in its case.
-    #[serde(default)]
-    pub overlay: PointOverlay,
-    /// The earlier point that seeds it.
-    #[serde(default)]
-    pub predecessor: Option<u32>,
+    /// Canonical physically admitted member assignments; original paths are attribution.
+    pub binding: AdmittedBinding,
+    /// Shared occurrence/dependency/start policy.
+    pub policy: PointPolicy,
 }
-
-/// What a point's binding hash frames: its case, route and overlay.
-#[derive(serde::Serialize)]
-struct BindingContent<'a> {
-    case: DeclarationId,
-    route: ModelingAnalysisRoute,
-    overlay: &'a PointOverlay,
+impl StudyDefinition {
+    /// Validate supported producer and consumer roles for every immutable descriptor.
+    pub fn validate_roles(&self) -> Result<(), WorkflowError> {
+        pse_operations::study_policy::admit(&self.graph()).map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
+        for point in &self.points {
+            match &point.policy.start {
+                pse_model::study::StartPolicy::Continuation(edge) => {
+                    point.operation.admit_seed_role(edge.role)?;
+                    let predecessor = self
+                        .points
+                        .iter()
+                        .find(|point| point.policy.key == edge.predecessor)
+                        .ok_or_else(|| contract("missing admitted predecessor"))?;
+                    predecessor.operation.admit_seed_role(edge.role)?;
+                }
+                pse_model::study::StartPolicy::Explicit { role, .. } => {
+                    point.operation.admit_seed_role(*role)?
+                }
+                pse_model::study::StartPolicy::Fresh => {}
+            }
+        }
+        Ok(())
+    }
+    /// Mechanically derive the shared policy graph from the one executable definition.
+    pub fn graph(&self) -> OccurrenceGraph {
+        OccurrenceGraph {
+            points: self
+                .points
+                .iter()
+                .map(|point| point.policy.clone())
+                .collect(),
+        }
+    }
 }
 
 /// Where a study point's try writes its result members: the study's intent.
 #[derive(Clone, Debug)]
 pub(crate) struct PointContext {
+    pub(crate) study_id: StudyId,
+    pub(crate) job_id: pse_operations::jobs::JobId,
+    pub(crate) attempt_id: AttemptId,
     pub(crate) point_index: u32,
+    pub(crate) revision: u64,
+    pub(crate) source_revision: ContentHash,
+    pub(crate) start: Option<pse_model::study::StartProvenance>,
+    pub(crate) scientific: pse_model::study::ScientificFacts,
+    pub(crate) diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+    pub(crate) effect: pse_model::study::EffectState,
     pub(crate) publication_id: PublicationId,
     pub(crate) workspace_id: WorkspaceId,
     pub(crate) member_prefix: url::Url,
@@ -199,7 +238,16 @@ impl Operations {
                 id: study.publication_id.to_string(),
             })?;
         Ok(PointContext {
+            study_id: binding.study_id,
+            job_id: point.job_id,
+            attempt_id: point.attempt_id,
             point_index: binding.point_index,
+            revision: point.revision,
+            source_revision: binding.operation.source.revision,
+            start: None,
+            scientific: Default::default(),
+            diagnostic: None,
+            effect: pse_model::study::EffectState::Absent,
             publication_id: intent.publication_id,
             workspace_id: intent.workspace_id,
             member_prefix: prefix_of(&intent.member_prefix)?,
@@ -207,85 +255,183 @@ impl Operations {
     }
 }
 
-/// Start a study point from its predecessor's stored solution: the newest one the
-/// predecessor's completed try stored for this preparation's coordinates and backend. When
-/// none fits, the point starts from its authored start and the event records why.
-///
-/// # Errors
-/// A predecessor that has not completed; store failures.
-pub(super) async fn predecessor_start(
-    operations: &Operations,
-    binding: &StudyPointBinding,
-    predecessor: u32,
-    prepared: super::ModelingSolvePreparation,
-) -> Result<(super::ModelingSolvePreparation, AppliedStart), WorkflowError> {
-    let applied = |solution, fresh: Option<String>| AppliedStart {
-        requested: "predecessor",
-        solution,
-        fresh,
-    };
-    let point = operations
-        .store()
-        .studies()
-        .point(binding.study_id, predecessor)
-        .await?;
-    if point.state != StudyPointState::Completed {
-        return Err(contract(format!(
-            "predecessor point {predecessor} of study {} is {}; a point starts only after its predecessor completed",
-            binding.study_id,
-            point.state.as_str()
-        )));
+impl super::ModelingPackage {
+    /// Admit operations and physical bindings before either executor schedules an occurrence.
+    pub async fn admit_study_points(
+        &self,
+        physical: ContentHash,
+        modeling: Vec<ContentHash>,
+        points: &[StudyPoint],
+        cancel: &crate::CancelSource,
+    ) -> Result<StudyDefinition, WorkflowError> {
+        if points.is_empty() {
+            return Err(WorkflowError::Typed(
+                pse_model::diagnostic::DiagnosticCause::new(
+                    pse_operations::study_policy::PolicyError::Empty,
+                ),
+            ));
+        }
+        if points.len() > MAXIMUM_STUDY_POINTS {
+            let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
+                pse_model::diagnostic::BoundaryClass::InvalidModel,
+                pse_diagnostics::DiagnosticStage::StudyAdmission,
+                [],
+                pse_diagnostics::DiagnosticRule::StudyPolicyAdmission,
+            );
+            diagnostic.observations.insert(
+                "occurrences".into(),
+                pse_model::diagnostic::Observation::Integer(
+                    i64::try_from(points.len()).unwrap_or(i64::MAX),
+                ),
+            );
+            diagnostic.observations.insert(
+                "maximum_occurrences".into(),
+                pse_model::diagnostic::Observation::Integer(MAXIMUM_STUDY_POINTS as i64),
+            );
+            return Err(diagnostic.into());
+        }
+        let mut admitted = Vec::with_capacity(points.len());
+        for point in points {
+            let mut operation = StudyOperation {
+                version: Version,
+                source: OperationSource::of(self),
+                preparation: point.preparation.clone(),
+                operation: point.operation.clone(),
+                admitted_horizon: None,
+            };
+            operation.admit_horizon_values(self, cancel).await?;
+            let binding = self
+                .admit_operation_overlay(&operation, &point.overlay, cancel)
+                .await?;
+            let prepared = self
+                .prepare_bound_operation(&operation, &binding, cancel)
+                .await?;
+            let policy = PointPolicy {
+                key: point.policy.key,
+                dependencies: point.policy.dependencies.clone(),
+                start: point.policy.start.clone(),
+                attempt_limit: point.policy.attempt_limit,
+                seed_need: prepared.seed_need(),
+            };
+            admitted.push(StudyPointDefinition {
+                binding_hash: binding.identity(),
+                binding,
+                operation,
+                policy,
+            });
+        }
+        let definition = StudyDefinition {
+            version: Version,
+            physical,
+            modeling,
+            points: admitted,
+        };
+        pse_operations::study_policy::admit(&definition.graph()).map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
+        definition.validate_roles()?;
+        Ok(definition)
     }
-    let (Some(target), Some(preparation)) = (
-        prepared.solve.compatibility().cloned(),
-        prepared.solve.seed_preparation_identity(),
-    ) else {
-        return Ok((
-            prepared,
-            applied(
-                None,
-                Some("a constant evaluation consumes no seed".to_owned()),
-            ),
-        ));
-    };
-    let found = operations
-        .store()
-        .solutions()
-        .latest_of_attempt(
-            point.attempt_id,
-            &target.layout,
-            &preparation,
-            target.backend,
-        )
-        .await?;
-    let Some(found) = found else {
-        return Ok((
-            prepared,
-            applied(
-                None,
-                Some(format!(
-                    "predecessor point {predecessor} stored no solution for this point's coordinates and backend"
-                )),
-            ),
-        ));
-    };
-    let solution = found.solution_id;
-    match prepared
-        .clone()
-        .with_stored_start(operations, super::StoredStart::Solution(solution))
-        .await
-    {
-        Ok(seeded) => Ok((seeded, applied(Some(solution), None))),
-        Err(error @ WorkflowError::Operations(_)) => Err(error),
-        Err(error) => Ok((
-            prepared,
-            applied(
-                None,
-                Some(format!(
-                    "predecessor point {predecessor}'s stored solution {solution} does not fit: {error}"
-                )),
-            ),
-        )),
+}
+
+impl Runtime {
+    /// Resolve stopped point writes through exact native receipts before queue dispatch.
+    pub(crate) async fn reconcile_study_receipts(&self) -> Result<(), WorkflowError> {
+        use pse_model::study::{EffectState, OccurrenceKey};
+        let operations = self.operations()?;
+        let records = operations
+            .store()
+            .studies()
+            .list(&StudyFilter {
+                states: vec![StudyState::Open],
+                limit: i64::MAX,
+            })
+            .await?;
+        let state = std::sync::Arc::new(self.sessions.native_state().clone());
+        for row in records {
+            let record = operations.store().studies().get(row.study_id).await?;
+            let intent = operations
+                .store()
+                .catalog()
+                .intent(row.publication_id)
+                .await?
+                .ok_or_else(|| contract("study intent unavailable during receipt recovery"))?;
+            for point in record.points {
+                if point.job_state == JobState::Running
+                    || point
+                        .outcome
+                        .as_ref()
+                        .is_none_or(|o| o.effect != EffectState::Unknown)
+                {
+                    continue;
+                }
+                let Some(document) = point.receipt.as_ref() else {
+                    // No member write can begin before its ticket is durably recorded.
+                    operations
+                        .store()
+                        .studies()
+                        .reconcile_effect(
+                            row.study_id,
+                            OccurrenceKey(point.point_index),
+                            point.revision,
+                            EffectState::Absent,
+                        )
+                        .await?;
+                    continue;
+                };
+                let ticket: pse_catalog::delta::ticket::PublicationTicket =
+                    serde_json::from_value(document.clone())
+                        .map_err(|e| contract(format!("point receipt: {e}")))?;
+                if ticket.publication_id() != row.publication_id
+                    || ticket.workspace_id() != intent.workspace_id
+                {
+                    return Err(contract("point receipt differs from study intent"));
+                }
+                let outcome = point
+                    .outcome
+                    .as_ref()
+                    .ok_or_else(|| contract("receipt has no modern point facts"))?;
+                if ticket.attempt_id() != point.attempt_id
+                    && !outcome
+                        .attempts
+                        .iter()
+                        .any(|attempt| attempt.attempt_id == Some(ticket.attempt_id()))
+                {
+                    return Err(contract(
+                        "point receipt attempt is outside occurrence history",
+                    ));
+                }
+                let Ok(receipts) = ticket
+                    .recover_members(&state, &CancellationToken::new())
+                    .await
+                else {
+                    continue;
+                };
+                // Native absence/partial receipt observations cannot fence an old writer.
+                // Only the entire exact inventory closes this member effect idempotently.
+                if !receipts.complete && receipts.members.is_empty() {
+                    continue;
+                }
+                let effect = if receipts.complete {
+                    EffectState::Idempotent
+                } else {
+                    EffectState::Unknown
+                };
+                operations
+                    .store()
+                    .studies()
+                    .reconcile_receipt(
+                        row.study_id,
+                        OccurrenceKey(point.point_index),
+                        point.revision,
+                        effect,
+                        Some(ticket.attempt_id()),
+                        &receipts.members,
+                    )
+                    .await?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -308,6 +454,7 @@ impl Runtime {
         workspace_id: WorkspaceId,
         attempt: AttemptId,
         cancel: &CancellationToken,
+        point: Option<&mut PointContext>,
     ) -> Result<Vec<MemberDescriptor>, WorkflowError> {
         let spec = |id: &SemanticId| {
             self.registry
@@ -366,8 +513,32 @@ impl Runtime {
             maintenance_epoch: None,
             store_fingerprint: None,
         };
-        let (command, _ticket) =
+        let (command, ticket) =
             artifact.prepare_publication(header, destinations, vec![], cancel)?;
+        if let Some(point) = point {
+            let operations = self.operations()?;
+            operations
+                .store()
+                .studies()
+                .record_receipt(
+                    point.study_id,
+                    pse_model::study::OccurrenceKey(point.point_index),
+                    point.job_id,
+                    point.attempt_id,
+                    operations.worker(),
+                    point.revision,
+                    point.scientific.clone(),
+                    point.diagnostic.clone(),
+                    document(&ticket, "point receipt")?,
+                )
+                .await?;
+            point.revision += 1;
+            point.effect = pse_model::study::EffectState::Unknown;
+            let completed = command.execute(cancel).await?;
+            let members = candidate_record(&completed, &self.registry)?.members;
+            point.effect = pse_model::study::EffectState::Idempotent;
+            return Ok(members);
+        }
         let completed = command.execute(cancel).await?;
         Ok(candidate_record(&completed, &self.registry)?.members)
     }
@@ -378,8 +549,8 @@ impl Runtime {
     /// the points; the returned handle follows, cancels and reads the study.
     ///
     /// # Errors
-    /// An ephemeral runtime; no points, more than [`MAXIMUM_STUDY_POINTS`], a predecessor
-    /// that is not an earlier point, or two points with the same bindings; an invalid
+    /// An ephemeral runtime; no points, more than [`MAXIMUM_STUDY_POINTS`], an invalid
+    /// occurrence graph or physically incompatible assignment; an invalid
     /// workspace root; store failures.
     pub async fn start_study(
         &self,
@@ -392,16 +563,6 @@ impl Runtime {
                 "a study holds between 1 and {MAXIMUM_STUDY_POINTS} points"
             )));
         }
-        for (index, point) in plan.points.iter().enumerate() {
-            if point
-                .predecessor
-                .is_some_and(|predecessor| predecessor as usize >= index)
-            {
-                return Err(contract(format!(
-                    "study point {index}'s predecessor must identify an earlier point"
-                )));
-            }
-        }
         let physical = operations.put_sources(&plan.sources.physical).await?;
         let mut modeling = Vec::with_capacity(plan.sources.modeling.len());
         for bundle in &plan.sources.modeling {
@@ -413,53 +574,61 @@ impl Runtime {
             self.physical_from_sources(&plan.sources.physical, &cancel)
                 .await?,
         )?;
-        let solver = plan
-            .settings
-            .clone()
-            .profile()
-            .map_err(WorkflowError::Math)?;
-        let mut points = Vec::with_capacity(plan.points.len());
-        let mut bindings = std::collections::BTreeSet::new();
-        for (index, point) in plan.points.iter().enumerate() {
-            let route = package
-                .declared_execution(
-                    point.case,
-                    Default::default(),
-                    solver.clone(),
-                    Default::default(),
-                    pse_modeling::Limits::default(),
-                    &cancel,
-                )
-                .await?
-                .route;
-            let binding_hash = identity(
-                pse_ids::Frame::DurableStudyPointBindingV1,
-                &BindingContent {
-                    case: point.case,
-                    route,
-                    overlay: &point.overlay,
-                },
-            )?;
-            if !bindings.insert(binding_hash) {
-                return Err(contract(format!(
-                    "study point {index} repeats the bindings of an earlier point"
-                )));
-            }
-            points.push(StudyPointDefinition {
-                route,
-                case: point.case,
-                binding_hash,
-                overlay: point.overlay.clone(),
-                predecessor: point.predecessor,
-            });
+        let definition = package
+            .admit_study_points(physical, modeling, &plan.points, &cancel)
+            .await?;
+        self.start_defined_study(
+            workspace,
+            plan.sources,
+            definition,
+            plan.retry,
+            plan.priority,
+        )
+        .await
+    }
+
+    /// Persist and execute the same admitted definition accepted by the in-process adapter.
+    pub async fn start_defined_study(
+        &self,
+        workspace: &Workspace,
+        sources: PackageSources,
+        definition: StudyDefinition,
+        retry: RetryPolicy,
+        priority: i32,
+    ) -> Result<StudyHandle, WorkflowError> {
+        let operations = self.operations()?;
+        let physical = operations.put_sources(&sources.physical).await?;
+        let mut modeling = Vec::with_capacity(sources.modeling.len());
+        for bundle in &sources.modeling {
+            modeling.push(operations.put_sources(bundle).await?);
         }
-        let definition = StudyDefinition {
-            version: Version,
-            physical,
-            modeling,
-            settings: plan.settings,
-            points,
-        };
+        if physical != definition.physical || modeling != definition.modeling {
+            return Err(contract("admitted study source bundle identities differ"));
+        }
+        let cancel = crate::CancelSource::new();
+        let package = self.package_from_sources(
+            &sources.modeling,
+            self.physical_from_sources(&sources.physical, &cancel)
+                .await?,
+        )?;
+        pse_operations::study_policy::admit(&definition.graph()).map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
+        definition.validate_roles()?;
+        if definition.points.len() > MAXIMUM_STUDY_POINTS {
+            return Err(contract("study point extent exceeds its limit"));
+        }
+        for point in &definition.points {
+            if point.binding.identity() != point.binding_hash {
+                return Err(contract("immutable study binding identity differs"));
+            }
+            let prepared = package
+                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+                .await?;
+            if prepared.seed_need() != point.policy.seed_need {
+                return Err(contract("immutable study seed need differs from owner"));
+            }
+        }
         let request_identity = identity(pse_ids::Frame::DurableStudyRequestV1, &definition)?;
         let study_id: StudyId = pse_operations::mint_id();
         let attempt_id: AttemptId = pse_operations::mint_id();
@@ -471,45 +640,49 @@ impl Runtime {
                 idempotency_key: key,
                 payload_version: JOB_PAYLOAD_VERSION,
                 payload: document(&JobPayload::new(task), "job payload")?,
-                priority: plan.priority,
-                retry: plan.retry,
+                priority,
+                retry,
             })
         };
         let mut new_points = Vec::with_capacity(definition.points.len());
-        for (index, point) in definition.points.iter().enumerate() {
-            let point_index = u32::try_from(index)
-                .map_err(|_| contract("study point index exceeds its range"))?;
-            let modeling_job = ModelingJob {
+        for point in &definition.points {
+            let point_index = point.policy.key.0;
+            let operation_job = StudyOperationJob {
                 physical: definition.physical,
                 modeling: definition.modeling.clone(),
-                case: point.case,
-                route: point.route,
-                settings: definition.settings.clone(),
-                start: JobStart::Fresh,
-                study: Some(StudyPointBinding {
+                point: StudyPointBinding {
                     study_id,
                     point_index,
                     binding_hash: point.binding_hash,
-                    overlay: point.overlay.clone(),
-                    predecessor: point.predecessor,
-                }),
+                    binding: point.binding.clone(),
+                    policy: point.policy.clone(),
+                    operation: point.operation.clone(),
+                },
             };
             let attempt = NewAttempt {
                 attempt_id: pse_operations::mint_id(),
                 run_id: pse_operations::mint_id(),
-                kind: AttemptKind::Modeling,
-                request_identity: modeling_job.request_identity()?,
+                kind: match point.operation.operation {
+                    OperationRequest::DeclaredCase(_) | OperationRequest::Horizon(_) => {
+                        AttemptKind::Modeling
+                    }
+                    OperationRequest::Simulation(_) => AttemptKind::Simulation,
+                    OperationRequest::Fit(_) => AttemptKind::Fit,
+                },
+                request_identity: identity(pse_ids::Frame::DurableJobRequestV2, &operation_job)?,
                 preparation_identity: None,
                 parent_attempt: None,
             };
+            let mut point_job = job(
+                attempt,
+                format!("study:{study_id}:point:{point_index}"),
+                JobTask::StudyOperation(Box::new(operation_job)),
+            )?;
+            point_job.retry.max_tries = point.policy.attempt_limit;
             new_points.push(NewPoint {
                 binding_hash: point.binding_hash,
-                predecessor: point.predecessor,
-                job: job(
-                    attempt,
-                    format!("study:{study_id}:point:{index}"),
-                    JobTask::Modeling(Box::new(modeling_job)),
-                )?,
+                policy: point.policy.clone(),
+                job: point_job,
             });
         }
         let finalization = job(
@@ -621,7 +794,9 @@ impl Runtime {
         }
         let definition: StudyDefinition = serde_json::from_str(&record.study.definition)
             .map_err(|e| contract(format!("study {study} definition: {e}")))?;
-        let summary = self.study_outcomes(&record, &definition)?;
+        let point_members = store.studies().available_members(study).await?;
+        let available = point_members.iter().map(|(key, _)| *key).collect();
+        let summary = self.study_outcomes(&record, &definition, &available)?;
         let token = cancel.token();
         let prefix = prefix_of(&intent.member_prefix)?
             .join("summary/")
@@ -635,16 +810,10 @@ impl Runtime {
                 intent.workspace_id,
                 record.study.attempt_id,
                 &token,
+                None,
             )
             .await?;
-        members.extend(
-            store
-                .studies()
-                .completed_members(study)
-                .await?
-                .into_iter()
-                .map(|(_, member)| member),
-        );
+        members.extend(point_members.into_iter().map(|(_, member)| member));
         for _ in 0..COMMIT_ATTEMPTS {
             let head = catalog.head(intent.workspace_id).await?;
             let request = PublicationCommit {
@@ -685,35 +854,24 @@ impl Runtime {
         &self,
         record: &StudyRecord,
         definition: &StudyDefinition,
+        available: &std::collections::BTreeSet<u32>,
     ) -> Result<FieldCheckedBatch, WorkflowError> {
         let mut rows = study_outcomes::Builder::with_registry(&self.registry, record.points.len())
             .map_err(super::relation)?;
         for point in &record.points {
             let defined = definition
                 .points
-                .get(point.point_index as usize)
-                .ok_or_else(|| contract("study point outside its definition"))?;
-            rows.push(study_outcomes::Row {
-                study_id: record.study.study_id,
-                point_index: i64::from(point.point_index),
-                case_id: defined.case,
-                binding_hash: point.binding_hash,
-                predecessor: point.predecessor.map(i64::from),
-                state: point.state,
-                attempt_id: point.attempt_id,
-                attempt_state: point.attempt_state,
-                member_catalog: (point.state == StudyPointState::Completed)
-                    .then(|| point_catalog(point.point_index)),
-                error: match point.state {
-                    StudyPointState::Failed | StudyPointState::Cancelled => {
-                        Some(point.last_error.clone().unwrap_or_else(|| {
-                            format!("the point's try ended {}", point.attempt_state.as_str())
-                        }))
-                    }
-                    _ => None,
-                },
-            })
-            .map_err(super::relation)?;
+                .iter()
+                .find(|defined| defined.policy.key.0 == point.point_index)
+                .ok_or_else(|| contract("study occurrence outside its definition"))?;
+            let outcome = point.outcome.as_ref().ok_or_else(|| {
+                contract("historical study outcome unavailable; explicit readmission required")
+            })?;
+            let mut row = super::study_tables::outcome_row(record.study.study_id, defined, outcome);
+            row.member_catalog = available
+                .contains(&point.point_index)
+                .then(|| point_catalog(point.point_index));
+            rows.push(row).map_err(super::relation)?;
         }
         rows.finish().map_err(super::relation)
     }
@@ -725,7 +883,7 @@ impl super::RunResult {
     /// naming `attempt`. Nothing becomes visible until the study's publication commits.
     pub(crate) async fn write_point_members(
         &self,
-        point: &PointContext,
+        point: &mut PointContext,
         attempt: AttemptId,
     ) -> Result<Vec<MemberDescriptor>, WorkflowError> {
         let tables = self.tables().map_err(WorkflowError::Shared)?;
@@ -742,13 +900,14 @@ impl super::RunResult {
                 point.workspace_id,
                 attempt,
                 &CancellationToken::new(),
+                Some(point),
             )
             .await
     }
 }
 
 /// One point of a study's status.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PointStatus {
     /// The point.
@@ -756,7 +915,9 @@ pub struct PointStatus {
     /// Its state.
     pub state: StudyPointState,
     /// The earlier point that seeds it.
-    pub predecessor: Option<u32>,
+    pub outcome: Option<PointOutcome>,
+    /// Historical unavailable policy attribution, preserved without readmission.
+    pub legacy: Option<pse_operations::studies::LegacyUnavailable>,
     /// Its latest try.
     pub attempt_id: AttemptId,
     /// That try's state.
@@ -769,7 +930,7 @@ pub struct PointStatus {
 
 /// A durable study's status: its coordination state, its own attempt's state, its
 /// finalization and publication, and every point.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyStatus {
     /// The study.
@@ -806,7 +967,8 @@ impl From<StudyRecord> for StudyStatus {
                 .map(|point| PointStatus {
                     point_index: point.point_index,
                     state: point.state,
-                    predecessor: point.predecessor,
+                    outcome: point.outcome,
+                    legacy: point.legacy,
                     attempt_id: point.attempt_id,
                     attempt_state: point.attempt_state,
                     job_state: point.job_state,

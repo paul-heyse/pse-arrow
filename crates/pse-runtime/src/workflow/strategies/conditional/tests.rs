@@ -128,7 +128,7 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
     };
     assert_eq!(
         diagnostic.rule,
-        "modeling.conditional_unit.admission.invalid_model"
+        pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionInvalidModel
     );
     assert!(diagnostic.sources.contains(&port("inlet").id));
     assert!(diagnostic.sources.contains(&inlet));
@@ -548,7 +548,7 @@ fn conditional_unit_admission_diagnostic_retains_sources_and_original_cause() {
     );
     assert_eq!(
         diagnostic.rule,
-        "modeling.conditional_unit.admission.invalid_model"
+        pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionInvalidModel
     );
     assert_eq!(diagnostic.sources, vec![id(1), id(2), id(3), id(4), id(5)]);
     assert!(
@@ -573,7 +573,7 @@ fn conditional_unit_admission_diagnostic_retains_sources_and_original_cause() {
     );
     assert_eq!(
         numerical_diagnostic.rule,
-        "modeling.conditional_unit.admission.numerical"
+        pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionNumerical
     );
     assert!(
         numerical
@@ -601,7 +601,7 @@ fn conditional_unit_admission_diagnostic_retains_sources_and_original_cause() {
     );
     assert_eq!(
         observed.rule,
-        "modeling.conditional_unit.admission.trial_rejected"
+        pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionTrialRejected
     );
     assert!(observed.sources.contains(&id(6)));
     assert!(

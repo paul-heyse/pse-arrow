@@ -44,9 +44,6 @@ pub(in crate::workflow) enum Start {
     /// The solved values of an earlier step whose candidate is a result. Homotopy advance
     /// and stage chains start this way.
     Accepted(usize),
-    /// An explicit dependency on an earlier step: a result, or a seed-only candidate that is
-    /// never itself a result (studies).
-    Seed(usize),
 }
 /// Temporary replacements composed over the original specification for one step only.
 #[derive(Clone, Debug, Default)]
@@ -59,6 +56,8 @@ pub(in crate::workflow) struct Overlay {
     pub variables: BTreeMap<String, ModelingVariableState>,
     /// Temporary case values, by path.
     pub values: BTreeMap<String, f64>,
+    /// Contextually admitted coordinates; no path resolution or unit conversion.
+    pub members: BTreeMap<SemanticId, f64>,
     /// Variables held fixed at these values, by identity: an initialization's discrete
     /// assignment (ADR-0103 item 6).
     pub fixes: BTreeMap<SemanticId, f64>,
@@ -73,6 +72,9 @@ impl Overlay {
         step.case
             .values
             .extend(self.values.iter().map(|(k, v)| (k.clone(), *v)));
+        step.case
+            .members
+            .extend(self.members.iter().map(|(k, v)| (*k, *v)));
         for (path, overlay) in &self.variables {
             let state = step.case.variables.entry(path.clone()).or_default();
             if overlay.fixed.is_some() {
@@ -153,7 +155,6 @@ impl Staged {
         let (index, permitted): (usize, fn(&CandidateDecision) -> bool) = match start {
             Start::Specification => return Some(BTreeMap::new()),
             Start::Accepted(index) => (index, CandidateDecision::permits_use),
-            Start::Seed(index) => (index, CandidateDecision::permits_seed),
         };
         self.records
             .get(index)
@@ -201,11 +202,6 @@ impl Staged {
             }
             Err(_) => self.refuse(),
         }
-    }
-    /// Retain an externally supervised result's composed permissions and lawful seed.
-    /// Mutable native state stays with its original session.
-    pub(in crate::workflow) fn retain_external(&mut self, result: &ModelingResult) -> usize {
-        self.record(&Ok(result.clone()))
     }
     /// Execute one prepared step on the session, assess it against `obligations` on the
     /// same worker, and record it. `previous` is the native seed a `PreviousAccepted`
@@ -294,7 +290,7 @@ impl Staged {
         start: Start,
         obligations: Obligations,
         deadline: Option<Instant>,
-        scope: &'static str,
+        scope: pse_diagnostics::DiagnosticStage,
         cancel: &crate::CancelSource,
     ) -> StepRecord {
         let Some(seed) = self.seed(start) else {
@@ -303,9 +299,9 @@ impl Staged {
                 BoundaryClass::Conflict,
                 scope,
                 [original.root.as_id(), original.instance.as_id()],
-                "modeling.staged.start",
+                pse_diagnostics::DiagnosticRule::ModelingStagedStart,
             );
-            if let Start::Accepted(index) | Start::Seed(index) = start {
+            if let Start::Accepted(index) = start {
                 refusal.observations.insert(
                     "predecessor".into(),
                     pse_model::diagnostic::Observation::Integer(index as i64),
@@ -359,8 +355,7 @@ impl Staged {
     /// recorded as its own step, in order; a point that does not bind is refused alone.
     pub(in crate::workflow) async fn batch(
         &mut self,
-        package: &ModelingPackage,
-        analyses: &[ModelingAnalysis],
+        preparations: &[ModelingSolvePreparation],
         obligations: Obligations,
         cancel: &crate::CancelSource,
     ) -> Vec<Result<ModelingResult, Arc<WorkflowError>>> {
@@ -378,14 +373,12 @@ impl Staged {
             Arc<pse_columnar::AllocationLease>,
         );
         let service = self.runtime.native();
-        let mut bound: Vec<Result<Kept, WorkflowError>> = Vec::with_capacity(analyses.len());
+        let mut bound: Vec<Result<Kept, WorkflowError>> = Vec::with_capacity(preparations.len());
         let mut states: Vec<Option<Assessing>> = Vec::new();
         let mut members = Vec::new();
-        for analysis in analyses {
+        for prepared in preparations {
             let point = async {
-                let prepared = package
-                    .prepare_analysis_attempt(analysis, CaseOverrides::default(), cancel)
-                    .await?;
+                let prepared = prepared.clone();
                 let assessment = prepared
                     .source
                     .assessment(&prepared, obligations, cancel)
@@ -517,7 +510,7 @@ impl Staged {
 /// covers admission, compilation, native execution and qualification. Interrupted work is
 /// cancelled and awaited, so its native teardown completes before the step reports.
 pub(in crate::workflow) async fn bounded<T, F, Fut>(
-    scope: &'static str,
+    scope: pse_diagnostics::DiagnosticStage,
     deadline: Option<Instant>,
     cancel: &crate::CancelSource,
     work: F,
@@ -532,7 +525,11 @@ where
     }
     if deadline.is_some_and(|d| Instant::now() >= d) {
         return (
-            Err(interruption(BoundaryClass::ResourceLimit, "analysis time limit").into()),
+            Err(interruption(
+                BoundaryClass::ResourceLimit,
+                pse_diagnostics::DiagnosticRule::MathLimit,
+            )
+            .into()),
             None,
         );
     }
@@ -549,8 +546,8 @@ where
     };
     let stopped = tokio::select! {
         biased;
-        () = cancel.cancelled() => interruption(BoundaryClass::Cancelled, "analysis cancelled"),
-        () = expiry => interruption(BoundaryClass::ResourceLimit, "analysis time limit"),
+        () = cancel.cancelled() => interruption(BoundaryClass::Cancelled, pse_diagnostics::DiagnosticRule::MathCancelled),
+        () = expiry => interruption(BoundaryClass::ResourceLimit, pse_diagnostics::DiagnosticRule::MathLimit),
         result = &mut operation => return (result, None),
     };
     child.cancel();
@@ -560,8 +557,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::workflow::tests::runtime;
-    use pse_model::generated::enums::CandidateUse;
     use std::time::Duration;
 
     #[tokio::test]
@@ -570,7 +565,7 @@ mod tests {
         let joined = &AtomicBool::new(false);
         let cancel = crate::CancelSource::new();
         let (result, interruption) = bounded(
-            "initialization",
+            pse_diagnostics::DiagnosticStage::Initialization,
             Some(Instant::now() + Duration::from_millis(20)),
             &cancel,
             |child| async move {
@@ -586,12 +581,17 @@ mod tests {
         joined.store(false, Ordering::SeqCst);
         let began = &tokio::sync::Notify::new();
         let (observed, ()) = tokio::join!(
-            bounded("initialization", None, &cancel, |child| async move {
-                began.notify_one();
-                child.cancelled().await;
-                joined.store(true, Ordering::SeqCst);
-                Ok(7)
-            }),
+            bounded(
+                pse_diagnostics::DiagnosticStage::Initialization,
+                None,
+                &cancel,
+                |child| async move {
+                    began.notify_one();
+                    child.cancelled().await;
+                    joined.store(true, Ordering::SeqCst);
+                    Ok(7)
+                }
+            ),
             async {
                 began.notified().await;
                 cancel.cancel();
@@ -601,69 +601,6 @@ mod tests {
         assert!(joined.load(Ordering::SeqCst));
         assert_eq!(observed.1.unwrap().class, BoundaryClass::Cancelled);
     }
-
-    /// The A1 candidate-use rule for staged starts: a seed-only candidate seeds an explicit
-    /// dependent (a study point) but never advances an accepted chain (homotopy), and a
-    /// refused step seeds nothing.
-    #[tokio::test]
-    async fn staged_sequence_seeds_from_seed_only_predecessor() {
-        let runtime = runtime();
-        let mut staged = Staged::open(&runtime, None).unwrap();
-        let x = SemanticId::from_bytes([3; 16]);
-        for (usability, refusal, value) in [
-            (
-                CandidateUse::SeedOnly,
-                Some(pse_model::generated::enums::CandidateRefusal::IncumbentRefused),
-                1.5,
-            ),
-            (CandidateUse::Usable, None, 2.0),
-            (
-                CandidateUse::DiagnosticOnly,
-                Some(pse_model::generated::enums::CandidateRefusal::LeastInfeasible),
-                9.0,
-            ),
-        ] {
-            staged.records.push(Record {
-                decision: CandidateDecision {
-                    usability,
-                    qualifiers: vec![],
-                    refusals: refusal.into_iter().collect(),
-                    bound: None,
-                },
-                values: BTreeMap::from([(x, value)]),
-                warm: None,
-            });
-        }
-        let refused = staged.refuse();
-        assert_eq!(staged.seed(Start::Specification), Some(BTreeMap::new()));
-        // Seed-only: an explicit dependent starts from it; an accepted chain does not.
-        assert_eq!(
-            staged.seed(Start::Seed(0)),
-            Some(BTreeMap::from([(x, 1.5)]))
-        );
-        assert_eq!(staged.seed(Start::Accepted(0)), None);
-        // A result serves both.
-        assert_eq!(
-            staged.seed(Start::Seed(1)),
-            Some(BTreeMap::from([(x, 2.0)]))
-        );
-        assert_eq!(
-            staged.seed(Start::Accepted(1)),
-            Some(BTreeMap::from([(x, 2.0)]))
-        );
-        // Diagnostic-only, refused and unknown steps seed nothing.
-        for start in [
-            Start::Seed(2),
-            Start::Accepted(2),
-            Start::Seed(refused),
-            Start::Seed(refused + 1),
-        ] {
-            assert_eq!(staged.seed(start), None, "{start:?}");
-        }
-        // `PreviousAccepted` reads only the last step, and only when it is a result.
-        assert!(staged.predecessor().is_none());
-        staged.close().await;
-    }
 }
 
 #[cfg(test)]
@@ -672,7 +609,7 @@ mod native_tests {
     use super::*;
     use crate::math::solves::NumericalInputs;
     use crate::workflow::{
-        ModelingInitialization, ModelingStudyPoint, StartSource,
+        ModelingInitialization,
         modeling::assessment::Obligations,
         tests::{compiler_profile, physical, profile, runtime},
     };
@@ -711,37 +648,6 @@ mod native_tests {
         };
         (package, analysis)
     }
-    async fn declared(
-        package: &ModelingPackage,
-        analysis: &ModelingAnalysis,
-    ) -> super::super::modeling::DeclaredExecution {
-        let mut declared = package
-            .declared_execution(
-                analysis.root,
-                analysis.compiler,
-                analysis.solver.clone(),
-                analysis.numerical.clone(),
-                analysis.limits,
-                &crate::CancelSource::new(),
-            )
-            .await
-            .unwrap();
-        declared.analysis = analysis.clone();
-        declared
-    }
-    fn point(
-        execution: &super::super::modeling::DeclaredExecution,
-        t: f64,
-        predecessor: Option<usize>,
-    ) -> ModelingStudyPoint {
-        let mut execution = execution.clone();
-        execution.analysis.case.values.insert("t".into(), t);
-        ModelingStudyPoint {
-            execution: Ok(execution),
-            predecessor,
-            overlay: Default::default(),
-        }
-    }
     fn native(result: &ModelingResult) -> &pse_backend_native::solve::SolveReport {
         match &result.outcome {
             Outcome::Native(native) => native,
@@ -763,99 +669,6 @@ mod native_tests {
     }
     fn x(result: &ModelingResult) -> f64 {
         result.values.scalars[&symbol(result, "x")]
-    }
-    const LINEAR: &str = "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }";
-
-    /// An N-point study whose points differ only in values prepares its structure once;
-    /// every later point rebinds values onto the prepared view and its programs (A6).
-    #[tokio::test]
-    async fn value_only_study_prepares_once() {
-        let runtime = runtime();
-        let cancel = crate::CancelSource::new();
-        let (single, analysis) = package_on(&runtime, LINEAR);
-        let execution = declared(&single, &analysis).await;
-        let before = runtime.native().preparations();
-        let one = single
-            .study(vec![point(&execution, 1., None)], 8, &cancel)
-            .await
-            .unwrap();
-        assert!(one.outcomes[0].as_ref().unwrap().accepted);
-        let after_one = runtime.native().preparations();
-        assert_eq!(after_one.views - before.views, 1);
-        // A second package over the same runtime starts without prepared views.
-        let (package, analysis) = package_on(&runtime, LINEAR);
-        let execution = declared(&package, &analysis).await;
-        let start = runtime.native().preparations();
-        let points = (1..=5)
-            .map(|t| point(&execution, f64::from(t), None))
-            .collect();
-        let report = package.study(points, 8, &cancel).await.unwrap();
-        let end = runtime.native().preparations();
-        for (t, outcome) in (1..=5).zip(&report.outcomes) {
-            let result = outcome.as_ref().unwrap();
-            assert!(result.accepted, "{:?}", result.diagnostic());
-            assert!((x(result) - (2. + f64::from(t))).abs() < 1e-8);
-        }
-        // Exactly one structural preparation of the solver view, and no observation program
-        // beyond what a single point needs.
-        assert_eq!(end.views - start.views, 1);
-        assert_eq!(
-            end.observations - start.observations,
-            after_one.observations - before.observations
-        );
-        // Each changed parameter rebuilt only the value-dependent products.
-        assert_eq!(end.rebuilt - start.rebuilt, 4);
-    }
-
-    /// A study reports its own preparations (A6). Two value-only studies run concurrently
-    /// on one runtime, their point values supplied as overlays: each prepares its structure
-    /// once and rebinds every later point, and together they account for exactly the
-    /// runtime's counts.
-    #[tokio::test]
-    async fn study_results_carry_preparation_counts() {
-        let runtime = runtime();
-        let cancel = crate::CancelSource::new();
-        let points = |execution: &super::super::modeling::DeclaredExecution| {
-            (1..=5)
-                .map(|t| ModelingStudyPoint {
-                    execution: Ok(execution.clone()),
-                    predecessor: None,
-                    overlay: crate::workflow::PointOverlay {
-                        values: BTreeMap::from([("t".into(), f64::from(t))]),
-                        ..Default::default()
-                    },
-                })
-                .collect::<Vec<_>>()
-        };
-        let (first, first_analysis) = package_on(&runtime, LINEAR);
-        let (second, second_analysis) = package_on(&runtime, LINEAR);
-        let first_execution = declared(&first, &first_analysis).await;
-        let second_execution = declared(&second, &second_analysis).await;
-        let before = runtime.native().preparations();
-        let (first, second) = tokio::join!(
-            first.study(points(&first_execution), 8, &cancel),
-            second.study(points(&second_execution), 8, &cancel),
-        );
-        let after = runtime.native().preparations();
-        let (first, second) = (first.unwrap(), second.unwrap());
-        for report in [&first, &second] {
-            for (t, outcome) in (1..=5).zip(&report.outcomes) {
-                let result = outcome.as_ref().unwrap();
-                assert!(result.accepted, "{:?}", result.diagnostic());
-                assert!((x(result) - (2. + f64::from(t))).abs() < 1e-8);
-            }
-            assert_eq!(report.preparations.views, 1, "{:?}", report.preparations);
-            assert_eq!(report.preparations.rebuilt, 4, "{:?}", report.preparations);
-            assert_eq!(report.preparations.shared, 0, "{:?}", report.preparations);
-        }
-        let (a, b) = (first.preparations, second.preparations);
-        assert_eq!(after.views - before.views, a.views + b.views);
-        assert_eq!(
-            after.observations - before.observations,
-            a.observations + b.observations
-        );
-        assert_eq!(after.rebuilt - before.rebuilt, a.rebuilt + b.rebuilt);
-        assert_eq!(after.shared - before.shared, a.shared + b.shared);
     }
 
     /// Homotopy steps change values only: they share one prepared structure and the
@@ -965,7 +778,7 @@ mod native_tests {
                 Start::Specification,
                 Obligations::Intermediate,
                 None,
-                "initialization",
+                pse_diagnostics::DiagnosticStage::Initialization,
                 &cancel,
             )
             .await;
@@ -984,7 +797,7 @@ mod native_tests {
                 Start::Specification,
                 Obligations::Intermediate,
                 None,
-                "initialization",
+                pse_diagnostics::DiagnosticStage::Initialization,
                 &cancel,
             )
             .await;
@@ -1001,7 +814,7 @@ mod native_tests {
                 Start::Specification,
                 Obligations::Final,
                 None,
-                "initialization",
+                pse_diagnostics::DiagnosticStage::Initialization,
                 &cancel,
             )
             .await
@@ -1021,42 +834,5 @@ mod native_tests {
             after.model.case.compiled().plan.structure().key()
         );
         assert_eq!(before.model.values, after.model.values);
-    }
-
-    /// A failed study point is isolated: it drops the retained session and seeds nothing,
-    /// independent points continue, and only its dependents are refused.
-    #[tokio::test]
-    async fn failed_point_isolated_in_study() {
-        let runtime = runtime();
-        let (package, analysis) = package_on(&runtime, LINEAR);
-        let execution = declared(&package, &analysis).await;
-        let points = vec![
-            point(&execution, 1., None),
-            point(&execution, -5., None),
-            point(&execution, 2., None),
-            point(&execution, 3., None),
-            point(&execution, 4., Some(1)),
-            point(&execution, 5., Some(0)),
-        ];
-        let report = package
-            .study(points, 8, &crate::CancelSource::new())
-            .await
-            .unwrap();
-        assert_eq!(report.unattempted, 0);
-        let result = |i: usize| report.outcomes[i].as_ref().unwrap();
-        assert!(result(0).accepted);
-        // The failed point solved, but its model check refused the candidate.
-        assert!(!result(1).accepted);
-        assert!((x(result(1)) + 3.).abs() < 1e-8);
-        // The next point rebuilt the dropped session; the one after reused it.
-        assert!(result(2).accepted && !native(result(2)).evidence.reused_native_state);
-        assert!(result(3).accepted && native(result(3)).evidence.reused_native_state);
-        let refused = report.outcomes[4].as_ref().unwrap_err();
-        assert_eq!(refused.rule, "modeling.study.predecessor");
-        // A dependent of an accepted point starts from its solved values (typed start).
-        assert!(result(5).accepted);
-        let id = symbol(result(5), "x");
-        assert_eq!(result(5).prepared.starts[&id], StartSource::Predecessor);
-        assert!((x(result(5)) - 7.).abs() < 1e-8);
     }
 }

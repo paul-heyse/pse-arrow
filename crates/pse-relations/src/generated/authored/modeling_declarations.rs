@@ -116,20 +116,20 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    96u8, 87u8, 36u8, 42u8, 193u8, 122u8, 244u8, 247u8, 169u8, 204u8, 21u8, 188u8, 161u8,
-    79u8, 76u8, 252u8,
+    132u8, 7u8, 63u8, 101u8, 60u8, 157u8, 201u8, 121u8, 236u8, 12u8, 41u8, 146u8, 235u8,
+    66u8, 94u8, 128u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 23u32;
+pub const VERSION: u32 = 24u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    125u8, 248u8, 92u8, 233u8, 152u8, 53u8, 141u8, 98u8, 254u8, 172u8, 87u8, 71u8, 83u8,
-    24u8, 82u8, 2u8, 229u8, 95u8, 81u8, 89u8, 94u8, 15u8, 192u8, 131u8, 254u8, 38u8,
-    94u8, 250u8, 129u8, 57u8, 129u8, 187u8,
+    41u8, 11u8, 202u8, 49u8, 129u8, 64u8, 229u8, 83u8, 87u8, 108u8, 200u8, 40u8, 35u8,
+    142u8, 177u8, 235u8, 16u8, 102u8, 172u8, 253u8, 33u8, 103u8, 241u8, 215u8, 226u8,
+    96u8, 163u8, 190u8, 255u8, 118u8, 19u8, 175u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueTemporal {
     fn append(
@@ -1635,7 +1635,9 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
         <Vec<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -1649,7 +1651,7 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#rule: <String as crate::columnar::ArrowValue>::read(
+            r#rule: <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -9834,7 +9836,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                                                     let mut bytes = 1usize;
                                                                     bytes = crate::columnar::allocation_add(
                                                                         bytes,
-                                                                        crate::columnar::allocation_add(8, ((item).r#rule).len())?,
+                                                                        crate::columnar::allocation_add(
+                                                                            8,
+                                                                            ((item).r#rule).as_str().len(),
+                                                                        )?,
                                                                     )?;
                                                                     bytes = crate::columnar::allocation_add(
                                                                         bytes,

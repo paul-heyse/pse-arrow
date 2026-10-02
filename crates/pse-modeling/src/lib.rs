@@ -199,7 +199,8 @@ impl ModelingError {
                             end: Some(span.end),
                         });
                 }
-                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self)
+                    .unwrap_or(diagnostic.code);
                 return diagnostic.with_code(code);
             }
             Self::Contract {
@@ -249,7 +250,8 @@ impl ModelingError {
                         .observations
                         .insert(name.into(), Observation::Text(value.into()));
                 }
-                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self)
+                    .unwrap_or(diagnostic.code);
                 return diagnostic.with_code(code);
             }
             Self::Realization {
@@ -275,7 +277,8 @@ impl ModelingError {
                         .observations
                         .insert(name.into(), Observation::Text(value.into()));
                 }
-                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self)
+                    .unwrap_or(diagnostic.code);
                 return diagnostic.with_code(code);
             }
             Self::Objective {
@@ -295,7 +298,8 @@ impl ModelingError {
                 diagnostic
                     .observations
                     .insert("reason".into(), Observation::Text(reason.as_str().into()));
-                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self)
+                    .unwrap_or(diagnostic.code);
                 return diagnostic.with_code(code);
             }
             Self::TestOnly {
@@ -312,19 +316,36 @@ impl ModelingError {
                 diagnostic
                     .observations
                     .insert("data".into(), Observation::Text(data.clone()));
-                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+                let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self)
+                    .unwrap_or(diagnostic.code);
                 return diagnostic.with_code(code);
             }
-            Self::Cancelled => (Class::Cancelled, pse_diagnostics::DiagnosticRule::ModelingCancelled, None, None),
-            Self::Budget(reason) => (Class::ResourceLimit, pse_diagnostics::DiagnosticRule::ModelingBudget, None, Some(reason)),
+            Self::Cancelled => (
+                Class::Cancelled,
+                pse_diagnostics::DiagnosticRule::ModelingCancelled,
+                None,
+                None,
+            ),
+            Self::Budget(reason) => (
+                Class::ResourceLimit,
+                pse_diagnostics::DiagnosticRule::ModelingBudget,
+                None,
+                Some(reason),
+            ),
         };
-        let mut diagnostic = BoundaryDiagnostic::new(class, pse_diagnostics::DiagnosticStage::Modeling, source, rule);
+        let mut diagnostic = BoundaryDiagnostic::new(
+            class,
+            pse_diagnostics::DiagnosticStage::Modeling,
+            source,
+            rule,
+        );
         if let Some(detail) = detail {
             diagnostic
                 .observations
                 .insert("detail".into(), Observation::Text(detail.clone()));
         }
-        let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
+        let code =
+            pse_diagnostics::TypedDiagnostic::diagnostic_code(self).unwrap_or(diagnostic.code);
         diagnostic.with_code(code)
     }
 }
@@ -413,7 +434,8 @@ pub struct DomainTightening {
 }
 impl DomainTightening {
     /// Boundary rule of the informational finding.
-    pub const RULE: pse_diagnostics::DiagnosticRule = pse_diagnostics::DiagnosticRule::ModelingDomainTightened;
+    pub const RULE: pse_diagnostics::DiagnosticRule =
+        pse_diagnostics::DiagnosticRule::ModelingDomainTightened;
     /// The informational finding that reports this tightening: rule
     /// `modeling.domain.tightened`, severity `info`, with the variable's path and domain
     /// and both bound pairs as observations. It never makes the model invalid.
@@ -591,5 +613,10 @@ pub mod applicability;
 mod scientific_selection_tests;
 
 impl pse_model::diagnostic::DiagnosticProjection for ModelingError {
-    fn boundary_diagnostic(&self, _stage: pse_diagnostics::DiagnosticStage) -> pse_model::diagnostic::BoundaryDiagnostic { self.boundary_diagnostic() }
+    fn boundary_diagnostic(
+        &self,
+        _stage: pse_diagnostics::DiagnosticStage,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        self.boundary_diagnostic()
+    }
 }

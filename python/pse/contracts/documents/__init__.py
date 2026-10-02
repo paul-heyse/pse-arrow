@@ -19,6 +19,8 @@ FiniteBound = float
 
 Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
 
+OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
+
 OptionValue = bool | int | float | str
 
 PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
@@ -42,6 +44,137 @@ class AdjointSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     max_checkpoints: PositiveCount = 400
     #: Native forward steps between stored checkpoints (IDAS `IDAAdjInit`'s `Nd`).
     steps_between_checkpoints: PositiveCount = 250
+
+
+class AdmittedBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable selected-revision binding; attribution is excluded from content identity."""
+
+    #: Physical interpretation context.
+    context: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Entries in member identity order.
+    entries: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], AdmittedBindingEntry]
+    #: Exact revision that admitted member identity and role.
+    revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+
+class AdmittedBindingEntry(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Canonical input with its expected physical contract and original attribution."""
+
+    #: Finite canonical coordinate.
+    canonical: FiniteBound
+    #: Stable selected member.
+    member: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Whether the target is an authored parameter rather than a variable start/value.
+    parameter: bool
+    #: Expected complete physical quantity.
+    quantity: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original input reference, retained only for attribution.
+    supplied: BindingTarget
+    #: Original unit, retained only for attribution.
+    supplied_unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class AdmittedHorizonValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Canonical horizon assignments admitted in the selected physical context."""
+
+    #: Canonical estimator priors in declared arrival order.
+    arrival: tuple[AdmittedBindingEntry, ...]
+    #: Canonical plant parameter assignments in declared input order.
+    inputs: tuple[AdmittedBindingEntry, ...]
+    #: Canonical controller trajectory values by declared binding index.
+    trajectories: dict[Annotated[str, msgspec.Meta(pattern="^\\d+$")], tuple[AdmittedBindingEntry, ...]]
+
+
+class ApplicabilityClaim(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable attribution of an instantiated scientific claim."""
+
+    #: Fitted, recommended or validated region; none for unknown/unrestricted/union.
+    basis: enums.ModelingApplicabilityBasis | None = None
+    #: Distinguishes actual bound applications, including derived arguments.
+    call: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Joint whole-interval application, only for a verified declared interval.
+    coverage: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Required claim identities.
+    dependencies: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Evidence source; absent for an undeclared claim.
+    evidence: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Form whose actual application demanded this evidence.
+    form: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Absent exactly for undeclared evidence, which is unknown.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Evidence layer, distinct from a mathematical domain.
+    layer: enums.ModelingValidityLayer
+    #: Declared scientific family or model owner.
+    owner: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Checked nominal owner and its entity-kind ancestors, in most-derived order.
+    #: Non-kind owners have only themselves; callers cannot author this witness.
+    owner_lineage: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Explicit unknown reason, never a numerical predicate result.
+    reason: str | None = None
+    #: Distinct scientific records selected by this application.
+    records: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+
+class ApplicabilityInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Numerical inputs are recorded in the lowering's canonical physical units."""
+
+    #: Declared argument name.
+    name: str
+    #: Actual physical quantity type; values use its canonical unit.
+    quantity_type: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Actual value at the demanded application; the wire retains explicit IEEE evidence.
+    value: NumericObservation
+
+
+class ApplicabilityObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One typed observation, including alternative evidence which was not required."""
+
+    #: Whether the low-level evidence gate admitted this required claim.
+    admitted: bool
+    #: Complete scientific attribution.
+    claim: ApplicabilityClaim
+    #: Whether leaving this particular claim's region was permitted.
+    extrapolation_allowed: bool
+    #: Actual inputs of this claim application.
+    inputs: tuple[ApplicabilityInput, ...]
+    #: Bound assembly instance, populated by the executing consumer.
+    instance: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Evidence classification, independent of authorization.
+    outcome: enums.ModelingApplicabilityOutcome
+    #: Authorizing declarations that matched this claim's exact target.
+    permissions: tuple[ApplicabilityPermission, ...]
+    #: This claim was required, rather than a nonwinning union alternative.
+    required: bool
+    #: Both permissions remain independent even for a mixed dependency result.
+    unknown_allowed: bool
+
+
+class ApplicabilityPermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authorization retains its declaration and scope, with fixed named targets."""
+
+    #: Independent permission for leaving a declared region.
+    allow_extrapolation: bool
+    #: Independent permission for absence of evidence.
+    allow_unknown: bool
+    #: Authored authorization identity.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Declaring lexical consumer scope, not the claim's owner.
+    scope: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Named records or declared scientific families.
+    target_kind: enums.ModelingPermissionTarget
+    #: Exact admitted target identities; inheritance never widens this set.
+    targets: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+
+
+class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Existing arrival cost intent with a checked finite initial prior."""
+
+    #: Initial prior quantity with complete physical meaning.
+    initial: BindingQuantity
+    #: Existing next-prior solution path.
+    next: str
+    #: Existing prior case path.
+    prior: str
 
 
 class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -79,6 +212,76 @@ class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unkno
     target_kind: enums.NumericalTarget
     #: unit_id
     unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+
+
+class BindingAssignment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An assignment before contextual admission."""
+
+    #: Supplied member reference.
+    target: BindingTarget
+    #: Physically typed value; bare numbers are not input values.
+    value: BindingQuantity
+
+
+class BindingQuantity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One finite quantity with complete declared physical meaning and a representation unit."""
+
+    #: Supplied finite magnitude.
+    magnitude: FiniteBound
+    #: Complete quantity type, including basis, datum and subject.
+    quantity: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Registered representation unit.
+    unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class BindingTargetMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="member"):
+    """Stable instantiated member identity."""
+
+    value: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class BindingTargetPath(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="path"):
+    """Authored member path in the selected revision."""
+
+    value: str
+
+
+class BoundaryDiagnostic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Stable structured cause shared by Rust and the public error projection."""
+
+    #: Complete scientific evidence on demanded paths, including refused claims.
+    applicability: tuple[ApplicabilityObservation, ...] = msgspec.field(default_factory=tuple)
+    #: Ordered retained cause envelopes, preserving repeated aggregate occurrences.
+    causes: tuple[BoundaryDiagnostic, ...] = msgspec.field(default_factory=tuple)
+    #: Machine-readable disposition; callers never parse the message.
+    class_: enums.NativeBoundaryClass = msgspec.field(name="class")
+    #: Detailed semantic identity, authoritative over every coarse projection.
+    code: enums.DiagnosticCode
+    #: Available source locations. Empty means unattributed, not a guessed source.
+    locations: tuple[SourceLocation, ...] = msgspec.field(default_factory=tuple)
+    #: Values observed while checking the contract.
+    observations: dict[str, Observation]
+    #: The violated named contract, not a replacement for source identities.
+    rule: enums.DiagnosticRule
+    #: Error, warning or information; a warning never makes a model invalid.
+    severity: enums.DiagnosticSeverity = enums.DiagnosticSeverity.ERROR
+    #: All affected authored identities, in deterministic order.
+    sources: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Operation boundary, such as selected admission or provider registration.
+    stage: enums.DiagnosticStage
+    #: The lineage of a rejected authored validity predicate; absent on every other finding.
+    validity: ValidityLineage | None = None
+
+
+class CaseOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One authored solve operation under its admitted route and existing settings document."""
+
+    #: Authored case identity.
+    case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Route captured from the declaration's admission.
+    route: enums.ModelingAnalysisRoute
+    #: Complete existing solve settings.
+    settings: SolveSettings
 
 
 class ClarabelSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="clarabel"):
@@ -151,6 +354,47 @@ class ClarabelSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     tol_ktratio: float = 1e-6
 
 
+class ClosedDuration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `ClosedDuration` document type."""
+
+    nanos: Annotated[int, msgspec.Meta(ge=0)]
+    secs: Annotated[int, msgspec.Meta(ge=0)]
+
+
+class Conclusion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Shared conclusion of the current facts, not a fabricated result table."""
+
+    #: Whole-study scientific availability.
+    availability: enums.StudyAvailability
+    #: Whole-study operational state.
+    lifecycle: enums.StudyLifecycle
+
+
+class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Serializable controller inputs; package/prepared analysis handles are reconstructed."""
+
+    #: Existing signal binding intent.
+    bindings: tuple[HorizonBinding, ...]
+    #: Existing simultaneous controller case.
+    case: CaseOperation
+    #: Existing move path/input-index mapping.
+    moves: tuple[tuple[str, Annotated[int, msgspec.Meta(ge=0)]], ...]
+    #: Existing advanced-step prediction mapping; absence means full solves.
+    predictions: tuple[tuple[str, str], ...] | None = None
+
+
+class DependencyOrdering(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="ordering"):
+    """Release after terminal completion, including failure or cancellation."""
+
+    predecessor: OccurrenceKey
+
+
+class DependencyUsableResult(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="usable_result"):
+    """Require the operation owner's aggregate scientific permission."""
+
+    predecessor: OccurrenceKey
+
+
 class DiffsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
     the version is required, and absent fields take these defaults.
@@ -162,6 +406,48 @@ class DiffsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     linear: enums.DiffsolLinear = enums.DiffsolLinear.FAER_LU
     #: Time-stepping scheme.
     method: enums.DiffsolMethod = enums.DiffsolMethod.BDF
+
+
+class EndpointRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit final-result obligation, independent of the requested output grid."""
+
+    #: Allowed terminal guard identity, required only for declared-event completion.
+    event: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Registry-owned completion policy.
+    kind: enums.EndpointPolicy
+
+
+class EstimatorInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Existing estimator window input intent."""
+
+    #: Existing whole-window or per-period bindings.
+    binding: WindowInput
+    #: Driven input index.
+    input: Annotated[int, msgspec.Meta(ge=0)]
+
+
+class EstimatorOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Serializable estimator inputs for the existing horizon owner."""
+
+    #: Existing arrival prior mapping.
+    arrival: tuple[ArrivalDocument, ...]
+    #: Existing simultaneous estimator case.
+    case: CaseOperation
+    #: Existing driven-input mapping.
+    inputs: tuple[EstimatorInput, ...]
+    #: Existing measurement-to-case-path mapping.
+    measurements: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], tuple[str, ...]], ...]
+    #: Existing estimation window.
+    window: Annotated[int, msgspec.Meta(ge=0)]
+
+
+class EvaluationLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `EvaluationLimits` document type."""
+
+    derivative_components: Annotated[int, msgspec.Meta(ge=0)]
+    operations: Annotated[int, msgspec.Meta(ge=0)]
+    provider_calls: Annotated[int, msgspec.Meta(ge=0)]
+    scratch_bytes: Annotated[int, msgspec.Meta(ge=0)]
 
 
 class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -181,6 +467,32 @@ class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     scaling: enums.FeralScaling = enums.FeralScaling.AUTO
     singular_pivot_floor: float = 1e-20
     static_pivoting: bool | None = None
+
+
+class FitOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One authored fit selection; experiment data stays in the pinned source revision."""
+
+    #: Existing authored fit identity.
+    fit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Complete fit controls.
+    settings: FitOperationSettings
+
+
+class FitOperationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Fit-only controls compose the existing solve/integration settings documents once."""
+
+    #: Existing fit derivative source vocabulary.
+    derivatives: enums.FitDerivatives
+    #: Existing derivative/rank allocation bound.
+    max_cells: Annotated[int, msgspec.Meta(ge=0)]
+    #: Existing local response rank cutoff.
+    rank_tolerance: float
+    #: Explicit profiles for transient fit experiments.
+    simulations: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Profile]
+    #: Existing native solve controls.
+    solver: SolveSettings
+    #: Existing uncertainty/interval request.
+    uncertainty: FitUncertainty | None = None
 
 
 class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -230,7 +542,7 @@ class HighsPenalties(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     """Complete physical penalty declarations for native feasibility relaxation."""
 
     #: Global lower-bound, upper-bound and constraint penalties.
-    global_: tuple[FiniteBound, FiniteBound, FiniteBound] = msgspec.field(name="global")
+    global_: Annotated[tuple[FiniteBound, ...], msgspec.Meta(min_length=3, max_length=3)] = msgspec.field(name="global")
     #: Optional per-variable lower-bound penalties.
     lower: tuple[float, ...] | None = None
     #: Optional per-row penalties.
@@ -252,6 +564,65 @@ class HighsSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     nodes: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Partial source-attributed MIP start, with unspecified coordinates absent.
     sparse_start: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float] | None = None
+
+
+class HorizonBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Serializes the existing horizon signal vocabulary without replacing its semantics."""
+
+    #: Existing horizon signal.
+    signal: HorizonSignalDocument
+    #: Controller case target path, resolved by the horizon owner.
+    target: str
+
+
+class HorizonInputDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A plant input projected into the existing horizon owner."""
+
+    #: Initial held quantity with complete physical meaning.
+    initial: BindingQuantity
+    #: Existing plant parameter identity.
+    parameter: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class HorizonOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Reconstructable closed-loop operation in one pinned source/context."""
+
+    #: Optional existing controller.
+    controller: ControllerOperation | None = None
+    #: Optional existing estimator.
+    estimator: EstimatorOperation | None = None
+    #: Driven plant inputs.
+    inputs: tuple[HorizonInputDocument, ...]
+    #: Existing positive physical sample period in seconds.
+    period: Tolerance
+    #: Existing authored plant simulation.
+    plant: SimulationOperation
+    #: Existing closed-loop sample count.
+    steps: PositiveCount
+
+
+class HorizonSignalDocumentApplied(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="applied"):
+    """Existing driven input index."""
+
+    value: Annotated[int, msgspec.Meta(ge=0)]
+
+
+class HorizonSignalDocumentEstimated(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="estimated"):
+    """Existing estimated case path."""
+
+    value: str
+
+
+class HorizonSignalDocumentMeasured(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="measured"):
+    """Existing measured plant output."""
+
+    value: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class HorizonSignalDocumentTrajectory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="trajectory"):
+    """Physically typed desired values, admitted against the controller target."""
+
+    value: tuple[BindingQuantity, ...]
 
 
 class IdasLinearKlu(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="klu"):
@@ -340,12 +711,12 @@ class IpoptSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 
 
 class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 4 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+    """Version 5 of a durable job's payload: the one task a job runs. Unknown fields, tasks
     and versions are refused.
     """
 
     #: Document version.
-    version: Literal[4] = 4
+    version: Literal[5] = 5
     #: The task.
     task: JobTask
 
@@ -381,8 +752,6 @@ class JobTaskModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: How the solve starts. A study point with a predecessor starts from the
     #: predecessor's stored solution instead.
     start: JobStart = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "fresh"}, type=JobStart))
-    #: The study point this job runs (Plan 22 O7).
-    study: StudyPointBinding | None = None
 
 
 class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_finalization"):
@@ -392,6 +761,17 @@ class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_field
 
     #: The study to publish.
     study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class JobTaskStudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_operation"):
+    """Run one admitted occurrence through its existing operation owner."""
+
+    #: Modeling source bundle closure.
+    modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: Physical source bundle.
+    physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: The exact admitted occurrence copied mechanically from StudyDefinition.
+    point: StudyPointBinding
 
 
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
@@ -490,6 +870,41 @@ class KktTolerances(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     stationarity: float
 
 
+class LegacyUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit historical marker; it never supplies current scientific permissions."""
+
+    #: Marker codec version.
+    version: Literal[1] = 1
+    #: Former content identity, retained without recomputation.
+    binding_hash: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Exact closed marker spelling.
+    kind: enums.StudyLegacyKind
+    #: Former positional predecessor retained as historical attribution only.
+    predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+
+class Limits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `Limits` document type."""
+
+    body_occurrences: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    body_slots: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    depth: Annotated[int, msgspec.Meta(ge=0)]
+    items: Annotated[int, msgspec.Meta(ge=0)]
+    members: Annotated[int, msgspec.Meta(ge=0)]
+
+
+class NumericObservationNonfinite(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="nonfinite"):
+    """The `NumericObservationNonfinite` document type."""
+
+    value: enums.DiagnosticNonfiniteObservation
+
+
+class NumericObservationReal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="real"):
+    """The `NumericObservationReal` document type."""
+
+    value: float
+
+
 class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared semantic controls resolved before invoking any native adapter."""
 
@@ -519,6 +934,102 @@ class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     strict_nominals: bool = False
 
 
+class ObservationBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="boolean"):
+    """A checked predicate."""
+
+    value: bool
+
+
+class ObservationContracts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="contracts"):
+    """Ordered physical operand/free-index contracts, preserved structurally."""
+
+    value: tuple[OperandContract, ...]
+
+
+class ObservationInteger(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="integer"):
+    """Exact counts or native codes."""
+
+    value: int
+
+
+class ObservationMissing(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="missing"):
+    """Evidence was not available."""
+
+
+class ObservationNonfinite(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="nonfinite"):
+    """Explicitly tagged nonfinite numerical failure evidence."""
+
+    value: enums.DiagnosticNonfiniteObservation
+
+
+class ObservationPhysical(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical"):
+    """Finite physical evidence bound to its complete immutable quantity contract."""
+
+    value: PhysicalObservation
+
+
+class ObservationReal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="real"):
+    """A finite numerical observation (not necessarily a physical magnitude)."""
+
+    value: float
+
+
+class ObservationText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="text"):
+    """Native status or explanatory detail."""
+
+    value: str
+
+
+class OperandContract(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A complete registered quantity type plus its free-index obligations."""
+
+    #: Ordered bound-index, domain and entity-kind identities.
+    indices: tuple[Annotated[tuple[Annotated[tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...], msgspec.Meta(min_length=16, max_length=16)], ...], msgspec.Meta(min_length=3, max_length=3)], ...]
+    #: Immutable complete quantity-type identity.
+    quantity: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...], msgspec.Meta(min_length=16, max_length=16)]
+
+
+class OperationRequestDeclaredCase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="declared_case"):
+    """Existing authored algebraic solve owner."""
+
+    request: CaseOperation
+
+
+class OperationRequestFit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit"):
+    """Existing shared-parameter fitting owner."""
+
+    request: FitOperation
+
+
+class OperationRequestHorizon(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="horizon"):
+    """Existing closed-loop horizon owner."""
+
+    request: HorizonOperation
+
+
+class OperationRequestSimulation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="simulation"):
+    """Existing authored integration owner."""
+
+    request: SimulationOperation
+
+
+class OperationSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact source/context required when reconstructing an operation from stored bundles."""
+
+    #: Complete admitted physical context identity.
+    physical_context: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Immutable modeling revision, including included scientific data.
+    revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+
+class Optimization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `Optimization` document type."""
+
+    cores: Annotated[int, msgspec.Meta(ge=0)]
+    cpe_iterations: Annotated[int, msgspec.Meta(ge=0)]
+    horner_iterations: Annotated[int, msgspec.Meta(ge=0)]
+
+
 class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A parameter covariance as `runtime.parameter_covariances` publishes it."""
 
@@ -530,15 +1041,96 @@ class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     values: tuple[FiniteBound, ...]
 
 
-class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Values a study point replaces in its authored case, composed over the original for the
-    point only.
-    """
+class PhysicalObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite physical evidence bound to its complete immutable quantity contract."""
 
-    #: Declared parameters by identity.
-    parameters: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float] = msgspec.field(default_factory=dict)
-    #: Case values by path.
-    values: dict[str, float] = msgspec.field(default_factory=dict)
+    #: Immutable interpretation context.
+    context: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Finite canonical magnitude.
+    magnitude: float
+    #: Registered complete quantity contract.
+    quantity: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Declared canonical unit.
+    unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class PointAttemptOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One retained try; attempt identity is distinct from the requested occurrence."""
+
+    #: Present for a durable attempt; ephemeral tries still retain their ordered history.
+    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Original detailed diagnostic, including admission failures without result tables.
+    diagnostic: BoundaryDiagnostic | None = None
+    #: Knowledge of effects for this try.
+    effect: enums.StudyEffectState
+    #: Actual try lifecycle; absent when no operational attempt was made.
+    lifecycle: enums.AttemptState | None = None
+    #: Original operation-owned scientific permission.
+    scientific: ScientificFacts
+    #: Actual chosen start, if dispatch was attempted.
+    start: StartProvenance | None = None
+
+
+class PointOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Shared outcome projection consumed by both executors and the durable store."""
+
+    #: Every actual try, including failed admission and retry attempts.
+    attempts: tuple[PointAttemptOutcome, ...]
+    #: Detailed latest refusal/failure, without fabricating a scientific result.
+    diagnostic: BoundaryDiagnostic | None = None
+    #: Latest publication/effect knowledge.
+    effect: enums.StudyEffectState
+    #: Requested occurrence, independent of preparation/binding content.
+    key: OccurrenceKey
+    #: Operational point state, independent of scientific availability.
+    lifecycle: enums.StudyPointState
+    #: Latest operation-owned scientific permission.
+    scientific: ScientificFacts
+    #: Latest actual start provenance.
+    start: StartProvenance | None = None
+
+
+class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Submitted replacements; the list preserves duplicate references for validation."""
+
+    #: Each assignment is admitted against the same selected revision.
+    assignments: tuple[BindingAssignment, ...] = msgspec.field(default_factory=tuple)
+
+
+class PointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Policy slice of an admitted operation occurrence."""
+
+    #: Maximum attempts, including the initial attempt; timing belongs to the executor.
+    attempt_limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Ordering and usable-result dependencies.
+    dependencies: tuple[Dependency, ...]
+    #: Stable occurrence identity.
+    key: OccurrenceKey
+    #: Seed consumption capability, admitted by the operation owner.
+    seed_need: enums.StudySeedNeed
+    #: Authored start intent.
+    start: StartPolicy
+
+
+class PointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One point of a study's status."""
+
+    #: Its latest try.
+    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: That try's state.
+    attempt_state: enums.AttemptState
+    #: Why the point failed or was cancelled.
+    error: str | None = None
+    #: Its job's state.
+    job_state: enums.JobState
+    #: Historical unavailable policy attribution, preserved without readmission.
+    legacy: LegacyUnavailable | None = None
+    #: The earlier point that seeds it.
+    outcome: PointOutcome | None = None
+    #: The point.
+    point_index: Annotated[int, msgspec.Meta(ge=0)]
+    #: Its state.
+    state: enums.StudyPointState
 
 
 class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce_convex"):
@@ -583,6 +1175,68 @@ class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     views: Annotated[int, msgspec.Meta(ge=0)]
 
 
+class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Serialization of the existing compiler/expansion controls, with no second defaults."""
+
+    #: Existing evaluator profile, encoded through its complete remote projection.
+    compiler: StudyCompilerProfile
+    #: Existing expansion admission limits.
+    limits: Limits
+
+
+class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite integration policy. Tolerances apply to the normalized state coordinates."""
+
+    #: Checkpointing of the adjoint backward pass; used only by adjoint gradients.
+    adjoint: AdjointSettings = msgspec.field(default_factory=lambda: msgspec.convert({"max_checkpoints": 400, "steps_between_checkpoints": 250, "version": 1}, type=AdjointSettings))
+    #: Positive absolute tolerances in normalized state order.
+    atol: tuple[float, ...]
+    #: Typed Diffsol scheme and linear solver.
+    diffsol: DiffsolSettings = msgspec.field(default_factory=lambda: msgspec.convert({"linear": "faer_lu", "method": "bdf", "version": 1}, type=DiffsolSettings))
+    #: Requested final physical time in seconds.
+    end: float
+    #: Declared completion event; omitted means the full fixed horizon.
+    endpoint: EndpointRequirement = msgspec.field(default_factory=lambda: msgspec.convert({"event": None, "kind": "fixed_horizon"}, type=EndpointRequirement))
+    #: Typed IDAS linear solver, sensitivity corrector and start.
+    idas: IdasSettings = msgspec.field(default_factory=lambda: msgspec.convert({"initialization": "algebraic_and_rates", "linear": {"kind": "klu"}, "sensitivity": "simultaneous", "version": 2}, type=IdasSettings))
+    #: Initial step in seconds.
+    initial_step: float
+    #: Maximum retained scalar cells, including sensitivities and event states.
+    max_cells: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum retained event records.
+    max_events: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum native step calls across all segments.
+    max_steps: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native method selected from the required trial semantics; automatic when absent.
+    method: enums.DynamicsMethod = enums.DynamicsMethod.AUTO
+    #: Physical acceptance and ID-keyed nominal requests, distinct from integration error controls.
+    numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "gap_absolute": 1e-8, "gap_relative": 1e-8, "incumbent": "refuse", "integrality": 1e-8, "kkt": {"complementarity": 1e-8, "stationarity": 1e-8}, "mip_absolute_gap": 1e-6, "mip_relative_gap": 0.0001, "native_scaling": True, "requirements": [], "strict_nominals": False}, type=NumericalPolicy))
+    #: Absolute integrated-flux tolerances in canonical conserved quantities.
+    out_atol: tuple[float, ...]
+    #: Explicit integrated-flux relative tolerance; required when conservation is declared.
+    out_rtol: float | None = None
+    #: Positive characteristic scales in the contract's parameter order, also used for
+    #: sensitivity tolerances; every interval of a scheduled input takes its parameter's.
+    parameter_scales: tuple[float, ...]
+    #: Positive relative integration tolerance.
+    rtol: float
+    #: Strictly increasing finite output times, within the horizon.
+    samples: tuple[float, ...]
+    #: Scheduled inputs: a contract parameter that takes one integration value per
+    #: schedule interval, each with its own live sensitivity (I6).
+    schedule: tuple[ScheduledInput, ...] = msgspec.field(default_factory=tuple)
+    #: Parameter derivatives: none, forward sensitivities of every sample, or adjoint
+    #: gradients of one functional of the sampled outputs through `gradient`; none when
+    #: absent.
+    sensitivity: enums.DynamicSensitivity = enums.DynamicSensitivity.NONE
+    #: Initial physical time in seconds.
+    start: float
+    #: Cooperative outer time allowance, including callbacks and resets.
+    time_limit: ClosedDuration
+    #: Behavior required for internal domain failures; terminal when absent.
+    trial_failures: enums.TrialPolicy = enums.TrialPolicy.TERMINAL
+
+
 class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Controls of the profile-likelihood pin chains (ADR-0118 item 8)."""
 
@@ -621,6 +1275,47 @@ class RestartBarrierValue(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     #: The initial barrier parameter.
     value: Tolerance
+
+
+class ScheduledInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One contract parameter held piecewise constant: it takes a new value at each change
+    time. The integration parameter vector holds one value per interval, `times.len() + 1`
+    of them, and a sensitivity column for each, so sensitivities cross every change
+    (ADR-0119, I6).
+
+    ```
+    use pse_backend_native::dynamics::{Profile, ScheduledInput};
+
+    // Two contract parameters; the second changes at t = 0.5.
+    let profile = Profile {
+        schedule: vec![ScheduledInput { parameter: 1, times: vec![0.5] }],
+        ..Profile::default()
+    };
+    // The static parameter comes first, then one value per interval.
+    assert_eq!(profile.integration_width(2), 3);
+    assert_eq!(profile.integration_parameters(&[4.0, 7.0]), vec![4.0, 7.0, 7.0]);
+    assert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.25), vec![4.0, 7.0]);
+    // A change takes effect at its time.
+    assert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.5), vec![4.0, 9.0]);
+    ```
+    """
+
+    #: Position of the input in the contract's parameter order.
+    parameter: Annotated[int, msgspec.Meta(ge=0)]
+    #: Strictly increasing change times after the start and up to the end; a change at
+    #: the end is observed by the final sample only.
+    times: tuple[float, ...]
+
+
+class ScientificFacts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """E supplies aggregate decisions; the study never counts result tables to infer these."""
+
+    #: Original scientific classification, when an assessment exists.
+    candidate_use: enums.CandidateUse | None = None
+    #: Independent seed permission from the owning operation.
+    seed_permission: bool
+    #: Aggregate usable-result permission from the owning operation.
+    usable: bool
 
 
 class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="scip"):
@@ -664,6 +1359,15 @@ class SensitivityRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Also compute the reduced Hessian over the parameters: the second derivative of the
     #: optimal value.
     reduced_hessian: bool = False
+
+
+class SimulationOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One authored integrated simulation and its existing profile document."""
+
+    #: Authored integration case.
+    case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Explicit existing integration controls; absence requests authored controls.
+    profile: Profile | None = None
 
 
 class SolveControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -730,6 +1434,23 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     settings: BackendSettings | None = None
 
 
+class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authored location attached by the owner that has the source map."""
+
+    #: UTF-8 exclusive ending byte offset.
+    end: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Optional authored display name.
+    name: str | None = None
+    #: Definition or document path, never a backend-local node identifier.
+    path: str
+    #: Immutable source interpretation context; absence is explicitly unattributed.
+    revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Original semantic occurrence or instance identity.
+    source: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: UTF-8 starting byte offset, when supplied by the parser/compiler.
+    start: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+
 class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Version 1 of a source bundle's manifest: the path of every document, in order."""
 
@@ -739,54 +1460,207 @@ class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     paths: tuple[str, ...]
 
 
+class StartPolicyContinuation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="continuation"):
+    """Continue from one admitted predecessor role."""
+
+    #: Scientific predecessor requirement.
+    permission: enums.StudyContinuationPermission = enums.StudyContinuationPermission.REQUIRE_USABLE
+    #: Occurrence supplying the selected role.
+    predecessor: OccurrenceKey
+    #: Output role admitted by the operation owner.
+    role: enums.StudySeedRole
+    #: Explicit fallback choice.
+    unavailable: enums.StudyUnavailableSeedPolicy = enums.StudyUnavailableSeedPolicy.REFUSE
+
+
+class StartPolicyExplicit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="explicit"):
+    """Explicit supplied seed: incompatibility never falls back."""
+
+    #: Role required from the supplied seed facts.
+    role: enums.StudySeedRole
+    #: Immutable supplied artifact identity; facts cannot substitute another seed.
+    seed: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class StartPolicyFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
+    """Operation-owned fresh start."""
+
+
+class StartProvenanceContinuation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="continuation"):
+    """Selected predecessor supplied the compatible artifact."""
+
+    #: Source occurrence.
+    predecessor: OccurrenceKey
+    #: Selected role.
+    role: enums.StudySeedRole
+    #: Seed artifact.
+    seed: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class StartProvenanceExplicit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="explicit"):
+    """An explicit supplied seed was compatible."""
+
+    #: Selected role.
+    role: enums.StudySeedRole
+    #: Seed artifact.
+    seed: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class StartProvenanceFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
+    """Declared fresh start."""
+
+
+class StartProvenanceFreshFallback(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh_fallback"):
+    """Explicit fresh fallback and its attributable absence/incompatibility."""
+
+    #: Selected predecessor.
+    predecessor: OccurrenceKey
+    #: Reason a continuation seed could not be used.
+    reason: enums.StudySeedUnavailable
+    #: Selected role.
+    role: enums.StudySeedRole
+
+
+class StartProvenanceNotNeeded(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="not_needed"):
+    """Constant/seed-free operation; no seed was requested."""
+
+
+class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What cancelling a study did."""
+
+    #: The study had already concluded; nothing changed.
+    already_concluded: bool
+    #: Points that had not started, now cancelled.
+    cancelled: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: The study concluded in this call (no try was still running).
+    concluded: bool
+    #: Points whose running try was asked to stop; each ends through its worker.
+    stopping: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+
+
+class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `StudyCompilerProfile` document type."""
+
+    evaluation: EvaluationLimits
+    optimization: Optimization
+
+
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 2 of a study's definition: the store's `definition` document and the content of
+    """Version 3 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
     #: Document version.
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     #: The source bundles of the modeling package closure, in load order.
     modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
     #: The source bundle of the physical package.
     physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
     #: The points, in index order.
     points: tuple[StudyPointDefinition, ...]
-    #: The solve settings of every point.
-    settings: SolveSettings
+
+
+class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable request recorded by a study occurrence and replayed by either executor."""
+
+    #: Interpretation of this operation descriptor.
+    version: Literal[1] = 1
+    #: Canonical physical assignments; required for every horizon descriptor.
+    admitted_horizon: AdmittedHorizonValues | None = None
+    #: Existing operation-owned input document.
+    operation: OperationRequest
+    #: Complete preparation controls using existing owners' remote projections.
+    preparation: PreparationSettings
+    #: Exact source/context reconstruction precondition.
+    source: OperationSource
+
+
+class StudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One point of a study to start."""
+
+    #: Supported existing operation and its complete inputs.
+    operation: OperationRequest
+    #: Submitted physical assignments, admitted once before any point is scheduled.
+    overlay: PointOverlay
+    #: Occurrence identity and explicit dependency/start policy.
+    policy: StudyPointPolicy
+    #: Existing preparation controls, serialized without a second default authority.
+    preparation: PreparationSettings
 
 
 class StudyPointBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """The binding of one study point (Plan 22 O7): which point of which study the job runs,
-    its value bindings and the earlier point that seeds it.
-    """
+    """Binding, occurrence policy and operation share one immutable authority."""
 
-    #: The hash of the point's value bindings: its case, route and overlay.
+    #: Physically admitted assignments.
+    binding: AdmittedBinding
+    #: Canonical binding identity.
     binding_hash: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
-    #: The values the point replaces in its case.
-    overlay: PointOverlay = msgspec.field(default_factory=lambda: msgspec.convert({"parameters": {}, "values": {}}, type=PointOverlay))
-    #: The point's index in the study.
+    #: Reconstructable operation owned by the immutable definition.
+    operation: StudyOperation
+    #: Occurrence key, independent of binding identity.
     point_index: Annotated[int, msgspec.Meta(ge=0)]
-    #: The earlier point whose stored solution this one starts from; the point runs only
-    #: once that point completed.
-    predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    #: The study.
+    #: Shared typed dependencies and start policy.
+    policy: PointPolicy
+    #: Study identity.
     study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
 
 class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One point of a study's definition."""
 
+    #: Canonical physically admitted member assignments; original paths are attribution.
+    binding: AdmittedBinding
     #: The hash of the point's value bindings.
     binding_hash: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
-    #: The authored case.
-    case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: The values the point replaces in its case.
-    overlay: PointOverlay = msgspec.field(default_factory=lambda: msgspec.convert({"parameters": {}, "values": {}}, type=PointOverlay))
-    #: The earlier point that seeds it.
-    predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    #: The authored route admitted when this point was queued.
-    route: enums.ModelingAnalysisRoute
+    #: Reconstructable admitted descriptor of one existing operation.
+    operation: StudyOperation
+    #: Shared occurrence/dependency/start policy.
+    policy: PointPolicy
+
+
+class StudyPointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authored policy choices; seed consumption is supplied only by operation admission."""
+
+    #: Maximum tries including the first.
+    attempt_limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit ordering and scientific-result dependencies.
+    dependencies: tuple[Dependency, ...]
+    #: Requested occurrence identity.
+    key: OccurrenceKey
+    #: Explicit start/seed selection.
+    start: StartPolicy
+
+
+class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Raw request admitted once into the immutable executable definition."""
+
+    #: Document version.
+    version: Literal[1] = 1
+    #: Ordered occurrence requests.
+    points: tuple[StudyPoint, ...]
+
+
+class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A durable study's status: its coordination state, its own attempt's state, its
+    finalization and publication, and every point.
+    """
+
+    #: The study's own attempt: the attempt its publication names.
+    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Queued while points run; then completed, partial, failed or cancelled.
+    attempt_state: enums.AttemptState
+    #: The finalization job's state.
+    finalization: enums.JobState
+    #: Why the finalization last failed.
+    finalization_error: str | None = None
+    #: Every point, in index order.
+    points: tuple[PointStatus, ...]
+    #: Its publication's identity, registered at creation.
+    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Open, concluded or published.
+    state: enums.StudyState
+    #: The study.
+    study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
 
 class TerminationCauseAssessment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="assessment"):
@@ -794,6 +1668,8 @@ class TerminationCauseAssessment(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     #: The use of each requested candidate, in request order.
     candidate_use: tuple[enums.CandidateUse, ...]
+    #: Original scientific diagnostic envelopes, retained without rendered-string reconstruction.
+    diagnostics: tuple[BoundaryDiagnostic, ...]
     #: Every requested candidate is a result.
     usable: bool
 
@@ -802,16 +1678,14 @@ class TerminationCauseError(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     """The run failed with an error, or cancellation stopped it."""
 
     #: The error's message.
-    message: str
-    #: The violated named contract the error reports.
-    rule: str
+    diagnostic: BoundaryDiagnostic
 
 
 class TerminationCauseInfrastructure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="infrastructure"):
     """Infrastructure failed the try; it is retried under the job's policy."""
 
-    #: The error's message.
-    message: str
+    #: Preserved original typed cause and observations.
+    diagnostic: BoundaryDiagnostic
 
 
 class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -821,9 +1695,40 @@ class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     """
 
     #: Document version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Why the try ended.
     cause: TerminationCause
+    #: Publication knowledge is independent of attempt lifecycle.
+    effect: enums.StudyEffectState
+    #: Typed occurrence try, including failures before native admission.
+    point: PointAttemptOutcome | None = None
+    #: Purpose-specific retry classification; severity does not grant retries.
+    retry_failure: enums.StudyRetryFailure | None = None
+
+
+class ValidityLineage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What a rejected authored validity predicate guards (ADR-0123 Outcome 4, Plan 23 H5): its
+    layer and the declaration stating it; for the form and data layers the form it belongs
+    to, the parameter sets whose values bound it and the form's declared arguments it
+    constrains; for the closure layer the model members its range bounds. A fixture's
+    expected validity failure is matched against this lineage, not against a rule text.
+    """
+
+    #: The form: the function declaration whose evaluation was rejected; absent on the
+    #: closure layer.
+    form: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The form layer (a function's own domain), the data layer (a declared envelope) or
+    #: the closure layer (an annotated range).
+    layer: enums.ModelingValidityLayer
+    #: The model members a closure range bounds; empty on the form and data layers.
+    members: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: The table rows or entities whose values bound the predicate, in order.
+    sets: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: The form itself, the relation or kind declaration declaring the envelope, or the
+    #: closure range's annotation.
+    source: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Positions of the constrained arguments among the form's declared arguments.
+    variables: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
 
 
 class WarmRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -849,7 +1754,25 @@ class WarmRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     slack_bound_push: Tolerance = 1e-9
 
 
+class WindowInputConstant(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constant"):
+    """The `WindowInputConstant` document type."""
+
+    value: str
+
+
+class WindowInputPeriods(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="periods"):
+    """The `WindowInputPeriods` document type."""
+
+    value: tuple[str, ...]
+
+
 BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings
+
+BindingTarget = BindingTargetPath | BindingTargetMember
+
+Dependency = DependencyOrdering | DependencyUsableResult
+
+HorizonSignalDocument = HorizonSignalDocumentMeasured | HorizonSignalDocumentEstimated | HorizonSignalDocumentApplied | HorizonSignalDocumentTrajectory
 
 IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpfgmr
 
@@ -857,29 +1780,76 @@ IpoptLinear = IpoptLinearMumps | IpoptLinearSpral | IpoptLinearPardisomkl
 
 JobStart = JobStartFresh | JobStartResumeFromParent | JobStartStoredSolution
 
-JobTask = JobTaskModeling | JobTaskStudyFinalization
+JobTask = JobTaskModeling | JobTaskStudyOperation | JobTaskStudyFinalization
 
 KinsolEta = KinsolEtaChoice1 | KinsolEtaChoice2 | KinsolEtaConstant
 
 KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolLinearSpfgmr | KinsolLinearSpbcgs | KinsolLinearSptfqmr
 
+NumericObservation = NumericObservationReal | NumericObservationNonfinite
+
+Observation = ObservationMissing | ObservationReal | ObservationNonfinite | ObservationPhysical | ObservationInteger | ObservationBoolean | ObservationText | ObservationContracts
+
+OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | OperationRequestFit | OperationRequestHorizon
+
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
+
+StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
+
+StartProvenance = StartProvenanceFresh | StartProvenanceNotNeeded | StartProvenanceContinuation | StartProvenanceExplicit | StartProvenanceFreshFallback
 
 TerminationCause = TerminationCauseError | TerminationCauseInfrastructure | TerminationCauseAssessment
 
+WindowInput = WindowInputConstant | WindowInputPeriods
+
 __all__ = [
     "AdjointSettings",
+    "AdmittedBinding",
+    "AdmittedBindingEntry",
+    "AdmittedHorizonValues",
+    "ApplicabilityClaim",
+    "ApplicabilityInput",
+    "ApplicabilityObservation",
+    "ApplicabilityPermission",
+    "ArrivalDocument",
     "AuthoredNumericalRequirementsRow",
     "BackendSettings",
+    "BindingAssignment",
+    "BindingQuantity",
+    "BindingTarget",
+    "BindingTargetMember",
+    "BindingTargetPath",
+    "BoundaryDiagnostic",
+    "CaseOperation",
     "ClarabelSettings",
+    "ClosedDuration",
+    "Conclusion",
+    "ControllerOperation",
+    "Dependency",
+    "DependencyOrdering",
+    "DependencyUsableResult",
     "DiffsolSettings",
+    "EndpointRequirement",
+    "EstimatorInput",
+    "EstimatorOperation",
+    "EvaluationLimits",
     "FeralSettings",
     "FiniteBound",
+    "FitOperation",
+    "FitOperationSettings",
     "FitUncertainty",
     "Fraction",
     "HighsDiagnostics",
     "HighsPenalties",
     "HighsSettings",
+    "HorizonBinding",
+    "HorizonInputDocument",
+    "HorizonOperation",
+    "HorizonSignalDocument",
+    "HorizonSignalDocumentApplied",
+    "HorizonSignalDocumentEstimated",
+    "HorizonSignalDocumentMeasured",
+    "HorizonSignalDocumentTrajectory",
     "IdasLinear",
     "IdasLinearKlu",
     "IdasLinearSpfgmr",
@@ -898,6 +1868,7 @@ __all__ = [
     "JobTask",
     "JobTaskModeling",
     "JobTaskStudyFinalization",
+    "JobTaskStudyOperation",
     "KinsolEta",
     "KinsolEtaChoice1",
     "KinsolEtaChoice2",
@@ -911,32 +1882,87 @@ __all__ = [
     "KinsolLinearSptfqmr",
     "KinsolSettings",
     "KktTolerances",
+    "LegacyUnavailable",
+    "Limits",
+    "NumericObservation",
+    "NumericObservationNonfinite",
+    "NumericObservationReal",
     "NumericalPolicy",
+    "Observation",
+    "ObservationBoolean",
+    "ObservationContracts",
+    "ObservationInteger",
+    "ObservationMissing",
+    "ObservationNonfinite",
+    "ObservationPhysical",
+    "ObservationReal",
+    "ObservationText",
+    "OccurrenceKey",
+    "OperandContract",
+    "OperationRequest",
+    "OperationRequestDeclaredCase",
+    "OperationRequestFit",
+    "OperationRequestHorizon",
+    "OperationRequestSimulation",
+    "OperationSource",
+    "Optimization",
     "OptionValue",
     "ParameterCovariance",
+    "PhysicalObservation",
+    "PointAttemptOutcome",
+    "PointOutcome",
     "PointOverlay",
+    "PointPolicy",
+    "PointStatus",
     "PositiveCount",
     "PounceConvexSettings",
     "PounceSettings",
     "PreparationCounts",
+    "PreparationSettings",
+    "Profile",
     "ProfileControls",
     "Propagation",
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",
+    "ScheduledInput",
+    "ScientificFacts",
     "ScipSettings",
     "SensitivityRequest",
+    "SimulationOperation",
     "SolveControls",
     "SolveSettings",
+    "SourceLocation",
     "SourceManifest",
+    "StartPolicy",
+    "StartPolicyContinuation",
+    "StartPolicyExplicit",
+    "StartPolicyFresh",
+    "StartProvenance",
+    "StartProvenanceContinuation",
+    "StartProvenanceExplicit",
+    "StartProvenanceFresh",
+    "StartProvenanceFreshFallback",
+    "StartProvenanceNotNeeded",
+    "StudyCancel",
+    "StudyCompilerProfile",
     "StudyDefinition",
+    "StudyOperation",
+    "StudyPoint",
     "StudyPointBinding",
     "StudyPointDefinition",
+    "StudyPointPolicy",
+    "StudyRequest",
+    "StudyStatus",
     "TerminationCause",
     "TerminationCauseAssessment",
     "TerminationCauseError",
     "TerminationCauseInfrastructure",
     "TerminationDetail",
     "Tolerance",
+    "ValidityLineage",
     "WarmRestart",
+    "WindowInput",
+    "WindowInputConstant",
+    "WindowInputPeriods",
 ]

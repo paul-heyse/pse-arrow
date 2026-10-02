@@ -1098,6 +1098,7 @@ mod tests {
         );
         // A case start cannot fix an inner coordinate while leaving its equation hidden.
         let case = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::new(),
             variables: BTreeMap::from([(
                 "root.y".into(),

@@ -26,7 +26,11 @@ from pse._build import (
 )
 from pse._inspection import TableStream
 from pse.contracts import runtime as result_contracts
-from pse.contracts.enums import AttemptState, JobState, StudyPointState, StudyState
+from pse.contracts.documents import (
+    PointStatus,
+    StudyCancel,
+    StudyStatus,
+)
 from pse.contracts.identities import (
     AttemptId,
     PublicationId,
@@ -35,6 +39,8 @@ from pse.contracts.identities import (
     WorkspaceId,
 )
 from pse.contracts.values import ContentHash, SemanticId
+
+StudyPointStatus: TypeAlias = PointStatus
 
 
 @attrs.frozen
@@ -374,57 +380,6 @@ class ProgressStream:
         self.close()
 
 
-class StudyPointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """One point of a durable study.
-
-    It records its state, the point that seeds it, its latest try and why it failed
-    or was cancelled.
-    """
-
-    point_index: int
-    state: StudyPointState
-    predecessor: int | None
-    attempt_id: str
-    attempt_state: AttemptState
-    job_state: JobState
-    error: str | None
-
-
-class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """A durable study and its lifecycle.
-
-    It is open while its points run, concluded once every point is terminal, and
-    published once its one publication is committed.
-    """
-
-    study_id: str
-    state: StudyState
-    attempt_id: str
-    attempt_state: AttemptState
-    publication_id: str
-    finalization: JobState
-    finalization_error: str | None
-    points: tuple[StudyPointStatus, ...]
-
-    @property
-    def id(self) -> StudyId:
-        """The study identity."""
-        return StudyId(SemanticId.from_hex(self.study_id))
-
-
-class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """What cancelling a study did.
-
-    It lists the points cancelled before they started and the running tries asked to
-    stop, and says whether the study concluded now or had already.
-    """
-
-    cancelled: tuple[int, ...]
-    stopping: tuple[int, ...]
-    concluded: bool
-    already_concluded: bool
-
-
 @attrs.frozen
 class StudyHandle:
     """A durable study run by workers: its status, cancellation and one publication."""
@@ -438,14 +393,14 @@ class StudyHandle:
 
     def status(self) -> StudyStatus:
         """Read the study and every point as the operational store holds them now."""
-        return msgspec.json.decode(self._handle.status(), type=StudyStatus)
+        return codec.decode_json(self._handle.status(), StudyStatus)
 
     def cancel(self) -> StudyCancel:
         """Cancel the points that have not started and stop the running tries.
 
         What completed is still published.
         """
-        return msgspec.json.decode(self._handle.cancel(), type=StudyCancel)
+        return codec.decode_json(self._handle.cancel(), StudyCancel)
 
     def result(self) -> Published | None:
         """The study's publication once committed; ``None`` before."""

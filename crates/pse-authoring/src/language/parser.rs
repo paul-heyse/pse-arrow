@@ -2138,7 +2138,10 @@ impl Cursor<'_> {
                         // Plan 23 CT-S13: `diagnose "<rule>" at(<member>, ...);` expects a
                         // numerical diagnostic finding naming each member at the solved point.
                         if self.eat("diagnose") {
-                            let rule = self.word()?;
+                            let rule = self
+                                .word()?
+                                .parse::<pse_diagnostics::DiagnosticRule>()
+                                .map_err(|error| self.error(&error.to_string()))?;
                             self.expect("at")?;
                             let members = self.expressions()?;
                             if members.is_empty() {

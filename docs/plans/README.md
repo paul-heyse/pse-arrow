@@ -18,11 +18,15 @@ with focused verification, final workspace/native-contract compilation and expli
 with selected mathematical meaning, exact export, shared response and composite focused evidence.
 [25e is complete](25e-declared-analyses-and-qualification.md#outcome-recorded-after-implementation),
 with declared execution, composed permission, actual endpoints, supervised shooting and the
-required preserving operational transition. Required 25f/25g/25h/25i/25j slices are implemented
-and tested; I4 is complete and the wider companion scope stays partial. Other lettered plans
-remain proposed.
+required preserving operational transition.
+[25f is complete](25f-studies-diagnostics-and-continuation.md#outcome-recorded-after-implementation),
+with shared occurrence policy/definitions, typed diagnostics, physical binding admission,
+durable effect recovery and generated study boundaries. Required 25g/25h/25i/25j slices are
+implemented and tested; I4 is complete and the wider companion scope stays partial.
+The next work is [25g's remaining durable evolution scope](25g-durable-contract-evolution.md#packets).
 The series reserves full integration and qualification for 25k after all functional
-work, with focused checks and immediate deletion of replaced mechanisms during the pivot.
+work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
+checks and immediate deletion of replaced mechanisms during the pivot.
 
 [Plan 23](23-thermodynamic-domain-and-campaign.md) (the thermodynamic domain model and
 integrated kernel campaign) is **done** (2026-09-30). Its

@@ -1338,9 +1338,9 @@ impl ModelingPackage {
                             initialization.failure.clone().or_else(|| {
                                 Some(pse_model::diagnostic::BoundaryDiagnostic::new(
                                     pse_model::diagnostic::BoundaryClass::ResourceLimit,
-                                    "initialization",
+                                    pse_diagnostics::DiagnosticStage::Initialization,
                                     [fixture.as_id()],
-                                    "modeling.initialization.incomplete",
+                                    pse_diagnostics::DiagnosticRule::ModelingInitializationIncomplete,
                                 ))
                             })
                         };
@@ -1995,9 +1995,9 @@ mod tests {
         assert_eq!(report.checks[0].oracle_source_id, Some(oracle));
         let mut failure = BoundaryDiagnostic::new(
             BoundaryClass::InvalidModel,
-            "test",
+            pse_diagnostics::DiagnosticStage::Test,
             ids.map(DeclarationId::as_id),
-            "synthetic",
+            pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
         );
         failure
             .observations
@@ -2056,9 +2056,9 @@ mod tests {
         );
         let mut failure = BoundaryDiagnostic::new(
             BoundaryClass::InvalidModel,
-            "test",
+            pse_diagnostics::DiagnosticStage::Test,
             [id.as_id()],
-            "synthetic",
+            pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
         );
         failure
             .observations
@@ -2502,7 +2502,10 @@ mod tests {
             diagnostic.class,
             pse_model::diagnostic::BoundaryClass::InvalidModel
         );
-        assert_eq!(diagnostic.rule, "native.structural");
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::NativeStructural
+        );
         assert!(!diagnostic.locations.is_empty());
         for member in ["root.a", "root.b", "root.c"] {
             assert!(
@@ -2547,7 +2550,7 @@ mod tests {
         let refusals = report
             .failures
             .iter()
-            .filter(|f| f.rule == "native.structural")
+            .filter(|f| f.rule == pse_diagnostics::DiagnosticRule::NativeStructural)
             .collect::<Vec<_>>();
         assert!(!refusals.is_empty());
         // The three equations over two variables form the over-determined part.
@@ -2561,7 +2564,9 @@ mod tests {
                 && c.failure_ordinal
                     .and_then(|ordinal| usize::try_from(ordinal).ok())
                     .and_then(|ordinal| report.failures.get(ordinal))
-                    .is_some_and(|failure| failure.rule == "native.structural")
+                    .is_some_and(|failure| {
+                        failure.rule == pse_diagnostics::DiagnosticRule::NativeStructural
+                    })
         }));
         // Unexpected, the same refusal fails the fixture.
         let unexpected = package(&source.replace("FAILURE", ""))
@@ -2902,7 +2907,10 @@ mod tests {
         assert_eq!(report.fixtures().len(), 2);
         assert!(report.results.is_empty());
         assert_eq!(report.failures.len(), 1);
-        assert_eq!(report.failures[0].rule, "math.validity");
+        assert_eq!(
+            report.failures[0].rule,
+            pse_diagnostics::DiagnosticRule::MathValidity
+        );
         assert!(
             report
                 .checks
@@ -3124,9 +3132,9 @@ mod tests {
         let finding = |sources: &[u8]| {
             pse_model::diagnostic::BoundaryDiagnostic::new(
                 pse_model::diagnostic::BoundaryClass::InvalidModel,
-                "native",
+                pse_diagnostics::DiagnosticStage::Native,
                 sources.iter().map(|b| SemanticId::from_bytes([*b; 16])),
-                "native.structural",
+                pse_diagnostics::DiagnosticRule::NativeStructural,
             )
         };
         assert!(fixture.matches(&finding(&[1, 2, 3])));

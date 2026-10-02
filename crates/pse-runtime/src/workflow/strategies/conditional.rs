@@ -810,30 +810,45 @@ fn conditional_admission(
     cause: MathRuntimeError,
 ) -> WorkflowError {
     use pse_model::diagnostic::{BoundaryClass as C, Observation};
-    let mut diagnostic =
-        crate::workflow::diagnostics::observed(&cause, "modeling.conditional_unit.admission");
+    let mut diagnostic = crate::workflow::diagnostics::observed(
+        &cause,
+        pse_diagnostics::DiagnosticStage::ModelingConditionalUnitAdmission,
+    );
     if matches!(
         cause,
         MathRuntimeError::Compile(pse_compiler::workspace::CompileError::Missing(_))
     ) {
         diagnostic.class = C::InvalidModel;
     }
-    diagnostic.stage = "modeling.conditional_unit.admission".into();
+    diagnostic.stage = pse_diagnostics::DiagnosticStage::ModelingConditionalUnitAdmission;
     diagnostic.rule = match diagnostic.class {
-        C::InvalidModel => "modeling.conditional_unit.admission.invalid_model",
-        C::Unsupported => "modeling.conditional_unit.admission.unsupported",
-        C::Cancelled => "modeling.conditional_unit.admission.cancelled",
-        C::ResourceLimit => "modeling.conditional_unit.admission.resource_limit",
-        C::TrialRejected => "modeling.conditional_unit.admission.trial_rejected",
-        C::Nonfinite => "modeling.conditional_unit.admission.nonfinite",
-        C::Infrastructure => "modeling.conditional_unit.admission.infrastructure",
-        C::Conflict => "modeling.conditional_unit.admission.conflict",
-        C::Incompatible => "modeling.conditional_unit.admission.incompatible",
-        C::Internal => "modeling.conditional_unit.admission.internal",
-        C::Numerical => "modeling.conditional_unit.admission.numerical",
-        C::Inconclusive => "modeling.conditional_unit.admission.inconclusive",
-    }
-    .into();
+        C::InvalidModel => {
+            pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionInvalidModel
+        }
+        C::Unsupported => {
+            pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionUnsupported
+        }
+        C::Cancelled => pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionCancelled,
+        C::ResourceLimit => {
+            pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionResourceLimit
+        }
+        C::TrialRejected => {
+            pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionTrialRejected
+        }
+        C::Nonfinite => pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionNonfinite,
+        C::Infrastructure => {
+            pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionInfrastructure
+        }
+        C::Conflict => pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionConflict,
+        C::Incompatible => {
+            pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionIncompatible
+        }
+        C::Internal => pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionInternal,
+        C::Numerical => pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionNumerical,
+        C::Inconclusive => {
+            pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionInconclusive
+        }
+    };
     diagnostic.sources.push(unit.node);
     diagnostic
         .sources

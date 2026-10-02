@@ -37,3 +37,5 @@ impl From<datafusion::common::DataFusionError> for AuthoringDriverError {
     }
 }
 pse_columnar::impl_native_error!(AuthoringDriverError);
+
+impl pse_model::diagnostic::DiagnosticProjection for AuthoringDriverError {}

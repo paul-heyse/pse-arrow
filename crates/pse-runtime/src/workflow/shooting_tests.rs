@@ -250,9 +250,9 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
     let native = report.trajectory.as_ref().unwrap();
     let diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
         pse_model::diagnostic::BoundaryClass::Inconclusive,
-        "shooting-trajectory-projection",
+        pse_diagnostics::DiagnosticStage::ShootingTrajectoryProjection,
         [id(30)],
-        "modeling.trajectory.incomplete",
+        pse_diagnostics::DiagnosticRule::ModelingTrajectoryIncomplete,
     );
     let owner = result._owner.as_ref().unwrap();
     let owners_before = Arc::strong_count(owner);
@@ -422,7 +422,7 @@ async fn multiple_shooting_continuity_closes() {
     ] {
         assert!(matches!(
             simulation.shooting(invalid),
-            Err(WorkflowError::Contract(_))
+            Err(WorkflowError::Input(_))
         ));
     }
 }

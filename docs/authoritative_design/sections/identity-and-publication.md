@@ -187,6 +187,15 @@ durable job's request identity is framed from the typed job, never from the text
 JSON value whose key order depends on the build graph
 (`job_request_identity_independent_of_key_order`).
 
+**Admitted study binding identity.** ADR-0148 (proposed; authorized Plan 25f implementation)
+adds `pse.study.binding.v1`. It frames physical context and ordered member identities, expected
+quantity identity, parameter role and exact finite canonical bits. Attribution paths and supplied
+units do not participate; the selected source revision is retained separately for admission and
+replay validation. Compatible explicit-ID renames can retain content identity; changed meaning
+or named-policy identity cannot. Occurrence, run and attempt identity remain distinct from binding
+content. Conflicting duplicate assignments, including different signed-zero bits, refuse before
+identity is derived.
+
 **Modeling source identity.** A modeling source revision's identity
 (`pse-runtime::math::modeling::source_revision`, frame `pse.modeling.source-revision.v4`)
 frames the structured declaration rows in order, each binary document identity and
@@ -727,6 +736,21 @@ from the latest incumbent in its parent attempt chain, injected into SCIP or giv
 as a start, so a killed worker's successor resumes the search; `StoredSolution` names one
 seed. Studies across workers are [§19.3](workflows-and-results.md#section-19-3).
 
+**Study member recovery.** ADR-0148 records the exact pre-effect native publication ticket
+under the fenced occurrence before member writes. A stale native-started attempt has an unknown
+effect. Under the study/job locks and expected revision, an absent ticket proves no write was
+authorized only after excluding a running worker and checking the current receipt state. A
+persisted ticket instead requires inspection by the existing member-attempt owner. Absent,
+provisioned or partially written native members remain unresolved; actual partial members stay
+inspectable. Only every exact ticket member committed establishes idempotent effect knowledge.
+
+Written members retain actual versions. Repeated attachment accepts an identical descriptor;
+a conflicting descriptor refuses. A newer attempt can replace the point member inventory only
+when the previous effect is known absent or idempotent, retaining its attempt history. Receipt
+knowledge establishes effects and available members, never scientific usability or an independent
+catalog publication commit. Recovery preserves attempt history and the live-lease/revision fences;
+retry consumes the known effect under the shared occurrence policy.
+
 **Query surface.** A durable runtime's query sessions see thirteen operational relations
 as read-only DataFusion tables under `pse_ops` (attempts, attempt transitions, jobs,
 progress events and values, incumbents, solutions, studies, study points, workspaces,
@@ -745,8 +769,8 @@ already serve ([operational-store guide](../../dev/operational-store.md)).
 
 **Limits.** A scan's pages are not one snapshot. Study point transitions serialize on the
 study row, and the 10 000-point scale of scenario S15 and statement performance at volume
-are unmeasured. A crashed point try's partial member tables are never collected, and a
-finalization that exhausts its retries leaves its study concluded without automatic
+are unmeasured. Native receipt reconciliation is required before a crashed study point can replay;
+real restart/publication qualification remains Plan 25k scope. A finalization that exhausts its retries leaves its study concluded without automatic
 recovery. A direct cancel of a waiting point can deadlock with its predecessor's
 completion; the transaction retries (register R-42). Remote servers and remote object stores are not qualified (register R-37).
 Operating the store (bootstrap, reset, generation order, backup, doctor) is covered by the

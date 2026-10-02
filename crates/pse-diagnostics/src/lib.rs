@@ -4,7 +4,10 @@
 //! Shared diagnostic vocabulary and lossless native engine causes.
 
 mod vocabulary;
-pub use vocabulary::{DiagnosticCode, DiagnosticRule, DiagnosticStage, FailureClass, VocabularyError};
+pub use vocabulary::{
+    DiagnosticCode, DiagnosticObservationKind, DiagnosticRule, DiagnosticStage, FailureClass,
+    VocabularyError,
+};
 
 /// Source-owned attribution without a dependency on semantic identity crates.
 #[derive(Clone, Debug, Default)]
@@ -51,7 +54,8 @@ pub enum DiagnosticObservation {
     Contracts(Vec<OperandContract>),
 }
 /// A complete registered quantity type plus its free-index obligations.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct OperandContract {
     /// Immutable complete quantity-type identity.
     pub quantity: [u8; 16],
@@ -67,7 +71,9 @@ impl DiagnosticFacts {
     pub fn merge(&mut self, other: Self) {
         self.sources.extend(other.sources);
         self.locations.extend(other.locations);
-        if other.rule.is_some() { self.rule = other.rule; }
+        if other.rule.is_some() {
+            self.rule = other.rule;
+        }
         self.observations.extend(other.observations);
     }
 }
@@ -77,7 +83,9 @@ pub trait TypedDiagnostic: miette::Diagnostic + 'static {
     /// One declared code, or none for an empty or mixed aggregate.
     fn diagnostic_code(&self) -> Option<DiagnosticCode>;
     /// Source-owned facts; lower layers never need a model/runtime dependency.
-    fn diagnostic_facts(&self) -> DiagnosticFacts { DiagnosticFacts::default() }
+    fn diagnostic_facts(&self) -> DiagnosticFacts {
+        DiagnosticFacts::default()
+    }
     /// Ordered children; an empty iterator denotes an empty failed aggregate.
     fn diagnostic_children(&self) -> Option<Box<dyn Iterator<Item = &dyn TypedDiagnostic> + '_>> {
         None

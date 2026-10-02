@@ -112,9 +112,7 @@ impl MathService {
                 FlightError::Load(e) => MathRuntimeError::Shared(e),
                 FlightError::Capacity => MathRuntimeError::Limit("artifact flights"),
                 FlightError::Retiring => MathRuntimeError::Retiring,
-                FlightError::Panicked => {
-                    MathRuntimeError::Infrastructure("artifact task panic".into())
-                }
+                FlightError::Panicked => MathRuntimeError::Panic("artifact task panic".into()),
             })
     }
 }

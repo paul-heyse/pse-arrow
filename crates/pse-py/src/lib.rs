@@ -80,12 +80,12 @@ mod _native {
             NativeModelingElasticAttempt, NativeModelingInitialization,
             NativeModelingInitializationAttempt, NativeModelingKnowledge,
             NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation,
-            NativeModelingPackage, NativeModelingResult, NativeModelingStudy,
-            NativeModelingTrajectory, NativePhysicalContext, NativePreparedFlow,
-            NativePreparedOperation, NativePreparedStrategy, NativeProgressStream,
-            NativePublicationAttempt, NativeRoute, NativeRunHandle, NativeRunResult, NativeRuntime,
-            NativeStart, NativeStrategyAttempt, NativeStrategyResult, NativeStudyHandle,
-            OperationalStore, ProgressEvent, SimulationSettings,
+            NativeModelingPackage, NativeModelingResult, NativeModelingTrajectory,
+            NativePhysicalContext, NativePreparedFlow, NativePreparedOperation,
+            NativePreparedStrategy, NativeProgressStream, NativePublicationAttempt, NativeRoute,
+            NativeRunHandle, NativeRunResult, NativeRuntime, NativeStart, NativeStrategyAttempt,
+            NativeStrategyResult, NativeStudyHandle, NativeStudyReport, OperationalStore,
+            ProgressEvent, SimulationSettings,
         },
     };
 

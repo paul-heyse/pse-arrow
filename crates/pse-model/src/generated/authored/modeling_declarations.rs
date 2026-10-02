@@ -740,7 +740,7 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFai
 )]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
     ///rule
-    pub r#rule: String,
+    pub r#rule: crate::generated::enums::DiagnosticRule,
     ///members
     pub r#members: Vec<String>,
 }

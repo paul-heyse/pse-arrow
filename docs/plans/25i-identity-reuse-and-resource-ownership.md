@@ -60,7 +60,7 @@ persistent Salsa identity or a cache-container-only repair was rejected.
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="i1"></a>I1 Canonical framing and roles | Existing identity contract; hashing decision route | Centralize framing, role types and small hex utilities | partial: 25c/25d prerequisite slices |
+| <a id="i1"></a>I1 Canonical framing and roles | Existing identity contract; hashing decision route | Centralize framing, role types and small hex utilities | partial: 25c/25d/25f prerequisite slices |
 | <a id="i2"></a>I2 Immutable/binding allocation ownership | Existing prepared-product owner | Share immutable/provenance payload; charge new allocations; retain escaped owners | planned |
 | <a id="i3"></a>I3 Complete bounded reuse | I1/I2; H1/H2/H4; A3 | Body-level queries, immutable bindings and service-scoped view/package retention | planned |
 | <a id="i4"></a>I4 Completion-owned native admission | Existing staged/session owner | Transfer guards with work and release at actual completion | complete: 25e |
@@ -219,6 +219,17 @@ conditions, composite results and limits; this does not close the enclosing pack
 [25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
 conditions, composite results and limits; this does not close the companion plan.
 
+## Consumed 25f prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** The identity owner frames admitted binding content with
+StudyBindingV1: canonical member coordinates/values and physical context are distinct from
+occurrence identity. Equal binding content can name separate experiments. Immutable operation
+admission is shared by the study executors, and focused counted-reuse controls establish the
+tested preparation behavior. This is not a cache, allocation or performance measurement.
+[25f Verification](25f-studies-diagnostics-and-continuation.md#verification) owns the controls,
+conditions and limits. Wider I1 framing/role migration, I2/I3 allocation and bounded reuse,
+and I5 worker/accelerator ownership remain open; I4 retains its completed 25e scope.
+
 ## Execution and evidence
 
 The consumed prerequisite slices above are **Implemented**; their focused evidence
@@ -241,7 +252,7 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25c/25d prerequisite slices and
+Full-plan closure remains outstanding. The implemented 25c/25d/25e/25f prerequisite slices and
 their remaining boundaries are recorded above; the linked plans own their focused evidence.
 
 ### A mistake made and corrected

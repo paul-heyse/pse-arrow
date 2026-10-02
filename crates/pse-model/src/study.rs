@@ -6,27 +6,35 @@ use crate::generated::enums::{CandidateUse, StudyPointState};
 use crate::generated::identities::SolutionId;
 
 /// Position-independent identity within one study; equal bindings do not merge keys.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(transparent)]
 pub struct OccurrenceKey(pub u32);
 
 /// Operation-owned output role selected explicitly for continuation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SeedRole {
-    /// Primal solution of a case solve.
-    PrimalSolution,
-    /// Shared parameters selected from an admitted fit.
-    ParameterEstimates,
-    /// A simulation's trajectory.
-    Trajectory,
-    /// An admitted horizon boundary state.
-    HorizonState,
-}
+pub use crate::generated::enums::StudySeedRole as SeedRole;
 
 /// Dependencies whose meaning does not depend on seed availability.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", content = "predecessor", rename_all = "snake_case")]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(
+    tag = "kind",
+    content = "predecessor",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum Dependency {
     /// Release after terminal completion, including failure or cancellation.
     Ordering(OccurrenceKey),
@@ -42,37 +50,27 @@ impl Dependency {
     }
 }
 
-/// Whether the selected operation can consume a start seed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SeedNeed {
-    /// Constant or seed-free evaluation; declared dependencies still apply.
-    NotNeeded,
-    /// The operation has a seed input, including a fresh operation-owned start.
-    Required,
-}
 /// Scientific permission demanded from a continuation predecessor.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContinuationPermission {
-    /// Default: only a scientifically usable run may seed this occurrence.
-    #[default]
-    RequireUsable,
-    /// Explicit choice: a seed-eligible run may supply a seed without usable results.
-    AllowSeedOnly,
+pub use crate::generated::enums::StudyContinuationPermission as ContinuationPermission;
+/// Operation-owned seed consumption vocabulary.
+pub use crate::generated::enums::StudySeedNeed as SeedNeed;
+/// Explicit fallback choice for an unavailable continuation seed.
+pub use crate::generated::enums::StudyUnavailableSeedPolicy as UnavailableSeedPolicy;
+impl Default for ContinuationPermission {
+    fn default() -> Self {
+        Self::RequireUsable
+    }
 }
-/// Choice when the selected continuation seed is absent or incompatible.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum UnavailableSeedPolicy {
-    /// Default: retain an attributable refusal.
-    #[default]
-    Refuse,
-    /// Explicitly permit a fresh start for absence or incompatibility only.
-    FreshOnUnavailable,
+impl Default for UnavailableSeedPolicy {
+    fn default() -> Self {
+        Self::Refuse
+    }
 }
 /// One selected predecessor role; never an arbitrary first result.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct SeedEdge {
     /// Occurrence supplying the selected role.
     pub predecessor: OccurrenceKey,
@@ -86,8 +84,10 @@ pub struct SeedEdge {
     pub unavailable: UnavailableSeedPolicy,
 }
 /// Declared start intent, separate from the chosen actual start.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StartPolicy {
     /// Operation-owned fresh start.
     Fresh,
@@ -97,10 +97,15 @@ pub enum StartPolicy {
     Explicit {
         /// Role required from the supplied seed facts.
         role: SeedRole,
+        /// Immutable supplied artifact identity; facts cannot substitute another seed.
+        seed: SolutionId,
     },
 }
 /// Policy slice of an admitted operation occurrence.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct PointPolicy {
     /// Stable occurrence identity.
     pub key: OccurrenceKey,
@@ -114,15 +119,22 @@ pub struct PointPolicy {
     pub attempt_limit: u32,
 }
 /// Shared policy slice; immutable operation/binding payloads remain with their owners.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct OccurrenceGraph {
     /// Deterministic authored occurrence order.
     pub points: Vec<PointPolicy>,
 }
 /// Compatibility is supplied by the operation owner for this consumer and selected role.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SeedAvailability {
+    /// Adapter has not acquired and validated the consumer seed yet.
+    Unresolved,
     /// Compatible seed artifact, resolved by the executor after the decision.
     Compatible {
         /// Artifact identity.
@@ -136,7 +148,10 @@ pub enum SeedAvailability {
     InternalFailure,
 }
 /// Selected role and its operation-owned seed facts.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct SeedFact {
     /// Explicit output role.
     pub role: SeedRole,
@@ -144,7 +159,10 @@ pub struct SeedFact {
     pub availability: SeedAvailability,
 }
 /// E supplies aggregate decisions; the study never counts result tables to infer these.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct ScientificFacts {
     /// Aggregate usable-result permission from the owning operation.
     pub usable: bool,
@@ -154,30 +172,14 @@ pub struct ScientificFacts {
     pub seed_permission: bool,
 }
 /// Effect knowledge used for publication reconciliation and retry safety.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EffectState {
-    /// No effect took place.
-    #[default]
-    Absent,
-    /// An effect took place, without a replay guarantee.
-    Present,
-    /// Publication acknowledgement is unresolved: reconcile before any retry.
-    Unknown,
-    /// An operation owner supplied a proven idempotent replay contract.
-    Idempotent,
-}
-/// Purpose-specific retry projection; diagnostic class alone is not permission.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RetryFailure {
-    /// Owner explicitly declared the failure transient.
-    Transient,
-    /// Deterministic encoding, admission or internal invariant defect.
-    Deterministic,
-}
+pub use crate::generated::enums::StudyEffectState as EffectState;
+/// Purpose-specific retry knowledge, independently supplied by its operation owner.
+pub use crate::generated::enums::StudyRetryFailure as RetryFailure;
 /// Current operational and scientific facts for one occurrence.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct PointFacts {
     /// Occurrence identity.
     pub key: OccurrenceKey,
@@ -185,6 +187,8 @@ pub struct PointFacts {
     pub revision: u64,
     /// Operational state, never a scientific decision.
     pub lifecycle: StudyPointState,
+    /// A claimed worker may acquire inputs before native dispatch is admitted.
+    pub native_started: bool,
     /// Operation-owned aggregate assessment.
     pub scientific: ScientificFacts,
     /// Attempts already started.
@@ -198,17 +202,12 @@ pub struct PointFacts {
     pub seed: Option<SeedFact>,
 }
 /// Reasons allowed to produce an explicitly requested fresh fallback.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SeedUnavailable {
-    /// Selected role has no seed.
-    Absent,
-    /// Seed and consumer contracts differ.
-    Incompatible,
-}
+pub use crate::generated::enums::StudySeedUnavailable as SeedUnavailable;
 /// Actual start selected by pure policy and retained by either executor.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StartProvenance {
     /// Declared fresh start.
     Fresh,
@@ -241,8 +240,10 @@ pub enum StartProvenance {
     },
 }
 /// Attributable policy refusal, separate from cancellation and operation diagnostics.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Refusal {
     /// A terminal predecessor did not grant required scientific permission.
     DependencyUnusable {
@@ -253,9 +254,13 @@ pub enum Refusal {
     SeedPermission {
         /// Selected predecessor.
         predecessor: OccurrenceKey,
+        /// Selected seed output role.
+        role: SeedRole,
     },
     /// Selected seed absence or incompatibility, without fallback permission.
     SeedUnavailable {
+        /// Continuation producer, absent for an explicit external seed.
+        predecessor: Option<OccurrenceKey>,
         /// Explicit selected role.
         role: SeedRole,
         /// Typed unavailability.
@@ -263,14 +268,23 @@ pub enum Refusal {
     },
     /// Seed acquisition/checking failed internally; never fresh fallback.
     SeedInternal {
+        /// Continuation producer, absent for an explicit external seed.
+        predecessor: Option<OccurrenceKey>,
         /// Selected role.
         role: SeedRole,
     },
 }
 /// Reason for waiting; terminal observations produce no new effect.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum WaitReason {
+    /// Queue admission grants acquisition only; no native start has been chosen.
+    SeedResolution {
+        /// Consumer input role whose compatibility remains unresolved.
+        role: SeedRole,
+    },
     /// Earlier occurrence is not yet terminal.
     Dependency {
         /// Earlier occurrence.
@@ -282,8 +296,15 @@ pub enum WaitReason {
     Terminal,
 }
 /// Effect-free requested action; adapters own fencing, locks and atomic application.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "kind", content = "detail", rename_all = "snake_case")]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(
+    tag = "kind",
+    content = "detail",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum ActionKind {
     /// Preserve current state.
     Wait(WaitReason),
@@ -297,7 +318,10 @@ pub enum ActionKind {
     Reconcile,
 }
 /// One action derived from one exact occurrence revision.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct PointAction {
     /// Target occurrence.
     pub occurrence: OccurrenceKey,
@@ -306,30 +330,15 @@ pub struct PointAction {
     /// Shared scientific/operational choice.
     pub kind: ActionKind,
 }
-/// Scientific availability remains inspectable after operational cancellation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Availability {
-    /// No occurrence grants aggregate usable-result permission.
-    None,
-    /// Some occurrences are usable, but the whole study is not scientifically complete.
-    Partial,
-    /// Every occurrence is terminal and scientifically usable.
-    Complete,
-}
+/// Scientific availability, independent of operational lifecycle.
+pub use crate::generated::enums::StudyAvailability as Availability;
 /// Operational conclusion, independent of scientific availability.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StudyLifecycle {
-    /// Work, retry or reconciliation remains.
-    Active,
-    /// All occurrences ended, without study cancellation.
-    Terminal,
-    /// Cancellation was requested, even if useful members remain available.
-    Cancelled,
-}
+pub use crate::generated::enums::StudyLifecycle;
 /// Shared conclusion of the current facts, not a fabricated result table.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct Conclusion {
     /// Whole-study scientific availability.
     pub availability: Availability,
@@ -337,10 +346,145 @@ pub struct Conclusion {
     pub lifecycle: StudyLifecycle,
 }
 /// Deterministic pure transition result in authored occurrence order.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct StudyDecision {
     /// One action for every occurrence.
     pub actions: Vec<PointAction>,
     /// Current scientific and operational conclusion.
     pub conclusion: Conclusion,
+}
+
+/// One retained try; attempt identity is distinct from the requested occurrence.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PointAttemptOutcome {
+    /// Present for a durable attempt; ephemeral tries still retain their ordered history.
+    pub attempt_id: Option<crate::generated::identities::AttemptId>,
+    /// Actual try lifecycle; absent when no operational attempt was made.
+    pub lifecycle: Option<crate::generated::enums::AttemptState>,
+    /// Original detailed diagnostic, including admission failures without result tables.
+    pub diagnostic: Option<crate::diagnostic::BoundaryDiagnostic>,
+    /// Original operation-owned scientific permission.
+    pub scientific: ScientificFacts,
+    /// Actual chosen start, if dispatch was attempted.
+    pub start: Option<StartProvenance>,
+    /// Knowledge of effects for this try.
+    pub effect: EffectState,
+}
+/// Shared outcome projection consumed by both executors and the durable store.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PointOutcome {
+    /// Requested occurrence, independent of preparation/binding content.
+    pub key: OccurrenceKey,
+    /// Operational point state, independent of scientific availability.
+    pub lifecycle: StudyPointState,
+    /// Latest operation-owned scientific permission.
+    pub scientific: ScientificFacts,
+    /// Detailed latest refusal/failure, without fabricating a scientific result.
+    pub diagnostic: Option<crate::diagnostic::BoundaryDiagnostic>,
+    /// Latest actual start provenance.
+    pub start: Option<StartProvenance>,
+    /// Latest publication/effect knowledge.
+    pub effect: EffectState,
+    /// Every actual try, including failed admission and retry attempts.
+    pub attempts: Vec<PointAttemptOutcome>,
+}
+
+impl StartProvenance {
+    /// Exhaustive relational projection of the actual selected start.
+    pub const fn kind(&self) -> crate::generated::enums::StudyStartKind {
+        use crate::generated::enums::StudyStartKind as K;
+        match self {
+            Self::Fresh => K::Fresh,
+            Self::NotNeeded => K::NotNeeded,
+            Self::Continuation { .. } => K::Continuation,
+            Self::Explicit { .. } => K::Explicit,
+            Self::FreshFallback { .. } => K::FreshFallback,
+        }
+    }
+}
+
+impl Refusal {
+    /// One owned diagnostic projection used by both executor adapters.
+    pub fn boundary_diagnostic(&self) -> crate::diagnostic::BoundaryDiagnostic {
+        use crate::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
+        use pse_diagnostics::{DiagnosticRule as R, DiagnosticStage};
+        let (rule, kind) = match self {
+            Self::DependencyUnusable { .. } => (R::StudyDependencyUnusable, "dependency_unusable"),
+            Self::SeedPermission { .. } => (R::StudyDependencyUnusable, "seed_permission"),
+            Self::SeedUnavailable {
+                reason: SeedUnavailable::Absent,
+                ..
+            } => (R::StudySeedUnavailable, "seed_unavailable"),
+            Self::SeedUnavailable {
+                reason: SeedUnavailable::Incompatible,
+                ..
+            } => (R::StudySeedIncompatible, "seed_incompatible"),
+            Self::SeedInternal { .. } => (R::StudySeedInternal, "seed_internal"),
+        };
+        let mut diagnostic = BoundaryDiagnostic::new(
+            if matches!(self, Self::SeedInternal { .. }) {
+                BoundaryClass::Internal
+            } else {
+                BoundaryClass::Conflict
+            },
+            DiagnosticStage::StudyPolicy,
+            [],
+            rule,
+        );
+        diagnostic
+            .observations
+            .insert("kind".into(), Observation::Text(kind.into()));
+        match self {
+            Self::DependencyUnusable { predecessor } => {
+                diagnostic.observations.insert(
+                    "predecessor".into(),
+                    Observation::Integer(i64::from(predecessor.0)),
+                );
+            }
+            Self::SeedPermission { predecessor, role } => {
+                diagnostic.observations.insert(
+                    "predecessor".into(),
+                    Observation::Integer(i64::from(predecessor.0)),
+                );
+                diagnostic
+                    .observations
+                    .insert("role".into(), Observation::Text(role.as_str().into()));
+            }
+            Self::SeedUnavailable {
+                predecessor,
+                role,
+                reason,
+            } => {
+                if let Some(predecessor) = predecessor {
+                    diagnostic.observations.insert(
+                        "predecessor".into(),
+                        Observation::Integer(i64::from(predecessor.0)),
+                    );
+                }
+                diagnostic
+                    .observations
+                    .insert("role".into(), Observation::Text(role.as_str().into()));
+                diagnostic
+                    .observations
+                    .insert("reason".into(), Observation::Text(reason.as_str().into()));
+            }
+            Self::SeedInternal { predecessor, role } => {
+                if let Some(predecessor) = predecessor {
+                    diagnostic.observations.insert(
+                        "predecessor".into(),
+                        Observation::Integer(i64::from(predecessor.0)),
+                    );
+                }
+                diagnostic
+                    .observations
+                    .insert("role".into(), Observation::Text(role.as_str().into()));
+            }
+        }
+        diagnostic
+    }
 }

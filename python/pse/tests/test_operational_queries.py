@@ -12,7 +12,6 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.contracts.documents import PointOverlay
 from pse.contracts.enums import (
     AttemptState,
     JobState,
@@ -21,6 +20,7 @@ from pse.contracts.enums import (
     PresolvePolicyKind,
 )
 from pse.contracts.identities import DeclarationId
+from pse.tests.study_fixtures import assignment, physical_ids, point, request
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -132,13 +132,21 @@ def test_jobs_and_studies_listed_and_queried(
     runtime = pse.Runtime(inspection_settings, store=operational_store)
     package, case = _package(runtime)
     workspace = runtime.register_workspace(f"queries-{uuid.uuid4().hex}", tmp_path)
-    handle = package.study(
-        (case, case),
-        _settings(),
-        overlays=(PointOverlay(), PointOverlay(values={"a": 9.0})),
-        runtime=runtime,
-        workspace=workspace,
+    scalar, one = physical_ids(
+        Path(__file__).resolve().parents[3]
+        / "tests/fixtures/packages/physical-primitives/materials/physical.yaml",
+        "Scalar",
+        "dimensionless",
     )
+    definition = package.admit_study(
+        request(
+            point(case, _settings(), 0),
+            point(
+                case, _settings(), 1, assignments=(assignment("a", 9.0, scalar, one),)
+            ),
+        )
+    )
+    handle = package.study(definition, runtime=runtime, workspace=workspace)
     status = handle.status()
     point_attempts = {point.attempt_id for point in status.points}
 

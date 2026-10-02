@@ -62,8 +62,8 @@ from pse._modeling import (
     ModelingNonlinearExplanation,
     ModelingPackage,
     ModelingResult,
-    ModelingStudy,
     ModelingTrajectory,
+    StudyReport,
 )
 from pse._runs import (
     ExportReceipt,
@@ -150,7 +150,6 @@ __all__ = [
     "ModelingNonlinearExplanation",
     "ModelingPackage",
     "ModelingResult",
-    "ModelingStudy",
     "ModelingTrajectory",
     "NativeAttempt",
     "NativeEligibility",
@@ -192,6 +191,7 @@ __all__ = [
     "StudyCancel",
     "StudyHandle",
     "StudyPointStatus",
+    "StudyReport",
     "StudyStatus",
     "TableName",
     "TableStream",

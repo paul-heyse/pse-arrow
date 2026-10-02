@@ -2385,6 +2385,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
         "package p { def Root { var x: Scalar; var y: Scalar; eq e: x+y == 3; let bad: Scalar = log(-1); } }",
     );
     let case = ModelingCaseBindings {
+        members: BTreeMap::new(),
         values: BTreeMap::from([("x".into(), 1.0), ("y".into(), 2.0)]),
         variables: BTreeMap::from([(
             "y".into(),

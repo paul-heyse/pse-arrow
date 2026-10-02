@@ -116,7 +116,7 @@ async fn ephemeral_cannot_publish() {
     );
     assert_eq!(
         refused.boundary_diagnostic().rule,
-        "workflow.ephemeral_publication"
+        pse_diagnostics::DiagnosticRule::WorkflowEphemeralPublication
     );
 }
 

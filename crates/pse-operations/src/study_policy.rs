@@ -69,9 +69,31 @@ pub enum PolicyError {
 }
 pse_diagnostics::impl_diagnostic! {
     PolicyError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::ValidationInvariant) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::StudyPolicyAdmission) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation, DiagnosticRule};
+        let mut facts = DiagnosticFacts { rule: Some(DiagnosticRule::StudyPolicyAdmission), ..DiagnosticFacts::default() };
+        let (kind, key) = match this {
+            PolicyError::Empty => ("empty", None),
+            PolicyError::DuplicateOccurrence { key } => ("duplicate_occurrence", Some(*key)),
+            PolicyError::UnknownDependency { key, predecessor } => {
+                facts.observe("predecessor", DiagnosticObservation::Integer(i64::from(predecessor.0)));
+                ("unknown_dependency", Some(*key))
+            }
+            PolicyError::DuplicateDependency { key } => ("duplicate_dependency", Some(*key)),
+            PolicyError::Cyclic => ("cyclic", None),
+            PolicyError::NoAttempts { key } => ("no_attempts", Some(*key)),
+            PolicyError::SeedNotConsumed { key } => ("seed_not_consumed", Some(*key)),
+            PolicyError::MissingFacts { key } => ("missing_facts", Some(*key)),
+            PolicyError::UnknownFacts { key } => ("unknown_facts", Some(*key)),
+        };
+        facts.observe("kind", DiagnosticObservation::Text(kind.to_owned()));
+        if let Some(key) = key { facts.observe("occurrence", DiagnosticObservation::Integer(i64::from(key.0))); }
+        facts
+    }
 }
+impl pse_model::diagnostic::DiagnosticProjection for PolicyError {}
 
 /// Check occurrence identity and all dependency meanings before scheduling.
 /// Operation owners admit descriptor/output/input compatibility before deriving this graph.
@@ -90,7 +112,9 @@ pub fn admit(graph: &OccurrenceGraph) -> Result<(), PolicyError> {
         if point.attempt_limit == 0 {
             return Err(PolicyError::NoAttempts { key: point.key });
         }
-        if point.seed_need == SeedNeed::NotNeeded && matches!(point.start, StartPolicy::Explicit { .. }) {
+        if point.seed_need == SeedNeed::NotNeeded
+            && matches!(point.start, StartPolicy::Explicit { .. })
+        {
             return Err(PolicyError::SeedNotConsumed { key: point.key });
         }
     }
@@ -157,7 +181,9 @@ pub fn transition(
         });
     }
     let usable = facts.iter().filter(|fact| fact.scientific.usable).count();
-    let settled = actions.iter().all(|action| matches!(action.kind, ActionKind::Wait(WaitReason::Terminal)));
+    let settled = actions
+        .iter()
+        .all(|action| matches!(action.kind, ActionKind::Wait(WaitReason::Terminal)));
     let availability = if settled && usable == graph.points.len() {
         Availability::Complete
     } else if usable > 0 {
@@ -172,14 +198,23 @@ pub fn transition(
     } else {
         StudyLifecycle::Active
     };
-    Ok(StudyDecision { actions, conclusion: Conclusion { availability, lifecycle } })
+    Ok(StudyDecision {
+        actions,
+        conclusion: Conclusion {
+            availability,
+            lifecycle,
+        },
+    })
 }
 
 fn get_fact<'a>(
     snapshot: &BTreeMap<OccurrenceKey, &'a PointFacts>,
     key: OccurrenceKey,
 ) -> Result<&'a PointFacts, PolicyError> {
-    snapshot.get(&key).copied().ok_or(PolicyError::MissingFacts { key })
+    snapshot
+        .get(&key)
+        .copied()
+        .ok_or(PolicyError::MissingFacts { key })
 }
 
 const fn terminal(state: StudyPointState) -> bool {
@@ -206,7 +241,7 @@ fn action(
     if terminal(fact.lifecycle) && !retry {
         return Ok(ActionKind::Wait(WaitReason::Terminal));
     }
-    if fact.lifecycle == StudyPointState::Assigned {
+    if fact.lifecycle == StudyPointState::Assigned && fact.native_started {
         return Ok(ActionKind::Wait(WaitReason::Assigned));
     }
     let mut waiting = None;
@@ -216,55 +251,108 @@ fn action(
         if !predecessor_settled(graph, previous, cancelled)? {
             waiting.get_or_insert(predecessor);
         } else if matches!(dependency, Dependency::UsableResult(_)) && !previous.scientific.usable {
-            return Ok(ActionKind::Refuse(Refusal::DependencyUnusable { predecessor }));
+            return Ok(ActionKind::Refuse(Refusal::DependencyUnusable {
+                predecessor,
+            }));
         }
     }
     if let Some(predecessor) = waiting {
         return Ok(ActionKind::Wait(WaitReason::Dependency { predecessor }));
     }
     match &point.start {
-        StartPolicy::Fresh => Ok(ActionKind::Start(if point.seed_need == SeedNeed::NotNeeded {
-            StartProvenance::NotNeeded
-        } else {
-            StartProvenance::Fresh
-        })),
-        StartPolicy::Explicit { role } => Ok(match seed_availability(fact, *role) {
-            SeedAvailability::Compatible { seed } => ActionKind::Start(StartProvenance::Explicit { role: *role, seed }),
-            SeedAvailability::Absent => unavailable(*role, SeedUnavailable::Absent),
-            SeedAvailability::Incompatible => unavailable(*role, SeedUnavailable::Incompatible),
-            SeedAvailability::InternalFailure => ActionKind::Refuse(Refusal::SeedInternal { role: *role }),
+        StartPolicy::Fresh => Ok(ActionKind::Start(
+            if point.seed_need == SeedNeed::NotNeeded {
+                StartProvenance::NotNeeded
+            } else {
+                StartProvenance::Fresh
+            },
+        )),
+        StartPolicy::Explicit {
+            role,
+            seed: requested,
+        } => Ok(match seed_availability(fact, *role) {
+            SeedAvailability::Unresolved => {
+                ActionKind::Wait(WaitReason::SeedResolution { role: *role })
+            }
+            SeedAvailability::Compatible { seed } if seed == *requested => {
+                ActionKind::Start(StartProvenance::Explicit { role: *role, seed })
+            }
+            SeedAvailability::Compatible { .. } => {
+                unavailable(None, *role, SeedUnavailable::Incompatible)
+            }
+            SeedAvailability::Absent => unavailable(None, *role, SeedUnavailable::Absent),
+            SeedAvailability::Incompatible => {
+                unavailable(None, *role, SeedUnavailable::Incompatible)
+            }
+            SeedAvailability::InternalFailure => ActionKind::Refuse(Refusal::SeedInternal {
+                predecessor: None,
+                role: *role,
+            }),
         }),
         StartPolicy::Continuation(edge) => {
             let previous = get_fact(snapshot, edge.predecessor)?;
             if !predecessor_settled(graph, previous, cancelled)? {
-                return Ok(ActionKind::Wait(WaitReason::Dependency { predecessor: edge.predecessor }));
+                return Ok(ActionKind::Wait(WaitReason::Dependency {
+                    predecessor: edge.predecessor,
+                }));
             }
             let permitted = previous.scientific.usable
-                || (edge.permission == ContinuationPermission::AllowSeedOnly && previous.scientific.seed_permission);
+                || (edge.permission == ContinuationPermission::AllowSeedOnly
+                    && previous.scientific.seed_permission);
             if point.seed_need == SeedNeed::NotNeeded {
                 return Ok(if permitted {
                     ActionKind::Start(StartProvenance::NotNeeded)
                 } else {
-                    ActionKind::Refuse(Refusal::DependencyUnusable { predecessor: edge.predecessor })
+                    ActionKind::Refuse(Refusal::DependencyUnusable {
+                        predecessor: edge.predecessor,
+                    })
                 });
             }
             let absent = match seed_availability(fact, edge.role) {
-                SeedAvailability::Compatible { seed } => {
+                SeedAvailability::Unresolved => {
                     return Ok(if permitted {
-                        ActionKind::Start(StartProvenance::Continuation { predecessor: edge.predecessor, role: edge.role, seed })
+                        ActionKind::Wait(WaitReason::SeedResolution { role: edge.role })
                     } else {
-                        ActionKind::Refuse(Refusal::SeedPermission { predecessor: edge.predecessor })
+                        ActionKind::Refuse(Refusal::SeedPermission {
+                            predecessor: edge.predecessor,
+                            role: edge.role,
+                        })
                     });
                 }
-                SeedAvailability::InternalFailure => return Ok(ActionKind::Refuse(Refusal::SeedInternal { role: edge.role })),
+                SeedAvailability::Compatible { seed } => {
+                    return Ok(if permitted {
+                        ActionKind::Start(StartProvenance::Continuation {
+                            predecessor: edge.predecessor,
+                            role: edge.role,
+                            seed,
+                        })
+                    } else {
+                        ActionKind::Refuse(Refusal::SeedPermission {
+                            predecessor: edge.predecessor,
+                            role: edge.role,
+                        })
+                    });
+                }
+                SeedAvailability::InternalFailure => {
+                    return Ok(ActionKind::Refuse(Refusal::SeedInternal {
+                        predecessor: Some(edge.predecessor),
+                        role: edge.role,
+                    }));
+                }
                 SeedAvailability::Absent => SeedUnavailable::Absent,
                 SeedAvailability::Incompatible => SeedUnavailable::Incompatible,
             };
-            Ok(if edge.unavailable == UnavailableSeedPolicy::FreshOnUnavailable {
-                ActionKind::Start(StartProvenance::FreshFallback { predecessor: edge.predecessor, role: edge.role, reason: absent })
-            } else {
-                unavailable(edge.role, absent)
-            })
+            Ok(
+                if edge.unavailable == UnavailableSeedPolicy::FreshOnUnavailable {
+                    ActionKind::Start(StartProvenance::FreshFallback {
+                        predecessor: edge.predecessor,
+                        role: edge.role,
+                        reason: absent,
+                    })
+                } else {
+                    unavailable(Some(edge.predecessor), edge.role, absent)
+                },
+            )
         }
     }
 }
@@ -277,10 +365,19 @@ fn may_retry(point: &PointPolicy, fact: &PointFacts, cancelled: bool) -> bool {
         && matches!(fact.effect, EffectState::Absent | EffectState::Idempotent)
 }
 
-fn predecessor_settled(graph: &OccurrenceGraph, fact: &PointFacts, cancelled: bool) -> Result<bool, PolicyError> {
-    let point = graph.points.iter().find(|point| point.key == fact.key)
+fn predecessor_settled(
+    graph: &OccurrenceGraph,
+    fact: &PointFacts,
+    cancelled: bool,
+) -> Result<bool, PolicyError> {
+    let point = graph
+        .points
+        .iter()
+        .find(|point| point.key == fact.key)
         .ok_or(PolicyError::UnknownFacts { key: fact.key })?;
-    Ok(terminal(fact.lifecycle) && fact.effect != EffectState::Unknown && !may_retry(point, fact, cancelled))
+    Ok(terminal(fact.lifecycle)
+        && fact.effect != EffectState::Unknown
+        && !may_retry(point, fact, cancelled))
 }
 
 fn seed_availability(fact: &PointFacts, role: SeedRole) -> SeedAvailability {
@@ -291,8 +388,16 @@ fn seed_availability(fact: &PointFacts, role: SeedRole) -> SeedAvailability {
     }
 }
 
-fn unavailable(role: SeedRole, reason: SeedUnavailable) -> ActionKind {
-    ActionKind::Refuse(Refusal::SeedUnavailable { role, reason })
+fn unavailable(
+    predecessor: Option<OccurrenceKey>,
+    role: SeedRole,
+    reason: SeedUnavailable,
+) -> ActionKind {
+    ActionKind::Refuse(Refusal::SeedUnavailable {
+        predecessor,
+        role,
+        reason,
+    })
 }
 
 #[cfg(test)]
@@ -304,78 +409,192 @@ mod study_policy_unit {
 
     fn point(key: u32) -> PointPolicy {
         PointPolicy {
-            key: OccurrenceKey(key), dependencies: vec![], seed_need: SeedNeed::Required,
-            start: StartPolicy::Fresh, attempt_limit: 1,
+            key: OccurrenceKey(key),
+            dependencies: vec![],
+            seed_need: SeedNeed::Required,
+            start: StartPolicy::Fresh,
+            attempt_limit: 1,
         }
     }
     fn fact(key: u32, lifecycle: StudyPointState, usable: bool) -> PointFacts {
         PointFacts {
-            key: OccurrenceKey(key), revision: 41 + u64::from(key), lifecycle,
-            scientific: ScientificFacts { usable, candidate_use: None, seed_permission: usable },
-            attempt_count: u32::from(terminal(lifecycle)), retry_failure: None,
-            effect: EffectState::Absent, seed: None,
+            key: OccurrenceKey(key),
+            revision: 41 + u64::from(key),
+            lifecycle,
+            native_started: lifecycle == StudyPointState::Assigned,
+            scientific: ScientificFacts {
+                usable,
+                candidate_use: None,
+                seed_permission: usable,
+            },
+            attempt_count: u32::from(terminal(lifecycle)),
+            retry_failure: None,
+            effect: EffectState::Absent,
+            seed: None,
         }
     }
     fn continuation() -> (OccurrenceGraph, Vec<PointFacts>) {
         let mut child = point(7);
         child.start = StartPolicy::Continuation(SeedEdge {
-            predecessor: OccurrenceKey(3), role: SeedRole::PrimalSolution,
+            predecessor: OccurrenceKey(3),
+            role: SeedRole::PrimalSolution,
             permission: ContinuationPermission::RequireUsable,
             unavailable: UnavailableSeedPolicy::Refuse,
         });
         let mut child_fact = fact(7, StudyPointState::Pending, false);
         child_fact.seed = Some(SeedFact {
             role: SeedRole::PrimalSolution,
-            availability: SeedAvailability::Compatible { seed: SolutionId::from_bytes([9; 16]) },
+            availability: SeedAvailability::Compatible {
+                seed: SolutionId::from_bytes([9; 16]),
+            },
         });
-        (OccurrenceGraph { points: vec![point(3), child] }, vec![fact(3, StudyPointState::Completed, true), child_fact])
+        (
+            OccurrenceGraph {
+                points: vec![point(3), child],
+            },
+            vec![fact(3, StudyPointState::Completed, true), child_fact],
+        )
     }
     fn child_action(graph: &OccurrenceGraph, facts: &[PointFacts]) -> ActionKind {
-        transition(graph, facts, false).unwrap().actions[1].kind.clone()
+        transition(graph, facts, false).unwrap().actions[1]
+            .kind
+            .clone()
     }
     fn edge(graph: &mut OccurrenceGraph) -> &mut SeedEdge {
-        let StartPolicy::Continuation(edge) = &mut graph.points[1].start else { panic!("fixture edge") };
+        let StartPolicy::Continuation(edge) = &mut graph.points[1].start else {
+            panic!("fixture edge")
+        };
         edge
+    }
+
+    #[test]
+    fn unresolved_seed_grants_acquisition_without_native_start() {
+        let (graph, mut facts) = continuation();
+        facts[1].seed.as_mut().unwrap().availability = SeedAvailability::Unresolved;
+        assert!(matches!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::SeedResolution { .. })
+        ));
+        facts[1].lifecycle = StudyPointState::Assigned;
+        facts[1].native_started = false;
+        assert!(matches!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::SeedResolution { .. })
+        ));
+        facts[1].seed.as_mut().unwrap().availability = SeedAvailability::Compatible {
+            seed: SolutionId::from_bytes([9; 16]),
+        };
+        assert!(matches!(child_action(&graph, &facts), ActionKind::Start(_)));
+        facts[1].native_started = true;
+        assert!(matches!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::Assigned)
+        ));
     }
 
     #[test]
     fn admission_checks_all_edge_kinds_and_occurrence_identity() {
         let (mut graph, _) = continuation();
         assert_eq!(admit(&graph), Ok(()));
-        graph.points[0].dependencies.push(Dependency::Ordering(OccurrenceKey(7)));
+        graph.points[0]
+            .dependencies
+            .push(Dependency::Ordering(OccurrenceKey(7)));
         assert_eq!(admit(&graph), Err(PolicyError::Cyclic));
         graph.points[0].dependencies = vec![Dependency::UsableResult(OccurrenceKey(99))];
-        assert_eq!(admit(&graph), Err(PolicyError::UnknownDependency { key: OccurrenceKey(3), predecessor: OccurrenceKey(99) }));
+        assert_eq!(
+            admit(&graph),
+            Err(PolicyError::UnknownDependency {
+                key: OccurrenceKey(3),
+                predecessor: OccurrenceKey(99)
+            })
+        );
         graph.points[0].dependencies.clear();
         graph.points[1].key = OccurrenceKey(3);
-        assert_eq!(admit(&graph), Err(PolicyError::DuplicateOccurrence { key: OccurrenceKey(3) }));
+        assert_eq!(
+            admit(&graph),
+            Err(PolicyError::DuplicateOccurrence {
+                key: OccurrenceKey(3)
+            })
+        );
         let mut duplicate = point(1);
         duplicate.dependencies = vec![Dependency::Ordering(OccurrenceKey(0)); 2];
-        assert_eq!(admit(&OccurrenceGraph { points: vec![point(0), duplicate] }), Err(PolicyError::DuplicateDependency { key: OccurrenceKey(1) }));
+        assert_eq!(
+            admit(&OccurrenceGraph {
+                points: vec![point(0), duplicate]
+            }),
+            Err(PolicyError::DuplicateDependency {
+                key: OccurrenceKey(1)
+            })
+        );
     }
 
     #[test]
     fn equal_operation_policies_remain_independent_repetitions() {
-        let graph = OccurrenceGraph { points: vec![point(1), point(2)] };
-        let facts = vec![fact(2, StudyPointState::Pending, false), fact(1, StudyPointState::Pending, false)];
+        let graph = OccurrenceGraph {
+            points: vec![point(1), point(2)],
+        };
+        let facts = vec![
+            fact(2, StudyPointState::Pending, false),
+            fact(1, StudyPointState::Pending, false),
+        ];
         let decision = transition(&graph, &facts, false).unwrap();
-        assert_eq!(decision.actions.iter().map(|a| a.occurrence).collect::<Vec<_>>(), vec![OccurrenceKey(1), OccurrenceKey(2)]);
-        assert_eq!(decision.actions.iter().map(|a| a.expected_revision).collect::<Vec<_>>(), vec![42, 43]);
-        assert!(decision.actions.iter().all(|a| a.kind == ActionKind::Start(StartProvenance::Fresh)));
-        assert_eq!(transition(&graph, &facts.into_iter().rev().collect::<Vec<_>>(), false).unwrap(), decision);
+        assert_eq!(
+            decision
+                .actions
+                .iter()
+                .map(|a| a.occurrence)
+                .collect::<Vec<_>>(),
+            vec![OccurrenceKey(1), OccurrenceKey(2)]
+        );
+        assert_eq!(
+            decision
+                .actions
+                .iter()
+                .map(|a| a.expected_revision)
+                .collect::<Vec<_>>(),
+            vec![42, 43]
+        );
+        assert!(
+            decision
+                .actions
+                .iter()
+                .all(|a| a.kind == ActionKind::Start(StartProvenance::Fresh))
+        );
+        assert_eq!(
+            transition(&graph, &facts.into_iter().rev().collect::<Vec<_>>(), false).unwrap(),
+            decision
+        );
     }
 
     #[test]
     fn strict_continuation_waits_then_requires_usable_compatible_seed() {
         let (graph, mut facts) = continuation();
-        assert!(matches!(child_action(&graph, &facts), ActionKind::Start(StartProvenance::Continuation { predecessor: OccurrenceKey(3), role: SeedRole::PrimalSolution, .. })));
+        assert!(matches!(
+            child_action(&graph, &facts),
+            ActionKind::Start(StartProvenance::Continuation {
+                predecessor: OccurrenceKey(3),
+                role: SeedRole::PrimalSolution,
+                ..
+            })
+        ));
         facts[0].lifecycle = StudyPointState::Assigned;
-        assert_eq!(child_action(&graph, &facts), ActionKind::Wait(WaitReason::Dependency { predecessor: OccurrenceKey(3) }));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::Dependency {
+                predecessor: OccurrenceKey(3)
+            })
+        );
         facts[0].lifecycle = StudyPointState::Failed;
         facts[0].scientific.usable = false;
         facts[0].scientific.seed_permission = true;
         facts[0].scientific.candidate_use = Some(CandidateUse::SeedOnly);
-        assert_eq!(child_action(&graph, &facts), ActionKind::Refuse(Refusal::SeedPermission { predecessor: OccurrenceKey(3) }));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Refuse(Refusal::SeedPermission {
+                role: SeedRole::PrimalSolution,
+                predecessor: OccurrenceKey(3)
+            })
+        );
     }
 
     #[test]
@@ -385,45 +604,123 @@ mod study_policy_unit {
         facts[0].scientific.seed_permission = true;
         facts[0].scientific.candidate_use = Some(CandidateUse::SeedOnly);
         edge(&mut graph).permission = ContinuationPermission::AllowSeedOnly;
-        assert!(matches!(child_action(&graph, &facts), ActionKind::Start(StartProvenance::Continuation { .. })));
-        graph.points[1].dependencies.push(Dependency::UsableResult(OccurrenceKey(3)));
-        assert_eq!(child_action(&graph, &facts), ActionKind::Refuse(Refusal::DependencyUnusable { predecessor: OccurrenceKey(3) }));
+        assert!(matches!(
+            child_action(&graph, &facts),
+            ActionKind::Start(StartProvenance::Continuation { .. })
+        ));
+        graph.points[1]
+            .dependencies
+            .push(Dependency::UsableResult(OccurrenceKey(3)));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Refuse(Refusal::DependencyUnusable {
+                predecessor: OccurrenceKey(3)
+            })
+        );
     }
 
     #[test]
     fn ordering_failure_releases_but_usable_failure_refuses() {
-        let graph = OccurrenceGraph { points: vec![point(0), PointPolicy { dependencies: vec![Dependency::Ordering(OccurrenceKey(0))], ..point(1) }] };
-        let facts = vec![fact(0, StudyPointState::Failed, false), fact(1, StudyPointState::Pending, false)];
-        assert_eq!(child_action(&graph, &facts), ActionKind::Start(StartProvenance::Fresh));
+        let graph = OccurrenceGraph {
+            points: vec![
+                point(0),
+                PointPolicy {
+                    dependencies: vec![Dependency::Ordering(OccurrenceKey(0))],
+                    ..point(1)
+                },
+            ],
+        };
+        let facts = vec![
+            fact(0, StudyPointState::Failed, false),
+            fact(1, StudyPointState::Pending, false),
+        ];
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Start(StartProvenance::Fresh)
+        );
         let mut usable_graph = graph;
         usable_graph.points[1].dependencies = vec![Dependency::UsableResult(OccurrenceKey(0))];
-        assert_eq!(child_action(&usable_graph, &facts), ActionKind::Refuse(Refusal::DependencyUnusable { predecessor: OccurrenceKey(0) }));
-        assert_eq!(transition(&usable_graph, &facts, true).unwrap().actions[1].kind, ActionKind::Cancel);
+        assert_eq!(
+            child_action(&usable_graph, &facts),
+            ActionKind::Refuse(Refusal::DependencyUnusable {
+                predecessor: OccurrenceKey(0)
+            })
+        );
+        assert_eq!(
+            transition(&usable_graph, &facts, true).unwrap().actions[1].kind,
+            ActionKind::Cancel
+        );
     }
 
     #[test]
     fn fallback_is_explicit_and_only_for_absence_or_incompatibility() {
         let (mut graph, mut facts) = continuation();
-        for (availability, reason) in [(SeedAvailability::Absent, SeedUnavailable::Absent), (SeedAvailability::Incompatible, SeedUnavailable::Incompatible)] {
+        for (availability, reason) in [
+            (SeedAvailability::Absent, SeedUnavailable::Absent),
+            (
+                SeedAvailability::Incompatible,
+                SeedUnavailable::Incompatible,
+            ),
+        ] {
             facts[1].seed.as_mut().unwrap().availability = availability;
-            assert_eq!(child_action(&graph, &facts), unavailable(SeedRole::PrimalSolution, reason));
+            assert_eq!(
+                child_action(&graph, &facts),
+                unavailable(Some(OccurrenceKey(3)), SeedRole::PrimalSolution, reason)
+            );
             edge(&mut graph).unavailable = UnavailableSeedPolicy::FreshOnUnavailable;
-            assert_eq!(child_action(&graph, &facts), ActionKind::Start(StartProvenance::FreshFallback { predecessor: OccurrenceKey(3), role: SeedRole::PrimalSolution, reason }));
+            assert_eq!(
+                child_action(&graph, &facts),
+                ActionKind::Start(StartProvenance::FreshFallback {
+                    predecessor: OccurrenceKey(3),
+                    role: SeedRole::PrimalSolution,
+                    reason
+                })
+            );
             edge(&mut graph).unavailable = UnavailableSeedPolicy::Refuse;
         }
         edge(&mut graph).unavailable = UnavailableSeedPolicy::FreshOnUnavailable;
         facts[1].seed.as_mut().unwrap().availability = SeedAvailability::InternalFailure;
-        assert_eq!(child_action(&graph, &facts), ActionKind::Refuse(Refusal::SeedInternal { role: SeedRole::PrimalSolution }));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Refuse(Refusal::SeedInternal {
+                predecessor: Some(OccurrenceKey(3)),
+                role: SeedRole::PrimalSolution
+            })
+        );
     }
 
     #[test]
     fn supplied_seed_and_wrong_output_role_never_silently_fall_back() {
         let (mut graph, mut facts) = continuation();
-        graph.points[1].start = StartPolicy::Explicit { role: SeedRole::PrimalSolution };
+        graph.points[1].start = StartPolicy::Explicit {
+            role: SeedRole::PrimalSolution,
+            seed: SolutionId::from_bytes([9; 16]),
+        };
+        facts[1].seed.as_mut().unwrap().availability = SeedAvailability::Compatible {
+            seed: SolutionId::from_bytes([8; 16]),
+        };
+        assert_eq!(
+            child_action(&graph, &facts),
+            unavailable(
+                None,
+                SeedRole::PrimalSolution,
+                SeedUnavailable::Incompatible
+            )
+        );
         facts[1].seed.as_mut().unwrap().role = SeedRole::Trajectory;
-        assert_eq!(child_action(&graph, &facts), unavailable(SeedRole::PrimalSolution, SeedUnavailable::Incompatible));
+        assert_eq!(
+            child_action(&graph, &facts),
+            unavailable(
+                None,
+                SeedRole::PrimalSolution,
+                SeedUnavailable::Incompatible
+            )
+        );
         facts[1].seed = None;
-        assert_eq!(child_action(&graph, &facts), unavailable(SeedRole::PrimalSolution, SeedUnavailable::Absent));
+        assert_eq!(
+            child_action(&graph, &facts),
+            unavailable(None, SeedRole::PrimalSolution, SeedUnavailable::Absent)
+        );
     }
 
     #[test]
@@ -431,59 +728,125 @@ mod study_policy_unit {
         let (mut graph, mut facts) = continuation();
         graph.points[1].seed_need = SeedNeed::NotNeeded;
         facts[1].seed = None;
-        assert_eq!(child_action(&graph, &facts), ActionKind::Start(StartProvenance::NotNeeded));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Start(StartProvenance::NotNeeded)
+        );
         facts[0].lifecycle = StudyPointState::Assigned;
-        assert!(matches!(child_action(&graph, &facts), ActionKind::Wait(WaitReason::Dependency { .. })));
+        assert!(matches!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::Dependency { .. })
+        ));
         facts[0].lifecycle = StudyPointState::Failed;
         facts[0].scientific.usable = false;
-        assert_eq!(child_action(&graph, &facts), ActionKind::Refuse(Refusal::DependencyUnusable { predecessor: OccurrenceKey(3) }));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Refuse(Refusal::DependencyUnusable {
+                predecessor: OccurrenceKey(3)
+            })
+        );
         graph.points[1].start = StartPolicy::Fresh;
         graph.points[1].dependencies = vec![Dependency::Ordering(OccurrenceKey(3))];
-        assert_eq!(child_action(&graph, &facts), ActionKind::Start(StartProvenance::NotNeeded));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Start(StartProvenance::NotNeeded)
+        );
     }
 
     #[test]
     fn retry_requires_transient_failure_bounded_attempts_and_safe_effect() {
-        let graph = OccurrenceGraph { points: vec![PointPolicy { attempt_limit: 2, ..point(0) }] };
+        let graph = OccurrenceGraph {
+            points: vec![PointPolicy {
+                attempt_limit: 2,
+                ..point(0)
+            }],
+        };
         let mut facts = vec![fact(0, StudyPointState::Failed, false)];
         for failure in [None, Some(RetryFailure::Deterministic)] {
             facts[0].retry_failure = failure;
-            assert_eq!(transition(&graph, &facts, false).unwrap().actions[0].kind, ActionKind::Wait(WaitReason::Terminal));
+            assert_eq!(
+                transition(&graph, &facts, false).unwrap().actions[0].kind,
+                ActionKind::Wait(WaitReason::Terminal)
+            );
         }
         facts[0].retry_failure = Some(RetryFailure::Transient);
         for effect in [EffectState::Absent, EffectState::Idempotent] {
             facts[0].effect = effect;
-            assert_eq!(transition(&graph, &facts, false).unwrap().actions[0].kind, ActionKind::Start(StartProvenance::Fresh));
+            assert_eq!(
+                transition(&graph, &facts, false).unwrap().actions[0].kind,
+                ActionKind::Start(StartProvenance::Fresh)
+            );
         }
         facts[0].effect = EffectState::Present;
-        assert_eq!(transition(&graph, &facts, false).unwrap().actions[0].kind, ActionKind::Wait(WaitReason::Terminal));
+        assert_eq!(
+            transition(&graph, &facts, false).unwrap().actions[0].kind,
+            ActionKind::Wait(WaitReason::Terminal)
+        );
         facts[0].effect = EffectState::Unknown;
         let decision = transition(&graph, &facts, false).unwrap();
         assert_eq!(decision.actions[0].kind, ActionKind::Reconcile);
         assert_eq!(decision.conclusion.lifecycle, StudyLifecycle::Active);
         facts[0].effect = EffectState::Absent;
         facts[0].attempt_count = 2;
-        assert_eq!(transition(&graph, &facts, false).unwrap().actions[0].kind, ActionKind::Wait(WaitReason::Terminal));
+        assert_eq!(
+            transition(&graph, &facts, false).unwrap().actions[0].kind,
+            ActionKind::Wait(WaitReason::Terminal)
+        );
     }
 
     #[test]
     fn partial_multi_result_and_cancellation_keep_availability_separate() {
-        let graph = OccurrenceGraph { points: vec![point(0), point(1)] };
-        let mut facts = vec![fact(0, StudyPointState::Completed, true), fact(1, StudyPointState::Failed, false)];
+        let graph = OccurrenceGraph {
+            points: vec![point(0), point(1)],
+        };
+        let mut facts = vec![
+            fact(0, StudyPointState::Completed, true),
+            fact(1, StudyPointState::Failed, false),
+        ];
         // One candidate/table can look usable without E granting aggregate run permission.
         facts[1].scientific.candidate_use = Some(CandidateUse::Usable);
         let decision = transition(&graph, &facts, false).unwrap();
-        assert_eq!(decision.conclusion, Conclusion { availability: Availability::Partial, lifecycle: StudyLifecycle::Terminal });
-        assert_eq!(transition(&graph, &facts, true).unwrap().conclusion, Conclusion { availability: Availability::Partial, lifecycle: StudyLifecycle::Cancelled });
+        assert_eq!(
+            decision.conclusion,
+            Conclusion {
+                availability: Availability::Partial,
+                lifecycle: StudyLifecycle::Terminal
+            }
+        );
+        assert_eq!(
+            transition(&graph, &facts, true).unwrap().conclusion,
+            Conclusion {
+                availability: Availability::Partial,
+                lifecycle: StudyLifecycle::Cancelled
+            }
+        );
         facts[1].scientific.usable = true;
-        assert_eq!(transition(&graph, &facts, false).unwrap().conclusion.availability, Availability::Complete);
+        assert_eq!(
+            transition(&graph, &facts, false)
+                .unwrap()
+                .conclusion
+                .availability,
+            Availability::Complete
+        );
     }
 
     #[test]
     fn incomplete_or_unadmitted_snapshots_are_not_scientific_facts() {
-        let graph = OccurrenceGraph { points: vec![point(0), point(1)] };
-        assert_eq!(transition(&graph, &[fact(0, StudyPointState::Pending, false)], false), Err(PolicyError::MissingFacts { key: OccurrenceKey(1) }));
-        assert_eq!(transition(&graph, &[fact(9, StudyPointState::Completed, true)], false), Err(PolicyError::UnknownFacts { key: OccurrenceKey(9) }));
+        let graph = OccurrenceGraph {
+            points: vec![point(0), point(1)],
+        };
+        assert_eq!(
+            transition(&graph, &[fact(0, StudyPointState::Pending, false)], false),
+            Err(PolicyError::MissingFacts {
+                key: OccurrenceKey(1)
+            })
+        );
+        assert_eq!(
+            transition(&graph, &[fact(9, StudyPointState::Completed, true)], false),
+            Err(PolicyError::UnknownFacts {
+                key: OccurrenceKey(9)
+            })
+        );
     }
 
     #[test]
@@ -492,11 +855,24 @@ mod study_policy_unit {
         graph.points[0].attempt_limit = 2;
         facts[0].lifecycle = StudyPointState::Failed;
         facts[0].retry_failure = Some(RetryFailure::Transient);
-        assert_eq!(child_action(&graph, &facts), ActionKind::Wait(WaitReason::Dependency { predecessor: OccurrenceKey(3) }));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::Dependency {
+                predecessor: OccurrenceKey(3)
+            })
+        );
         facts[0].retry_failure = Some(RetryFailure::Deterministic);
         facts[0].effect = EffectState::Unknown;
-        assert_eq!(child_action(&graph, &facts), ActionKind::Wait(WaitReason::Dependency { predecessor: OccurrenceKey(3) }));
+        assert_eq!(
+            child_action(&graph, &facts),
+            ActionKind::Wait(WaitReason::Dependency {
+                predecessor: OccurrenceKey(3)
+            })
+        );
         facts[0].effect = EffectState::Absent;
-        assert!(matches!(child_action(&graph, &facts), ActionKind::Start(StartProvenance::Continuation { .. })));
+        assert!(matches!(
+            child_action(&graph, &facts),
+            ActionKind::Start(StartProvenance::Continuation { .. })
+        ));
     }
 }

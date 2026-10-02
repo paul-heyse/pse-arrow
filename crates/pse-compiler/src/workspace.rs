@@ -174,7 +174,11 @@ pse_diagnostics::impl_diagnostic! {
     CompileError,
     code(this) { match this { Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Missing(_)=>Some(pse_diagnostics::DiagnosticCode::CompilerMissing),Self::Math(_) | Self::Modeling(_) | Self::Syntax{..} | Self::Structure(_)=>None } },
     forward(this) { match this {Self::Math(e)=>Some(e.as_ref()),Self::Modeling(e)=>Some(e),Self::Syntax{error,..}=>Some(error.as_ref()),Self::Structure(e)=>Some(e),_=>None} },
-    help(_this) { None },related(_this) { None },source(_this) { None }
+    help(_this) { None },related(_this) { None },source(_this) { None },
+    facts(this) {
+        let rule = match this { Self::Missing(_) => Some(pse_diagnostics::DiagnosticRule::CompilerMissing), Self::Cancelled => Some(pse_diagnostics::DiagnosticRule::CompilerCancelled), Self::Limit(_) => Some(pse_diagnostics::DiagnosticRule::CompilerLimit), Self::Math(_) | Self::Modeling(_) | Self::Syntax{..} | Self::Structure(_) => None };
+        pse_diagnostics::DiagnosticFacts{rule,..Default::default()}
+    }
 }
 impl PartialEq for CompileError {
     fn eq(&self, other: &Self) -> bool {
@@ -1650,20 +1654,61 @@ fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
 mod tests;
 
 impl pse_model::diagnostic::DiagnosticProjection for CompileError {
-    fn boundary_diagnostic(&self, stage: pse_diagnostics::DiagnosticStage) -> pse_model::diagnostic::BoundaryDiagnostic {
-        use pse_model::diagnostic::{DiagnosticProjection, project_facts, SourceLocation};
+    fn boundary_diagnostic(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
         use pse_diagnostics::TypedDiagnostic;
+        use pse_model::diagnostic::{SourceLocation, project_facts};
         match self {
             Self::Math(e) => e.boundary_diagnostic(stage),
             Self::Modeling(e) => e.boundary_diagnostic(),
-            Self::Syntax{definition,source_index,error} => {
-                let mut d=project_facts(error.diagnostic_code(),error.diagnostic_facts(),stage);
-                let (start,end)=match error.as_ref(){pse_authoring::dsl::DslError::Syntax{span,..}=>(Some(span.start),Some(span.end)),pse_authoring::dsl::DslError::AmbiguousUnaryPower{offset}|pse_authoring::dsl::DslError::NonFiniteNumber{offset}=>(Some(*offset),Some(*offset)),pse_authoring::dsl::DslError::Budget{..}=>(None,None)};
-                d.sources.push(*definition);d.rule=pse_diagnostics::DiagnosticRule::CompilerSyntax;
-                d.locations.push(SourceLocation{source:*definition,revision:None,path:format!("definition/{definition}/source/{source_index}"),name:None,start,end});d
+            Self::Syntax {
+                definition,
+                source_index,
+                error,
+            } => {
+                let mut d = project_facts(error.diagnostic_code(), error.diagnostic_facts(), stage);
+                let (start, end) = match error.as_ref() {
+                    pse_authoring::dsl::DslError::Syntax { span, .. } => {
+                        (Some(span.start), Some(span.end))
+                    }
+                    pse_authoring::dsl::DslError::AmbiguousUnaryPower { offset }
+                    | pse_authoring::dsl::DslError::NonFiniteNumber { offset } => {
+                        (Some(*offset), Some(*offset))
+                    }
+                    pse_authoring::dsl::DslError::Budget { .. } => (None, None),
+                };
+                d.sources.push(*definition);
+                d.rule = pse_diagnostics::DiagnosticRule::CompilerSyntax;
+                d.locations.push(SourceLocation {
+                    source: *definition,
+                    revision: None,
+                    path: format!("definition/{definition}/source/{source_index}"),
+                    name: None,
+                    start,
+                    end,
+                });
+                d
             }
-            Self::Structure(e) => project_facts(e.diagnostic_code(),e.diagnostic_facts(),stage),
-            Self::Missing(_) | Self::Cancelled | Self::Limit(_) => project_facts(self.diagnostic_code(),self.diagnostic_facts(),stage),
+            Self::Structure(e) => project_facts(e.diagnostic_code(), e.diagnostic_facts(), stage),
+            Self::Missing(_) | Self::Cancelled | Self::Limit(_) => {
+                project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage)
+            }
         }
+    }
+}
+
+impl CompileError {
+    /// Retained error extent, including original scientific/compiler causes.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(match self {
+            Self::Missing(value) => value.capacity(),
+            Self::Math(error) => error.retained_bytes(),
+            Self::Syntax { error, .. } => size_of_val(error.as_ref()) + error.to_string().len(),
+            Self::Modeling(error) => size_of_val(error) + error.to_string().len(),
+            Self::Structure(error) => size_of_val(error) + error.to_string().len(),
+            Self::Cancelled | Self::Limit(_) => 0,
+        })
     }
 }

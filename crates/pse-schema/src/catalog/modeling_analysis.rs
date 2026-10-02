@@ -30,6 +30,134 @@ fn record(fields: Vec<(&str, T)>) -> T {
 fn coordinates() -> T {
     T::list(record(vec![("source_id", T::id()), ("value", real())]))
 }
+/// One source-owned schema shape for findings and terminal attempt diagnostics.
+pub(super) fn diagnostic_envelope_fields() -> Vec<T> {
+    vec![
+        ("code", T::enumeration("DiagnosticCode")),
+        ("class", T::enumeration("NativeBoundaryClass")),
+        ("severity", T::enumeration("DiagnosticSeverity")),
+        ("stage", T::enumeration("DiagnosticStage")),
+        ("rule", T::enumeration("DiagnosticRule")),
+        ("sources", T::list(T::id())),
+        (
+            "observations",
+            T::list(record(vec![
+                ("name", text()),
+                ("kind", T::enumeration("DiagnosticObservationKind")),
+                ("real", real().optional()),
+                (
+                    "real_kind",
+                    T::enumeration("ModelingRealValueKind").optional(),
+                ),
+                ("integer", T::native(D::Int64).optional()),
+                ("boolean", flag().optional()),
+                ("text", text().optional()),
+                ("quantity", T::id().optional()),
+                ("unit", T::id().optional()),
+                ("context", T::hash().optional()),
+                (
+                    "contracts",
+                    T::list(record(vec![
+                        ("quantity", T::id()),
+                        (
+                            "indices",
+                            T::list(record(vec![
+                                ("bound_index", T::id()),
+                                ("domain", T::id()),
+                                ("kind", T::id()),
+                            ])),
+                        ),
+                    ])),
+                ),
+            ])),
+        ),
+        (
+            "locations",
+            T::list(record(vec![
+                ("source_id", T::id()),
+                ("revision", T::hash().optional()),
+                ("path", text()),
+                ("name", text().optional()),
+                ("start", count().optional()),
+                ("end", count().optional()),
+            ])),
+        ),
+        (
+            "validity",
+            record(vec![
+                ("layer", T::enumeration("ModelingValidityLayer")),
+                ("source_id", T::id()),
+                ("form_id", T::id().optional()),
+                ("set_ids", T::list(T::id())),
+                ("variables", T::list(count())),
+                ("member_ids", T::list(T::id())),
+            ])
+            .optional(),
+        ),
+        (
+            "applicability",
+            T::list(record(vec![
+                (
+                    "claim",
+                    record(vec![
+                        ("id", T::id().optional()),
+                        ("coverage", T::id().optional()),
+                        ("owner", T::id()),
+                        ("owner_lineage", T::list(T::id())),
+                        ("evidence", T::id().optional()),
+                        ("form", T::id()),
+                        ("call", T::id()),
+                        ("records", T::list(T::id())),
+                        ("dependencies", T::list(T::id())),
+                        ("layer", T::enumeration("ModelingValidityLayer")),
+                        (
+                            "basis",
+                            T::enumeration("ModelingApplicabilityBasis").optional(),
+                        ),
+                        ("reason", text().optional()),
+                    ]),
+                ),
+                ("instance", T::id().optional()),
+                (
+                    "inputs",
+                    T::list(record(vec![
+                        ("name", text()),
+                        ("value", real().optional()),
+                        ("real_kind", T::enumeration("ModelingRealValueKind")),
+                        ("quantity_type", T::id()),
+                    ])),
+                ),
+                ("outcome", T::enumeration("ModelingApplicabilityOutcome")),
+                ("required", flag()),
+                (
+                    "permissions",
+                    T::list(record(vec![
+                        ("id", T::id()),
+                        ("scope", T::id()),
+                        ("target_kind", T::enumeration("ModelingPermissionTarget")),
+                        ("targets", T::list(T::id())),
+                        ("allow_unknown", flag()),
+                        ("allow_extrapolation", flag()),
+                    ])),
+                ),
+                ("unknown_allowed", flag()),
+                ("extrapolation_allowed", flag()),
+                ("admitted", flag()),
+            ])),
+        ),
+    ]
+    .into_iter()
+    .map(|(name, field)| field.with_name(name))
+    .collect()
+}
+/// Flat ordered cause envelopes retain tree topology without recursive Arrow schemas.
+pub(super) fn diagnostic_fields_with_causes() -> Vec<T> {
+    let mut fields = diagnostic_envelope_fields();
+    let mut cause = diagnostic_envelope_fields();
+    cause.insert(0, T::list(count()).with_name("tree_path"));
+    fields.push(T::list(T::structure(cause)).with_name("causes"));
+    fields
+}
 pub(super) fn register(b: &mut RegistryBuilder) {
     identity(
         b,
@@ -145,57 +273,15 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "modeling_findings",
-        3,
+        4,
         S::Derived,
         &["run_id", "ordinal"],
-        vec![
-            run_id(),
-            column("ordinal", count()),
-            column("class", T::enumeration("NativeBoundaryClass")),
-            column("severity", T::enumeration("DiagnosticSeverity")),
-            column("stage", text()),
-            column("rule", text()),
-            column("sources", T::list(T::id())),
-            column(
-                "observations",
-                T::list(record(vec![
-                    ("name", text()),
-                    ("kind", T::enumeration("NativeMetricKind")),
-                    ("real", real().optional()),
-                    (
-                        "real_kind",
-                        T::enumeration("ModelingRealValueKind").optional(),
-                    ),
-                    ("integer", T::native(D::Int64).optional()),
-                    ("boolean", flag().optional()),
-                    ("text", text().optional()),
-                ])),
-            ),
-            column(
-                "locations",
-                T::list(record(vec![
-                    ("source_id", T::id()),
-                    ("path", text()),
-                    ("name", text().optional()),
-                    ("start", count().optional()),
-                    ("end", count().optional()),
-                ])),
-            ),
-            // Plan 23 H5: a rejected validity predicate's typed lineage.
-            column(
-                "validity",
-                record(vec![
-                    ("layer", T::enumeration("ModelingValidityLayer")),
-                    ("source_id", T::id()),
-                    ("form_id", T::id().optional()),
-                    ("set_ids", T::list(T::id())),
-                    ("variables", T::list(count())),
-                    ("member_ids", T::list(T::id())),
-                ]),
-            )
-            .optional(),
-        ],
-        "Attributed diagnostic findings with a class and a severity; a warning is never an invalid model. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices. Version three adds, exactly on a rejected authored validity predicate, its lineage (Plan 23 H5): its layer (ADR-0123 Outcome 4); the declaration stating it, the form itself, the relation or kind declaring the envelope, or the closure range's annotation; for the form and data layers the form, the parameter sets, table rows or entities, whose values bound it and the positions of the form's declared arguments it constrains; and for the closure layer the model members its range bounds.",
+        [
+            vec![run_id(), column("ordinal", count())],
+            diagnostic_fields_with_causes(),
+        ]
+        .concat(),
+        "Attributed diagnostics retain authoritative detailed code, independent disposition/severity, closed stage and rule, complete structured observations, revision-bound locations, validity/applicability evidence and every ordered cause with its tree path. Version four retains the same envelope when scientific result tables do not exist (ADR-0148).",
     );
     enumeration(
         b,
@@ -266,61 +352,114 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         ],
         "The lexicographic levels of a multi-objective solve (ADR-0111), in optimization order. A level's value is the weighted sum of its members' terms, in canonical units of `quantity_id`. On the `native` route one HiGHS solve optimizes every level; on the `staged` route `attempt` is the step that optimized the level, seeded from the previous level's accepted step, with `optimum` its value there and `bound` the value every later step held it to: optimum plus max(absolute, relative·|optimum|) when minimized, minus when maximized. `value` is the level's value at the final candidate; absent values are not zero.",
     );
-    relation(
+    enumeration(b, "StudySeedNeed", ["not_needed", "required"]);
+    enumeration(
+        b,
+        "StudyContinuationPermission",
+        ["require_usable", "allow_seed_only"],
+    );
+    enumeration(
+        b,
+        "StudyUnavailableSeedPolicy",
+        ["refuse", "fresh_on_unavailable"],
+    );
+    enumeration(b, "StudyAvailability", ["none", "partial", "complete"]);
+    enumeration(b, "StudyLifecycle", ["active", "terminal", "cancelled"]);
+    enumeration(b, "StudyLegacyKind", ["legacy_unavailable"]);
+    enumeration(b, "StudyRetryFailure", ["transient", "deterministic"]);
+    enumeration(
+        b,
+        "DiagnosticNonfiniteObservation",
+        ["nan", "positive_infinity", "negative_infinity"],
+    );
+    enumeration(
+        b,
+        "StudyResultRole",
+        [
+            "case_result",
+            "trajectory",
+            "parameter_estimates",
+            "parameter_covariance",
+            "profile_intervals",
+            "horizon_history",
+        ],
+    );
+    enumeration(
+        b,
+        "StudySeedRole",
+        [
+            "primal_solution",
+            "parameter_estimates",
+            "trajectory",
+            "horizon_state",
+        ],
+    );
+    enumeration(
+        b,
+        "StudyEffectState",
+        ["absent", "present", "unknown", "idempotent"],
+    );
+    enumeration(b, "StudySeedUnavailable", ["absent", "incompatible"]);
+    enumeration(
+        b,
+        "StudyStartKind",
+        [
+            "fresh",
+            "not_needed",
+            "continuation",
+            "explicit",
+            "fresh_fallback",
+        ],
+    );
+    let start = record(vec![
+        ("kind", T::enumeration("StudyStartKind")),
+        ("predecessor", count().optional()),
+        ("role", T::enumeration("StudySeedRole").optional()),
+        ("seed_id", T::id().with_identity("solution").optional()),
+        (
+            "unavailable",
+            T::enumeration("StudySeedUnavailable").optional(),
+        ),
+    ]);
+    let diagnostic = T::structure(diagnostic_fields_with_causes());
+    relation_version(
         b,
         N::Runtime,
-        "modeling_studies",
+        "study_outcomes",
+        2,
         S::Derived,
-        &["run_id"],
+        &["study_id", "point_index"],
         vec![
-            run_id(),
-            column("unattempted", count()),
+            column("study_id", T::id()).with_identity("study"),
+            column("point_index", count()),
+            column("case_id", T::id().with_identity("declaration")).optional(),
+            column("binding_hash", T::hash()),
+            column("state", T::enumeration("StudyPointState")),
+            column("attempt_id", T::id().with_identity("attempt")).optional(),
+            column("attempt_state", T::enumeration("AttemptState")).optional(),
+            column("result_id", T::id().with_identity("run")).optional(),
+            column("member_catalog", text()).optional(),
+            column("usable", flag()),
+            column("seed_permission", flag()),
+            column("candidate_use", T::enumeration("CandidateUse")).optional(),
+            column("effect", T::enumeration("StudyEffectState")),
+            column("start", start.clone()).optional(),
+            column("diagnostic", diagnostic.clone()).optional(),
             column(
-                "points",
+                "attempts",
                 T::list(record(vec![
-                    ("root_id", T::id().with_identity("declaration").optional()),
-                    ("instance_id", T::id().with_identity("instance").optional()),
-                    ("predecessor", count().optional()),
-                    ("result_id", T::id().with_identity("run").optional()),
-                    ("accepted", flag()),
-                    ("error", text().optional()),
-                    ("failure_ordinal", count().optional()),
+                    ("attempt_id", T::id().with_identity("attempt").optional()),
+                    ("lifecycle", T::enumeration("AttemptState").optional()),
+                    ("usable", flag()),
+                    ("seed_permission", flag()),
+                    ("candidate_use", T::enumeration("CandidateUse").optional()),
+                    ("effect", T::enumeration("StudyEffectState")),
+                    ("start", start.optional()),
+                    ("diagnostic", diagnostic.optional()),
                 ])),
             ),
         ],
-        "Ordered study outcomes including declaration preparation failures and explicit accepted-predecessor dependencies. Unattempted points remain distinct from failed attempts.",
-    );
-    // The summary a durable study publishes (Plan 22 O7), one row per point, beside every
-    // completed point's result members.
-    b.declare_relation(
-        super::declarations::declaration(
-            N::Runtime,
-            "study_outcomes",
-            1,
-            S::Derived,
-            &["study_id", "point_index"],
-            vec![
-                column("study_id", T::id()).with_identity("study"),
-                column("point_index", count()),
-                column("case_id", T::id()).with_identity("declaration"),
-                column("binding_hash", T::hash()),
-                column("predecessor", count()).optional(),
-                column("state", T::enumeration("StudyPointState")),
-                column("attempt_id", T::id()).with_identity("attempt"),
-                column("attempt_state", T::enumeration("AttemptState")),
-                column("member_catalog", text()).optional(),
-                column("error", text()).optional(),
-            ],
-            "The outcome of every point of a durable study, published once with the study: its authored case and value bindings by hash, the earlier point that seeded it, its final state, the attempt that ended it and that attempt's state. A completed point's result members are published under `member_catalog`; a failed or cancelled point contributes no members and records why in `error`.",
-        )
-        .check(
-            "members_of_completed_points",
-            "(\"state\" = 'completed') = (\"member_catalog\" IS NOT NULL)",
-        )
-        .check(
-            "predecessor_is_earlier",
-            "\"predecessor\" IS NULL OR \"predecessor\" < \"point_index\"",
-        ),
+        "One common scientific and operational outcome per requested study occurrence, in either executor. Repeated bindings are independent occurrences. A terminal failure needs no scientific result table. Available members, cancellation, scientific permission, retained typed diagnostics and every attempt's actual start/effect history remain independent facts.",
     );
     enumeration(
         b,

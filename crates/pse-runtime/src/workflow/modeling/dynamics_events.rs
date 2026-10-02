@@ -292,9 +292,9 @@ pub(super) fn resolve_events(
                 if !product.model.derivatives.contains_key(state) {
                     let mut refusal = pse_model::diagnostic::BoundaryDiagnostic::new(
                         pse_model::diagnostic::BoundaryClass::Unsupported,
-                        "modeling-event-reset",
+                        pse_diagnostics::DiagnosticStage::ModelingEventReset,
                         [event.guard, *state],
-                        "modeling.dynamic.algebraic_reset.unsupported",
+                        pse_diagnostics::DiagnosticRule::ModelingDynamicAlgebraicResetUnsupported,
                     );
                     refusal.observations.insert("capability".into(), pse_model::diagnostic::Observation::Text(
                         "an authored algebraic-coordinate reset needs a precise inventory-preserving reset transformation".into(),

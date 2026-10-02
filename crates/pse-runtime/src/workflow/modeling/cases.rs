@@ -41,6 +41,11 @@ pub enum StartSource {
         /// Authored case path.
         path: String,
     },
+    /// A contextually admitted study assignment, independent of source spelling.
+    Binding {
+        /// Stable selected member.
+        member: SemanticId,
+    },
     /// A start annotation evaluated through the model.
     Annotation {
         /// The start annotation's declaration.
@@ -354,6 +359,15 @@ impl ModelingPackage {
             values.scalars.insert(id, value);
             starts.insert(id, StartSource::Continuation);
         }
+        for (&id, &value) in &case.members {
+            if !product.admitted.inputs.contains(&id) || !value.is_finite() {
+                return Err(contract(
+                    "admitted binding requires a finite independent coordinate",
+                ));
+            }
+            values.scalars.insert(id, value);
+            starts.insert(id, StartSource::Binding { member: id });
+        }
         for (&id, &value) in &overrides.fixes {
             if !value.is_finite() || !is_variable(&id) {
                 return Err(contract(
@@ -647,9 +661,11 @@ impl ModelingPackage {
             )
             .await
             .map_err(|cause| {
-                let mut diagnostic =
-                    crate::workflow::diagnostics::observed(&cause, "modeling.admission");
-                if diagnostic.rule == "native.structural" {
+                let mut diagnostic = crate::workflow::diagnostics::observed(
+                    &cause,
+                    pse_diagnostics::DiagnosticStage::ModelingAdmission,
+                );
+                if diagnostic.rule == pse_diagnostics::DiagnosticRule::NativeStructural {
                     diagnostics::attribute(&mut diagnostic, model.model.compiled());
                     WorkflowError::ModelingAdmission {
                         diagnostic: Box::new(diagnostic),
@@ -1326,6 +1342,7 @@ mod tests {
         let mut bindings = Bindings::default();
         bindings.demand.push("bad".into());
         let case = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::new(),
             variables: BTreeMap::from([
                 (
@@ -1493,6 +1510,7 @@ mod tests {
         );
         // Fixed by the case, the same model is an admitted continuous square system.
         let fixed = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::from([("n".into(), 2.)]),
             variables: BTreeMap::from([(
                 "n".into(),
@@ -1543,6 +1561,7 @@ mod tests {
             .declaration_id;
         let package = fixture::runtime().modeling_package(rows, physical).unwrap();
         let fixed = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::new(),
             variables: BTreeMap::from([(
                 "y".into(),
@@ -1663,6 +1682,7 @@ mod native_tests {
                 .is_err()
         );
         let case = ModelingCaseBindings {
+            members: BTreeMap::new(),
             values: BTreeMap::new(),
             variables: BTreeMap::from([(
                 "x".into(),

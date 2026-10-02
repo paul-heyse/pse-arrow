@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
 mod completion;
+mod diagnostic_rows;
 mod diagnostics;
 mod durable;
 pub use completion::Completion;
@@ -18,17 +19,36 @@ pub use progress::{ProgressStream, StreamRecord};
 /// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
 /// default (ADR-0114 Outcome 21).
 pub use pse_operations::database_url_from_env;
+mod bindings;
 mod worker;
+pub use bindings::{
+    AdmittedBinding, AdmittedBindingEntry, BindingAssignment, BindingQuantity, BindingTarget,
+    PointOverlay,
+};
 pub use worker::{
-    JOB_PAYLOAD_VERSION, JobPayload, JobStart, JobTask, ModelingJob, PointOverlay, Processed,
-    SourceManifest, StudyFinalization, StudyPointBinding, WorkerSettings,
+    JOB_PAYLOAD_VERSION, JobPayload, JobStart, JobTask, ModelingJob, Processed, SourceManifest,
+    StudyFinalization, StudyOperationJob, StudyPointBinding, WorkerSettings,
 };
 mod study;
+mod study_execution;
+mod study_tables;
+pub use pse_model::diagnostic::BoundaryDiagnostic;
+pub use pse_model::study::Conclusion as StudyConclusion;
+pub use study_execution::StudyReport;
+mod study_operations;
 pub use pse_operations::jobs::RetryPolicy;
 pub use pse_operations::studies::{StudyCancel, StudyFilter, StudyId, StudyPointState, StudyState};
 pub use study::{
-    MAXIMUM_STUDY_POINTS, PackageSources, PointStatus, StudyDefinition, StudyHandle, StudyPlan,
-    StudyPoint, StudyPointDefinition, StudyStatus,
+    MAXIMUM_STUDY_POINTS, PackageSources, PointAttemptOutcome, PointOutcome, PointStatus,
+    StudyDefinition, StudyHandle, StudyPlan, StudyPoint, StudyPointDefinition, StudyPointPolicy,
+    StudyRequest, StudyStatus,
+};
+pub use study_operations::{
+    AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerOperation, EstimatorInput,
+    EstimatorOperation, FitOperation, FitOperationSettings, HorizonBinding, HorizonInputDocument,
+    HorizonOperation, HorizonSignalDocument, OperationRequest, OperationSource,
+    PreparationSettings, PreparedStudyOperation, SimulationOperation, StudyOperation,
+    StudyResultRole,
 };
 pub(crate) mod numerics;
 mod objectives;
@@ -85,8 +105,7 @@ pub use modeling::{
     ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
     ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
     ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingStudyPoint, ModelingStudyReport, ModelingTrajectory, StartSource,
-    conform_pure_documents,
+    ModelingTrajectory, StartSource, conform_pure_documents,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
@@ -125,13 +144,13 @@ use std::sync::Arc;
 pub enum WorkflowError {
     /// Source-attributed selected-model or execution-boundary failure.
     #[error(transparent)]
-    Boundary(#[from] Box<pse_model::diagnostic::BoundaryDiagnostic>),
+    Boundary(#[from] Box<BoundaryDiagnostic>),
     /// A causal unit admission refusal preserves both requested source identities
     /// and the original compiler, policy or selected solver cause.
     #[error("{diagnostic}")]
     ConditionalAdmission {
         /// Structured selected-unit boundary attribution.
-        diagnostic: Box<pse_model::diagnostic::BoundaryDiagnostic>,
+        diagnostic: Box<BoundaryDiagnostic>,
         /// Original typed failure before any unit iteration.
         #[source]
         cause: MathRuntimeError,
@@ -140,7 +159,7 @@ pub enum WorkflowError {
     #[error("{diagnostic}")]
     ModelingAdmission {
         /// Original identities and available model source paths.
-        diagnostic: Box<pse_model::diagnostic::BoundaryDiagnostic>,
+        diagnostic: Box<BoundaryDiagnostic>,
         /// Retained route decision or structural failure before native execution.
         #[source]
         cause: MathRuntimeError,
@@ -159,7 +178,13 @@ pub enum WorkflowError {
     Shared(Arc<WorkflowError>),
     /// A complete diagnostic for invalid API input.
     #[error("native workflow contract: {0}")]
-    Contract(String),
+    Input(String),
+    /// An internal operation postcondition failed, distinct from authored input refusal.
+    #[error("native workflow invariant: {0}")]
+    Internal(String),
+    /// Original typed source failure, preserving diagnostic facts and causal structure.
+    #[error(transparent)]
+    Typed(pse_model::diagnostic::DiagnosticCause),
     /// The operational store refused or failed a durable operation (ADR-0114).
     #[error(transparent)]
     Operations(#[from] pse_operations::OperationsError),
@@ -211,19 +236,19 @@ pub enum WorkflowError {
         supported: i32,
     },
 }
-impl From<pse_model::diagnostic::BoundaryDiagnostic> for WorkflowError {
-    fn from(error: pse_model::diagnostic::BoundaryDiagnostic) -> Self {
+impl From<BoundaryDiagnostic> for WorkflowError {
+    fn from(error: BoundaryDiagnostic) -> Self {
         Self::Boundary(Box::new(error))
     }
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
-    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
+    code(this) {match this {Self::Input(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
+    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {
-    WorkflowError::Contract(message.into())
+    WorkflowError::Input(message.into())
 }
 fn math(error: impl Into<pse_math::MathError>) -> WorkflowError {
     WorkflowError::Math(MathRuntimeError::Math(error.into()))
