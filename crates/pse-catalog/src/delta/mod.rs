@@ -10,6 +10,7 @@ pub mod changes;
 pub mod collect;
 pub mod contract;
 pub mod dependencies;
+pub mod discovery;
 pub mod dml;
 mod field_check;
 pub mod layout;

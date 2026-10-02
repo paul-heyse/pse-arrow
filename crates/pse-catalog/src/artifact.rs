@@ -6,6 +6,7 @@
 mod consumption;
 pub(crate) mod dependencies;
 mod descriptor;
+pub mod migration;
 use crate::delta::publication_plan::{self, Member, MemberWrite};
 use datafusion::{common::ResolvedTableReference, logical_expr::LogicalPlan};
 use pse_columnar::CancellationToken;
@@ -41,6 +42,7 @@ pub struct ArtifactPlan {
 #[derive(Clone, Debug)]
 enum PublicationSelection {
     Relations,
+    Migration(Arc<Vec<pse_relations::generated::runtime::artifact_migration_lineage::Row>>),
     Inspection,
     Product(Arc<pse_model::artifact::ArtifactDescriptor>),
 }
@@ -127,6 +129,11 @@ impl ArtifactPlan {
         cancel: &CancellationToken,
     ) -> Result<Self, EngineError> {
         use datafusion::common::tree_node::Transformed;
+        if matches!(self.publication, PublicationSelection::Migration(_)) {
+            return Err(invalid(
+                "migration rebind requires fresh exact source/target admission and lineage",
+            ));
+        }
         if self.session.implementation_generation() != session.implementation_generation()
             || self.session.registry().fingerprint() != session.registry().fingerprint()
         {
@@ -233,7 +240,39 @@ impl ArtifactPlan {
         &self,
         cancel: &CancellationToken,
     ) -> Result<Vec<pse_relations::generated::runtime::native_dependencies::Row>, EngineError> {
-        dependencies::capture(self, cancel)
+        let mut dependencies = dependencies::capture(self, cancel)?;
+        if let PublicationSelection::Migration(lineage) = &self.publication {
+            use pse_relations::generated::{
+                enums::NativeDependencyKind, runtime::native_dependencies as wire,
+            };
+            for row in lineage.iter() {
+                let scope = format!(
+                    "{}.{}.{}",
+                    row.output_catalog, row.output_schema, row.output_table
+                );
+                dependencies.push(wire::Row {
+                    kind: NativeDependencyKind::Contract,
+                    scope: scope.clone(),
+                    name: "migration.transformation".into(),
+                    evidence: wire::RuntimeNativeDependenciesFieldEvidence::from_fingerprint(
+                        wire::RuntimeNativeDependenciesFieldEvidenceFingerprint {
+                            value: row.transformation_digest,
+                        },
+                    ),
+                });
+                dependencies.push(wire::Row {
+                    kind: NativeDependencyKind::Input,
+                    scope,
+                    name: "migration.source_publication".into(),
+                    evidence: wire::RuntimeNativeDependenciesFieldEvidence::from_identity(
+                        wire::RuntimeNativeDependenciesFieldEvidenceIdentity {
+                            value: row.source_publication_id.into(),
+                        },
+                    ),
+                });
+            }
+        }
+        Ok(dependencies)
     }
     /// Prepare a native exact-dependency difference query. An empty result admits
     /// equality only for this retained implementation generation and immutable
@@ -419,6 +458,13 @@ impl ArtifactPlan {
         if matches!(self.publication, PublicationSelection::Inspection) {
             return Err(invalid(
                 "partial inspection cannot publish a complete artifact",
+            ));
+        }
+        if (header.kind == pse_relations::generated::enums::PublicationKind::Migration)
+            != matches!(self.publication, PublicationSelection::Migration(_))
+        {
+            return Err(invalid(
+                "migration publication requires its checked transformation and lineage capability",
             ));
         }
         self.validate_product_header(&header, cancel)?;

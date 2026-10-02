@@ -165,10 +165,9 @@ Arrow field maps carry no ordering claim. Canonical hashing therefore serializes
 ordered metadata representation ([§5.3](identity-and-publication.md#section-5-3)).
 Metadata and DataFusion `Constraints` describe facts; they do not enforce them. A hash
 identifies content or detects corruption, and never discharges schema, key, reference,
-physical-type or domain validity. Durable compatibility compares the recorded semantic
-witness with an independently compiled expectation. Outcomes are typed: an unsupported
-historical format or encoding is reported as requiring migration or unsupported, and is
-never opened by a legacy reader (`pse_schema::compatibility`).
+physical-type or domain validity. Durable opening first verifies the recorded witness and observed encoding independently of the current registry. Directional consumer admission then compares only consumed meaning; exact writer admission remains a separate capability. Portable recorded domains and current declarations share one predicate compiler. Outcomes are typed: inadequate, contradictory or unsupported historical proof refuses without a legacy reader or decoder (`pse_schema::compatibility`; [§20.5](identity-and-publication.md#section-20-5)).
+
+> Supplement: [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md) (proposed; authorized implementation).
 
 ### 4.4 Extension types
 

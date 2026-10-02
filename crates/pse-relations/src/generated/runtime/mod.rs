@@ -5,6 +5,8 @@
 ///Generated relation contract.
 pub mod r#artifact_descriptors;
 ///Generated relation contract.
+pub mod r#artifact_migration_lineage;
+///Generated relation contract.
 pub mod r#cache_entry_statistics;
 ///Generated relation contract.
 pub mod r#cache_statistics;
@@ -79,6 +81,10 @@ pub mod r#operational_incumbents;
 ///Generated relation contract.
 pub mod r#operational_jobs;
 ///Generated relation contract.
+pub mod r#operational_orphan_candidates;
+///Generated relation contract.
+pub mod r#operational_orphan_scans;
+///Generated relation contract.
 pub mod r#operational_progress_events;
 ///Generated relation contract.
 pub mod r#operational_progress_values;
@@ -95,7 +101,11 @@ pub mod r#operational_publications;
 ///Generated relation contract.
 pub mod r#operational_reader_leases;
 ///Generated relation contract.
+pub mod r#operational_reset_records;
+///Generated relation contract.
 pub mod r#operational_retention_marks;
+///Generated relation contract.
+pub mod r#operational_retired_inventory;
 ///Generated relation contract.
 pub mod r#operational_schema_support_state;
 ///Generated relation contract.

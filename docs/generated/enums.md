@@ -1001,6 +1001,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `drop_column` | `` | false |
 | `rename_column` | `` | false |
 | `change_nullable` | `` | false |
+| `recode_domain` | `` | false |
+| `map_reference_key` | `` | false |
 
 ## `ModelingAccumulatorMode`
 
@@ -1922,6 +1924,23 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `namespace` | `` | false |
 | `publish` | `` | false |
 
+## `OrphanDisposition`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `discovered` | `` | false |
+| `protected` | `` | false |
+| `claimed` | `` | false |
+| `deleted` | `` | false |
+| `unresolved` | `` | false |
+
+## `OrphanOwnership`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `attributable` | `` | false |
+| `unattributable` | `` | false |
+
 ## `PackageKind`
 
 | Member | IDAES name | Deprecated |
@@ -1993,6 +2012,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `run` | `` | false |
 | `diagnostics` | `` | false |
 | `inspection` | `` | false |
+| `migration` | `` | false |
 
 ## `PublicationMemberRole`
 

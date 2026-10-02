@@ -12,8 +12,16 @@ pub use durable::{
 };
 pub use pse_operations::attempts::AttemptFilter;
 pub use pse_operations::jobs::JobFilter;
+pub mod migration;
 mod operational_tables;
+mod orphans;
+pub use migration::prepare_artifact_migration;
 pub use operational_tables::OPERATIONAL_SCHEMA;
+pub use orphans::{DiscoveryBudget, OrphanReclaimReport};
+pub use pse_model::generated::identities::ScanId;
+pub use pse_operations::inventory::{
+    CandidatePage as OrphanCandidatePage, OrphanCandidate, ScanCheckpoint,
+};
 mod progress;
 pub use progress::{ProgressStream, StreamRecord};
 /// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
@@ -269,6 +277,7 @@ pub struct Runtime {
     pub(crate) sessions: Arc<EngineFactory>,
     /// How this runtime's runs are kept; ephemeral unless chosen explicitly.
     pub(crate) durability: Durability,
+    orphan_streams: Arc<tokio::sync::Mutex<orphans::DiscoveryStreams>>,
 }
 impl Runtime {
     /// Clear retained executable programs. Existing workers keep their owners and remain valid.
@@ -287,6 +296,7 @@ impl Runtime {
             registry,
             sessions,
             durability: Durability::Ephemeral,
+            orphan_streams: Arc::new(tokio::sync::Mutex::new(orphans::DiscoveryStreams::default())),
         }
     }
     /// The same deployment under an explicit durability class (ADR-0114 Outcome 16).

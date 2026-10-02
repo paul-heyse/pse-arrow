@@ -259,6 +259,46 @@ impl<'a> FromSql<'a> for crate::generated::enums::NativeTermination {
         <Self as ToSql>::accepts(ty)
     }
 }
+impl ToSql for crate::generated::enums::OrphanDisposition {
+    fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        out.extend_from_slice(self.as_str().as_bytes());
+        Ok(IsNull::No)
+    }
+    fn accepts(ty: &Type) -> bool {
+        enum_type(
+            ty,
+            "orphan_disposition",
+            &["discovered", "protected", "claimed", "deleted", "unresolved"],
+        )
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::enums::OrphanDisposition {
+    fn from_sql(_: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        Ok(postgres_protocol::types::text_from_sql(raw)?.parse()?)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
+impl ToSql for crate::generated::enums::OrphanOwnership {
+    fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        out.extend_from_slice(self.as_str().as_bytes());
+        Ok(IsNull::No)
+    }
+    fn accepts(ty: &Type) -> bool {
+        enum_type(ty, "orphan_ownership", &["attributable", "unattributable"])
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::enums::OrphanOwnership {
+    fn from_sql(_: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        Ok(postgres_protocol::types::text_from_sql(raw)?.parse()?)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
 impl ToSql for crate::generated::enums::PublicationKind {
     fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
         out.extend_from_slice(self.as_str().as_bytes());
@@ -277,6 +317,7 @@ impl ToSql for crate::generated::enums::PublicationKind {
                 "run",
                 "diagnostics",
                 "inspection",
+                "migration",
             ],
         )
     }
@@ -661,6 +702,26 @@ impl<'a> FromSql<'a> for crate::generated::identities::ReaderLeaseId {
         <Self as ToSql>::accepts(ty)
     }
 }
+impl ToSql for crate::generated::identities::ResetId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<
+            pse_ids::SemanticId,
+        >(ty, "pse_ops", "reset_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::ResetId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
 impl ToSql for crate::generated::identities::RunId {
     fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
         ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
@@ -671,6 +732,26 @@ impl ToSql for crate::generated::identities::RunId {
     postgres_types::to_sql_checked!();
 }
 impl<'a> FromSql<'a> for crate::generated::identities::RunId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
+impl ToSql for crate::generated::identities::ScanId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<
+            pse_ids::SemanticId,
+        >(ty, "pse_ops", "scan_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::ScanId {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
         <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
             .map(Self::from_id)
@@ -960,6 +1041,74 @@ for crate::generated::r#runtime::r#operational_jobs::RuntimeOperationalJobsRow {
     }
 }
 impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_orphan_candidates::RuntimeOperationalOrphanCandidatesRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &[
+                "scan_id",
+                "prefix",
+                "generation",
+                "discovery_epoch",
+                "ownership",
+                "evidence",
+                "protections",
+                "disposition",
+                "claim_epoch",
+            ],
+        )?;
+        let row = Self {
+            r#scan_id: record.value()?,
+            r#prefix: record.value()?,
+            r#generation: record.value()?,
+            r#discovery_epoch: record.value()?,
+            r#ownership: record.value()?,
+            r#evidence: record.json()?,
+            r#protections: record.json()?,
+            r#disposition: record.value()?,
+            r#claim_epoch: record.value()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "orphan_candidates")
+    }
+}
+impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_orphan_scans::RuntimeOperationalOrphanScansRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &[
+                "scan_id",
+                "workspace_id",
+                "root_uri",
+                "maintenance_epoch",
+                "generation",
+                "listed_count",
+                "complete",
+            ],
+        )?;
+        let row = Self {
+            r#scan_id: record.value()?,
+            r#workspace_id: record.value()?,
+            r#root_uri: record.value()?,
+            r#maintenance_epoch: record.value()?,
+            r#generation: record.value()?,
+            r#listed_count: record.value()?,
+            r#complete: record.value()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "orphan_scans")
+    }
+}
+impl<'a> FromSql<'a>
 for crate::generated::r#runtime::r#operational_progress_events::RuntimeOperationalProgressEventsRow {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
         let mut record = crate::postgres::Record::read(
@@ -1198,6 +1347,34 @@ for crate::generated::r#runtime::r#operational_reader_leases::RuntimeOperational
     }
 }
 impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_reset_records::RuntimeOperationalResetRecordsRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &[
+                "reset_id",
+                "manifest_digest",
+                "manifest_uri",
+                "source_fingerprint",
+                "inventory_rows",
+            ],
+        )?;
+        let row = Self {
+            r#reset_id: record.value()?,
+            r#manifest_digest: record.value()?,
+            r#manifest_uri: record.value()?,
+            r#source_fingerprint: record.value()?,
+            r#inventory_rows: record.value()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "reset_records")
+    }
+}
+impl<'a> FromSql<'a>
 for crate::generated::r#runtime::r#operational_retention_marks::RuntimeOperationalRetentionMarksRow {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
         let mut record = crate::postgres::Record::read(
@@ -1216,6 +1393,42 @@ for crate::generated::r#runtime::r#operational_retention_marks::RuntimeOperation
     }
     fn accepts(ty: &Type) -> bool {
         crate::postgres::composite(ty, "pse_ops", "retention_marks")
+    }
+}
+impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_retired_inventory::RuntimeOperationalRetiredInventoryRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &[
+                "reset_id",
+                "ordinal",
+                "workspace_id",
+                "root_uri",
+                "prefix",
+                "record_kind",
+                "document",
+                "protections",
+                "disposition",
+            ],
+        )?;
+        let row = Self {
+            r#reset_id: record.value()?,
+            r#ordinal: record.value()?,
+            r#workspace_id: record.value()?,
+            r#root_uri: record.value()?,
+            r#prefix: record.value()?,
+            r#record_kind: record.value()?,
+            r#document: record.json()?,
+            r#protections: record.json()?,
+            r#disposition: record.value()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "retired_inventory")
     }
 }
 impl<'a> FromSql<'a>

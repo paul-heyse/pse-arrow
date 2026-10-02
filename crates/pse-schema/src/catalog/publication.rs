@@ -15,6 +15,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     declare_dependencies(builder);
     declare_artifacts(builder);
     declare_manifests(builder);
+    declare_migration_lineage(builder);
     builder.declare_artifact_profile("relations", std::collections::BTreeSet::new());
     relation(
         builder,
@@ -41,7 +42,43 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "run",
             "diagnostics",
             "inspection",
+            "migration",
         ],
+    );
+}
+
+fn declare_migration_lineage(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Runtime,
+        "artifact_migration_lineage",
+        S::Sidecar,
+        &[
+            "source_publication_id",
+            "target_relation_id",
+            "output_catalog",
+            "output_schema",
+            "output_table",
+        ],
+        vec![
+            column("source_publication_id", T::id()).with_identity("publication"),
+            column("source_member", member()),
+            column("target_relation_id", T::id()),
+            column(
+                "target_relation_version",
+                T::nonnegative(i64::from(u32::MAX)),
+            ),
+            column("declaration", T::native(arrow_schema::DataType::Utf8)),
+            column("transformation_digest", T::hash()),
+            column("output_catalog", T::native(arrow_schema::DataType::Utf8)),
+            column("output_schema", T::native(arrow_schema::DataType::Utf8)),
+            column("output_table", T::native(arrow_schema::DataType::Utf8)),
+        ],
+        "Exact immutable source selections, declared portable transformation and target output selectors. The publication manifest owns resulting target versions.",
+    );
+    builder.declare_artifact_profile(
+        "migration",
+        std::collections::BTreeSet::from(["runtime.artifact_migration_lineage".to_owned()]),
     );
 }
 
@@ -125,6 +162,7 @@ fn declare_artifacts(builder: &mut RegistryBuilder) {
             column("profile", T::enumeration("PublicationKind")),
             column("profile_contract", T::hash()),
             column("requested_relations", T::list(T::id())),
+            column("profile_required_relations", T::list(T::id())).optional(),
             column("release_id", T::hash()),
             column("release_members", T::list(member())),
             column("semantic_identity", T::hash()),

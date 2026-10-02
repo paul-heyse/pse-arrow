@@ -5670,6 +5670,12 @@ pub enum MigrationOp {
     ///Change a column's nullability.
     #[serde(rename = "change_nullable")]
     ChangeNullable,
+    ///Apply an explicit portable finite domain mapping.
+    #[serde(rename = "recode_domain")]
+    RecodeDomain,
+    ///Apply an explicit composite reference-key mapping.
+    #[serde(rename = "map_reference_key")]
+    MapReferenceKey,
 }
 impl crate::SemanticEq for MigrationOp {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5678,11 +5684,13 @@ impl crate::SemanticEq for MigrationOp {
 }
 impl MigrationOp {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
+    pub const ALL: [Self; 6usize] = [
         Self::AddColumn,
         Self::DropColumn,
         Self::RenameColumn,
         Self::ChangeNullable,
+        Self::RecodeDomain,
+        Self::MapReferenceKey,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -5691,6 +5699,8 @@ impl MigrationOp {
             Self::DropColumn => "drop_column",
             Self::RenameColumn => "rename_column",
             Self::ChangeNullable => "change_nullable",
+            Self::RecodeDomain => "recode_domain",
+            Self::MapReferenceKey => "map_reference_key",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -5700,6 +5710,8 @@ impl MigrationOp {
             Self::DropColumn => 1usize,
             Self::RenameColumn => 2usize,
             Self::ChangeNullable => 3usize,
+            Self::RecodeDomain => 4usize,
+            Self::MapReferenceKey => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -5714,6 +5726,8 @@ impl MigrationOp {
             Self::DropColumn => None,
             Self::RenameColumn => None,
             Self::ChangeNullable => None,
+            Self::RecodeDomain => None,
+            Self::MapReferenceKey => None,
         }
     }
 }
@@ -5729,7 +5743,7 @@ impl schemars::JsonSchema for MigrationOp {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["add_column", "drop_column", "rename_column",
-            "change_nullable"] }
+            "change_nullable", "recode_domain", "map_reference_key"] }
         )
     }
 }
@@ -5741,6 +5755,8 @@ impl core::str::FromStr for MigrationOp {
             "drop_column" => Ok(Self::DropColumn),
             "rename_column" => Ok(Self::RenameColumn),
             "change_nullable" => Ok(Self::ChangeNullable),
+            "recode_domain" => Ok(Self::RecodeDomain),
+            "map_reference_key" => Ok(Self::MapReferenceKey),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(MigrationOp).to_owned(),
@@ -15575,6 +15591,216 @@ impl crate::SemanticFrame for OperationEffect {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum OrphanDisposition {
+    ///discovered
+    #[serde(rename = "discovered")]
+    Discovered,
+    ///protected
+    #[serde(rename = "protected")]
+    Protected,
+    ///claimed
+    #[serde(rename = "claimed")]
+    Claimed,
+    ///deleted
+    #[serde(rename = "deleted")]
+    Deleted,
+    ///unresolved
+    #[serde(rename = "unresolved")]
+    Unresolved,
+}
+impl crate::SemanticEq for OrphanDisposition {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl OrphanDisposition {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Discovered,
+        Self::Protected,
+        Self::Claimed,
+        Self::Deleted,
+        Self::Unresolved,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Discovered => "discovered",
+            Self::Protected => "protected",
+            Self::Claimed => "claimed",
+            Self::Deleted => "deleted",
+            Self::Unresolved => "unresolved",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Discovered => 0usize,
+            Self::Protected => 1usize,
+            Self::Claimed => 2usize,
+            Self::Deleted => 3usize,
+            Self::Unresolved => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Discovered => None,
+            Self::Protected => None,
+            Self::Claimed => None,
+            Self::Deleted => None,
+            Self::Unresolved => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for OrphanDisposition {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(OrphanDisposition))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(OrphanDisposition)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["discovered", "protected", "claimed",
+            "deleted", "unresolved"] }
+        )
+    }
+}
+impl core::str::FromStr for OrphanDisposition {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "discovered" => Ok(Self::Discovered),
+            "protected" => Ok(Self::Protected),
+            "claimed" => Ok(Self::Claimed),
+            "deleted" => Ok(Self::Deleted),
+            "unresolved" => Ok(Self::Unresolved),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(OrphanDisposition).to_owned(),
+                    enumeration: stringify!(OrphanDisposition).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum OrphanOwnership {
+    ///attributable
+    #[serde(rename = "attributable")]
+    Attributable,
+    ///unattributable
+    #[serde(rename = "unattributable")]
+    Unattributable,
+}
+impl crate::SemanticEq for OrphanOwnership {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl OrphanOwnership {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Attributable, Self::Unattributable];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Attributable => "attributable",
+            Self::Unattributable => "unattributable",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Attributable => 0usize,
+            Self::Unattributable => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Attributable => None,
+            Self::Unattributable => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for OrphanOwnership {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(OrphanOwnership))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(OrphanOwnership)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["attributable", "unattributable"] }
+        )
+    }
+}
+impl core::str::FromStr for OrphanOwnership {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "attributable" => Ok(Self::Attributable),
+            "unattributable" => Ok(Self::Unattributable),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(OrphanOwnership).to_owned(),
+                    enumeration: stringify!(OrphanOwnership).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum PackageKind {
     ///Reference data under the named identity policy: units, elements, constants, property kinds.
     #[serde(rename = "reference")]
@@ -16330,6 +16556,9 @@ pub enum PublicationKind {
     ///inspection
     #[serde(rename = "inspection")]
     Inspection,
+    ///migration
+    #[serde(rename = "migration")]
+    Migration,
 }
 impl crate::SemanticEq for PublicationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -16338,7 +16567,7 @@ impl crate::SemanticEq for PublicationKind {
 }
 impl PublicationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 8usize] = [
+    pub const ALL: [Self; 9usize] = [
         Self::Relations,
         Self::Source,
         Self::Model,
@@ -16347,6 +16576,7 @@ impl PublicationKind {
         Self::Run,
         Self::Diagnostics,
         Self::Inspection,
+        Self::Migration,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -16359,6 +16589,7 @@ impl PublicationKind {
             Self::Run => "run",
             Self::Diagnostics => "diagnostics",
             Self::Inspection => "inspection",
+            Self::Migration => "migration",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -16372,6 +16603,7 @@ impl PublicationKind {
             Self::Run => 5usize,
             Self::Diagnostics => 6usize,
             Self::Inspection => 7usize,
+            Self::Migration => 8usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -16390,6 +16622,7 @@ impl PublicationKind {
             Self::Run => None,
             Self::Diagnostics => None,
             Self::Inspection => None,
+            Self::Migration => None,
         }
     }
 }
@@ -16405,7 +16638,7 @@ impl schemars::JsonSchema for PublicationKind {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["relations", "source", "model", "case",
-            "problem", "run", "diagnostics", "inspection"] }
+            "problem", "run", "diagnostics", "inspection", "migration"] }
         )
     }
 }
@@ -16421,6 +16654,7 @@ impl core::str::FromStr for PublicationKind {
             "run" => Ok(Self::Run),
             "diagnostics" => Ok(Self::Diagnostics),
             "inspection" => Ok(Self::Inspection),
+            "migration" => Ok(Self::Migration),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(PublicationKind).to_owned(),
@@ -21852,6 +22086,26 @@ impl crate::HeapUsage for ObservationTimeBasis {
     }
 }
 impl crate::SemanticFrame for ObservationTimeBasis {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for OrphanDisposition {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for OrphanDisposition {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for OrphanOwnership {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for OrphanOwnership {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

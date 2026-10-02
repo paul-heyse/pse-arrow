@@ -1128,7 +1128,10 @@ fn fixture_diagnostics_resolve_members_once() {
     let [expected] = fixture.diagnostics.as_slice() else {
         panic!("one expected diagnostic");
     };
-    assert_eq!(expected.rule, "jacobian.parallel_rows");
+    assert_eq!(
+        expected.rule,
+        pse_diagnostics::DiagnosticRule::JacobianParallelRows
+    );
     let (path, rows) = &expected.members[0];
     assert_eq!(path, "root.e[a]");
     assert_eq!(rows.len(), 1);
@@ -1148,7 +1151,7 @@ fn fixture_diagnostics_resolve_members_once() {
                 "route steady; procedure solve;",
                 "route steady; procedure check;",
             ),
-            "fixture execution metadata disagrees with its route",
+            "fixture procedure metadata disagrees with its temporal route",
         ),
     ] {
         let error = run(&invalid, "p.t", Bindings::default()).unwrap_err();

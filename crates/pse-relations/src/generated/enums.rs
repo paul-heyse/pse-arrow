@@ -41,19 +41,19 @@ pub use pse_model::generated::r#enums::{
     NativeSolveIntent, NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy,
     NativeTermination, NativeWarmCapability, NumericalCoordinates,
     NumericalProvenanceField, NumericalSource, NumericalTarget, ObservationTimeBasis,
-    Opcode, OperationEffect, PackageKind, PardisoMatching, PardisoOrdering, PounceMethod,
-    Preconditioner, PresolvePass, PresolvePolicyKind, PublicationKind,
-    PublicationMemberRole, QuantityAdditionKind, QuantityKindCategory,
-    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
-    ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase, RetentionReason,
-    ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
-    Severity, ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
-    Stability, StateSign, StoredSeedKind, StoredSolutionOrigin, StructuralScopeKind,
-    StudyAvailability, StudyContinuationPermission, StudyEffectState, StudyLegacyKind,
-    StudyLifecycle, StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
-    StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
-    StudyUnavailableSeedPolicy, SubjectRule, TearMethod, TerminationClass,
-    TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
+    Opcode, OperationEffect, OrphanDisposition, OrphanOwnership, PackageKind,
+    PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner, PresolvePass,
+    PresolvePolicyKind, PublicationKind, PublicationMemberRole, QuantityAdditionKind,
+    QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
+    RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase,
+    RetentionReason, ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector,
+    SettlementOutcome, Severity, ShootingMethod, SnapshotClass, SpralOrdering,
+    SpralPivot, SpralScaling, Stability, StateSign, StoredSeedKind, StoredSolutionOrigin,
+    StructuralScopeKind, StudyAvailability, StudyContinuationPermission,
+    StudyEffectState, StudyLegacyKind, StudyLifecycle, StudyPointState, StudyResultRole,
+    StudyRetryFailure, StudySeedNeed, StudySeedRole, StudySeedUnavailable,
+    StudyStartKind, StudyState, StudyUnavailableSeedPolicy, SubjectRule, TearMethod,
+    TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
     WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
@@ -2892,6 +2892,44 @@ impl crate::columnar::ArrowValue for OperationEffect {
                 enumeration: stringify!(OperationEffect).to_owned(),
                 value: value.to_owned(),
             })
+    }
+}
+impl crate::columnar::ArrowValue for OrphanDisposition {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for OrphanOwnership {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
 impl crate::columnar::ArrowValue for PackageKind {

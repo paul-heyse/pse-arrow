@@ -46,7 +46,10 @@ pub use crate::model::extension::ExtensionUse;
 pub use crate::model::extension::{EXTENSION_TYPES, ExtensionMetadataShape, ExtensionTypeSpec};
 pub use crate::model::field::{FieldTypeRow, render_data_type};
 pub use crate::model::invariant::{InvariantDecl, InvariantSpec};
-pub use crate::model::migration::{MigrationSpec, MigrationStep};
+pub use crate::model::migration::{
+    MappingPolicy, MigrationNulls, MigrationSpec, MigrationStep, MigrationValuePair,
+    MigrationValues,
+};
 pub use crate::model::relation::{
     ForeignKey, ForeignKeyDecl, QuantityContract, RelationDecl, RelationKey, RelationSpec,
     UniqueKey,

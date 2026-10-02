@@ -553,7 +553,7 @@ def check_operational_store() -> Check:
         return Check(
             "opstore",
             True,
-            f"PostgreSQL {version}; no pse_ops schema yet (the first durable open creates it)",
+            f"PostgreSQL {version}; no pse_ops schema yet (create explicitly with just db-create)",
             blocking=False,
         )
     if recorded != f"pse.ops.schema.v1 {expected}":

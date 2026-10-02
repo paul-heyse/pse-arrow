@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 94
+revision: 95
 date: 2026-10-01
 ---
 
@@ -68,6 +68,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | 93 | 2026-10-01 | ADR-0148 shared occurrence study contract and physically admitted bindings (§5.3/§19.3), source-owned detailed diagnostic envelopes and independent purpose projections (§23.2), preserving occurrence migration and pre-effect receipt reconciliation (§20.6), and generated study request/outcome/status plus complete Python reports (§21.5). | Maintainer-authorized Plan 25f implementation; ADR remains proposed; bounded review and focused evidence belong to 25f, assembled qualification to 25k; architecture amendment uses `PSE_DESIGN_EDIT=1`. |
 | 94 | 2026-10-01 | ADR-0149 accepted, superseding ADR-0147: §24.4 bounds agent effects by the shared role contracts alone. Claude adapters drop their `tools` lists, so every role inherits the session's tools (Codex roles already inherit its sandbox); the worker contract tells workers to name markdown for its content, because Claude Code refuses a subagent Write of `report*`/`summary*`/`findings*`/`analysis*` `.md` files and that check cannot be disabled. The library-research write scope and the ADR-0139 coordination policy are carried forward unchanged. Independent review waived by the maintainer; `just lint-agents` passed. | maintainer-directed cross-repository change; edited from a session rooted in a sibling repository, where pse-arrow's guard hook does not run (the `PSE_DESIGN_EDIT=1` route) |
+
+| 95 | 2026-10-01 | ADR-0146 durable recorded interpretation, directional consumer projection, exact write/migration products, portable predicates, descriptor root proof, explicit native artifact transformation and store lifecycle, retirement inventory and bounded restart-safe orphan discovery (§4.3/§20.2/§20.4/§20.5/§20.6); reconcile the retired R-35 limit in §25/§26. | Maintainer-authorized Plan 25g implementation; ADR remains proposed; bounded design review Accept at Proposed evidence; focused checks belong to 25g and integrated recovery qualification to 25k; `PSE_DESIGN_EDIT=1`. |
 
 ## Former anchors
 

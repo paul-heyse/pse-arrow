@@ -41,8 +41,18 @@ pse_ids::semantic_id_newtype! {
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
+    "One explicit schema reinitialization and completed retirement manifest (entity identity `reset`, ADR-0115)."]
+    ResetId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
     "One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt (entity identity `run`, ADR-0115)."]
     RunId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
+    "One restartable workspace enumeration and durable candidate inventory (entity identity `scan`, ADR-0115)."]
+    ScanId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
@@ -189,6 +199,21 @@ impl crate::SemanticFrame for ReaderLeaseId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::SemanticEq for ResetId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for ResetId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ResetId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
 impl crate::SemanticEq for RunId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -200,6 +225,21 @@ impl crate::HeapUsage for RunId {
     }
 }
 impl crate::SemanticFrame for RunId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for ScanId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for ScanId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ScanId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }

@@ -157,6 +157,33 @@ pub fn declare_relation_output(
     declare_relation_projection(plan, registry, spec, Vec::new())
 }
 
+/// Rebind a primitive value under an explicitly declared migration identity policy.
+/// This helper is used only by the checked schema transformation compiler: target
+/// local predicates execute through the existing checked-value kernel, and storage
+/// shape is unchanged. Ordinary output admission continues to compare source meaning.
+/// # Errors
+/// Composite storage, a different physical type, or an invalid target declaration.
+pub(super) fn migration_identity_value(
+    value: Expr,
+    source: &Field,
+    target: &Field,
+    relation: &RelationSpec,
+    checked: &Arc<datafusion::logical_expr::ScalarUDF>,
+) -> Result<Expr> {
+    if source.data_type() != target.data_type()
+        || !pse_columnar::native_field::children(source.data_type()).is_empty()
+    {
+        return Err(invalid(
+            "migration identity requires identical primitive native storage",
+        ));
+    }
+    Ok(checked.call(vec![
+        super::scalar::retain_metadata(value, Vec::new()),
+        datafusion::logical_expr::lit(relation.qualified_name()),
+        datafusion::logical_expr::lit(target.name().clone()),
+    ]))
+}
+
 /// Project declared fields and ancillary algorithm arguments in the same native row.
 /// Extra expressions remain ordinary native fields. The resulting wider schema does
 /// not itself claim to be the declared relation; callers project its exact fields at

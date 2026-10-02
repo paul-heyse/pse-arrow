@@ -56,7 +56,11 @@ pub fn history_owner(table: &str) -> HistoryOwner {
         | "reader_leases"
         | "retention_marks"
         | "settlements"
-        | "schema_support_state" => HistoryOwner::Catalog,
+        | "schema_support_state"
+        | "orphan_scans"
+        | "orphan_candidates"
+        | "reset_records"
+        | "retired_inventory" => HistoryOwner::Catalog,
         _ => HistoryOwner::Operations,
     }
 }

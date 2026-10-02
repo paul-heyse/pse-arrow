@@ -22,6 +22,10 @@ const HISTORICAL_ROWS: &str = r#"
       VALUES ('00000000-0000-0000-0000-000000000006','00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000004','historical-reader','2030-01-01');
       INSERT INTO pse_ops.retention_marks(publication_id,phase) VALUES ('00000000-0000-0000-0000-000000000005','expiring');
     "#;
+async fn migrate(store: &Store) -> Result<MigrationReport, OperationsError> {
+    let plan = store.migration_plan().await?;
+    store.migrate(&plan).await
+}
 async fn legacy() -> TestDatabase {
     let db = TestDatabase::empty().await.unwrap();
     let session = db.session().await.unwrap();
@@ -59,7 +63,7 @@ fn migration_frozen_source_identity_and_history_ownership() {
         .part(SOURCE_PHYSICAL.as_bytes());
     assert_eq!(hash.finish_hash().to_hex(), MIGRATION_SOURCE);
     let (catalog, operations) = transitions().unwrap();
-    assert_eq!((catalog.len(), operations.len()), (1, 5));
+    assert_eq!((catalog.len(), operations.len()), (2, 6));
     assert_ne!(CATALOG_HISTORY, OPERATIONS_HISTORY);
 }
 #[tokio::test]
@@ -71,21 +75,21 @@ async fn migration_supported_source_preserves_payload_and_catalog() {
         db.store().open().await,
         Err(OperationsError::SchemaMismatch { .. })
     ));
-    assert_eq!(db.store().migrate().await.unwrap(), Opened::Current);
+    assert!(migrate(db.store()).await.unwrap().final_ready.ready);
     assert_eq!(session.texts(SNAPSHOT).await.unwrap(), before);
     assert_eq!(
         session
             .count("SELECT count(*) FROM pse_ops.catalog_schema_history")
             .await
             .unwrap(),
-        1
+        2
     );
     assert_eq!(
         session
             .count("SELECT count(*) FROM pse_ops.operations_schema_history")
             .await
             .unwrap(),
-        5
+        6
     );
     assert_eq!(session.count("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename='refinery_schema_history'").await.unwrap(),0);
     let reopened = Store::open_with(db.url(), &crate::store::StoreOptions::for_tests())
@@ -124,7 +128,7 @@ async fn migration_unknown_source_and_drift_refuse_without_effects() {
         } else {
             MigrationRefusal::Drift
         };
-        reason(db.store().migrate().await.unwrap_err(), expected);
+        reason(migrate(db.store()).await.unwrap_err(), expected);
         assert_eq!(comment(&db).await, before_comment);
         assert_eq!(session.texts(SNAPSHOT).await.unwrap(), before);
         assert_eq!(session.count("SELECT count(*) FROM pg_tables WHERE schemaname='pse_ops' AND tablename IN ('catalog_schema_history','operations_schema_history','schema_support_state')").await.unwrap(),0);
@@ -140,7 +144,7 @@ async fn migration_both_history_conflicts_refuse_before_marker_or_other_history(
         session.execute(&format!("CREATE TABLE {table}(version integer PRIMARY KEY,name text NOT NULL,applied_on text NOT NULL,checksum text NOT NULL); INSERT INTO {table} VALUES(1,'incorrect','2026-01-01','1')")).await.unwrap();
         let before = comment(&db).await;
         reason(
-            db.store().migrate().await.unwrap_err(),
+            migrate(db.store()).await.unwrap_err(),
             MigrationRefusal::ChecksumConflict,
         );
         assert_eq!(comment(&db).await, before);
@@ -164,7 +168,7 @@ async fn migration_interrupted_committed_prefix_resumes_and_open_refuses_not_rea
             Store::connect_with(proxy.url(), &crate::store::StoreOptions::for_tests())
                 .await
                 .unwrap();
-        assert!(interrupted.migrate().await.is_err());
+        assert!(migrate(&interrupted).await.is_err());
         assert!(proxy.fired());
         interrupted.close();
         reason(
@@ -175,7 +179,7 @@ async fn migration_interrupted_committed_prefix_resumes_and_open_refuses_not_rea
             db.store().client().await.unwrap_err(),
             MigrationRefusal::NotReady,
         );
-        assert_eq!(db.store().migrate().await.unwrap(), Opened::Current);
+        assert!(migrate(db.store()).await.unwrap().final_ready.ready);
         assert_eq!(session.texts(SNAPSHOT).await.unwrap(), before);
         drop(session);
         drop(proxy);
@@ -197,7 +201,7 @@ async fn migration_committed_partial_drift_and_checksum_conflict_preserve_prefix
             .await
             .unwrap();
         let (catalog, operations) = transitions().unwrap();
-        run_history(&mut session.client, &catalog, CATALOG_HISTORY)
+        run_history(&mut session.client, &catalog[..1], CATALOG_HISTORY)
             .await
             .unwrap();
         run_history(&mut session.client, &operations[..1], OPERATIONS_HISTORY)
@@ -208,7 +212,7 @@ async fn migration_committed_partial_drift_and_checksum_conflict_preserve_prefix
         raw.execute(defect).await.unwrap();
         let before_comment = comment(&db).await;
         reason(
-            db.store().migrate().await.unwrap_err(),
+            migrate(db.store()).await.unwrap_err(),
             if defect.starts_with("UPDATE") {
                 MigrationRefusal::ChecksumConflict
             } else {
@@ -233,7 +237,7 @@ async fn migration_open_generation_and_competing_owner_refuse_until_quiescent() 
         .await
         .unwrap();
     reason(
-        tokio::time::timeout(Duration::from_secs(2), admin.migrate())
+        tokio::time::timeout(Duration::from_secs(2), migrate(&admin))
             .await
             .unwrap()
             .unwrap_err(),
@@ -243,14 +247,14 @@ async fn migration_open_generation_and_competing_owner_refuse_until_quiescent() 
     db.store().close();
     tokio::time::sleep(Duration::from_millis(30)).await;
     reason(
-        admin.migrate().await.unwrap_err(),
+        migrate(&admin).await.unwrap_err(),
         MigrationRefusal::ActiveGeneration,
     );
     drop(borrowed);
     let mut attempts = 0;
     loop {
-        match admin.migrate().await {
-            Ok(Opened::Current) => break,
+        match migrate(&admin).await {
+            Ok(report) if report.final_ready.ready => break,
             Err(OperationsError::MigrationRefused {
                 reason: MigrationRefusal::ActiveGeneration,
                 ..
@@ -268,7 +272,7 @@ async fn migration_open_generation_and_competing_owner_refuse_until_quiescent() 
         .await
         .unwrap();
     reason(
-        admin.migrate().await.unwrap_err(),
+        migrate(&admin).await.unwrap_err(),
         MigrationRefusal::ActiveGeneration,
     );
     drop(session);
@@ -283,7 +287,7 @@ async fn migration_read_only_repeated_and_concurrent_open_never_wait_for_existin
         .await
         .unwrap();
     let (first, other) = tokio::time::timeout(Duration::from_secs(5), async {
-        tokio::join!(db.store().open(), second.open())
+        tokio::join!(db.store().create(), second.create())
     })
     .await
     .unwrap();
@@ -318,7 +322,7 @@ fn migration_plan25e_frozen_source_identity_and_follow_on_target() {
         .part(include_bytes!("../test-fixtures/plan25e/physical.sql"));
     assert_eq!(hash.finish_hash().to_hex(), STUDY_MIGRATION_SOURCE);
     let sql = include_str!("../migrations/V5__study_occurrence_policy.sql");
-    assert!(sql.contains(SCHEMA_FINGERPRINT_HEX));
+    assert!(sql.contains(INVENTORY_MIGRATION_SOURCE));
     assert!(sql.contains(crate::generated::OPERATIONS_FINGERPRINT_HEX));
     // The replacement has precisely the registry's table declaration, including column order.
     let declared = SCHEMA_SQL
@@ -376,8 +380,8 @@ fn migration_source_and_history_prefix_are_admitted_together() {
         (STUDY_MIGRATION_SOURCE, true, 1, 3),
         (STUDY_MIGRATION_SOURCE, true, 0, 4),
         (FRESH_PLAN25E_ORIGIN, false, 0, 1),
-        (FRESH_PLAN25E_ORIGIN, true, 1, 1),
-        (FRESH_PLAN25E_ORIGIN, true, 0, 2),
+        (FRESH_PLAN25E_ORIGIN, true, 1, 0),
+        (FRESH_PLAN25E_ORIGIN, true, 1, 3),
         ("unknown", false, 0, 0),
     ] {
         reason(
@@ -390,7 +394,7 @@ fn migration_source_and_history_prefix_are_admitted_together() {
 #[test]
 fn migration_follow_on_preserves_enum_order_and_complete_layout_signatures() {
     let sql = include_str!("../migrations/V5__study_occurrence_policy.sql");
-    for (name, target) in crate::generated::layout::ENUMS {
+    for (name, target) in plan25f_layout::ENUMS {
         let source = plan25e_layout::ENUMS
             .iter()
             .find(|(old, _)| old == name)
@@ -408,7 +412,7 @@ fn migration_follow_on_preserves_enum_order_and_complete_layout_signatures() {
         "../migrations/plan25f-constraint-signatures.json"
     ))
     .unwrap();
-    for (table, name, kind) in crate::generated::layout::CONSTRAINTS {
+    for (table, name, kind) in plan25f_layout::CONSTRAINTS {
         assert!(
             signatures
                 .iter()
@@ -434,7 +438,7 @@ async fn plan25e_source(fresh: bool) -> TestDatabase {
         let db = legacy().await;
         let mut session = db.store().schema_session().await.unwrap();
         let (catalog, operations) = transitions().unwrap();
-        run_history(&mut session.client, &catalog, CATALOG_HISTORY)
+        run_history(&mut session.client, &catalog[..1], CATALOG_HISTORY)
             .await
             .unwrap();
         run_history(&mut session.client, &operations[..4], OPERATIONS_HISTORY)
@@ -480,7 +484,7 @@ async fn migration_plan25e_fresh_and_upgraded_sources_preserve_historical_occurr
         let historical = session.texts(SNAPSHOT).await.unwrap();
         let studies = session.texts(STUDY_SNAPSHOT).await.unwrap();
         let points = session.texts(POINT_SNAPSHOT).await.unwrap();
-        assert_eq!(db.store().migrate().await.unwrap(), Opened::Current);
+        assert!(migrate(db.store()).await.unwrap().final_ready.ready);
         assert_eq!(session.texts(SNAPSHOT).await.unwrap(), historical);
         assert_eq!(session.texts(STUDY_SNAPSHOT).await.unwrap(), studies);
         assert_eq!(
@@ -493,11 +497,9 @@ async fn migration_plan25e_fresh_and_upgraded_sources_preserve_historical_occurr
                 .count("SELECT count(*) FROM pse_ops.operations_schema_history")
                 .await
                 .unwrap(),
-            if fresh { 1 } else { 5 }
+            if fresh { 2 } else { 6 }
         );
         if fresh {
-            assert_eq!(session.count("SELECT count(*) FROM pg_tables WHERE schemaname='pse_ops' AND tablename='catalog_schema_history'").await.unwrap(),0);
-        } else {
             assert_eq!(
                 session
                     .count("SELECT count(*) FROM pse_ops.catalog_schema_history")
@@ -505,9 +507,192 @@ async fn migration_plan25e_fresh_and_upgraded_sources_preserve_historical_occurr
                     .unwrap(),
                 1
             );
+        } else {
+            assert_eq!(
+                session
+                    .count("SELECT count(*) FROM pse_ops.catalog_schema_history")
+                    .await
+                    .unwrap(),
+                2
+            );
         }
-        assert_eq!(db.store().migrate().await.unwrap(), Opened::Current);
+        assert!(migrate(db.store()).await.unwrap().final_ready.ready);
         drop(session);
         db.remove().await.unwrap();
     }
+}
+
+#[tokio::test]
+async fn migration_inspection_is_read_only_and_stale_plan_refuses_before_marker() {
+    let db = legacy().await;
+    let raw = db.session().await.unwrap();
+    let before = comment(&db).await;
+    let plan = db.store().migration_plan().await.unwrap();
+    assert_eq!(comment(&db).await, before);
+    assert_eq!(plan.source, MIGRATION_SOURCE);
+    assert_eq!(plan.pending_steps().len(), 8);
+    assert_eq!(raw.count("SELECT count(*) FROM pg_tables WHERE schemaname='pse_ops' AND tablename LIKE '%schema_history'").await.unwrap(), 0);
+    let mut changed = plan.clone();
+    changed.shared_version += 1;
+    reason(
+        db.store().migrate(&changed).await.unwrap_err(),
+        MigrationRefusal::PlanChanged,
+    );
+    assert_eq!(comment(&db).await, before);
+    let report = db.store().migrate(&plan).await.unwrap();
+    assert_eq!(report.applied, plan.pending_steps());
+    assert!(report.final_ready.ready);
+    assert!(report.final_ready.pending_steps().is_empty());
+    reason(
+        db.store().migrate(&plan).await.unwrap_err(),
+        MigrationRefusal::PlanChanged,
+    );
+    drop(raw);
+    db.remove().await.unwrap();
+}
+
+#[test]
+fn migration_plan25f_frozen_source_and_appended_inventory_target() {
+    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::OpsSchemaV1);
+    hash.part(include_bytes!("../test-fixtures/plan25f/schema.sql"))
+        .part(include_bytes!("../test-fixtures/plan25f/physical.sql"));
+    assert_eq!(hash.finish_hash().to_hex(), INVENTORY_MIGRATION_SOURCE);
+    let inventory = include_str!("../migrations/V2__catalog_retirement_inventory.sql");
+    let ready = include_str!("../migrations/V6__retirement_ready.sql");
+    assert!(ready.contains(SCHEMA_FINGERPRINT_HEX));
+    assert!(inventory.contains(crate::generated::CATALOG_FINGERPRINT_HEX));
+    assert!(!inventory.contains("DROP "));
+    for table in [
+        "orphan_scans",
+        "orphan_candidates",
+        "reset_records",
+        "retired_inventory",
+    ] {
+        let declaration = SCHEMA_SQL
+            .split_once(&format!("CREATE TABLE pse_ops.\"{table}\" ("))
+            .unwrap()
+            .1
+            .split_once("\n);")
+            .unwrap()
+            .0;
+        let transition = inventory
+            .split_once(&format!("CREATE TABLE pse_ops.\"{table}\" ("))
+            .unwrap()
+            .1
+            .split_once("\n);")
+            .unwrap()
+            .0;
+        assert_eq!(declaration, transition);
+    }
+    let signatures: Vec<(String, String, String, String)> = serde_json::from_str(include_str!(
+        "../migrations/plan25g-constraint-signatures.json"
+    ))
+    .unwrap();
+    for (table, name, kind) in crate::generated::layout::CONSTRAINTS {
+        assert!(
+            signatures
+                .iter()
+                .any(|s| s.0 == *table && s.1 == *name && s.2 == *kind),
+            "{table}.{name}"
+        );
+    }
+}
+
+async fn plan25f_source(fresh: bool) -> TestDatabase {
+    if !fresh {
+        let db = plan25e_source(false).await;
+        let mut session = db.store().schema_session().await.unwrap();
+        let (_, operations) = transitions().unwrap();
+        run_history(&mut session.client, &operations[..5], OPERATIONS_HISTORY)
+            .await
+            .unwrap();
+        drop(session);
+        return db;
+    }
+    let db = TestDatabase::empty().await.unwrap();
+    let raw = db.session().await.unwrap();
+    raw.execute(include_str!("../test-fixtures/plan25f/schema.sql"))
+        .await
+        .unwrap();
+    raw.execute(include_str!("../test-fixtures/plan25f/physical.sql"))
+        .await
+        .unwrap();
+    raw.execute(&format!("INSERT INTO pse_ops.schema_support_state VALUES('catalog',1,'fresh','{PLAN25E_CATALOG}',true),('operations',1,'fresh','{PLAN25F_OPERATIONS}',true); COMMENT ON SCHEMA pse_ops IS '{RECORD_PREFIX}{INVENTORY_MIGRATION_SOURCE}'")).await.unwrap();
+    raw.execute(HISTORICAL_ROWS).await.unwrap();
+    db
+}
+#[tokio::test]
+async fn migration_plan25f_fresh_and_upgraded_inventory_preserves_every_catalog_row() {
+    for fresh in [true, false] {
+        let db = plan25f_source(fresh).await;
+        let raw = db.session().await.unwrap();
+        let before = raw.texts(SNAPSHOT).await.unwrap();
+        let marker = comment(&db).await;
+        let plan = db.store().migration_plan().await.unwrap();
+        assert_eq!(comment(&db).await, marker);
+        assert_eq!(
+            plan.pending_steps()
+                .iter()
+                .map(|s| s.version)
+                .collect::<Vec<_>>(),
+            [2, 6]
+        );
+        let report = db.store().migrate(&plan).await.unwrap();
+        assert!(report.final_ready.ready);
+        assert_eq!(report.applied, plan.pending_steps());
+        assert_eq!(raw.texts(SNAPSHOT).await.unwrap(), before);
+        let reopened = Store::open_with(db.url(), &crate::store::StoreOptions::for_tests())
+            .await
+            .unwrap();
+        reopened.close();
+        drop(raw);
+        db.remove().await.unwrap();
+    }
+}
+#[tokio::test]
+async fn migration_inventory_interruption_and_malformed_timestamp_never_destroy_catalog() {
+    for point in [FaultPoint::BeforeCommit, FaultPoint::AfterCommit] {
+        let db = plan25f_source(false).await;
+        let raw = db.session().await.unwrap();
+        let before = raw.texts(SNAPSHOT).await.unwrap();
+        let proxy = FaultProxy::start(db.url()).await.unwrap();
+        proxy.arm(Fault {
+            marker: "CREATE TABLE pse_ops.\"orphan_scans\"",
+            point,
+        });
+        let interrupted =
+            Store::connect_with(proxy.url(), &crate::store::StoreOptions::for_tests())
+                .await
+                .unwrap();
+        let plan = interrupted.migration_plan().await.unwrap();
+        assert!(interrupted.migrate(&plan).await.is_err());
+        assert!(proxy.fired());
+        interrupted.close();
+        reason(
+            db.store().open().await.unwrap_err(),
+            MigrationRefusal::NotReady,
+        );
+        let resumed = db.store().migration_plan().await.unwrap();
+        let report = db.store().migrate(&resumed).await.unwrap();
+        assert!(report.final_ready.ready);
+        assert_eq!(raw.texts(SNAPSHOT).await.unwrap(), before);
+        drop(proxy);
+        drop(raw);
+        db.remove().await.unwrap();
+    }
+    let db = plan25f_source(false).await;
+    let raw = db.session().await.unwrap();
+    let before = comment(&db).await;
+    raw.execute(
+        "UPDATE pse_ops.operations_schema_history SET applied_on='malformed' WHERE version=5",
+    )
+    .await
+    .unwrap();
+    reason(
+        db.store().migration_plan().await.unwrap_err(),
+        MigrationRefusal::ChecksumConflict,
+    );
+    assert_eq!(comment(&db).await, before);
+    drop(raw);
+    db.remove().await.unwrap();
 }

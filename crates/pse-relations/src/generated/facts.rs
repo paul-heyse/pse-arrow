@@ -503,6 +503,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            143u8, 57u8, 187u8, 189u8, 105u8, 231u8, 140u8, 254u8, 185u8, 185u8, 82u8,
+            0u8, 147u8, 179u8, 171u8, 208u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeArtifactMigrationLineage(
+                super::r#runtime::r#artifact_migration_lineage::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             154u8, 37u8, 176u8, 218u8, 131u8, 174u8, 94u8, 180u8, 86u8, 28u8, 185u8,
             181u8, 250u8, 45u8, 184u8, 89u8,
         ])
@@ -947,6 +959,30 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            118u8, 28u8, 183u8, 60u8, 28u8, 176u8, 250u8, 221u8, 197u8, 146u8, 90u8,
+            233u8, 82u8, 80u8, 212u8, 207u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeOperationalOrphanCandidates(
+                super::r#runtime::r#operational_orphan_candidates::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            231u8, 68u8, 38u8, 252u8, 199u8, 56u8, 55u8, 10u8, 164u8, 103u8, 5u8, 213u8,
+            222u8, 180u8, 81u8, 98u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeOperationalOrphanScans(
+                super::r#runtime::r#operational_orphan_scans::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             25u8, 37u8, 212u8, 48u8, 110u8, 243u8, 84u8, 132u8, 37u8, 146u8, 190u8, 94u8,
             123u8, 214u8, 252u8, 16u8,
         ])
@@ -1043,6 +1079,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            176u8, 93u8, 244u8, 15u8, 152u8, 153u8, 135u8, 168u8, 241u8, 26u8, 252u8,
+            198u8, 43u8, 65u8, 54u8, 90u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeOperationalResetRecords(
+                super::r#runtime::r#operational_reset_records::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             23u8, 241u8, 168u8, 125u8, 19u8, 133u8, 106u8, 155u8, 157u8, 61u8, 228u8,
             231u8, 216u8, 145u8, 29u8, 6u8,
         ])
@@ -1050,6 +1098,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeOperationalRetentionMarks(
                 super::r#runtime::r#operational_retention_marks::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            130u8, 226u8, 181u8, 20u8, 161u8, 167u8, 155u8, 208u8, 136u8, 70u8, 251u8,
+            253u8, 236u8, 84u8, 186u8, 50u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeOperationalRetiredInventory(
+                super::r#runtime::r#operational_retired_inventory::Row::rows(batch)?,
             ),
         );
     }
@@ -1598,6 +1658,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeArtifactDescriptors(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeArtifactMigrationLineage(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCacheEntryStatistics(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
@@ -1709,6 +1772,12 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalJobs(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeOperationalOrphanCandidates(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeOperationalOrphanScans(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalProgressEvents(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
@@ -1733,7 +1802,13 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalReaderLeases(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeOperationalResetRecords(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalRetentionMarks(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeOperationalRetiredInventory(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalSchemaSupportState(

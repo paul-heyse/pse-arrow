@@ -172,6 +172,16 @@ request/default migration and J3 graph/cardinality/strum mechanics remain open. 
 semantic vocabulary slice does not close F24 or the full enum-mechanism consolidation;
 cross-language workflow qualification remains 25k.
 
+## Consumed 25g prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** Registry declarations generate migration lineage,
+versioned descriptor root inventory, reset/scan identities and orphan/reset relations with
+closed dispositions. Generated operational statements cover the shared protection fence and
+clock-based lease expiry. Rust/native consumers compile against the regenerated boundary;
+[25g Verification](25g-durable-contract-evolution.md#verification) owns commands and limits.
+This completes the required durable-evolution boundary slice, not J1/J2's full request/default
+migration or J3's remaining generator/library consolidation. Cross-language qualification remains 25k.
+
 ## Proposed acceptance and handoff
 
 Focused checks use isolated Rust request/codec units and Python constructor/decoder units,
@@ -198,7 +208,7 @@ survived. The coordinator resolves F18/F26 only after all their component obliga
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25d/25e/25f prerequisite slices are
+Full-plan closure remains outstanding. The implemented 25d/25e/25f/25g prerequisite slices are
 recorded above; the linked plans own their focused evidence. Remaining work is Proposed.
 
 ### A mistake made and corrected

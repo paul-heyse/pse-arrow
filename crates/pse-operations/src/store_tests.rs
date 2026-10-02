@@ -233,7 +233,12 @@ async fn generated_schema_creates_empty_store() {
     let database = TestDatabase::empty().await.unwrap();
     let store = database.store().clone();
     assert_eq!(store.schema_status().await.unwrap(), SchemaStatus::Absent);
-    assert_eq!(store.open().await.unwrap(), Opened::Created);
+    assert!(matches!(
+        store.open().await.unwrap_err(),
+        OperationsError::SchemaAbsent { .. }
+    ));
+    assert_eq!(store.schema_status().await.unwrap(), SchemaStatus::Absent);
+    assert_eq!(store.create().await.unwrap(), Opened::Created);
     assert_eq!(store.schema_status().await.unwrap(), SchemaStatus::Current);
     // A second open, as every durable runtime does, changes nothing.
     assert_eq!(store.open().await.unwrap(), Opened::Current);
@@ -301,7 +306,7 @@ async fn store_schema_mismatch_refused() {
         "{refused:?}"
     );
     let help = miette::Diagnostic::help(&refused).map(|h| h.to_string());
-    assert!(help.is_some_and(|h| h.contains("just db-reset")));
+    assert!(help.is_some_and(|h| h.contains("just db-migrate")));
     assert_eq!(
         store.schema_status().await.unwrap(),
         SchemaStatus::Mismatch {
@@ -318,9 +323,7 @@ async fn store_schema_mismatch_refused() {
         store.open().await.unwrap_err(),
         OperationsError::SchemaMismatch { recorded: None, .. }
     ));
-    // The explicit reset recreates it from this build.
-    assert_eq!(store.reset().await.unwrap(), Opened::Created);
-    assert_eq!(store.schema_status().await.unwrap(), SchemaStatus::Current);
+    // Unknown or unrecorded sources require operator diagnosis; opening never resets them.
     drop(session);
     database.remove().await.unwrap();
 }

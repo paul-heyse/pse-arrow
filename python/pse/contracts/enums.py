@@ -1000,6 +1000,8 @@ class MigrationOp(StrEnum):
     DROP_COLUMN = "drop_column"
     RENAME_COLUMN = "rename_column"
     CHANGE_NULLABLE = "change_nullable"
+    RECODE_DOMAIN = "recode_domain"
+    MAP_REFERENCE_KEY = "map_reference_key"
 
 
 class ModelingAccumulatorMode(StrEnum):
@@ -1922,6 +1924,23 @@ class OperationEffect(StrEnum):
     PUBLISH = "publish"
 
 
+class OrphanDisposition(StrEnum):
+    """The declared OrphanDisposition enumeration."""
+
+    DISCOVERED = "discovered"
+    PROTECTED = "protected"
+    CLAIMED = "claimed"
+    DELETED = "deleted"
+    UNRESOLVED = "unresolved"
+
+
+class OrphanOwnership(StrEnum):
+    """The declared OrphanOwnership enumeration."""
+
+    ATTRIBUTABLE = "attributable"
+    UNATTRIBUTABLE = "unattributable"
+
+
 class PackageKind(StrEnum):
     """The declared PackageKind enumeration."""
 
@@ -1992,6 +2011,7 @@ class PublicationKind(StrEnum):
     RUN = "run"
     DIAGNOSTICS = "diagnostics"
     INSPECTION = "inspection"
+    MIGRATION = "migration"
 
 
 class PublicationMemberRole(StrEnum):

@@ -91,6 +91,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     declare_solutions(b);
     declare_catalog(b);
     declare_studies(b);
+    declare_retirement(b);
     b.declare_relation(store("operational_schema_support_state", &["history"], vec![
         column("history", text()), column("shared_version", int32()),
         column("source", text()), column("target", text()), column("ready", flag()),
@@ -1091,4 +1092,66 @@ mod tests {
         }
         assert!(timestamps > 20);
     }
+}
+
+/// Durable bounded discovery and reset retirement inventory (ADR-0146).
+fn declare_retirement(b: &mut RegistryBuilder) {
+    identity(
+        b,
+        "scan",
+        "One restartable workspace enumeration and durable candidate inventory",
+    );
+    identity(
+        b,
+        "reset",
+        "One explicit schema reinitialization and completed retirement manifest",
+    );
+    enumeration(b, "OrphanOwnership", ["attributable", "unattributable"]);
+    enumeration(
+        b,
+        "OrphanDisposition",
+        [
+            "discovered",
+            "protected",
+            "claimed",
+            "deleted",
+            "unresolved",
+        ],
+    );
+    b.declare_relation(store("operational_orphan_scans", &["scan_id"], vec![
+        column("scan_id", T::id()).with_owned_identity("scan"),
+        column("workspace_id", T::id()).with_fk("runtime.operational_workspaces", "workspace_id"),
+        column("root_uri", text()), column("maintenance_epoch", int64()),
+        column("generation", int64()), column("listed_count", int64()), column("complete", flag()),
+    ], "Restartable bounded workspace listing; restart increments generation and re-enumerates from the established root without assuming provider ordering or snapshot semantics.")
+    .check("generation_positive", "\"generation\" > 0")
+    .check("counts_nonnegative", "\"maintenance_epoch\" >= 0 AND \"listed_count\" >= 0")
+    .check("root_nonempty", nonempty("root_uri")));
+    b.declare_relation(store("operational_orphan_candidates", &["scan_id", "prefix"], vec![
+        column("scan_id", T::id()).with_fk("runtime.operational_orphan_scans", "scan_id"),
+        column("prefix", text()), column("generation", int64()), column("discovery_epoch", int64()),
+        column("ownership", T::enumeration("OrphanOwnership")), column("evidence", json()),
+        column("protections", json()), column("disposition", T::enumeration("OrphanDisposition")),
+        column("claim_epoch", int64()).optional(),
+    ], "Durable observed prefixes including unresolved ownership. Discovery never authorizes deletion; explicit claim rechecks protection under the workspace maintenance fence.")
+    .check("prefix_nonempty", nonempty("prefix"))
+    .check("generation_positive", "\"generation\" > 0")
+    .check("epoch_nonnegative", "\"discovery_epoch\" >= 0")
+    .check("claim_epoch_nonnegative", "\"claim_epoch\" IS NULL OR \"claim_epoch\" >= 0"));
+    b.declare_relation(store("operational_reset_records", &["reset_id"], vec![
+        column("reset_id", T::id()).with_owned_identity("reset"), column("manifest_digest", T::hash()),
+        column("manifest_uri", text()), column("source_fingerprint", text()), column("inventory_rows", int64()),
+    ], "Completed external retirement manifest and exact reset settlement identity; recorded in the same transaction as recreate/import/readiness.")
+    .check("manifest_nonempty", nonempty("manifest_uri"))
+    .check("source_nonempty", nonempty("source_fingerprint"))
+    .check("rows_nonnegative", "\"inventory_rows\" >= 0"));
+    b.declare_relation(store("operational_retired_inventory", &["reset_id", "ordinal"], vec![
+        column("reset_id", T::id()).with_fk("runtime.operational_reset_records", "reset_id"),
+        column("ordinal", int64()), column("workspace_id", T::id()).optional().with_identity("workspace"),
+        column("root_uri", text()).optional(), column("prefix", text()).optional(),
+        column("record_kind", text()), column("document", json()), column("protections", json()),
+        column("disposition", T::enumeration("OrphanDisposition")),
+    ], "Original completed catalog/control inventory and unresolved prior retirement records. Publication/member/input/window/intent/retention and reader/export expiry remain explicit after reset; retirement does not establish safe deletion.")
+    .check("ordinal_nonnegative", "\"ordinal\" >= 0")
+    .check("kind_nonempty", nonempty("record_kind")));
 }

@@ -7,7 +7,7 @@
 //! progress, incumbents, reusable solutions, studies and the publication catalog —
 //! and Delta owns what is published. The registry owns the meaning and the shape of every
 //! operational relation: this crate embeds the schema generated from it ([`generated`]),
-//! creates it or refuses a store whose schema differs ([`Store::open`]), and owns the one
+//! explicitly creates it ([`Store::create`]) or validates an existing store ([`Store::open`]), and owns the one
 //! attempt transition table ([`lifecycle`]), typed repositories and the catalog with its
 //! reader leases.
 //!
@@ -23,12 +23,14 @@ pub mod cancellation;
 pub mod catalog;
 mod error;
 mod ids;
+pub mod inventory;
 /// The store's schema generated from the registry: DDL, Cornucopia mapping, fingerprint.
 #[rustfmt::skip]
 pub mod generated;
 pub mod jobs;
 pub mod lifecycle;
 mod listener;
+pub mod retirement;
 mod schema;
 pub mod solutions;
 pub mod sources;
@@ -50,7 +52,10 @@ mod tables_tests;
 pub use error::{DriverError, InvariantKind, OperationsError, Target};
 pub use ids::mint_id;
 pub use listener::LISTENER_APPLICATION;
-pub use schema::{MIGRATION_SOURCE, MigrationRefusal, Opened, PHYSICAL_SQL, SchemaStatus};
+pub use schema::{
+    MIGRATION_SOURCE, MigrationHistoryPlan, MigrationPlan, MigrationRefusal, MigrationReport,
+    MigrationStep, Opened, PHYSICAL_SQL, SchemaStatus,
+};
 pub use store::{
     DATABASE_URL_ENV, DEFAULT_DATABASE_URL, MINIMUM_SERVER_VERSION, ServerInfo, Store,
     StoreOptions, database_url_from_env,

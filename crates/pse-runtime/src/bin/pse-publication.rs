@@ -29,7 +29,8 @@ use clap::{Parser, Subcommand};
 use pse_columnar::CancellationToken;
 use pse_operations::catalog::PublicationId;
 use pse_runtime::workflow::{
-    Durability, ExportReceipt, LeasePolicy, Operations, Runtime, WorkflowError,
+    DiscoveryBudget, Durability, ExportReceipt, LeasePolicy, Operations, Runtime, ScanId,
+    WorkflowError,
 };
 use pse_runtime::{ResourceBudget, SharedRuntime};
 
@@ -97,6 +98,36 @@ enum Command {
         #[arg(long)]
         workspace: String,
     },
+    /// Enumerate one workspace root, recording candidates without deleting them.
+    Discover {
+        #[arg(long)]
+        workspace: String,
+        /// Existing inventory identity; a new process restarts its enumeration generation.
+        #[arg(long)]
+        scan: Option<String>,
+        #[arg(long, default_value_t = 256)]
+        entries_per_slice: usize,
+        #[arg(long, default_value_t = 1_048_576)]
+        bytes_per_slice: usize,
+    },
+    /// Read one bounded page of recorded candidates, including unresolved ownership.
+    Orphans {
+        #[arg(long)]
+        scan: String,
+        #[arg(long)]
+        after_prefix: Option<String>,
+        #[arg(long, default_value_t = 256)]
+        limit: usize,
+    },
+    /// Recheck and remove exactly one explicitly selected attributable candidate.
+    ReclaimOrphan {
+        #[arg(long)]
+        workspace: String,
+        #[arg(long)]
+        scan: String,
+        #[arg(long)]
+        prefix: String,
+    },
 }
 
 fn runtime(cli: &Cli) -> Result<Runtime, String> {
@@ -139,6 +170,12 @@ fn identity(text: &str) -> Result<PublicationId, WorkflowError> {
     pse_ids::SemanticId::parse_hex(text)
         .map(PublicationId::from)
         .map_err(|error| WorkflowError::Input(format!("publication {text}: {error}")))
+}
+
+fn scan_identity(text: &str) -> Result<ScanId, WorkflowError> {
+    pse_ids::SemanticId::parse_hex(text)
+        .map(ScanId::from)
+        .map_err(|error| WorkflowError::Input(format!("scan {text}: {error}")))
 }
 
 fn report(error: &WorkflowError) {
@@ -250,6 +287,81 @@ async fn run(cli: Cli, runtime: Runtime) -> Result<(), WorkflowError> {
                 println!("reclaimed {publication}");
             }
             println!("removed {} object(s)", reclaimed.removed_objects);
+        }
+        Command::Discover {
+            workspace,
+            scan,
+            entries_per_slice,
+            bytes_per_slice,
+        } => {
+            let workspace = runtime.workspace(&workspace).await?;
+            let scan = scan
+                .as_deref()
+                .map(scan_identity)
+                .transpose()?
+                .unwrap_or_else(pse_operations::mint_id);
+            println!("scan {scan}");
+            loop {
+                let checkpoint = runtime
+                    .discover_orphans(
+                        workspace.workspace_id,
+                        scan,
+                        DiscoveryBudget {
+                            maximum_entries: entries_per_slice,
+                            maximum_bytes: bytes_per_slice,
+                        },
+                        &cancel,
+                    )
+                    .await?;
+                println!(
+                    "{}",
+                    serde_json::json!({"scan_id": checkpoint.scan_id.to_string(),
+                    "generation": checkpoint.generation, "maintenance_epoch": checkpoint.maintenance_epoch,
+                    "listed_count": checkpoint.listed_count, "complete": checkpoint.complete})
+                );
+                if checkpoint.complete {
+                    break;
+                }
+            }
+        }
+        Command::Orphans {
+            scan,
+            after_prefix,
+            limit,
+        } => {
+            let page = runtime
+                .orphan_candidates(scan_identity(&scan)?, after_prefix.as_deref(), limit)
+                .await?;
+            let candidates = page.candidates.into_iter().map(|candidate| serde_json::json!({
+                "prefix": candidate.prefix, "generation": candidate.generation,
+                "discovery_epoch": candidate.discovery_epoch, "ownership": candidate.ownership.as_str(),
+                "evidence": candidate.evidence, "protections": candidate.protections,
+                "disposition": candidate.disposition.as_str(),
+            })).collect::<Vec<_>>();
+            println!(
+                "{}",
+                serde_json::json!({"candidates": candidates, "next_prefix": page.next_prefix})
+            );
+        }
+        Command::ReclaimOrphan {
+            workspace,
+            scan,
+            prefix,
+        } => {
+            let workspace = runtime.workspace(&workspace).await?;
+            let report = runtime
+                .reclaim_orphan(
+                    workspace.workspace_id,
+                    scan_identity(&scan)?,
+                    &prefix,
+                    &cancel,
+                )
+                .await?;
+            println!(
+                "{}",
+                serde_json::json!({"scan_id": report.scan_id.to_string(), "prefix": report.prefix,
+                "maintenance_epoch": report.maintenance_epoch, "removed_objects": report.removed_objects})
+            );
         }
     }
     Ok(())

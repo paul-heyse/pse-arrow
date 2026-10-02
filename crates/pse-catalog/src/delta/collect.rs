@@ -262,6 +262,18 @@ pub async fn remove_tables(tables: &[url::Url], state: &SessionState) -> Result<
 /// # Errors
 /// An unregistered store or a failed listing or deletion (a rerun resumes).
 pub async fn remove_prefix(prefix: &url::Url, state: &SessionState) -> Result<u64> {
+    remove_prefix_cancellable(prefix, state, &pse_columnar::CancellationToken::new()).await
+}
+
+/// Remove a catalog-admitted prefix with wakeable cancellation between native deletes.
+/// A partial removal remains retryable and invalidates cached snapshots.
+/// # Errors
+/// Cancellation, an unregistered store, listing or deletion failure.
+pub async fn remove_prefix_cancellable(
+    prefix: &url::Url,
+    state: &SessionState,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<u64> {
     let store = state
         .runtime_env()
         .object_store_registry
@@ -271,7 +283,11 @@ pub async fn remove_prefix(prefix: &url::Url, state: &SessionState) -> Result<u6
     let mut removed = 0;
     let mut deleted = store.delete_stream(locations);
     let result = async {
-        while let Some(outcome) = deleted.next().await {
+        while let Some(outcome) = cancel
+            .until_cancelled(deleted.next())
+            .await
+            .map_err(external)?
+        {
             match outcome {
                 Ok(_) => removed += 1,
                 // Another remover (or an earlier interrupted run) got there first.

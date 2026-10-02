@@ -274,6 +274,28 @@ pub fn semantic_profile(
     Ok(h.finish_hash())
 }
 
+/// The original profile identity from its verified portable required-root inventory.
+/// # Errors
+/// Requested and required roots do not match the recorded contract roots.
+pub fn semantic_profile_recorded(
+    recorded: &crate::compatibility::VerifiedRecordedContract,
+    profile: &str,
+    requested: &std::collections::BTreeSet<pse_ids::SemanticId>,
+    required: &std::collections::BTreeSet<pse_ids::SemanticId>,
+) -> Result<ContentHash, SchemaError> {
+    let mut roots = requested.clone();
+    roots.extend(required);
+    let selected = recorded.select_roots(&roots).map_err(invalid)?;
+    let mut h = FramedHasher::new(Frame::SchemaSemanticProfileV2);
+    h.str(profile)
+        .hash(&selected.identity())
+        .u64(count(required.len())?);
+    for id in required {
+        h.id(id);
+    }
+    Ok(h.finish_hash())
+}
+
 /// Exact native field layout requirements, with prose removed and no SQL/proto bytes.
 /// # Errors
 /// Invalid fields or metadata.

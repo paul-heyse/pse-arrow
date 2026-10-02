@@ -196,9 +196,19 @@ admission and replay controls are owned by
 document/grammar migration and H3/H4 validation-context/predicate consolidation remain open;
 cross-owner journeys remain 25k.
 
+## Consumed 25g prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** Current declarations and verified recorded witnesses now
+feed one predicate compiler through an explicit domain environment. Recorded providers retain
+actual field provenance; consumer admission is directional and cannot grant exact writer
+admission. Obsolete protobuf predicate serialization/decoding is removed. The focused controls
+and limits are owned by [25g Verification](25g-durable-contract-evolution.md#verification).
+This completes only G's required H4 predicate/admission slice; wider authoring, validation-context
+and inactive-authority consolidation remains open.
+
 ## Execution and evidence
 
-The consumed 25c/25d/25f prerequisite slices above are **Implemented**; their focused evidence
+The consumed 25c/25d/25f/25g prerequisite slices above are **Implemented**; their focused evidence
 is owned by the linked plans. The remaining packet scope and expected benefits are **Proposed**. No full-packet
 completion or new broad product qualification is claimed. The [series coordinator](25-design-remediation.md)
 owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
@@ -218,7 +228,7 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25c/25d/25f prerequisite slices and
+Full-plan closure remains outstanding. The implemented 25c/25d/25f/25g prerequisite slices and
 their remaining boundaries are recorded above; the linked plans own their focused evidence.
 
 ### A mistake made and corrected

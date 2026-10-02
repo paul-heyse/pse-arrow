@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    15u8, 94u8, 18u8, 224u8, 29u8, 87u8, 24u8, 81u8, 111u8, 34u8, 123u8, 169u8, 0u8, 1u8,
-    71u8, 9u8, 202u8, 216u8, 243u8, 176u8, 36u8, 202u8, 164u8, 167u8, 30u8, 212u8, 112u8,
-    247u8, 153u8, 201u8, 155u8, 4u8,
+    26u8, 74u8, 6u8, 12u8, 245u8, 144u8, 57u8, 11u8, 251u8, 42u8, 216u8, 92u8, 222u8,
+    203u8, 134u8, 221u8, 198u8, 35u8, 60u8, 170u8, 173u8, 175u8, 68u8, 135u8, 216u8,
+    196u8, 12u8, 0u8, 151u8, 155u8, 167u8, 33u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeArtifactDescriptorsFieldImplementation {
     fn append(
@@ -174,32 +174,36 @@ impl crate::columnar::ArrowValue for RuntimeArtifactDescriptorsRow {
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#release_id,
+            &self.r#profile_required_relations,
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#release_members,
+            &self.r#release_id,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#semantic_identity,
+            &self.r#release_members,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#implementation,
+            &self.r#semantic_identity,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#target_contract,
+            &self.r#implementation,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#value_assumptions,
+            &self.r#target_contract,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#reconstruction,
+            &self.r#value_assumptions,
             children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#reconstruction,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -224,26 +228,29 @@ impl crate::columnar::ArrowValue for RuntimeArtifactDescriptorsRow {
         <Vec<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            Vec<pse_ids::SemanticId>,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
         <Vec<
             crate::generated::structures::MemberDescriptor,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[7usize].as_mut(),
-        )?;
-        <RuntimeArtifactDescriptorsFieldImplementation as crate::columnar::ArrowValue>::append_null(
             children[8usize].as_mut(),
         )?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+        <RuntimeArtifactDescriptorsFieldImplementation as crate::columnar::ArrowValue>::append_null(
             children[9usize].as_mut(),
+        )?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[10usize].as_mut(),
         )?;
         <Vec<
             RuntimeArtifactDescriptorsFieldValueAssumptionsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <crate::generated::enums::ArtifactReconstruction as crate::columnar::ArrowValue>::append_null(
-            children[11usize].as_mut(),
+            children[12usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -277,36 +284,42 @@ impl crate::columnar::ArrowValue for RuntimeArtifactDescriptorsRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#release_id: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#profile_required_relations: <Option<
+                Vec<pse_ids::SemanticId>,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#release_id: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#release_members: <Vec<
                 crate::generated::structures::MemberDescriptor,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
-                index,
-            )?,
-            r#semantic_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#implementation: <RuntimeArtifactDescriptorsFieldImplementation as crate::columnar::ArrowValue>::read(
+            r#semantic_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#target_contract: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#implementation: <RuntimeArtifactDescriptorsFieldImplementation as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#target_contract: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#value_assumptions: <Vec<
                 RuntimeArtifactDescriptorsFieldValueAssumptionsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#reconstruction: <crate::generated::enums::ArtifactReconstruction as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -375,32 +388,36 @@ impl crate::columnar::RelationRow for RuntimeArtifactDescriptorsRow {
             columns[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#release_id,
+            &self.r#profile_required_relations,
             columns[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#release_members,
+            &self.r#release_id,
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#semantic_identity,
+            &self.r#release_members,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#implementation,
+            &self.r#semantic_identity,
             columns[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#target_contract,
+            &self.r#implementation,
             columns[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#value_assumptions,
+            &self.r#target_contract,
             columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#reconstruction,
+            &self.r#value_assumptions,
             columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#reconstruction,
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -436,10 +453,10 @@ impl crate::columnar::RelationRow for RuntimeArtifactDescriptorsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        96_256_usize + size_of::<Self::Builder>()
+        100_352_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        752usize
+        784usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -470,6 +487,25 @@ impl crate::columnar::RelationRow for RuntimeArtifactDescriptorsRow {
                         Ok::<usize, crate::RelationError>(16usize)?,
                     ),
                 )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#profile_required_relations).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    (value)
+                        .iter()
+                        .try_fold(
+                            8usize,
+                            |bytes, _| crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(16usize)?,
+                            ),
+                        )?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -651,7 +687,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "artifact_id",
@@ -679,38 +715,43 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "release_id",
+        name: "profile_required_relations",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "release_members",
+        name: "release_id",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "semantic_identity",
+        name: "release_members",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "implementation",
+        name: "semantic_identity",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "target_contract",
+        name: "implementation",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "value_assumptions",
+        name: "target_contract",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "reconstruction",
+        name: "value_assumptions",
         position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "reconstruction",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -725,20 +766,22 @@ pub mod columns {
     pub const PROFILE_CONTRACT: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///requested_relations
     pub const REQUESTED_RELATIONS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///profile_required_relations
+    pub const PROFILE_REQUIRED_RELATIONS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///release_id
-    pub const RELEASE_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const RELEASE_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///release_members
-    pub const RELEASE_MEMBERS: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const RELEASE_MEMBERS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///semantic_identity
-    pub const SEMANTIC_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const SEMANTIC_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///implementation
-    pub const IMPLEMENTATION: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const IMPLEMENTATION: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///target_contract
-    pub const TARGET_CONTRACT: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const TARGET_CONTRACT: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///value_assumptions
-    pub const VALUE_ASSUMPTIONS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const VALUE_ASSUMPTIONS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///reconstruction
-    pub const RECONSTRUCTION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const RECONSTRUCTION: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -750,6 +793,7 @@ pub struct RuntimeArtifactDescriptorsView<'a> {
     profile_column: &'a arrow_array::StringArray,
     profile_contract_column: &'a arrow_array::FixedSizeBinaryArray,
     requested_relations_column: &'a arrow_array::ListArray,
+    profile_required_relations_column: &'a arrow_array::ListArray,
     release_id_column: &'a arrow_array::FixedSizeBinaryArray,
     release_members_column: &'a arrow_array::ListArray,
     semantic_identity_column: &'a arrow_array::FixedSizeBinaryArray,
@@ -811,27 +855,30 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
             requested_relations_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(4usize).as_ref())?,
+            profile_required_relations_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(5usize).as_ref())?,
             release_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             release_members_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             semantic_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             implementation_column: crate::columnar::array::<
                 arrow_array::StructArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             target_contract_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             value_assumptions_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             reconstruction_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -918,6 +965,22 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "profile_required_relations",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn profile_required_relations_column(&self) -> &'a arrow_array::ListArray {
+        self.profile_required_relations_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "profile_required_relations",
+        "`.",
+    )]
+    pub fn profile_required_relations_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "release_id",
         "`, including its offsets and validity bitmap.",
     )]
@@ -926,7 +989,7 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "release_id", "`.")]
     pub fn release_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -938,7 +1001,7 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "release_members", "`.")]
     pub fn release_members_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -952,7 +1015,7 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "semantic_identity", "`.")]
     pub fn semantic_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -964,7 +1027,7 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "implementation", "`.")]
     pub fn implementation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -976,7 +1039,7 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "target_contract", "`.")]
     pub fn target_contract_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -988,7 +1051,7 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "value_assumptions", "`.")]
     pub fn value_assumptions_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1000,7 +1063,7 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "reconstruction", "`.")]
     pub fn reconstruction_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1029,6 +1092,10 @@ impl<'a> RuntimeArtifactDescriptorsView<'a> {
             )?,
             r#requested_relations: crate::columnar::ArrowValue::read(
                 self.requested_relations_column,
+                index,
+            )?,
+            r#profile_required_relations: crate::columnar::ArrowValue::read(
+                self.profile_required_relations_column,
                 index,
             )?,
             r#release_id: crate::columnar::ArrowValue::read(

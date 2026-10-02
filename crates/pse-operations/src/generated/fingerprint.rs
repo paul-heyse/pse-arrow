@@ -6,16 +6,16 @@
 /// `schema.sql` and the hand-written `physical.sql`. A store records it when it is
 /// created and is refused when its record differs (ADR-0114 Outcome 23).
 pub const SCHEMA_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    187u8, 77u8, 112u8, 37u8, 162u8, 140u8, 98u8, 212u8, 206u8, 247u8, 136u8, 222u8,
-    97u8, 39u8, 123u8, 49u8, 180u8, 193u8, 174u8, 136u8, 250u8, 111u8, 1u8, 96u8, 217u8,
-    77u8, 204u8, 111u8, 82u8, 28u8, 215u8, 89u8,
+    122u8, 22u8, 73u8, 236u8, 254u8, 236u8, 34u8, 159u8, 211u8, 250u8, 135u8, 249u8,
+    110u8, 142u8, 183u8, 35u8, 144u8, 3u8, 20u8, 108u8, 102u8, 120u8, 62u8, 219u8, 106u8,
+    15u8, 155u8, 102u8, 234u8, 111u8, 61u8, 78u8,
 ]);
 /// [`SCHEMA_FINGERPRINT`] as lowercase hexadecimal.
-pub const SCHEMA_FINGERPRINT_HEX: &str = "bb4d7025a28c62d4cef788de61277b31b4c1ae88fa6f0160d94dcc6f521cd759";
+pub const SCHEMA_FINGERPRINT_HEX: &str = "7a1649ecfeec229fd3fa87f96e8eb7239003146c66783edb6a0f9b66ea6f3d4e";
 /// Records the fingerprint on the created schema as its comment.
-pub const RECORD_SQL: &str = "COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 bb4d7025a28c62d4cef788de61277b31b4c1ae88fa6f0160d94dcc6f521cd759'";
+pub const RECORD_SQL: &str = "COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 7a1649ecfeec229fd3fa87f96e8eb7239003146c66783edb6a0f9b66ea6f3d4e'";
 /// Catalog/control target and consumed support, independent of worker/native vocabulary.
-pub const CATALOG_FINGERPRINT_HEX: &str = "3aa8a326827f2b06cde68942b520e1480b0512b1112e91b15ba33f0fdff83927";
+pub const CATALOG_FINGERPRINT_HEX: &str = "bb3f11310b0fb5b58e2ec4222be9a71a57d6923a60f67541a61d793c67b20eb2";
 /// Operations target and consumed support, independent of publication vocabulary.
 pub const OPERATIONS_FINGERPRINT_HEX: &str = "13dd4f91810792475382a021425807a8ef42551bc2eaea71d6f9a8702009d00a";
 /// Shared namespace and content/identity domain encoding contract.

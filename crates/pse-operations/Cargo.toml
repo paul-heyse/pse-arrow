@@ -19,7 +19,7 @@ workspace = true
 [features]
 default = []
 # Isolated databases with the generated schema for tests in other crates.
-test-support = ["dep:url"]
+test-support = []
 
 [dependencies]
 petgraph.workspace = true
@@ -36,9 +36,10 @@ tokio-postgres-rustls.workspace = true
 rustls.workspace = true
 webpki-roots.workspace = true
 futures.workspace = true
-url = { workspace = true, optional = true }
+url.workspace = true
 uuid.workspace = true
 chrono.workspace = true
+time.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

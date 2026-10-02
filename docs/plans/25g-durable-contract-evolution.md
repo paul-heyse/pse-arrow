@@ -1,6 +1,6 @@
 ---
 title: "25g: Durable contract evolution"
-status: in-progress
+status: done
 date: 2026-09-30
 adrs: [ADR-0146]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
@@ -67,10 +67,10 @@ driver, reset fallback, global loosened equality check and transform-on-open mut
 
 | Packet | Prerequisites | Responsibility | Status |
 |---|---|---|---|
-| <a id="g1"></a>G1 Durable operation contracts | A1 facet purposes; I1 identity contract | Separate recorded read, consumer projection, write admission and migration | planned |
-| <a id="g2"></a>G2 Portable predicate interpretation | G1; H4 | Compile recorded semantics and remove version-bound executable predicates | planned |
-| <a id="g3"></a>G3 PostgreSQL identity and migrations | G1/I1; evolution ADR | Independent histories and explicit locked upgrades preserving catalog continuity | partial: required 25e/25f operational transitions |
-| <a id="g4"></a>G4 Artifact transformation and orphan lifecycle | G2/G3; I1 | Explicit new-version migration, retirement inventory and bounded reconciliation | planned |
+| <a id="g1"></a>G1 Durable operation contracts | A1 facet purposes; I1 identity contract | Separate recorded read, consumer projection, write admission and migration | done |
+| <a id="g2"></a>G2 Portable predicate interpretation | G1; H4 | Compile recorded semantics and remove version-bound executable predicates | done |
+| <a id="g3"></a>G3 PostgreSQL identity and migrations | G1/I1; evolution ADR | Independent histories and explicit locked upgrades preserving catalog continuity | done |
+| <a id="g4"></a>G4 Artifact transformation and orphan lifecycle | G2/G3; I1 | Explicit new-version migration, retirement inventory and bounded reconciliation | done |
 
 G3 precedes F4 and any changed persisted E/J contracts. It does not wait for their entire
 implementations: once their declarations are settled, each owns its migration through this
@@ -196,7 +196,7 @@ recorded-format contract.
 
 ## Consumed 25e prerequisite slice
 
-**Implemented/Tested, 2026-10-01:** The required operational G3 slice splits catalog/control and operations support identities/histories, adds the registry-owned shared readiness declaration and explicit preserving transitions from the exact known 88b653d7 predecessor. Drift/checksum conflicts refuse without mutation; interrupted committed transitions resume; active and closed-but-borrowed generations prevent upgrades. No development database was reset or migrated. Wider G1/G2 directional interpretation, remaining G3 planning/report surfaces and G4 artifact/orphan lifecycle remain open.
+**Implemented/Tested, 2026-10-01:** The required operational G3 slice splits catalog/control and operations support identities/histories, adds the registry-owned shared readiness declaration and explicit preserving transitions from the exact known 88b653d7 predecessor. Drift/checksum conflicts refuse without mutation; interrupted committed transitions resume; active and closed-but-borrowed generations prevent upgrades. No development database was reset or migrated. At that prerequisite handoff, wider G1/G2 interpretation, remaining G3 planning/report surfaces and G4 artifact/orphan lifecycle remained open; the completed scope is recorded in the Outcome below.
 [25e Verification](25e-declared-analyses-and-qualification.md#verification) owns commands,
 conditions, composite results and limits; this does not close the companion plan.
 
@@ -213,32 +213,151 @@ artifact/orphan lifecycle remain open; real PostgreSQL preservation/restart jour
 
 ## Execution and evidence
 
-The consumed 25e/25f operational slices above are **Implemented**; the remaining scope and expected benefits are **Proposed**. Packet status is planning state;
-no implementation or new product qualification is claimed. The [series coordinator](25-design-remediation.md)
-owns finding dispositions and decision dependencies. Packets compile affected owners, run focused
-behavioral checks with explicit force-validation, regenerate changed declarations, and immediately
-delete replaced code, callers, obsolete tests and fixtures. No shims or parallel production paths remain.
-Full integration, formatting, lint and performance qualification run once in
-[25k](25k-integrated-qualification-and-closure.md), after the series' functional scope is complete.
+### Execution checkpoint — 2026-10-01
 
-Use current recipe-owned checks such as `just check-package <pkg>` and
-`just unit-package <pkg> <filter>`; select isolated tests rather than broad suites hidden under
-a unit label. The acceptance scenarios above define what those tests must establish, not claims
-that tests with particular names already exist. Cross-owner scientific/storage journeys are authored
-with the functional work and executed in 25k. Record state, decisions and next steps during work;
-record actual commands, conditions and failures against zero in the final qualification evidence.
+Descriptor version 3 records canonical profile required roots. Version 2 is interpreted only
+after establishing its baseline root inventory and recomputing the recorded digest; missing
+proof refuses. Its historical identity preimage is preserved. Only that verified versioned
+descriptor rule may project the new optional inventory column as null.
+
+Execution starts from the clean completed-25f tree at `6150c8c92`. The remaining G1/G2
+reader cutover, G3 creation/planning/reporting and G4 transformation/retirement/discovery
+are authorized. ADR-0146 records the cross-owner target before production changes; the
+bounded decision review precedes the metadata cutover.
+
+Recorded verification and directional consumption remain separate from exact writes.
+Current and recorded predicates share one compiler. Artifact migration extends the
+existing checked native transformation/publication owners. The operations executor
+preserves V1–V5 and appends transitions for new inventory declarations.
+
+The maintainer selected restart-safe streaming: candidate/report checkpoints persist,
+but listing starts a new generation from the established root after process restart.
+No ordered-offset or atomic-snapshot guarantee is inferred. Reset exports completed
+inventory first, then recreates/imports/readies the schema in one transaction; unresolved
+and reader/export protection survives. Work remains read-only toward the development
+database; real storage/restart journeys and aggregate qualification remain 25k.
+
+The bounded ADR-0146 design review accepted the proposed metadata cutover before implementation.
+G1–G4 now share verified recorded interpretation, explicit lifecycle products and existing native
+transformation/publication owners. The review's F01 history-parser defect is corrected by exact
+shape/non-null/time/checksum preflight before refinery or readiness mutation. Root integration
+and an executor's read-only foreign-source check resolved current-field provenance and global
+cross-workspace protection findings. The runtime could not allocate a fresh implementation-reviewer
+thread; this executor check is not represented as a formal implementation review.
+
+## Verification
+
+**Tested, 2026-10-01:** The following isolated controls ran on local Linux from the completed-25f
+baseline `6150c8c92`, in the licensed `direnv exec .` environment, using the pinned toolchain and
+recipe-owned explicit `pse-relations/force-validate`. Failure target is zero. These are composite
+focused receipts after repairs, not an initially clean run or integrated product qualification.
+
+| Command (each prefixed with `direnv exec .`) | Scope and final result, baseline zero |
+|---|---|
+| `just unit-package pse-schema 'test(compatibility::tests) \| test(model::migration::mapping_unit::)'` | **10 passed, 0 failed**: directional enum admission, independent exact writes, consumed support/extension scope, malformed closure, historical descriptor projection and portable finite/key policies. |
+| `just unit-package pse-engine 'test(provider::recorded::durability_unit)'` | **1 passed, 0 failed**: only the actual verified provider grants recorded field admission. |
+| `just unit-package pse-engine 'test(session::schema_transform::mapping_unit::)'` | **6 passed, 0 failed**: old source absent from current registry, cardinality, unmatched/null policies, exact endpoints, same-version changed support, current nullability and added-column target-domain provenance. |
+| `just unit-package pse-model 'test(artifact::durability_unit)'` | **2 passed, 0 failed**: descriptor root proof and unchanged historical preimage. |
+| `just unit-package pse-catalog 'test(delta::contract::tests)'` | **4 passed, 0 failed**: recorded domains, sufficient historical codec-independent witness, contradictory checks and scoped current projection. |
+| `just unit-package pse-catalog 'test(artifact::migration::mapping_unit::) \| test(artifact::descriptor::durability_unit)'` | **4 passed, 0 failed**: composite reference-map agreement, retained-dependent refusal, ordinary artifact refusal of synthetic Migration capability, and exact descriptor output/member inventory. |
+| `just unit-package pse-catalog 'test(delta::discovery::discovery_unit)'` | **6 passed, 0 failed**: unordered retained slices/accounting, cancellation, root escape, ancestor/descendant symlink refusal before candidate or deletion effects. |
+| `just unit-package pse-operations 'test(schema_unit) \| test(inventory_unit) \| test(retirement_unit) \| (test(migration_) & not test(/supported_source\|unknown_source_and_drift\|both_history_conflicts\|interrupted_committed\|committed_partial\|open_generation\|read_only_repeated\|fresh_and_upgraded\|inspection_is_read_only\|inventory_interruption/))'` | **14 passed, 0 failed**: exact frozen predecessor/immutable histories, target signatures, pending-plan identity, malformed timestamp typed refusal, manifest completion/digest/bounds/confinement and attributable/protected/unresolved policy. DB journeys excluded. |
+
+Final compile-repair controls used the same local pinned/force-validation conditions:
+
+| Command (prefixed with `direnv exec .`) | Final result, baseline zero |
+|---|---|
+| `just unit-package pse-modeling 'test(fixture_diagnostics_resolve_members_once)'` | **1 passed, 0 failed**: typed diagnostic rule plus retained member resolution and invalid fixture refusal. |
+| `just unit-package pse-compiler 'test(binary_bounds_outside_unit_box_refused) \| test(integer_bounds_tightened_inward_and_recorded)'` | **2 passed, 0 failed**: typed domain refusal/tightening diagnostics retain physical bounds and observations. |
+
+The durable-evolution focused total is **47 passed, 0 failed**. Three additional diagnostic assertion controls pass after final compilation repairs (total **50 passed, 0 failed** across the selected final controls). The expanded engine mapping command initially
+had **1 failure of 6 against zero**: rebinding an already-resolved exact enum default lost its
+domain declaration. Exact-target admission fixes it; the same six controls and affected catalog
+controls were rerun successfully. Earlier compatibility/native compile failures were repaired
+at their owners, including versioned relation IDs, recorded enum resolution, predicate SQL
+normalization, canonical error conversion and query-generation bootstrap. Own-source private
+visibility and cast warnings were corrected. The first final `direnv exec . just check` collected three compile errors against zero: two compiler domain controls and one modeling fixture control still compared the 25f typed diagnostic rule with a string. Those assertions now use the declared rule variants. `direnv exec . just unit-package pse-modeling 'test(fixture_diagnostics_resolve_members_once)'` also exposed one stale negative-case message (1/1 failed against zero); it now expects the existing procedure/temporal-route refusal and passes 1/1. Its scientific/member assertions remain intact. Cargo still reports the third-party
+`proc-macro-error2 2.0.1` future-incompatibility warning; static zero-warning qualification remains
+25k work, and no clean full lint claim is made.
+
+**Implemented/Interface-checked:** Changed declarations regenerate Rust, Python, docs, store
+DDL and operational statements. Query generation and target-signature capture use disposable
+PostgreSQL databases only. Package all-target checks compile authored database and native storage
+journeys without executing them. Final `direnv exec . just codegen` passed (six schema targets, isolated query generation, Ipopt bindings and hakari). Hakari reported no changes. Final `direnv exec . just check` passed: `cargo check --keep-going --workspace --all-targets --locked`, zero compile errors and zero own-source warnings. The reported third-party future-incompatibility warning remains; this is compile coverage, not test execution or lint qualification.
+
+**not_run:** PostgreSQL preservation/restart/concurrency/rollback/lost-acknowledgement/reset-expiry
+journeys, native publication migration/recovery and end-to-end discovery/reclaim journeys,
+Python/native refresh, aggregate integration, formatting/static/manual gates and performance
+campaigns. They remain 25k's qualification scope. No development schema was reset or migrated,
+no commit/push ran, and no performance or complete storage recovery claim is made.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Full-plan closure remains outstanding; the required 25e/25f operational transitions and their
-remaining boundaries are recorded above, with focused evidence owned by the linked plans.
+**Implemented/Tested, 2026-10-01:** G1–G4 deliver distinct verified recorded meaning,
+directional scoped consumer projection, exact writer admission and explicit migration admission.
+Recorded witnesses include complete support and observed encoding; unrelated growth cannot
+invalidate scoped readers or enlarge historical domains. One predicate compiler accepts current
+or verified recorded environments. The protobuf serializer/decoder and codec authority are
+removed, while sufficient historical witnesses use the same production interpreter.
+
+Descriptor 3 records canonical profile roots; descriptor 2 requires independently established
+roots and its original digest. Historical identity frames remain unchanged. Portable structural,
+finite domain and flat composite-key transformations use the existing checked native compiler,
+validate target obligations and publish immutable members plus registry-generated lineage through
+the ordinary atomic boundary. Source lease ownership spans execution/commit, and exact source
+publication/transformation dependency facts prevent stale changed-map recovery. A generic product
+cannot assert Migration publication capability. Read projection stays transient and read-only.
+
+Store creation, validation-only opening, read-only planning and expected-plan execution are
+separate. Frozen V1–V5 remain unchanged; catalog V2 and operations V6 append preserving inventory
+support to the exact 25f predecessor. Refinery executes under the existing namespace session
+lease/readiness protocol. Exact support histories, checksums, shape and timestamps refuse before
+mutation; no fingerprint mismatch silently resets a store.
+
+Reset requires a completed external versioned manifest, preserves prior unresolved obligations,
+and atomically recreates/imports/records reset identity and readiness. Fresh proven retired prefixes
+can become reclaimable after captured protections expire; unknown/prior unresolved inventory
+remains protected. Discovery persists bounded candidates/report cursors and retains unordered
+native streams between slices. A restarted process starts a new enumeration generation from the
+root, retaining deduplicated inventory. Explicit selected reclaim freshly reconciles global
+publication/input/window/intent/reader/export protection, holds the exclusive protection fence
+through physical removal/disposition commit, and refuses local symlinks or escaped prefixes.
+Lease acquisition/renewal uses the actual clock after the fence, preventing expired queued renewal
+from resurrecting deleted content.
+
+Enduring meaning is amended through ADR-0146's decision/design route in blueprint §4.3,
+§20.2/§20.4/§20.5/§20.6 and the operator guide, with a blueprint revision row. ADR-0146 remains
+proposed pending its decision PR; design acceptance at Proposed evidence is not production
+qualification. The former R-35 trigger has been adopted. The coordinator owns resolved F13/F14
+functional dispositions and the review F01 correction; integrated qualification remains open.
+Required H4/I1/J slices have their owning handoff notes without closing those broader plans.
+The next functional plan is 25h.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction, not a hypothetical planning example.
+Mapping initially substituted the original input field for the current ordered expression.
+That rejected valid nullability changes and target-domain added columns. Foreign-source review
+identified the provenance error; native expressions now supply their current fields and explicit
+Recorded/Target origin selects the existing domain environment. The resulting new default control
+caught incorrect rebinding of an already-resolved enum field; exact target admission fixes it.
+Reference closure also now refuses a retained dependent when its owner is finitely recoded, even
+if coincidental target key existence could pass ordinary referential validation.
 
 ### Deviations from the plan, deliberate
 
-None recorded. A changed architectural decision follows its owning ADR/design route.
+The maintainer selected restart-safe streaming over an invented durable provider cursor. A full
+enumeration generation proves traversal completion, not an atomic storage snapshot; provider
+internal buffering, I/O, latency, total RSS and external filesystem actors are explicit limits.
+Application observations/proof pages and retained stream count are bounded/accounted. Unknown
+ownership remains visible and protected. Supported key maps are flat correlated composite tuples;
+nested correlated reference paths and nonprimitive Identity lowering refuse explicitly. Each column
+has one composed mapping policy; overlapping rewrites refuse rather than claim unproven reference
+closure. Same relation-version migrations are allowed only for changed recorded meaning with an
+explicit policy; registered structural declarations still require forward versions.
+
+The runtime thread limit prevented a fresh implementation-reviewer allocation. Root integration
+used the executor's read-only foreign-owner correctness check and targeted controls; it makes no
+fresh formal implementation-review claim. Broad storage/DB and static qualification is intentionally
+reserved for the series-wide 25k campaign.

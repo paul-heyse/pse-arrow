@@ -14,7 +14,7 @@ use tokio::task::JoinHandle;
 use crate::error::{Classify, OperationsError, Target};
 use crate::store::{Store, StoreOptions, database_url_from_env};
 
-/// One isolated database whose schema `Store::open` created from the generated DDL.
+/// One isolated database whose schema `Store::create` created from the generated DDL.
 #[derive(Debug)]
 pub struct TestDatabase {
     store: Store,
@@ -144,7 +144,11 @@ impl TestDatabase {
         let url = url.to_string();
         let options = StoreOptions::for_tests();
         let store = if open {
-            Store::open_with(&url, &options).await?
+            {
+                let store = Store::connect_with(&url, &options).await?;
+                store.create().await?;
+                store
+            }
         } else {
             Store::connect_with(&url, &options).await?
         };

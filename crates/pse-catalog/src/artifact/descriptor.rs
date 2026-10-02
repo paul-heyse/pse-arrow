@@ -27,7 +27,17 @@ impl ArtifactPlan {
         descriptor: ArtifactDescriptor,
         cancel: &CancellationToken,
     ) -> Result<Self, EngineError> {
+        if matches!(self.publication, PublicationSelection::Migration(_)) {
+            return Err(invalid(
+                "an artifact migration must retain its declared lineage publication",
+            ));
+        }
         let row = descriptor.row();
+        if row.profile == pse_relations::generated::enums::PublicationKind::Migration {
+            return Err(invalid(
+                "migration products require checked transformation and lineage admission",
+            ));
+        }
         if self.fresh_observations
             && row.reconstruction != pse_relations::generated::enums::ArtifactReconstruction::None
         {
@@ -44,6 +54,18 @@ impl ArtifactPlan {
             .map_err(pse_relations::RelationError::from)?
         {
             return Err(invalid("product descriptor registry differs"));
+        }
+        if row
+            .profile_required_relations
+            .as_ref()
+            .map(|values| values.iter().copied().collect::<BTreeSet<_>>())
+            != self
+                .session
+                .registry()
+                .artifact_profile(row.profile.as_str())
+                .cloned()
+        {
+            return Err(invalid("new product descriptor profile inventory differs"));
         }
         let required = self
             .session
@@ -112,7 +134,16 @@ impl ArtifactPlan {
         cancel: &CancellationToken,
     ) -> Result<(), EngineError> {
         let PublicationSelection::Product(descriptor) = &self.publication else {
-            return if header.kind == pse_relations::generated::enums::PublicationKind::Relations {
+            return if matches!(
+                (&self.publication, header.kind),
+                (
+                    PublicationSelection::Relations,
+                    pse_relations::generated::enums::PublicationKind::Relations
+                ) | (
+                    PublicationSelection::Migration(_),
+                    pse_relations::generated::enums::PublicationKind::Migration
+                )
+            ) {
                 Ok(())
             } else {
                 Err(invalid(
@@ -220,34 +251,80 @@ impl crate::delta::publication::Publication {
             return Err(invalid("artifact descriptor profile differs from control"));
         }
         let row = actual.row();
+        let requested: BTreeSet<_> = row.requested_relations.iter().copied().collect();
+        let required: BTreeSet<_> = match &row.profile_required_relations {
+            Some(required) => required.iter().copied().collect(),
+            None if row.descriptor_version == 2 => self
+                .session()
+                .registry()
+                .artifact_profile(row.profile.as_str())
+                .cloned()
+                .ok_or_else(|| {
+                    invalid("unknown historical profile inventory requires migration")
+                })?,
+            None => return Err(invalid("recorded profile inventory is absent")),
+        };
+        let mut roots = requested.clone();
+        roots.extend(&required);
+        let mut relations = BTreeMap::new();
+        for recorded in self.recorded_members().values() {
+            for (id, description) in &recorded.contract().relations {
+                if relations.get(id).is_some_and(|old| old != description) {
+                    return Err(invalid("artifact recorded support declarations contradict"));
+                }
+                relations.insert(*id, description.clone());
+            }
+        }
+        // Select only the descriptor's root closure, retaining the independently verified
+        // support descriptions. The original digest proves the v2 baseline fallback.
+        let all_roots = relations.keys().copied().collect();
+        let all = pse_schema::compatibility::VerifiedRecordedContract::from_contract(
+            pse_schema::fingerprint::SemanticContract {
+                version: pse_schema::fingerprint::SEMANTIC_VERSION,
+                roots: all_roots,
+                relations,
+            },
+        )
+        .map_err(pse_columnar::external)
+        .map_err(pse_engine::session::engine)?;
+        let recorded = all
+            .select_roots(&roots)
+            .map_err(pse_columnar::external)
+            .map_err(pse_engine::session::engine)?;
         if row.profile_contract
-            != pse_schema::fingerprint::semantic_profile(
-                self.session().registry(),
+            != pse_schema::fingerprint::semantic_profile_recorded(
+                &recorded,
                 row.profile.as_str(),
-                &row.requested_relations.iter().copied().collect(),
+                &requested,
+                &required,
             )
             .map_err(pse_relations::RelationError::from)?
         {
-            return Err(invalid("artifact registry contract is incompatible"));
+            return Err(invalid(
+                "recorded artifact profile identity cannot be proven; explicit migration required",
+            ));
         }
-        let mut roots: BTreeSet<_> = row.requested_relations.iter().copied().collect();
-        roots.extend(
-            self.session()
-                .registry()
-                .artifact_profile(row.profile.as_str())
-                .ok_or_else(|| invalid("unknown artifact profile"))?,
-        );
-        let required = pse_schema::product::support_closure(self.session().registry(), &roots)
-            .map_err(pse_relations::RelationError::from)?;
         let present = self
             .record()
             .members
             .iter()
             .map(|member| member.relation_id)
             .collect::<BTreeSet<_>>();
-        if !required.is_subset(&present) {
-            return Err(invalid("artifact support closure is incomplete"));
+        if !recorded
+            .contract()
+            .relations
+            .keys()
+            .all(|id| present.contains(id))
+        {
+            return Err(invalid("artifact recorded support closure is incomplete"));
         }
+        let consumer =
+            pse_schema::fingerprint::SemanticContract::new(self.session().registry(), &roots)
+                .map_err(pse_relations::RelationError::from)?;
+        recorded
+            .project(&consumer)
+            .map_err(pse_columnar::external)
+            .map_err(pse_engine::session::engine)?;
         Ok(Arc::new(Leased::new(
             Arc::new(actual),
             AllocationLease::new(reserve),

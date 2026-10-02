@@ -105,6 +105,12 @@ frames! {
         BuildInputsV1 => "pse:build-inputs:v1",
         /// A stored artifact descriptor's identity.
         ArtifactDescriptorV1 => "pse:artifact-descriptor:v1",
+        /// Artifact descriptor with an explicit recorded profile root inventory.
+        ArtifactDescriptorV3 => "pse:artifact-descriptor:v3",
+        /// Portable completed operational retirement inventory.
+        ResetManifestV1 => "pse:reset-manifest:v1",
+        /// Ordered portable source-to-target artifact transformation.
+        ArtifactMigrationV1 => "pse:artifact-migration:v1",
         /// A field-directed native value payload digest.
         NativeValuePayloadV1 => "pse:native-value-payload:v1",
         /// Durable semantic row tokens over native values; also the published row-key encoding.

@@ -98,6 +98,38 @@ pub const JOBS: CopyIn = CopyIn {
         "last_error",
     ],
 };
+/// The binary copy into `orphan_candidates` (runtime.operational_orphan_candidates).
+pub const ORPHAN_CANDIDATES: CopyIn = CopyIn {
+    table: "orphan_candidates",
+    statement: "COPY pse_ops.\"orphan_candidates\" (\"scan_id\", \"prefix\", \"generation\", \"discovery_epoch\", \"ownership\", \"evidence\", \"protections\", \"disposition\", \"claim_epoch\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"scan_id\", \"prefix\", \"generation\", \"discovery_epoch\", \"ownership\", \"evidence\", \"protections\", \"disposition\", \"claim_epoch\" FROM pse_ops.\"orphan_candidates\" WHERE false",
+    columns: &[
+        "scan_id",
+        "prefix",
+        "generation",
+        "discovery_epoch",
+        "ownership",
+        "evidence",
+        "protections",
+        "disposition",
+        "claim_epoch",
+    ],
+};
+/// The binary copy into `orphan_scans` (runtime.operational_orphan_scans).
+pub const ORPHAN_SCANS: CopyIn = CopyIn {
+    table: "orphan_scans",
+    statement: "COPY pse_ops.\"orphan_scans\" (\"scan_id\", \"workspace_id\", \"root_uri\", \"maintenance_epoch\", \"generation\", \"listed_count\", \"complete\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"scan_id\", \"workspace_id\", \"root_uri\", \"maintenance_epoch\", \"generation\", \"listed_count\", \"complete\" FROM pse_ops.\"orphan_scans\" WHERE false",
+    columns: &[
+        "scan_id",
+        "workspace_id",
+        "root_uri",
+        "maintenance_epoch",
+        "generation",
+        "listed_count",
+        "complete",
+    ],
+};
 /// The binary copy into `progress_events` (runtime.operational_progress_events).
 pub const PROGRESS_EVENTS: CopyIn = CopyIn {
     table: "progress_events",
@@ -201,12 +233,42 @@ pub const READER_LEASES: CopyIn = CopyIn {
         "released_at",
     ],
 };
+/// The binary copy into `reset_records` (runtime.operational_reset_records).
+pub const RESET_RECORDS: CopyIn = CopyIn {
+    table: "reset_records",
+    statement: "COPY pse_ops.\"reset_records\" (\"reset_id\", \"manifest_digest\", \"manifest_uri\", \"source_fingerprint\", \"inventory_rows\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"reset_id\", \"manifest_digest\", \"manifest_uri\", \"source_fingerprint\", \"inventory_rows\" FROM pse_ops.\"reset_records\" WHERE false",
+    columns: &[
+        "reset_id",
+        "manifest_digest",
+        "manifest_uri",
+        "source_fingerprint",
+        "inventory_rows",
+    ],
+};
 /// The binary copy into `retention_marks` (runtime.operational_retention_marks).
 pub const RETENTION_MARKS: CopyIn = CopyIn {
     table: "retention_marks",
     statement: "COPY pse_ops.\"retention_marks\" (\"publication_id\", \"phase\", \"marked_at\", \"deleted_at\") FROM STDIN (FORMAT binary)",
     probe: "SELECT \"publication_id\", \"phase\", \"marked_at\", \"deleted_at\" FROM pse_ops.\"retention_marks\" WHERE false",
     columns: &["publication_id", "phase", "marked_at", "deleted_at"],
+};
+/// The binary copy into `retired_inventory` (runtime.operational_retired_inventory).
+pub const RETIRED_INVENTORY: CopyIn = CopyIn {
+    table: "retired_inventory",
+    statement: "COPY pse_ops.\"retired_inventory\" (\"reset_id\", \"ordinal\", \"workspace_id\", \"root_uri\", \"prefix\", \"record_kind\", \"document\", \"protections\", \"disposition\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"reset_id\", \"ordinal\", \"workspace_id\", \"root_uri\", \"prefix\", \"record_kind\", \"document\", \"protections\", \"disposition\" FROM pse_ops.\"retired_inventory\" WHERE false",
+    columns: &[
+        "reset_id",
+        "ordinal",
+        "workspace_id",
+        "root_uri",
+        "prefix",
+        "record_kind",
+        "document",
+        "protections",
+        "disposition",
+    ],
 };
 /// The binary copy into `schema_support_state` (runtime.operational_schema_support_state).
 pub const SCHEMA_SUPPORT_STATE: CopyIn = CopyIn {

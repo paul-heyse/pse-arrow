@@ -15,6 +15,9 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `SettingsV1` | `pse:settings:v1` | An engine settings or profile digest (blueprint §14.3, §23.2). |
 | `BuildInputsV1` | `pse:build-inputs:v1` | The digest of the build inputs recorded as build provenance. |
 | `ArtifactDescriptorV1` | `pse:artifact-descriptor:v1` | A stored artifact descriptor's identity. |
+| `ArtifactDescriptorV3` | `pse:artifact-descriptor:v3` | Artifact descriptor with an explicit recorded profile root inventory. |
+| `ResetManifestV1` | `pse:reset-manifest:v1` | Portable completed operational retirement inventory. |
+| `ArtifactMigrationV1` | `pse:artifact-migration:v1` | Ordered portable source-to-target artifact transformation. |
 | `NativeValuePayloadV1` | `pse:native-value-payload:v1` | A field-directed native value payload digest. |
 | `RowKeyNativeValuesV2` | `pse:row-key:native-values:v2` | Durable semantic row tokens over native values; also the published row-key encoding. |
 | `TypedFactsV1` | `pse:typed-facts:v1` | A generated typed fact batch, including relation and empty membership. |

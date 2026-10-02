@@ -74,6 +74,8 @@ pub struct RuntimeArtifactDescriptorsRow {
     pub r#profile_contract: pse_ids::ContentHash,
     ///requested_relations
     pub r#requested_relations: Vec<pse_ids::SemanticId>,
+    ///profile_required_relations
+    pub r#profile_required_relations: Option<Vec<pse_ids::SemanticId>>,
     ///release_id
     pub r#release_id: pse_ids::ContentHash,
     ///release_members
@@ -103,6 +105,10 @@ impl crate::SemanticEq for RuntimeArtifactDescriptorsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#requested_relations,
                 &other.r#requested_relations,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#profile_required_relations,
+                &other.r#profile_required_relations,
             ) && crate::SemanticEq::semantic_eq(&self.r#release_id, &other.r#release_id)
             && crate::SemanticEq::semantic_eq(
                 &self.r#release_members,
@@ -185,6 +191,8 @@ impl crate::SemanticFrame for RuntimeArtifactDescriptorsRow {
         crate::SemanticFrame::frame(&self.r#profile_contract, hash);
         hash.str(stringify!(r#requested_relations));
         crate::SemanticFrame::frame(&self.r#requested_relations, hash);
+        hash.str(stringify!(r#profile_required_relations));
+        crate::SemanticFrame::frame(&self.r#profile_required_relations, hash);
         hash.str(stringify!(r#release_id));
         crate::SemanticFrame::frame(&self.r#release_id, hash);
         hash.str(stringify!(r#release_members));
@@ -209,6 +217,9 @@ impl crate::HeapUsage for RuntimeArtifactDescriptorsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#profile))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#profile_contract))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#requested_relations))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#profile_required_relations),
+            )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#release_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#release_members))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#semantic_identity))

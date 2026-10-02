@@ -388,7 +388,7 @@ publishes a completed `RunResult` in two steps (`pse-runtime::workflow::publicat
    catalog transaction then inserts the publication, its members, inputs and change
    windows and advances the head, conditional on the head still being the expected parent.
 
-The commit takes its locks in one order (the attempt, the intent, every live publication a
+The commit takes the shared catalog protection fence, then the workspace maintenance fence, before its row locks (the attempt, the intent, every live publication a
 retained member or input selects, then the head), and it refuses a retained member or input
 that no live publication still protects. The record names every member's relation,
 contract fingerprint, table URI and exact Delta version, and the exact inputs consumed;
@@ -499,7 +499,7 @@ the complete publication record and the workspace's maintenance epoch; it then r
 files holding no database session. A `ReaderLeaseGuard` renews the lease in short
 transactions at a third of its lifetime while any owner holds it (the publication's
 session, or a stream of it), releases it when the last owner drops, and cancels the reader
-when a renewal finds the lease lapsed. The pair (workspace, maintenance epoch) is the
+when a renewal finds the lease lapsed. Acquisition and renewal compute expiry with the actual clock after obtaining the protection fence; a queued transaction cannot renew an already lapsed lease using its earlier transaction start time. The pair (workspace, maintenance epoch) is the
 session's `ReadScope` (`pse-catalog::delta::scope`), the lookup input of every shared
 snapshot, resident and file-metadata cache; a session without one bypasses those caches.
 An **export** is a lease held by `export:<destination>` for a stated time:
@@ -541,6 +541,29 @@ binary), and every step is idempotent, so an interrupted run completes on rerun:
   attempt stale or superseded, or published as another publication), remove its member
   prefix, then mark it reclaimed.
 
+**Retirement and orphan inventory.** Explicit schema reset first exports a completed
+versioned manifest outside member roots under the exclusive namespace lease, retaining
+prior unresolved records, original publications/members/inputs/windows/intents/retention,
+and reader/export expiry. Drop, recreate, inventory import, reset identity/digest and
+readiness commit in one PostgreSQL transaction. A lost acknowledgement settles that
+identity before another reset; rollback retains the source namespace.
+
+`Runtime::discover_orphans` records bounded candidate/protection/disposition pages under
+an established workspace root. A retained native unordered stream spans runtime slices;
+a new process starts a new enumeration generation from the root and keeps deduplicated
+candidates. The report has a durable keyset cursor; the provider listing has no fabricated
+restart cursor. Only a successful complete generation establishes enumeration completion,
+not an atomic storage snapshot. Local confinement rejects symlinks and escaped prefixes.
+Application observations and work per slice are bounded and accounted; provider buffering,
+I/O, latency and total RSS are not claimed bounded by that slice budget.
+
+Discovery never grants deletion. `Runtime::reclaim_orphan` takes one explicitly selected
+recorded attributable prefix and freshly checks ownership, live publications/intents,
+reader/export and retention protection, including overlapping prefixes in other workspaces. An exclusive catalog protection fence precedes the workspace maintenance fence and spans physical removal and disposition commit; protection writers take the shared fence in the same order. Unattributable or unresolved retirement obligations remain
+visible and protected. `pse-publication discover`, `orphans` and `reclaim-orphan` expose these
+separate operations. External actors modifying local filesystem paths outside this protocol
+are not serialized by PostgreSQL locks.
+
 The catalog's marks, epochs and leases are the only coordination; there are no lock files.
 There is no automatic retention policy: publications are retired on request only (register
 R-36). There is no blanket archival requirement. The protocol is exercised on local file
@@ -549,36 +572,51 @@ R-37).
 
 ### 20.5 Current contracts and schema evolution
 
-> Supplement: [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md) (proposed; authorized implementation) replaces normal reset recovery from ADR-0114. Fresh stores are created from generated declarations. Existing stores open read-only after exact support/readiness validation; `just db-migrate` explicitly transitions the supported predecessor while retaining records. Unknown source, conflicting immutable history, incompatible layout or active generations refuse before mutation. Namespace ownership spans separately recorded catalog/control and operations histories. Readiness precedes changed schema, each transition commits with its checksum history, and matching committed progress can resume. Runtime generations hold schema admission until their connections close; current statements are unavailable without verified readiness. Destructive reset is separate maintenance. Historical records retain their recorded contract and never infer new qualification facts from absent fields. Wider directional schema compatibility remains Plan 25g scope.
+> Supplement: [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md) (proposed; authorized implementation) replaces normal reset recovery from ADR-0114. Fresh stores are created from generated declarations. Existing stores open read-only after exact support/readiness validation; `just db-migrate` explicitly transitions the supported predecessor while retaining records. Unknown source, conflicting immutable history, incompatible layout or active generations refuse before mutation. Namespace ownership spans separately recorded catalog/control and operations histories. Readiness precedes changed schema, each transition commits with its checksum history, and matching committed progress can resume. Runtime generations hold schema admission until their connections close; current statements are unavailable without verified readiness. Destructive reset is separate maintenance. Historical records retain their recorded contract and never infer new qualification facts from absent fields. Plan 25g implements the directional recorded-contract and retirement protocols below; their focused evidence is owned by that plan and integrated recovery qualification remains Plan 25k.
 
-**Semantic contract.** `pse-schema::fingerprint::SemanticContract`
-(format `pse.semantic-contract.v2`) is the complete support closure of the requested
-relations: fields, keys, enums, extension types, checks, invariants, snapshot class and
-storage policies. Prose and incidental library encodings are excluded; the native
-execution encoding has a separate identity. Each durable table records both as Delta
-table properties. `pse-schema::compatibility` decodes the recorded witness and compares
-it with the independently compiled consumer expectation:
+**Recorded meaning and capabilities.** The portable `pse.semantic-contract.v2` witness
+records complete consumed support: fields, keys, enum domains, extension contracts, checks,
+invariants, snapshot class and storage policy. Recorded interpretation first verifies its
+canonical form, digest, support closure and observed field encoding independently of today's
+registry. `VerifiedRecordedContract`, directional `ConsumerProjection`, `ExactWriteAdmission`
+and `MigrationAdmission` are distinct products. An understood historical enum domain remains
+closed after registry growth. A new consumer may understand an old subset; an exhaustive
+consumer refuses unknown consumed members. Changes to constraints, references or physical
+meaning require explicit transformation. Unrelated declarations and deprecation alone do not
+change consumed meaning. Projection never grants write authority or mutates stored content.
 
-| Result | Meaning |
-|---|---|
-| `MigrationRequired` | an older or unversioned contract; the reader does not interpret it |
-| `Incompatible` | a valid recorded meaning differs from the expected meaning |
-| `UnsupportedEncoding` | the meaning agrees, but this reader cannot execute the recorded layout |
-| `Malformed` | the witness is missing, contradictory or noncanonical |
+**Portable checks.** Current declarations and verified recorded domains feed one predicate
+compiler. Delta checks are reconstructed from that meaning and checked against recorded SQL
+and layout. Executable protobuf bytes and codec labels have no compatibility authority and
+new writes omit them. Sufficient historical witnesses use the same interpreter; missing,
+contradictory or unsupported proof returns a typed refusal without an older execution engine.
 
-A documentation-only change therefore remains readable, and an equal hash is never
-treated as a migration. Artifact descriptors apply the same rule to their own format
-version.
+**Descriptors.** Version 3 records canonical profile required roots as well as requested
+relations and release selections. Version 2 is readable only when an established root
+inventory reproduces its recorded profile digest. Only this verified versioned descriptor
+rule projects the newly declared inventory column as null. Historical descriptor identity
+preimages remain unchanged; new identity roles use the frame catalog (§5.1).
 
-**Schema evolution.** Opening never discovers or applies a conversion. An explicit
-migration is declared (`reference.schema_migrations`, `pse-schema::model::migration`)
-and compiled by `pse-engine::session::schema_transform` into native projections, checked
-defaults and nullability obligations; the caller selects both versions.
+**Explicit artifact transformation.** Portable ordered structural edits, finite domain
+recoding and composite reference-key mappings bind exact recorded sources and current target
+declarations. Missing mappings refuse unless an explicit identity policy applies. Checked
+native lowering validates values, nullability, map uniqueness, keys and reference closure.
+Transient migration reads remain read-only; stored migrations use `ArtifactPlan` and the
+existing atomic publication boundary, publish new immutable members and include
+`runtime.artifact_migration_lineage`. Failure leaves source selections unchanged. Ordinary
+output admission retains its semantic guard. Each column requires one composed mapping policy; overlapping rewrites, nonprimitive Identity lowering and nested correlated reference paths return explicit unsupported/refusal results.
 
-No store written before the current contracts is supported, and there is no legacy
-runtime. Fixtures start from source. Entity IDs, publication IDs, Delta versions and
-table locations are distinct and never substitute for one another. Relation-level
-detail is in the [generated runtime reference](../../generated/relations/runtime.md).
+**Store lifecycle.** Creation, validation-only opening, read-only migration planning and
+expected-plan execution are separate operations. Refinery runs immutable declared transitions
+on the existing PostgreSQL driver; it does not decide compatibility. A dedicated namespace
+session lease spans both owned histories. Execution rechecks its expected plan, complete
+history parsing, exact source and intermediate layout before mutation and reports applied
+steps and final readiness. Frozen historical transitions remain unchanged; new persisted
+obligations append a preserving transition. No unknown source is reset implicitly.
+
+Entity IDs, publication IDs, Delta versions and table locations are distinct and never
+substitute for one another. Supported historical data does not retain historical production
+APIs. Generated relation contracts remain the declarations, not inferred storage layouts.
 
 ### 20.6 Operational store and durable execution
 
@@ -595,7 +633,7 @@ detail is in the [generated runtime reference](../../generated/relations/runtime
 
 **Authority.** PostgreSQL 18 holds what changes: attempts, jobs, leases, cancellation
 requests, live progress and incumbents, reusable solutions, studies and the publication
-catalog. It holds only regenerable state. The registry owns the meaning and the shape of
+catalog. Its records include scientific evidence and publication protections that explicit upgrades and retirement must preserve. The registry owns the meaning and the shape of
 every table: relation `runtime.operational_<t>` (`pse-schema::catalog::operations`) is
 table `pse_ops.<t>`. Published `runtime.computation_runs`, `runtime.run_lineage` and
 `runtime.solve_metrics` are derived snapshots of a published attempt. `pse-operations` owns
@@ -621,9 +659,9 @@ float contract. Store CHECK constraints come from named row checks, never from r
 invariants ([§4.1](schema-and-relations.md#section-4-1)). Deletes are explicit: there
 is no `ON DELETE CASCADE` and no identity-minting default. The hand-written `physical.sql`
 adds indexes, partial indexes, defaults and the append-only revoke on
-`attempt_transitions`; its enum literals are checked when it is applied. `Store::open`
-creates the schema on an empty database in one transaction and records the fingerprint as
-the schema's comment; another fingerprint is refused ([§20.5](#section-20-5)).
+`attempt_transitions`; its enum literals are checked when it is applied. `Store::create` explicitly creates an absent schema in one transaction and records its
+fingerprint. `Store::open` validates only and refuses absent, unsupported or unready
+schemas; explicit planning and migration follow [§20.5](#section-20-5).
 
 **Statements.** Every statement is SQL in `crates/pse-operations/queries/*.sql`, one file
 per repository, with named parameters and hand-annotated nullability. `cargo xtask codegen`

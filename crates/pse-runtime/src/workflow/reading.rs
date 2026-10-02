@@ -210,6 +210,12 @@ pub struct ExportReceipt {
     pub expires_at: i64,
 }
 
+#[derive(Clone, Copy)]
+enum ReadConsumption {
+    Current,
+    Recorded,
+}
+
 impl Runtime {
     /// Open an exact publication under a catalog reader lease.
     /// # Errors
@@ -241,6 +247,27 @@ impl Runtime {
         target: ReadTarget,
         cancel: &CancellationToken,
     ) -> Result<LeasedPublication, WorkflowError> {
+        self.open_leased_interpreted(target, cancel, ReadConsumption::Current)
+            .await
+    }
+    /// Retain an exact catalog reader lease while opening original recorded meaning
+    /// for an explicit artifact migration. Source protection survives into its plans.
+    /// # Errors
+    /// Missing or expiring selections, invalid recorded declarations or policy refusal.
+    pub async fn read_migration_source(
+        &self,
+        target: ReadTarget,
+        cancel: &CancellationToken,
+    ) -> Result<LeasedPublication, WorkflowError> {
+        self.open_leased_interpreted(target, cancel, ReadConsumption::Recorded)
+            .await
+    }
+    async fn open_leased_interpreted(
+        &self,
+        target: ReadTarget,
+        cancel: &CancellationToken,
+        consumption: ReadConsumption,
+    ) -> Result<LeasedPublication, WorkflowError> {
         let operations = self.operations()?;
         let granted = operations
             .store()
@@ -262,17 +289,20 @@ impl Runtime {
             workspace: granted.record.publication.workspace_id,
             epoch: granted.maintenance_epoch,
         };
-        let publication = Publication::open(
-            PublicationSelection {
-                record: manifest_of(&granted.record, None),
-                scope: Some(scope),
-                owner: Some(guard.clone()),
-            },
-            self.registry.clone(),
-            &self.sessions,
-            cancel,
-        )
-        .await?;
+        let selection = PublicationSelection {
+            record: manifest_of(&granted.record, None),
+            scope: Some(scope),
+            owner: Some(guard.clone()),
+        };
+        let publication = match consumption {
+            ReadConsumption::Current => {
+                Publication::open(selection, self.registry.clone(), &self.sessions, cancel).await?
+            }
+            ReadConsumption::Recorded => {
+                Publication::open_recorded(selection, self.registry.clone(), &self.sessions, cancel)
+                    .await?
+            }
+        };
         Ok(LeasedPublication {
             publication: Arc::new(publication),
             guard,

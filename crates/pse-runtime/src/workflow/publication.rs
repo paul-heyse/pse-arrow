@@ -133,9 +133,17 @@ pub struct PublicationAttempt {
     pub member_prefix: url::Url,
     /// The complete product descriptor, for an artifact publication.
     pub descriptor: Option<pse_model::artifact::ArtifactDescriptor>,
+    migration_source: Option<std::sync::Arc<super::ReaderLeaseGuard>>,
 }
 
 impl PublicationAttempt {
+    pub(super) fn retain_migration_source(
+        mut self,
+        source: std::sync::Arc<super::ReaderLeaseGuard>,
+    ) -> Self {
+        self.migration_source = Some(source);
+        self
+    }
     /// Consume once: register the intent, write and admit the candidate, commit it in the
     /// catalog. Never retried implicitly.
     /// # Errors
@@ -145,6 +153,13 @@ impl PublicationAttempt {
     /// lost or the catalog became unreachable after the members were written: settle the
     /// ticket; member write, admission or catalog refusals.
     pub async fn commit(self, cancel: &CancellationToken) -> Result<Published, WorkflowError> {
+        if let Some(source) = &self.migration_source {
+            source.check()?;
+            source
+                .cancellation()
+                .checkpoint()
+                .map_err(pse_engine::EngineError::from)?;
+        }
         let catalog = self.operations.store().catalog();
         catalog
             .register_intent(&NewIntent {
@@ -154,7 +169,22 @@ impl PublicationAttempt {
                 member_prefix: self.member_prefix.to_string(),
             })
             .await?;
-        let completed = self.command.execute(cancel).await?;
+        let completed = if let Some(source) = &self.migration_source {
+            source
+                .cancellation()
+                .until_cancelled(self.command.execute(cancel))
+                .await
+                .map_err(pse_engine::EngineError::from)??
+        } else {
+            self.command.execute(cancel).await?
+        };
+        if let Some(source) = &self.migration_source {
+            source.check()?;
+            source
+                .cancellation()
+                .checkpoint()
+                .map_err(pse_engine::EngineError::from)?;
+        }
         let record = candidate_record(&completed, &self.registry)?;
         let request = PublicationCommit {
             publication_id: self.publication_id,
@@ -267,6 +297,16 @@ pub fn prepare_artifact_publication(
             );
         }
     }
+    for member in &retained {
+        inputs.insert(
+            (
+                member.catalog_name.clone(),
+                member.schema_name.clone(),
+                member.table_name.clone(),
+            ),
+            member.clone(),
+        );
+    }
     let header = publication_manifests::Row {
         publication_id,
         workspace_id: workspace.workspace_id,
@@ -294,6 +334,7 @@ pub fn prepare_artifact_publication(
         publication_id,
         member_prefix,
         descriptor,
+        migration_source: None,
     })
 }
 
@@ -424,7 +465,16 @@ impl RunResult {
         let semantic_identity = source.finish_hash();
         pse_model::artifact::ArtifactDescriptor::create(descriptor::Row {
             artifact_id: ContentHash::from_bytes([0; 32]),
-            descriptor_version: 2,
+            descriptor_version: 3,
+            profile_required_relations: Some(
+                self.runtime
+                    .registry
+                    .artifact_profile("run")
+                    .ok_or_else(|| contract("missing run artifact profile"))?
+                    .iter()
+                    .copied()
+                    .collect(),
+            ),
             profile: PublicationKind::Run,
             profile_contract: pse_schema::fingerprint::semantic_profile(
                 &self.runtime.registry,

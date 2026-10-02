@@ -165,6 +165,12 @@ pub enum OperationsError {
         /// The driver error.
         source: DriverError,
     },
+    /// An absent schema requires explicit creation; ordinary opening never writes DDL.
+    #[error("{target} has no pse_ops schema; explicitly create it")]
+    SchemaAbsent {
+        /// The store.
+        target: Target,
+    },
     /// The store's schema is not the one this build generates: another fingerprint is
     /// recorded, or none. It is never migrated or reset implicitly (ADR-0114 Outcome 23).
     #[error(
@@ -450,6 +456,7 @@ impl OperationsError {
             Self::Cancelled { .. } => DiagnosticCode::RuntimeCancelled,
             Self::Internal { .. } | Self::CorruptValue { .. } => DiagnosticCode::InternalInvariant,
             Self::Configuration { .. }
+            | Self::SchemaAbsent { .. }
             | Self::SchemaMismatch { .. }
             | Self::MigrationRefused { .. } => DiagnosticCode::ConfigInvalid,
             Self::IllegalTransition { .. }
@@ -482,6 +489,7 @@ pse_diagnostics::impl_diagnostic! {
             OperationsError::Unavailable { .. } => Some(Box::new(
                 "check `just db-status`; durable work needs the operational store, ephemeral work does not",
             )),
+            OperationsError::SchemaAbsent { .. } => Some(Box::new("explicitly create an absent store with `just db-create`; ordinary open performs no DDL")),
             OperationsError::SchemaMismatch { .. } => Some(Box::new(
                 "quiesce workers and close opened store generations, then use `just db-migrate`; unsupported baselines refuse without reset",
             )),

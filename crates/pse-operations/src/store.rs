@@ -113,6 +113,7 @@ struct Inner {
 }
 
 /// One owned connection: session-level locks end only after its connection is destroyed.
+#[derive(Debug)]
 pub(crate) struct SchemaSession {
     pub(crate) client: tokio_postgres::Client,
     connection: tokio::task::JoinHandle<()>,
@@ -254,7 +255,7 @@ impl Store {
         Ok(store)
     }
 
-    /// Connect with explicit options, then create or confirm the schema ([`Store::open`]).
+    /// Connect with explicit options, then validate the existing schema ([`Store::open`]).
     ///
     /// # Errors
     ///

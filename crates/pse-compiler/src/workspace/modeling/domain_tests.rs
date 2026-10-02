@@ -288,7 +288,10 @@ fn binary_bounds_outside_unit_box_refused() {
             diagnostic.class,
             pse_model::diagnostic::BoundaryClass::InvalidModel
         );
-        assert_eq!(diagnostic.rule, "modeling.domain");
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::ModelingDomain
+        );
     }
 }
 
@@ -315,7 +318,10 @@ fn integer_bounds_tightened_inward_and_recorded() {
     );
     // The informational finding names the variable and both bound pairs.
     let finding = tightening.boundary_diagnostic();
-    assert_eq!(finding.rule, "modeling.domain.tightened");
+    assert_eq!(
+        finding.rule,
+        pse_diagnostics::DiagnosticRule::ModelingDomainTightened
+    );
     assert_eq!(finding.severity, Severity::Info);
     assert!(finding.sources.contains(&tightening.variable));
     assert!(matches!(

@@ -209,6 +209,14 @@ fn declare_column_and_invariant_vocabularies(builder: &mut RegistryBuilder) {
                 member("drop_column", "Drop a column."),
                 member("rename_column", "Rename a column, keeping its values."),
                 member("change_nullable", "Change a column's nullability."),
+                member(
+                    "recode_domain",
+                    "Apply an explicit portable finite domain mapping.",
+                ),
+                member(
+                    "map_reference_key",
+                    "Apply an explicit composite reference-key mapping.",
+                ),
             ],
         ));
 }

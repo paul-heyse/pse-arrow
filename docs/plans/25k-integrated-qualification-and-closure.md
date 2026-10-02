@@ -90,6 +90,15 @@ policy checks used during implementation. New cross-plan fixtures should be regi
 existing harnesses by their functional owners. Update a recipe if the target changes its required
 feature/environment selection; do not work around it with an unrecorded long command line.
 
+The [25g handoff](25g-durable-contract-evolution.md#verification) supplies authored, unexecuted
+storage controls in `pse-catalog/tests/native_artifact_migration.rs` and the operations migration/
+retirement harnesses. K3 must exercise exact frozen-25f preservation, interrupted committed prefixes,
+malformed history, reset rollback/lost acknowledgement, prior unresolved inventory, export expiry,
+foreign overlapping intent protection and queued lease renewal, plus native migration lineage,
+changed-map recovery refusal and actual restart/discovery/reclaim. The existing `just native-test`
+workspace harness discovers these targets; `just db-test` selects the isolated operations journeys.
+Do not count their earlier all-target compilation as execution.
+
 Each executed result names command, mode/features, fixture scope, conditions, failure count
 against zero, and remaining exclusions. K2/K3 commands are a proposed selection, not claims
 that any current command has run or passed.

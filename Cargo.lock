@@ -5771,7 +5771,6 @@ dependencies = [
  "chrono",
  "datafusion",
  "datafusion-catalog",
- "datafusion-proto",
  "deltalake-core",
  "futures-util",
  "miette",
@@ -5793,6 +5792,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]
@@ -6021,6 +6021,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+ "time",
  "tokio",
  "tokio-postgres",
  "tokio-postgres-rustls",

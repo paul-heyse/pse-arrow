@@ -218,9 +218,10 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
 
 @pytest.fixture(scope="session")
 def operational_store() -> OperationalStore:
-    """The operational store durable runs register in (ADR-0112 Outcome 16).
+    """The explicitly prepared operational store durable runs register in (ADR-0146).
 
     ``PSE_DATABASE_URL``, else the development default: the local socket with
-    peer authentication; the first durable open creates the generated schema.
+    peer authentication. Run ``just db-create`` for an absent store, or the supported
+    quiescent migration for an existing predecessor; runtime opening validates only.
     """
     return OperationalStore()

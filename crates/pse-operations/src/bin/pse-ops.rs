@@ -15,7 +15,7 @@
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use pse_operations::{Opened, OperationsError, SchemaStatus, Store, database_url_from_env};
+use pse_operations::{OperationsError, SchemaStatus, Store, database_url_from_env};
 
 /// Operational store administration (ADR-0114).
 #[derive(Debug, Parser)]
@@ -35,9 +35,20 @@ enum Command {
     Status,
     /// Apply declared preservation-first transitions after draining workers and closing generations.
     Migrate,
-    /// Drop the `pse_ops` schema with everything in it and create it from this build's
-    /// generated DDL. Destructive: the store holds regenerable data only.
-    Reset,
+    /// Inspect exact source/target, histories and pending checksums without mutation.
+    MigrationPlan,
+    /// Explicitly create an absent schema.
+    Create,
+    /// Explicitly retire the catalog generation through a completed external manifest,
+    /// then reset execution state and import preserved retirement in one transaction.
+    Reset {
+        /// Completed retirement inventory destination outside every workspace/member root.
+        #[arg(long)]
+        inventory_destination: std::path::PathBuf,
+        /// Complete inventory bound; larger inventories refuse rather than truncate.
+        #[arg(long, default_value_t = 1000000)]
+        max_rows: u64,
+    },
 }
 
 async fn status(store: &Store) -> Result<bool, OperationsError> {
@@ -56,14 +67,13 @@ async fn status(store: &Store) -> Result<bool, OperationsError> {
     println!("expected:   {}", Store::expected_schema());
     let current = match &schema {
         SchemaStatus::Current => {
-            println!("schema:     current");
-            true
+            let plan = store.migration_plan().await?;
+            println!("schema:     current; verified ready: {}", plan.ready);
+            plan.ready
         }
         SchemaStatus::Absent => {
-            println!(
-                "schema:     absent; the first durable open creates it (or run `just db-reset`)"
-            );
-            true
+            println!("schema:     absent; explicitly run `just db-create`");
+            false
         }
         SchemaStatus::Mismatch { recorded } => {
             println!(
@@ -83,8 +93,18 @@ async fn run(command: &Command, url: &str) -> Result<bool, OperationsError> {
     let store = Store::connect(url).await?;
     match command {
         Command::Status => status(&store).await,
+        Command::MigrationPlan => {
+            println!("{:#?}", store.migration_plan().await?);
+            Ok(true)
+        }
+        Command::Create => {
+            println!("{}: {:?}", store.target(), store.create().await?);
+            Ok(true)
+        }
         Command::Migrate => {
-            store.migrate().await?;
+            let plan = store.migration_plan().await?;
+            let report = store.migrate(&plan).await?;
+            println!("applied: {:?}", report.applied);
             println!(
                 "{}: schema transition verified at {}",
                 store.target(),
@@ -92,16 +112,28 @@ async fn run(command: &Command, url: &str) -> Result<bool, OperationsError> {
             );
             Ok(true)
         }
-        Command::Reset => {
-            let opened = store.reset().await?;
+        Command::Reset {
+            inventory_destination,
+            max_rows,
+        } => {
+            let receipt = if inventory_destination.exists() {
+                Store::inspect_reset_manifest(inventory_destination, *max_rows)?
+            } else {
+                store
+                    .export_reset_inventory(
+                        pse_operations::mint_id(),
+                        inventory_destination,
+                        *max_rows,
+                    )
+                    .await?
+            };
+            let report = store.reset(&receipt).await?;
             println!(
-                "{}: pse_ops {} with schema {}",
+                "{}: reset {} manifest {} (already applied: {})",
                 store.target(),
-                match opened {
-                    Opened::Created => "recreated",
-                    Opened::Current => "already current",
-                },
-                Store::expected_schema()
+                report.reset_id,
+                report.manifest_digest,
+                report.already_applied
             );
             Ok(true)
         }

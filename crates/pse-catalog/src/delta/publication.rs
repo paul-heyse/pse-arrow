@@ -16,7 +16,11 @@ use datafusion::{
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use pse_relations::generated::runtime::publication_manifests;
 use pse_schema::Registry;
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
+type RecordedMembers = BTreeMap<
+    datafusion::common::ResolvedTableReference,
+    pse_schema::compatibility::VerifiedRecordedContract,
+>;
 
 /// What a reader selected: the complete publication record the catalog granted, the
 /// catalog read scope of that grant, and the owner that keeps the grant alive (a reader
@@ -39,6 +43,13 @@ pub struct PublicationSelection {
 pub struct Publication {
     record: publication_manifests::Row,
     session: pse_engine::session::EngineSession,
+    recorded: RecordedMembers,
+}
+
+#[derive(Clone, Copy)]
+enum Consumption {
+    Current,
+    Recorded,
 }
 
 impl Publication {
@@ -53,13 +64,53 @@ impl Publication {
         factory: &pse_engine::session::EngineFactory,
         cancel: &pse_columnar::CancellationToken,
     ) -> std::result::Result<Self, crate::EngineError> {
+        Self::open_consuming(selection, registry, factory, cancel).await
+    }
+    async fn open_consuming(
+        selection: PublicationSelection,
+        registry: Arc<Registry>,
+        factory: &pse_engine::session::EngineFactory,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> std::result::Result<Self, crate::EngineError> {
+        super::admission::admit_profile(&selection.record, &registry)
+            .map_err(pse_engine::session::engine)?;
+        let publication =
+            Self::open_interpreted(selection, registry, factory, cancel, Consumption::Current)
+                .await?;
+        if !matches!(
+            publication.record.kind,
+            pse_relations::generated::enums::PublicationKind::Relations
+                | pse_relations::generated::enums::PublicationKind::Migration
+        ) {
+            publication.artifact_descriptor(cancel).await?;
+        }
+        Ok(publication)
+    }
+    /// Open verified recorded meaning for explicit transformation without current consumer admission.
+    /// Storage selection and portable checks use the same interpreter as ordinary reads.
+    /// # Errors
+    /// Missing recorded proof, contradictory selections, policy refusal or cancellation.
+    pub async fn open_recorded(
+        selection: PublicationSelection,
+        registry: Arc<Registry>,
+        factory: &pse_engine::session::EngineFactory,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> std::result::Result<Self, crate::EngineError> {
+        Self::open_interpreted(selection, registry, factory, cancel, Consumption::Recorded).await
+    }
+    async fn open_interpreted(
+        selection: PublicationSelection,
+        registry: Arc<Registry>,
+        factory: &pse_engine::session::EngineFactory,
+        cancel: &pse_columnar::CancellationToken,
+        consumption: Consumption,
+    ) -> std::result::Result<Self, crate::EngineError> {
         cancel.checkpoint()?;
         let PublicationSelection {
             record,
             scope,
             owner,
         } = selection;
-        super::admission::admit_profile(&record, &registry).map_err(pse_engine::session::engine)?;
         let mut state = factory.native_state().clone();
         state.config_mut().set_extension(Arc::new(
             pse_engine::session::execution::AttemptScope::default(),
@@ -67,25 +118,65 @@ impl Publication {
         if let Some(scope) = scope {
             scope.install(state.config_mut());
         }
-        let state = cancel
-            .until_cancelled(bind_members(&record.members, &registry, Arc::new(state)))
+        let consumer = match consumption {
+            Consumption::Current => Some(registry.as_ref()),
+            Consumption::Recorded => None,
+        };
+        let (state, recorded) = cancel
+            .until_cancelled(bind_interpreted_members(
+                &record.members,
+                consumer,
+                Arc::new(state),
+            ))
             .await?
             .map_err(pse_engine::session::engine)?;
-        let mut session =
-            crate::selection::bind_publication(&record.members, &state, registry, factory, cancel)
-                .await?;
+        let mut session = match consumption {
+            Consumption::Current => {
+                crate::selection::bind_publication(
+                    &record.members,
+                    &state,
+                    registry,
+                    factory,
+                    cancel,
+                )
+                .await?
+            }
+            Consumption::Recorded => {
+                crate::selection::bind_recorded_publication(
+                    &record.members,
+                    &state,
+                    registry,
+                    factory,
+                    cancel,
+                )
+                .await?
+            }
+        };
         if let Some(owner) = owner {
             session.retain_owner(owner);
         }
-        // Binding does not certify requirements, but an open cannot bypass them.
         session.check_requirements(cancel).await?;
-        let publication = Self { record, session };
-        if publication.record.kind != pse_relations::generated::enums::PublicationKind::Relations {
-            publication.artifact_descriptor(cancel).await?;
-        }
-        Ok(publication)
+        Ok(Self {
+            record,
+            session,
+            recorded,
+        })
     }
-
+    /// Verified original member meaning, independent of a consumer projection.
+    /// # Errors
+    /// The exact qualified member is absent.
+    pub fn recorded_member(
+        &self,
+        reference: &datafusion::common::ResolvedTableReference,
+    ) -> std::result::Result<&pse_schema::compatibility::VerifiedRecordedContract, crate::EngineError>
+    {
+        self.recorded
+            .get(reference)
+            .ok_or_else(|| pse_engine::session::engine(invalid("recorded member is absent")))
+    }
+    pub(crate) fn recorded_members(&self) -> &RecordedMembers {
+        &self.recorded
+    }
     /// The complete publication record; no parallel manifest is retained.
     pub fn record(&self) -> &publication_manifests::Row {
         &self.record
@@ -120,7 +211,33 @@ impl Publication {
         cancel: &pse_columnar::CancellationToken,
     ) -> std::result::Result<pse_engine::session::OwnedComputationStream, crate::EngineError> {
         self.member(reference)?;
-        self.session.relation_stream(reference, cancel).await
+        let table = datafusion::common::TableReference::full(
+            reference.catalog.clone(),
+            reference.schema.clone(),
+            reference.table.clone(),
+        );
+        let binding = self
+            .session
+            .bindings()
+            .iter()
+            .find_map(|(_, binding)| (binding.reference == table).then_some(binding))
+            .ok_or_else(|| {
+                pse_engine::session::engine(invalid("selected source binding is absent"))
+            })?;
+        if binding.relation.is_some() {
+            return self.session.relation_stream(reference, cancel).await;
+        }
+        let plan = LogicalPlanBuilder::scan(
+            table,
+            datafusion::datasource::provider_as_source(binding.provider.clone()),
+            None,
+        )
+        .and_then(LogicalPlanBuilder::build)
+        .map_err(pse_engine::session::engine)?;
+        self.session
+            .prepare_rule_plan(plan, cancel)?
+            .execute_stream(cancel)
+            .await
     }
 }
 pub(super) async fn bind_members(
@@ -128,6 +245,14 @@ pub(super) async fn bind_members(
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<Arc<SessionState>> {
+    let (state, _) = bind_interpreted_members(members, Some(registry), state).await?;
+    Ok(state)
+}
+async fn bind_interpreted_members(
+    members: &[pse_relations::generated::structures::MemberDescriptor],
+    registry: Option<&Registry>,
+    state: Arc<SessionState>,
+) -> Result<(Arc<SessionState>, RecordedMembers)> {
     let catalogs = Arc::new(MemoryCatalogProviderList::new());
     let limit = state
         .config()
@@ -145,7 +270,7 @@ pub(super) async fn bind_members(
         let member = &members[ordinal];
         let state = state.clone();
         async move {
-            let view = selected_provider(member, registry, state)
+            let (view, recorded) = interpreted_provider(member, registry, state)
                 .await
                 .map_err(|error| {
                     error.context(format!(
@@ -153,7 +278,7 @@ pub(super) async fn bind_members(
                         member.schema_name, member.table_name
                     ))
                 })?;
-            Ok::<_, DataFusionError>((ordinal, view))
+            Ok::<_, DataFusionError>((ordinal, view, recorded))
         }
         .boxed()
     });
@@ -161,9 +286,16 @@ pub(super) async fn bind_members(
         .buffer_unordered(limit)
         .try_collect::<Vec<_>>()
         .await?;
-    opened.sort_unstable_by_key(|(ordinal, _)| *ordinal);
-    for (ordinal, view) in opened {
+    opened.sort_unstable_by_key(|(ordinal, _, _)| *ordinal);
+    let mut witnesses = BTreeMap::new();
+    for (ordinal, view, recorded) in opened {
         let member = &members[ordinal];
+        let reference = datafusion::common::ResolvedTableReference {
+            catalog: member.catalog_name.clone().into(),
+            schema: member.schema_name.clone().into(),
+            table: member.table_name.clone().into(),
+        };
+        witnesses.insert(reference, recorded);
         let catalog = if let Some(catalog) = catalogs.catalog(&member.catalog_name) {
             catalog
         } else {
@@ -192,7 +324,8 @@ pub(super) async fn bind_members(
             .with_catalog_list(catalogs)
             .build(),
     );
-    Ok(state)
+    verify_recorded_inventory(members, &witnesses)?;
+    Ok((state, witnesses))
 }
 
 /// Open exactly the declared member slice through the common native provider.
@@ -201,23 +334,32 @@ pub(crate) async fn selected_provider(
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<Arc<dyn datafusion::catalog::TableProvider>> {
-    let relation = registry
-        .relation_by_id(member.relation_id)
-        .ok_or_else(|| invalid("publication references an unknown relation contract"))?;
-    if i64::from(relation.key.version) != member.relation_version
-        || relation.fingerprint != member.contract_fingerprint
-    {
-        return Err(invalid(
-            "publication relation version or fingerprint differs from its declaration",
-        ));
-    }
-    let contract = super::contract::DeclaredCheck::new(registry, relation.id)?;
-    let location = url::Url::parse(&member.table_uri)
-        .map_err(|error| DataFusionError::External(Box::new(error)))?;
-    let view = super::provider::open_declared_view(
+    let (provider, _) = interpreted_provider(member, Some(registry), state).await?;
+    Ok(provider)
+}
+async fn interpreted_provider(
+    member: &pse_relations::generated::structures::MemberDescriptor,
+    registry: Option<&Registry>,
+    state: Arc<SessionState>,
+) -> Result<(
+    Arc<dyn datafusion::catalog::TableProvider>,
+    pse_schema::compatibility::VerifiedRecordedContract,
+)> {
+    let contract = registry
+        .map(|registry| {
+            registry
+                .relation_by_id(member.relation_id)
+                .ok_or_else(|| invalid("consumer references an unknown relation"))?;
+            super::contract::DeclaredCheck::new(registry, member.relation_id)
+        })
+        .transpose()?;
+    let location =
+        url::Url::parse(&member.table_uri).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let (view, recorded) = super::provider::open_recorded_view(
         location,
         member.delta_version,
-        &contract,
+        contract.as_ref(),
+        Some(member),
         Arc::clone(&state),
     )
     .await?;
@@ -230,10 +372,16 @@ pub(crate) async fn selected_provider(
         pse_relations::generated::structures::MemberDescriptorSelectionSelected::Revision(
             selection,
         ) => {
-            let column = relation
-                .column(&selection.column)
-                .ok_or_else(|| invalid("revision selection column is undeclared"))?;
-            if column.extension() != Some(pse_schema::model::ExtensionUse::SemanticId) {
+            let schema = view.logical_plan().schema().as_arrow();
+            let column = schema
+                .field_with_name(&selection.column)
+                .map_err(|_| invalid("revision selection column is absent"))?;
+            if column
+                .metadata()
+                .get(pse_schema::arrow::KEY_EXTENSION_NAME)
+                .map(String::as_str)
+                != Some("pse.semantic_id")
+            {
                 return Err(invalid(
                     "revision selection column is not a semantic identity",
                 ));
@@ -251,7 +399,53 @@ pub(crate) async fn selected_provider(
             ViewTable::new(plan, None)
         }
     };
-    crate::cache_service::resident::selected(super::provider::selected_view(view), member, &state)
+    let provider = crate::cache_service::resident::selected(
+        super::provider::selected_view(view),
+        member,
+        &state,
+    )?;
+    let provider: Arc<dyn datafusion::catalog::TableProvider> = if registry.is_none() {
+        Arc::new(pse_engine::provider::recorded::RecordedProvider::new(
+            provider,
+            &recorded,
+            member.relation_id,
+        )?)
+    } else {
+        provider
+    };
+    Ok((provider, recorded))
+}
+
+fn verify_recorded_inventory(
+    members: &[pse_relations::generated::structures::MemberDescriptor],
+    witnesses: &RecordedMembers,
+) -> Result<()> {
+    // A recorded closure must agree with the actual selected roots in the same catalog.
+    for (reference, witness) in witnesses {
+        for (id, description) in &witness.contract().relations {
+            let Some(selected) = members
+                .iter()
+                .find(|m| m.catalog_name == reference.catalog.as_ref() && m.relation_id == *id)
+            else {
+                continue;
+            };
+            let target = datafusion::common::ResolvedTableReference {
+                catalog: selected.catalog_name.clone().into(),
+                schema: selected.schema_name.clone().into(),
+                table: selected.table_name.clone().into(),
+            };
+            if witnesses
+                .get(&target)
+                .and_then(|w| w.contract().relations.get(id))
+                != Some(description)
+            {
+                return Err(invalid(
+                    "selected member contradicts recorded support declaration",
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Every exact input opens under its declared contract.

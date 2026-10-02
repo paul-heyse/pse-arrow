@@ -34,7 +34,7 @@ pub fn admit_plan(
 ) -> Result<()> {
     // Native expression/schema rules own ordinary Arrow intermediates; declared
     // relation materialization adds its explicit domain obligations.
-    let mut fields = FieldAdmissions::new(registry, pool);
+    let mut fields = FieldAdmissions::new(registry, pool).with_recorded_sources(tables);
     let plan = derive::plans(
         std::slice::from_ref(plan),
         registry,
@@ -76,7 +76,7 @@ pub(super) fn restore_semantic_fields_many(
     pool: &Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
 ) -> Result<Vec<LogicalPlan>> {
-    let mut fields = FieldAdmissions::new(registry, pool);
+    let mut fields = FieldAdmissions::new(registry, pool).with_recorded_sources(tables);
     let restored = derive::plans(plans, registry, tables, &mut fields, pool, cancel)?;
     admit_scoped(&restored, registry, tables, cancel, &mut fields)?;
     Ok(restored)
@@ -276,6 +276,7 @@ fn invalid_rows(errors: &[pse_relations::RelationError]) -> DataFusionError {
 /// are still checked at every use. Budget pressure simply bypasses retention.
 struct FieldAdmissions<'a> {
     registry: &'a Registry,
+    recorded: Vec<Arc<[Arc<Field>]>>,
     accepted: std::collections::HashMap<usize, Arc<Field>>,
     accepted_values: std::collections::HashSet<AdmittedField>,
     expressions: std::collections::HashMap<u64, Vec<(ExpressionField, Arc<Field>)>>,
@@ -322,6 +323,7 @@ impl<'a> FieldAdmissions<'a> {
         };
         Self {
             registry,
+            recorded: Vec::new(),
             accepted: std::collections::HashMap::new(),
             accepted_values: std::collections::HashSet::new(),
             expressions: std::collections::HashMap::new(),
@@ -330,6 +332,18 @@ impl<'a> FieldAdmissions<'a> {
                 .register(pool),
             retention_limit,
         }
+    }
+    fn with_recorded_sources(mut self, tables: &[Arc<dyn TableProvider>]) -> Self {
+        self.recorded = tables
+            .iter()
+            .filter_map(|provider| {
+                provider
+                    .as_ref()
+                    .downcast_ref::<crate::provider::recorded::RecordedProvider>()
+                    .map(crate::provider::recorded::RecordedProvider::fields)
+            })
+            .collect();
+        self
     }
     fn remember(&self, bytes: usize) -> bool {
         self.reservation.size().saturating_add(bytes) <= self.retention_limit
@@ -421,7 +435,13 @@ impl<'a> FieldAdmissions<'a> {
                 .get(pse_schema::arrow::KEY_EXTENSION_NAME)
                 .is_some_and(|name| name.starts_with("pse."));
         if declared {
-            admit_intermediate_field(self.registry, field)?;
+            if !self
+                .recorded
+                .iter()
+                .any(|observed| crate::provider::recorded::admits(observed, field))
+            {
+                admit_intermediate_field(self.registry, field)?;
+            }
         } else {
             // Native tuple/UNNEST fields frequently get a new outer Field while
             // retaining the exact immutable child declarations. Admit those
@@ -514,7 +534,7 @@ fn intermediate_schema(
 
 fn derive_native_node(
     mut node: LogicalPlan,
-    registry: &Registry,
+    _registry: &Registry,
     fields: &mut FieldAdmissions<'_>,
 ) -> Result<Transformed<LogicalPlan>> {
     let original = node.clone();
@@ -548,7 +568,7 @@ fn derive_native_node(
         )
     })?;
     if let LogicalPlan::Unnest(value) = &mut native_before {
-        value.schema = Arc::new(unnest_schema(value, registry)?);
+        value.schema = Arc::new(unnest_schema(value, fields)?);
     }
     admit_derived_schema(&offered, native_before.schema().fields())?;
     let mut rebuilt = match node.data {
@@ -568,7 +588,7 @@ fn derive_native_node(
         _ => native_before,
     };
     if let LogicalPlan::Unnest(value) = &mut rebuilt {
-        value.schema = Arc::new(unnest_schema(value, registry)?);
+        value.schema = Arc::new(unnest_schema(value, fields)?);
     }
     if let LogicalPlan::RecursiveQuery(query) = &mut rebuilt {
         // Native recursive output metadata comes from the anchor. Terms can
@@ -793,7 +813,7 @@ pub(crate) fn same_value_metadata(actual: &Field, expected: &Field) -> bool {
 }
 fn unnest_schema(
     unnest: &datafusion::logical_expr::Unnest,
-    registry: &Registry,
+    field_admissions: &mut FieldAdmissions<'_>,
 ) -> Result<datafusion::common::DFSchema> {
     if unnest.dependency_indices.len() != unnest.schema.fields().len() {
         return Err(DataFusionError::Plan(
@@ -843,11 +863,11 @@ fn unnest_schema(
                         || unnest.list_type_columns.len() != 1,
                 )
                 .with_metadata(declared.metadata().clone());
-            admit_field(registry, &field)?;
+            field_admissions.intermediate(&Arc::new(field.clone()))?;
             fields.push((qualifier.cloned(), Arc::new(field)));
         } else if unnest.struct_type_columns.contains(index) {
             // Native struct expansion derives the child's field directly.
-            admit_field(registry, actual)?;
+            field_admissions.intermediate(actual)?;
             fields.push((qualifier.cloned(), Arc::clone(actual)));
         } else {
             if actual.as_ref() != declared {

@@ -6,6 +6,7 @@
 pub mod binding;
 pub mod catalog;
 pub mod list;
+pub mod recorded;
 pub mod schema;
 pub mod witness;
 

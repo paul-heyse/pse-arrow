@@ -14,7 +14,15 @@ impl ArtifactDescriptor {
     /// # Errors
     /// Unknown format, malformed members, duplicate roots/assumptions or empty product.
     pub fn create(mut row: wire::Row) -> Result<Self, ModelError> {
+        if row.descriptor_version != 3 {
+            return Err(crate::malformed(
+                "new artifact descriptors require version three",
+            ));
+        }
         row.requested_relations.sort_unstable();
+        if let Some(required) = &mut row.profile_required_relations {
+            required.sort_unstable();
+        }
         row.release_members.sort_by(|a, b| {
             (&a.catalog_name, &a.schema_name, &a.table_name).cmp(&(
                 &b.catalog_name,
@@ -30,11 +38,20 @@ impl ArtifactDescriptor {
     /// # Errors
     /// Invalid or noncanonical complete validity descriptor.
     pub fn admit(row: wire::Row) -> Result<Self, ModelError> {
-        if row.descriptor_version != 2 {
+        if !matches!(row.descriptor_version, 2 | 3) {
             return Err(ModelError::MigrationRequired {
                 version: row.descriptor_version,
-                supported: 2,
+                supported: 3,
             });
+        }
+        match (row.descriptor_version, &row.profile_required_relations) {
+            (2, None) => {}
+            (3, Some(required)) if required.windows(2).all(|w| w[0] < w[1]) => {}
+            _ => {
+                return Err(crate::malformed(
+                    "descriptor format contradicts portable profile inventory",
+                ));
+            }
         }
         if (row.profile == crate::generated::enums::PublicationKind::Run
             && row.reconstruction != crate::generated::enums::ArtifactReconstruction::None)
@@ -93,11 +110,18 @@ impl ArtifactDescriptor {
     }
 }
 fn identity(row: &wire::Row) -> ContentHash {
-    let mut hash = FramedHasher::new(pse_ids::Frame::ArtifactDescriptorV1);
+    let mut hash = FramedHasher::new(if row.descriptor_version == 3 {
+        pse_ids::Frame::ArtifactDescriptorV3
+    } else {
+        pse_ids::Frame::ArtifactDescriptorV1
+    });
     row.descriptor_version.frame(&mut hash);
     row.profile.frame(&mut hash);
     row.profile_contract.frame(&mut hash);
     row.requested_relations.frame(&mut hash);
+    if row.descriptor_version == 3 {
+        row.profile_required_relations.frame(&mut hash);
+    }
     row.release_id.frame(&mut hash);
     row.release_members.frame(&mut hash);
     row.semantic_identity.frame(&mut hash);
@@ -116,10 +140,11 @@ mod durability_unit {
         let hash = ContentHash::from_bytes([1; 32]);
         wire::Row {
             artifact_id: hash,
-            descriptor_version: 2,
+            descriptor_version: 3,
             profile: PublicationKind::Model,
             profile_contract: hash,
             requested_relations: vec![pse_ids::SemanticId::from_bytes([2; 16])],
+            profile_required_relations: Some(vec![pse_ids::SemanticId::from_bytes([2; 16])]),
             release_id: hash,
             release_members: vec![],
             semantic_identity: hash,
@@ -133,6 +158,33 @@ mod durability_unit {
             value_assumptions: vec![],
             reconstruction: ArtifactReconstruction::ExactRelease,
         }
+    }
+    #[test]
+    fn recorded_version_two_preserves_its_original_frame_and_absent_inventory() {
+        let mut old = row();
+        old.descriptor_version = 2;
+        old.profile_required_relations = None;
+        let mut hash = FramedHasher::new(pse_ids::Frame::ArtifactDescriptorV1);
+        old.descriptor_version.frame(&mut hash);
+        old.profile.frame(&mut hash);
+        old.profile_contract.frame(&mut hash);
+        old.requested_relations.frame(&mut hash);
+        old.release_id.frame(&mut hash);
+        old.release_members.frame(&mut hash);
+        old.semantic_identity.frame(&mut hash);
+        old.implementation.frame(&mut hash);
+        old.target_contract.frame(&mut hash);
+        old.value_assumptions.frame(&mut hash);
+        old.reconstruction.frame(&mut hash);
+        old.artifact_id = hash.finish_hash();
+        assert!(ArtifactDescriptor::admit(old.clone()).is_ok());
+        assert!(ArtifactDescriptor::create(old.clone()).is_err());
+        old.profile_required_relations = Some(vec![]);
+        assert!(ArtifactDescriptor::admit(old).is_err());
+        let current = ArtifactDescriptor::create(row()).unwrap();
+        let mut missing = current.row().clone();
+        missing.profile_required_relations = None;
+        assert!(ArtifactDescriptor::admit(missing).is_err());
     }
     #[test]
     fn full_descriptor_comparison_refuses_changed_validity_and_old_formats() {

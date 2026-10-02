@@ -230,6 +230,16 @@ tested preparation behavior. This is not a cache, allocation or performance meas
 conditions and limits. Wider I1 framing/role migration, I2/I3 allocation and bounded reuse,
 and I5 worker/accelerator ownership remain open; I4 retains its completed 25e scope.
 
+## Consumed 25g prerequisite slice
+
+**Implemented/Tested, 2026-10-01:** The identity owner supplies ArtifactDescriptorV3,
+ArtifactMigrationV1 and ResetManifestV1 frames. Descriptor-v2 preimages are unchanged;
+opening requires independently established roots and recomputed profile proof. Explicit
+migration dependencies include the transformation digest and exact source publication, so a
+changed finite policy cannot recover stale outputs from the same attempt. Source leases remain
+owned through native execution and commit. [25g Verification](25g-durable-contract-evolution.md#verification)
+owns focused evidence; wider I1 identity-role migration and I2/I3/I5 reuse/resource scope remains open.
+
 ## Execution and evidence
 
 The consumed prerequisite slices above are **Implemented**; their focused evidence
@@ -252,7 +262,7 @@ record actual commands, conditions and failures against zero in the final qualif
 
 ### What was built
 
-Full-plan closure remains outstanding. The implemented 25c/25d/25e/25f prerequisite slices and
+Full-plan closure remains outstanding. The implemented 25c/25d/25e/25f/25g prerequisite slices and
 their remaining boundaries are recorded above; the linked plans own their focused evidence.
 
 ### A mistake made and corrected

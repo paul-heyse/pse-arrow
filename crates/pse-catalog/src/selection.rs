@@ -89,6 +89,47 @@ pub(crate) async fn bind_publication(
     factory: &EngineFactory,
     cancel: &CancellationToken,
 ) -> Result<EngineSession, EngineError> {
+    bind_interpreted_publication(
+        members,
+        state,
+        registry,
+        factory,
+        cancel,
+        BindingDeclaration::Consumer,
+    )
+    .await
+}
+/// Bind recorded providers without substituting current relation declarations.
+pub(crate) async fn bind_recorded_publication(
+    members: &[Member],
+    state: &datafusion::execution::session_state::SessionState,
+    registry: Arc<pse_schema::Registry>,
+    factory: &EngineFactory,
+    cancel: &CancellationToken,
+) -> Result<EngineSession, EngineError> {
+    bind_interpreted_publication(
+        members,
+        state,
+        registry,
+        factory,
+        cancel,
+        BindingDeclaration::Recorded,
+    )
+    .await
+}
+#[derive(Clone, Copy)]
+enum BindingDeclaration {
+    Consumer,
+    Recorded,
+}
+async fn bind_interpreted_publication(
+    members: &[Member],
+    state: &datafusion::execution::session_state::SessionState,
+    registry: Arc<pse_schema::Registry>,
+    factory: &EngineFactory,
+    cancel: &CancellationToken,
+    declaration: BindingDeclaration,
+) -> Result<EngineSession, EngineError> {
     use pse_engine::provider::binding::{BindingKey, TableBinding};
     let mut session = factory.candidate(BTreeMap::new(), registry, cancel)?;
     let mut unique = BTreeMap::new();
@@ -108,32 +149,36 @@ pub(crate) async fn bind_publication(
             .await
             .map_err(engine)?
             .ok_or_else(|| invalid("selected member provider is absent"))?;
-        let spec = session
-            .registry()
-            .relation_by_id(member.relation_id)
-            .filter(|spec| {
-                i64::from(spec.key.version) == member.relation_version
-                    && spec.fingerprint == member.contract_fingerprint
-            })
-            .ok_or_else(|| invalid("selected member declaration differs"))?;
-        let schema = pse_schema::arrow::relation_schema(session.registry(), spec)
-            .map_err(pse_relations::RelationError::from)?;
-        if provider.schema().fields() != schema.fields() {
-            return Err(invalid(
-                "selected Delta fields differ from their declaration",
-            ));
-        }
+        let relation = match declaration {
+            BindingDeclaration::Consumer => {
+                let spec = session
+                    .registry()
+                    .relation_by_id(member.relation_id)
+                    .ok_or_else(|| invalid("consumed member declaration is absent"))?;
+                let schema = pse_schema::arrow::relation_schema(session.registry(), spec)
+                    .map_err(pse_relations::RelationError::from)?;
+                if provider.schema().fields() != schema.fields() {
+                    return Err(invalid(
+                        "projected Delta fields differ from the consumer declaration",
+                    ));
+                }
+                Some(spec.key)
+            }
+            BindingDeclaration::Recorded => None,
+        };
         let reference = table_reference(&reference);
-        let mut binding = TableBinding::new(reference.clone(), provider, Some(spec.key), None);
+        let mut binding = TableBinding::new(reference.clone(), provider, relation, None);
         binding.dependencies =
             pse_engine::session::facts::view_dependencies(&binding.provider).map_err(engine)?;
         binding.witness = Some(witness(member.clone()));
         // Repeated declarations in separate roles remain fully qualified. An
         // unambiguous declaration also supports generated relation-key consumers.
-        unique
-            .entry(spec.key)
-            .and_modify(|value| *value = None)
-            .or_insert_with(|| Some(binding.clone()));
+        if let Some(key) = relation {
+            unique
+                .entry(key)
+                .and_modify(|value| *value = None)
+                .or_insert_with(|| Some(binding.clone()));
+        }
         session
             .bind_source(BindingKey::Native(reference), binding)
             .map_err(engine)?;

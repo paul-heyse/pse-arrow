@@ -23,7 +23,10 @@ required preserving operational transition.
 with shared occurrence policy/definitions, typed diagnostics, physical binding admission,
 durable effect recovery and generated study boundaries. Required 25g/25h/25i/25j slices are
 implemented and tested; I4 is complete and the wider companion scope stays partial.
-The next work is [25g's remaining durable evolution scope](25g-durable-contract-evolution.md#packets).
+[25g is complete](25g-durable-contract-evolution.md#outcome-recorded-after-implementation),
+with recorded interpretation, separate reader/writer/migration capabilities, portable predicates,
+explicit store lifecycle, inventory-backed reset and protected bounded orphan discovery.
+The next work is [25h's authoring and admission ownership scope](25h-authoring-and-admission-ownership.md#packets).
 The series reserves full integration and qualification for 25k after all functional
 work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
 checks and immediate deletion of replaced mechanisms during the pivot.

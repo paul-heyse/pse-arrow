@@ -124,7 +124,7 @@ fn descriptor(registry: &Registry) -> pse_model::artifact::ArtifactDescriptor {
     let hash = ContentHash::from_bytes([1; 32]);
     ArtifactDescriptor::create(wire::Row {
         artifact_id: hash,
-        descriptor_version: 2,
+        descriptor_version: 3,
         profile: PublicationKind::Inspection,
         profile_contract: pse_schema::fingerprint::semantic_profile(
             registry,
@@ -133,6 +133,14 @@ fn descriptor(registry: &Registry) -> pse_model::artifact::ArtifactDescriptor {
         )
         .unwrap(),
         requested_relations: vec![registry.relation("authored.values").unwrap().id],
+        profile_required_relations: Some(
+            registry
+                .artifact_profile("inspection")
+                .unwrap()
+                .iter()
+                .copied()
+                .collect(),
+        ),
         release_id: hash,
         release_members: vec![],
         semantic_identity: hash,

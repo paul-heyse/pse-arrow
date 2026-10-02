@@ -39,7 +39,7 @@ anywhere. This relies on the Debian/Ubuntu default `local all all peer` line in
 `pg_hba.conf`. Run the recipe interactively (sudo asks for your password), or
 non-interactively with `just --yes db-bootstrap` in a shell where sudo does not prompt.
 
-The first durable open creates the schema, so a fresh database needs nothing else.
+Create the schema explicitly with `just db-create` before opening a durable runtime.
 
 > **Deviation from ADR-0114 Outcome 21.** The decision names a login role `pse` using
 > SCRAM. Local development uses a peer-authenticated role named after the OS user
@@ -93,9 +93,12 @@ checked when it is applied, and the fingerprint covers it.
 
 Ordinary opening and explicit upgrades are separate operations ([ADR-0146](../adr/0146-preserve-versioned-operational-transitions.md)):
 
-- On a database without `pse_ops`, `Store::open` creates the generated target and physical
-  access paths atomically. Existing opening validates the recorded target, owned support,
-  exact layout and readiness without upgrading it.
+- `Store::create` (`just db-create`) explicitly creates an absent generated target and
+  physical access paths atomically. `Store::open` is validation-only, including on an
+  absent database, and validates owned support, exact layout and readiness without upgrading.
+- `Store::migration_plan` (`just db-migration-plan`) inspects the source, target, both
+  immutable history prefixes and readiness without mutation. `Store::migrate(&plan)`
+  rechecks that expected plan under the namespace lock and reports applied steps and readiness.
 - A supported predecessor requires `just db-migrate`. Drain workers and close every affected
   `OperationalStore` or Rust store generation first. An active generation or competing
   maintenance owner refuses the upgrade before it changes the namespace.
@@ -109,9 +112,13 @@ Ordinary opening and explicit upgrades are separate operations ([ADR-0146](../ad
 - Existing attempts, jobs and their historical payloads, publication identities, reader
   leases and retention records survive the supported transition. New scientific fields
   are not inferred for historical records; their recorded payload version retains its meaning.
-- `just db-reset` is destructive maintenance, explicitly chosen when discarding all store
-  records is intended. It asks for confirmation; `just --yes db-reset` is the deliberate
-  noninteractive form. Reset is not the ordinary upgrade or unsupported-source recovery path.
+- `just db-reset <inventory-destination> [max-rows]` is explicitly selected destructive
+  maintenance. It first writes a completed versioned retirement manifest outside member
+  roots, including previous unresolved inventory and reader/export protection. Reset then
+  recreates the namespace, imports inventory and records its reset identity/digest/readiness
+  in one transaction. Reusing that manifest settles a lost acknowledgement before another
+  reset. `just --yes db-reset <inventory-destination>` is the deliberate noninteractive
+  form; reset is not ordinary upgrade or unsupported-source recovery.
 
 Transition legality lives in the Rust tables of `pse_operations::lifecycle`, not in SQL.
 Deletes are explicit: there is no `ON DELETE CASCADE`, and no default mints an identity.
@@ -130,7 +137,7 @@ regenerate the query crate first with the xtask build that does not link the run
 then the rest:
 
 ```bash
-cargo run -p xtask --no-default-features -- codegen --only queries   # needs the local server
+just codegen-queries           # disposable query-generation database; needs the local server
 just codegen-bootstrap        # or `just codegen` when no Rust contract changed
 just db-migrate                 # only after the supported transition is declared and generations are closed
 ```
@@ -358,6 +365,8 @@ completes on rerun (`interrupted_deletion_resumes`).
 - **Collect.** Fix every protected range, then verify, fence, checkpoint and vacuum each
   selected table keeping them. A protected version whose history is gone refuses that
   table.
+- **Discover orphans.** Scan an established workspace root in bounded slices and record attributable, protected or unresolved candidates. A retained listing stream spans slices; restarting the process starts a new enumeration generation from the root, retaining deduplicated candidates. Report pagination uses a durable prefix keyset cursor. Listing completion is not an atomic storage snapshot.
+- **Reclaim an orphan.** Select one recorded prefix explicitly. A fresh claim rechecks global publication/intent/reader/export protection and holds the catalog protection fence through physical removal and disposition commit. Local symlinks and escaped prefixes refuse; unknown ownership stays unresolved.
 - **Reclaim.** Abandon intents that can never commit (abandoned, attempt stale or
   superseded, or published as another publication), remove their prefixes, mark them
   reclaimed.
@@ -368,6 +377,9 @@ just pse-publication release --receipt '<receipt json>'
 just pse-publication retire --workspace <name> --publication <hex> [--wait-seconds 60]
 just pse-publication collect --workspace <name>
 just pse-publication reclaim --workspace <name>
+just pse-publication discover --workspace <name> [--scan <uuid>]
+just pse-publication orphans --scan <uuid> [--after-prefix <uri>] [--limit 256]
+just pse-publication reclaim-orphan --workspace <name> --scan <uuid> --prefix <uri>
 ```
 
 Nothing retires publications automatically: no policy decides which publications to retire
@@ -413,8 +425,7 @@ not started, asks running tries to stop, and still publishes what completed. A p
 changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) cannot be run as a
 durable study, because workers load its authored documents.
 
-Known gaps: a crashed point try's partial member tables are never collected; a
-finalization that exhausts its retries leaves the study `concluded` with no automatic
+Partial member tables from crashed point tries can be inventoried by orphan discovery; without attributable catalog or retained inventory evidence they remain unresolved. A finalization that exhausts its retries leaves the study `concluded` with no automatic
 recovery; the 10 000-point scale is unmeasured.
 
 ```bash
@@ -528,8 +539,8 @@ It reports:
 - the server version (18 or newer);
 - whether the server is reachable;
 - the recorded schema fingerprint, compared with `SCHEMA_FINGERPRINT_HEX` in
-  `crates/pse-operations/src/generated/fingerprint.rs`. A missing schema is fine (the
-  first durable open creates it); a different supported one requires `just db-migrate`.
+  `crates/pse-operations/src/generated/fingerprint.rs`. A missing schema needs explicit
+  `just db-create` before durable use; a different supported one requires `just db-migrate`.
 
 It probes only a Unix socket or a loopback host, with a two-second connect timeout. For a
 remote store it says so and points to `just db-status`.
@@ -541,8 +552,8 @@ remote store it says so and points to `just db-status`.
 | `role "…" does not exist` or `Peer authentication failed for user "…"` | No role for your OS user. Run `just db-bootstrap`. |
 | `permission denied to create database` in tests or generation | The role lacks `CREATEDB`. Rerun `just db-bootstrap`. |
 | `SchemaMismatch`, or `just db-status` reports `MISMATCH` | Preserve the store. Verify a declared supported transition, drain workers, close generations, run `just db-migrate`, then reopen. Unknown sources require a reviewed transition. |
-| `just db-status` reports the schema absent | Nothing is wrong: the first durable open creates it. |
-| `just db-reset` fails with no terminal | The recipe asks for confirmation; run `just --yes db-reset`. |
+| `just db-status` reports the schema absent | Create explicitly with `just db-create` before opening durable runtimes. |
+| `just db-reset <inventory-destination>` fails with no terminal | The recipe asks for confirmation; run `just --yes db-reset <inventory-destination>`. |
 | The full `cargo xtask codegen` does not build after a store change | The query crate is stale; regenerate it first in bootstrap order (`--only queries`). |
 | `store queries not checked: PostgreSQL unreachable at …` | Query generation needs the local server. Run `just db-status`. |
 | Python `OperationalStore` tests fail after a registry change | The store may predate the new schema; use its supported explicit migration and reopen the Python store generation. |

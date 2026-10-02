@@ -401,12 +401,20 @@ fn difference(record: &PublicationRecord, commit: &PublicationCommit) -> Option<
     }
 }
 
+/// Namespace-wide publication/reader protection fence; no schema admission upgrade.
+pub(crate) const PROTECTION_LOCK: i64 = 0x7073_655f_7072_6f74;
+
 /// Serialize maintainers of one workspace until the transaction ends.
 async fn maintenance_lock(
     tx: &Tx<'_>,
     target: &Target,
     workspace: WorkspaceId,
 ) -> Result<(), OperationsError> {
+    statements::protection_shared_lock()
+        .bind(tx, &PROTECTION_LOCK)
+        .one()
+        .await
+        .classify(target)?;
     statements::maintenance_lock()
         .bind(tx, &format!("pse_ops.maintenance:{workspace}"))
         .one()
@@ -656,7 +664,7 @@ impl ProtectedRange {
 /// The catalog repository.
 #[derive(Clone, Copy, Debug)]
 pub struct Catalog<'s> {
-    store: &'s Store,
+    pub(crate) store: &'s Store,
 }
 
 impl<'s> Catalog<'s> {
@@ -664,7 +672,7 @@ impl<'s> Catalog<'s> {
         Self { store }
     }
 
-    fn target(&self) -> &Target {
+    pub(crate) fn target(&self) -> &Target {
         self.store.target()
     }
 
@@ -776,6 +784,7 @@ impl<'s> Catalog<'s> {
         let target = self.target();
         let mut client = self.store.client().await?;
         let tx = client.transaction().await.classify(target)?;
+        maintenance_lock(&tx, target, intent.workspace_id).await?;
         statements::insert_intent()
             .params(
                 &tx,
@@ -994,6 +1003,7 @@ impl<'s> Catalog<'s> {
         let target = self.target();
         let mut client = self.store.client().await?;
         let tx = client.transaction().await.classify(target)?;
+        maintenance_lock(&tx, target, commit.workspace_id).await?;
         let state = statements::share_attempt_state()
             .bind(&tx, &commit.attempt_id)
             .opt()
@@ -1298,6 +1308,17 @@ impl<'s> Catalog<'s> {
                 Some(workspace),
             ),
         };
+        let workspace = statements::publication()
+            .bind(&tx, &publication)
+            .opt()
+            .await
+            .classify(target)?
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "publication",
+                id: publication.to_string(),
+            })?
+            .workspace_id;
+        maintenance_lock(&tx, target, workspace).await?;
         let row = statements::share_publication()
             .bind(&tx, &publication)
             .opt()
@@ -1355,10 +1376,16 @@ impl<'s> Catalog<'s> {
         lease: ReaderLeaseId,
         ttl: Duration,
     ) -> Result<RuntimeOperationalReaderLeasesRow, OperationsError> {
-        let client = self.store.client().await?;
-        statements::renew_reader_lease()
+        let target = self.target();
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let owner = tx.query_opt("SELECT p.workspace_id FROM pse_ops.reader_leases l JOIN pse_ops.publications p USING(publication_id) WHERE l.lease_id=$1", &[&lease]).await.classify(target)?
+            .ok_or(OperationsError::ReaderLeaseLapsed { lease })?;
+        let workspace: WorkspaceId = owner.try_get(0).classify(target)?;
+        maintenance_lock(&tx, target, workspace).await?;
+        let row = statements::renew_reader_lease()
             .params(
-                &client,
+                &tx,
                 &statements::RenewReaderLeaseParams {
                     ttl_us: micros(ttl),
                     lease_id: lease,
@@ -1366,8 +1393,10 @@ impl<'s> Catalog<'s> {
             )
             .opt()
             .await
-            .classify(self.target())?
-            .ok_or(OperationsError::ReaderLeaseLapsed { lease })
+            .classify(target)?
+            .ok_or(OperationsError::ReaderLeaseLapsed { lease })?;
+        tx.commit().await.classify(target)?;
+        Ok(row)
     }
 
     /// A reader lease as stored.

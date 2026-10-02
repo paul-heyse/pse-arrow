@@ -121,10 +121,20 @@ db-bootstrap:
     echo "next: just db-status"
 
 [group('env')]
-[doc('Drop the pse_ops schema with everything in it and recreate it from the generated schema; its data is regenerable (ADR-0114)')]
-[confirm('Drop and recreate pse_ops in the operational store? Every attempt, job, stream, solution and catalog row is lost.')]
-db-reset:
-    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} reset
+[doc('Explicit reset with completed external retirement inventory and atomic preservation import (ADR-0146)')]
+[confirm('Reset operational execution state after exporting complete retirement inventory outside all workspace roots?')]
+db-reset inventory_destination max_rows="1000000":
+    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} reset --inventory-destination {{ quote(inventory_destination) }} --max-rows {{ quote(max_rows) }}
+
+[group('env')]
+[doc('Explicitly create an absent operational schema')]
+db-create:
+    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} create
+
+[group('env')]
+[doc('Read-only exact operational transition plan, including committed prefixes and checksums')]
+db-migration-plan:
+    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} migration-plan
 
 [group('env')]
 [doc('Explicit preservation-first operational schema transitions; drain workers and close store generations first')]
@@ -903,6 +913,18 @@ codegen-contracts:
     cargo run -p xtask --no-default-features --locked -- codegen --only python
     cargo run -p xtask --no-default-features --locked -- codegen --only docs
     cargo run -p xtask --no-default-features --locked -- codegen --only postgres
+
+[group('mutating')]
+[doc('Regenerate operational statements against an isolated disposable PostgreSQL database')]
+codegen-queries:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/build-env.sh
+    source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
+    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
+    cargo run -p xtask --no-default-features --locked -- codegen --only queries
 
 [group('mutating')]
 [doc('Regenerate concrete invariant fixtures from the declared typed contracts')]

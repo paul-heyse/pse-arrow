@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Declared local value domains lowered to ordinary DataFusion expressions.
-//! Scalar predicates also become Delta SQL CHECK text. Collection expressions remain
+//! Scalar predicates also become derived Delta SQL CHECK text. Collection expressions remain
 //! native and use the narrowly scoped adapter required by Delta's pinned SQL parser.
 
 use crate::native::{
@@ -30,14 +30,70 @@ use pse_schema::{
     model::{FieldContract, IntegerRange},
 };
 
-/// Compile native local predicates for every declared field.
+/// Explicit resolved enum domains, owned independently of the current registry.
+#[derive(Clone, Debug, Default)]
+pub struct DomainEnvironment {
+    members: std::collections::BTreeMap<String, Vec<String>>,
+}
+impl DomainEnvironment {
+    /// Resolve current declarations for the shared predicate compiler.
+    pub fn current(registry: &Registry) -> Self {
+        Self {
+            members: registry
+                .enums()
+                .iter()
+                .map(|domain| {
+                    (
+                        domain.name.to_owned(),
+                        domain.members.iter().map(|m| m.name.to_owned()).collect(),
+                    )
+                })
+                .collect(),
+        }
+    }
+    /// Preserve the verified recorded domains instead of expanding them from today's registry.
+    /// # Errors
+    /// Inconsistent domain definitions across the support graph.
+    pub fn recorded(
+        recorded: &pse_schema::compatibility::VerifiedRecordedContract,
+    ) -> Result<Self> {
+        let mut members = std::collections::BTreeMap::new();
+        for description in recorded.contract().relations.values() {
+            let domains = description["enums"]
+                .as_object()
+                .ok_or_else(|| DataFusionError::Plan("missing recorded enum domains".into()))?;
+            for (name, domain) in domains {
+                let values: Vec<String> = domain["members"]
+                    .as_object()
+                    .ok_or_else(|| DataFusionError::Plan("invalid recorded enum members".into()))?
+                    .keys()
+                    .cloned()
+                    .collect();
+                if members.get(name).is_some_and(|old| old != &values) {
+                    return Err(DataFusionError::Plan(format!(
+                        "contradictory recorded enum {name}"
+                    )));
+                }
+                members.insert(name.clone(), values);
+            }
+        }
+        Ok(Self { members })
+    }
+}
+/// Compile native local predicates for current declarations.
 /// # Errors
 /// Invalid domains or native expression binding failures.
 pub fn relation(registry: &Registry, schema: &Schema) -> Result<Expr> {
+    relation_in(&DomainEnvironment::current(registry), schema)
+}
+/// Compile all fields against an explicitly resolved semantic environment.
+/// # Errors
+/// Unknown enum domains or native expression binding failures.
+pub fn relation_in(domains: &DomainEnvironment, schema: &Schema) -> Result<Expr> {
     let checks = schema
         .fields()
         .iter()
-        .map(|field| field_value(registry, field, column(field.name()), 0))
+        .map(|field| field_value_in(domains, field, column(field.name()), 0))
         .collect::<Result<Vec<_>>>()?;
     Ok(combine(checks)
         .resolve_lambda_variables(&DFSchema::try_from(schema.clone())?)?
@@ -50,7 +106,7 @@ pub fn combine(checks: Vec<Expr>) -> Expr {
 }
 
 /// Rebalance every AND/OR chain for SQL text. Field predicates use flat left-deep
-/// chains, which native planning and `datafusion-proto` linearize; the SQL unparser
+/// chains, which native planning linearizes; the SQL unparser
 /// parenthesizes each binary operator, so SQL text receives logarithmic nesting.
 /// # Errors
 /// Native expression traversal failure.
@@ -99,27 +155,43 @@ fn balance(mut operands: Vec<Expr>, op: Operator) -> Option<Expr> {
 /// # Errors
 /// Invalid domains or unsupported native expression construction.
 pub fn field_value(registry: &Registry, field: &Field, value: Expr, depth: usize) -> Result<Expr> {
-    field_predicate(registry, field, value, depth, true)
+    field_value_in(&DomainEnvironment::current(registry), field, value, depth)
 }
-
-/// Compile only this field's own obligations; occurrence traversal owns descendants.
+/// Compile nested field obligations from current or verified recorded domains.
 /// # Errors
-/// A malformed declaration or unsupported native function binding.
+/// Unknown enum domains or unsupported native expression construction.
+pub fn field_value_in(
+    domains: &DomainEnvironment,
+    field: &Field,
+    value: Expr,
+    depth: usize,
+) -> Result<Expr> {
+    field_predicate(domains, field, value, depth, true)
+}
+/// Compile only this field's own current obligations; traversal owns descendants.
+/// # Errors
+/// Unknown domains or unsupported native expressions.
 pub fn field_local(registry: &Registry, field: &Field, value: Expr) -> Result<Expr> {
-    field_predicate(registry, field, value, 0, false)
+    field_local_in(&DomainEnvironment::current(registry), field, value)
+}
+/// Compile a local obligation from explicit resolved domains.
+/// # Errors
+/// Unknown domains or unsupported native expressions.
+pub fn field_local_in(domains: &DomainEnvironment, field: &Field, value: Expr) -> Result<Expr> {
+    field_predicate(domains, field, value, 0, false)
 }
 
 /// A field holds exactly when none of its violations does. Every violation is a
 /// total Boolean, so the negation is never NULL.
 fn field_predicate(
-    registry: &Registry,
+    domains: &DomainEnvironment,
     field: &Field,
     value: Expr,
     depth: usize,
     descendants: bool,
 ) -> Result<Expr> {
     let mut violations = vec![];
-    field_violations(registry, field, value, depth, descendants, &mut violations)?;
+    field_violations(domains, field, value, depth, descendants, &mut violations)?;
     Ok(disjunction(violations).map_or_else(|| lit(true), |violated| !violated))
 }
 
@@ -130,9 +202,9 @@ fn field_predicate(
 /// violations into the enclosing disjunction; a nullable value guards them with a
 /// single CASE, which also keeps descendants of absent values unevaluated. The
 /// expression depth therefore grows with nullable and collection nesting only, and
-/// each flat disjunction is one linearized node in `datafusion-proto`.
+/// each flat disjunction remains one compiler obligation.
 fn field_violations(
-    registry: &Registry,
+    domains: &DomainEnvironment,
     field: &Field,
     value: Expr,
     depth: usize,
@@ -141,10 +213,10 @@ fn field_violations(
 ) -> Result<()> {
     if !field.is_nullable() {
         out.push(value.clone().is_null());
-        return value_violations(registry, field, &value, depth, descendants, out);
+        return value_violations(domains, field, &value, depth, descendants, out);
     }
     let mut present = vec![];
-    value_violations(registry, field, &value, depth, descendants, &mut present)?;
+    value_violations(domains, field, &value, depth, descendants, &mut present)?;
     if let Some(violated) = disjunction(present) {
         let present =
             crate::native::logical_expr::when(value.is_null(), lit(false)).otherwise(violated)?;
@@ -155,7 +227,7 @@ fn field_violations(
 
 /// Violations of a present value. A local check violates unless it is TRUE.
 fn value_violations(
-    registry: &Registry,
+    domains: &DomainEnvironment,
     field: &Field,
     value: &Expr,
     depth: usize,
@@ -194,24 +266,21 @@ fn value_violations(
         );
     }
     if let Some(name) = FieldContract::from_field(field.clone()).enum_name() {
-        let domain = registry
-            .enum_spec(name)
+        let members = domains
+            .members
+            .get(name)
             .ok_or_else(|| DataFusionError::Plan(format!("unknown enum {name}")))?;
         out.push(
             value
                 .clone()
                 .in_list(
-                    domain
-                        .members
-                        .iter()
-                        .map(|member| lit(member.name))
-                        .collect(),
+                    members.iter().map(|member| lit(member.clone())).collect(),
                     false,
                 )
                 .is_not_true(),
         );
     }
-    storage_violations(registry, field.data_type(), value, depth, descendants, out)?;
+    storage_violations(domains, field.data_type(), value, depth, descendants, out)?;
     match field
         .metadata()
         .get(pse_schema::arrow::KEY_EXTENSION_NAME)
@@ -299,7 +368,7 @@ fn collection_checks(collection: pse_schema::model::CollectionContract, value: E
 
 /// A collection violates when any member violates: one higher-order call per level.
 fn members_violation(
-    registry: &Registry,
+    domains: &DomainEnvironment,
     values: Expr,
     member: &Field,
     parameter: String,
@@ -307,7 +376,7 @@ fn members_violation(
 ) -> Result<Option<Expr>> {
     let mut violations = vec![];
     field_violations(
-        registry,
+        domains,
         member,
         lambda_var(&parameter),
         depth,
@@ -319,7 +388,7 @@ fn members_violation(
 }
 
 fn storage_violations(
-    registry: &Registry,
+    domains: &DomainEnvironment,
     ty: &DataType,
     value: &Expr,
     depth: usize,
@@ -331,7 +400,7 @@ fn storage_violations(
         DataType::Struct(fields) if descendants => {
             for child in fields {
                 field_violations(
-                    registry,
+                    domains,
                     child,
                     get_field(value.clone(), child.name()),
                     depth + 1,
@@ -351,7 +420,7 @@ fn storage_violations(
                 check(array_length(value.clone()).eq(lit(i64::from(*width))));
             }
             out.extend(members_violation(
-                registry,
+                domains,
                 value.clone(),
                 child,
                 format!("pse_item_{depth}"),
@@ -375,7 +444,7 @@ fn storage_violations(
             if descendants {
                 for (values, child) in [(keys, key), (map_values(value.clone()), item)] {
                     out.extend(members_violation(
-                        registry,
+                        domains,
                         values,
                         child,
                         format!("pse_map_{depth}"),
@@ -398,7 +467,7 @@ fn storage_violations(
             lit(ScalarValue::Decimal128(Some(i128::from(u64::MAX)), 20, 0)),
         )),
         DataType::Dictionary(_, values) => {
-            storage_violations(registry, values, value, depth, descendants, out)?;
+            storage_violations(domains, values, value, depth, descendants, out)?;
         }
         _ => {}
     }

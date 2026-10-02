@@ -31,8 +31,14 @@ PublicationId = NewType("PublicationId", v.SemanticId)
 # One reader lease protecting a publication (entity identity `reader_lease`).
 ReaderLeaseId = NewType("ReaderLeaseId", v.SemanticId)
 
+# One explicit schema reinitialization and completed retirement manifest (entity identity `reset`).
+ResetId = NewType("ResetId", v.SemanticId)
+
 # One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt (entity identity `run`).
 RunId = NewType("RunId", v.SemanticId)
+
+# One restartable workspace enumeration and durable candidate inventory (entity identity `scan`).
+ScanId = NewType("ScanId", v.SemanticId)
 
 # One settlement of an uncertain commit acknowledgement (entity identity `settlement`).
 SettlementId = NewType("SettlementId", v.SemanticId)

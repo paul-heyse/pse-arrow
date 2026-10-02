@@ -16,13 +16,9 @@ use datafusion::{
         buffer::{NullBuffer, OffsetBuffer},
         datatypes::{DataType, SchemaRef},
     },
-    common::{DFSchema, config::Dialect},
-    execution::{
-        context::{SessionConfig, SessionContext},
-        session_state::SessionStateBuilder,
-    },
+    common::DFSchema,
+    execution::{context::SessionContext, session_state::SessionStateBuilder},
 };
-use datafusion_proto::bytes::Serializeable;
 use deltalake::{
     DeltaTableBuilder,
     delta_datafusion::SessionFallbackPolicy,
@@ -38,9 +34,6 @@ use std::sync::Arc;
 fn every_registry_contract_is_native_sql_against_its_durable_schema() {
     let registry = pse_schema::shared_registry().unwrap();
     let state = SessionContext::new().state();
-    let mut config = SessionConfig::new();
-    config.options_mut().sql_parser.dialect = Dialect::DuckDB;
-    let expressions = SessionContext::new_with_config(config).state();
     for spec in registry.relations() {
         let contract = DeclaredCheck::new(&registry, spec.id).unwrap();
         let sql = &contract.properties()["delta.constraints.pse_contract"];
@@ -51,64 +44,17 @@ fn every_registry_contract_is_native_sql_against_its_durable_schema() {
         bound
             .create_logical_expr(sql, &schema)
             .unwrap_or_else(|error| panic!("{}: {error}; {sql}", spec.key));
-        for (key, sql) in contract.properties() {
-            if key.starts_with("pse.check.field.expression.") {
-                let encoded: Vec<u8> = serde_json::from_str(sql).unwrap();
-                let predicate = datafusion::logical_expr::Expr::from_bytes_with_ctx(
-                    &encoded,
-                    &expressions.task_ctx(),
-                )
-                .unwrap();
-                let execution =
-                    DFSchema::try_from(contract.layout().execution_schema().as_ref().clone())
-                        .unwrap();
-                let predicate = predicate.resolve_lambda_variables(&execution).unwrap().data;
-                expressions
-                    .create_physical_expr(predicate, &execution)
-                    .unwrap_or_else(|error| panic!("{}: {error}; {sql}", spec.key));
-            }
-        }
+        assert!(
+            !contract
+                .properties()
+                .keys()
+                .any(|key| key.starts_with("pse.check.field."))
+        );
         assert_eq!(
             contract.properties()[pse_schema::arrow::KEY_CONTRACT_FINGERPRINT],
             spec.fingerprint.to_hex()
         );
     }
-}
-
-/// Stored field CHECK expressions keep protobuf headroom under prost's fixed decode
-/// limit. `to_bytes` decodes what it encodes; each `NOT` adds two message levels
-/// (`LogicalExprNode`, `NotNode`), so decoding after 18 wrappers bounds every stored
-/// expression, including `authored.modeling_declarations`, at 64 levels.
-#[test]
-fn every_stored_field_check_keeps_protobuf_depth_headroom() {
-    const HEADROOM_WRAPPERS: usize = 18;
-    let registry = pse_schema::shared_registry().unwrap();
-    let expressions = SessionContext::new().state();
-    let mut checked = 0;
-    for spec in registry.relations() {
-        let contract = DeclaredCheck::new(&registry, spec.id)
-            .unwrap_or_else(|error| panic!("{}: {error}", spec.key));
-        for (key, encoded) in contract.properties() {
-            if !key.starts_with("pse.check.field.expression.") {
-                continue;
-            }
-            let bytes: Vec<u8> = serde_json::from_str(encoded).unwrap();
-            let predicate = datafusion::logical_expr::Expr::from_bytes_with_ctx(
-                &bytes,
-                &expressions.task_ctx(),
-            )
-            .unwrap();
-            let padded = (0..HEADROOM_WRAPPERS).fold(predicate, |expression, _| !expression);
-            padded
-                .to_bytes()
-                .unwrap_or_else(|error| panic!("{} {key}: {error}", spec.key));
-            checked += 1;
-        }
-    }
-    assert!(
-        checked > 0,
-        "the registry declares collection-valued fields"
-    );
 }
 
 fn fixture() -> (Arc<Registry>, DeclaredCheck) {

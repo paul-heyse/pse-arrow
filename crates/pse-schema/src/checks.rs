@@ -244,12 +244,68 @@ pub(crate) fn migration(
                     .ok_or_else(|| invalid(&context, format!("column {name} does not exist")))?;
                 *column = column.clone().with_nullable(*nullable);
             }
+            MigrationStep::RecodeDomain { name, mapping } => {
+                let index = columns
+                    .iter()
+                    .position(|column| column.name() == *name)
+                    .ok_or_else(|| invalid(&context, "recoding source column is absent"))?;
+                let target_column = target
+                    .column(name)
+                    .ok_or_else(|| invalid(&context, "recoding target column is absent"))?;
+                mapping.validate_fields(
+                    &[crate::arrow::field_for(registry, &columns[index])?],
+                    &[crate::arrow::field_for(registry, target_column)?],
+                    false,
+                )?;
+                columns[index] = target_column.clone();
+            }
+            MigrationStep::MapReferenceKey {
+                columns: names,
+                mapping,
+            } => {
+                let mut selected = BTreeSet::new();
+                let indices = names
+                    .iter()
+                    .map(|name| {
+                        if !selected.insert(*name) {
+                            return Err(invalid(&context, "mapping column is duplicated"));
+                        }
+                        columns
+                            .iter()
+                            .position(|column| column.name() == *name)
+                            .ok_or_else(|| invalid(&context, "mapping source column is absent"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let target_columns = names
+                    .iter()
+                    .map(|name| {
+                        target
+                            .column(name)
+                            .ok_or_else(|| invalid(&context, "mapping target column is absent"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                mapping.validate_fields(
+                    &indices
+                        .iter()
+                        .map(|index| crate::arrow::field_for(registry, &columns[*index]))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    &target_columns
+                        .iter()
+                        .map(|column| crate::arrow::field_for(registry, column))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    true,
+                )?;
+                for (index, target_column) in indices.into_iter().zip(target_columns) {
+                    columns[index] = target_column.clone();
+                }
+            }
         }
     }
     if columns.len() != target.columns.len()
         || columns.iter().zip(&target.columns).any(|(actual, target)| {
             actual.name() != target.name()
-                || actual.value_type() != target.value_type()
+                || crate::fingerprint::semantic_field(actual.field()).ok()
+                    != crate::fingerprint::semantic_field(target.field()).ok()
                 || actual.nullable() != target.nullable()
         })
     {

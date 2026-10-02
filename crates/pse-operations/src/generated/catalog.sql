@@ -1,13 +1,50 @@
 CREATE TYPE pse_ops.member_selection_kind AS ENUM ('full', 'revision');
-CREATE TYPE pse_ops.publication_kind AS ENUM ('relations', 'source', 'model', 'case', 'problem', 'run', 'diagnostics', 'inspection');
+CREATE TYPE pse_ops.orphan_disposition AS ENUM ('discovered', 'protected', 'claimed', 'deleted', 'unresolved');
+CREATE TYPE pse_ops.orphan_ownership AS ENUM ('attributable', 'unattributable');
+CREATE TYPE pse_ops.publication_kind AS ENUM ('relations', 'source', 'model', 'case', 'problem', 'run', 'diagnostics', 'inspection', 'migration');
 CREATE TYPE pse_ops.publication_member_role AS ENUM ('output', 'input');
 CREATE TYPE pse_ops.retention_phase AS ENUM ('expiring', 'deleted');
 CREATE TYPE pse_ops.settlement_outcome AS ENUM ('committed', 'proved_noncommit', 'conflict');
 CREATE DOMAIN pse_ops.attempt_id AS uuid;
 CREATE DOMAIN pse_ops.publication_id AS uuid;
 CREATE DOMAIN pse_ops.reader_lease_id AS uuid;
+CREATE DOMAIN pse_ops.reset_id AS uuid;
+CREATE DOMAIN pse_ops.scan_id AS uuid;
 CREATE DOMAIN pse_ops.settlement_id AS uuid;
 CREATE DOMAIN pse_ops.workspace_id AS uuid;
+
+-- runtime.operational_orphan_candidates
+CREATE TABLE pse_ops."orphan_candidates" (
+    "scan_id" pse_ops.scan_id NOT NULL,
+    "prefix" text NOT NULL,
+    "generation" bigint NOT NULL,
+    "discovery_epoch" bigint NOT NULL,
+    "ownership" pse_ops.orphan_ownership NOT NULL,
+    "evidence" jsonb NOT NULL,
+    "protections" jsonb NOT NULL,
+    "disposition" pse_ops.orphan_disposition NOT NULL,
+    "claim_epoch" bigint,
+    CONSTRAINT orphan_candidates_pkey PRIMARY KEY ("scan_id", "prefix"),
+    CONSTRAINT orphan_candidates_claim_epoch_nonnegative_check CHECK ("claim_epoch" IS NULL OR "claim_epoch" >= 0),
+    CONSTRAINT orphan_candidates_epoch_nonnegative_check CHECK ("discovery_epoch" >= 0),
+    CONSTRAINT orphan_candidates_generation_positive_check CHECK ("generation" > 0),
+    CONSTRAINT orphan_candidates_prefix_nonempty_check CHECK ("prefix" <> '')
+);
+
+-- runtime.operational_orphan_scans
+CREATE TABLE pse_ops."orphan_scans" (
+    "scan_id" pse_ops.scan_id NOT NULL,
+    "workspace_id" pse_ops.workspace_id NOT NULL,
+    "root_uri" text NOT NULL,
+    "maintenance_epoch" bigint NOT NULL,
+    "generation" bigint NOT NULL,
+    "listed_count" bigint NOT NULL,
+    "complete" boolean NOT NULL,
+    CONSTRAINT orphan_scans_pkey PRIMARY KEY ("scan_id"),
+    CONSTRAINT orphan_scans_counts_nonnegative_check CHECK ("maintenance_epoch" >= 0 AND "listed_count" >= 0),
+    CONSTRAINT orphan_scans_generation_positive_check CHECK ("generation" > 0),
+    CONSTRAINT orphan_scans_root_nonempty_check CHECK ("root_uri" <> '')
+);
 
 -- runtime.operational_publication_heads
 CREATE TABLE pse_ops."publication_heads" (
@@ -97,6 +134,19 @@ CREATE TABLE pse_ops."reader_leases" (
     CONSTRAINT reader_leases_holder_nonempty_check CHECK ("holder" <> '')
 );
 
+-- runtime.operational_reset_records
+CREATE TABLE pse_ops."reset_records" (
+    "reset_id" pse_ops.reset_id NOT NULL,
+    "manifest_digest" pse_ops.content_hash NOT NULL,
+    "manifest_uri" text NOT NULL,
+    "source_fingerprint" text NOT NULL,
+    "inventory_rows" bigint NOT NULL,
+    CONSTRAINT reset_records_pkey PRIMARY KEY ("reset_id"),
+    CONSTRAINT reset_records_manifest_nonempty_check CHECK ("manifest_uri" <> ''),
+    CONSTRAINT reset_records_rows_nonnegative_check CHECK ("inventory_rows" >= 0),
+    CONSTRAINT reset_records_source_nonempty_check CHECK ("source_fingerprint" <> '')
+);
+
 -- runtime.operational_retention_marks
 CREATE TABLE pse_ops."retention_marks" (
     "publication_id" pse_ops.publication_id NOT NULL,
@@ -105,6 +155,22 @@ CREATE TABLE pse_ops."retention_marks" (
     "deleted_at" timestamptz,
     CONSTRAINT retention_marks_pkey PRIMARY KEY ("publication_id"),
     CONSTRAINT retention_marks_deleted_when_marked_deleted_check CHECK (("phase" = 'deleted') = ("deleted_at" IS NOT NULL))
+);
+
+-- runtime.operational_retired_inventory
+CREATE TABLE pse_ops."retired_inventory" (
+    "reset_id" pse_ops.reset_id NOT NULL,
+    "ordinal" bigint NOT NULL,
+    "workspace_id" pse_ops.workspace_id,
+    "root_uri" text,
+    "prefix" text,
+    "record_kind" text NOT NULL,
+    "document" jsonb NOT NULL,
+    "protections" jsonb NOT NULL,
+    "disposition" pse_ops.orphan_disposition NOT NULL,
+    CONSTRAINT retired_inventory_pkey PRIMARY KEY ("reset_id", "ordinal"),
+    CONSTRAINT retired_inventory_kind_nonempty_check CHECK ("record_kind" <> ''),
+    CONSTRAINT retired_inventory_ordinal_nonnegative_check CHECK ("ordinal" >= 0)
 );
 
 -- runtime.operational_schema_support_state
@@ -150,6 +216,12 @@ CREATE TABLE pse_ops."workspaces" (
     CONSTRAINT workspaces_root_uri_nonempty_check CHECK ("root_uri" <> '')
 );
 
+ALTER TABLE pse_ops."orphan_candidates" ADD CONSTRAINT orphan_candidates_scan_id_fkey
+    FOREIGN KEY ("scan_id") REFERENCES pse_ops."orphan_scans" ("scan_id");
+
+ALTER TABLE pse_ops."orphan_scans" ADD CONSTRAINT orphan_scans_workspace_id_fkey
+    FOREIGN KEY ("workspace_id") REFERENCES pse_ops."workspaces" ("workspace_id");
+
 ALTER TABLE pse_ops."publication_heads" ADD CONSTRAINT publication_heads_workspace_id_fkey
     FOREIGN KEY ("workspace_id") REFERENCES pse_ops."workspaces" ("workspace_id");
 
@@ -191,6 +263,9 @@ ALTER TABLE pse_ops."reader_leases" ADD CONSTRAINT reader_leases_head_of_fkey
 
 ALTER TABLE pse_ops."retention_marks" ADD CONSTRAINT retention_marks_publication_id_fkey
     FOREIGN KEY ("publication_id") REFERENCES pse_ops."publications" ("publication_id");
+
+ALTER TABLE pse_ops."retired_inventory" ADD CONSTRAINT retired_inventory_reset_id_fkey
+    FOREIGN KEY ("reset_id") REFERENCES pse_ops."reset_records" ("reset_id");
 
 ALTER TABLE pse_ops."settlements" ADD CONSTRAINT settlements_attempt_id_fkey
     FOREIGN KEY ("attempt_id") REFERENCES pse_ops."attempts" ("attempt_id");

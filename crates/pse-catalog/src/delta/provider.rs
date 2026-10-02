@@ -84,6 +84,20 @@ pub async fn open_declared_view(
     contract: &super::contract::DeclaredCheck,
     state: Arc<SessionState>,
 ) -> Result<ViewTable> {
+    let (view, _) = open_recorded_view(location, version, Some(contract), None, state).await?;
+    Ok(view)
+}
+/// One recorded interpreter supplies both raw recorded reads and checked consumers.
+pub(crate) async fn open_recorded_view(
+    location: url::Url,
+    version: i64,
+    consumer: Option<&super::contract::DeclaredCheck>,
+    member: Option<&pse_relations::generated::structures::MemberDescriptor>,
+    state: Arc<SessionState>,
+) -> Result<(
+    ViewTable,
+    pse_schema::compatibility::VerifiedRecordedContract,
+)> {
     let state = bind_cache_state(&location, &state)?;
     let opened = open_native(
         location,
@@ -92,8 +106,52 @@ pub async fn open_declared_view(
         &state,
     )
     .await?;
-    contract.verify(&opened.table)?;
-    view(opened, contract.layout(), state).await
+    let recorded = super::contract::DeclaredCheck::open(&opened.table, &state)?;
+    if let Some(member) = member {
+        let properties = recorded.properties();
+        if properties.get(pse_schema::arrow::KEY_CONTRACT_ID) != Some(&member.relation_id.to_hex())
+            || properties.get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
+                != Some(&member.contract_fingerprint.to_hex())
+            || properties.get(pse_schema::arrow::KEY_CONTRACT_VERSION)
+                != Some(&member.relation_version.to_string())
+            || properties.get(pse_schema::arrow::KEY_NAMESPACE) != Some(&member.schema_name)
+            || recorded.recorded().contract().relations[&member.relation_id]["relation"].as_str()
+                != Some(&format!(
+                    "{}.{}@{}",
+                    member.schema_name, member.table_name, member.relation_version
+                ))
+        {
+            return Err(DataFusionError::Plan(
+                "selected member contradicts recorded identity/version".into(),
+            ));
+        }
+    }
+    let state = Arc::new(recorded.bind(&state)?);
+    let view = view(opened, recorded.layout(), state).await?;
+    let view = if let Some(consumer) = consumer {
+        let admission = recorded.consumer_projection(consumer)?;
+        let id = *consumer
+            .recorded()
+            .contract()
+            .roots
+            .iter()
+            .next()
+            .ok_or_else(|| DataFusionError::Plan("consumer has no root".into()))?;
+        let slots = admission
+            .field_slots(id)
+            .ok_or_else(|| DataFusionError::Plan("consumer projection has no root slots".into()))?;
+        ViewTable::new(
+            super::layout::consumer_projection(
+                view.logical_plan().clone(),
+                consumer.layout().execution_schema(),
+                slots,
+            )?,
+            None,
+        )
+    } else {
+        view
+    };
+    Ok((view, recorded.recorded().clone()))
 }
 
 pub(crate) struct Opened {

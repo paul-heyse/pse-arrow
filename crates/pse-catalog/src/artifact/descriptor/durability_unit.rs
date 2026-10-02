@@ -50,7 +50,7 @@ fn a_required_empty_member_is_selected_but_an_absent_member_refuses() {
     let hash = ContentHash::from_bytes([1; 32]);
     let descriptor = ArtifactDescriptor::create(wire::Row {
         artifact_id: hash,
-        descriptor_version: 2,
+        descriptor_version: 3,
         profile: PublicationKind::Inspection,
         profile_contract: pse_schema::fingerprint::semantic_profile(
             &registry,
@@ -59,6 +59,14 @@ fn a_required_empty_member_is_selected_but_an_absent_member_refuses() {
         )
         .unwrap(),
         requested_relations: vec![entities::RELATION_ID],
+        profile_required_relations: Some(
+            registry
+                .artifact_profile("inspection")
+                .unwrap()
+                .iter()
+                .copied()
+                .collect(),
+        ),
         release_id: hash,
         release_members: vec![],
         semantic_identity: hash,

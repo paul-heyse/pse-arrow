@@ -165,15 +165,15 @@ WHERE workspace_id = :workspace_id::pse_ops.workspace_id;
 --! insert_reader_lease (head_of?)
 INSERT INTO pse_ops.reader_leases AS l (lease_id, publication_id, head_of, holder, expires_at)
 VALUES (:lease_id, :publication_id, :head_of, :holder,
-        now() + :ttl_us::bigint * interval '1 microsecond')
+        clock_timestamp() + :ttl_us::bigint * interval '1 microsecond')
 RETURNING l;
 
 --! renew_reader_lease
 UPDATE pse_ops.reader_leases AS l
-SET expires_at = now() + :ttl_us::bigint * interval '1 microsecond'
+SET expires_at = clock_timestamp() + :ttl_us::bigint * interval '1 microsecond'
 WHERE l.lease_id = :lease_id::pse_ops.reader_lease_id
   AND l.released_at IS NULL
-  AND l.expires_at > now()
+  AND l.expires_at > clock_timestamp()
 RETURNING l;
 
 --! reader_lease
@@ -190,6 +190,11 @@ WHERE publication_id = :publication_id::pse_ops.publication_id
   AND expires_at > now();
 
 -- ------------------------------------------------------------------ maintenance --
+
+-- Namespace protection fence: producers/readers share it, explicit selected deletion
+-- takes it exclusively before the workspace lock. The key is declared once in Rust.
+--! protection_shared_lock
+SELECT true AS locked FROM pg_advisory_xact_lock_shared(:lock_key::bigint);
 
 -- Serializes maintainers of one workspace until the transaction ends.
 --! maintenance_lock

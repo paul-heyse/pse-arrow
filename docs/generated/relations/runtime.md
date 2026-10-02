@@ -16,6 +16,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `artifact_id`.
 | `profile_contract` | `content_hash` | false | `payload` | — | — |
 | `requested_relations` | `List` | false | `payload` | — | — |
 | `requested_relations.item` | `semantic_id` | false | `payload` | — | — |
+| `profile_required_relations` | `List` | true | `payload` | — | — |
+| `profile_required_relations.item` | `semantic_id` | false | `payload` | — | — |
 | `release_id` | `content_hash` | false | `payload` | — | — |
 | `release_members` | `List` | false | `payload` | — | — |
 | `release_members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
@@ -45,6 +47,37 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `artifact_id`.
 | `value_assumptions.item.canonical_value` | `List` | false | `payload` | — | — |
 | `value_assumptions.item.canonical_value.item` | `UInt8` | false | `payload` | — | — |
 | `reconstruction` | `enum:ArtifactReconstruction` | false | `payload` | — | — |
+
+## `artifact_migration_lineage`
+
+Exact immutable source selections, declared portable transformation and target output selectors. The publication manifest owns resulting target versions.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `source_publication_id, target_relation_id, output_catalog, output_schema, output_table`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `source_publication_id` | `semantic_id` | false | `key` | — | — |
+| `source_member` | `Struct MemberDescriptor` | false | `payload` | — | — |
+| `source_member.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `source_member.schema_name` | `Utf8` | false | `payload` | — | — |
+| `source_member.table_name` | `Utf8` | false | `payload` | — | — |
+| `source_member.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `source_member.relation_version` | `Int64` | false | `payload` | — | — |
+| `source_member.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `source_member.table_uri` | `Utf8` | false | `payload` | — | — |
+| `source_member.delta_version` | `Int64` | false | `payload` | — | — |
+| `source_member.selection` | `Struct` | false | `payload` | — | — |
+| `source_member.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `source_member.selection.revision` | `Struct` | true | `payload` | — | — |
+| `source_member.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `source_member.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
+| `target_relation_id` | `semantic_id` | false | `key` | — | — |
+| `target_relation_version` | `Int64` | false | `payload` | — | — |
+| `declaration` | `Utf8` | false | `payload` | — | — |
+| `transformation_digest` | `content_hash` | false | `payload` | — | — |
+| `output_catalog` | `Utf8` | false | `key` | — | — |
+| `output_schema` | `Utf8` | false | `key` | — | — |
+| `output_table` | `Utf8` | false | `key` | — | — |
 
 ## `cache_entry_statistics`
 
@@ -1373,6 +1406,82 @@ Native row check `tries_within_max` (must be true):
 "tries" <= "max_tries"
 ```
 
+## `operational_orphan_candidates`
+
+Durable observed prefixes including unresolved ownership. Discovery never authorizes deletion; explicit claim rechecks protection under the workspace maintenance fence.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `scan_id, prefix`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `scan_id` | `semantic_id` | false | `key` | `runtime.operational_orphan_scans.scan_id` | — |
+| `prefix` | `Utf8` | false | `key` | — | — |
+| `generation` | `Int64` | false | `payload` | — | — |
+| `discovery_epoch` | `Int64` | false | `payload` | — | — |
+| `ownership` | `enum:OrphanOwnership` | false | `payload` | — | — |
+| `evidence` | `Utf8` | false | `payload` | — | — |
+| `protections` | `Utf8` | false | `payload` | — | — |
+| `disposition` | `enum:OrphanDisposition` | false | `payload` | — | — |
+| `claim_epoch` | `Int64` | true | `payload` | — | — |
+
+Native row check `claim_epoch_nonnegative` (must be true):
+
+```sql
+"claim_epoch" IS NULL OR "claim_epoch" >= 0
+```
+
+Native row check `epoch_nonnegative` (must be true):
+
+```sql
+"discovery_epoch" >= 0
+```
+
+Native row check `generation_positive` (must be true):
+
+```sql
+"generation" > 0
+```
+
+Native row check `prefix_nonempty` (must be true):
+
+```sql
+"prefix" <> ''
+```
+
+## `operational_orphan_scans`
+
+Restartable bounded workspace listing; restart increments generation and re-enumerates from the established root without assuming provider ordering or snapshot semantics.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `scan_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `scan_id` | `semantic_id` | false | `key` | — | — |
+| `workspace_id` | `semantic_id` | false | `payload` | `runtime.operational_workspaces.workspace_id` | — |
+| `root_uri` | `Utf8` | false | `payload` | — | — |
+| `maintenance_epoch` | `Int64` | false | `payload` | — | — |
+| `generation` | `Int64` | false | `payload` | — | — |
+| `listed_count` | `Int64` | false | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+
+Native row check `counts_nonnegative` (must be true):
+
+```sql
+"maintenance_epoch" >= 0 AND "listed_count" >= 0
+```
+
+Native row check `generation_positive` (must be true):
+
+```sql
+"generation" > 0
+```
+
+Native row check `root_nonempty` (must be true):
+
+```sql
+"root_uri" <> ''
+```
+
 ## `operational_progress_events`
 
 Live progress of a durable attempt, numbered by its producer and retained by policy instead of a fixed event cap. `step` is the step of the run; `elapsed_seconds` is measured from the step's admitted execution start.
@@ -1626,6 +1735,38 @@ Native row check `holder_nonempty` (must be true):
 "holder" <> ''
 ```
 
+## `operational_reset_records`
+
+Completed external retirement manifest and exact reset settlement identity; recorded in the same transaction as recreate/import/readiness.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `reset_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `reset_id` | `semantic_id` | false | `key` | — | — |
+| `manifest_digest` | `content_hash` | false | `payload` | — | — |
+| `manifest_uri` | `Utf8` | false | `payload` | — | — |
+| `source_fingerprint` | `Utf8` | false | `payload` | — | — |
+| `inventory_rows` | `Int64` | false | `payload` | — | — |
+
+Native row check `manifest_nonempty` (must be true):
+
+```sql
+"manifest_uri" <> ''
+```
+
+Native row check `rows_nonnegative` (must be true):
+
+```sql
+"inventory_rows" >= 0
+```
+
+Native row check `source_nonempty` (must be true):
+
+```sql
+"source_fingerprint" <> ''
+```
+
 ## `operational_retention_marks`
 
 Two-phase deletion state. A publication without a mark is live; `expiring` refuses new leases; `deleted` records that the member files were removed.
@@ -1643,6 +1784,36 @@ Native row check `deleted_when_marked_deleted` (must be true):
 
 ```sql
 ("phase" = 'deleted') = ("deleted_at" IS NOT NULL)
+```
+
+## `operational_retired_inventory`
+
+Original completed catalog/control inventory and unresolved prior retirement records. Publication/member/input/window/intent/retention and reader/export expiry remain explicit after reset; retirement does not establish safe deletion.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `reset_id, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `reset_id` | `semantic_id` | false | `key` | `runtime.operational_reset_records.reset_id` | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `workspace_id` | `semantic_id` | true | `payload` | — | — |
+| `root_uri` | `Utf8` | true | `payload` | — | — |
+| `prefix` | `Utf8` | true | `payload` | — | — |
+| `record_kind` | `Utf8` | false | `payload` | — | — |
+| `document` | `Utf8` | false | `payload` | — | — |
+| `protections` | `Utf8` | false | `payload` | — | — |
+| `disposition` | `enum:OrphanDisposition` | false | `payload` | — | — |
+
+Native row check `kind_nonempty` (must be true):
+
+```sql
+"record_kind" <> ''
+```
+
+Native row check `ordinal_nonnegative` (must be true):
+
+```sql
+"ordinal" >= 0
 ```
 
 ## `operational_schema_support_state`

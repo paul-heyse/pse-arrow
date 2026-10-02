@@ -251,6 +251,58 @@ fn project(
     );
     Ok(LogicalPlan::Projection(projection))
 }
+/// Apply a checked consumer projection without mutating stored fields or metadata.
+pub(super) fn consumer_projection(
+    input: LogicalPlan,
+    target: &SchemaRef,
+    slots: &[Option<usize>],
+) -> Result<LogicalPlan> {
+    if target.fields().len() != slots.len() {
+        return Err(DataFusionError::Plan("consumer slot count differs".into()));
+    }
+    let expressions = target
+        .fields()
+        .iter()
+        .zip(slots)
+        .map(|(field, slot)| {
+            let (value, kind) = if let Some(index) = slot {
+                let (qualifier, source) = input.schema().qualified_field(*index);
+                (
+                    Expr::Column(datafusion::common::Column::new(
+                        qualifier.cloned(),
+                        source.name(),
+                    )),
+                    source.data_type().clone(),
+                )
+            } else {
+                (
+                    datafusion::logical_expr::lit(datafusion::common::ScalarValue::Null),
+                    DataType::Null,
+                )
+            };
+            ScalarUDF::from(DurableCast {
+                name: "pse_consumer_projection",
+                roundtrip: needs_roundtrip(&kind, field.data_type()),
+                signature: Signature::exact(vec![kind], Volatility::Immutable),
+                intermediate: field.data_type().clone(),
+                target: field.clone(),
+            })
+            .call(vec![value])
+            .alias(field.name())
+        })
+        .collect();
+    let mut projection = Projection::try_new(expressions, Arc::new(input))?;
+    projection.schema = Arc::new(datafusion::common::DFSchema::new_with_metadata(
+        target
+            .fields()
+            .iter()
+            .cloned()
+            .map(|field| (None, field))
+            .collect(),
+        target.metadata().clone(),
+    )?);
+    Ok(LogicalPlan::Projection(projection))
+}
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct DurableCast {
     roundtrip: bool,

@@ -41,6 +41,7 @@ class RuntimeArtifactDescriptorsRow:
     profile: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
     profile_contract: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     requested_relations: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    profile_required_relations: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
     release_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     release_members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
     semantic_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
@@ -48,6 +49,21 @@ class RuntimeArtifactDescriptorsRow:
     target_contract: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     value_assumptions: b.tuple[RuntimeArtifactDescriptorsFieldValueAssumptionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldValueAssumptionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     reconstruction: e.ArtifactReconstruction = attrs.field(validator=attrs.validators.instance_of(e.ArtifactReconstruction))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeArtifactMigrationLineageRow:
+    """Declared relation row or nested value."""
+
+    source_publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    source_member: s.MemberDescriptor = attrs.field(validator=attrs.validators.instance_of(s.MemberDescriptor))
+    target_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    declaration: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    transformation_digest: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    output_catalog: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    output_schema: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    output_table: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -1438,6 +1454,34 @@ class RuntimeOperationalJobsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeOperationalOrphanCandidatesRow:
+    """Declared relation row or nested value."""
+
+    scan_id: i.ScanId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    prefix: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    generation: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    discovery_epoch: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    ownership: e.OrphanOwnership = attrs.field(validator=attrs.validators.instance_of(e.OrphanOwnership))
+    evidence: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    protections: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    disposition: e.OrphanDisposition = attrs.field(validator=attrs.validators.instance_of(e.OrphanDisposition))
+    claim_epoch: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalOrphanScansRow:
+    """Declared relation row or nested value."""
+
+    scan_id: i.ScanId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    root_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    maintenance_epoch: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    generation: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    listed_count: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    complete: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeOperationalProgressEventsRow:
     """Declared relation row or nested value."""
 
@@ -1541,6 +1585,17 @@ class RuntimeOperationalReaderLeasesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeOperationalResetRecordsRow:
+    """Declared relation row or nested value."""
+
+    reset_id: i.ResetId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    manifest_digest: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    manifest_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_fingerprint: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    inventory_rows: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeOperationalRetentionMarksRow:
     """Declared relation row or nested value."""
 
@@ -1548,6 +1603,21 @@ class RuntimeOperationalRetentionMarksRow:
     phase: e.RetentionPhase = attrs.field(validator=attrs.validators.instance_of(e.RetentionPhase))
     marked_at: datetime = attrs.field(validator=v.utc_timestamp)
     deleted_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalRetiredInventoryRow:
+    """Declared relation row or nested value."""
+
+    reset_id: i.ResetId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    ordinal: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    workspace_id: i.WorkspaceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    root_uri: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    prefix: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    record_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    document: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    protections: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    disposition: e.OrphanDisposition = attrs.field(validator=attrs.validators.instance_of(e.OrphanDisposition))
 
 
 @attrs.frozen(kw_only=True)

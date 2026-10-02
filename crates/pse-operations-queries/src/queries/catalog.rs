@@ -2804,7 +2804,7 @@ impl MaintenanceEpochStmt {
 pub struct InsertReaderLeaseStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn insert_reader_lease() -> InsertReaderLeaseStmt {
     InsertReaderLeaseStmt(
-        "INSERT INTO pse_ops.reader_leases AS l (lease_id, publication_id, head_of, holder, expires_at) VALUES ($1, $2, $3, $4, now() + $5::bigint * interval '1 microsecond') RETURNING l",
+        "INSERT INTO pse_ops.reader_leases AS l (lease_id, publication_id, head_of, holder, expires_at) VALUES ($1, $2, $3, $4, clock_timestamp() + $5::bigint * interval '1 microsecond') RETURNING l",
         None,
     )
 }
@@ -2888,7 +2888,7 @@ impl<
 pub struct RenewReaderLeaseStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn renew_reader_lease() -> RenewReaderLeaseStmt {
     RenewReaderLeaseStmt(
-        "UPDATE pse_ops.reader_leases AS l SET expires_at = now() + $1::bigint * interval '1 microsecond' WHERE l.lease_id = $2::pse_ops.reader_lease_id AND l.released_at IS NULL AND l.expires_at > now() RETURNING l",
+        "UPDATE pse_ops.reader_leases AS l SET expires_at = clock_timestamp() + $1::bigint * interval '1 microsecond' WHERE l.lease_id = $2::pse_ops.reader_lease_id AND l.released_at IS NULL AND l.expires_at > clock_timestamp() RETURNING l",
         None,
     )
 }
@@ -3041,6 +3041,36 @@ impl ActiveLeasesStmt {
         I64Query {
             client,
             params: [publication_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it,
+        }
+    }
+}
+pub struct ProtectionSharedLockStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn protection_shared_lock() -> ProtectionSharedLockStmt {
+    ProtectionSharedLockStmt(
+        "SELECT true AS locked FROM pg_advisory_xact_lock_shared($1::bigint)",
+        None,
+    )
+}
+impl ProtectionSharedLockStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        lock_key: &'a i64,
+    ) -> BoolQuery<'c, 'a, 's, C, bool, 1> {
+        BoolQuery {
+            client,
+            params: [lock_key],
             query: self.0,
             cached: self.1.as_ref(),
             extractor: |row| Ok(row.try_get(0)?),
