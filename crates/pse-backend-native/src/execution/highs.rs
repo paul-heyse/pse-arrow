@@ -59,6 +59,63 @@ impl BackendExecution for Highs {
     fn automatic(&self) -> Option<u8> {
         Some(1)
     }
+    fn admit_settings(
+        &self,
+        settings: &super::BackendSettings,
+        controls: &crate::solve::Controls,
+        _: &super::Snapshot,
+    ) -> Result<(), ProblemError> {
+        let defaults = crate::settings::highs::Settings::default();
+        let settings = match settings {
+            super::BackendSettings::Default => &defaults,
+            super::BackendSettings::Highs(settings) => settings,
+            _ => return Err(super::foreign(Backend::Highs)),
+        };
+        settings.admit_controls(controls)
+    }
+    fn assess_representation(
+        &self,
+        requirements: &crate::routing::Requirements<'_>,
+        assessment: &mut crate::routing::Eligibility,
+    ) {
+        super::assess_representation(self, requirements, assessment);
+        if let Some(problem) = requirements.context.coefficients {
+            let defaults = crate::settings::highs::Settings::default();
+            let settings = match requirements.settings {
+                super::BackendSettings::Default => Some(&defaults),
+                super::BackendSettings::Highs(settings) => Some(settings),
+                _ => None,
+            };
+            if let Some(settings) = settings {
+                if let Some(budgets) = requirements.context.budgets {
+                    if let Err(cause) = settings.admit_model(problem, budgets.accuracy) {
+                        assessment.refuse(cause);
+                    }
+                } else {
+                    assessment
+                        .evidence
+                        .push(crate::routing::EvidenceDemand::CallbackContract);
+                }
+            }
+        }
+        #[cfg(feature = "highs")]
+        if let Some(problem) = requirements.context.coefficients
+            && !assessment
+                .evidence
+                .iter()
+                .any(|demand| matches!(demand, crate::routing::EvidenceDemand::Class(_)))
+            && let Err(cause) = crate::highs::admit_in_coordinates(
+                problem,
+                requirements.context.certificate,
+                requirements
+                    .context
+                    .budgets
+                    .map(|budgets| budgets.normalization),
+            )
+        {
+            assessment.refuse(cause);
+        }
+    }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
         Ok(WarmPayload::Highs {
             primal: Some(primal),

@@ -24,6 +24,15 @@ pub(crate) struct Binding {
 /// A prepared dynamic simulation with the consumer's parameter bindings.
 #[derive(Clone, Debug)]
 pub(crate) struct IntegratedExperiment {
+    /// Immutable build/runtime observation retained by simulation admission.
+    #[cfg_attr(
+        not(any(feature = "solver-diffsol", feature = "solver-idas")),
+        expect(
+            dead_code,
+            reason = "the snapshot is consumed by linked dynamic execution"
+        )
+    )]
+    pub(crate) snapshot: native::execution::Snapshot,
     /// The compiled dynamic functions.
     pub(crate) program: super::dynamics::DynamicProgram,
     /// The prepared integration profile; its sensitivity is what the consumer requested.
@@ -191,11 +200,13 @@ impl IntegratedExperiment {
         }
         let profile = attempt(&self.profile, execution, sensitivity);
         let mut worker = self.program.worker(execution.cancel.clone())?;
-        let report = native::dynamics::integrate(
+        let report = native::dynamics::integrate_with_progress_observed(
             &mut worker,
             &profile,
             &self.bind(value),
             execution.cancel.clone(),
+            std::sync::Arc::new(native::solve::Progress::new(256)),
+            &self.snapshot,
         )?;
         completed(report)
     }
@@ -218,13 +229,14 @@ impl IntegratedExperiment {
         let mut worker = self.program.worker(execution.cancel.clone())?;
         let native::dynamics::Gradient {
             report, gradient, ..
-        } = native::dynamics::gradient(
+        } = native::dynamics::gradient_observed(
             &mut worker,
             &profile,
             &self.bind(value),
             cotangent,
             execution.cancel.clone(),
             memory,
+            &self.snapshot,
         )?;
         let report = completed(report)?;
         let gradient = gradient
@@ -285,7 +297,7 @@ impl IntegratedExperiment {
             gradient,
             hessian,
             ..
-        } = native::dynamics::hessian(
+        } = native::dynamics::hessian_observed(
             &mut worker,
             &profile,
             &self.bind(value),
@@ -293,6 +305,7 @@ impl IntegratedExperiment {
             cotangent,
             execution.cancel.clone(),
             memory,
+            &self.snapshot,
         )?;
         let report = completed(report)?;
         let (gradient, hessian) = gradient.zip(hessian).ok_or_else(|| {
@@ -347,11 +360,13 @@ impl IntegratedExperiment {
         let mut oracle =
             native::dynamics::Anchored::new(self.program.worker(execution.cancel.clone())?, false)?;
         let profile = oracle.profile(&attempt(&window.profile, execution, sensitivity));
-        let report = native::dynamics::integrate(
+        let report = native::dynamics::integrate_with_progress_observed(
             &mut oracle,
             &profile,
             &Self::window_parameters(window, integration, anchors)?,
             execution.cancel.clone(),
+            std::sync::Arc::new(native::solve::Progress::new(256)),
+            &self.snapshot,
         )?;
         completed(report)
     }
@@ -381,13 +396,14 @@ impl IntegratedExperiment {
         ));
         let native::dynamics::Gradient {
             report, gradient, ..
-        } = native::dynamics::gradient(
+        } = native::dynamics::gradient_observed(
             &mut oracle,
             &profile,
             &Self::window_parameters(window, integration, anchors)?,
             cotangent,
             execution.cancel.clone(),
             memory,
+            &self.snapshot,
         )?;
         let report = completed(report)?;
         let gradient = gradient

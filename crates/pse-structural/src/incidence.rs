@@ -107,7 +107,71 @@ pub struct StructuralAnalysis {
     /// Original contribution incidence, including duplicate semantic pairs.
     pub contributions: Vec<Incidence>,
 }
+impl StructuralAnalysis {
+    /// Exact retained owned vector capacities; borrowed provenance and shared owners add no payload.
+    pub fn retained_bytes(&self) -> usize {
+        let part = |part: &Part| {
+            (part.rows.capacity() + part.columns.capacity()) * size_of::<SemanticId>()
+        };
+        size_of::<Self>()
+            + self.matching.capacity() * size_of::<(SemanticId, SemanticId)>()
+            + part(&self.over)
+            + part(&self.under)
+            + part(&self.square)
+            + self.contributions.capacity() * size_of::<Incidence>()
+            + self.blocks.capacity() * size_of::<Block>()
+            + self
+                .blocks
+                .iter()
+                .map(|block| part(&block.members))
+                .sum::<usize>()
+    }
+}
 impl CaseIncidence {
+    /// Conservative peak extent for this owner's checked semantic projections, matching,
+    /// DM/BTF scratch and retained witness, including the qualified matching stack.
+    /// Vertex terms cover semantic tree maps, partitions, matching and block inventories;
+    /// edge terms cover deduplicating trees, paired CSR/transpose/condensation projections
+    /// and semantic contributions. The factor two covers growing vector capacities.
+    /// Arithmetic/cardinality failure refuses before any matching allocation.
+    pub fn memory_extent(
+        rows: usize,
+        columns: usize,
+        contributions: usize,
+    ) -> Result<usize, ProjectionError> {
+        let nodes = rows.checked_add(columns).ok_or(ProjectionError::Limit)?;
+        GraphLimits {
+            nodes: usize::MAX,
+            edges: usize::MAX,
+        }
+        .check(nodes, contributions)?;
+        if rows > MATCHING_ROWS || columns > i32::MAX as usize {
+            return Err(ProjectionError::Limit);
+        }
+        let vertex = 16 * size_of::<(SemanticId, usize)>()
+            + 4 * size_of::<Constraint>()
+            + 2 * size_of::<Block>()
+            + 64 * size_of::<usize>();
+        let edge =
+            4 * size_of::<Incidence>() + 8 * size_of::<(usize, usize)>() + 32 * size_of::<usize>();
+        nodes
+            .checked_mul(vertex)
+            .and_then(|bytes| {
+                contributions
+                    .checked_mul(edge)
+                    .and_then(|edges| bytes.checked_add(edges))
+            })
+            .and_then(|bytes| bytes.checked_mul(2))
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    MATCHING_STACK
+                        + size_of::<Self>()
+                        + size_of::<StructuralAnalysis>()
+                        + 2 * size_of::<usize>(),
+                )
+            })
+            .ok_or(ProjectionError::Limit)
+    }
     /// Validate every dimension/reference before the library can silently omit an entry.
     pub fn new(
         scope: Scope,

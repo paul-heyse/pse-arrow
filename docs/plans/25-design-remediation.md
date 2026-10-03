@@ -16,11 +16,13 @@ scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alig
 The 2026-10-02 full-case
 [review](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md)
 adds three source-qualified findings after the earlier functional implementation. Their
-proposed correction is [25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md).
+functional correction is [25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md).
 Its functional scope precedes resuming [25k qualification](25k-integrated-qualification-and-closure.md#review-boundary--full-case-compilation-and-solver-execution).
 Earlier companion Outcomes and K1/K2 receipts retain their original scope; the new plan
-does not reopen them or claim current whole-series qualification. Production execution of
-25l remains to be authorized. The disposition rows below own these adopted planning obligations.
+does not reopen them or claim current whole-series qualification. **Implemented/Tested, 2026-10-02:**
+[25l functional implementation is complete](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
+with focused evidence and the prerequisite handoff for resuming 25k. The disposition rows below
+own the remaining adopted closure obligations.
 
 The [25c Outcome](25c-process-composition-and-conservation.md#outcome-recorded-after-implementation)
 owns its composite focused evidence, final compilation and limits.
@@ -245,14 +247,13 @@ not copied into a second scenario registry.
 ### Full-case compilation and solver-routing follow-up
 
 These IDs refer to the 2026-10-02 review, not the original review's identically numbered
-findings. Scheduled means adopted into the proposed implementation scope; production
-authorization, required decisions and correction evidence are still outstanding.
+findings. Production execution is authorized. The owning 25l Outcome records completed functional corrections and focused evidence; assembled scientific qualification remains with 25k.
 
 | Finding | Scenario | Disposition | Decision/work owner | Evidence and closure boundary |
 |---|---|---|---|---|
-| [Compilation/routing F01](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f01) | Review S01/S03/S05 | scheduled | [25l L0/L1/L2/L4/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Proposed:** topology without executable admission, selected output/mandatory closure, and Value/First without unrequested Second; preserve physical/domain/effect checks, attribution and owned reuse; focused controls plus required 25k scientific/architectural evidence before resolution |
-| [Compilation/routing F02](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f02) | Review S02/S04/S05 | scheduled | [25l L0/L2/L3/L4/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Proposed:** explicit pending evidence/artifacts distinct from scientific incapability and runtime absence; contextual adapter and per-candidate structural admission, deterministic policy and all affected consumers; local controls plus required 25k journeys before resolution |
-| [Compilation/routing F03](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f03) | Review S06 | scheduled | [25l L0/L5/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Proposed:** unavailable assessment distinct from evaluated infeasibility; exhaustive termination projection preserves causes, precise limits and incumbent permissions; generated/current/recorded boundary controls before resolution |
+| [Compilation/routing F01](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f01) | Review S01/S03/S05 | in progress | [25l L0/L1/L2/L4/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Implemented/Tested, 2026-10-02:** semantic topology, selected mandatory closure and immutable demanded support pass the [25l focused controls](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation). Required 25k scientific, reuse/resource and architectural evidence remains before assembled resolution. |
+| [Compilation/routing F02](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f02) | Review S02/S04/S05 | in progress | [25l L0/L2/L3/L4/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Implemented/Tested, 2026-10-02:** contextual states, class priority, adapter-owned conditions, retained snapshots/witnesses, prepared artifacts and migrated consumers pass [25l native/runtime controls and final compilation](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation). Required 25k scientific journeys and assembled assessment remain before resolution. |
+| [Compilation/routing F03](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f03) | Review S06 | resolved | [25l L0/L5/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Implemented/Tested, 2026-10-02:** unavailable feasibility and evaluated infeasibility remain distinct; exhaustive completion preserves precise limits, causes, contradictions and incumbent permission. Eight completion, thirteen diagnostic, historical-contract and five current generated Python controls pass in the [25l Outcome](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation); no solver/storage qualification is inferred. |
 
 ### Original and domain-alignment follow-up findings
 

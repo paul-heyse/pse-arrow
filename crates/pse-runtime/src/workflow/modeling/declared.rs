@@ -297,7 +297,7 @@ impl ModelingPackage {
             bindings,
             limits,
             case,
-            order: solver.derivative_order(),
+            order: pse_kernels::DerivativeOrder::Value,
             compiler,
             solver,
             numerical,

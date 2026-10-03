@@ -9,6 +9,16 @@ use crate::solve::WarmRestart;
 use feral::{scaling::ScalingStrategy, symbolic::OrderingMethod};
 use pse_model::generated::enums::{FeralOrdering, FeralScaling};
 
+/// The native infinity threshold, shared by contextual admission and final execution.
+pub(crate) fn admit_bound(value: f64) -> Result<(), crate::ProblemError> {
+    if value.is_nan() || value.is_finite() && value.abs() >= 1e19 {
+        return Err(crate::ProblemError::Unsupported(
+            "POUNCE finite bound reaches native infinity threshold".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// The NLP method, a registry vocabulary (ADR-0115 Outcome 3). The algorithm is
 /// explicit; POUNCE never silently changes the selected problem class. The Thierry–Biegler
 /// ℓ1 exact penalty-barrier method (`pounce-l1penalty`, ADR-0109) is explicit only: never

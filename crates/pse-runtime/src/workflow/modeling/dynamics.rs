@@ -33,6 +33,7 @@ pub struct ModelingSimulation {
     modes: Vec<SimulationMode>,
     contract: native::Contract,
     profile: native::Profile,
+    snapshot: pse_backend_native::execution::Snapshot,
     pub(in crate::workflow) runtime: Runtime,
     pub(in crate::workflow) source: ModelingPackage,
     programs: Arc<[FunctionProgram]>,
@@ -281,6 +282,9 @@ impl ModelingSimulation {
     ) -> Result<DynamicWorker, ProblemError> {
         self.program().worker(cancel)
     }
+    pub(crate) fn snapshot(&self) -> &pse_backend_native::execution::Snapshot {
+        &self.snapshot
+    }
     pub(crate) fn program(&self) -> crate::workflow::dynamics::DynamicProgram {
         crate::workflow::dynamics::DynamicProgram {
             contract: self.contract.clone(),
@@ -394,12 +398,13 @@ impl ModelingSimulation {
             {
                 let started = std::time::Instant::now();
                 let mut worker = prepared.worker(flag.clone())?;
-                let report = native::integrate_with_progress(
+                let report = native::integrate_with_progress_observed(
                     &mut worker,
                     &prepared.profile,
                     &prepared.parameters,
                     flag.clone(),
                     progress,
+                    &prepared.snapshot,
                 )?;
                 let checks =
                     prepared.check_samples(run_id, &report, &prepared.parameters, &flag, started);
@@ -782,6 +787,8 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         mode: usize,
         mode_names: &[String],
+        exact_parameters: &BTreeSet<SemanticId>,
+        snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         if derivatives < DerivativeOrder::First {
@@ -1277,6 +1284,120 @@ impl ModelingPackage {
                 })
             })
             .collect::<Result<Vec<_>, WorkflowError>>()?;
+        // Every interval of a scheduled input starts at the model's value; the authored
+        // interval values then replace it (I6).
+        let mut parameter_values = profile.integration_parameters(
+            &parameters
+                .iter()
+                .map(|id| values.scalars[id])
+                .collect::<Vec<_>>(),
+        );
+        let first = profile.columns_at(parameters.len(), profile.start);
+        for (input, authored) in &authored {
+            parameter_values
+                .get_mut(first[input.parameter]..first[input.parameter] + authored.len())
+                .ok_or_else(|| contract("scheduled input interval layout"))?
+                .copy_from_slice(authored);
+        }
+        let event_layout = (0..mode_names.len())
+            .map(|index| {
+                events::resolve_events(product, instance, index, &states).map(|(events, _)| events)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let fixture_events = product
+            .model
+            .fixtures
+            .get(&instance)
+            .map(|f| f.modes.iter().flat_map(|m| &m.events).collect::<Vec<_>>())
+            .unwrap_or_default();
+        let balances = product
+            .model
+            .inventory_balances
+            .values()
+            .map(|balance| {
+                let pse_modeling::specialize::Value::Number { bits, .. } = balance.tolerance else {
+                    return Err(contract_error("physical inventory tolerance required"));
+                };
+                let mut transfers = BTreeSet::new();
+                for guard in balance.transfers.keys() {
+                    let matching = fixture_events
+                        .iter()
+                        .filter(|event| event.guard == *guard)
+                        .collect::<Vec<_>>();
+                    if matching.is_empty() || matching.iter().any(|e| e.next.is_none()) {
+                        let mut refusal = pse_model::diagnostic::BoundaryDiagnostic::new(
+                            pse_model::diagnostic::BoundaryClass::Unsupported,
+                            pse_diagnostics::DiagnosticStage::ModelingConservationTransfer,
+                            [balance.id, balance.lineage.declaration.into(), *guard],
+                            pse_diagnostics::DiagnosticRule::ModelingDynamicInventoryTransferEventUnsupported,
+                        );
+                        refusal.observations.insert("capability".into(), pse_model::diagnostic::Observation::Text(
+                            "a permitted inventory transfer requires the same resolved guard occurrence as a nonterminal authored event".into(),
+                        ));
+                        return Err(Box::new(refusal).into());
+                    }
+                    for event in matching {
+                        transfers.insert(event.guard);
+                    }
+                }
+                Ok(native::Balance {
+                    id: balance.id,
+                    inventory: balance.inventory_id,
+                    flux: balance.flux_id,
+                    tolerance: f64::from_bits(bits),
+                    transfers,
+                })
+            })
+            .collect::<Result<Vec<_>, WorkflowError>>()?;
+        let signs = self
+            .state_signs(
+                &model, &case, &states, &values, &providers, compiler, cancel,
+            )
+            .await?;
+        let mut dynamic_contract = native::Contract {
+            identity: ContentHash::from_bytes([0; 32]),
+            states: states.clone(),
+            differential: differential.clone(),
+            parameters: parameters.clone(),
+            outputs: outputs.clone(),
+            events: event_layout,
+            quadratures: product.model.integrals.keys().copied().collect(),
+            balances: balances.clone(),
+            signs: signs.clone(),
+            derivatives,
+        };
+        let directions = exact_parameters
+            .iter()
+            .map(|id| {
+                parameters
+                    .iter()
+                    .position(|p| p == id)
+                    .map(|position| first[position])
+                    .ok_or_else(|| {
+                        contract("exact transient parameter is not an integration parameter")
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let demand = if directions.is_empty() {
+            native::DynamicDemand::Base
+        } else {
+            native::DynamicDemand::ExactHessian
+        };
+        let mut consumer = profile.clone();
+        if demand == native::DynamicDemand::ExactHessian {
+            consumer.sensitivity = native::DynamicSensitivity::Adjoint;
+        }
+        profile.method = consumer
+            .resolve_for(
+                &dynamic_contract,
+                &parameter_values,
+                snapshot,
+                demand,
+                derivatives,
+                &directions,
+            )
+            .map_err(crate::math::MathRuntimeError::from)?
+            .method;
         let mut programs = Vec::new();
         let (event_contracts, event_roles) =
             events::resolve_events(product, instance, mode, &states)?;
@@ -1446,11 +1567,6 @@ impl ModelingPackage {
         let guard = self
             .prepare_dynamic_guards(&model, &case, &terminal_targets, compiler, cancel)
             .await?;
-        let signs = self
-            .state_signs(
-                &model, &case, &states, &values, &providers, compiler, cancel,
-            )
-            .await?;
         let units = results::assessment_units(product);
         let sample_scope = (!integral_ids.is_empty()).then(|| {
             units
@@ -1505,23 +1621,9 @@ impl ModelingPackage {
                     .await?,
             )
         };
-        // Every interval of a scheduled input starts at the model's value; the authored
-        // interval values then replace it (I6).
-        let mut parameter_values = profile.integration_parameters(
-            &parameters
-                .iter()
-                .map(|id| values.scalars[id])
-                .collect::<Vec<_>>(),
-        );
-        let first = profile.columns_at(parameters.len(), profile.start);
-        for (input, authored) in &authored {
-            parameter_values
-                .get_mut(first[input.parameter]..first[input.parameter] + authored.len())
-                .ok_or_else(|| contract("scheduled input interval layout"))?
-                .copy_from_slice(authored);
-        }
-        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV2);
-        hash.id(&root.as_id())
+        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV3);
+        hash.hash(&snapshot.identity())
+            .id(&root.as_id())
             .id(&instance.as_id())
             .hash(&numerics.key)
             .hash(
@@ -1608,56 +1710,6 @@ impl ModelingPackage {
         for sign in &signs {
             hash.str(sign.as_str());
         }
-        let event_layout = (0..mode_names.len())
-            .map(|index| {
-                events::resolve_events(product, instance, index, &states).map(|(events, _)| events)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let fixture_events = product
-            .model
-            .fixtures
-            .get(&instance)
-            .map(|f| f.modes.iter().flat_map(|m| &m.events).collect::<Vec<_>>())
-            .unwrap_or_default();
-        let balances = product
-            .model
-            .inventory_balances
-            .values()
-            .map(|balance| {
-                let pse_modeling::specialize::Value::Number { bits, .. } = balance.tolerance else {
-                    return Err(contract_error("physical inventory tolerance required"));
-                };
-                let mut transfers = BTreeSet::new();
-                for guard in balance.transfers.keys() {
-                    let matching = fixture_events
-                        .iter()
-                        .filter(|event| event.guard == *guard)
-                        .collect::<Vec<_>>();
-                    if matching.is_empty() || matching.iter().any(|e| e.next.is_none()) {
-                        let mut refusal = pse_model::diagnostic::BoundaryDiagnostic::new(
-                            pse_model::diagnostic::BoundaryClass::Unsupported,
-                            pse_diagnostics::DiagnosticStage::ModelingConservationTransfer,
-                            [balance.id, balance.lineage.declaration.into(), *guard],
-                            pse_diagnostics::DiagnosticRule::ModelingDynamicInventoryTransferEventUnsupported,
-                        );
-                        refusal.observations.insert("capability".into(), pse_model::diagnostic::Observation::Text(
-                            "a permitted inventory transfer requires the same resolved guard occurrence as a nonterminal authored event".into(),
-                        ));
-                        return Err(Box::new(refusal).into());
-                    }
-                    for event in matching {
-                        transfers.insert(event.guard);
-                    }
-                }
-                Ok(native::Balance {
-                    id: balance.id,
-                    inventory: balance.inventory_id,
-                    flux: balance.flux_id,
-                    tolerance: f64::from_bits(bits),
-                    transfers,
-                })
-            })
-            .collect::<Result<Vec<_>, WorkflowError>>()?;
         hash.u64(balances.len() as u64);
         for balance in &balances {
             hash.id(&balance.id)
@@ -1670,18 +1722,8 @@ impl ModelingPackage {
             }
         }
         let key = hash.finish_hash();
-        let contract = native::Contract {
-            identity: key,
-            states,
-            differential,
-            parameters,
-            outputs,
-            events: event_layout,
-            quadratures: product.model.integrals.keys().copied().collect(),
-            balances,
-            signs,
-            derivatives,
-        };
+        dynamic_contract.identity = key;
+        let contract = dynamic_contract;
         let cells = profile
             .validate(&contract, &parameter_values)
             .map_err(|e| WorkflowError::Math(e.into()))?;
@@ -1787,6 +1829,7 @@ impl ModelingPackage {
             }],
             contract,
             profile,
+            snapshot: snapshot.clone(),
             runtime: self.runtime.clone(),
             source: self.clone(),
             programs: programs.into(),

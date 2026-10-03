@@ -56,33 +56,6 @@ pub struct SolverProfile {
     /// solve prepares the parametric program they need.
     pub sensitivity: Option<super::settings::SensitivityRequest>,
 }
-impl SolverProfile {
-    /// Compilation demand from the chosen numerical capability. Auto roots resolve to
-    /// the root capability; other automatic callback consumers use the NLP capability
-    /// until representation admission selects a derivative-free projection.
-    pub fn derivative_order(&self) -> pse_kernels::DerivativeOrder {
-        let backend = match self.selection {
-            SolverSelection::Explicit(backend) => backend,
-            SolverSelection::Auto
-                if matches!(self.intent, SolveIntent::Root | SolveIntent::Initialize) =>
-            {
-                Backend::Kinsol
-            }
-            SolverSelection::Auto => Backend::Ipopt,
-        };
-        routing::derivative_demand(execution::adapter(backend).capability(), &self.controls)
-            .unwrap_or(pse_kernels::DerivativeOrder::Value)
-            .max(if self.sensitivity.is_some() {
-                if self.intent == SolveIntent::Root {
-                    pse_kernels::DerivativeOrder::First
-                } else {
-                    pse_kernels::DerivativeOrder::Second
-                }
-            } else {
-                pse_kernels::DerivativeOrder::Value
-            })
-    }
-}
 /// The one owner of request defaults: every boundary takes an omitted field from here
 /// rather than restating it (ADR-0113).
 impl Default for SolverProfile {
@@ -116,10 +89,16 @@ struct AlgebraicCase {
     /// The parametric program of a sensitivity request (Plan 22 S1), attached by
     /// [`PreparedSolve::with_sensitivity`].
     sensitivity: Option<ParametricPreparation<SensitivityProgram>>,
+    /// The admitted coefficient cone and its map retain their allocation through execution.
+    coefficient_cone: Option<(
+        Arc<native::conic::Lowered>,
+        Arc<pse_columnar::AllocationLease>,
+    )>,
     /// A recognized convex program's cone form (ADR-0121), built only for a cone route
     /// over a program that is not a coefficient program, with its reservation.
     recognized: Option<(
         Arc<native::conic::Recognized>,
+        Arc<pse_math::convexity::GramCertificate>,
         Arc<pse_columnar::AllocationLease>,
     )>,
 }
@@ -178,6 +157,10 @@ impl SensitivityProgram {
     }
 }
 #[derive(Clone, Debug)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "one representation per prepared solve; algebraic metadata stays inline and is charged by size_of::<PreparedSolve>() without a separate heap allocation"
+)]
 enum Representation {
     Algebraic(AlgebraicCase),
     Conic {
@@ -199,16 +182,47 @@ pub struct PreparedSolve {
     /// Stopping budgets resolved from `numerics`; never taken from user controls (F20).
     accuracy: ResolvedAccuracy,
     route: Route,
+    snapshot: execution::Snapshot,
     compatibility: Option<Compatibility>,
     explicit_start: Option<WarmStart>,
     route_decision: Option<routing::Decision>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl PreparedSolve {
+    /// Attach provider kernels prepared for the selected mandatory consumer demand.
+    pub(crate) fn with_providers(
+        mut self,
+        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    ) -> Result<Self, ProblemError> {
+        if let Representation::Algebraic(case) = &mut self.representation {
+            case.providers = providers;
+            if let Route::Native(backend) = self.route {
+                self.compatibility = Some(compatibility(
+                    &case.prepared.prepared.plan,
+                    &case.values,
+                    &self.profile,
+                    &self.numerics,
+                    backend,
+                    &case.providers,
+                    &self.snapshot,
+                )?);
+            }
+        }
+        Ok(self)
+    }
+    /// Selected mandatory kernel order, established by contextual route admission.
+    pub fn required_order(&self) -> pse_kernels::DerivativeOrder {
+        match &self.representation {
+            Representation::Algebraic(case) => case.prepared.prepared.plan.order(),
+            Representation::Conic { .. } => pse_kernels::DerivativeOrder::Value,
+        }
+    }
+
     /// Immutable compilation and normalization selected before attaching a seed.
     pub fn preparation_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
-        let mut h = FramedHasher::new(pse_ids::Frame::SolvePreparationV1);
-        h.hash(&profile_key(&self.profile)?.as_id())
+        let mut h = FramedHasher::new(pse_ids::Frame::SolvePreparationV2);
+        h.hash(&self.snapshot.identity())
+            .hash(&profile_key(&self.profile)?.as_id())
             .hash(&self.numerics.key);
         match &self.representation {
             Representation::Algebraic(AlgebraicCase {
@@ -740,7 +754,11 @@ impl<T> SolveHandle<T> {
 }
 /// Admit a selected route's typed settings and controls through its adapter. Required
 /// library preprocessing needs an NLP representation.
-pub(crate) fn admit_profile(profile: &SolverProfile, route: Route) -> Result<(), ProblemError> {
+pub(crate) fn admit_profile(
+    profile: &SolverProfile,
+    route: Route,
+    snapshot: &execution::Snapshot,
+) -> Result<(), ProblemError> {
     let adapter = match route {
         Route::Native(backend) => Some(execution::adapter(backend)),
         Route::Constant => None,
@@ -759,7 +777,7 @@ pub(crate) fn admit_profile(profile: &SolverProfile, route: Route) -> Result<(),
             alternatives: vec![],
         });
     }
-    adapter.admit_settings(&profile.backend, &profile.controls)
+    adapter.admit_settings(&profile.backend, &profile.controls, snapshot)
 }
 /// The native session profile: every control and setting a retained native session
 /// depends on. Controls and backend settings are identified through serde (F09); only the
@@ -796,6 +814,7 @@ fn compatibility(
     numerics: &ResolvedNumericalPolicy,
     backend: Backend,
     providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    snapshot: &execution::Snapshot,
 ) -> Result<Compatibility, ProblemError> {
     // Seed coordinates only: backend, objective sense, free variables, rows and
     // structure. Controls, settings and the numerical policy form the profile (F24).
@@ -829,9 +848,9 @@ fn compatibility(
     for pattern in [plan.jacobian_pattern(), plan.hessian_pattern()] {
         layout.hash(&pse_math::sparse::pattern_key(pattern));
     }
-    let mut profile = FramedHasher::new(pse_ids::Frame::SolverSessionV2);
+    let mut profile = FramedHasher::new(pse_ids::Frame::SolverSessionV3);
     hash_session(&mut profile, p)?;
-    profile.hash(&numerics.key);
+    profile.hash(&numerics.key).hash(&snapshot.identity());
     let mut data = FramedHasher::new(pse_ids::Frame::SolverDataV1);
     data.hash(&plan.structure().key());
     for provider in providers.values() {
@@ -848,6 +867,39 @@ fn compatibility(
     })
 }
 impl MathService {
+    /// Obtain intent-relevant class evidence through the original math owner.
+    pub(crate) async fn discover_class(
+        self: &Arc<Self>,
+        prepared: Preparation,
+        values: CaseValues,
+        profile: &SolverProfile,
+    ) -> Result<Preparation, MathRuntimeError> {
+        let result = if routing::class_evidence_required(
+            &prepared.prepared.facts,
+            profile.intent,
+            profile.selection,
+        ) {
+            let source = prepared.prepared.clone();
+            let bound_values = values;
+            let product = self
+                .job_retained(
+                    1,
+                    self.policy.workspace_bytes,
+                    FlightCancellation::default(),
+                    move |flag| {
+                        let product = source.prepare_class(&bound_values, &flag)?;
+                        let bytes = product.retained_bytes();
+                        Ok((product, bytes))
+                    },
+                )
+                .await?;
+            self.own_preparation(product)?
+        } else {
+            prepared
+        };
+        Ok(result)
+    }
+
     /// Complete pure routing and required immutable artifact compilation before native admission.
     pub async fn prepare_solve(
         self: &Arc<Self>,
@@ -903,6 +955,9 @@ impl MathService {
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
         // Per-solve overlays are separate from the shared compiler product.
+        let prepared = self
+            .discover_class(prepared, values.clone(), &profile)
+            .await?;
         let structure = prepared.prepared.plan.structure();
         let entries = structure
             .variables()
@@ -911,7 +966,13 @@ impl MathService {
             .and_then(|n| n.checked_add(numerics.targets.len()))
             .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
         let bytes = entries
-            .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
+            .checked_mul(
+                size_of::<pse_math::numerics::TargetSpec>()
+                    + 8 * size_of::<f64>()
+                    + (execution::LINKED.adapters().count() + 1)
+                        * (size_of::<pse_structural::incidence::Constraint>()
+                            + 3 * size_of::<pse_ids::SemanticId>()),
+            )
             .and_then(|n| {
                 n.checked_add(values.scalars.len() * size_of::<(pse_ids::SemanticId, f64)>())
             })
@@ -976,31 +1037,366 @@ impl MathService {
                 certificate = Some(Arc::new(evidence));
             }
         }
-        let requirements = routing::Requirements {
-            table: &execution::LINKED,
-            facts: f,
-            intent: profile.intent,
-            numerical_psd,
-            least_squares: false,
-            controls: &profile.controls,
-            settings: &profile.backend,
-            sensitivity: profile.sensitivity.is_some(),
-        };
-        let decision = requirements.bound_decision(
-            profile.selection,
-            plan.columns().to_vec(),
-            plan.structure()
-                .rows()
-                .iter()
-                .map(|r| pse_structural::incidence::Constraint {
-                    id: r.id,
-                    lower: r.lower.is_finite().then_some(r.lower),
-                    upper: r.upper.is_finite().then_some(r.upper),
+        let snapshot = execution::Snapshot::observe(&execution::LINKED);
+        let mut prepared = prepared;
+        let mut factorable = None;
+        let mut recognized = None;
+        let mut coefficient_cone = None;
+        let mut case = None;
+        let mut artifacts = Vec::new();
+        let mut refusals = BTreeMap::new();
+        let mut previous_demands = None;
+        let mut decision = loop {
+            let f = &prepared.prepared.facts;
+            let plan = &prepared.prepared.plan;
+            let coefficient_problem = prepared
+                .prepared
+                .coefficients
+                .as_ref()
+                .map(|coefficients| {
+                    native::CoefficientProblem::from_plan(plan, coefficients.as_ref().clone())
                 })
-                .collect(),
-            prepared.prepared.structure.clone(),
-        )?;
+                .transpose()?;
+            let oracle = native::assembled::contract(plan);
+            let pending_classes =
+                routing::pending_class_evidence(f, profile.intent, profile.selection);
+            let requirements = routing::Requirements {
+                table: &execution::LINKED,
+                facts: f,
+                intent: profile.intent,
+                numerical_psd,
+                least_squares: false,
+                controls: &profile.controls,
+                settings: &profile.backend,
+                sensitivity: profile.sensitivity.is_some(),
+                context: routing::Context {
+                    snapshot: snapshot.clone(),
+                    pending_classes: &pending_classes,
+                    structure: None,
+                    oracle: Some(&oracle),
+                    guards: &prepared.prepared.presolve.signs,
+                    budgets: Some(execution::Budgets {
+                        tolerances: &tolerances,
+                        normalization: &normalization,
+                        accuracy: &accuracy,
+                    }),
+                    coefficients: coefficient_problem.as_ref(),
+                    cone: recognized
+                        .as_ref()
+                        .map(
+                            |(cone, proof, _): &(
+                                Arc<native::conic::Recognized>,
+                                Arc<pse_math::convexity::GramCertificate>,
+                                Arc<pse_columnar::AllocationLease>,
+                            )| routing::ConeEvidence {
+                                problem: &cone.problem,
+                                certificate: proof.as_ref(),
+                            },
+                        )
+                        .or_else(|| {
+                            coefficient_cone.as_ref().map(
+                                |(cone, _): &(
+                                    Arc<native::conic::Lowered>,
+                                    Arc<pse_columnar::AllocationLease>,
+                                )| routing::ConeEvidence {
+                                    problem: &cone.problem,
+                                    certificate: &cone.evidence,
+                                },
+                            )
+                        }),
+                    factorable: factorable.as_ref().map(
+                        |(program, _): &(
+                            Arc<pse_math::factorable::FactorableProgram>,
+                            Arc<pse_columnar::AllocationLease>,
+                        )| program.as_ref(),
+                    ),
+                    certificate: certificate.as_deref(),
+                    prepared: &artifacts,
+                    refusals: &refusals,
+                },
+            };
+            let decision = requirements.bound_decision(
+                profile.selection,
+                plan.columns().to_vec(),
+                plan.structure()
+                    .rows()
+                    .iter()
+                    .map(|row| pse_structural::incidence::Constraint {
+                        id: row.id,
+                        lower: row.lower.is_finite().then_some(row.lower),
+                        upper: row.upper.is_finite().then_some(row.upper),
+                    })
+                    .collect(),
+                prepared.prepared.structure.clone(),
+            )?;
+            if decision.state == routing::AssessmentState::Ready {
+                break decision;
+            }
+            if decision.state == routing::AssessmentState::Refused {
+                return Err(ProblemError::RouteRefused(Box::new(decision)).into());
+            }
+            let demands = (
+                decision.pending_backend,
+                decision.evidence.clone(),
+                decision.artifacts.clone(),
+            );
+            if previous_demands.as_ref() == Some(&demands) {
+                return Err(ProblemError::RouteRefused(Box::new(decision)).into());
+            }
+            previous_demands = Some(demands);
+            let backend = decision
+                .pending_backend
+                .or(match decision.selected {
+                    Some(Route::Native(backend)) => Some(backend),
+                    _ => None,
+                })
+                .ok_or_else(|| ProblemError::RouteRefused(Box::new(decision.clone())))?;
+            let representation = execution::adapter(backend).representation();
+            if decision
+                .evidence
+                .contains(&routing::EvidenceDemand::Factorable)
+            {
+                let result: Result<_, MathRuntimeError> = async {
+                    let plan = prepared.prepared.plan.clone();
+                    let values = values.clone();
+                    let limit = self.policy.worker_bytes / 256;
+                    // Implicit blocks export their residuals; providers that declare an
+                    // enforced envelope export as auxiliaries inside it (ADR-0105 §1).
+                    let mut envelopes = BTreeMap::new();
+                    for (key, registration) in &providers {
+                        if let Some(envelope) = registration.envelope() {
+                            envelopes.insert(*key, envelope.to_vec());
+                        }
+                    }
+                    let request = pse_math::factorable::FactorableRequest {
+                        implicit: implicit.clone(),
+                        envelopes,
+                        ..Default::default()
+                    };
+                    let program = self
+                        .job(
+                            1,
+                            self.policy.worker_bytes,
+                            FlightCancellation::default(),
+                            move |flag| {
+                                let program = plan
+                                    .factorable_program(&values, &request, limit, &flag)
+                                    .map_err(|e| match e {
+                                        pse_math::factorable::FactorableError::Math(e) => {
+                                            ProblemError::Math(e)
+                                        }
+                                        other => ProblemError::Unsupported(other.to_string()),
+                                    })?;
+                                Ok(program)
+                            },
+                        )
+                        .await?;
+                    let owner = self.reserve("math:factorable-program", program.bytes())?;
+
+                    Ok((Arc::new(program), owner))
+                }
+                .await;
+                match result {
+                    Ok(product) => {
+                        factorable = Some(product);
+                    }
+                    Err(cause) => {
+                        let cause = cause.into_problem();
+                        if matches!(
+                            cause,
+                            ProblemError::Unsupported(_) | ProblemError::Contract(_)
+                        ) {
+                            refusals.insert(backend, Arc::new(cause));
+                            continue;
+                        }
+                        return Err(cause.into());
+                    }
+                }
+            }
+            if decision.evidence.contains(&routing::EvidenceDemand::Cone)
+                || decision
+                    .artifacts
+                    .contains(&routing::ArtifactDemand::Representation(
+                        execution::Representation::Cone,
+                    ))
+            {
+                if let Some(problem) = &coefficient_problem {
+                    let source = problem.clone();
+                    let evidence = certificate.clone();
+                    let (lowered, lease) = self
+                        .job_retained(
+                            1,
+                            self.policy.workspace_bytes,
+                            FlightCancellation::default(),
+                            move |flag| {
+                                if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                                    return Err(ProblemError::Cancelled.into());
+                                }
+                                let lowered = native::ConicProblem::from_coefficients(
+                                    &source,
+                                    evidence.as_deref(),
+                                )?;
+                                let cone = &lowered.problem;
+                                let extent =
+                                    [&cone.quadratic, &cone.constraints]
+                                        .iter()
+                                        .try_fold(
+                                            size_of::<native::conic::Lowered>(),
+                                            |bytes, matrix| {
+                                                bytes
+                                                    .checked_add(
+                                                        matrix
+                                                            .values
+                                                            .capacity()
+                                                            .checked_mul(size_of::<f64>())?,
+                                                    )?
+                                                    .checked_add(
+                                                        (matrix.column_starts.capacity()
+                                                            + matrix.row_indices.capacity())
+                                                        .checked_mul(size_of::<usize>())?,
+                                                    )
+                                            },
+                                        )
+                                        .and_then(|bytes| {
+                                            bytes.checked_add(
+                                                (cone.objective.capacity() + cone.rhs.capacity())
+                                                    .checked_mul(size_of::<f64>())?,
+                                            )
+                                        })
+                                        .and_then(|bytes| {
+                                            bytes.checked_add(
+                                                cone.cones
+                                                    .capacity()
+                                                    .checked_mul(size_of::<native::conic::Cone>())?,
+                                            )
+                                        })
+                                        .and_then(|bytes| {
+                                            bytes.checked_add(
+                                                cone.contract
+                                                    .variables
+                                                    .capacity()
+                                                    .checked_mul(size_of::<native::Variable>())?,
+                                            )
+                                        })
+                                        .and_then(|bytes| {
+                                            bytes.checked_add(
+                                                cone.contract
+                                                    .rows
+                                                    .capacity()
+                                                    .checked_mul(size_of::<pse_ids::SemanticId>())?,
+                                            )
+                                        })
+                                        .and_then(|bytes| {
+                                            bytes.checked_add(lowered.rows.capacity().checked_mul(
+                                                size_of::<native::conic::LoweredRow>(),
+                                            )?)
+                                        })
+                                        .ok_or(MathRuntimeError::Limit(
+                                            "coefficient cone extent",
+                                        ))?;
+                                Ok((lowered, extent))
+                            },
+                        )
+                        .await?;
+                    coefficient_cone = Some((Arc::new(lowered), lease));
+                } else if f.convexity.cone() {
+                    let plan = prepared.prepared.plan.clone();
+                    let values = values.clone();
+                    let limit = self.policy.worker_bytes / 256;
+                    let intent = profile.intent;
+                    let fact = f.convexity.clone();
+                    let ((lowered, proof), owner) = self
+                        .job_retained(
+                            1,
+                            self.policy.worker_bytes,
+                            FlightCancellation::default(),
+                            move |flag| {
+                                let program = plan
+                                    .factorable_program(
+                                        &values,
+                                        &pse_math::factorable::FactorableRequest::default(),
+                                        limit,
+                                        &flag,
+                                    )
+                                    .map_err(|e| match e {
+                                        pse_math::factorable::FactorableError::Math(e) => {
+                                            ProblemError::Math(e)
+                                        }
+                                        other => ProblemError::Unsupported(other.to_string()),
+                                    })?;
+                                let lowered = native::conic::lower(&program, &fact, intent, &flag)?;
+                                let proof = native::conic::zero_certificate(
+                                    lowered.problem.contract.variables.len(),
+                                    &flag,
+                                )?;
+                                let bytes = lowered
+                                    .bytes()
+                                    .checked_add(
+                                        size_of::<pse_math::convexity::GramCertificate>() + 256,
+                                    )
+                                    .ok_or(MathRuntimeError::Limit(
+                                        "recognized cone evidence extent",
+                                    ))?;
+                                Ok(((lowered, proof), bytes))
+                            },
+                        )
+                        .await?;
+
+                    recognized = Some((Arc::new(lowered), Arc::new(proof), owner));
+                }
+            }
+            let order = decision
+                .artifacts
+                .iter()
+                .filter_map(|artifact| match artifact {
+                    routing::ArtifactDemand::Derivatives(order) => Some(*order),
+                    _ => None,
+                })
+                .max();
+            if let Some(order) = order {
+                let source = prepared.prepared.clone();
+                let upgraded = self
+                    .job_retained(
+                        1,
+                        self.policy.workspace_bytes,
+                        FlightCancellation::default(),
+                        move |flag| {
+                            let product = source.prepare_order(order, &flag)?;
+                            let bytes = product.retained_bytes();
+                            Ok((product, bytes))
+                        },
+                    )
+                    .await?;
+                prepared = self.own_preparation(upgraded)?;
+            }
+            if decision
+                .artifacts
+                .contains(&routing::ArtifactDemand::Representation(representation))
+            {
+                match representation {
+                    execution::Representation::Nlp | execution::Representation::Roots => {
+                        case = Some(self.assemble(prepared.clone()).await?);
+                    }
+                    execution::Representation::Coefficients if coefficient_problem.is_some() => {}
+                    execution::Representation::Cone
+                        if recognized.is_some() || coefficient_cone.is_some() => {}
+                    execution::Representation::Factorable if factorable.is_some() => {}
+                    _ => return Err(ProblemError::RouteRefused(Box::new(decision)).into()),
+                }
+                artifacts.push(routing::ArtifactDemand::Representation(representation));
+            }
+        };
+        // Every escaping original witness keeps the admission's metadata allocation alive.
+        for assessment in decision
+            .eligibility
+            .iter_mut()
+            .filter_map(|entry| entry.structure.as_mut())
+            .chain(decision.structure.iter_mut())
+        {
+            assessment.witness = assessment.witness.clone().with_owner(owner.clone());
+        }
         let route = decision.route()?;
+        let f = &prepared.prepared.facts;
         let profile = match route {
             Route::Native(backend) => SolverProfile {
                 backend: profile.backend.for_requirements(backend, &f.requirements),
@@ -1008,117 +1404,7 @@ impl MathService {
             },
             Route::Constant => profile,
         };
-        let adapter = match route {
-            Route::Native(backend) => Some(execution::adapter(backend)),
-            Route::Constant => None,
-        };
-        admit_profile(&profile, route)?;
-        // The factorable projection exists only for a factorable route. It is built and
-        // admitted before any worker, refusing with every typed reason (ADR-0105 §2).
-        let factorable = match adapter.map(|a| a.representation()) {
-            Some(execution::Representation::Factorable) => {
-                let plan = prepared.prepared.plan.clone();
-                let values = values.clone();
-                let limit = self.policy.worker_bytes / 256;
-                let intent = profile.intent;
-                // Implicit blocks export their residuals; providers that declare an
-                // enforced envelope export as auxiliaries inside it (ADR-0105 §1).
-                let mut envelopes = BTreeMap::new();
-                for (key, registration) in &providers {
-                    if let Some(envelope) = registration.envelope() {
-                        envelopes.insert(*key, envelope.to_vec());
-                    }
-                }
-                let request = pse_math::factorable::FactorableRequest {
-                    implicit,
-                    envelopes,
-                    ..Default::default()
-                };
-                let program = self
-                    .job(
-                        1,
-                        self.policy.worker_bytes,
-                        FlightCancellation::default(),
-                        move |flag| {
-                            let program = plan
-                                .factorable_program(&values, &request, limit, &flag)
-                                .map_err(|e| match e {
-                                    pse_math::factorable::FactorableError::Math(e) => {
-                                        ProblemError::Math(e)
-                                    }
-                                    other => ProblemError::Unsupported(other.to_string()),
-                                })?;
-                            let refusals = execution::admit_program(&program, intent);
-                            if !refusals.is_empty() {
-                                let reasons: Vec<String> =
-                                    refusals.iter().map(ToString::to_string).collect();
-                                return Err(ProblemError::Unsupported(format!(
-                                    "factorable export refused: {}",
-                                    reasons.join("; ")
-                                ))
-                                .into());
-                            }
-                            Ok(program)
-                        },
-                    )
-                    .await?;
-                let owner = self.reserve("math:factorable-program", program.bytes())?;
-                Some((Arc::new(program), owner))
-            }
-            _ => None,
-        };
-        // A recognized convex program on a cone route is rebuilt, recognized again and
-        // lowered to cone form before any worker (ADR-0121 Outcome 6). A coefficient program
-        // on a cone route is lowered by the coefficient runner instead.
-        let recognized = match adapter.map(|a| a.representation()) {
-            Some(execution::Representation::Cone)
-                if prepared.prepared.coefficients.is_none() && f.convexity.cone() =>
-            {
-                let plan = prepared.prepared.plan.clone();
-                let values = values.clone();
-                let limit = self.policy.worker_bytes / 256;
-                let intent = profile.intent;
-                let fact = f.convexity.clone();
-                let lowered = self
-                    .job(
-                        1,
-                        self.policy.worker_bytes,
-                        FlightCancellation::default(),
-                        move |flag| {
-                            let program = plan
-                                .factorable_program(
-                                    &values,
-                                    &pse_math::factorable::FactorableRequest::default(),
-                                    limit,
-                                    &flag,
-                                )
-                                .map_err(|e| match e {
-                                    pse_math::factorable::FactorableError::Math(e) => {
-                                        ProblemError::Math(e)
-                                    }
-                                    other => ProblemError::Unsupported(other.to_string()),
-                                })?;
-                            Ok(native::conic::lower(&program, &fact, intent, &flag)?)
-                        },
-                    )
-                    .await?;
-                let owner = self.reserve("math:recognized-cone", lowered.bytes())?;
-                Some((Arc::new(lowered), owner))
-            }
-            _ => None,
-        };
-        if let Some(adapter) = adapter {
-            adapter.admit_contract(
-                &native::assembled::contract(plan),
-                &prepared.prepared.presolve.signs,
-                &profile.backend,
-                execution::Budgets {
-                    tolerances: &tolerances,
-                    normalization: &normalization,
-                    feasibility: accuracy.feasibility,
-                },
-            )?;
-        }
+        admit_profile(&profile, route, &snapshot)?;
         let stamp = match route {
             Route::Constant => None,
             Route::Native(backend) => Some(compatibility(
@@ -1128,10 +1414,15 @@ impl MathService {
                 &numerics,
                 backend,
                 &providers,
+                &snapshot,
             )?),
         };
-        let case = Some(self.assemble(prepared.clone()).await?);
+        let case = match case {
+            Some(case) => Some(case),
+            None => Some(self.assemble(prepared.clone()).await?),
+        };
         Ok(PreparedSolve {
+            snapshot: snapshot.clone(),
             representation: Representation::Algebraic(AlgebraicCase {
                 prepared,
                 case,
@@ -1141,6 +1432,7 @@ impl MathService {
                 factorable,
                 sensitivity: None,
                 recognized,
+                coefficient_cone,
             }),
             profile,
             numerics,
@@ -1164,8 +1456,8 @@ impl MathService {
         clippy::too_many_arguments,
         reason = "a block step binds its view, programs, values, providers, profile, policy and route"
     )]
-    pub(crate) fn prepare_conditional(
-        &self,
+    pub(crate) async fn prepare_conditional(
+        self: &Arc<Self>,
         prepared: Preparation,
         executable: Arc<ExecutableCase>,
         values: CaseValues,
@@ -1173,8 +1465,40 @@ impl MathService {
         profile: SolverProfile,
         numerics: Arc<ResolvedNumericalPolicy>,
         route: Route,
+        snapshot: execution::Snapshot,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
+        let Route::Native(selected) = route else {
+            return Err(ProblemError::Contract(
+                "conditional block needs a selected native route".into(),
+            )
+            .into());
+        };
+        let order = routing::derivative_demand(
+            execution::adapter(selected).capability(),
+            &profile.controls,
+        )
+        .unwrap_or(pse_kernels::DerivativeOrder::Value);
+        let (prepared, executable) = if prepared.prepared.plan.order() < order {
+            let source = prepared.prepared.clone();
+            let product = self
+                .job_retained(
+                    1,
+                    self.policy.workspace_bytes,
+                    FlightCancellation::default(),
+                    move |flag| {
+                        let product = source.prepare_order(order, &flag)?;
+                        let bytes = product.retained_bytes();
+                        Ok((product, bytes))
+                    },
+                )
+                .await?;
+            let prepared = self.own_preparation(product)?;
+            let executable = self.assemble(prepared.clone()).await?;
+            (prepared, executable)
+        } else {
+            (prepared, executable)
+        };
         let plan = &prepared.prepared.plan;
         plan.structure().validate_values(&values)?;
         if !prepared.prepared.presolve.matches(plan, &values) {
@@ -1198,17 +1522,66 @@ impl MathService {
             )
             .into());
         }
-        admit_profile(&profile, route)?;
+        admit_profile(&profile, route, &snapshot)?;
         let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
         let normalization = Normalization::from_policy(&numerics, plan.columns(), &rows)?;
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-        let stamp = compatibility(plan, &values, &profile, &numerics, backend, &providers)?;
+        let oracle = native::assembled::contract(plan);
+        let decision = routing::Requirements {
+            table: &execution::LINKED,
+            facts: &prepared.prepared.facts,
+            intent: profile.intent,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &profile.controls,
+            settings: &profile.backend,
+            sensitivity: false,
+            context: routing::Context {
+                snapshot: snapshot.clone(),
+                pending_classes: &[],
+                structure: None,
+                oracle: Some(&oracle),
+                guards: &prepared.prepared.presolve.signs,
+                budgets: Some(execution::Budgets {
+                    tolerances: &tolerances,
+                    normalization: &normalization,
+                    accuracy: &accuracy,
+                }),
+                coefficients: None,
+                cone: None,
+                factorable: None,
+                certificate: None,
+                prepared: &[routing::ArtifactDemand::Representation(
+                    execution::adapter(backend).representation(),
+                )],
+                refusals: &BTreeMap::new(),
+            },
+        }
+        .bound_decision(
+            SolverSelection::Explicit(backend),
+            plan.columns().to_vec(),
+            plan.structure()
+                .rows()
+                .iter()
+                .map(|row| pse_structural::incidence::Constraint {
+                    id: row.id,
+                    lower: row.lower.is_finite().then_some(row.lower),
+                    upper: row.upper.is_finite().then_some(row.upper),
+                })
+                .collect(),
+            prepared.structural_witness(),
+        )?;
+        decision.route()?;
+        let stamp = compatibility(
+            plan, &values, &profile, &numerics, backend, &providers, &snapshot,
+        )?;
         let bytes = (plan.structure().variables().len() + rows.len())
             .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
             .and_then(|n| n.checked_add(size_of::<PreparedSolve>()))
             .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
         Ok(PreparedSolve {
+            snapshot,
             representation: Representation::Algebraic(AlgebraicCase {
                 prepared,
                 case: Some(executable),
@@ -1219,6 +1592,7 @@ impl MathService {
                 factorable: None,
                 sensitivity: None,
                 recognized: None,
+                coefficient_cone: None,
             }),
             profile,
             numerics,
@@ -1228,7 +1602,7 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
-            route_decision: None,
+            route_decision: Some(decision),
             _owner: self.reserve("math:prepared-block", bytes)?,
         })
     }
@@ -1312,31 +1686,79 @@ impl MathService {
         let numerics = Arc::new(resolved);
         let tolerances = Tolerances::from_policy(&numerics, &ids, &problem.contract.rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-        // A cone request routes to a cone adapter: the explicit one, or the preferred linked
-        // automatic owner of explicit cones (ADR-0121).
-        let adapter = match profile.selection {
-            SolverSelection::Explicit(backend) => Some(execution::adapter(backend)),
-            SolverSelection::Auto => execution::LINKED
-                .adapters()
-                .filter(|a| a.representation() == execution::Representation::Cone && a.linked())
-                .filter(|a| {
-                    a.capability()
-                        .automatic_classes
-                        .contains(&ProblemClass::ContinuousCone)
-                })
-                .filter_map(|a| a.automatic().map(|rank| (rank, a)))
-                .min_by_key(|(rank, _)| *rank)
-                .map(|(_, a)| a),
+        let snapshot = execution::Snapshot::observe(&execution::LINKED);
+        let facts = routing::conic_facts(&problem, certificate.as_ref())?;
+        let source = problem.clone();
+        let extent = native::structural::conic_construction_bytes(&source)?;
+        let (mut structure, lease) = self
+            .job_retained(1, extent, FlightCancellation::default(), move |flag| {
+                let structure = native::structural::conic_structure_with_cancel(&source, &flag)?;
+                let bytes = native::structural::retained_bytes(&structure);
+                Ok((structure, bytes))
+            })
+            .await?;
+        structure.witness = structure.witness.with_owner(lease);
+        let mut decision = routing::Requirements {
+            table: &execution::LINKED,
+            facts: &facts,
+            intent: profile.intent,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &profile.controls,
+            settings: &profile.backend,
+            sensitivity: profile.sensitivity.is_some(),
+            context: routing::Context {
+                snapshot: snapshot.clone(),
+                pending_classes: &[],
+                structure: Some(structure),
+                oracle: Some(&problem.contract),
+                guards: &BTreeMap::new(),
+                budgets: Some(execution::Budgets {
+                    tolerances: &tolerances,
+                    normalization: &normalization,
+                    accuracy: &accuracy,
+                }),
+                coefficients: None,
+                cone: Some(routing::ConeEvidence {
+                    problem: &problem,
+                    certificate: certificate.as_ref(),
+                }),
+                factorable: None,
+                certificate: Some(certificate.as_ref()),
+                prepared: &[routing::ArtifactDemand::Representation(
+                    execution::Representation::Cone,
+                )],
+                refusals: &BTreeMap::new(),
+            },
         }
-        .filter(|a| a.representation() == execution::Representation::Cone);
-        let Some(adapter) = adapter.filter(|_| profile.intent == SolveIntent::Optimize) else {
-            return Err(ProblemError::Unsupported(
-                "explicit continuous cone representation requires cone optimization".into(),
+        .decision(profile.selection);
+        let route = decision.route()?;
+        let Route::Native(backend) = route else {
+            return Err(ProblemError::Contract(
+                "explicit cone requires a native optimization route".into(),
             )
             .into());
         };
-        let route = Route::Native(adapter.backend());
-        admit_profile(&profile, route)?;
+        let adapter = execution::adapter(backend);
+        if adapter.representation() != execution::Representation::Cone {
+            return Err(ProblemError::Contract(
+                "explicit cone requires a cone representation".into(),
+            )
+            .into());
+        }
+        admit_profile(&profile, route, &snapshot)?;
+        let admission_owner = self.reserve("math:cone-admission", decision.retained_bytes())?;
+        for assessment in decision
+            .eligibility
+            .iter_mut()
+            .filter_map(|entry| entry.structure.as_mut())
+            .chain(decision.structure.iter_mut())
+        {
+            assessment.witness = assessment
+                .witness
+                .clone()
+                .with_owner(admission_owner.clone());
+        }
         let (normalized, transported) =
             native::transport::conic(&problem, &normalization, certificate.as_ref())?;
         let original = problem;
@@ -1347,8 +1769,9 @@ impl MathService {
         let mut h = FramedHasher::new(pse_ids::Frame::SolverConicLayoutV3);
         h.hash(&numerics.key).hash(&normalization.key());
         h.hash(&problem.contract.identity);
-        let mut session = FramedHasher::new(pse_ids::Frame::SolverConicSessionV2);
+        let mut session = FramedHasher::new(pse_ids::Frame::SolverConicSessionV3);
         hash_session(&mut session, &profile)?;
+        session.hash(&snapshot.identity());
         h.hash(&native::conic::cone_key(&problem.cones)?);
         for v in &problem.contract.variables {
             h.id(&v.id);
@@ -1388,6 +1811,7 @@ impl MathService {
             backend: adapter.backend(),
         };
         Ok(PreparedSolve {
+            snapshot,
             representation: Representation::Conic {
                 problem,
                 original,
@@ -1401,7 +1825,7 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
-            route_decision: None,
+            route_decision: Some(decision),
             _owner: owner,
         })
     }
@@ -1716,6 +2140,8 @@ impl MathService {
             chosen: Option<WarmStart>,
             execution: Execution,
             profile: SolverProfile,
+            snapshot: execution::Snapshot,
+            structure: Option<native::structural::Assessment>,
             normalization: Normalization,
             tolerances: Tolerances,
             accuracy: ResolvedAccuracy,
@@ -1741,6 +2167,8 @@ impl MathService {
                 tolerances,
                 accuracy,
                 route,
+                snapshot,
+                route_decision,
                 compatibility,
                 ..
             } = step;
@@ -1775,6 +2203,8 @@ impl MathService {
                     chosen: chosen.clone(),
                     execution: execution.clone(),
                     profile,
+                    snapshot,
+                    structure: route_decision.and_then(|decision| decision.structure),
                     normalization,
                     tolerances,
                     accuracy,
@@ -1813,6 +2243,8 @@ impl MathService {
             steps.push((
                 execution::Step {
                     adapter: execution::adapter(p.backend),
+                    snapshot: &p.snapshot,
+                    structure: p.structure.as_ref(),
                     settings: &p.profile.backend,
                     controls: &p.profile.controls,
                     accuracy: &p.accuracy,
@@ -1825,6 +2257,11 @@ impl MathService {
                 execution::Coefficients {
                     problem: &p.problem,
                     certificate: p.case.certificate.as_deref(),
+                    lowered: p
+                        .case
+                        .coefficient_cone
+                        .as_ref()
+                        .map(|(cone, _)| cone.as_ref()),
                     row_constants: &coefficients.row_constants,
                     row_bounds: plan
                         .structure()
@@ -1867,6 +2304,8 @@ impl MathService {
             tolerances,
             accuracy,
             route,
+            snapshot,
+            route_decision,
             compatibility,
             ..
         } = step;
@@ -1889,6 +2328,10 @@ impl MathService {
             .ok_or_else(|| ProblemError::Internal("missing native compatibility stamp".into()))?;
         let run = execution::Step {
             adapter,
+            snapshot: &snapshot,
+            structure: route_decision
+                .as_ref()
+                .and_then(|decision| decision.structure.as_ref()),
             settings: &profile.backend,
             controls: &profile.controls,
             accuracy: &accuracy,
@@ -1964,6 +2407,7 @@ impl MathService {
             values,
             providers,
             certificate,
+            coefficient_cone,
             ..
         } = case;
         let coefficients = prepared
@@ -1988,6 +2432,7 @@ impl MathService {
             execution::Coefficients {
                 problem: &problem,
                 certificate: certificate.as_deref(),
+                lowered: coefficient_cone.as_ref().map(|(cone, _)| cone.as_ref()),
                 row_constants: &coefficients.row_constants,
                 row_bounds: plan
                     .structure()
@@ -2016,7 +2461,7 @@ impl MathService {
             recognized,
             ..
         } = case;
-        let (lowered, _owner) = recognized
+        let (lowered, proof, _owner) = recognized
             .ok_or_else(|| ProblemError::Internal("missing recognized cone form".into()))?;
         let plan = &prepared.prepared.plan;
         let mut original = OriginalCase {
@@ -2033,6 +2478,7 @@ impl MathService {
             retained,
             execution::Recognized {
                 lowered: &lowered,
+                certificate: Some(proof.as_ref()),
                 original: &mut original,
             },
         )?)
@@ -2617,3 +3063,6 @@ pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::roles::ProfileHa
     }
     Ok(pse_ids::roles::ProfileHash::from_id(h.finish_hash()))
 }
+
+#[cfg(test)]
+mod preparation_tests;

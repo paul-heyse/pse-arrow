@@ -2065,18 +2065,21 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     let (mut workspace, _, _, root) = setup(&value_only);
     let admitted = admit(&mut workspace, root);
     let order = admitted.implicit_order_for(None).unwrap();
-    assert!(
-        order[1]
-            .requirements(
-                DerivativeOrder::Value,
-                DerivativeOrder::First,
-                &accelerators,
-                &cancel,
-                limits
-            )
-            .unwrap_err()
-            .to_string()
-            .contains("residual derivative order unavailable")
+    let refusal = order[1]
+        .requirements(
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            &accelerators,
+            &cancel,
+            limits,
+        )
+        .unwrap_err();
+    assert_implicit_derivative_refusal(
+        &refusal,
+        &order[1],
+        DerivativeOrder::First,
+        DerivativeOrder::Value,
+        pse_kernels::DerivativeCapability::Residual,
     );
 }
 
@@ -4723,7 +4726,7 @@ fn kernel_flow_projection_preserves_ports_isolates_and_explicit_tear_policies() 
         "package p {def Unit {var x:Scalar; port inlet:Scalar=x; annotation connectivity inlet(1,0); port outlet:Scalar=x; annotation connectivity outlet(0,1);} def Root {child a=Unit(); child b=Unit(); child isolated=Unit(); connect a.outlet -> b.inlet; connect b.outlet -> a.inlet;}}",
     );
     let prepared = workspace
-        .prepare_modeling_cancellable(
+        .prepare_semantic_modeling_cancellable(
             root,
             InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
@@ -4775,6 +4778,92 @@ fn kernel_flow_projection_preserves_ports_isolates_and_explicit_tear_policies() 
         prepared
             .flow_graph(&cut, &workspace.inputs.quantities)
             .is_err()
+    );
+}
+
+#[test]
+fn semantic_flow_preparation_does_not_admit_numerical_bodies() {
+    let (mut workspace, _, _, root) =
+        setup("package p {def Root {var x:Scalar; port p:Scalar=x; eq e:x*x*x==1;}}");
+    let instance = InstanceId::from_id(SemanticId::NIL);
+    let limits = Limits {
+        body_occurrences: Some(1),
+        ..Limits::default()
+    };
+    let semantic = workspace
+        .prepare_semantic_modeling_cancellable(
+            root,
+            instance,
+            Bindings::default(),
+            limits,
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let graph = semantic
+        .flow_graph(
+            &ModelingFlowSelection {
+                nodes: semantic
+                    .model
+                    .ports
+                    .values()
+                    .map(|port| port.lineage.instance)
+                    .collect(),
+                connections: BTreeMap::new(),
+            },
+            &workspace.inputs.quantities,
+        )
+        .unwrap();
+    assert_eq!(graph.declaration().nodes.len(), 1);
+    assert_eq!(graph.declaration().nodes[0].ports.len(), 1);
+    assert!(
+        workspace
+            .prepare_modeling_cancellable(
+                root,
+                instance,
+                Bindings::default(),
+                limits,
+                Arc::new(AtomicBool::new(false))
+            )
+            .is_err()
+    );
+}
+
+#[test]
+fn selected_outputs_do_not_admit_an_unrelated_observation() {
+    let (mut workspace, _, _, root) = setup(
+        "package p {def Root {var x:Scalar; let unused:Scalar=x*x*x*x*x*x*x*x*x*x*x*x*x*x*x*x; eq e:x==1;}}",
+    );
+    let instance = InstanceId::from_id(SemanticId::NIL);
+    let selected = workspace
+        .prepare_modeling_cancellable(
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    assert!(!selected.model.paths.contains_key("unused"));
+    // The immutable authored revision retains the declaration; demand specializes it
+    // below without turning it into an eager executable observation.
+    let requested = workspace
+        .prepare_modeling_cancellable(
+            root,
+            instance,
+            Bindings {
+                demand: vec!["unused".into()],
+                ..Bindings::default()
+            },
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let member = requested.model.paths["unused"];
+    assert!(
+        requested
+            .admitted
+            .outputs
+            .contains(&ModelingOutput::Member(member))
     );
 }
 #[test]
@@ -5170,4 +5259,127 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
             );
         }
     }
+}
+
+#[test]
+fn selected_shared_observation_body_demands_only_its_implicit_provider_output() {
+    use crate::typed_math::{Formal, Request};
+    use pse_authoring::dsl;
+    use pse_math::binding::{
+        CaseLimits, CaseStructure, Contribution, InstanceBinding, SlotBinding, Target,
+    };
+    use pse_quantity::standard::StandardInvariantChecker;
+    let (mut workspace, _, _, root) = setup(
+        "package p {def Root {var x:Scalar; implicit alpha {var y:Scalar;eq e:y==x;}realize solve_alpha on alpha using nested; implicit beta {var z:Scalar;eq e:z==x;}realize solve_beta on beta using nested;eq a:alpha.y==2;eq b:beta.z==3;}}",
+    );
+    let admitted = admit(&mut workspace, root);
+    let inners = admitted.implicit.values().collect::<Vec<_>>();
+    assert_eq!(inners.len(), 2);
+    let registry = &workspace.inputs.quantities;
+    let quantity = registry.neutral_dimensionless().unwrap();
+    let providers = BTreeMap::from([
+        (
+            "first".into(),
+            ProviderCall {
+                descriptor: inners[0].descriptor.clone(),
+                output: 0,
+            },
+        ),
+        (
+            "second".into(),
+            ProviderCall {
+                descriptor: inners[1].descriptor.clone(),
+                output: 0,
+            },
+        ),
+    ]);
+    let expressions = [
+        dsl::parse_expr("kernel.first(x)").unwrap(),
+        dsl::parse_expr("kernel.second(x)").unwrap(),
+    ];
+    let formals = [Formal {
+        path: "x".into(),
+        quantity,
+    }];
+    let cancel = Arc::new(AtomicBool::new(false));
+    let body = Arc::new(
+        Request {
+            definition: SemanticId::from_bytes([74; 16]),
+            expressions: &expressions,
+            formals: &formals,
+            domains: &BTreeMap::new(),
+            groups: &BTreeMap::new(),
+            providers: &providers,
+            literals: &BTreeMap::new(),
+            physical: ContentHash::from_bytes([75; 32]),
+            structure: ContentHash::from_bytes([76; 32]),
+            limits: BodyLimits::default(),
+        }
+        .admit(registry, &StandardInvariantChecker, &cancel)
+        .unwrap(),
+    );
+    let key = body.spec().key();
+    let original = &admitted.case;
+    assert_eq!(original.variables().len(), 1);
+    let rows = original
+        .rows()
+        .iter()
+        .filter(|row| {
+            admitted.outputs.iter().any(
+                |output| matches!(output, ModelingOutput::Equation { id, .. } if *id == row.id),
+            )
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 2);
+    let variable = &original.variables()[0].port;
+    let instances = rows
+        .iter()
+        .enumerate()
+        .map(|(output, row)| InstanceBinding {
+            instance: row.id,
+            body: key,
+            checked_members: Default::default(),
+            slots: vec![SlotBinding::new(variable, variable, registry).unwrap()],
+            contributions: vec![Contribution {
+                output,
+                target: Target::Row(row.id),
+                scale: 1.0,
+            }],
+        })
+        .collect();
+    let mut shared = admitted.as_ref().clone();
+    shared.case = Arc::new(
+        CaseStructure::new(
+            original.variables().to_vec(),
+            original.parameters().to_vec(),
+            instances,
+            rows,
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    shared.bodies = BTreeMap::from([(key, body)]);
+    let selected = BTreeSet::from([shared.case.instances()[0].instance]);
+    let demands = shared
+        .provider_demands_for(Some(&selected), DerivativeOrder::Second)
+        .unwrap();
+    assert_eq!(
+        demands,
+        BTreeMap::from([(inners[0].descriptor.spec().key(), DerivativeOrder::Second)])
+    );
+    let order = shared.implicit_order_for(Some(&selected)).unwrap();
+    assert_eq!(order.len(), 1);
+    assert_eq!(
+        order[0].descriptor.spec().key(),
+        inners[0].descriptor.spec().key()
+    );
+    assert_eq!(
+        shared
+            .provider_demands_for(None, DerivativeOrder::Second)
+            .unwrap()
+            .len(),
+        2
+    );
 }

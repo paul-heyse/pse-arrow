@@ -604,7 +604,7 @@ impl Oracle for DynamicWorker {
 pub(crate) fn profile_identity(
     p: &SimulationProfile,
 ) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
-    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV8);
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV9);
     pse_ids::document::frame(&mut h, p)
         .map_err(|error| ProblemError::Internal(error.to_string()))?;
     h.str("resolved_method");

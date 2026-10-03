@@ -58,6 +58,18 @@ static CAPABILITY: Capability = Capability {
     cancellation: "solve-wide deadline only: a stop request is honoured before a solve or batch starts; a running solve stops at the deadline, overshooting by at most one factorization",
     diagnostics: "native status, iterations and objective; primal, dual and gap residuals of the cone form",
 };
+fn admit_cones(cones: &[crate::conic::Cone]) -> Result<(), ProblemError> {
+    if cones
+        .iter()
+        .any(|cone| matches!(cone, crate::conic::Cone::GeneralizedPower { .. }))
+    {
+        return Err(ProblemError::Unsupported(
+            "POUNCE-convex has no generalized power cone".into(),
+        ));
+    }
+    Ok(())
+}
+
 impl BackendExecution for PounceConvex {
     fn backend(&self) -> Backend {
         Backend::PounceConvex
@@ -78,10 +90,23 @@ impl BackendExecution for PounceConvex {
         &self,
         settings: &BackendSettings,
         _controls: &Controls,
+        _snapshot: &super::Snapshot,
     ) -> Result<(), ProblemError> {
         match settings {
             BackendSettings::Default | BackendSettings::PounceConvex(_) => Ok(()),
             _ => Err(super::foreign(Backend::PounceConvex)),
+        }
+    }
+    fn assess_representation(
+        &self,
+        requirements: &crate::routing::Requirements<'_>,
+        assessment: &mut crate::routing::Eligibility,
+    ) {
+        super::assess_representation(self, requirements, assessment);
+        if let Some(cone) = requirements.context.cone
+            && let Err(cause) = admit_cones(&cone.problem.cones)
+        {
+            assessment.refuse(cause);
         }
     }
     fn scope(
@@ -215,6 +240,7 @@ mod native {
     }
 
     fn form(p: &ConicProblem) -> Result<Form, ProblemError> {
+        super::admit_cones(&p.cones)?;
         let m = p.rhs.len();
         let mut rows = vec![Target::Equality(0); m];
         let (mut equalities, mut inequalities) = (0, 0);

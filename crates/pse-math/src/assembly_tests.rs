@@ -167,7 +167,7 @@ fn presolve_projection_keeps_alias_coefficients_and_parameter_identity() {
     crate::initialize().unwrap();
     let (a, mut values) = fixture(true, false);
     let cancel = Arc::new(AtomicBool::new(false));
-    let f = a.presolve_facts(&values, 1000, &cancel).unwrap();
+    let f = a.presolve_facts(&values, 10_000, &cancel).unwrap();
     assert_eq!(
         f.affine[0].as_ref().unwrap().entries,
         BTreeMap::from([(0, 10.0)])
@@ -182,15 +182,18 @@ fn presolve_projection_keeps_alias_coefficients_and_parameter_identity() {
     assert!(f.complete.iter().all(|v| *v));
     assert!(f.tapes.iter().all(|t| t.first_invalid_slot().is_none()));
     values.scalars.insert(id(1), 9.0);
-    assert_eq!(f.key, a.presolve_facts(&values, 1000, &cancel).unwrap().key);
+    assert_eq!(
+        f.key,
+        a.presolve_facts(&values, 10_000, &cancel).unwrap().key
+    );
     let (fixed, mut values) = fixture(true, true);
-    let f = fixed.presolve_facts(&values, 1000, &cancel).unwrap();
+    let f = fixed.presolve_facts(&values, 10_000, &cancel).unwrap();
     assert_eq!(f.affine[0].as_ref().unwrap().constant, 20.0);
     values.scalars.insert(id(1), 4.0);
     assert!(!f.matches(&fixed, &values));
     assert_ne!(
         f.key,
-        fixed.presolve_facts(&values, 1000, &cancel).unwrap().key
+        fixed.presolve_facts(&values, 10_000, &cancel).unwrap().key
     );
 }
 #[test]
@@ -203,7 +206,7 @@ fn distinct_columns_keep_one_off_diagonal_and_coefficient_views() {
     assert_eq!(h[(1, 0)], 1.0);
     assert_eq!(h[(0, 1)], 0.0);
     let c = a
-        .coefficients(&x, 1000, &Arc::new(AtomicBool::new(false)))
+        .coefficients(&x, 10_000, &Arc::new(AtomicBool::new(false)))
         .unwrap();
     assert_eq!(c.constraints.to_dense()[(0, 0)], 5.0);
     assert_eq!(c.constraints.to_dense()[(0, 1)], 5.0);
@@ -224,7 +227,7 @@ fn numerical_convexity_distinguishes_psd_indefinite_and_inconclusive() {
     use crate::convexity::*;
     let (a, values) = fixture(false, false);
     let cancel = Arc::new(AtomicBool::new(false));
-    let mut c = a.coefficients(&values, 1000, &cancel).unwrap();
+    let mut c = a.coefficients(&values, 10_000, &cancel).unwrap();
     let assess = |c: &crate::coefficients::Coefficients, bytes| {
         c.numerical_convexity(1.0, &[1.0, 1.0], 1.0, 1e-12, 1e-12, bytes, &cancel)
             .unwrap()
@@ -294,10 +297,10 @@ fn all_fixed_uses_constant_math_and_parameter_changes_reclassify() {
     assert_eq!(w.objective(&x).unwrap(), 4.0);
     assert!(w.gradient(&x).unwrap().is_empty());
     let cancel = Arc::new(AtomicBool::new(false));
-    let c = a.coefficients(&x, 1000, &cancel).unwrap();
+    let c = a.coefficients(&x, 100_000, &cancel).unwrap();
     assert_eq!(c.objective_constant, 4.0);
     x.scalars.insert(id(1), 3.0);
-    let d = a.coefficients(&x, 1000, &cancel).unwrap();
+    let d = a.coefficients(&x, 100_000, &cancel).unwrap();
     assert_eq!(d.objective_constant, 9.0);
     assert_ne!(c.assumptions, d.assumptions);
 }
@@ -306,7 +309,7 @@ fn gram_evidence_is_exact_nonnegative_and_current() {
     crate::initialize().unwrap();
     let (a, x) = fixture(true, false);
     let mut c = a
-        .coefficients(&x, 1000, &Arc::new(AtomicBool::new(false)))
+        .coefficients(&x, 10_000, &Arc::new(AtomicBool::new(false)))
         .unwrap();
     let never = AtomicBool::new(false);
     let Definiteness::Psd(certificate) =
@@ -423,30 +426,30 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
     let cancel = Arc::new(AtomicBool::new(false));
     assert_eq!(
         prepare(0.0)
-            .presolve_facts(&values, 100, &cancel)
+            .presolve_domain_facts(&values, 100, &cancel)
             .unwrap()
             .obligations[&id(9)],
         crate::presolve::ObligationStatus::Unestablished
     );
     assert_eq!(
         prepare(1.0)
-            .presolve_facts(&values, 100, &cancel)
+            .presolve_domain_facts(&values, 100, &cancel)
             .unwrap()
             .obligations[&id(9)],
         crate::presolve::ObligationStatus::Discharged
     );
     assert_eq!(
         prepare(1.0)
-            .presolve_facts(&values, 1, &cancel)
+            .presolve_domain_facts(&values, 1, &cancel)
             .unwrap()
             .obligations[&id(9)],
         crate::presolve::ObligationStatus::Unestablished
     );
     assert!(prepare(1.0).coefficients(&values, 1, &cancel).is_err());
-    assert!(prepare(0.0).coefficients(&values, 100, &cancel).is_err());
+    assert!(prepare(0.0).coefficients(&values, 10_000, &cancel).is_err());
     assert_eq!(
         prepare(1.0)
-            .coefficients(&values, 100, &cancel)
+            .coefficients(&values, 10_000, &cancel)
             .unwrap()
             .objective_constant,
         1.0
@@ -578,7 +581,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
     assert_eq!(worker.gradient(&values).unwrap(), vec![42.0]);
     assert_eq!(worker.hessian(&values, 1.0, &[0.0]).unwrap().val(), &[18.0]);
     assert_eq!(worker.jacobian(&values).unwrap().val(), &[6.0]);
-    let c = a.coefficients(&values, 100, &cancel).unwrap();
+    let c = a.coefficients(&values, 100_000, &cancel).unwrap();
     assert_eq!(c.objective_constant, 1.0);
     assert_eq!(c.objective, vec![6.0]);
     assert_eq!(c.hessian.val(), &[18.0]);
@@ -588,7 +591,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
         panic!("18 is positive")
     };
     values.scalars.insert(id(2), -1.0);
-    let d = a.coefficients(&values, 100, &cancel).unwrap();
+    let d = a.coefficients(&values, 100_000, &cancel).unwrap();
     assert_ne!(c.assumptions, d.assumptions);
     assert!(proof.validate(&d.hessian, 1.0).is_err());
     assert_eq!(
@@ -741,13 +744,14 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
 fn exhausted_optional_presolve_tapes_preserve_original_evaluation_and_independent_facts() {
     let (assembly, values) = fixture(true, false);
     let cancel = Arc::new(AtomicBool::new(false));
-    let limited = assembly.presolve_facts(&values, 2, &cancel).unwrap();
+    let limited = assembly.presolve_domain_facts(&values, 2, &cancel).unwrap();
     assert!(!limited.complete[0]);
     assert!(limited.complete[1]);
     assert_eq!(
-        limited.affine[0].as_ref().unwrap().entries,
-        BTreeMap::from([(0, 10.)])
+        limited.class_status,
+        crate::presolve::ClassStatus::Unassessed
     );
+    assert!(limited.affine.iter().all(Option::is_none));
     assert_eq!(limited.objective_degree, None);
     assert!(
         limited
@@ -759,6 +763,10 @@ fn exhausted_optional_presolve_tapes_preserve_original_evaluation_and_independen
     assert_eq!(worker.constraints(&values).unwrap(), vec![20., 0.]);
     let complete = assembly.presolve_facts(&values, 1000, &cancel).unwrap();
     assert!(complete.complete.iter().all(|v| *v));
+    assert_eq!(
+        complete.affine[0].as_ref().unwrap().entries,
+        BTreeMap::from([(0, 10.)])
+    );
     let (fixed, _) = fixture(true, true);
     assert!(
         fixed
@@ -1093,7 +1101,341 @@ fn lexicographic_structure_projects_every_level() {
     // A later level must be linear to be a coefficient model.
     let quadratic = plan(structure(2, levels).unwrap());
     let facts = quadratic.presolve_facts(&values, 1000, &cancel).unwrap();
-    assert_eq!(facts.lexicographic_degree, Some(2));
+    assert_eq!(facts.lexicographic_degree, None);
+    assert!(matches!(
+        facts.class_status,
+        crate::presolve::ClassStatus::RuledOut(
+            crate::presolve::ClassWitness::NonlinearLaterObjective { level: 1 }
+        )
+    ));
     assert!(!facts.coefficient_eligible());
     assert!(quadratic.coefficients(&values, 1000, &cancel).is_err());
+}
+
+#[test]
+fn case_order_upgrade_preserves_original_limits_maps_and_weaker_products() {
+    let (assembly, _) = fixture(true, false);
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let value = CasePlan::prepare(
+        Arc::new(assembly.structure().clone()),
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits {
+            contributions: 4,
+            ..AssemblyLimits::default()
+        },
+        &cancel,
+    )
+    .unwrap();
+    assert!(
+        value
+            .supports()
+            .iter()
+            .all(|s| s.support().first.is_empty() && s.support().second.is_empty())
+    );
+    let original_incidence = value.incidence(&cancel).unwrap();
+    assert_eq!(
+        original_incidence[0].first_for_output(1).unwrap(),
+        &[0, 1].into_iter().collect()
+    );
+    let first = value
+        .prepare_order(DerivativeOrder::First, &cancel)
+        .unwrap();
+    assert_eq!(first.structure().key(), value.structure().key());
+    assert_eq!(first.columns(), value.columns());
+    assert_eq!(first.jacobian_pattern().nrows(), 2);
+    assert_eq!(first.jacobian_pattern().ncols(), 2);
+    assert!(
+        first
+            .supports()
+            .iter()
+            .zip(value.supports())
+            .all(|(stronger, weaker)| {
+                stronger.remaining_occurrences() < weaker.remaining_occurrences()
+                    && stronger.support().second.is_empty()
+            })
+    );
+    assert!(matches!(
+        first.prepare_order(DerivativeOrder::Second, &cancel),
+        Err(crate::MathError::Limit("case derivative contributions"))
+    ));
+    assert_eq!(first.order(), DerivativeOrder::First);
+    assert!(
+        first
+            .supports()
+            .iter()
+            .all(|s| s.support().second.is_empty())
+    );
+    assert_eq!(value.order(), DerivativeOrder::Value);
+    assert!(
+        value
+            .supports()
+            .iter()
+            .all(|s| s.support().first.is_empty())
+    );
+}
+
+#[test]
+fn domain_projection_is_unassessed_until_bounded_class_evidence_is_requested() {
+    use crate::presolve::{ClassEvidence, ClassRequest, ClassStatus};
+    let (assembly, values) = fixture(true, false);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let base = assembly
+        .presolve_domain_facts(&values, 10_000, &cancel)
+        .unwrap();
+    assert_eq!(base.class_status, ClassStatus::Unassessed);
+    assert!(base.affine.iter().all(Option::is_none));
+    assert_eq!(base.objective_degree, None);
+    assert!(matches!(
+        assembly.class_evidence(&values, &base, ClassRequest::Coefficients, 1, &cancel),
+        Err(crate::MathError::WorkLimit {
+            resource: "class proof construction",
+            ..
+        })
+    ));
+    assert_eq!(base.class_status, ClassStatus::Unassessed);
+    let ClassEvidence::Established {
+        facts,
+        coefficients,
+    } = assembly
+        .class_evidence(&values, &base, ClassRequest::Coefficients, 10_000, &cancel)
+        .unwrap()
+    else {
+        panic!("coefficient class should be established");
+    };
+    assert_eq!(facts.class_status, ClassStatus::Established);
+    assert_eq!(facts.objective_degree, Some(2));
+    assert!(facts.proof_remaining < base.proof_remaining);
+    assert_eq!(coefficients.hessian.val(), &[2.0]);
+    let consumed = base.proof_remaining - facts.proof_remaining;
+    assert!(matches!(
+        assembly.class_evidence(
+            &values,
+            &base,
+            ClassRequest::Coefficients,
+            consumed - 1,
+            &cancel
+        ),
+        Err(crate::MathError::WorkLimit {
+            resource: "class proof construction",
+            ..
+        })
+    ));
+    assert!(matches!(
+        assembly.class_evidence(
+            &values,
+            &base,
+            ClassRequest::Coefficients,
+            consumed,
+            &cancel
+        ),
+        Ok(ClassEvidence::Established { .. })
+    ));
+    cancel.store(true, std::sync::atomic::Ordering::Release);
+    assert!(matches!(
+        assembly.class_evidence(&values, &base, ClassRequest::Coefficients, 10_000, &cancel),
+        Err(crate::MathError::Cancelled)
+    ));
+    cancel.store(false, std::sync::atomic::Ordering::Release);
+    assert_eq!(base.class_status, ClassStatus::Unassessed);
+}
+
+#[test]
+fn class_proof_aggregates_nonlinear_row_contributions_before_ruling_out_coefficients() {
+    use crate::presolve::{ClassEvidence, ClassRequest};
+    let (assembly, values) = fixture(true, false);
+    let original = assembly.structure();
+    let mut instances = original.instances().to_vec();
+    instances[0].contributions = vec![
+        Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: 1.0,
+        },
+        Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: -1.0,
+        },
+        Contribution {
+            output: 1,
+            target: Target::PRIMARY,
+            scale: 1.0,
+        },
+    ];
+    let structure = CaseStructure::new(
+        original.variables().to_vec(),
+        original.parameters().to_vec(),
+        instances,
+        original.rows().to_vec(),
+        original.objective().cloned(),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let registry = standard_registry().unwrap();
+    let plan = CasePlan::prepare(
+        Arc::new(structure),
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let base = plan
+        .presolve_domain_facts(&values, 10_000, &cancel)
+        .unwrap();
+    let ClassEvidence::Established {
+        facts,
+        coefficients,
+    } = plan
+        .class_evidence(&values, &base, ClassRequest::Coefficients, 10_000, &cancel)
+        .unwrap()
+    else {
+        panic!("aggregate affine case should be established");
+    };
+    assert!(facts.affine[0].as_ref().unwrap().entries.is_empty());
+    assert_eq!(facts.objective_degree, Some(1));
+    assert_eq!(coefficients.objective, [2.0, 0.0]);
+    assert!(coefficients.constraints.val().is_empty());
+    assert!(coefficients.hessian.val().is_empty());
+}
+
+#[test]
+fn ruled_out_coefficient_class_retains_independent_affine_rows() {
+    use crate::presolve::{ClassEvidence, ClassRequest, ClassWitness};
+    let (assembly, values) = fixture(true, false);
+    let original = assembly.structure();
+    let mut instances = original.instances().to_vec();
+    instances[0].contributions = vec![
+        Contribution {
+            output: 0,
+            target: Target::Row(id(10)),
+            scale: 1.0,
+        },
+        Contribution {
+            output: 1,
+            target: Target::Row(id(11)),
+            scale: 1.0,
+        },
+    ];
+    let structure = CaseStructure::new(
+        original.variables().to_vec(),
+        original.parameters().to_vec(),
+        instances,
+        original.rows().to_vec(),
+        original.objective().cloned(),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let registry = standard_registry().unwrap();
+    let plan = CasePlan::prepare(
+        Arc::new(structure),
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let base = plan
+        .presolve_domain_facts(&values, 10_000, &cancel)
+        .unwrap();
+    let ClassEvidence::RuledOut { facts, witness } = plan
+        .class_evidence(&values, &base, ClassRequest::Coefficients, 10_000, &cancel)
+        .unwrap()
+    else {
+        panic!("nonaffine row must rule out coefficients");
+    };
+    assert_eq!(witness, ClassWitness::NonAffineRow { row: id(10) });
+    assert!(facts.affine[0].is_none());
+    assert_eq!(
+        facts.affine[1].as_ref().unwrap().entries,
+        BTreeMap::from([(0, 2.0)])
+    );
+    assert_eq!(facts.objective_degree, None);
+}
+
+#[test]
+fn class_proof_and_coefficients_share_aggregate_objective_cancellation() {
+    use crate::presolve::{ClassEvidence, ClassRequest};
+    let (assembly, values) = fixture(true, false);
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = builder.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let y = builder.input(1, quantity, IndexSet::new(), id(21)).unwrap();
+    let square = builder
+        .binary(Binary::Mul, x.clone(), x.clone(), None, id(22))
+        .unwrap();
+    let cubic = builder
+        .binary(Binary::Mul, square, x.clone(), None, id(23))
+        .unwrap();
+    let linear = builder.binary(Binary::Add, x, y, None, id(24)).unwrap();
+    let body = Arc::new(builder.prepare(&[cubic, linear]).unwrap());
+    let original = assembly.structure();
+    let mut instances = original.instances().to_vec();
+    let key = instances[0].body;
+    instances[0].contributions = vec![
+        Contribution {
+            output: 0,
+            target: Target::PRIMARY,
+            scale: 1.0,
+        },
+        Contribution {
+            output: 0,
+            target: Target::PRIMARY,
+            scale: -1.0,
+        },
+        Contribution {
+            output: 1,
+            target: Target::PRIMARY,
+            scale: 1.0,
+        },
+    ];
+    let structure = CaseStructure::new(
+        original.variables().to_vec(),
+        original.parameters().to_vec(),
+        instances,
+        original.rows().to_vec(),
+        original.objective().cloned(),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        Arc::new(structure),
+        BTreeMap::from([(key, body)]),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let base = plan
+        .presolve_domain_facts(&values, 10_000, &cancel)
+        .unwrap();
+    let ClassEvidence::Established {
+        facts,
+        coefficients,
+    } = plan
+        .class_evidence(&values, &base, ClassRequest::Coefficients, 10_000, &cancel)
+        .unwrap()
+    else {
+        panic!("canceled cubic objective must admit linear coefficients");
+    };
+    assert_eq!(facts.objective_degree, Some(1));
+    assert_eq!(coefficients.objective, [2.0, 0.0]);
+    assert!(coefficients.hessian.val().is_empty());
 }

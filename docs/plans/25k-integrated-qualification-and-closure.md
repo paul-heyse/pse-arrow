@@ -83,13 +83,25 @@ K3 remains incomplete; K4 and closure remain pending. This requested review is b
 its compilation/routing inquiry than the planned final K5 evidence assessment and does not
 complete that packet. Its findings are now scheduled in the
 [coordinator's existing disposition owner](25-design-remediation.md#full-case-compilation-and-solver-routing-follow-up)
-through the proposed [25l implementation plan](25l-flowsheet-compilation-and-solver-routing.md).
-Production execution remains to be authorized. L6 must establish functional readiness and
-required decision routes before this campaign resumes. Then refresh scope-end static checks
-for the changed source and execute the affected scientific/integrated scopes; earlier K1/K2
-results retain their historical conditions. No remediation, successful whole-case qualification
-or performance measurement is implied by plan creation. The selected dev-profile measurement
-choice remains in force.
+through the [25l implementation plan](25l-flowsheet-compilation-and-solver-routing.md).
+**Implemented/Tested, 2026-10-02:** [25l L0–L6 functional scope is complete](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
+with selective support, contextual readiness, completion and generated/recorded boundaries,
+124 focused Rust tests, five Python codec tests and final default/linked compilation.
+Its four runtime preparation controls start no native attempt and use no storage.
+Static refresh checkpoint, 2026-10-02: the requested `just hygiene` refresh is complete
+after source repairs and regeneration of the route-decision invariant fixtures. Default,
+no-default and linked native Clippy all pass with `--keep-going` and `-D warnings`;
+`just lint-solver-contracts` covers the linked graph outside hygiene, and
+`just fmt-rust-check` passes. The final checks meet the zero-failure target after iterative
+repair. Targeted diagnostics, math assembly, native preparation and contextual routing
+controls pass with explicit force-validation and one test thread; the five Python codec
+controls also pass. The repairs preserve shared immutable facts, inline admitted metadata,
+retained routing evidence and the distinct exact-Hessian inputs.
+
+The next work here is the affected K3 scientific and integrated journeys, K4 measurements
+and K5 assessment. Earlier K1/K2 results retain their historical conditions; this static
+refresh and focused readiness do not qualify whole-case solutions or performance.
+The selected dev-profile measurement choice remains in force.
 
 The resumed campaign includes 25l's demand separation, pending class/capability evidence,
 contextual method/build/representation controls and original failure-meaning matrix alongside

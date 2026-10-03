@@ -437,6 +437,8 @@ fn run_normalized(
     execution.time_limit = controls.time_limit;
     execution::factorable(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(Backend::Scip),
             settings: &BackendSettings::Scip(settings.clone()),
             controls,
@@ -843,6 +845,8 @@ fn certify_known_global_optimum() {
     let normalization = Normalization::identity(2, 1);
     let ipopt = execution::nlp(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(Backend::Ipopt),
             settings: &BackendSettings::Default,
             controls: &controls,
@@ -1248,7 +1252,12 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
     };
     let cancellation =
         std::env::var("OMP_CANCELLATION").is_ok_and(|v| v.eq_ignore_ascii_case("true"));
-    assert_eq!(spral.admit(1).is_ok(), cancellation);
+    assert_eq!(
+        spral
+            .admit(1, &execution::Snapshot::observe(&execution::LINKED))
+            .is_ok(),
+        cancellation
+    );
     // Admitted permits run SCIP concurrently; modes that exclude one another are refused.
     let adapter = execution::adapter(Backend::Scip);
     let threads = Controls {
@@ -1257,12 +1266,20 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
     };
     assert!(
         adapter
-            .admit_settings(&BackendSettings::Scip(pardiso), &Controls::default())
+            .admit_settings(
+                &BackendSettings::Scip(pardiso),
+                &Controls::default(),
+                &execution::Snapshot::observe(&execution::LINKED)
+            )
             .is_ok()
     );
     assert!(
         adapter
-            .admit_settings(&BackendSettings::Default, &threads)
+            .admit_settings(
+                &BackendSettings::Default,
+                &threads,
+                &execution::Snapshot::observe(&execution::LINKED)
+            )
             .is_ok()
     );
     for (settings, controls) in [
@@ -1299,7 +1316,11 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
     ] {
         assert!(
             matches!(
-                adapter.admit_settings(&BackendSettings::Scip(settings.clone()), &controls),
+                adapter.admit_settings(
+                    &BackendSettings::Scip(settings.clone()),
+                    &controls,
+                    &execution::Snapshot::observe(&execution::LINKED)
+                ),
                 Err(ProblemError::Unsupported(_))
             ),
             "{settings:?}"
@@ -1417,6 +1438,8 @@ fn run_budgeted(
     let initial = case.initial();
     execution::factorable(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(Backend::Scip),
             settings: &BackendSettings::Scip(ScipSettings::default()),
             controls: &Controls::default(),
@@ -2406,6 +2429,8 @@ fn scip_incumbent_events_apply_offset() {
         ));
         let report = execution::factorable(
             Step {
+                snapshot: &execution::Snapshot::observe(&execution::LINKED),
+                structure: None,
                 adapter: execution::adapter(Backend::Scip),
                 settings: &BackendSettings::Scip(settings),
                 controls: &controls,
@@ -2552,6 +2577,8 @@ fn highs_native(case: &Case) -> SolveReport {
         .collect();
     execution::coefficients(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(Backend::Highs),
             settings: &BackendSettings::Default,
             controls: &controls,
@@ -2564,6 +2591,7 @@ fn highs_native(case: &Case) -> SolveReport {
         },
         &mut Retained::default(),
         execution::Coefficients {
+            lowered: None,
             problem: &problem,
             certificate: None,
             row_constants: &constants,
@@ -2933,6 +2961,8 @@ fn epigraph_incumbent_reports_function_value() {
     ));
     let report = execution::factorable(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(Backend::Scip),
             settings: &BackendSettings::Scip(settings),
             controls: &controls,
@@ -3087,6 +3117,8 @@ fn scip_concurrent_solve_cancels() {
     let mut original = Original(&case);
     let report = execution::factorable(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(Backend::Scip),
             settings: &BackendSettings::Scip(ScipSettings::default()),
             controls: &controls,
@@ -3147,6 +3179,8 @@ fn scip_concurrent_streams_incumbents() {
         ));
         let report = execution::factorable(
             Step {
+                snapshot: &execution::Snapshot::observe(&execution::LINKED),
+                structure: None,
                 adapter: execution::adapter(Backend::Scip),
                 settings: &BackendSettings::Scip(ScipSettings::default()),
                 controls: &controls,

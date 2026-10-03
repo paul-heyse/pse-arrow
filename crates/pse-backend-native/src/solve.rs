@@ -1799,8 +1799,7 @@ impl SolveReport {
         }
     }
 }
-/// Guard reserved semantic options before asking the native library to validate others.
-#[cfg(any(feature = "ipopt", feature = "pounce", feature = "highs"))]
+/// Guard reserved semantic options during pure admission and final native execution.
 pub(crate) fn reject_reserved(options: &Options, reserved: &[&str]) -> Result<(), ProblemError> {
     if let Some(key) = options
         .keys()

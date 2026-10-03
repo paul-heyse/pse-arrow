@@ -31,7 +31,7 @@ pub(super) fn free_discrete_refusal(error: &WorkflowError) -> (String, String) {
         text("analysis"),
     )
 }
-pub(super) fn runtime() -> Runtime {
+pub(crate) fn runtime() -> Runtime {
     runtime_with_workspace(16 << 20)
 }
 pub(super) fn runtime_with_workspace(workspace_bytes: usize) -> Runtime {
@@ -92,7 +92,7 @@ pub(super) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
     );
     Runtime::from_shared(shared, registry, sessions)
 }
-pub(super) fn physical() -> PhysicalContext {
+pub(crate) fn physical() -> PhysicalContext {
     // Fixture only: production requires source-backed PhysicalInventory admission.
     let quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
     let preconditions = Arc::new(
@@ -120,7 +120,7 @@ pub(super) fn profile() -> SolverProfile {
         sensitivity: None,
     }
 }
-pub(super) fn compiler_profile() -> pse_compiler::workspace::Profile {
+pub(crate) fn compiler_profile() -> pse_compiler::workspace::Profile {
     pse_compiler::workspace::Profile {
         evaluation: pse_math::jets::EvaluationLimits {
             scratch_bytes: 1 << 20,

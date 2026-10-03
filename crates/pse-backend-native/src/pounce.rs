@@ -213,11 +213,7 @@ impl Session {
             .flat_map(|v| [v.lower, v.upper])
             .chain(oracle.constraint_bounds().iter().flat_map(|v| [v.0, v.1]))
         {
-            if v.is_nan() || v.is_finite() && v.abs() >= 1e19 {
-                return Err(ProblemError::Unsupported(
-                    "POUNCE finite bound reaches native infinity threshold".into(),
-                ));
-            }
+            crate::settings::pounce::admit_bound(v)?;
         }
         let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
         let hess = if supplied {

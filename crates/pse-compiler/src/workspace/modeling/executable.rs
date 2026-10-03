@@ -663,20 +663,42 @@ fn projection(
             p.expressions.push(expression);
         }
     }
-    // An admitted input is also an observable value. Export its identity expression
-    // through the same library body, so explicit function/fit selections do not
-    // require an authored alias or report annotation. Synthetic rate coordinates
-    // remain internal to integrated residual construction.
+    // Numerical observation is a demand, not an automatic consequence of retaining
+    // a source declaration. Original rows, checks and objective terms remain mandatory.
+    let mut observed = request
+        .bindings(db)
+        .demand
+        .iter()
+        .filter_map(|path| model.paths.get(path).copied())
+        .collect::<BTreeSet<_>>();
+    observed.extend(
+        model
+            .objectives
+            .members
+            .iter()
+            .flat_map(|member| [member.target, member.term]),
+    );
+    observed.extend(model.annotations.iter().filter_map(|annotation| {
+        model
+            .symbols
+            .contains_key(&annotation.target)
+            .then_some(annotation.target)
+    }));
+    // Conditional boundary factories consume physical port coordinates explicitly.
+    observed.extend(model.ports.values().map(|port| port.symbol));
     for id in p
         .inputs
         .iter()
-        .filter(|id| !model.derivatives.values().any(|d| d.rate == **id))
+        .filter(|id| observed.contains(id) && !model.derivatives.values().any(|d| d.rate == **id))
     {
         p.outputs.push(ModelingOutput::Member(*id));
         p.expressions.push(symbol_expression(*id));
     }
     for node in order {
         let id = graph[node];
+        if !observed.contains(&id) {
+            continue;
+        }
         p.outputs.push(ModelingOutput::Member(id));
         p.expressions.push(symbol_expression(id));
     }
@@ -1187,6 +1209,7 @@ impl CompilerWorkspace {
 /// Finite kernel preparation and post-specialization structural evidence.
 #[derive(Clone, Debug)]
 pub struct PreparedModeling {
+    semantic: SemanticModeling,
     projection: Arc<Projection>,
     owned_implicit_view: Option<pse_math::SharedAllocation<AdmittedModeling>>,
     /// Instantiated members, demand chains, values and original closure terms.
@@ -1205,6 +1228,10 @@ impl AdmittedModeling {
     }
 }
 impl PreparedModeling {
+    /// Semantic process meaning with no dependency on numerical projection.
+    pub fn semantic(&self) -> SemanticModeling {
+        self.semantic.clone()
+    }
     /// Child residual providers before consumers, retaining this admitted view's owner.
     /// # Errors
     /// A cyclic admitted provider dependency.
@@ -1240,6 +1267,7 @@ impl PreparedModeling {
             self.owned_implicit_view = Some(self.admitted.clone());
         }
         self.model = self.model.with_owner(owner.clone());
+        self.semantic = self.semantic.with_owner(owner.clone());
         self.admitted = self.admitted.with_owner(owner);
         self
     }
@@ -1263,8 +1291,14 @@ impl CompilerWorkspace {
         self.db.cancel = cancel;
         let result = salsa::Cancelled::catch(|| {
             let model = specialized(&self.db, catalog, request)?;
+            let semantic = SemanticModeling::admit(
+                model.clone().into(),
+                self.inventory.quantities(&self.db),
+                self.inventory.preconditions(&self.db),
+            )?;
             let admitted = admitted(&self.db, self.inventory, catalog, request)?;
             Ok(PreparedModeling {
+                semantic,
                 projection: projection(&self.db, self.inventory, catalog, request)?,
                 owned_implicit_view: None,
                 model: model.into(),
@@ -1283,6 +1317,7 @@ impl PreparedModeling {
     pub fn retained_bytes(&self) -> usize {
         2 * size_of::<Self>()
             + 256
+            + self.semantic.descriptor_bytes()
             + self.model.retained_bytes()
             + projection_heap(&Ok(self.projection.clone()))
             + admitted_allocation_bytes(&self.admitted)

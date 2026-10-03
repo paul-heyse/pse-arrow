@@ -261,3 +261,42 @@ fn unconsumed_field_extension_growth_does_not_invalidate_a_reader() {
     );
     recorded(source).unwrap().project(&consumer).unwrap();
 }
+
+#[test]
+fn unavailable_feasibility_preserves_recorded_candidate_vocabulary() {
+    let registry = crate::registry().unwrap();
+    let root = registry
+        .relation("runtime.candidate_assessments")
+        .unwrap()
+        .id;
+    let current = SemanticContract::new(registry, &[root].into()).unwrap();
+    let mut historical = current.clone();
+    let mut removed = 0;
+    for description in historical.relations.values_mut() {
+        if let Some(domain) = description["enums"].get_mut("CandidateRefusal") {
+            assert!(
+                domain["members"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("feasibility_unavailable")
+                    .is_some()
+            );
+            removed += 1;
+        }
+    }
+    assert!(removed > 0);
+    let historical = recorded(historical).unwrap();
+    let current = recorded(current).unwrap();
+    historical.project(current.contract()).unwrap();
+    assert!(current.project(historical.contract()).is_err());
+    assert!(
+        historical
+            .admit_exact_write(current.contract(), ContentHash::NIL, ContentHash::NIL)
+            .is_err()
+    );
+    historical
+        .admit_exact_write(historical.contract(), ContentHash::NIL, ContentHash::NIL)
+        .unwrap();
+    let routes = registry.relation("runtime.route_decisions").unwrap();
+    assert_eq!(routes.key.version, 2);
+}

@@ -25,6 +25,25 @@ pub(crate) mod recognized;
 pub use lowering::{Lowered, LoweredRow, RowSide};
 pub use recognized::{Recognized, lower};
 
+/// Exact PSD proof for a recognized cone program's zero objective quadratic.
+/// Uses the same Gram owner as every conic proof; callers reserve its construction extent.
+pub fn zero_certificate(
+    columns: usize,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<pse_math::convexity::GramCertificate, ProblemError> {
+    if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(ProblemError::Cancelled);
+    }
+    let zero = faer::sparse::SparseColMat::try_new_from_triplets(columns, columns, &[])
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    let pse_math::convexity::Definiteness::Psd(certificate) =
+        pse_math::convexity::GramCertificate::certify(&zero, 1.0, 1, cancel)?
+    else {
+        return Err(ProblemError::Internal("zero quadratic certificate".into()));
+    };
+    Ok(certificate)
+}
+
 /// Compressed-sparse-column matrix of the conic boundary.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -434,10 +453,9 @@ pub(crate) fn admit_threads(direct: Direct, threads: usize) -> Result<(), Proble
 }
 /// Map the pse settings, the shared controls and the resolved accuracy to Clarabel's
 /// complete native settings. Only this adapter sees `DefaultSettings`.
-fn settings(
+pub(crate) fn settings_base(
     pse: &Settings,
     controls: &Controls,
-    accuracy: &ResolvedAccuracy,
     mode: Mode,
 ) -> Result<DefaultSettings<f64>, ProblemError> {
     controls.validate()?;
@@ -509,12 +527,30 @@ fn settings(
             // validates the method. Zero leaves Pardiso's thread count to the owning
             // worker's oneMKL-local setting (`mkl::Threads`) instead of the process-wide
             // Pardiso domain Clarabel would set.
-            #[cfg(feature = "clarabel-pardiso")]
-            crate::mkl::pardiso()?;
             settings.direct_solve_method = "mkl".into();
             settings.max_threads = 0;
         }
     }
+    if mode == Mode::ReusableData {
+        settings.presolve_enable = false;
+        settings.input_sparse_dropzeros = false;
+        #[cfg(feature = "sdp")]
+        {
+            settings.chordal_decomposition_enable = false;
+        }
+    }
+    settings
+        .validate()
+        .map_err(|e| ProblemError::Contract(format!("Clarabel settings: {e}")))?;
+    Ok(settings)
+}
+pub(crate) fn settings(
+    pse: &Settings,
+    controls: &Controls,
+    accuracy: &ResolvedAccuracy,
+    mode: Mode,
+) -> Result<DefaultSettings<f64>, ProblemError> {
+    let mut settings = settings_base(pse, controls, mode)?;
     settings.tol_gap_abs = accuracy.gap_absolute;
     settings.tol_gap_rel = accuracy.gap_relative;
     settings.tol_feas = accuracy.feasibility;
@@ -527,14 +563,6 @@ fn settings(
     settings.reduced_tol_feas = settings.tol_feas;
     settings.equilibrate_enable = accuracy.native_scaling;
     settings.verbose = false;
-    if mode == Mode::ReusableData {
-        settings.presolve_enable = false;
-        settings.input_sparse_dropzeros = false;
-        #[cfg(feature = "sdp")]
-        {
-            settings.chordal_decomposition_enable = false;
-        }
-    }
     settings
         .validate()
         .map_err(|e| ProblemError::Contract(format!("Clarabel settings: {e}")))?;
@@ -551,6 +579,10 @@ impl Session {
         compatibility: Compatibility,
     ) -> Result<Self, ProblemError> {
         p.validate(certificate)?;
+        #[cfg(feature = "clarabel-pardiso")]
+        if pse.direct == Direct::MklPardiso {
+            crate::mkl::pardiso()?;
+        }
         let settings = settings(pse, controls, accuracy, pse.mode)?;
         let d = data(p)?;
         let quadratic = p.quadratic.to_clarabel();

@@ -251,7 +251,7 @@ impl ModelingPackage {
             .await?;
         let mut selected = analysis.clone();
         if let pse_backend_native::routing::Route::Native(backend) = decision
-            .route()
+            .candidate()
             .map_err(crate::math::MathRuntimeError::from)?
         {
             selected.solver.selection =
@@ -260,7 +260,7 @@ impl ModelingPackage {
         }
         let report =
             if decision.lexicographic == Some(pse_backend_native::routing::Lexicographic::Native) {
-                let prepared = self.finish_case(resolution).await?;
+                let prepared = self.finish_case(resolution, cancel).await?;
                 self.native_solve(&mut staged, &levels, prepared, cancel)
                     .await
             } else {
@@ -283,7 +283,7 @@ impl ModelingPackage {
         ),
         WorkflowError,
     > {
-        let resolution = self
+        let mut resolution = self
             .resolve_case(
                 analysis.root,
                 analysis.instance,
@@ -299,20 +299,19 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        let facts = &resolution.model.case.compiled().facts;
-        let requirements = pse_backend_native::routing::Requirements {
-            table: &pse_backend_native::execution::LINKED,
-            facts,
-            intent: resolution.solver.intent,
-            numerical_psd: false,
-            least_squares: false,
-            controls: &resolution.solver.controls,
-            settings: &resolution.solver.backend,
-            sensitivity: resolution.solver.sensitivity.is_some(),
-        };
-        let decision = requirements.lexicographic(analysis.solver.selection, single_nonzero);
+        resolution.model.case = self
+            .runtime
+            .shared
+            .math()
+            .discover_class(
+                resolution.model.case.clone(),
+                resolution.model.values.clone(),
+                &resolution.solver,
+            )
+            .await?;
+        let decision = resolution.assess_route(Some(single_nonzero))?;
         decision
-            .route()
+            .candidate()
             .map_err(crate::math::MathRuntimeError::from)?;
         Ok((decision, resolution))
     }

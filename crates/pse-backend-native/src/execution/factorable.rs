@@ -69,6 +69,72 @@ pub enum Refusal {
     /// A native logic or indicator operand is not a binary column or a fixed 0/1 value.
     NativeOperand(usize),
 }
+impl Refusal {
+    pub(crate) fn boundary_diagnostic(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
+        let mut diagnostic = BoundaryDiagnostic::new(
+            BoundaryClass::Unsupported,
+            stage,
+            [],
+            pse_diagnostics::DiagnosticRule::NativeUnsupported,
+        )
+        .with_code(pse_diagnostics::DiagnosticCode::NativeUnsupported);
+        let kind = match self {
+            Self::ObjectiveUnavailable => "objective_unavailable",
+            Self::ExactRequired => "exact_required",
+            Self::UnboundedNonlinear(missing) => {
+                match missing.owner {
+                    BoundOwner::Variable(id) => {
+                        diagnostic.sources.push(id);
+                    }
+                    BoundOwner::Auxiliary(ordinal) => {
+                        diagnostic
+                            .observations
+                            .insert("auxiliary".into(), Observation::Text(ordinal.to_string()));
+                    }
+                }
+                diagnostic
+                    .observations
+                    .insert("missing_lower".into(), Observation::Boolean(missing.lower));
+                diagnostic
+                    .observations
+                    .insert("missing_upper".into(), Observation::Boolean(missing.upper));
+                "unbounded_nonlinear"
+            }
+            Self::SemiInterval(id) => {
+                diagnostic.sources.push(*id);
+                "semi_interval"
+            }
+            Self::Constant(node) => {
+                diagnostic
+                    .observations
+                    .insert("node".into(), Observation::Text(node.to_string()));
+                "constant"
+            }
+            Self::Conjunctive(row) => {
+                diagnostic.sources.push(*row);
+                "conjunctive"
+            }
+            Self::NativeOperand(ordinal) => {
+                diagnostic.observations.insert(
+                    "native_constraint".into(),
+                    Observation::Text(ordinal.to_string()),
+                );
+                "native_operand"
+            }
+        };
+        diagnostic
+            .observations
+            .insert("factorable_refusal".into(), Observation::Text(kind.into()));
+        diagnostic
+            .observations
+            .insert("detail".into(), Observation::Text(self.to_string()));
+        diagnostic
+    }
+}
 impl std::fmt::Display for Refusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -846,6 +912,34 @@ pub fn factorable(
     retained: &mut Retained,
     run: Factorable<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    step.preflight()?;
+    if let Some(structure) = step.structure {
+        // Free columns and selected original rows are separate from exported auxiliaries,
+        // implicit residuals and native handlers; only the original inventory is admitted.
+        let original = crate::OracleContract {
+            identity: run.program.key,
+            variables: run
+                .program
+                .variables
+                .iter()
+                .map(|variable| crate::Variable {
+                    id: variable.id,
+                    lower: variable.lower,
+                    upper: variable.upper,
+                })
+                .collect(),
+            rows: run.program.rows.iter().map(|row| row.id).collect(),
+            derivatives: pse_kernels::DerivativeOrder::Value,
+            smoothness: pse_kernels::DerivativeOrder::Value,
+        };
+        let bounds = run
+            .program
+            .rows
+            .iter()
+            .map(|row| (row.lower, row.upper))
+            .collect::<Vec<_>>();
+        crate::structural::validate_assessment(structure, &original, &bounds)?;
+    }
     let plan = plan(run.program, run.intent).map_err(|r| refused(&r))?;
     if run.initial.len() != run.program.variables.len() {
         return Err(ProblemError::Contract("factorable start dimensions".into()));
@@ -862,6 +956,8 @@ pub fn factorable(
             controls: step.controls,
             accuracy: step.accuracy,
             settings: step.settings,
+            snapshot: step.snapshot,
+            structure: step.structure,
             execution: step.execution.clone(),
             tolerances: step.tolerances,
             warm: step.warm,
@@ -1317,7 +1413,36 @@ fn fixed_assignment(
         threads: 1,
         ..step.controls.clone()
     };
-    let Route::Native(backend) = (Requirements {
+    let guards = BTreeMap::new();
+    let refusals = BTreeMap::new();
+    let structure = crate::structural::oracle_structure(
+        oracle.contract(),
+        oracle.jacobian_pattern(),
+        oracle.constraint_bounds(),
+        objective,
+    )?;
+    let context = routing::Context {
+        snapshot: step.snapshot.clone(),
+        pending_classes: &[],
+        refusals: &refusals,
+        structure: Some(structure),
+        oracle: Some(oracle.contract()),
+        guards: &guards,
+        budgets: Some(super::Budgets {
+            accuracy: step.accuracy,
+            tolerances: step.tolerances,
+            normalization: step.normalization,
+        }),
+        coefficients: None,
+        certificate: None,
+        cone: None,
+        factorable: None,
+        prepared: &[routing::ArtifactDemand::Representation(
+            super::Representation::Nlp,
+        )],
+    };
+    let decision = Requirements {
+        context,
         table: &LINKED,
         facts: &facts,
         intent,
@@ -1326,9 +1451,9 @@ fn fixed_assignment(
         controls: &controls,
         settings: &BackendSettings::Default,
         sensitivity: false,
-    })
-    .select(SolverSelection::Auto)?
-    else {
+    }
+    .decision(SolverSelection::Auto);
+    let Route::Native(backend) = decision.candidate()? else {
         return Err(ProblemError::Internal(
             "fixed-assignment re-solve has no free column".into(),
         ));
@@ -1397,6 +1522,8 @@ fn fixed_assignment(
     nlp(
         Step {
             adapter,
+            snapshot: step.snapshot,
+            structure: decision.structure.as_ref(),
             settings: &BackendSettings::Default,
             controls: &controls,
             accuracy: step.accuracy,

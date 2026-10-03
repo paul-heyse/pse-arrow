@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+use crate::routing::Ineligible;
 use crate::{
     quality::{Quality, Violation},
     routing::{Eligibility, Route},
@@ -152,6 +153,7 @@ fn stub_backend_routes_through_adapter_table() {
         ..Controls::default()
     };
     let requirements = Requirements {
+        context: crate::routing::test_context(&STUB_TABLE),
         table: &STUB_TABLE,
         facts: &facts,
         intent: SolveIntent::Root,
@@ -164,13 +166,19 @@ fn stub_backend_routes_through_adapter_table() {
     // Routing reads the stub's capability record through the table.
     let backend = Backend::Idas;
     assert_eq!(
-        requirements.select(SolverSelection::Auto).unwrap(),
+        requirements
+            .policy_select_for_test(SolverSelection::Auto)
+            .unwrap(),
         Route::Native(backend)
     );
     let adapter = STUB_TABLE.get(backend).unwrap();
     assert!(
         adapter
-            .admit_settings(&BackendSettings::Default, &controls)
+            .admit_settings(
+                &BackendSettings::Default,
+                &controls,
+                &Snapshot::observe(&STUB_TABLE)
+            )
             .is_ok()
     );
     assert!(
@@ -180,7 +188,8 @@ fn stub_backend_routes_through_adapter_table() {
                 &Controls {
                     threads: 2,
                     ..controls.clone()
-                }
+                },
+                &Snapshot::observe(&STUB_TABLE)
             )
             .is_err()
     );
@@ -202,6 +211,8 @@ fn stub_backend_routes_through_adapter_table() {
     for (attempt, warm) in [(1, None), (2, Some(&seed))] {
         let report = roots(
             Step {
+                snapshot: &Snapshot::observe(&STUB_TABLE),
+                structure: None,
                 adapter,
                 settings: &BackendSettings::Default,
                 controls: &controls,
@@ -375,6 +386,7 @@ fn grid() -> Vec<ProblemFacts> {
                             },
                         ] {
                             out.push(ProblemFacts {
+                                class_status: pse_math::presolve::ClassStatus::Established,
                                 variables: 1,
                                 rows,
                                 objective,
@@ -438,6 +450,7 @@ fn published_capabilities_equal_routing_rules() {
                 for numerical_psd in [false, true] {
                     for c in &controls {
                         let r = Requirements {
+                            context: crate::routing::test_context(&LINKED),
                             table: &LINKED,
                             facts: f,
                             intent,
@@ -448,8 +461,18 @@ fn published_capabilities_equal_routing_rules() {
                             sensitivity: false,
                         };
                         assert_eq!(
-                            adapter.admit(&r),
-                            probe.admit(&r),
+                            crate::routing::admit(
+                                adapter.backend(),
+                                adapter.capability(),
+                                r.context.snapshot.linked(adapter.backend()),
+                                &r
+                            ),
+                            crate::routing::admit(
+                                probe.backend(),
+                                probe.capability(),
+                                r.context.snapshot.linked(probe.backend()),
+                                &r
+                            ),
                             "{:?} {f:?} {intent:?} {c:?}",
                             adapter.backend()
                         );
@@ -464,6 +487,7 @@ fn published_capabilities_equal_routing_rules() {
             ..Controls::default()
         };
         let r = Requirements {
+            context: crate::routing::test_context(&LINKED),
             table: &LINKED,
             facts: f,
             intent: SolveIntent::Root,
@@ -474,7 +498,13 @@ fn published_capabilities_equal_routing_rules() {
             sensitivity: false,
         };
         assert_eq!(
-            adapter.admit(&r).contains(&Ineligible::Serial),
+            crate::routing::admit(
+                adapter.backend(),
+                adapter.capability(),
+                r.context.snapshot.linked(adapter.backend()),
+                &r
+            )
+            .contains(&Ineligible::Serial),
             !row.parallel
         );
     }
@@ -871,6 +901,26 @@ fn declared_lexicographic_capability_native_staged_and_no_fallback() {
         fn automatic(&self) -> Option<u8> {
             Some(0)
         }
+        fn assess(&self, r: &Requirements<'_>) -> Eligibility {
+            let reasons =
+                crate::routing::admit(self.backend(), self.capability(), self.linked(), r);
+            let state = if reasons.is_empty() {
+                crate::routing::AssessmentState::Ready
+            } else {
+                crate::routing::AssessmentState::Refused
+            };
+            Eligibility {
+                backend: self.backend(),
+                reasons,
+                causes: vec![],
+                class_dependencies: vec![],
+                evidence: vec![],
+                artifacts: vec![],
+                factorable_refusals: vec![],
+                structure: None,
+                state,
+            }
+        }
         fn execute(&self, _: &mut Retained, _: Input<'_>) -> Result<SolveReport, ProblemError> {
             Err(ProblemError::Internal("routing-only probe".into()))
         }
@@ -900,6 +950,7 @@ fn declared_lexicographic_capability_native_staged_and_no_fallback() {
     facts.objectives = 2;
     let controls = Controls::default();
     let requirements = Requirements {
+        context: crate::routing::test_context(&table),
         table: &table,
         facts: &facts,
         intent: SolveIntent::Optimize,

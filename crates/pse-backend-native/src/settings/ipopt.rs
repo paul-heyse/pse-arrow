@@ -16,6 +16,22 @@ pub use pse_model::generated::enums::{
 use pse_model::scalar;
 use pse_model::scalars::{Fraction, Tolerance};
 
+/// Process state that linear-solver admission depends on, observed on the calling thread.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Runtime {
+    /// Linear solvers the linked Ipopt was built with (`IpoptGetAvailableLinearSolvers`);
+    /// the runtime library loader is excluded.
+    pub linked: u32,
+    /// OpenMP cancellation (`OMP_CANCELLATION`), fixed when the OpenMP runtime started.
+    pub cancellation: bool,
+    /// OpenMP thread-binding policy (`OMP_PROC_BIND`); `0` is unbound.
+    pub proc_bind: i32,
+    /// oneMKL conditional-numerical-reproducibility branch in force.
+    pub cbwr: i32,
+    /// oneMKL dynamic thread adjustment (`MKL_DYNAMIC`).
+    pub mkl_dynamic: bool,
+}
+
 /// The Ipopt adapter's settings type. Its identity derives from serde, and absent fields
 /// take these defaults across the Python boundary (ADR-0113).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

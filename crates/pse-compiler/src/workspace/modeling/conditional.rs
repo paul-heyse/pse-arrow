@@ -156,10 +156,14 @@ impl CompilerWorkspace {
                 cancel,
             )?;
             let mut instances = augmented.structure().instances().to_vec();
-            for binding in boundary.plan.structure().instances() {
+            let incidence = boundary.plan.incidence(cancel)?;
+            for (index, binding) in boundary.plan.structure().instances().iter().enumerate() {
                 for contribution in &binding.contributions {
-                    for slot in
-                        &boundary.plan.bodies()[&binding.body].support().first[contribution.output]
+                    for slot in incidence[index]
+                        .first_for_output(contribution.output)
+                        .ok_or_else(|| {
+                            CompileError::Missing("conditional boundary incidence".into())
+                        })?
                     {
                         let id = binding.slots[*slot].source();
                         if free.contains(&id) && !unknowns.contains(&id) && !direct.contains(&id) {
@@ -244,6 +248,7 @@ impl CompilerWorkspace {
             &selected,
             unknowns,
             &connections,
+            cancel,
         )?;
         let observed = self.prepare_modeling_functions(
             model,
@@ -256,10 +261,14 @@ impl CompilerWorkspace {
             profile,
             cancel,
         )?;
-        for instance in observed.plan.structure().instances() {
+        let incidence = observed.plan.incidence(cancel)?;
+        for (index, instance) in observed.plan.structure().instances().iter().enumerate() {
             for contribution in &instance.contributions {
-                for slot in
-                    &observed.plan.bodies()[&instance.body].support().first[contribution.output]
+                for slot in incidence[index]
+                    .first_for_output(contribution.output)
+                    .ok_or_else(|| {
+                        CompileError::Missing("conditional observation incidence".into())
+                    })?
                 {
                     let id = instance.slots[*slot].source();
                     if free.contains(&id) && !unknowns.contains(&id) && !inputs.contains(&id) {
@@ -301,6 +310,7 @@ fn admit_boundary(
     rows: &BTreeSet<SemanticId>,
     unknowns: &BTreeSet<SemanticId>,
     connection_rows: &BTreeSet<SemanticId>,
+    cancel: &Arc<AtomicBool>,
 ) -> Result<()> {
     let refuse = |message: &str| {
         CompileError::Missing(format!(
@@ -328,12 +338,16 @@ fn admit_boundary(
     }
     // Original support, including dependencies through demanded expression members,
     // is compiler-issued. Counting rows alone cannot establish this boundary.
-    for instance in source.structure().instances() {
+    let incidence = source.incidence(cancel)?;
+    for (index, instance) in source.structure().instances().iter().enumerate() {
         for contribution in &instance.contributions {
             let Target::Row(row) = contribution.target else {
                 continue;
             };
-            for slot in &source.bodies()[&instance.body].support().first[contribution.output] {
+            for slot in incidence[index]
+                .first_for_output(contribution.output)
+                .ok_or_else(|| CompileError::Missing("conditional source incidence".into()))?
+            {
                 let symbol = instance.slots[*slot].source();
                 if rows.contains(&row)
                     && source.columns().binary_search(&symbol).is_ok()
@@ -451,6 +465,7 @@ mod tests {
             &rows,
             &unknowns,
             &BTreeSet::new(),
+            &Arc::new(AtomicBool::new(false)),
         )
         .unwrap_err();
         assert!(
@@ -465,6 +480,7 @@ mod tests {
             &rows,
             &unknowns,
             &BTreeSet::new(),
+            &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
         assert!(
@@ -474,7 +490,8 @@ mod tests {
                 &outputs,
                 &rows,
                 &unknowns,
-                &BTreeSet::new()
+                &BTreeSet::new(),
+                &Arc::new(AtomicBool::new(false)),
             )
             .is_err()
         );
@@ -492,6 +509,7 @@ mod tests {
             &rows,
             &unknowns,
             &BTreeSet::new(),
+            &Arc::new(AtomicBool::new(false)),
         )
         .unwrap_err();
         assert!(error.to_string().contains("external row"));
@@ -504,6 +522,7 @@ mod tests {
             &rows,
             &unknowns,
             &BTreeSet::from([connection]),
+            &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
         // A distinct output port may project an already supplied scalar, such as
@@ -515,6 +534,7 @@ mod tests {
             &rows,
             &unknowns,
             &BTreeSet::from([connection]),
+            &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
     }

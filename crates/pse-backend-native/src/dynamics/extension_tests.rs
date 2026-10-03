@@ -56,12 +56,22 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
             parameter: 0,
             times: vec![0.5],
         }];
-        assert_eq!(p.resolved_method().unwrap(), Method::Idas);
         let mut oracle = LateTrial {
             toy: Toy::new(dae, false),
             after: 0.55,
             rejected: 0,
         };
+        let selected = p
+            .resolve_for(
+                oracle.contract(),
+                &[2.0, 3.0],
+                &crate::execution::Snapshot::observe(&crate::execution::LINKED),
+                DynamicDemand::Base,
+                oracle.contract().derivatives,
+                &[],
+            )
+            .unwrap();
+        assert_eq!(selected.resolved_method().unwrap(), Method::Idas);
         let r = integrate(&mut oracle, &p, &[2.0, 3.0], Arc::default()).unwrap();
         assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
         assert_eq!(oracle.rejected, 1);

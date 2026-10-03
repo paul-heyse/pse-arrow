@@ -93,6 +93,7 @@ pub struct ModelingSolvePreparation {
 /// Numerical resolution precedes native routing so diagnostics can inspect an
 /// underdetermined or otherwise ineligible problem without requesting a solver.
 pub(in crate::workflow) struct ModelingCaseResolution {
+    case_bindings: ModelingCaseBindings,
     pub compiler: Profile,
     pub model: ModelingCasePreparation,
     pub starts: BTreeMap<SemanticId, StartSource>,
@@ -109,14 +110,62 @@ impl ModelingCaseResolution {
         &self,
         decision: &pse_backend_native::routing::Decision,
     ) -> Result<pse_ids::ContentHash, WorkflowError> {
-        admission_identity(&self.model, &self.numerics, &self.solver, decision)
+        admission_identity(&self.model, &self.numerics, &self.solver, decision, None)
     }
 
     /// Assess the same complete original compiler witness used by solve admission, without executing a solver.
     pub(in crate::workflow) fn route_decision(
         &self,
     ) -> Result<pse_backend_native::routing::Decision, WorkflowError> {
+        self.assess_route(None)
+    }
+    pub(in crate::workflow) fn assess_route(
+        &self,
+        lexicographic: Option<bool>,
+    ) -> Result<pse_backend_native::routing::Decision, WorkflowError> {
         let compiled = self.model.case.compiled();
+        let oracle = pse_backend_native::assembled::contract(&compiled.plan);
+        let rows: Vec<_> = compiled
+            .plan
+            .structure()
+            .rows()
+            .iter()
+            .map(|row| row.id)
+            .collect();
+        let normalization = pse_math::normalization::Normalization::from_policy(
+            &self.numerics,
+            compiled.plan.columns(),
+            &rows,
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let tolerances = pse_backend_native::quality::Tolerances::from_policy(
+            &self.numerics,
+            compiled.plan.columns(),
+            &rows,
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let accuracy = pse_backend_native::solve::ResolvedAccuracy::resolve(
+            &self.numerics.policy,
+            &tolerances,
+            &normalization,
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let coefficients = compiled
+            .coefficients
+            .as_ref()
+            .map(|coefficients| {
+                pse_backend_native::CoefficientProblem::from_plan(
+                    &compiled.plan,
+                    coefficients.as_ref().clone(),
+                )
+            })
+            .transpose()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let pending_classes = pse_backend_native::routing::pending_class_evidence(
+            &compiled.facts,
+            self.solver.intent,
+            self.solver.selection,
+        );
         let requirements = pse_backend_native::routing::Requirements {
             table: &pse_backend_native::execution::LINKED,
             facts: &compiled.facts,
@@ -126,26 +175,47 @@ impl ModelingCaseResolution {
             controls: &self.solver.controls,
             settings: &self.solver.backend,
             sensitivity: self.solver.sensitivity.is_some(),
+            context: pse_backend_native::routing::Context {
+                snapshot: pse_backend_native::execution::Snapshot::observe(
+                    &pse_backend_native::execution::LINKED,
+                ),
+                pending_classes: &pending_classes,
+                structure: Some(pse_backend_native::routing::Structure {
+                    variables: compiled.plan.columns().to_vec(),
+                    equations: compiled
+                        .plan
+                        .structure()
+                        .rows()
+                        .iter()
+                        .map(|row| pse_structural::incidence::Constraint {
+                            id: row.id,
+                            lower: row.lower.is_finite().then_some(row.lower),
+                            upper: row.upper.is_finite().then_some(row.upper),
+                        })
+                        .collect(),
+                    witness: self.model.case.structural_witness(),
+                }),
+                oracle: Some(&oracle),
+                guards: &compiled.presolve.signs,
+                budgets: Some(pse_backend_native::execution::Budgets {
+                    tolerances: &tolerances,
+                    normalization: &normalization,
+                    accuracy: &accuracy,
+                }),
+                coefficients: coefficients.as_ref(),
+                cone: None,
+                factorable: None,
+                certificate: None,
+                prepared: &[],
+                refusals: &BTreeMap::new(),
+            },
         };
-        requirements
-            .bound_decision(
-                self.solver.selection,
-                compiled.plan.columns().to_vec(),
-                compiled
-                    .plan
-                    .structure()
-                    .rows()
-                    .iter()
-                    .map(|row| pse_structural::incidence::Constraint {
-                        id: row.id,
-                        lower: row.lower.is_finite().then_some(row.lower),
-                        upper: row.upper.is_finite().then_some(row.upper),
-                    })
-                    .collect(),
-                self.model.case.structural_witness(),
-            )
-            .map_err(crate::math::MathRuntimeError::from)
-            .map_err(WorkflowError::from)
+        Ok(match lexicographic {
+            Some(single_nonzero) => {
+                requirements.lexicographic(self.solver.selection, single_nonzero)
+            }
+            None => requirements.decision(self.solver.selection),
+        })
     }
 }
 impl ModelingSolvePreparation {
@@ -155,7 +225,17 @@ impl ModelingSolvePreparation {
             .solve
             .route_decision()
             .ok_or_else(|| contract("algebraic preparation admission facts absent"))?;
-        admission_identity(&self.model, self.solve.numerics(), &self.profile, decision)
+        admission_identity(
+            &self.model,
+            self.solve.numerics(),
+            &self.profile,
+            decision,
+            Some(
+                self.solve
+                    .preparation_identity()
+                    .map_err(crate::math::MathRuntimeError::from)?,
+            ),
+        )
     }
 }
 fn admission_identity(
@@ -163,9 +243,10 @@ fn admission_identity(
     numerics: &pse_model::numerics::ResolvedNumericalPolicy,
     solver: &SolverProfile,
     decision: &pse_backend_native::routing::Decision,
+    selected_preparation: Option<pse_ids::ContentHash>,
 ) -> Result<pse_ids::ContentHash, WorkflowError> {
     use pse_model::SemanticFrame;
-    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingAdmissionV1);
+    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingAdmissionV2);
     hash.hash(&model.case.compiled().plan.structure().key())
         .hash(&numerics.key)
         .hash(
@@ -173,6 +254,10 @@ fn admission_identity(
                 .map_err(crate::math::MathRuntimeError::from)?
                 .as_id(),
         );
+    hash.bool(selected_preparation.is_some());
+    if let Some(preparation) = selected_preparation {
+        hash.hash(&preparation);
+    }
     for artifact in model.case.compiled().artifacts.iter() {
         hash.hash(&artifact.key());
     }
@@ -632,17 +717,19 @@ impl ModelingPackage {
                 overrides, false, cancel,
             )
             .await?;
-        self.finish_case(resolution).await
+        self.finish_case(resolution, cancel).await
     }
     pub(in crate::workflow) async fn finish_case(
         &self,
         resolution: ModelingCaseResolution,
+        cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let ModelingCaseResolution {
             compiler,
+            case_bindings,
             model,
             starts,
-            providers,
+            mut providers,
             numerical,
             solver,
             parametric,
@@ -657,7 +744,7 @@ impl ModelingPackage {
                 model.values.clone(),
                 providers.clone(),
                 solver.clone(),
-                numerical,
+                numerical.clone(),
             )
             .await
             .map_err(|cause| {
@@ -675,6 +762,24 @@ impl ModelingPackage {
                     WorkflowError::Math(cause)
                 }
             })?;
+        if solve.required_order() > model.case.compiled().plan.order() {
+            providers = self
+                .inner_registrations(
+                    model.model.clone(),
+                    &case_bindings,
+                    &numerical,
+                    &solver.numerics,
+                    &solver.controls,
+                    solve.required_order(),
+                    compiler,
+                    cancel,
+                    None,
+                )
+                .await?;
+            solve = solve
+                .with_providers(providers.clone())
+                .map_err(crate::math::MathRuntimeError::from)?;
+        }
         if let Some(program) = parametric {
             solve = solve.with_sensitivity(program)?;
         }
@@ -740,7 +845,7 @@ impl ModelingPackage {
                 &numerical,
                 &solver.numerics,
                 &solver.controls,
-                order.max(solver.derivative_order()),
+                order,
                 compiler,
                 cancel,
                 None,
@@ -880,6 +985,7 @@ impl ModelingPackage {
             )
             .await?;
         Ok(ModelingCaseResolution {
+            case_bindings: case,
             compiler,
             numerics,
             model: prepared,

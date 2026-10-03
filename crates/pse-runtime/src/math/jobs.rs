@@ -175,7 +175,7 @@ impl MathService {
             progress,
         })
     }
-    pub(super) async fn job<T: Send + 'static>(
+    pub(crate) async fn job<T: Send + 'static>(
         self: &Arc<Self>,
         cores: usize,
         bytes: usize,

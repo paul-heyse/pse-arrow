@@ -50,6 +50,17 @@ pub struct Assessment {
     pub refusal: Option<(Vec<pse_ids::SemanticId>, Vec<pse_ids::SemanticId>)>,
 }
 impl Assessment {
+    /// Complete retained payload, including this assessment's shared witness once.
+    /// Callers retaining several assessments of one witness charge that shared owner once.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.variables.capacity() * size_of::<pse_ids::SemanticId>()
+            + self.equations.capacity() * size_of::<Constraint>()
+            + self.witness.retained_bytes()
+            + self.refusal.as_ref().map_or(0, |(rows, columns)| {
+                (rows.capacity() + columns.capacity()) * size_of::<pse_ids::SemanticId>()
+            })
+    }
     /// Assess the already analyzed complete original view.
     pub fn new(
         mode: Mode,
@@ -305,7 +316,7 @@ pub fn check(
             return Err(invalid());
         }
     }
-    if matched != required
+    if (matches!(mode, Mode::Roots | Mode::Nlp) && matched != required)
         || (mode == Mode::Roots
             && (required.len() != contract.rows.len() || used.len() != contract.variables.len()))
     {
@@ -314,25 +325,199 @@ pub fn check(
     Ok(())
 }
 
-/// Low-level callers undergo the same analysis using their original residual Jacobian.
-pub fn oracle(
+/// Whether a native coordinate transform preserves the admitted original identity inventory.
+pub(crate) fn same_inventory(assessment: &Assessment, contract: &OracleContract) -> bool {
+    assessment
+        .variables
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>()
+        == contract
+            .variables
+            .iter()
+            .map(|variable| variable.id)
+            .collect()
+        && assessment
+            .equations
+            .iter()
+            .map(|row| row.id)
+            .collect::<std::collections::BTreeSet<_>>()
+            == contract.rows.iter().copied().collect()
+}
+#[derive(Debug)]
+struct NlpWitness {
+    inner: Box<dyn crate::NlpOracle>,
+    witness: pse_math::SharedAllocation<StructuralAnalysis>,
+}
+pub(crate) fn retain_nlp(
+    inner: Box<dyn crate::NlpOracle>,
+    witness: pse_math::SharedAllocation<StructuralAnalysis>,
+) -> Box<dyn crate::NlpOracle> {
+    Box::new(NlpWitness { inner, witness })
+}
+impl crate::NlpOracle for NlpWitness {
+    fn structural_analysis(&self) -> Option<&StructuralAnalysis> {
+        Some(&self.witness)
+    }
+    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
+        self.inner.normalization()
+    }
+    fn constraint_sources(&self) -> Result<Vec<pse_math::assembly::OutputValue>, ProblemError> {
+        self.inner.constraint_sources()
+    }
+    fn presolve_facts(&self) -> Option<&pse_math::presolve::Facts> {
+        self.inner.presolve_facts()
+    }
+    fn derivative_facts(&self) -> crate::DerivativeFacts {
+        self.inner.derivative_facts()
+    }
+    fn contract(&self) -> &OracleContract {
+        self.inner.contract()
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.inner.jacobian_pattern()
+    }
+    fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+        self.inner.hessian_pattern()
+    }
+    fn constraint_bounds(&self) -> &[(f64, f64)] {
+        self.inner.constraint_bounds()
+    }
+    fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
+        self.inner.objective(x)
+    }
+    fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.constraints(x, out)
+    }
+    fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.gradient(x, out)
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.jacobian(x, out)
+    }
+    fn hessian(
+        &mut self,
+        x: &[f64],
+        weight: f64,
+        multipliers: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        self.inner.hessian(x, weight, multipliers, out)
+    }
+}
+#[derive(Debug)]
+struct RootsWitness {
+    inner: Box<dyn crate::NleOracle>,
+    witness: pse_math::SharedAllocation<StructuralAnalysis>,
+}
+pub(crate) fn retain_roots(
+    inner: Box<dyn crate::NleOracle>,
+    witness: pse_math::SharedAllocation<StructuralAnalysis>,
+) -> Box<dyn crate::NleOracle> {
+    Box::new(RootsWitness { inner, witness })
+}
+impl crate::NleOracle for RootsWitness {
+    fn structural_analysis(&self) -> Option<&StructuralAnalysis> {
+        Some(&self.witness)
+    }
+    fn guard_signs(
+        &self,
+    ) -> std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign> {
+        self.inner.guard_signs()
+    }
+    fn observe(&self, residual: Vec<f64>) -> Result<crate::quality::Observation, ProblemError> {
+        self.inner.observe(residual)
+    }
+    fn contract(&self) -> &OracleContract {
+        self.inner.contract()
+    }
+    fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.residual(x, out)
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.inner.jacobian_pattern()
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.jacobian(x, out)
+    }
+    fn jacobian_product(
+        &mut self,
+        x: &[f64],
+        direction: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        self.inner.jacobian_product(x, direction, out)
+    }
+}
+/// Produce the existing conservative original matching for contextual policy assessment.
+/// This extracts the existing CaseIncidence owner, not a second matching implementation.
+pub fn oracle_structure(
     contract: &OracleContract,
     pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
     bounds: &[(f64, f64)],
-    mode: Mode,
-) -> Result<(), ProblemError> {
+    objective: bool,
+) -> Result<crate::routing::Structure, ProblemError> {
+    oracle_structure_with_cancel(
+        contract,
+        pattern,
+        bounds,
+        objective,
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+}
+/// Checked conservative reservation before creating the original matching projection.
+pub fn construction_bytes(
+    contract: &OracleContract,
+    pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
+) -> Result<usize, ProblemError> {
+    if pattern.nrows() != contract.rows.len() || pattern.ncols() != contract.variables.len() {
+        return Err(ProblemError::Contract(
+            "original structural dimensions".into(),
+        ));
+    }
+    CaseIncidence::memory_extent(
+        contract.rows.len(),
+        contract.variables.len(),
+        pattern.row_idx().len(),
+    )
+    .map_err(structural_error)
+}
+/// Complete retained structure payload, including its shared witness once.
+pub fn retained_bytes(structure: &crate::routing::Structure) -> usize {
+    size_of::<crate::routing::Structure>()
+        + structure.variables.capacity() * size_of::<pse_ids::SemanticId>()
+        + structure.equations.capacity() * size_of::<Constraint>()
+        + structure.witness.retained_bytes()
+}
+fn structural_error(error: pse_structural::projection::ProjectionError) -> ProblemError {
+    match error {
+        pse_structural::projection::ProjectionError::Cancelled => ProblemError::Cancelled,
+        pse_structural::projection::ProjectionError::Limit => {
+            ProblemError::memory("structural construction extent")
+        }
+        error => ProblemError::Contract(error.to_string()),
+    }
+}
+/// Build the same complete conservative witness with the caller's cancellation boundary.
+pub fn oracle_structure_with_cancel(
+    contract: &OracleContract,
+    pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
+    bounds: &[(f64, f64)],
+    objective: bool,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<crate::routing::Structure, ProblemError> {
+    construction_bytes(contract, pattern)?;
+    if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(ProblemError::Cancelled);
+    }
     let n = contract.variables.len();
     let m = contract.rows.len();
-    if pattern.nrows() != m
-        || pattern.ncols() != n
-        || bounds.len() != m
-        || (mode == Mode::Roots && (m != n || bounds.iter().any(|(l, u)| l != u || !l.is_finite())))
-    {
+    if pattern.nrows() != m || pattern.ncols() != n || bounds.len() != m {
         return Err(ProblemError::Contract(
             "original structural dimensions/equality contract".into(),
         ));
     }
-    let rows = contract
+    let rows: Vec<Constraint> = contract
         .rows
         .iter()
         .zip(bounds)
@@ -342,7 +527,7 @@ pub fn oracle(
             upper: (upper != f64::INFINITY).then_some(upper),
         })
         .collect();
-    let mut edges = Vec::new();
+    let mut edges = Vec::with_capacity(pattern.row_idx().len());
     for c in 0..n {
         for r in pattern.row_idx_of_col(c) {
             edges.push(Incidence {
@@ -353,6 +538,17 @@ pub fn oracle(
             });
         }
     }
+    from_inventory(contract, rows, edges, objective, cancel)
+}
+fn from_inventory(
+    contract: &OracleContract,
+    rows: Vec<Constraint>,
+    edges: Vec<Incidence>,
+    objective: bool,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<crate::routing::Structure, ProblemError> {
+    let n = contract.variables.len();
+    let m = contract.rows.len();
     let limits = GraphLimits {
         nodes: n.saturating_add(m),
         edges: edges.len(),
@@ -362,17 +558,152 @@ pub fn oracle(
             pse_ids::Frame::NativeStructuralScopeV1,
             &[contract.identity.as_bytes()],
         )),
-        rows,
+        rows.clone(),
         contract.variables.iter().map(|v| v.id).collect(),
         edges,
-        Default::default(),
+        if objective {
+            contract
+                .variables
+                .iter()
+                .map(|variable| variable.id)
+                .collect()
+        } else {
+            Default::default()
+        },
         limits,
     )
-    .map_err(|e| ProblemError::Contract(e.to_string()))?;
-    let analysis = incidence
-        .analyze(&std::sync::atomic::AtomicBool::new(false))
-        .map_err(|e| ProblemError::Contract(e.to_string()))?;
-    admit(&analysis, mode)
+    .map_err(structural_error)?;
+    let analysis = incidence.analyze(cancel).map_err(structural_error)?;
+    Ok(crate::routing::Structure {
+        variables: contract
+            .variables
+            .iter()
+            .map(|variable| variable.id)
+            .collect(),
+        equations: rows,
+        witness: std::sync::Arc::new(analysis).into(),
+    })
+}
+
+/// Original scalar row roles of explicit cone membership.
+/// Zero blocks are equalities; other blocks retain membership rather than pretending
+/// each component is an independent scalar inequality.
+pub fn conic_bounds(problem: &crate::ConicProblem) -> Result<Vec<(f64, f64)>, ProblemError> {
+    let mut bounds = Vec::with_capacity(problem.contract.rows.len());
+    for cone in &problem.cones {
+        let extent = bounds
+            .len()
+            .checked_add(cone.dim())
+            .ok_or_else(|| ProblemError::memory("cone structural rows"))?;
+        if extent > problem.contract.rows.len() {
+            return Err(ProblemError::Contract("cone structural dimensions".into()));
+        }
+        let role = if matches!(cone, crate::conic::Cone::Zero { .. }) {
+            (0.0, 0.0)
+        } else {
+            (f64::NEG_INFINITY, f64::INFINITY)
+        };
+        bounds.resize(extent, role);
+    }
+    if bounds.len() != problem.contract.rows.len() {
+        return Err(ProblemError::Contract("cone structural dimensions".into()));
+    }
+    Ok(bounds)
+}
+/// Checked reservation for the explicit cone's existing matching owner.
+pub fn conic_construction_bytes(problem: &crate::ConicProblem) -> Result<usize, ProblemError> {
+    problem.constraints.validate()?;
+    if problem.constraints.rows != problem.contract.rows.len()
+        || problem.constraints.columns != problem.contract.variables.len()
+    {
+        return Err(ProblemError::Contract("cone structural dimensions".into()));
+    }
+    CaseIncidence::memory_extent(
+        problem.contract.rows.len(),
+        problem.contract.variables.len(),
+        problem.constraints.row_indices.len(),
+    )
+    .map_err(structural_error)
+}
+/// Original explicit-cone incidence, using the same CaseIncidence matching producer.
+pub fn conic_structure_with_cancel(
+    problem: &crate::ConicProblem,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<crate::routing::Structure, ProblemError> {
+    conic_construction_bytes(problem)?;
+    if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(ProblemError::Cancelled);
+    }
+    let bounds = conic_bounds(problem)?;
+    let rows = problem
+        .contract
+        .rows
+        .iter()
+        .zip(bounds)
+        .map(|(&id, (lower, upper))| Constraint {
+            id,
+            lower: lower.is_finite().then_some(lower),
+            upper: upper.is_finite().then_some(upper),
+        })
+        .collect();
+    let mut edges = Vec::with_capacity(problem.constraints.row_indices.len());
+    for column in 0..problem.constraints.columns {
+        for &row in &problem.constraints.row_indices[problem.constraints.column(column)] {
+            edges.push(Incidence {
+                row: problem.contract.rows[row],
+                column: problem.contract.variables[column].id,
+                instance: problem.contract.rows[row],
+                output: 0,
+            });
+        }
+    }
+    from_inventory(&problem.contract, rows, edges, true, cancel)
+}
+/// Validate retained original inventory and its already interpreted witness at entry.
+/// Numerical coefficient cancellation cannot invalidate conservative symbolic incidence.
+pub fn validate_assessment(
+    assessment: &Assessment,
+    contract: &OracleContract,
+    bounds: &[(f64, f64)],
+) -> Result<(), ProblemError> {
+    if !same_inventory(assessment, contract) || bounds.len() != contract.rows.len() {
+        return Err(ProblemError::Internal(
+            "retained structural inventory changed".into(),
+        ));
+    }
+    for (id, &(lower, upper)) in contract.rows.iter().zip(bounds) {
+        let row = assessment
+            .equations
+            .iter()
+            .find(|row| row.id == *id)
+            .ok_or_else(|| ProblemError::Internal("retained structural row missing".into()))?;
+        let originally_equal = row
+            .lower
+            .is_some_and(|lower| lower.is_finite() && row.upper == Some(lower));
+        if originally_equal != (lower.is_finite() && lower == upper) {
+            return Err(ProblemError::Internal(
+                "retained structural equality role changed".into(),
+            ));
+        }
+    }
+    admit(&assessment.witness, assessment.mode)
+}
+
+/// Low-level final preflight interprets the same original witness producer.
+pub fn oracle(
+    contract: &OracleContract,
+    pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
+    bounds: &[(f64, f64)],
+    mode: Mode,
+) -> Result<(), ProblemError> {
+    let original = oracle_structure(contract, pattern, bounds, mode == Mode::Nlp)?;
+    Assessment::new(
+        mode,
+        original.variables,
+        original.equations,
+        original.witness,
+    )?
+    .admit()
 }
 
 #[cfg(test)]
@@ -623,5 +954,86 @@ mod tests {
                 .is_err()
             );
         }
+    }
+    #[test]
+    fn contextual_unit_original_structure_extent_cancellation_and_retained_validation() {
+        let contract = OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([1; 32]),
+            variables: vec![crate::Variable {
+                id: id(1),
+                lower: -1.0,
+                upper: 1.0,
+            }],
+            rows: vec![id(2)],
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+        };
+        let pattern = faer::sparse::SymbolicSparseColMat::try_new_from_indices(
+            1,
+            1,
+            &[faer::sparse::Pair::new(0, 0)],
+        )
+        .unwrap()
+        .0;
+        let extent = construction_bytes(&contract, pattern.as_ref()).unwrap();
+        let cancelled = std::sync::atomic::AtomicBool::new(true);
+        assert!(matches!(
+            oracle_structure_with_cancel(
+                &contract,
+                pattern.as_ref(),
+                &[(0.0, 0.0)],
+                true,
+                &cancelled
+            ),
+            Err(ProblemError::Cancelled)
+        ));
+        let original = oracle_structure_with_cancel(
+            &contract,
+            pattern.as_ref(),
+            &[(0.0, 0.0)],
+            true,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .unwrap();
+        assert!(extent >= retained_bytes(&original));
+        assert!(CaseIncidence::memory_extent(usize::MAX, 1, 1).is_err());
+        let assessment = Assessment::new(
+            Mode::Nlp,
+            original.variables,
+            original.equations,
+            original.witness,
+        )
+        .unwrap();
+        assert!(extent >= assessment.retained_bytes());
+        validate_assessment(&assessment, &contract, &[(4.0, 4.0)]).unwrap();
+        assert!(validate_assessment(&assessment, &contract, &[(-1.0, 1.0)]).is_err());
+        let mut changed = contract.clone();
+        changed.rows[0] = id(9);
+        assert!(validate_assessment(&assessment, &changed, &[(0.0, 0.0)]).is_err());
+        let cone = crate::ConicProblem {
+            contract: contract.clone(),
+            quadratic: crate::conic::SparseMatrix::zeros(1, 1),
+            objective: vec![0.0],
+            constraints: crate::conic::SparseMatrix::identity(1),
+            rhs: vec![0.0],
+            cones: vec![crate::conic::Cone::Zero { dimension: 1 }],
+            objective_constant: 0.0,
+        };
+        assert!(matches!(
+            conic_structure_with_cancel(&cone, &cancelled),
+            Err(ProblemError::Cancelled)
+        ));
+        let structure =
+            conic_structure_with_cancel(&cone, &std::sync::atomic::AtomicBool::new(false)).unwrap();
+        assert!(conic_construction_bytes(&cone).unwrap() >= retained_bytes(&structure));
+        assert_eq!(structure.witness.matching, [(id(2), id(1))]);
+        let membership = crate::ConicProblem {
+            cones: vec![crate::conic::Cone::Nonnegative { dimension: 1 }],
+            ..cone
+        };
+        assert_eq!(
+            conic_bounds(&membership).unwrap(),
+            [(f64::NEG_INFINITY, f64::INFINITY)]
+        );
     }
 }

@@ -21,6 +21,7 @@ use pse_ipopt_sys as ffi;
 use pse_math::binding::ObjectiveSense;
 pub use runtime::{Build, Runtime, build};
 pub use settings::admit;
+pub(crate) use settings::same_admission;
 use std::{
     ffi::{CString, c_void},
     ptr::NonNull,

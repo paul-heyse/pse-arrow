@@ -610,7 +610,7 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
             inputs,
             BodyLimits {
                 slots,
-                occurrences: 16384,
+                occurrences: declared * 8,
             },
         )?;
         let x = builder.input(
@@ -961,14 +961,14 @@ fn shared_nonlinear_coefficients_preserve_affine_rate_support() {
         };
         let body = builder.prepare(&[output]).unwrap();
         if nonlinear_rate {
-            assert!(body.support().second[0].contains(&(0, 0)));
+            assert!(crate::requested_test_support(&body).second[0].contains(&(0, 0)));
             assert!(crate::implicit::Affine::new(&body, 1).is_err());
             continue;
         }
         assert!(body.expression(0).is_none());
-        assert!(!body.support().second[0].contains(&(0, 0)));
-        assert!(body.support().second[0].contains(&(0, 1)));
-        assert!(body.support().second[0].contains(&(1, 1)));
+        assert!(!crate::requested_test_support(&body).second[0].contains(&(0, 0)));
+        assert!(crate::requested_test_support(&body).second[0].contains(&(0, 1)));
+        assert!(crate::requested_test_support(&body).second[0].contains(&(1, 1)));
         crate::implicit::Affine::new(&body, 1).unwrap();
         let mut worker = body
             .compile(

@@ -248,6 +248,35 @@ pub fn integrate_with_progress(
     cancel: Cancellation,
     progress: Arc<crate::solve::Progress>,
 ) -> Result<Report, ProblemError> {
+    let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
+    integrate_with_progress_observed(oracle, profile, parameters, cancel, progress, &snapshot)
+}
+/// Execute against the immutable observation used for contextual routing.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub fn integrate_with_progress_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>,
+    snapshot: &crate::execution::Snapshot,
+) -> Result<Report, ProblemError> {
+    let resolved = profile.resolve_for(
+        oracle.contract(),
+        parameters,
+        snapshot,
+        DynamicDemand::Base,
+        oracle.contract().derivatives,
+        &[],
+    )?;
+    let profile = &resolved;
+    snapshot.validate_for(crate::execution::adapter(
+        match profile.resolved_method()? {
+            Method::Diffsol => crate::solve::Backend::Diffsol,
+            Method::Idas => crate::solve::Backend::Idas,
+            Method::Auto => return Err(ProblemError::internal("unresolved dynamic method")),
+        },
+    ))?;
     profile.validate(oracle.contract(), parameters)?;
     match profile.resolved_method()? {
         #[cfg(feature = "diffsol")]
@@ -299,6 +328,38 @@ pub fn gradient(
     cancel: Cancellation,
     memory: usize,
 ) -> Result<Gradient, ProblemError> {
+    let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
+    gradient_observed(
+        oracle, profile, parameters, cotangent, cancel, memory, &snapshot,
+    )
+}
+/// Execute against the immutable observation used for contextual routing.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub fn gradient_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cotangent: Cotangent<'_>,
+    cancel: Cancellation,
+    memory: usize,
+    snapshot: &crate::execution::Snapshot,
+) -> Result<Gradient, ProblemError> {
+    let resolved = profile.resolve_for(
+        oracle.contract(),
+        parameters,
+        snapshot,
+        DynamicDemand::Base,
+        oracle.contract().derivatives,
+        &[],
+    )?;
+    let profile = &resolved;
+    snapshot.validate_for(crate::execution::adapter(
+        match profile.resolved_method()? {
+            Method::Diffsol => crate::solve::Backend::Diffsol,
+            Method::Idas => crate::solve::Backend::Idas,
+            Method::Auto => return Err(ProblemError::internal("unresolved dynamic method")),
+        },
+    ))?;
     profile.validate(oracle.contract(), parameters)?;
     if profile.sensitivity != DynamicSensitivity::Adjoint {
         return Err(contract("a gradient needs the adjoint sensitivity profile"));
@@ -347,6 +408,37 @@ pub fn hessian(
     cancel: Cancellation,
     memory: usize,
 ) -> Result<Gradient, ProblemError> {
+    let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
+    hessian_observed(
+        oracle, profile, parameters, directions, cotangent, cancel, memory, &snapshot,
+    )
+}
+/// Execute against the immutable observation used for contextual routing.
+#[cfg(feature = "idas")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the second-order adjoint boundary binds oracle/profile/parameters, directions/cotangent, cancellation, admitted memory and the retained runtime snapshot"
+)]
+pub fn hessian_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    directions: &[usize],
+    cotangent: Cotangent<'_>,
+    cancel: Cancellation,
+    memory: usize,
+    snapshot: &crate::execution::Snapshot,
+) -> Result<Gradient, ProblemError> {
+    let resolved = profile.resolve_for(
+        oracle.contract(),
+        parameters,
+        snapshot,
+        DynamicDemand::ExactHessian,
+        oracle.contract().derivatives,
+        directions,
+    )?;
+    let profile = &resolved;
+    snapshot.validate_for(crate::execution::adapter(crate::solve::Backend::Idas))?;
     profile.validate(oracle.contract(), parameters)?;
     let reserved = profile.admit_second_order(oracle.contract(), directions)?;
     if reserved > memory {
@@ -788,6 +880,74 @@ pub struct ScheduledInput {
     /// the end is observed by the final sample only.
     pub times: Vec<f64>,
 }
+/// Mandatory dynamic consumer demand, separate from optional post-solve analyses.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DynamicDemand {
+    /// The profile's base integration/sensitivity contract.
+    Base,
+    /// Exact transient Hessian over the named integration directions.
+    ExactHessian,
+}
+/// One method's original typed contextual assessment.
+#[derive(Clone, Debug)]
+pub struct DynamicCandidate {
+    /// Concrete method being assessed.
+    pub method: Method,
+    /// Every retained settings/representation refusal.
+    pub causes: Vec<Arc<ProblemError>>,
+    /// Required selected derivative order not yet prepared.
+    pub artifacts: Vec<crate::routing::ArtifactDemand>,
+    /// Readiness after the whole requested dynamic contract is assessed.
+    pub state: crate::routing::AssessmentState,
+}
+/// Deterministic dynamic selection against one immutable observation.
+#[derive(Clone, Debug)]
+pub struct DynamicDecision {
+    /// The authored explicit or automatic method choice.
+    pub requested: Method,
+    /// Selected concrete method, absent on contextual refusal.
+    pub selected: Option<Method>,
+    /// Both methods for Auto; only the requested method for explicit selection.
+    pub candidates: Vec<DynamicCandidate>,
+    /// Exact consumed build/runtime observation.
+    pub snapshot: ContentHash,
+}
+impl DynamicDecision {
+    /// A selected scientific method whose required artifacts the caller must prepare.
+    pub fn candidate(&self) -> Result<Method, ProblemError> {
+        self.selected
+            .ok_or_else(|| ProblemError::DynamicRouteRefused(Box::new(self.clone())))
+    }
+    /// Final readiness; pending kernels never enter a native attempt.
+    pub fn ready(&self) -> Result<Method, ProblemError> {
+        self.selected
+            .filter(|method| {
+                self.candidates.iter().any(|candidate| {
+                    candidate.method == *method
+                        && candidate.state == crate::routing::AssessmentState::Ready
+                })
+            })
+            .ok_or_else(|| ProblemError::DynamicRouteRefused(Box::new(self.clone())))
+    }
+    /// Owned retained diagnostic and pending-demand extent.
+    pub fn retained_bytes(&self) -> usize {
+        self.candidates.capacity() * size_of::<DynamicCandidate>()
+            + self
+                .candidates
+                .iter()
+                .map(|candidate| {
+                    candidate.causes.capacity() * size_of::<Arc<ProblemError>>()
+                        + candidate
+                            .causes
+                            .iter()
+                            .map(|cause| cause.retained_bytes())
+                            .sum::<usize>()
+                        + candidate.artifacts.capacity()
+                            * size_of::<crate::routing::ArtifactDemand>()
+                })
+                .sum::<usize>()
+    }
+}
 impl Profile {
     /// The integration parameter vector's length for `parameters` contract parameters:
     /// the unscheduled parameters, then every interval of every scheduled input.
@@ -911,26 +1071,121 @@ impl Profile {
         times.dedup();
         times
     }
-    /// Resolve algorithm and trial semantics without acquiring a worker.
-    pub fn resolved_method(&self) -> Result<Method, ProblemError> {
-        let method = match self.method {
-            Method::Auto if self.trial_failures == TrialPolicy::Recoverable => Method::Idas,
-            Method::Auto => Method::Diffsol,
-            m => m,
+    /// Assess the complete requested contract without acquiring an evaluator or worker.
+    /// Resource/cancellation/infrastructure failures stop assessment, never select another method.
+    pub fn assess_method(
+        &self,
+        c: &Contract,
+        parameters: &[f64],
+        snapshot: &crate::execution::Snapshot,
+        demand: DynamicDemand,
+        prepared_order: pse_kernels::DerivativeOrder,
+        directions: &[usize],
+    ) -> Result<DynamicDecision, ProblemError> {
+        use crate::{
+            routing::{ArtifactDemand, AssessmentState},
+            solve::Backend,
         };
-        if method == Method::Diffsol && self.trial_failures == TrialPolicy::Recoverable {
-            return Err(contract(
-                "Diffsol cannot recover typed trial failures; request IDAS",
-            ));
+        let methods: &[Method] = match self.method {
+            Method::Auto => &[Method::Diffsol, Method::Idas],
+            Method::Diffsol => &[Method::Diffsol],
+            Method::Idas => &[Method::Idas],
+        };
+        let mut candidates = Vec::new();
+        for &method in methods {
+            let mut profile = self.clone();
+            profile.method = method;
+            let backend = if method == Method::Diffsol {
+                Backend::Diffsol
+            } else {
+                Backend::Idas
+            };
+            let mut causes = Vec::new();
+            if !snapshot.linked(backend) {
+                causes.push(Arc::new(ProblemError::Unavailable {
+                    backend,
+                    alternatives: vec![],
+                }));
+            }
+            causes.extend(profile.method_refusals(c).into_iter().map(Arc::new));
+            match profile.validate_common(c, parameters) {
+                Ok(_) => {}
+                Err(
+                    cause @ (ProblemError::Limit { .. }
+                    | ProblemError::Cancelled
+                    | ProblemError::Internal(_)),
+                ) => return Err(cause),
+                Err(cause) => causes.push(Arc::new(cause)),
+            }
+            let order = if demand == DynamicDemand::ExactHessian {
+                match profile.admit_second_order(c, directions) {
+                    Ok(_) => {}
+                    Err(
+                        cause @ (ProblemError::Limit { .. }
+                        | ProblemError::Cancelled
+                        | ProblemError::Internal(_)),
+                    ) => return Err(cause),
+                    Err(cause) => causes.push(Arc::new(cause)),
+                }
+                pse_kernels::DerivativeOrder::Second
+            } else {
+                pse_kernels::DerivativeOrder::First
+            };
+            let artifacts = if c.derivatives >= order && prepared_order < order {
+                vec![ArtifactDemand::Derivatives(order)]
+            } else {
+                vec![]
+            };
+            let state = if !causes.is_empty() {
+                AssessmentState::Refused
+            } else if !artifacts.is_empty() {
+                AssessmentState::SupportedPendingArtifacts
+            } else {
+                AssessmentState::Ready
+            };
+            candidates.push(DynamicCandidate {
+                method,
+                causes,
+                artifacts,
+                state,
+            });
         }
-        if (method == Method::Idas && !cfg!(feature = "idas"))
-            || (method == Method::Diffsol && !cfg!(feature = "diffsol"))
-        {
-            return Err(ProblemError::unsupported(
-                "requested dynamic backend is not linked",
-            ));
+        // Diffsol remains the preferred Auto method when its whole mandatory contract is supported.
+        let selected = candidates
+            .iter()
+            .find(|candidate| candidate.state != AssessmentState::Refused)
+            .map(|candidate| candidate.method);
+        Ok(DynamicDecision {
+            requested: self.method,
+            selected,
+            candidates,
+            snapshot: snapshot.identity(),
+        })
+    }
+    /// Materialize the scientific selection as an explicit immutable profile.
+    pub fn resolve_for(
+        &self,
+        c: &Contract,
+        parameters: &[f64],
+        snapshot: &crate::execution::Snapshot,
+        demand: DynamicDemand,
+        prepared_order: pse_kernels::DerivativeOrder,
+        directions: &[usize],
+    ) -> Result<Self, ProblemError> {
+        let decision =
+            self.assess_method(c, parameters, snapshot, demand, prepared_order, directions)?;
+        let mut profile = self.clone();
+        profile.method = decision.candidate()?;
+        Ok(profile)
+    }
+    /// Read the concrete admitted method. Auto requires whole-contract assessment first.
+    pub fn resolved_method(&self) -> Result<Method, ProblemError> {
+        match self.method {
+            Method::Auto => Err(contract(
+                "automatic dynamic method requires contextual contract assessment",
+            )),
+            method => Ok(method),
         }
-        Ok(method)
     }
     /// Forward sensitivities are integrated with every sample.
     pub fn forward(&self) -> bool {
@@ -1080,7 +1335,7 @@ impl Profile {
             })
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
-            return Err(contract("dynamic result cell allowance"));
+            return Err(ProblemError::memory("dynamic result cell allowance"));
         }
         let steps = self.adjoint.steps_between_checkpoints.into_inner();
         let segments = self.segments();
@@ -1111,8 +1366,72 @@ impl Profile {
             .ok_or_else(|| ProblemError::memory("second-order adjoint extent overflow"))?;
         Ok(bytes)
     }
+    fn method_refusals(&self, c: &Contract) -> Vec<ProblemError> {
+        let mut causes = Vec::new();
+        match self.method {
+            Method::Idas => {
+                let changed = self.diffsol != DiffsolSettings::default();
+                #[cfg(feature = "diffsol")]
+                let changed =
+                    changed || settings_identity(self) != settings_identity(&Self::default());
+                if changed {
+                    causes.push(contract(
+                        "Diffsol-specific controls cannot be applied to IDAS",
+                    ));
+                }
+                if self.forward() && c.events.iter().any(|events| !events.is_empty()) {
+                    causes.push(ProblemError::unsupported("IDAS forward sensitivities do not cross events; Diffsol owns reset sensitivities"));
+                }
+                if match self.idas.linear {
+                    IdasLinear::Klu => false,
+                    IdasLinear::Spgmr { dimension, .. } | IdasLinear::Spfgmr { dimension, .. } => {
+                        i32::try_from(dimension.into_inner()).is_err()
+                    }
+                } {
+                    causes.push(contract("invalid IDAS Krylov control"));
+                }
+            }
+            Method::Diffsol => {
+                if self.trial_failures == TrialPolicy::Recoverable {
+                    causes.push(ProblemError::unsupported(
+                        "Diffsol cannot recover typed trial failures",
+                    ));
+                }
+                if self.idas != IdasSettings::default() {
+                    causes.push(contract(
+                        "IDAS-specific controls cannot be applied to Diffsol",
+                    ));
+                }
+                if c.events
+                    .iter()
+                    .flatten()
+                    .any(|event| event.direction != EventDirection::Either)
+                {
+                    causes.push(ProblemError::unsupported(
+                        "Diffsol detects every guard sign change; a directional event needs IDAS",
+                    ));
+                }
+                if self.diffsol.method == DiffsolMethod::Tsit45 {
+                    if c.differential.contains(&false) {
+                        causes.push(ProblemError::unsupported("explicit tsit45 integrates mass-free ODEs only; algebraic states need an implicit scheme"));
+                    }
+                    if self.diffsol.linear != DiffsolSettings::default().linear {
+                        causes.push(contract("explicit tsit45 has no Newton linear solver"));
+                    }
+                }
+            }
+            Method::Auto => causes.push(ProblemError::internal("unresolved dynamic method")),
+        }
+        causes
+    }
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
     pub fn validate(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
+        if let Some(cause) = self.method_refusals(c).into_iter().next() {
+            return Err(cause);
+        }
+        self.validate_common(c, p)
+    }
+    fn validate_common(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
         use pse_model::generated::enums::EndpointPolicy;
         match self.endpoint.kind {
             EndpointPolicy::FixedHorizon if self.endpoint.event.is_none() => {}
@@ -1129,58 +1448,6 @@ impl Profile {
 
         c.validate()?;
         let n = c.states.len();
-        match self.resolved_method()? {
-            Method::Idas => {
-                #[cfg(feature = "diffsol")]
-                if settings_identity(self) != settings_identity(&Self::default()) {
-                    return Err(contract(
-                        "Diffsol-specific controls cannot be applied to IDAS",
-                    ));
-                }
-                // ADR-0110 item 1: Diffsol owns reset sensitivities; IDAS has no saltation.
-                if self.forward() && c.events.iter().any(|e| !e.is_empty()) {
-                    return Err(ProblemError::unsupported(
-                        "IDAS forward sensitivities do not cross events; Diffsol owns reset sensitivities",
-                    ));
-                }
-                if match self.idas.linear {
-                    IdasLinear::Klu => false,
-                    IdasLinear::Spgmr { dimension, .. } | IdasLinear::Spfgmr { dimension, .. } => {
-                        i32::try_from(dimension.into_inner()).is_err()
-                    }
-                } {
-                    return Err(contract("invalid IDAS Krylov control"));
-                }
-            }
-            Method::Diffsol => {
-                if self.idas != IdasSettings::default() {
-                    return Err(contract(
-                        "IDAS-specific controls cannot be applied to Diffsol",
-                    ));
-                }
-                if c.events
-                    .iter()
-                    .flatten()
-                    .any(|e| e.direction != EventDirection::Either)
-                {
-                    return Err(ProblemError::unsupported(
-                        "Diffsol detects every guard sign change; a directional event needs IDAS",
-                    ));
-                }
-                if self.diffsol.method == DiffsolMethod::Tsit45 {
-                    // ADR-0110 item 2: the explicit scheme is admitted for mass-free ODEs only.
-                    if c.differential.contains(&false) {
-                        return Err(ProblemError::unsupported(
-                            "explicit tsit45 integrates mass-free ODEs only; algebraic states need an implicit scheme",
-                        ));
-                    }
-                    if self.diffsol.linear != DiffsolSettings::default().linear {
-                        return Err(contract("explicit tsit45 has no Newton linear solver"));
-                    }
-                }
-            }
-            Method::Auto => return Err(ProblemError::internal("unresolved dynamic method")),
-        }
         if self.forward() && c.events.iter().flatten().any(|e| e.terminal) {
             return Err(contract(
                 "terminal-event sensitivities require a declared event-time output contract",
@@ -1338,7 +1605,7 @@ impl Profile {
             })
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
-            return Err(contract("dynamic result cell allowance"));
+            return Err(ProblemError::memory("dynamic result cell allowance"));
         }
         Ok(cells)
     }
@@ -1942,3 +2209,6 @@ impl Default for Profile {
 #[cfg(test)]
 #[cfg(feature = "diffsol")]
 mod tests;
+
+#[cfg(test)]
+mod contextual_tests;

@@ -2388,9 +2388,17 @@ class RuntimeRouteDecisionsFieldEligibilityItem:
 
     backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
     reasons: b.tuple[e.NativeIneligibility, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeIneligibility), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    state: e.NativeAssessmentState = attrs.field(validator=attrs.validators.instance_of(e.NativeAssessmentState))
+    evidence: b.tuple[e.NativeEvidenceDemand, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeEvidenceDemand), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    artifacts: b.tuple[e.NativeArtifactDemand, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeArtifactDemand), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    evidence_classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    required_order: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 2)))
+    artifact_representations: b.tuple[e.NativeRepresentation, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeRepresentation), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    structural_mode: e.NativeStructuralMode | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeStructuralMode)))
+    structurally_admitted: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.backend), v.sequence_key(v.scalar_key)(self.reasons),))
+        return (type(self), (v.scalar_key(self.backend), v.sequence_key(v.scalar_key)(self.reasons), v.scalar_key(self.state), v.sequence_key(v.scalar_key)(self.evidence), v.sequence_key(v.scalar_key)(self.artifacts), v.sequence_key(v.scalar_key)(self.evidence_classes), v.optional_key(v.scalar_key)(self.required_order), v.sequence_key(v.scalar_key)(self.artifact_representations), v.optional_key(v.scalar_key)(self.structural_mode), v.optional_key(v.scalar_key)(self.structurally_admitted),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2403,6 +2411,14 @@ class RuntimeRouteDecisionsRow:
     selection: e.NativeRouteSelection = attrs.field(validator=attrs.validators.instance_of(e.NativeRouteSelection))
     requested_backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
     classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    state: e.NativeAssessmentState = attrs.field(validator=attrs.validators.instance_of(e.NativeAssessmentState))
+    snapshot: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    pending_backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
+    evidence: b.tuple[e.NativeEvidenceDemand, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeEvidenceDemand), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    artifacts: b.tuple[e.NativeArtifactDemand, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeArtifactDemand), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    evidence_classes: b.tuple[e.NativeProblemClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeProblemClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    required_order: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 2)))
+    artifact_representations: b.tuple[e.NativeRepresentation, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeRepresentation), iterable_validator=attrs.validators.instance_of(b.tuple)))
     eligibility: b.tuple[RuntimeRouteDecisionsFieldEligibilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeRouteDecisionsFieldEligibilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     selected: e.NativeRouteKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeRouteKind)))
     backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
@@ -2412,7 +2428,7 @@ class RuntimeRouteDecisionsRow:
     detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.request_identity), v.scalar_key(self.step), v.scalar_key(self.intent), v.scalar_key(self.selection), v.optional_key(v.scalar_key)(self.requested_backend), v.sequence_key(v.scalar_key)(self.classes), v.sequence_key(v.record_key)(self.eligibility), v.optional_key(v.scalar_key)(self.selected), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.representation), v.optional_key(v.scalar_key)(self.lexicographic), v.optional_key(v.scalar_key)(self.refusal), v.optional_key(v.scalar_key)(self.detail),))
+        return (type(self), (v.scalar_key(self.request_identity), v.scalar_key(self.step), v.scalar_key(self.intent), v.scalar_key(self.selection), v.optional_key(v.scalar_key)(self.requested_backend), v.sequence_key(v.scalar_key)(self.classes), v.scalar_key(self.state), v.scalar_key(self.snapshot), v.optional_key(v.scalar_key)(self.pending_backend), v.sequence_key(v.scalar_key)(self.evidence), v.sequence_key(v.scalar_key)(self.artifacts), v.sequence_key(v.scalar_key)(self.evidence_classes), v.optional_key(v.scalar_key)(self.required_order), v.sequence_key(v.scalar_key)(self.artifact_representations), v.sequence_key(v.record_key)(self.eligibility), v.optional_key(v.scalar_key)(self.selected), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.representation), v.optional_key(v.scalar_key)(self.lexicographic), v.optional_key(v.scalar_key)(self.refusal), v.optional_key(v.scalar_key)(self.detail),))
 
 
 @attrs.frozen(kw_only=True)

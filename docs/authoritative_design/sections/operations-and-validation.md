@@ -64,6 +64,10 @@ propagation beyond `tracing` task propagation inside the engine.
 
 ### 23.2 Failure taxonomy
 
+> Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
+
+An absent original-space feasibility assessment is an explicit refusal distinct from evaluated infeasibility. Completion-owned projections preserve cancellation, precise limits/resource exhaustion, numerical failures, validation causes and contradiction witnesses; adapter-owned native classification remains retained evidence. Registry/Rust declarations own new generated vocabulary and transport, and recorded contracts retain historical interpretation.
+
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > `numerical` and `inconclusive` boundary classes, diagnostic severity and typed
 > `ProblemError` variants (Plan 22 A1, implemented);

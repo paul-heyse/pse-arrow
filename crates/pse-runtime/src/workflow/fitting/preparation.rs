@@ -29,6 +29,7 @@ impl PreparedExperiments {
         quantities: Arc<pse_quantity::QuantityRegistry>,
         source_identity: ContentHash,
         reservation: datafusion::execution::memory_pool::MemoryReservation,
+        cancel: &std::sync::atomic::AtomicBool,
     ) -> Result<FitProblem, WorkflowError> {
         let Self {
             execution_identity,
@@ -210,12 +211,34 @@ impl PreparedExperiments {
             derivatives: order,
             smoothness: order,
         };
+        let structural_extent = native::structural::construction_bytes(
+            &contract,
+            layout.constraints.matrix().symbolic(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        reservation
+            .try_grow(structural_extent)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let mut structure = native::structural::oracle_structure_with_cancel(
+            &contract,
+            layout.constraints.matrix().symbolic(),
+            &bounds,
+            true,
+            cancel,
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
         let retained = metadata_bytes
             .checked_add(layout.retained_bytes())
+            .and_then(|bytes| bytes.checked_add(native::structural::retained_bytes(&structure)))
             .filter(|n| *n <= reservation.size())
             .ok_or_else(|| super::contract("fit preparation retained allowance"))?;
         reservation.shrink(reservation.size() - retained);
+        let owner = pse_columnar::AllocationLease::new(reservation);
+        structure.witness = structure.witness.with_owner(owner.clone());
         Ok(FitProblem {
+            snapshot: native::execution::Snapshot::observe(&native::execution::LINKED),
+            structure,
+            structural_assessment: None,
             runtime,
             quantities,
             source_identity: source,
@@ -237,7 +260,7 @@ impl PreparedExperiments {
             parameter_columns,
             experiments,
             measurements,
-            _owner: pse_columnar::AllocationLease::new(reservation),
+            _owner: owner,
         })
     }
 }

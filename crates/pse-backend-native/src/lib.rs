@@ -143,6 +143,9 @@ pub enum ProblemError {
     /// Route admission refused, retaining the request and contextual assessments.
     #[error("route refused: {0}")]
     RouteRefused(Box<routing::Decision>),
+    /// Whole-contract dynamic selection refused before any native attempt.
+    #[error("dynamic route refused: {0:?}")]
+    DynamicRouteRefused(Box<dynamics::DynamicDecision>),
     /// The model or request violates a declared contract.
     #[error("invalid native problem: {0}")]
     Contract(String),
@@ -295,6 +298,7 @@ impl ProblemError {
             Self::Math(e) => e.retained_bytes(),
             Self::Provider(e) => e.retained_bytes(),
             Self::RouteRefused(decision) => decision.retained_bytes(),
+            Self::DynamicRouteRefused(decision) => decision.retained_bytes(),
             Self::Cancelled => 0,
         })
     }
@@ -306,6 +310,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Structural{..} => Some(pse_diagnostics::DiagnosticCode::NativeStructural),
         Self::Unavailable{..} => Some(pse_diagnostics::DiagnosticCode::NativeUnavailable),
         Self::RouteRefused(decision) => Some(if decision.structure.as_ref().is_some_and(|structure| structure.refusal.is_some()) {pse_diagnostics::DiagnosticCode::NativeStructural} else {pse_diagnostics::DiagnosticCode::NativeRouteRefused}),
+        Self::DynamicRouteRefused(_) => Some(pse_diagnostics::DiagnosticCode::NativeRouteRefused),
         Self::Unsupported(_) => Some(pse_diagnostics::DiagnosticCode::NativeUnsupported),
         Self::Reuse{..} => Some(pse_diagnostics::DiagnosticCode::NativeReuse),
         Self::Numerical{..} => Some(pse_diagnostics::DiagnosticCode::NativeNumerical),
@@ -938,6 +943,7 @@ impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
             Self::Provider(error) => return error.boundary_diagnostic(stage),
             Self::Unavailable { .. }
             | Self::RouteRefused(_)
+            | Self::DynamicRouteRefused(_)
             | Self::Contract(_)
             | Self::Unsupported(_)
             | Self::Reuse { .. }
@@ -959,7 +965,71 @@ impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
                 .unwrap_or(pse_diagnostics::DiagnosticCode::InternalInvariant),
         );
         let (class, rule) = match error {
+            E::DynamicRouteRefused(decision) => {
+                result.causes = decision
+                    .candidates
+                    .iter()
+                    .flat_map(|candidate| &candidate.causes)
+                    .map(|cause| cause.boundary_diagnostic(stage))
+                    .collect();
+                (
+                    Class::Unsupported,
+                    pse_diagnostics::DiagnosticRule::NativeRouteRefused,
+                )
+            }
             E::RouteRefused(decision) => {
+                result.causes = decision
+                    .eligibility
+                    .iter()
+                    .flat_map(|entry| &entry.causes)
+                    .map(|cause| cause.boundary_diagnostic(stage))
+                    .collect();
+                result.causes.extend(
+                    decision
+                        .eligibility
+                        .iter()
+                        .flat_map(|entry| &entry.factorable_refusals)
+                        .map(|refusal| refusal.boundary_diagnostic(stage)),
+                );
+                for dependency in decision
+                    .eligibility
+                    .iter()
+                    .flat_map(|entry| &entry.class_dependencies)
+                {
+                    use pse_math::presolve::ClassDependency;
+                    let (instance, output, kind) = match dependency {
+                        ClassDependency::MissingSymbolicExpression { instance, output } => {
+                            (*instance, Some(*output), "missing_symbolic_expression")
+                        }
+                        ClassDependency::UnestablishedObligation { instance } => {
+                            (*instance, None, "unestablished_obligation")
+                        }
+                    };
+                    let mut cause = BoundaryDiagnostic::new(
+                        Class::Unsupported,
+                        stage,
+                        [instance],
+                        pse_diagnostics::DiagnosticRule::NativeRouteRefused,
+                    )
+                    .with_code(pse_diagnostics::DiagnosticCode::NativeRouteRefused);
+                    cause.observations.insert(
+                        "assessment_state".into(),
+                        Observation::Text(
+                            pse_model::generated::enums::NativeAssessmentState::PendingEvidence
+                                .as_str()
+                                .into(),
+                        ),
+                    );
+                    cause
+                        .observations
+                        .insert("class_dependency".into(), Observation::Text(kind.into()));
+                    if let Some(output) = output {
+                        cause
+                            .observations
+                            .insert("output".into(), Observation::Text(output.to_string()));
+                    }
+                    result.causes.push(cause);
+                }
                 result.observations.insert(
                     "route_intent".into(),
                     Observation::Text(decision.intent.as_str().into()),

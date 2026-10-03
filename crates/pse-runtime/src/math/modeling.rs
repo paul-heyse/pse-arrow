@@ -665,6 +665,45 @@ impl MathService {
     /// Publish the selected revision and prepare it while holding the single compiler writer.
     #[expect(
         clippy::too_many_arguments,
+        reason = "semantic preparation shares the compiler specialization boundary"
+    )]
+    pub async fn prepare_semantic_modeling_revision(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        revision: ModelingRevision,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        driver: &crate::CancelSource,
+    ) -> Result<pse_compiler::workspace::SemanticModeling, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
+                let _workspace_lease = workspace.lease;
+                let mut compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                compiler.publish_modeling_revision(revision.admitted.clone())?;
+                let product = compiler.prepare_semantic_modeling_cancellable(
+                    root, instance, bindings, limits, flag,
+                )?;
+                let bytes = product.retained_bytes();
+                Ok((product, bytes))
+            });
+        tokio::pin!(operation);
+        let (product, lease) = tokio::select! { result=&mut operation => result?, ()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let owner = self.shared_product(
+            vec![32, product.model.allocation_identity()],
+            Arc::new(product.clone()),
+            lease,
+            Vec::new(),
+        )?;
+        Ok(product.with_owner(owner))
+    }
+    /// Publish the selected revision and prepare its selected numerical outputs.
+    #[expect(
+        clippy::too_many_arguments,
         reason = "one compiler job receives the workspace and revision with the specialization request and cancellation driver"
     )]
     pub async fn prepare_modeling_revision(

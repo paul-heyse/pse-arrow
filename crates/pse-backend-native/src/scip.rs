@@ -1087,8 +1087,9 @@ pub(crate) fn configure(
     accuracy: &ResolvedAccuracy,
     execution: &Execution,
     gap_absolute: f64,
+    snapshot: &crate::execution::Snapshot,
 ) -> Result<Options, ProblemError> {
-    settings.admit(controls.threads)?;
+    settings.admit(controls.threads, snapshot)?;
     if let Some(key) = controls.options.keys().find(|k| {
         RESERVED.contains(&k.as_str()) || RESERVED_PREFIXES.iter().any(|p| k.starts_with(p))
     }) {
@@ -2673,6 +2674,7 @@ fn build(r: &Request<'_>, plan: &Plan<'_>, gap_absolute: f64) -> Result<Session,
         r.accuracy,
         r.execution,
         gap_absolute,
+        r.snapshot,
     )?;
     let export = export(&mut instance, plan, r.normalization)?;
     let system = if r.settings.reoptimize {
@@ -2823,6 +2825,7 @@ fn iis(
 /// One SCIP attempt over an admitted factorable program.
 #[derive(Debug)]
 pub(crate) struct Request<'a> {
+    pub snapshot: &'a crate::execution::Snapshot,
     pub program: &'a FactorableProgram,
     pub initial: &'a [f64],
     pub intent: SolveIntent,
@@ -2845,7 +2848,7 @@ pub(crate) fn solve(
     retained: &mut crate::execution::Retained,
 ) -> Result<SolveReport, ProblemError> {
     r.controls.validate()?;
-    r.settings.admit(r.controls.threads)?;
+    r.settings.admit(r.controls.threads, r.snapshot)?;
     let abi = abi()?;
     let plan = crate::execution::factorable::plan(r.program, r.intent).map_err(|refusals| {
         let reasons: Vec<String> = refusals.iter().map(ToString::to_string).collect();
@@ -3197,6 +3200,7 @@ pub(crate) mod testing {
             &ResolvedAccuracy::nominal(),
             execution,
             1e-6,
+            &crate::execution::Snapshot::observe(&crate::execution::LINKED),
         )?;
         export(&mut instance, &plan, &identity(program))?;
         native!("SCIPsolve", ffi::SCIPsolve(instance.ptr()))?;
@@ -3276,6 +3280,7 @@ pub(crate) mod testing {
             accuracy,
             &execution,
             1e-6,
+            &crate::execution::Snapshot::observe(&crate::execution::LINKED),
         )?;
         let mut sol = ptr::null_mut();
         native!(
@@ -3316,6 +3321,14 @@ pub(crate) mod testing {
         let mut execution = Execution::new(Arc::default(), controls);
         execution.memory = Some(256 << 20);
         let instance = Instance::new(&execution, Modes::default())?;
-        configure(&instance, settings, controls, accuracy, &execution, 1e-6)
+        configure(
+            &instance,
+            settings,
+            controls,
+            accuracy,
+            &execution,
+            1e-6,
+            &crate::execution::Snapshot::observe(&crate::execution::LINKED),
+        )
     }
 }

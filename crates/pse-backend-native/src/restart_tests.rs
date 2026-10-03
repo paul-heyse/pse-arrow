@@ -147,6 +147,8 @@ pub(crate) fn run(
     let initial = vec![1.0 / n as f64; n];
     execution::nlp(
         Step {
+            snapshot: &execution::Snapshot::observe(&LINKED),
+            structure: None,
             adapter: LINKED.get(backend).unwrap(),
             settings,
             controls: &controls,

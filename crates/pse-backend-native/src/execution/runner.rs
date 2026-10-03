@@ -26,6 +26,10 @@ pub struct Step<'a> {
     pub adapter: &'a dyn BackendExecution,
     /// Typed settings admitted for `adapter`.
     pub settings: &'a BackendSettings,
+    /// Immutable observation retained by contextual admission.
+    pub snapshot: &'a super::Snapshot,
+    /// The admitted interpretation of the original retained structural witness.
+    pub structure: Option<&'a crate::structural::Assessment>,
     /// Finite shared controls chosen by the caller.
     pub controls: &'a Controls,
     /// Stopping budgets resolved from the numerical policy for this step.
@@ -42,6 +46,15 @@ pub struct Step<'a> {
     pub warm: Option<&'a WarmStart>,
 }
 
+impl Step<'_> {
+    /// Final observation/settings validation before protected preparation or effects.
+    pub(crate) fn preflight(&self) -> Result<(), ProblemError> {
+        self.adapter
+            .validate_snapshot(self.settings, self.snapshot)?;
+        self.adapter
+            .admit_settings(self.settings, self.controls, self.snapshot)
+    }
+}
 impl std::fmt::Debug for Step<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Step")
@@ -82,6 +95,17 @@ pub fn nlp(
     retained: &mut Retained,
     mut run: Nlp<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    step.preflight()?;
+    if let Some(structure) = step.structure {
+        crate::structural::check(
+            run.oracle.contract(),
+            run.oracle.jacobian_pattern(),
+            run.oracle.constraint_bounds(),
+            structure.mode,
+            Some(&structure.witness),
+        )?;
+        run.oracle = crate::structural::retain_nlp(run.oracle, structure.witness.clone());
+    }
     // Feasibility purposes solve a constant objective, whose curvature says nothing.
     if (run.analysis.second_order || run.analysis.sensitivity.is_some())
         && run.intent != SolveIntent::Optimize
@@ -153,18 +177,28 @@ pub fn nlp(
         Some(report) => report,
         None => {
             let transport = pipeline.take_oracle()?;
+            let oracle: Box<dyn NlpOracle> = match step.structure {
+                Some(structure)
+                    if crate::structural::same_inventory(structure, transport.contract()) =>
+                {
+                    crate::structural::retain_nlp(Box::new(transport), structure.witness.clone())
+                }
+                _ => Box::new(transport),
+            };
             let tolerances = pipeline.tolerances(step.tolerances);
             step.adapter.execute(
                 retained,
                 Input {
                     problem: Problem::Nlp {
-                        oracle: Box::new(transport),
+                        oracle,
                         initial: pipeline.initial(),
                         sense: run.sense,
                     },
                     controls: step.controls,
                     accuracy: step.accuracy,
                     settings: step.settings,
+                    snapshot: step.snapshot,
+                    structure: step.structure,
                     execution: step.execution,
                     tolerances: &tolerances,
                     warm: pipeline.warm(),
@@ -232,8 +266,21 @@ pub fn roots(
     retained: &mut Retained,
     run: Roots<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    step.preflight()?;
     let contract = run.oracle.contract().clone();
-    let oracle = transport::Roots::new(run.oracle, step.normalization.clone())?;
+    let original = if let Some(structure) = step.structure {
+        crate::structural::check(
+            run.oracle.contract(),
+            run.oracle.jacobian_pattern(),
+            &vec![(0.0, 0.0); contract.rows.len()],
+            structure.mode,
+            Some(&structure.witness),
+        )?;
+        crate::structural::retain_roots(run.oracle, structure.witness.clone())
+    } else {
+        run.oracle
+    };
+    let oracle = transport::Roots::new(original, step.normalization.clone())?;
     let initial = step.normalization.normalized_point(run.initial)?;
     let warm = step
         .warm
@@ -247,15 +294,17 @@ pub fn roots(
                 oracle: Box::new(oracle),
                 initial: &initial,
                 budgets: Budgets {
+                    accuracy: step.accuracy,
                     tolerances: step.tolerances,
                     normalization: step.normalization,
-                    feasibility: step.accuracy.feasibility,
                 },
                 owner: run.owner,
             },
             controls: step.controls,
             accuracy: step.accuracy,
             settings: step.settings,
+            snapshot: step.snapshot,
+            structure: step.structure,
             execution: step.execution,
             tolerances: &tolerances,
             warm: warm.as_ref(),
@@ -288,6 +337,8 @@ pub struct Evaluation {
 }
 /// One coefficient-model run.
 pub struct Coefficients<'a> {
+    /// Complete original lowering admitted during contextual preparation, when selected.
+    pub lowered: Option<&'a crate::conic::Lowered>,
     /// Original-coordinate coefficient projection.
     pub problem: &'a CoefficientProblem,
     /// Convexity evidence for a quadratic objective.
@@ -319,6 +370,7 @@ pub fn coefficients(
     retained: &mut Retained,
     mut run: Coefficients<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    step.preflight()?;
     let transported = Transported::new(&step, &run)?;
     let report = step
         .adapter
@@ -350,7 +402,10 @@ pub fn coefficients_batch(
     }
     let transported: Vec<Result<Transported, ProblemError>> = steps
         .iter()
-        .map(|(step, run)| Transported::new(step, run))
+        .map(|(step, run)| {
+            step.preflight()?;
+            Transported::new(step, run)
+        })
         .collect();
     let inputs: Vec<Input<'_>> = transported
         .iter()
@@ -381,6 +436,13 @@ struct Transported {
 }
 impl Transported {
     fn new(step: &Step<'_>, run: &Coefficients<'_>) -> Result<Self, ProblemError> {
+        if let Some(structure) = step.structure {
+            crate::structural::validate_assessment(
+                structure,
+                &run.problem.contract,
+                &run.row_bounds,
+            )?;
+        }
         let (problem, evidence) =
             transport::coefficients(run.problem, step.normalization, run.certificate)?;
         let tolerances = step.tolerances.normalized(step.normalization)?;
@@ -390,7 +452,10 @@ impl Transported {
             .transpose()?;
         let lowered = if step.adapter.representation() == Representation::Cone {
             let certificate = evidence.as_ref().map(|p| -> &dyn QuadraticEvidence { p });
-            let lowered = ConicProblem::from_coefficients(&problem, certificate)?;
+            let lowered = match run.lowered {
+                Some(lowered) => lowered.transport(step.normalization)?,
+                None => ConicProblem::from_coefficients(&problem, certificate)?,
+            };
             let budgets = lowered.tolerances(&tolerances);
             Some((lowered, budgets))
         } else {
@@ -427,6 +492,8 @@ impl Transported {
             controls: step.controls,
             accuracy: step.accuracy,
             settings: step.settings,
+            snapshot: step.snapshot,
+            structure: step.structure,
             execution: step.execution.clone(),
             tolerances: match &self.lowered {
                 Some((_, budgets)) => budgets,
@@ -556,6 +623,8 @@ fn reobserve(
 
 /// One run of a recognized convex program (ADR-0121 Outcome 6).
 pub struct Recognized<'a> {
+    /// Retained exact cone-space proof from contextual preparation.
+    pub certificate: Option<&'a dyn QuadraticEvidence>,
     /// The program's cone form, lowered from the preparation's recognition.
     pub lowered: &'a crate::conic::Recognized,
     /// The original compiled model the candidate is re-evaluated against.
@@ -581,22 +650,24 @@ pub fn recognized(
     retained: &mut Retained,
     run: Recognized<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    step.preflight()?;
     let lowered = run.lowered;
+    if let Some(structure) = step.structure {
+        crate::structural::validate_assessment(structure, &lowered.original, &lowered.bounds)?;
+    }
     let normalization = lowered.normalization(step.normalization)?;
-    let n = lowered.problem.contract.variables.len();
-    let zero = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &[])
-        .map_err(|e| ProblemError::Internal(e.to_string()))?;
-    let pse_math::convexity::Definiteness::Psd(linear) =
-        pse_math::convexity::GramCertificate::certify(
-            &zero,
-            1.0,
-            1,
-            &std::sync::atomic::AtomicBool::new(false),
-        )?
-    else {
-        return Err(ProblemError::Internal("zero quadratic certificate".into()));
+    let composed;
+    let certificate = match run.certificate {
+        Some(certificate) => certificate,
+        None => {
+            composed = crate::conic::zero_certificate(
+                lowered.problem.contract.variables.len(),
+                &step.execution.cancel,
+            )?;
+            &composed
+        }
     };
-    let (problem, certificate) = transport::conic(&lowered.problem, &normalization, &linear)?;
+    let (problem, certificate) = transport::conic(&lowered.problem, &normalization, certificate)?;
     let original = lowered.tolerances(step.tolerances, step.accuracy.feasibility)?;
     let tolerances = original.normalized(&normalization)?;
     let mut report = step.adapter.execute(
@@ -609,6 +680,8 @@ pub fn recognized(
             controls: step.controls,
             accuracy: step.accuracy,
             settings: step.settings,
+            snapshot: step.snapshot,
+            structure: step.structure,
             execution: step.execution,
             tolerances: &tolerances,
             warm: None,
@@ -636,6 +709,14 @@ pub fn cone(
     original: &ConicProblem,
     certificate: &dyn QuadraticEvidence,
 ) -> Result<SolveReport, ProblemError> {
+    step.preflight()?;
+    if let Some(structure) = step.structure {
+        crate::structural::validate_assessment(
+            structure,
+            &original.contract,
+            &crate::structural::conic_bounds(original)?,
+        )?;
+    }
     let tolerances = step.tolerances.normalized(step.normalization)?;
     let mut report = step.adapter.execute(
         retained,
@@ -647,6 +728,8 @@ pub fn cone(
             controls: step.controls,
             accuracy: step.accuracy,
             settings: step.settings,
+            snapshot: step.snapshot,
+            structure: step.structure,
             execution: step.execution,
             tolerances: &tolerances,
             warm: None,

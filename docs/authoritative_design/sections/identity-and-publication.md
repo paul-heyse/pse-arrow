@@ -144,6 +144,10 @@ the durable attempt of the run it publishes ([§20.2](#section-20-2)).
 
 ### 5.3 Canonical framing and hashing
 
+> Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
+
+Demand-indexed support/assessment products frame their consumed semantic, physical, provider, ordered selection, policy and relevant build/runtime contracts. Existing role separation remains: changing current preimages versions those frames and never reinterprets historical bytes. Runtime observation does not invalidate mathematics that did not consume it.
+
 > Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every frame context is declared once in the `Frame` catalog of
 > `pse-ids`, with spellings and golden vectors unchanged (Plan 22 B3, implemented);
 > [ADR-0116](../../adr/0116-typed-boundary-documents.md) — a document's request identity is

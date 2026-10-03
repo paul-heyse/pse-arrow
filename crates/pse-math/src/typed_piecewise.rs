@@ -27,9 +27,6 @@ fn order(stages: &[Stage], unproved: DerivativeOrder) -> DerivativeOrder {
 pub(super) fn branch_order(stages: &[Stage]) -> DerivativeOrder {
     order(stages, DerivativeOrder::Value)
 }
-pub(crate) fn proven_branch_order(stages: &[Stage]) -> DerivativeOrder {
-    order(stages, DerivativeOrder::Second)
-}
 fn bounded(atom: &Atom, limit: usize) -> Result<(), MathError> {
     let n = atom.count_operations();
     if n.additions

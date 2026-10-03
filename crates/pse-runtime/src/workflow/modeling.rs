@@ -644,7 +644,12 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
         let model = self
-            .prepare(
+            .runtime
+            .shared
+            .math()
+            .prepare_semantic_modeling_revision(
+                self.workspace.clone(),
+                self.revision.clone(),
                 analysis.root,
                 analysis.instance,
                 analysis.bindings.clone(),

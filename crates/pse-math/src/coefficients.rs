@@ -5,9 +5,8 @@
 use crate::{
     MathError,
     assembly::CasePlan,
-    binding::{CaseValues, Target},
+    binding::CaseValues,
     index::{Addend, Entry, GlobalCol, GlobalRow},
-    library,
     sparse::AssemblyMatrix,
 };
 use pse_ids::{ContentHash, FramedHasher};
@@ -94,6 +93,16 @@ impl CasePlan {
         term_limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Coefficients, MathError> {
+        self.coefficient_projection(values, facts, term_limit, cancel)
+            .map(|(coefficients, _)| coefficients)
+    }
+    pub(crate) fn coefficient_projection(
+        &self,
+        values: &CaseValues,
+        facts: &crate::presolve::Facts,
+        term_limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<(Coefficients, usize), MathError> {
         if !facts.matches(self, values) || !facts.coefficient_eligible() {
             return Err(MathError::Contract(
                 "coefficient projection requires current affine and domain facts".into(),
@@ -120,15 +129,26 @@ impl CasePlan {
         if term_limit == 0 {
             return Err(MathError::Limit("polynomial terms"));
         }
+        let mut allowance = crate::class_evidence::Allowance {
+            remaining: term_limit.min(facts.proof_remaining),
+        };
         let n = self.columns().len();
         let m = self.structure().rows().len();
-        let columns: BTreeMap<_, _> = self
-            .columns()
-            .iter()
-            .enumerate()
-            .map(|(i, &id)| (id, GlobalCol::new(i)))
-            .collect();
-        let mut identity = FramedHasher::new(pse_ids::Frame::MathCoefficientAssumptionsV1);
+        let levels = self.structure().objectives().len().max(1);
+        allowance.charge(
+            n.checked_mul(levels)
+                .and_then(|v| v.checked_add(m))
+                .ok_or(MathError::Limit("coefficient buffers"))?,
+        )?;
+        allowance.charge(
+            facts
+                .affine
+                .iter()
+                .flatten()
+                .map(|row| row.entries.len())
+                .sum(),
+        )?;
+        let mut identity = FramedHasher::new(pse_ids::Frame::MathCoefficientAssumptionsV2);
         identity.hash(&self.structure().key());
         let mut objective = vec![0.0; n];
         let mut constant = 0.0;
@@ -147,111 +167,83 @@ impl CasePlan {
                 jv.push(value);
             }
         }
-        if jp.len() > term_limit {
-            return Err(MathError::Limit("affine coefficient entries"));
-        }
         let mut hp = Vec::<Entry<GlobalCol, GlobalCol>>::new();
         let mut hv = vec![];
-        for b in self.structure().instances() {
-            if cancel.load(Ordering::Relaxed) {
-                return Err(MathError::Cancelled);
-            }
-            identity.hash(&b.body);
-            let body = &self.bodies()[&b.body];
-            let mut replacements = vec![];
-            let mut formals = vec![];
-            let mut local_columns = vec![];
-            for (i, slot) in b.slots.iter().enumerate() {
-                let replacement = if let Some(&col) = columns.get(&slot.source()) {
-                    let atom = library::formal(i)?;
-                    formals.push(atom.clone());
-                    local_columns.push(col);
-                    atom * Atom::num(slot.scale()) + Atom::num(slot.offset())
-                } else {
-                    let value = *values.scalars.get(&slot.source()).ok_or_else(|| {
+        for binding in self.structure().instances() {
+            identity.hash(&binding.body);
+            for slot in &binding.slots {
+                if !self.columns().contains(&slot.source()) {
+                    let value = values.scalars.get(&slot.source()).ok_or_else(|| {
                         MathError::Contract("missing coefficient parameter".into())
                     })?;
                     identity.u64(value.to_bits());
-                    Atom::num(slot.scale() * value + slot.offset())
-                };
-                replacements.push((library::formal(i)?, replacement));
+                }
             }
-            // Substitution cannot introduce another slot: each formal keeps its own index.
-            let replace = |atom: &Atom| {
-                replacements.iter().fold(atom.clone(), |a, (from, to)| {
-                    a.replace(from.clone()).with(to.clone())
-                })
-            };
-            for c in &b.contributions {
-                let Target::Objective(level) = c.target else {
-                    continue;
-                };
-                let expression = replace(body.expression(c.output).ok_or_else(|| {
-                    MathError::Contract(
-                        "opaque or switching output is not a coefficient model".into(),
-                    )
-                })?);
-                // Prove degree before expansion: constant second partials bound the
-                // expanded quadratic term count. Symbolica owns every derivative and expansion.
-                let width = formals.len();
-                if width
-                    .checked_add(1)
-                    .and_then(|w| w.checked_mul(w + 1))
-                    .map(|v| v / 2)
-                    .is_none_or(|v| v > term_limit)
-                {
-                    return Err(MathError::Limit("quadratic coefficient capacity"));
+        }
+        let (formals, objectives, remaining) =
+            crate::class_evidence::aggregate_objectives(self, values, allowance.remaining, cancel)?;
+        allowance.remaining = remaining;
+        let width = formals.len();
+        let capacity = width
+            .checked_add(1)
+            .and_then(|w| w.checked_mul(w + 1))
+            .map(|v| v / 2)
+            .ok_or(MathError::Limit("quadratic coefficient capacity"))?;
+        for (level, expression) in objectives.iter().enumerate() {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            allowance.charge(capacity)?;
+            let polynomial = expression
+                .expand()
+                .to_polynomial_in_vars::<u16>(formals.clone());
+            if polynomial.nterms() > capacity {
+                return Err(MathError::Limit("polynomial terms"));
+            }
+            for (term, coefficient) in polynomial.coefficients.iter().enumerate() {
+                if !coefficient.is_constant() {
+                    return Err(MathError::Contract("non-polynomial coefficient".into()));
                 }
-                let polynomial = expression
-                    .expand()
-                    .to_polynomial_in_vars::<u16>(formals.clone());
-                if polynomial.nterms() > term_limit {
-                    return Err(MathError::Limit("polynomial terms"));
+                let exponents = polynomial.exponents(term);
+                let degree: usize = exponents.iter().map(|&e| usize::from(e)).sum();
+                if degree > 2 {
+                    return Err(MathError::Contract("unsupported coefficient degree".into()));
                 }
-                for (term, coefficient) in polynomial.coefficients.iter().enumerate() {
-                    if !coefficient.is_constant() {
-                        return Err(MathError::Contract("non-polynomial coefficient".into()));
+                let v = number(coefficient, cancel)?;
+                allowance.charge(degree)?;
+                let factors: Vec<_> = exponents
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(i, &e)| std::iter::repeat_n(GlobalCol::new(i), usize::from(e)))
+                    .collect();
+                match (level, factors.as_slice()) {
+                    (0, []) => constant += v,
+                    (0, [i]) => objective[i.get()] += v,
+                    (0, [i, j]) => {
+                        allowance.charge(2)?;
+                        hp.push(Entry::new(*i, *j));
+                        hv.push(v);
+                        hp.push(Entry::new(*j, *i));
+                        hv.push(v);
                     }
-                    let exponents = polynomial.exponents(term);
-                    let degree: usize = exponents.iter().map(|&e| usize::from(e)).sum();
-                    if degree > 2 {
-                        return Err(MathError::Contract("unsupported coefficient degree".into()));
+                    (later, []) => lexicographic[later - 1].1 += v,
+                    (later, [i]) => lexicographic[later - 1].0[i.get()] += v,
+                    (_, [_, _]) => {
+                        return Err(MathError::Contract(
+                            "a later lexicographic objective is not linear".into(),
+                        ));
                     }
-                    let v = number(coefficient, cancel)? * c.scale;
-                    let factors: Vec<_> = exponents
-                        .iter()
-                        .enumerate()
-                        .flat_map(|(i, &e)| std::iter::repeat_n(local_columns[i], usize::from(e)))
-                        .collect();
-                    match (level, factors.as_slice()) {
-                        (0, []) => constant += v,
-                        (0, [i]) => objective[i.get()] += v,
-                        (0, [i, j]) => {
-                            hp.push(Entry::new(*i, *j));
-                            hv.push(v);
-                            hp.push(Entry::new(*j, *i));
-                            hv.push(v);
-                        }
-                        (later, []) => lexicographic[later - 1].1 += v,
-                        (later, [i]) => lexicographic[later - 1].0[i.get()] += v,
-                        (_, [_, _]) => {
-                            return Err(MathError::Contract(
-                                "a later lexicographic objective is not linear".into(),
-                            ));
-                        }
-                        _ => return Err(MathError::Contract("coefficient degree mapping".into())),
-                    }
-                    if jp
-                        .len()
-                        .checked_add(hp.len())
-                        .is_none_or(|k| k > term_limit)
-                    {
-                        return Err(MathError::Limit("global coefficient terms"));
-                    }
+                    _ => return Err(MathError::Contract("coefficient degree mapping".into())),
                 }
             }
         }
         let index_limit = term_limit.max(n).max(m);
+        allowance.charge(
+            jp.len()
+                .checked_add(hp.len())
+                .and_then(|v| v.checked_add(n.checked_mul(2)?))
+                .ok_or(MathError::Limit("coefficient sparse buffers"))?,
+        )?;
         let mut j = AssemblyMatrix::new(m, n, &jp, index_limit)?;
         for (i, v) in jv.into_iter().enumerate() {
             j.add(Addend::new(i), v)?;
@@ -271,24 +263,35 @@ impl CasePlan {
                 "nonfinite coefficient projection".into(),
             ));
         }
-        Ok(Coefficients {
-            structure: self.structure().key(),
-            values: self
-                .structure()
+        allowance.charge(
+            self.structure()
                 .instances()
                 .iter()
                 .flat_map(|b| b.slots.iter())
-                .filter(|s| !columns.contains_key(&s.source()))
-                .map(|s| (s.source(), values.scalars[&s.source()].to_bits()))
-                .collect(),
-            assumptions: identity.finish_hash(),
-            objective_constant: constant,
-            objective,
-            lexicographic,
-            hessian: h.matrix().clone(),
-            constraints: j.matrix().clone(),
-            row_constants,
-        })
+                .filter(|s| !self.columns().contains(&s.source()))
+                .count(),
+        )?;
+        Ok((
+            Coefficients {
+                structure: self.structure().key(),
+                values: self
+                    .structure()
+                    .instances()
+                    .iter()
+                    .flat_map(|b| b.slots.iter())
+                    .filter(|s| !self.columns().contains(&s.source()))
+                    .map(|s| (s.source(), values.scalars[&s.source()].to_bits()))
+                    .collect(),
+                assumptions: identity.finish_hash(),
+                objective_constant: constant,
+                objective,
+                lexicographic,
+                hessian: h.matrix().clone(),
+                constraints: j.matrix().clone(),
+                row_constants,
+            },
+            allowance.remaining,
+        ))
     }
 }
 pub(crate) fn number(atom: &Atom, cancel: &Arc<AtomicBool>) -> Result<f64, MathError> {

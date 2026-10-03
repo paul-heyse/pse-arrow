@@ -18,6 +18,7 @@ from pse.contracts.authored import (
     AuthoredPackagesRow,
 )
 from pse.contracts.enums import (
+    CandidateRefusal,
     ModelingEnvelopeExtent,
     ModelingVariableDomain,
     PackageKind,
@@ -421,3 +422,64 @@ def test_generated_record_uniqueness_preserves_field_equality() -> None:
     assert first == second
     with pytest.raises(ValueError, match="uniqueness"):
         contract_values.unique(contract_values.record_key)(None, None, (first, second))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("state", "evidence", "artifacts", "order"),
+    [
+        ("refused", [], [], None),
+        ("pending_evidence", ["class", "structure"], [], None),
+        ("supported_pending_artifacts", [], ["derivatives", "representation"], 2),
+        ("ready", [], [], None),
+    ],
+)
+def test_contextual_route_projection_retains_readiness_and_demands(
+    state: str, evidence: list[str], artifacts: list[str], order: int | None
+) -> None:
+    document: dict[str, object] = {
+        "request_identity": "blake3:" + "01" * 32,
+        "step": 0,
+        "intent": "root",
+        "selection": "auto",
+        "requested_backend": None,
+        "classes": [],
+        "state": state,
+        "snapshot": "blake3:" + "02" * 32,
+        "pending_backend": "ipopt" if evidence else None,
+        "evidence": evidence,
+        "artifacts": artifacts,
+        "evidence_classes": [],
+        "required_order": order,
+        "artifact_representations": ["nlp"] if artifacts else [],
+        "eligibility": [],
+        "selected": None,
+        "backend": None,
+        "representation": None,
+        "lexicographic": None,
+        "refusal": None,
+        "detail": None,
+    }
+    conversion = converter()
+    row = conversion.structure(document, runtime_contracts.RuntimeRouteDecisionsRow)
+    assert row.state.value == state
+    assert [value.value for value in row.evidence] == evidence
+    assert [value.value for value in row.artifacts] == artifacts
+    assert row.required_order == order
+    assert row.snapshot == ContentHash(bytes([2] * 32))
+    assert (
+        conversion.structure(
+            conversion.unstructure(row), runtime_contracts.RuntimeRouteDecisionsRow
+        )
+        == row
+    )
+
+
+@pytest.mark.unit
+def test_unavailable_feasibility_refusal_is_distinct_in_current_codec() -> None:
+    conversion = converter()
+    unavailable = conversion.structure("feasibility_unavailable", CandidateRefusal)
+    violating = conversion.structure("infeasible", CandidateRefusal)
+    assert unavailable is CandidateRefusal.FEASIBILITY_UNAVAILABLE
+    assert unavailable is not violating
+    assert conversion.unstructure(unavailable) == "feasibility_unavailable"

@@ -64,13 +64,29 @@ impl BackendExecution for Clarabel {
         &self,
         settings: &BackendSettings,
         controls: &Controls,
+        _snapshot: &super::Snapshot,
     ) -> Result<(), ProblemError> {
-        let direct = match settings {
-            BackendSettings::Default => conic::Settings::default().direct,
-            BackendSettings::Clarabel(settings) => settings.direct,
+        let defaults = conic::Settings::default();
+        let settings = match settings {
+            BackendSettings::Default => &defaults,
+            BackendSettings::Clarabel(settings) => settings,
             _ => return Err(super::foreign(Backend::Clarabel)),
         };
-        conic::admit_threads(direct, controls.threads)
+        conic::settings_base(settings, controls, settings.mode).map(|_| ())
+    }
+    fn assess_representation(
+        &self,
+        requirements: &crate::routing::Requirements<'_>,
+        assessment: &mut crate::routing::Eligibility,
+    ) {
+        super::assess_representation(self, requirements, assessment);
+        if let Some(cone) = requirements.context.cone {
+            for cone in &cone.problem.cones {
+                if let Err(cause) = cone.to_clarabel() {
+                    assessment.refuse(cause);
+                }
+            }
+        }
     }
     fn execute(
         &self,

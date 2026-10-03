@@ -4,6 +4,7 @@
 //! Library-owned arithmetic with explicit physical and guarded evaluation boundaries.
 pub mod assembly;
 pub mod binding;
+mod class_evidence;
 pub mod coefficients;
 pub mod collocation;
 pub mod convexity;
@@ -218,3 +219,16 @@ fn linked_environment() -> Result<MathEnvironment, String> {
 
 #[cfg(test)]
 mod applicability_tests;
+
+#[cfg(test)]
+fn requested_test_support(body: &guarded::PreparedBody) -> guarded::Support {
+    body.prepare_support(
+        &(0..body.output_count()).collect::<Vec<_>>(),
+        &(0..body.input_count()).collect::<Vec<_>>(),
+        pse_kernels::DerivativeOrder::Second,
+        &std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    )
+    .unwrap()
+    .support()
+    .clone()
+}

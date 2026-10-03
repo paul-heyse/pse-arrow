@@ -124,6 +124,7 @@ fn pounce_convex_qp_matches_highs() {
 /// batch of the same layout starts warm from the first batch's solutions.
 #[test]
 fn pounce_convex_batch_matches_single_solves() {
+    let snapshot = execution::Snapshot::observe(&execution::LINKED);
     if !execution::adapter(Backend::PounceConvex).linked() {
         return;
     }
@@ -165,6 +166,8 @@ fn pounce_convex_batch_matches_single_solves() {
             .map(|((((p, proof), t), n), original)| {
                 (
                     Step {
+                        snapshot: &snapshot,
+                        structure: None,
                         adapter: execution::adapter(Backend::PounceConvex),
                         settings: &settings,
                         controls: &controls,
@@ -176,6 +179,7 @@ fn pounce_convex_batch_matches_single_solves() {
                         warm: None,
                     },
                     Coefficients {
+                        lowered: None,
                         problem: p,
                         certificate: Some(proof),
                         row_constants: &constants,

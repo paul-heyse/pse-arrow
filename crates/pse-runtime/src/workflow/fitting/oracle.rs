@@ -686,6 +686,8 @@ impl FitProblem {
             let report = native::execution::nlp(
                 native::execution::Step {
                     adapter: native::execution::adapter(backend),
+                    snapshot: &self.snapshot,
+                    structure: self.structural_assessment.as_ref(),
                     settings: &self.profile.solver.backend,
                     controls: &self.profile.solver.controls,
                     accuracy: &self.accuracy,

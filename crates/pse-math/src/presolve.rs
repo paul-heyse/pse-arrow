@@ -10,7 +10,6 @@ use crate::{
         Constraint, FactorableError, FactorableProgram, FactorableRequest, Node, NodeId,
         ObligationKind, ObligationScope, ProjectedObligation,
     },
-    library,
 };
 use pounce_nlp::expression_provider::{FbbtOp as Op, FbbtTape};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
@@ -21,7 +20,10 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use symbolica::atom::{Atom, AtomCore, Indeterminate};
+
+pub use crate::class_evidence::{
+    ClassDependency, ClassEvidence, ClassRequest, ClassStatus, ClassWitness,
+};
 
 /// One proved affine row, including its original constant.
 #[derive(Clone, Debug, PartialEq)]
@@ -62,6 +64,10 @@ pub struct GuardSign {
 /// Immutable source-derived view. Tapes are owned by pounce-nlp.
 #[derive(Clone, Debug)]
 pub struct Facts {
+    /// Assessed coefficient-class meaning; absent optional fields are never a negative proof.
+    pub class_status: ClassStatus,
+    /// Finite proof allowance left by the base projection, continued by class demands.
+    pub proof_remaining: usize,
     /// Complete structure and consumed assumption identity.
     pub key: ContentHash,
     /// Original case layout.
@@ -150,6 +156,12 @@ impl Facts {
             + self.values.len() * 64
             + self.objective_linear.capacity()
             + self.complete.capacity()
+            + match &self.class_status {
+                ClassStatus::Pending(dependencies) => {
+                    dependencies.capacity() * size_of::<ClassDependency>()
+                }
+                _ => 0,
+            }
     }
 }
 impl CasePlan {
@@ -164,11 +176,17 @@ impl CasePlan {
     /// Rejects missing or nonfinite consumed values, insufficient row storage,
     /// cancellation, or a failed symbolic projection. Exhausted optional tape
     /// construction leaves an opaque row or an unestablished obligation.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "one bounded traversal accumulates row proofs, admission and native tapes together"
-    )]
     pub fn presolve_facts(
+        &self,
+        values: &CaseValues,
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Facts, MathError> {
+        let base = self.presolve_domain_facts(values, limit, cancel)?;
+        crate::class_evidence::shape_facts(self, values, &base, limit, cancel)
+    }
+    /// Prepare value/domain/tape evidence without affine or objective derivative proof.
+    pub fn presolve_domain_facts(
         &self,
         values: &CaseValues,
         limit: usize,
@@ -205,22 +223,18 @@ impl CasePlan {
         let lower: Vec<_> = program.variables.iter().map(|v| v.lower).collect();
         let upper: Vec<_> = program.variables.iter().map(|v| v.upper).collect();
         let mut facts = Facts {
+            class_status: ClassStatus::Unassessed,
+            proof_remaining: 0,
             key: self.structure().key(),
             structure: self.structure().key(),
             values: program.values.clone(),
-            affine: vec![
-                Some(AffineRow {
-                    entries: BTreeMap::new(),
-                    constant: 0.0
-                });
-                rows.len()
-            ],
+            affine: vec![None; rows.len()],
             row_sources: vec![vec![]; rows.len()],
             tapes: Vec::with_capacity(rows.len()),
             complete: Vec::with_capacity(rows.len()),
-            objective_linear: vec![true; columns.len()],
-            objective_degree: Some(0),
-            lexicographic_degree: Some(0),
+            objective_linear: vec![false; columns.len()],
+            objective_degree: None,
+            lexicographic_degree: None,
             obligations: BTreeMap::new(),
             has_guards: false,
             signs: BTreeMap::new(),
@@ -315,81 +329,11 @@ impl CasePlan {
             facts.complete.push(!tape.ops.contains(&Op::Opaque));
             facts.tapes.push(tape);
         }
-        for b in self.structure().instances() {
-            if cancel.load(Ordering::Relaxed) {
-                return Err(MathError::Cancelled);
-            }
-            let body = &self.bodies()[&b.body];
-            facts.has_guards |= body.has_obligations();
-            let mut bindings = Vec::new();
-            for (i, s) in b.slots.iter().enumerate() {
-                let formal = library::formal(i)?;
-                if let Some(&column) = columns.get(&s.source()) {
-                    bindings.push((formal, Some(column), s.scale(), s.offset()));
-                } else {
-                    let v = *values
-                        .scalars
-                        .get(&s.source())
-                        .ok_or_else(|| MathError::Contract("missing presolve parameter".into()))?;
-                    bindings.push((formal, None, 0.0, s.scale() * v + s.offset()));
-                }
-            }
-            let admitted = facts.obligations[&b.instance];
-            for c in &b.contributions {
-                let expression = body.expression(c.output).map(|a| {
-                    bindings
-                        .iter()
-                        .filter(|(_, col, _, _)| col.is_none())
-                        .fold(a.clone(), |a, (f, _, _, v)| {
-                            a.replace(f.clone()).with(Atom::num(*v))
-                        })
-                });
-                if let Target::Row(id) = c.target {
-                    let r = rows[&id];
-                    facts.row_sources[r].push((b.instance, c.output));
-                    if admitted != ObligationStatus::Discharged || expression.is_none() {
-                        facts.affine[r] = None;
-                    }
-                    if let (Some(target), Some(a)) = (&mut facts.affine[r], &expression) {
-                        if let Some(local) = affine(a, &bindings, c.scale, cancel)? {
-                            target.constant += local.constant;
-                            for (col, v) in local.entries {
-                                *target.entries.entry(col).or_default() += v;
-                            }
-                        } else {
-                            facts.affine[r] = None;
-                        }
-                    }
-                } else {
-                    let formals: Vec<_> = bindings
-                        .iter()
-                        .filter(|(_, c, _, _)| c.is_some())
-                        .map(|(f, _, _, _)| f.clone())
-                        .collect();
-                    let degree = if admitted == ObligationStatus::Discharged {
-                        expression
-                            .as_ref()
-                            .map(|a| degree_bound(a, &formals, &mut remaining, cancel))
-                            .transpose()?
-                            .flatten()
-                    } else {
-                        None
-                    };
-                    let bound = if c.target == Target::PRIMARY {
-                        &mut facts.objective_degree
-                    } else {
-                        &mut facts.lexicographic_degree
-                    };
-                    *bound = bound.zip(degree).map(|(a, b)| a.max(b));
-                    for (formal, col, _, _) in &bindings {
-                        if let Some(col) = col {
-                            let proved = expression.as_ref().is_some_and(|a| {
-                                derivative(a, formal).is_ok_and(|d| d.is_constant())
-                            });
-                            facts.objective_linear[*col] &=
-                                proved && admitted == ObligationStatus::Discharged;
-                        }
-                    }
+        for binding in self.structure().instances() {
+            facts.has_guards |= self.bodies()[&binding.body].has_obligations();
+            for contribution in &binding.contributions {
+                if let Target::Row(row) = contribution.target {
+                    facts.row_sources[rows[&row]].push((binding.instance, contribution.output));
                 }
             }
         }
@@ -413,13 +357,14 @@ impl CasePlan {
                 cancel,
             )?);
         }
-        let mut h = FramedHasher::new(pse_ids::Frame::MathBoundFactsV2);
+        let mut h = FramedHasher::new(pse_ids::Frame::MathBoundFactsV3);
         h.hash(&facts.structure)
-            .str("pounce-nlp-0.12.0;projection-v3;stage-dag;curvature-v1");
+            .str("pounce-nlp-0.12.0;projection-v4;value-domain;explicit-class-proof;aggregate-coefficients;curvature-v1");
         for (id, b) in &facts.values {
             h.str(&id.to_string()).u64(*b);
         }
         facts.key = h.finish_hash();
+        facts.proof_remaining = remaining;
         Ok(facts)
     }
 }
@@ -660,90 +605,4 @@ fn optional_tape<T>(result: Result<T, MathError>) -> Result<Option<T>, MathError
         Err(MathError::Limit("presolve tape extent")) => Ok(None),
         other => other.map(Some),
     }
-}
-/// Symbolica establishes a low-degree bound once for every consumer of the admitted objective.
-fn degree_bound(
-    a: &Atom,
-    formals: &[Atom],
-    remaining: &mut usize,
-    cancel: &Arc<AtomicBool>,
-) -> Result<Option<u8>, MathError> {
-    let cost = formals
-        .len()
-        .checked_mul(formals.len() + 1)
-        .and_then(|v| v.checked_div(2));
-    let Some(cost) = cost.filter(|c| *c <= *remaining) else {
-        return Ok(None);
-    };
-    *remaining -= cost;
-    let mut degree = 0;
-    for (i, f) in formals.iter().enumerate() {
-        if cancel.load(Ordering::Relaxed) {
-            return Err(MathError::Cancelled);
-        }
-        let first = derivative(a, f)?;
-        if !first.is_zero() {
-            degree = degree.max(1);
-        }
-        for other in &formals[i..] {
-            let second = derivative(&first, other)?;
-            if !second.is_constant() {
-                return Ok(None);
-            }
-            if !second.is_zero() {
-                degree = 2;
-            }
-        }
-    }
-    Ok(Some(degree))
-}
-fn derivative(a: &Atom, f: &Atom) -> Result<Atom, MathError> {
-    Ok(
-        a.derivative(
-            Indeterminate::try_from(f.clone()).map_err(|e| MathError::Library(e.clone()))?,
-        ),
-    )
-}
-fn number(a: &Atom, c: &Arc<AtomicBool>) -> Result<f64, MathError> {
-    crate::coefficients::number(a, c)
-}
-fn affine(
-    a: &Atom,
-    bindings: &[(Atom, Option<usize>, f64, f64)],
-    scale: f64,
-    c: &Arc<AtomicBool>,
-) -> Result<Option<AffineRow>, MathError> {
-    match affine_candidate(a, bindings, scale, c) {
-        Err(MathError::CoefficientRange) => Ok(None),
-        other => other,
-    }
-}
-fn affine_candidate(
-    a: &Atom,
-    bindings: &[(Atom, Option<usize>, f64, f64)],
-    scale: f64,
-    c: &Arc<AtomicBool>,
-) -> Result<Option<AffineRow>, MathError> {
-    let mut result = AffineRow {
-        entries: BTreeMap::new(),
-        constant: 0.0,
-    };
-    let mut zero = a.clone();
-    for (f, col, s, o) in bindings {
-        if let Some(col) = col {
-            let d = derivative(a, f)?;
-            if !d.is_constant() {
-                return Ok(None);
-            }
-            let v = number(&d, c)? * scale;
-            *result.entries.entry(*col).or_default() += v * s;
-            result.constant += v * o;
-            zero = zero.replace(f.clone()).with(Atom::num(0));
-        }
-    }
-    if !zero.is_constant() {
-        return Ok(None);
-    }
-    result.constant += number(&zero, c)? * scale;
-    Ok(Some(result))
 }

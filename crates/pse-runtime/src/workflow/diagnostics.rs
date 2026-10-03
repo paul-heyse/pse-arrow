@@ -187,6 +187,22 @@ mod tests {
             controls: &controls,
             settings: &pse_backend_native::execution::BackendSettings::Default,
             sensitivity: false,
+            context: pse_backend_native::routing::Context {
+                snapshot: pse_backend_native::execution::Snapshot::observe(
+                    &pse_backend_native::execution::Table::new(&[]),
+                ),
+                pending_classes: &[],
+                structure: None,
+                oracle: None,
+                guards: &std::collections::BTreeMap::new(),
+                budgets: None,
+                coefficients: None,
+                cone: None,
+                factorable: None,
+                certificate: None,
+                prepared: &[],
+                refusals: &std::collections::BTreeMap::new(),
+            },
         };
         let error = refused.select(SolverSelection::Auto).unwrap_err();
         assert!(matches!(error, ProblemError::RouteRefused(_)), "{error:?}");

@@ -161,6 +161,7 @@ pub use modeling::{
     ModelingExpectationResult, ModelingFlowSelection, ModelingHint, ModelingOutput,
     ModelingPointChecks, ModelingRevision, ModelingTestValue, ModelingValidityResult,
     ModelingVariableState, ObjectiveBound, PreparedModeling, SelectionEquivalence,
+    SemanticModeling,
 };
 #[salsa::db]
 trait CompilerDb: Database {
@@ -257,10 +258,14 @@ fn structural_plan(
         .collect();
     let columns = p.columns().to_vec();
     let mut edges = vec![];
-    for b in p.structure().instances() {
+    let incidence = p.incidence(cancel)?;
+    for (instance, b) in p.structure().instances().iter().enumerate() {
         for c in &b.contributions {
             if let Target::Row(row) = c.target {
-                for &slot in &p.bodies()[&b.body].support().first[c.output] {
+                for &slot in incidence[instance]
+                    .first_for_output(c.output)
+                    .ok_or_else(|| CompileError::Missing("selected structural incidence".into()))?
+                {
                     let column = b.slots[slot].source();
                     if columns.binary_search(&column).is_ok() {
                         edges.push(Incidence {
@@ -343,31 +348,21 @@ fn analyze_partition(
     )?;
     Ok(Arc::new(graph.analyze(cancel)?))
 }
-fn structure_allocation_bytes(a: &StructuralAnalysis) -> usize {
-    let part = |p: &pse_structural::incidence::Part| {
-        (p.rows.capacity() + p.columns.capacity()) * size_of::<SemanticId>()
-    };
-    size_of::<StructuralAnalysis>()
-        + a.matching.capacity() * size_of::<(SemanticId, SemanticId)>()
-        + part(&a.over)
-        + part(&a.under)
-        + part(&a.square)
-        + a.contributions.capacity() * size_of::<Incidence>()
-        + a.blocks.capacity() * size_of::<pse_structural::incidence::Block>()
-        + a.blocks.iter().map(|b| part(&b.members)).sum::<usize>()
-}
 /// Compiler-issued artifact specification. Its private fields prevent independent runtime keys.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArtifactRequest {
     key: ContentHash,
+    environment: ContentHash,
     demand: LocalDemand,
     body: Arc<PreparedBody>,
+    support: Arc<pse_math::guarded::PreparedSupport>,
     profile: Profile,
 }
 impl ArtifactRequest {
     /// Preserve product accounting if the request outlives its preparation.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        self.body = Arc::new(self.body.as_ref().clone().with_owner(owner));
+        self.body = Arc::new(self.body.as_ref().clone().with_owner(owner.clone()));
+        self.support = Arc::new(self.support.as_ref().clone().with_owner(owner));
         self
     }
     /// Owned request descriptor storage, excluding shared body mathematics.
@@ -392,14 +387,8 @@ impl ArtifactRequest {
     /// Construct native programs only at the runtime effect boundary.
     pub fn build(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<CompiledBody, MathError> {
         let _span = tracing::info_span!("pse.case.program_optimization").entered();
-        self.body.compile(
-            &self.demand.outputs,
-            &self.demand.coordinates,
-            self.demand.order,
-            self.profile.optimization,
-            self.profile.evaluation,
-            cancel,
-        )
+        self.support
+            .compile(self.profile.optimization, self.profile.evaluation, cancel)
     }
 }
 fn artifact_requests(
@@ -407,14 +396,15 @@ fn artifact_requests(
     profile: Profile,
     environment: &ContentHash,
 ) -> Arc<Vec<ArtifactRequest>> {
-    Arc::new(p.demands().iter().map(|d|{
-        let mut h=FramedHasher::new(pse_ids::Frame::MathArtifactV4);
+    Arc::new(p.demands().iter().enumerate().map(|(index, d)|{
+        let mut h=FramedHasher::new(pse_ids::Frame::MathArtifactV5);
         h.hash(&d.body).hash(environment).hash(&pse_buildinfo::SOURCE_IDENTITY).hash(&pse_buildinfo::BUILD_IDENTITY)
-            .str("pse-math-evaluator-abi-v3;interpreted-f64;numerica-jets;real-algebra;no-jit;no-simd")
+            .str("pse-math-evaluator-abi-v4;demanded-support;interpreted-f64;numerica-jets;real-algebra;no-jit;no-simd")
             .u64(d.order as u64).u64(d.outputs.len() as u64);
         for &x in &d.outputs{h.u64(x as u64);}h.u64(d.coordinates.len() as u64);for &x in &d.coordinates{h.u64(x as u64);}
+        h.u64(p.supports()[index].remaining_occurrences() as u64);
         for x in [profile.optimization.cores,profile.optimization.horner_iterations,profile.optimization.cpe_iterations,profile.evaluation.derivative_components,profile.evaluation.operations,profile.evaluation.scratch_bytes,profile.evaluation.provider_calls]{h.u64(x as u64);}
-        ArtifactRequest{key:h.finish_hash(),demand:d.clone(),body:p.bodies()[&d.body].clone(),profile}
+        ArtifactRequest{key:h.finish_hash(),environment:*environment,demand:d.clone(),body:p.bodies()[&d.body].clone(),support:p.supports()[index].clone(),profile}
     }).collect())
 }
 /// Pure general function projection; roles are supplied by the consuming physical workflow.
@@ -454,6 +444,63 @@ pub struct PreparedCase {
     pub derived: pse_math::SharedAllocation<Derived>,
 }
 impl PreparedCase {
+    /// Resolve demanded coefficient-class evidence without preparing solver derivatives.
+    /// Missing proof remains explicitly unresolved, and resource failure remains an error.
+    pub fn prepare_class(&self, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        use pse_math::presolve::{ClassEvidence, ClassRequest};
+        let evidence = self.plan.class_evidence(
+            values,
+            &self.presolve,
+            ClassRequest::Coefficients,
+            self.presolve.proof_remaining,
+            cancel,
+        )?;
+        let (facts, coefficients) = match evidence {
+            ClassEvidence::Established {
+                facts,
+                coefficients,
+            } => (facts, Some(Arc::new(coefficients))),
+            ClassEvidence::RuledOut { facts, .. }
+            | ClassEvidence::Pending { facts, .. }
+            | ClassEvidence::RepresentationLimited { facts, .. } => (facts, None),
+        };
+        let mut result = self.clone();
+        result.facts = pse_math::facts::ProblemFacts::from_plan(
+            &self.plan,
+            coefficients.as_deref(),
+            &facts,
+            cancel,
+        )?;
+        result.presolve = Arc::new(facts).into();
+        result.coefficients = coefficients.map(Into::into);
+        Ok(result)
+    }
+    /// Prepare a stronger immutable kernel demand after contextual route selection.
+    /// Scientific/value facts and original structural witnesses retain their owners.
+    pub fn prepare_order(&self, order: DerivativeOrder, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        if order <= self.plan.order() {
+            return Ok(self.clone());
+        }
+        let plan = Arc::new(self.plan.prepare_order(order, cancel)?);
+        let profile = self
+            .artifacts
+            .first()
+            .map_or(Profile::default(), |request| request.profile);
+        // Existing artifact keys contain the physical environment consumed by admission.
+        // Preserve it directly instead of reconstructing it from a public receipt.
+        let environment = self
+            .artifacts
+            .first()
+            .map_or(ContentHash::from_bytes([0; 32]), |request| {
+                request.environment
+            });
+        let artifacts = artifact_requests(&plan, profile, &environment);
+        let mut result = self.clone();
+        result.facts.prepared_derivatives = order;
+        result.plan = plan;
+        result.artifacts = artifacts.into();
+        Ok(result)
+    }
     /// Known escaping payload, excluding opaque library/container overhead. This
     /// observation is separate from the bounded live Salsa generation allowance.
     pub fn retained_bytes(&self) -> usize {
@@ -478,7 +525,7 @@ impl PreparedCase {
     }
     /// Retained structural witness allocation.
     pub fn structural_bytes(&self) -> usize {
-        structure_allocation_bytes(&self.structure) + 64
+        self.structure.retained_bytes() + 64
     }
     /// Independently retained binding snapshot.
     pub fn binding_bytes(&self) -> usize {
@@ -513,14 +560,8 @@ struct ValueProducts {
 }
 impl ValueProducts {
     fn bind(plan: &CasePlan, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
-        let presolve = Arc::new(plan.presolve_facts(values, 100_000, cancel)?);
-        let coefficients = if presolve.coefficient_eligible() {
-            Some(Arc::new(plan.coefficients_with_facts(
-                values, &presolve, 100_000, cancel,
-            )?))
-        } else {
-            None
-        };
+        let presolve = Arc::new(plan.presolve_domain_facts(values, 100_000, cancel)?);
+        let coefficients: Option<Arc<Coefficients>> = None;
         // The convexity fact is established with the other value-dependent products, so a
         // rebind re-establishes it under the new values (ADR-0121, A6).
         let facts = pse_math::facts::ProblemFacts::from_plan(

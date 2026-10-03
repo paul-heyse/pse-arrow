@@ -194,6 +194,8 @@ fn nlp(case: &Parameterized, backend: Backend, presolve: &Policy) -> SolveReport
     let normalization = Normalization::identity(n, m);
     execution::nlp(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(backend),
             settings: &BackendSettings::Default,
             controls: &controls,
@@ -244,6 +246,8 @@ fn scip(case: &Parameterized) -> SolveReport {
     let initial = case.initial();
     execution::factorable(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(Backend::Scip),
             settings: &BackendSettings::Scip(ScipSettings::default()),
             controls: &Controls::default(),

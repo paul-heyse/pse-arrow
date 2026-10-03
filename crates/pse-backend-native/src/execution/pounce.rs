@@ -51,6 +51,69 @@ impl BackendExecution for Pounce {
     fn automatic(&self) -> Option<u8> {
         Some(3)
     }
+    fn admit_settings(
+        &self,
+        settings: &BackendSettings,
+        _: &crate::solve::Controls,
+        _: &super::Snapshot,
+    ) -> Result<(), ProblemError> {
+        match settings {
+            BackendSettings::Default => crate::settings::pounce::Settings::default()
+                .restart
+                .validate(),
+            BackendSettings::Pounce(settings) => settings.restart.validate(),
+            _ => Err(super::foreign(Backend::Pounce)),
+        }
+    }
+    fn assess_representation(
+        &self,
+        requirements: &crate::routing::Requirements<'_>,
+        assessment: &mut crate::routing::Eligibility,
+    ) {
+        super::assess_representation(self, requirements, assessment);
+        let context = &requirements.context;
+        let (Some(contract), Some(structure), Some(budgets)) =
+            (context.oracle, context.structure.as_ref(), context.budgets)
+        else {
+            assessment
+                .evidence
+                .push(crate::routing::EvidenceDemand::CallbackContract);
+            return;
+        };
+        let check = || -> Result<(), ProblemError> {
+            budgets
+                .normalization
+                .validate(contract.variables.len(), contract.rows.len())?;
+            for (variable, scale) in contract
+                .variables
+                .iter()
+                .zip(&budgets.normalization.variables)
+            {
+                for value in [variable.lower, variable.upper] {
+                    crate::settings::pounce::admit_bound(crate::transport::bound(value, *scale)?)?;
+                }
+            }
+            for (id, scale) in contract.rows.iter().zip(&budgets.normalization.rows) {
+                let row = structure
+                    .equations
+                    .iter()
+                    .find(|row| row.id == *id)
+                    .ok_or_else(|| {
+                        ProblemError::Contract("POUNCE original row bounds missing".into())
+                    })?;
+                for value in [
+                    row.lower.unwrap_or(f64::NEG_INFINITY),
+                    row.upper.unwrap_or(f64::INFINITY),
+                ] {
+                    crate::settings::pounce::admit_bound(crate::transport::bound(value, *scale)?)?;
+                }
+            }
+            Ok(())
+        };
+        if let Err(cause) = check() {
+            assessment.refuse(cause);
+        }
+    }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
         Ok(WarmPayload::primal(primal))
     }

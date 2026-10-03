@@ -1,8 +1,8 @@
 ---
 title: "25l: Demand-driven flowsheet compilation and contextual solver routing"
-status: draft
+status: done
 date: 2026-10-02
-adrs: []
+adrs: [ADR-0152]
 review_sources: [docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md]
 scenario_sources: [docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#s01, docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#s02, docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#s03, docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#s04, docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#s05, docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#s06]
 ---
@@ -297,13 +297,13 @@ an explicit preserving migration and its interrupted-prefix controls before curr
 
 | Packet | Prerequisite and editing responsibility | Delivered behavior and focused acceptance | Status |
 |---|---|---|---|
-| <a id="l0"></a>L0 Decision and shared contracts | This target; coordinator owns ADR/review and shared contracts | Record the contract/readiness/identity/public-evolution decision and required architecture route before affected code; target review settles consequential objections | planned |
-| <a id="l1"></a>L1 Semantic selection and executable closure | L0; modeling/compiler specialization, runtime package and flow/inspection consumers | Topology consumes checked specialization without executable admission; numerical projection admits selected output/dependency closure; migrate callers and delete broad eager preparation bridges; controls for topology, unrelated observations and mandatory physical/domain obligations | planned |
-| <a id="l2"></a>L2 Demanded support and owned products | L0 and L1 selected closure for modeling integration; math/compiler body, assembly and runtime product/retention owners | Value/First/Second support separation, conservative structural evidence, complete selection maps/keys and finite budgets; migrate body/view/artifact consumers and remove eager Second analysis; stronger failure preserves weaker products, aliases and clean/incremental equivalence | planned |
-| <a id="l3"></a>L3 Contextual candidate assessment | L0 shared contract; native routing, representation, settings and dynamic owners | Typed refusal/pending evidence/pending artifacts/readiness across nine adapters, explicit snapshot and unchanged ranks; lift contextual checks without copying policy; isolated bounded-C2/C1, method/build/cone/factorable/event controls and generated assessment projections | planned |
-| <a id="l4"></a>L4 Compose preparation and execution | Working L1/L2/L3 products; runtime math and affected workflow owners | Deterministic evidence/demand composition, selected preparation, final admission and consumer cutover; remove speculative Auto order and late-only selection paths; migrate inner providers, direct/declared solve, initialization, fitting, dynamic/shooting, studies, inspection/conformance and Python/durable adapters | planned |
-| <a id="l5"></a>L5 Truthful completion and projections | L0 boundary decision; completion/diagnostics/schema and affected transport/storage owners | Unavailable assessment refusal and exhaustive shared termination projection, unchanged result/seed/incumbent policy; regenerate and migrate current readers/writers; remove missing-as-infeasible and wildcard resource classification; isolated status/quality/cause matrix and historical-contract controls | planned |
-| <a id="l6"></a>L6 Functional handoff | L1–L5 complete, required decisions satisfied | All migrated consumers and replacement deletions checked; revealing fixtures registered in existing harnesses, focused evidence and exclusions recorded; hand off new static/integrated/measurement scope to 25k, without running a second campaign here | planned |
+| <a id="l0"></a>L0 Decision and shared contracts | This target; coordinator owns ADR/review and shared contracts | Record the contract/readiness/identity/public-evolution decision and required architecture route before affected code; target review settles consequential objections | done |
+| <a id="l1"></a>L1 Semantic selection and executable closure | L0; modeling/compiler specialization, runtime package and flow/inspection consumers | Topology consumes checked specialization without executable admission; numerical projection admits selected output/dependency closure; migrate callers and delete broad eager preparation bridges; controls for topology, unrelated observations and mandatory physical/domain obligations | done |
+| <a id="l2"></a>L2 Demanded support and owned products | L0 and L1 selected closure for modeling integration; math/compiler body, assembly and runtime product/retention owners | Value/First/Second support separation, conservative structural evidence, complete selection maps/keys and finite budgets; migrate body/view/artifact consumers and remove eager Second analysis; stronger failure preserves weaker products, aliases and clean/incremental equivalence | done |
+| <a id="l3"></a>L3 Contextual candidate assessment | L0 shared contract; native routing, representation, settings and dynamic owners | Typed refusal/pending evidence/pending artifacts/readiness across nine adapters, explicit snapshot and unchanged ranks; lift contextual checks without copying policy; isolated bounded-C2/C1, method/build/cone/factorable/event controls and generated assessment projections | done |
+| <a id="l4"></a>L4 Compose preparation and execution | Working L1/L2/L3 products; runtime math and affected workflow owners | Deterministic evidence/demand composition, selected preparation, final admission and consumer cutover; remove speculative Auto order and late-only selection paths; migrate inner providers, direct/declared solve, initialization, fitting, dynamic/shooting, studies, inspection/conformance and Python/durable adapters | done |
+| <a id="l5"></a>L5 Truthful completion and projections | L0 boundary decision; completion/diagnostics/schema and affected transport/storage owners | Unavailable assessment refusal and exhaustive shared termination projection, unchanged result/seed/incumbent policy; regenerate and migrate current readers/writers; remove missing-as-infeasible and wildcard resource classification; isolated status/quality/cause matrix and historical-contract controls | done |
+| <a id="l6"></a>L6 Functional handoff | L1–L5 complete, required decisions satisfied | All migrated consumers and replacement deletions checked; revealing fixtures registered in existing harnesses, focused evidence and exclusions recorded; hand off new static/integrated/measurement scope to 25k, without running a second campaign here | done |
 
 One useful order is L0 → L1 → L2 → L3 → L4, with L5 available after L0, then L6.
 L3 contract/adaptor work can start after L0 without waiting for all L2 implementation;
@@ -369,21 +369,137 @@ qualifies an unexercised backend or the enclosing simulator.
 
 ## Current state and next action
 
-Target authored; production unchanged. No consequential target choice remains deferred.
-Local representation/API names remain implementation discretion. Start L0 after production
-execution is authorized, then implement the dependency-ordered functional packets. Qualification
-remains paused until L6 readiness; the original review retains its scoped Revise judgment.
+**Implemented/Tested, 2026-10-02:** L0–L6 functional scope is complete on the preserved
+committed baseline `e149ba2308d87ee36812a0bb0744b68670120d17`. ADR-0152 remains proposed
+pending its decision PR; the bounded target review accepted the Proposed target before
+implementation. The original diagnostic review retains its historical Revise judgment.
+
+Resume 25k by refreshing its static gate for the changed source, then running the affected
+K3 scientific/integrated journeys, K4 dev-profile measurements and K5 assembled assessment.
+This functional handoff does not establish whole-series scientific qualification or measured
+performance. Completed companion records remain available until the enclosing series closes.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Not implemented. Record actual mechanisms, deletions, commands, scope and evidence labels here.
+**Implemented, 2026-10-02:** topology consumes a retained semantic specialization product
+without executable admission. Executable projection selects observations and provider outputs
+with mandatory equations, checks, domain/effect dependencies and physical closure. Unselected
+observations no longer become eager observable identity outputs. Shared observation bodies
+propagate only selected provider demands.
+
+Immutable Value programs and selected First/Second support products replace eager global
+support. Conservative incidence is explicitly requested without claiming provider numerical
+availability. Stronger preparation preserves weaker products, selected maps, original finite
+allowances and allocation owners. Bounded class evidence distinguishes Unassessed, Pending,
+Established, RuledOut and representation limits; proof and coefficient extraction share their
+cumulative allowance. Library-owned mathematics remains integral, exercised with the
+repository Symbolica license under the authorized personal-project use.
+
+Contextual routing consumes an immutable build/runtime snapshot, actual structural evidence,
+resolved numerical policy and adapter-owned settings/representation requirements. Pending
+evidence, supported mathematics with missing artifacts, Ready and contextual refusal are typed
+and separately published. Coefficient class discovery precedes lower-priority cone selection;
+missing preparation does not demote scientifically available Second-order candidates.
+Original coefficient proof and cone-space proof are paired with their own representations.
+Ready execution consumes retained lowering/proof and original matching, with selected snapshot
+and structural preflight before effects. Dynamic Auto assesses the full requested contract;
+explicit selections remain strict and resource/cancellation/native failures do not cause fallback.
+
+The preparation loop and affected direct/declared solve, initialization, fitting, dynamic,
+shooting, objective, inspection/conformance and study consumers use these products. The
+speculative Auto derivative-order path, topology-to-executable bridge, eager Second support,
+static explicit-cone selection and late-only contextual checks are removed. New current frame
+versions cover changed support/artifact/admission/session/dynamic preimages; historical frames
+remain intact. Existing retention, single-flight and lease mechanisms retain ownership.
+
+Completion now distinguishes unavailable feasibility from evaluated infeasibility. Its shared
+exhaustive termination projection retains resource categories, contradictions, cause precedence
+and existing incumbent/seed permissions. Factorable refusal causes retain typed member and
+bound evidence. Registry-owned current vocabularies, route-decision relation version 2, Rust,
+Python and documentation outputs are regenerated; historical consumers retain recorded domains
+and cannot write new values under an old contract. No operational-store layout migration is
+required by these derived relation/vocabulary changes.
+
+**Interface-checked:** `just check-native-contracts` compiles the complete workspace and all
+targets with force-validation in the default feature graph; `just check-solver-contracts`
+compiles backend, runtime, compiler and relations with the linked native graph, all targets
+and force-validation. Both final commands pass against zero errors and warnings.
+`just codegen` completes all six schema targets, bindings and hakari generation, and
+`just py-sync-native` rebuilds the editable Linux dev-profile extension and actual stubs.
+`just adr-index` updates the decision index. Generation and compilation establish these
+boundaries, not scientific or storage execution.
+
+**Tested:** the following focused scope passes against a zero failure baseline. Rust recipes
+explicitly enable `pse-relations/force-validate`; math/compiler/runtime tests run serially,
+while the native contextual controls use the default Nextest profile. Mathematical commands
+source the repository license and native-math environment. Linked native/Python recipes use
+the existing memory-capped Linux environment. The math and compiler totals are composite
+receipts after localized repairs; they are not an initially clean full campaign.
+
+| Command | Scope and final result |
+|---|---|
+| `just unit-package pse-math 'test(assembly_tests::)' --test-threads 1` | 19/19; class/proof budgets, domain preservation, maps and immutable upgrades |
+| `just unit-package pse-math 'test(derivative_tests::) \| test(typed_tests::) \| test(guarded_tests::) \| test(implicit::tests::) \| test(facts::tests::)' --test-threads 1` | 56/56; selected support, guards, providers and available/prepared mathematics; math composite 75/75 |
+| `just unit-package pse-compiler 'test(kernel_flow_projection_preserves_) \| test(selected_outputs_do_not_admit_) \| test(selected_shared_observation_body_) \| test(kernel_structure_follows_) \| test(implicit_nested_value_propagates_)' --test-threads 1` | 5/5; topology, selection, shared providers, lazy cancellation and nested demand |
+| `just unit-package pse-compiler 'test(semantic_flow_preparation_does_not_admit_numerical_bodies)' --test-threads 1` | 1/1; topology under a limit that refuses numerical admission; compiler composite 6/6 |
+| `just unit-native-package pse-backend-native pse-backend-native/native-solvers 'test(contextual_unit)'` | 17/17 pure controls; class priority, scientific/prepared distinction, snapshots, structure, cone proofs, factorable causes, settings and dynamic requirements |
+| `just unit-native-package pse-runtime pse-runtime/native-solvers 'test(preparation_tests::) \| test(workflow::diagnostics::tests::)' --test-threads 1` | 17/17: four preparation-only controls plus thirteen cause/diagnostic controls, without native attempts or storage |
+| `just unit-native-package pse-runtime pse-runtime/native-solvers 'test(workflow::numerics::tests::)' --test-threads 1` | 8/8; absent quality, exhaustive incumbent stop policy, native limits, qualification and independent closure/applicability |
+| `just unit-package pse-schema 'test(unavailable_feasibility_preserves)' --test-threads 1` | 1/1; directional historical/current candidate vocabulary and exact writes |
+| `just py-unit-native python/pse/tests/test_generated_contracts.py::test_contextual_route_projection_retains_readiness_and_demands python/pse/tests/test_generated_contracts.py::test_unavailable_feasibility_refusal_is_distinct_in_current_codec` | 5/5; four generated readiness/demand round trips and unavailable-feasibility distinction against the refreshed native schema |
+
+These are 124 selected Rust tests and five Python tests. The boxed-square preparation control
+retains authored 0.25..2 bounds and its original First product while reaching Ready NLP Second.
+Linear Auto reaches Ready HiGHS with established coefficients; coefficient and recognized
+cones retain valid paired proofs. Pure controls cover maximizing cone orientation and genuine
+scientific First versus unprepared Second. This does not qualify solver-computed solutions.
+The bounded independent source recheck closed the paired-cone blocker and found no additional
+material blocker in that identified scope; it is not K5 assembled acceptance.
+
+**Not run here:** hygiene/Clippy, manual static gates, native/storage/Python scientific journeys,
+CSTR/PR/PFR campaigns, release/scaling studies and K4 timing/resource measurements. These are
+25k's existing scope. Earlier K1/K2 evidence is not relabeled for this source. No speedup,
+whole-simulator qualification or formal establishment is claimed.
 
 ### A mistake made and corrected
 
-Record a correction encountered during execution.
+**Implemented/Tested:** initially the cone context retained the original optional coefficient
+certificate rather than evidence for the lowered matrix/orientation. Linear and recognized
+cones could remain pending, and maximizing quadratics could validate the wrong orientation.
+The correction pairs each cone with its own proof, retains recognized zero-quadratic proof
+before Ready, and consumes both during execution. Pure cone controls and the runtime
+preparation controls exercise the correction.
+
+The first complete preparation-only runtime group passed 15/17 and exposed a separate real
+priority bug: positive cone recognition skipped missing coefficient-class proof. The owner now
+requests that higher-priority proof; the complete affected 17-test group passes. Earlier math
+fixtures had seven failures because their generous scientific allowances no longer covered
+new cumulative proof accounting. Only those generous test allowances were adjusted; explicit
+small-budget refusal tests and production limits remain intact, and the repaired 19 plus
+remaining 56 math tests pass. Three compiler fixture failures were corrected for valid provider
+syntax, typed refusal assertions and lazy specialization rather than changing production demand.
+
+The nonnative generator graph also exposed an obsolete native feature gate on a now-pure
+settings helper. Removing the gate restored generation and default-graph compilation. A
+snapshot field has a narrowly conditioned dead-code expectation when neither dynamic adapter
+is linked; linked execution consumes it. Final compile commands emit no warnings.
 
 ### Deviations from the plan, deliberate
 
-None recorded. Route decision changes through their owning ADR/review before implementation.
+None in functional scope or qualification ownership. Existing library and structural algorithms
+remain authoritative; no new DSL, solver, generic framework, compatibility API or global budget
+increase was introduced. Local immutable product/API names and conservative retained extent
+accounting implement the planned contracts. The highest-numbered companion and unresolved
+source review remain available for the enclosing 25k campaign and decision-PR route.
+
+## Execution checkpoint
+
+L0–L6 functional implementation and focused handoff are complete. ADR-0152 and blueprint
+revision 97 carry the enduring contracts; ADR status remains proposed pending its decision PR.
+The coordinator owns follow-up finding dispositions. F01/F02 retain their required assembled
+scientific/architectural closure in 25k; F03 has the focused completion and generated/recorded
+boundary evidence above. The next work is 25k's refreshed static gate, K3 scientific journeys,
+K4 dev-profile counts/timings/resource lifetimes and K5 assessment. No further 25l functional
+packet remains, and no full qualification is claimed.

@@ -101,7 +101,9 @@
         "native_forms",
         "least_squares",
         "method",
-        "lexicographic"
+        "lexicographic",
+        "contextual",
+        "structural"
       ],
       "type": "string"
     },

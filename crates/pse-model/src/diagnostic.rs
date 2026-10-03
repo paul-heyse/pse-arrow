@@ -379,78 +379,77 @@ fn rebind_checked_members(
     if bindings.is_empty() {
         return;
     }
-    if let Some(lineage) = &mut diagnostic.validity {
-        if lineage.layer == crate::generated::enums::ModelingValidityLayer::Closure {
-            // These roles independently contribute sources. Equality to a local token
-            // never changes their authored identity or removes their source attribution.
-            let mut independent = std::collections::BTreeSet::from([lineage.source]);
-            independent.extend(lineage.form);
-            independent.extend(&lineage.sets);
-            independent.extend(diagnostic.locations.iter().map(|location| location.source));
-            for observation in &diagnostic.applicability {
-                let claim = &observation.claim;
-                independent.extend(claim.id);
-                independent.extend(claim.coverage);
-                independent.extend([claim.owner, claim.form, claim.call]);
-                independent.extend(&claim.owner_lineage);
-                independent.extend(claim.evidence);
-                independent.extend(&claim.records);
-                independent.extend(&claim.dependencies);
-                independent.extend(observation.instance);
-                independent.extend(observation.inputs.iter().map(|input| input.quantity_type));
-                for permission in &observation.permissions {
-                    independent.extend([permission.id, permission.scope]);
-                    independent.extend(&permission.targets);
-                }
+    if let Some(lineage) = &mut diagnostic.validity
+        && lineage.layer == crate::generated::enums::ModelingValidityLayer::Closure
+    {
+        // These roles independently contribute sources. Equality to a local token
+        // never changes their authored identity or removes their source attribution.
+        let mut independent = std::collections::BTreeSet::from([lineage.source]);
+        independent.extend(lineage.form);
+        independent.extend(&lineage.sets);
+        independent.extend(diagnostic.locations.iter().map(|location| location.source));
+        for observation in &diagnostic.applicability {
+            let claim = &observation.claim;
+            independent.extend(claim.id);
+            independent.extend(claim.coverage);
+            independent.extend([claim.owner, claim.form, claim.call]);
+            independent.extend(&claim.owner_lineage);
+            independent.extend(claim.evidence);
+            independent.extend(&claim.records);
+            independent.extend(&claim.dependencies);
+            independent.extend(observation.instance);
+            independent.extend(observation.inputs.iter().map(|input| input.quantity_type));
+            for permission in &observation.permissions {
+                independent.extend([permission.id, permission.scope]);
+                independent.extend(&permission.targets);
             }
-            for observation in diagnostic.observations.values() {
-                match observation {
-                    Observation::Physical(value) => {
-                        independent.extend([value.quantity, value.unit]);
-                    }
-                    Observation::Contracts(contracts) => {
-                        for contract in contracts {
-                            independent.insert(SemanticId::from_bytes(contract.quantity));
-                            for index in &contract.indices {
-                                independent
-                                    .extend(index.iter().copied().map(SemanticId::from_bytes));
-                            }
+        }
+        for observation in diagnostic.observations.values() {
+            match observation {
+                Observation::Physical(value) => {
+                    independent.extend([value.quantity, value.unit]);
+                }
+                Observation::Contracts(contracts) => {
+                    for contract in contracts {
+                        independent.insert(SemanticId::from_bytes(contract.quantity));
+                        for index in &contract.indices {
+                            independent.extend(index.iter().copied().map(SemanticId::from_bytes));
                         }
                     }
-                    _ => {}
                 }
+                _ => {}
             }
-            // Build the member-derived source projection from the original envelope.
-            // A newly added actual ID may itself be another local token; removing each
-            // old source first prevents A→B, B→C from deleting the newly projected B.
-            let additions = lineage
-                .members
-                .iter()
-                .filter_map(|member| {
-                    bindings
-                        .get(member)
-                        .filter(|_| diagnostic.sources.contains(member))
-                        .copied()
-                })
-                .collect::<Vec<_>>();
-            let removals = lineage
-                .members
-                .iter()
-                .filter(|&&member| bindings.contains_key(&member) && !independent.contains(&member))
-                .copied()
-                .collect::<std::collections::BTreeSet<_>>();
-            for member in &mut lineage.members {
-                if let Some(actual) = bindings.get(member) {
-                    *member = *actual;
-                }
-            }
-            diagnostic
-                .sources
-                .retain(|source| !removals.contains(source));
-            diagnostic.sources.extend(additions);
-            diagnostic.sources.sort_unstable();
-            diagnostic.sources.dedup();
         }
+        // Build the member-derived source projection from the original envelope.
+        // A newly added actual ID may itself be another local token; removing each
+        // old source first prevents A→B, B→C from deleting the newly projected B.
+        let additions = lineage
+            .members
+            .iter()
+            .filter_map(|member| {
+                bindings
+                    .get(member)
+                    .filter(|_| diagnostic.sources.contains(member))
+                    .copied()
+            })
+            .collect::<Vec<_>>();
+        let removals = lineage
+            .members
+            .iter()
+            .filter(|&&member| bindings.contains_key(&member) && !independent.contains(&member))
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        for member in &mut lineage.members {
+            if let Some(actual) = bindings.get(member) {
+                *member = *actual;
+            }
+        }
+        diagnostic
+            .sources
+            .retain(|source| !removals.contains(source));
+        diagnostic.sources.extend(additions);
+        diagnostic.sources.sort_unstable();
+        diagnostic.sources.dedup();
     }
     for cause in &mut diagnostic.causes {
         rebind_checked_members(cause, bindings);

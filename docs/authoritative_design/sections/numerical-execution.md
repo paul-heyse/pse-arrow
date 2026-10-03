@@ -1058,6 +1058,10 @@ use (§16.6) combines these facts with physical closure.
 
 ### 18.7 Capability, eligibility and selection
 
+> Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
+
+Contextual candidate assessment composes shared class/intent/rank policy with adapter-owned settings, representation and structural requirements, consuming an explicit immutable build/runtime snapshot. Scientific or representation evidence still needed, supported mathematics with artifacts not yet prepared, final readiness and runtime absence remain distinct. Obtain relevant pending class evidence before falling through to a lower-preference class. Automatic reconsideration is limited to newly established scientific/representation incompatibility; resource, cancellation, infrastructure and native failures never trigger a backend fallback.
+
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md),
 > [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — the
 > backend-execution adapter table, the explicit `certify` intent and SCIP routing for MIQP
@@ -1108,9 +1112,10 @@ certifies global bounds (`certifies`), the native constraint handlers it consume
 and whether its candidate carries the multipliers the KKT-point analysis differentiates
 (`sensitivities`), reuse, cancellation and diagnostics), admission of its settings
 and model contract, its native session on the owning worker, its warm-start payload and
-its typed evidence. The capability record is the only source of both eligibility and the
-published inventory row: `routing::admit` is a function of that record, the adapter's
-linkage and the request, and adapters do not override it. Settings identity
+its typed evidence. The capability record remains the source of generic eligibility and the published static
+inventory row. Contextual assessment additionally composes adapter-owned settings,
+representation and structural admission through explicit inputs; a second central table must
+not independently copy those conditions. Settings identity
 (`BackendSettings::identity`) is derived from serde, never from a hand-written field list,
 and enters the request identity and the native profile stamp ([§17.6](#section-17-6)).
 Native state retained between the finite steps of a sequence is an opaque, worker-owned

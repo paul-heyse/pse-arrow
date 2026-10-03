@@ -31,9 +31,10 @@ pub use pse_model::generated::r#enums::{
     ModelingRealizationPolicy, ModelingStructuralRequirement, ModelingTransferDirection,
     ModelingTypeNode, ModelingUncertaintyKind, ModelingValidityLayer,
     ModelingVariableDomain, ModelingVersionOperator, MuStrategy, MumpsOrdering,
-    Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass, NativeCandidateKind,
-    NativeCertificateAccuracy, NativeCertificateKind, NativeConstraintForm,
-    NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
+    Namespace, NativeArtifactDemand, NativeAssessmentState, NativeAssurance,
+    NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeCertificateAccuracy,
+    NativeCertificateKind, NativeConstraintForm, NativeDependencyEvidenceKind,
+    NativeDependencyKind, NativeDerivativeCapability, NativeEvidenceDemand,
     NativeIneligibility, NativeInfeasibilityWitness, NativeLexicographicDegradation,
     NativeLexicographicRealization, NativeMetricKind, NativeObjectiveSense,
     NativeProblemClass, NativeQualification, NativeRayCoordinate, NativeRepresentation,
@@ -3128,6 +3129,64 @@ impl crate::columnar::ArrowValue for Namespace {
             })
     }
 }
+impl crate::columnar::ArrowValue for NativeArtifactDemand {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NativeArtifactDemand).to_owned(),
+                enumeration: stringify!(NativeArtifactDemand).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NativeAssessmentState {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NativeAssessmentState).to_owned(),
+                enumeration: stringify!(NativeAssessmentState).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NativeAssurance {
     fn append(
         &self,
@@ -3410,6 +3469,35 @@ impl crate::columnar::ArrowValue for NativeDerivativeCapability {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(NativeDerivativeCapability).to_owned(),
                 enumeration: stringify!(NativeDerivativeCapability).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NativeEvidenceDemand {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NativeEvidenceDemand).to_owned(),
+                enumeration: stringify!(NativeEvidenceDemand).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

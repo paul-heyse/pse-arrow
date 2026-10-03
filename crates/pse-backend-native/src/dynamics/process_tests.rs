@@ -530,7 +530,17 @@ fn idas_pid_piecewise_inputs_match_petsc_example() {
         },
         ..Default::default()
     };
-    assert_eq!(p.resolved_method().unwrap(), Method::Idas);
+    let selected = p
+        .resolve_for(
+            Tank::new().contract(),
+            &values,
+            &crate::execution::Snapshot::observe(&crate::execution::LINKED),
+            DynamicDemand::Base,
+            Tank::new().contract().derivatives,
+            &[],
+        )
+        .unwrap();
+    assert_eq!(selected.resolved_method().unwrap(), Method::Idas);
     let r = integrate(&mut Tank::new(), &p, &values, Arc::default()).unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     assert_eq!(r.samples.len(), 25);

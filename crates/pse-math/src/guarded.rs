@@ -6,7 +6,9 @@
 //! This layer never interprets arithmetic operations. A block is a Symbolica evaluator;
 //! only branch selection, obligations and fallible provider calls are project-owned.
 use crate::MathError;
-pub use crate::execution::{CompiledBody, Evaluation, PreparedBody, Support, Worker};
+pub use crate::execution::{
+    CompiledBody, Evaluation, PreparedBody, PreparedSupport, Support, Worker,
+};
 use pse_ids::SemanticId;
 use pse_kernels::{DerivativeOrder, ProviderSpec};
 use symbolica::atom::{Atom, AtomCore, Symbol};

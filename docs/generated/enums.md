@@ -138,6 +138,7 @@ Member names are canonical string values; declaration order is presentation only
 | `least_infeasible` | `` | false |
 | `relaxed_incumbent` | `` | false |
 | `incumbent_refused` | `` | false |
+| `feasibility_unavailable` | `` | false |
 
 ## `CandidateUse`
 
@@ -1497,6 +1498,22 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `runtime` | `` | false |
 | `provenance` | `` | false |
 
+## `NativeArtifactDemand`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `derivatives` | `` | false |
+| `representation` | `` | false |
+
+## `NativeAssessmentState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `refused` | `` | false |
+| `pending_evidence` | `` | false |
+| `supported_pending_artifacts` | `` | false |
+| `ready` | `` | false |
+
 ## `NativeAssurance`
 
 | Member | IDAES name | Deprecated |
@@ -1616,6 +1633,17 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `second_order_adjoint_sensitivities` | `` | false |
 | `factorable` | `` | false |
 
+## `NativeEvidenceDemand`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `class` | `` | false |
+| `structure` | `` | false |
+| `callback_contract` | `` | false |
+| `coefficients` | `` | false |
+| `cone` | `` | false |
+| `factorable` | `` | false |
+
 ## `NativeIneligibility`
 
 | Member | IDAES name | Deprecated |
@@ -1632,6 +1660,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `least_squares` | `` | false |
 | `method` | `` | false |
 | `lexicographic` | `` | false |
+| `contextual` | `` | false |
+| `structural` | `` | false |
 
 ## `NativeInfeasibilityWitness`
 

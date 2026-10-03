@@ -410,6 +410,10 @@ lifetimes, and each has a distinct identity scope
 
 ### 14.1 Preparation stages and contracts
 
+> Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
+
+Semantic specialization is independently usable by topology. Numerical consumers select outputs with their mandatory physical/domain/effect closure before executable body admission. Value programs, conservative structural incidence, numeric derivative support and native artifacts have distinct demanded readiness; missing preparation is not mathematical incapability. The operations have explicit evidence dependencies, not an unconditional one-pass order.
+
 > Decision: [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) —
 > named lowerings of indicator, SOS, cardinality, piecewise, logic and disjunction
 > declarations join generic specialization, and their derived realization parameters join
@@ -468,6 +472,10 @@ own reviewed contract.
 `crates/pse-runtime/src/authoring_driver/p1.rs` and `workflow/physical.rs`.
 
 ### 14.3 The preparation engine and ownership
+
+> Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
+
+Immutable support requests identify admitted body, ordered outputs and coordinates, order and finite construction policy. Value requests construct no numerical derivative support and First requests construct no Second support. Structural incidence is conservative all-branch dependency evidence and does not promise provider derivative evaluation. Stronger preparation cannot mutate weaker products, reset allowances or memoize transient failure; existing retention, flight and allocation owners remain authoritative.
 
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
@@ -619,6 +627,10 @@ or measure process RSS.
 `crates/pse-runtime/src/math.rs`.
 
 ### 14.4 Incrementality
+
+> Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
+
+Changed support/view/request preimages use new current frame versions; historical digests are not recomputed. Selected dependencies and preparation demands enter the products that consume them. Build/runtime observations belong to contextual assessment and affected requests, not unrelated symbolic body identity. Value rebinding and fresh instance attribution remain separate from shared mathematics.
 
 > Decision: [ADR-0089](../../adr/0089-semantic-identity-projections.md) — complete identity
 > projections. Plan 22 A6 (implemented) adds value-only rebind of prepared views and bounded

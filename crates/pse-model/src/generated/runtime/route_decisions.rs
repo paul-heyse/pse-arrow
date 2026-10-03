@@ -13,11 +13,50 @@ pub struct RuntimeRouteDecisionsFieldEligibilityItem {
     pub r#backend: crate::generated::enums::NativeBackend,
     ///reasons
     pub r#reasons: Vec<crate::generated::enums::NativeIneligibility>,
+    ///state
+    pub r#state: crate::generated::enums::NativeAssessmentState,
+    ///evidence
+    pub r#evidence: Vec<crate::generated::enums::NativeEvidenceDemand>,
+    ///artifacts
+    pub r#artifacts: Vec<crate::generated::enums::NativeArtifactDemand>,
+    ///evidence_classes
+    pub r#evidence_classes: Vec<crate::generated::enums::NativeProblemClass>,
+    ///required_order
+    pub r#required_order: Option<i64>,
+    ///artifact_representations
+    pub r#artifact_representations: Vec<crate::generated::enums::NativeRepresentation>,
+    ///structural_mode
+    pub r#structural_mode: Option<crate::generated::enums::NativeStructuralMode>,
+    ///structurally_admitted
+    pub r#structurally_admitted: Option<bool>,
 }
 impl crate::SemanticEq for RuntimeRouteDecisionsFieldEligibilityItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
             && crate::SemanticEq::semantic_eq(&self.r#reasons, &other.r#reasons)
+            && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
+            && crate::SemanticEq::semantic_eq(&self.r#evidence, &other.r#evidence)
+            && crate::SemanticEq::semantic_eq(&self.r#artifacts, &other.r#artifacts)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#evidence_classes,
+                &other.r#evidence_classes,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#required_order,
+                &other.r#required_order,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#artifact_representations,
+                &other.r#artifact_representations,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#structural_mode,
+                &other.r#structural_mode,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#structurally_admitted,
+                &other.r#structurally_admitted,
+            )
     }
 }
 impl PartialEq for RuntimeRouteDecisionsFieldEligibilityItem {
@@ -44,6 +83,22 @@ pub struct RuntimeRouteDecisionsRow {
     pub r#requested_backend: Option<crate::generated::enums::NativeBackend>,
     ///classes
     pub r#classes: Vec<crate::generated::enums::NativeProblemClass>,
+    ///state
+    pub r#state: crate::generated::enums::NativeAssessmentState,
+    ///snapshot
+    pub r#snapshot: pse_ids::ContentHash,
+    ///pending_backend
+    pub r#pending_backend: Option<crate::generated::enums::NativeBackend>,
+    ///evidence
+    pub r#evidence: Vec<crate::generated::enums::NativeEvidenceDemand>,
+    ///artifacts
+    pub r#artifacts: Vec<crate::generated::enums::NativeArtifactDemand>,
+    ///evidence_classes
+    pub r#evidence_classes: Vec<crate::generated::enums::NativeProblemClass>,
+    ///required_order
+    pub r#required_order: Option<i64>,
+    ///artifact_representations
+    pub r#artifact_representations: Vec<crate::generated::enums::NativeRepresentation>,
     ///eligibility
     pub r#eligibility: Vec<RuntimeRouteDecisionsFieldEligibilityItem>,
     ///selected
@@ -71,6 +126,25 @@ impl crate::SemanticEq for RuntimeRouteDecisionsRow {
                 &self.r#requested_backend,
                 &other.r#requested_backend,
             ) && crate::SemanticEq::semantic_eq(&self.r#classes, &other.r#classes)
+            && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
+            && crate::SemanticEq::semantic_eq(&self.r#snapshot, &other.r#snapshot)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#pending_backend,
+                &other.r#pending_backend,
+            ) && crate::SemanticEq::semantic_eq(&self.r#evidence, &other.r#evidence)
+            && crate::SemanticEq::semantic_eq(&self.r#artifacts, &other.r#artifacts)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#evidence_classes,
+                &other.r#evidence_classes,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#required_order,
+                &other.r#required_order,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#artifact_representations,
+                &other.r#artifact_representations,
+            )
             && crate::SemanticEq::semantic_eq(&self.r#eligibility, &other.r#eligibility)
             && crate::SemanticEq::semantic_eq(&self.r#selected, &other.r#selected)
             && crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
@@ -98,6 +172,22 @@ impl crate::SemanticFrame for RuntimeRouteDecisionsFieldEligibilityItem {
         crate::SemanticFrame::frame(&self.r#backend, hash);
         hash.str(stringify!(r#reasons));
         crate::SemanticFrame::frame(&self.r#reasons, hash);
+        hash.str(stringify!(r#state));
+        crate::SemanticFrame::frame(&self.r#state, hash);
+        hash.str(stringify!(r#evidence));
+        crate::SemanticFrame::frame(&self.r#evidence, hash);
+        hash.str(stringify!(r#artifacts));
+        crate::SemanticFrame::frame(&self.r#artifacts, hash);
+        hash.str(stringify!(r#evidence_classes));
+        crate::SemanticFrame::frame(&self.r#evidence_classes, hash);
+        hash.str(stringify!(r#required_order));
+        crate::SemanticFrame::frame(&self.r#required_order, hash);
+        hash.str(stringify!(r#artifact_representations));
+        crate::SemanticFrame::frame(&self.r#artifact_representations, hash);
+        hash.str(stringify!(r#structural_mode));
+        crate::SemanticFrame::frame(&self.r#structural_mode, hash);
+        hash.str(stringify!(r#structurally_admitted));
+        crate::SemanticFrame::frame(&self.r#structurally_admitted, hash);
     }
 }
 impl crate::HeapUsage for RuntimeRouteDecisionsFieldEligibilityItem {
@@ -105,6 +195,16 @@ impl crate::HeapUsage for RuntimeRouteDecisionsFieldEligibilityItem {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reasons))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#artifacts))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence_classes))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#required_order))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#artifact_representations),
+            )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#structural_mode))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#structurally_admitted))
     }
 }
 impl crate::SemanticFrame for RuntimeRouteDecisionsRow {
@@ -121,6 +221,22 @@ impl crate::SemanticFrame for RuntimeRouteDecisionsRow {
         crate::SemanticFrame::frame(&self.r#requested_backend, hash);
         hash.str(stringify!(r#classes));
         crate::SemanticFrame::frame(&self.r#classes, hash);
+        hash.str(stringify!(r#state));
+        crate::SemanticFrame::frame(&self.r#state, hash);
+        hash.str(stringify!(r#snapshot));
+        crate::SemanticFrame::frame(&self.r#snapshot, hash);
+        hash.str(stringify!(r#pending_backend));
+        crate::SemanticFrame::frame(&self.r#pending_backend, hash);
+        hash.str(stringify!(r#evidence));
+        crate::SemanticFrame::frame(&self.r#evidence, hash);
+        hash.str(stringify!(r#artifacts));
+        crate::SemanticFrame::frame(&self.r#artifacts, hash);
+        hash.str(stringify!(r#evidence_classes));
+        crate::SemanticFrame::frame(&self.r#evidence_classes, hash);
+        hash.str(stringify!(r#required_order));
+        crate::SemanticFrame::frame(&self.r#required_order, hash);
+        hash.str(stringify!(r#artifact_representations));
+        crate::SemanticFrame::frame(&self.r#artifact_representations, hash);
         hash.str(stringify!(r#eligibility));
         crate::SemanticFrame::frame(&self.r#eligibility, hash);
         hash.str(stringify!(r#selected));
@@ -146,6 +262,16 @@ impl crate::HeapUsage for RuntimeRouteDecisionsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#selection))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#requested_backend))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#classes))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#snapshot))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#pending_backend))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#artifacts))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence_classes))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#required_order))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#artifact_representations),
+            )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#eligibility))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#selected))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))

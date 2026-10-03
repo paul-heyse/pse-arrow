@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#route_decisions::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    7u8, 206u8, 147u8, 183u8, 38u8, 180u8, 166u8, 147u8, 45u8, 72u8, 29u8, 1u8, 216u8,
-    180u8, 201u8, 212u8,
+    19u8, 113u8, 154u8, 235u8, 79u8, 35u8, 189u8, 61u8, 36u8, 80u8, 57u8, 246u8, 95u8,
+    72u8, 162u8, 31u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "route_decisions";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    202u8, 37u8, 29u8, 236u8, 55u8, 246u8, 139u8, 224u8, 200u8, 3u8, 250u8, 74u8, 62u8,
-    69u8, 149u8, 227u8, 114u8, 82u8, 59u8, 22u8, 115u8, 241u8, 62u8, 71u8, 146u8, 123u8,
-    250u8, 100u8, 5u8, 95u8, 149u8, 220u8,
+    232u8, 50u8, 157u8, 160u8, 213u8, 142u8, 247u8, 74u8, 15u8, 213u8, 59u8, 102u8, 64u8,
+    187u8, 80u8, 67u8, 247u8, 24u8, 220u8, 149u8, 241u8, 128u8, 196u8, 48u8, 22u8, 110u8,
+    63u8, 32u8, 250u8, 29u8, 123u8, 206u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeRouteDecisionsFieldEligibilityItem {
     fn append(
@@ -34,6 +34,35 @@ impl crate::columnar::ArrowValue for RuntimeRouteDecisionsFieldEligibilityItem {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#backend, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#reasons, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#artifacts,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_classes,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required_order,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#artifact_representations,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#structural_mode,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#structurally_admitted,
+            children[9usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -50,6 +79,30 @@ impl crate::columnar::ArrowValue for RuntimeRouteDecisionsFieldEligibilityItem {
         <Vec<
             crate::generated::enums::NativeIneligibility,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::enums::NativeAssessmentState as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            crate::generated::enums::NativeEvidenceDemand,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::NativeArtifactDemand,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::NativeProblemClass,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::NativeRepresentation,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeStructuralMode,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -68,6 +121,52 @@ impl crate::columnar::ArrowValue for RuntimeRouteDecisionsFieldEligibilityItem {
                 crate::generated::enums::NativeIneligibility,
             > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#state: <crate::generated::enums::NativeAssessmentState as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#evidence: <Vec<
+                crate::generated::enums::NativeEvidenceDemand,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#artifacts: <Vec<
+                crate::generated::enums::NativeArtifactDemand,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#evidence_classes: <Vec<
+                crate::generated::enums::NativeProblemClass,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#required_order: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#artifact_representations: <Vec<
+                crate::generated::enums::NativeRepresentation,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#structural_mode: <Option<
+                crate::generated::enums::NativeStructuralMode,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#structurally_admitted: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -97,28 +196,60 @@ impl crate::columnar::ArrowValue for RuntimeRouteDecisionsRow {
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#classes, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, children[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#eligibility,
-            children[6usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#selected,
+            &self.r#snapshot,
             children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#backend, children[8usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#representation,
+            &self.r#pending_backend,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#lexicographic,
+            &self.r#artifacts,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#refusal,
+            &self.r#evidence_classes,
             children[11usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#detail, children[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required_order,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#artifact_representations,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#eligibility,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#selected,
+            children[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#backend,
+            children[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#representation,
+            children[17usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#lexicographic,
+            children[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#refusal,
+            children[19usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#detail, children[20usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -145,27 +276,51 @@ impl crate::columnar::ArrowValue for RuntimeRouteDecisionsRow {
         <Vec<
             crate::generated::enums::NativeProblemClass,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <Vec<
-            RuntimeRouteDecisionsFieldEligibilityItem,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <Option<
-            crate::generated::enums::NativeRouteKind,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <crate::generated::enums::NativeAssessmentState as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
         <Option<
             crate::generated::enums::NativeBackend,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
-        <Option<
-            crate::generated::enums::NativeRepresentation,
+        <Vec<
+            crate::generated::enums::NativeEvidenceDemand,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <Option<
-            crate::generated::enums::NativeLexicographicRealization,
+        <Vec<
+            crate::generated::enums::NativeArtifactDemand,
         > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
-        <Option<
-            crate::generated::enums::NativeRouteRefusal,
+        <Vec<
+            crate::generated::enums::NativeProblemClass,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Option<
-            String,
+            i64,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::NativeRepresentation,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Vec<
+            RuntimeRouteDecisionsFieldEligibilityItem,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeRouteKind,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeBackend,
+        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeRepresentation,
+        > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeLexicographicRealization,
+        > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
+        <Option<
+            crate::generated::enums::NativeRouteRefusal,
+        > as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[20usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -204,46 +359,90 @@ impl crate::columnar::ArrowValue for RuntimeRouteDecisionsRow {
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#eligibility: <Vec<
-                RuntimeRouteDecisionsFieldEligibilityItem,
-            > as crate::columnar::ArrowValue>::read(
+            r#state: <crate::generated::enums::NativeAssessmentState as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#selected: <Option<
-                crate::generated::enums::NativeRouteKind,
-            > as crate::columnar::ArrowValue>::read(
+            r#snapshot: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#backend: <Option<
+            r#pending_backend: <Option<
                 crate::generated::enums::NativeBackend,
             > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
+            r#evidence: <Vec<
+                crate::generated::enums::NativeEvidenceDemand,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#artifacts: <Vec<
+                crate::generated::enums::NativeArtifactDemand,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#evidence_classes: <Vec<
+                crate::generated::enums::NativeProblemClass,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#required_order: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#artifact_representations: <Vec<
+                crate::generated::enums::NativeRepresentation,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#eligibility: <Vec<
+                RuntimeRouteDecisionsFieldEligibilityItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#selected: <Option<
+                crate::generated::enums::NativeRouteKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#backend: <Option<
+                crate::generated::enums::NativeBackend,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
+                index,
+            )?,
             r#representation: <Option<
                 crate::generated::enums::NativeRepresentation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(17usize).as_ref(),
                 index,
             )?,
             r#lexicographic: <Option<
                 crate::generated::enums::NativeLexicographicRealization,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(18usize).as_ref(),
                 index,
             )?,
             r#refusal: <Option<
                 crate::generated::enums::NativeRouteRefusal,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(19usize).as_ref(),
                 index,
             )?,
             r#detail: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(20usize).as_ref(),
                 index,
             )?,
         })
@@ -317,22 +516,48 @@ impl crate::columnar::RelationRow for RuntimeRouteDecisionsRow {
             columns[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#classes, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, columns[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#snapshot, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#pending_backend,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#evidence, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#artifacts,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_classes,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required_order,
+            columns[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#artifact_representations,
+            columns[13usize].as_mut(),
+        )?;
         crate::columnar::ArrowValue::append(
             &self.r#eligibility,
-            columns[6usize].as_mut(),
+            columns[14usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#selected, columns[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#backend, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#selected,
+            columns[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#backend, columns[16usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#representation,
-            columns[9usize].as_mut(),
+            columns[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#lexicographic,
-            columns[10usize].as_mut(),
+            columns[18usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#refusal, columns[11usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#detail, columns[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#refusal, columns[19usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#detail, columns[20usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -368,10 +593,10 @@ impl crate::columnar::RelationRow for RuntimeRouteDecisionsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        35_840_usize + size_of::<Self::Builder>()
+        79_872_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        280usize
+        624usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -416,6 +641,84 @@ impl crate::columnar::RelationRow for RuntimeRouteDecisionsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            crate::columnar::allocation_add(8, (self.r#state).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(32usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#pending_backend).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#evidence)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#artifacts)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#evidence_classes)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#required_order).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#artifact_representations)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             (self.r#eligibility)
                 .iter()
                 .try_fold(
@@ -442,6 +745,94 @@ impl crate::columnar::RelationRow for RuntimeRouteDecisionsRow {
                                             crate::columnar::allocation_add(8, (item).as_str().len())?,
                                         ),
                                     )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#state).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#evidence)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            crate::columnar::allocation_add(8, (item).as_str().len())?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#artifacts)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            crate::columnar::allocation_add(8, (item).as_str().len())?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#evidence_classes)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            crate::columnar::allocation_add(8, (item).as_str().len())?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                if ((item).r#required_order).is_some() {
+                                    crate::columnar::allocation_add(
+                                        1,
+                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                    )
+                                } else {
+                                    Ok::<usize, crate::RelationError>(1)
+                                }?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#artifact_representations)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            crate::columnar::allocation_add(8, (item).as_str().len())?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                if let Some(value) = ((item).r#structural_mode).as_ref() {
+                                    crate::columnar::allocation_add(
+                                        1,
+                                        crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                    )
+                                } else {
+                                    Ok::<usize, crate::RelationError>(1)
+                                }?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                if ((item).r#structurally_admitted).is_some() {
+                                    crate::columnar::allocation_add(
+                                        1,
+                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                    )
+                                } else {
+                                    Ok::<usize, crate::RelationError>(1)
+                                }?,
                             )?;
                             Ok::<usize, crate::RelationError>(bytes)
                         }?,
@@ -524,7 +915,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 21usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "request_identity",
@@ -557,38 +948,78 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "eligibility",
+        name: "state",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "selected",
+        name: "snapshot",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "backend",
+        name: "pending_backend",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "representation",
+        name: "evidence",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "lexicographic",
+        name: "artifacts",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "refusal",
+        name: "evidence_classes",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "detail",
+        name: "required_order",
         position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "artifact_representations",
+        position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "eligibility",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "selected",
+        position: 15usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "backend",
+        position: 16usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "representation",
+        position: 17usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "lexicographic",
+        position: 18usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "refusal",
+        position: 19usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "detail",
+        position: 20usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -605,20 +1036,36 @@ pub mod columns {
     pub const REQUESTED_BACKEND: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///classes
     pub const CLASSES: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///state
+    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///snapshot
+    pub const SNAPSHOT: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///pending_backend
+    pub const PENDING_BACKEND: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///evidence
+    pub const EVIDENCE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///artifacts
+    pub const ARTIFACTS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///evidence_classes
+    pub const EVIDENCE_CLASSES: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///required_order
+    pub const REQUIRED_ORDER: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    ///artifact_representations
+    pub const ARTIFACT_REPRESENTATIONS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///eligibility
-    pub const ELIGIBILITY: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const ELIGIBILITY: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///selected
-    pub const SELECTED: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const SELECTED: crate::columnar::ColumnReference = super::COLUMNS[15usize];
     ///backend
-    pub const BACKEND: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const BACKEND: crate::columnar::ColumnReference = super::COLUMNS[16usize];
     ///representation
-    pub const REPRESENTATION: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const REPRESENTATION: crate::columnar::ColumnReference = super::COLUMNS[17usize];
     ///lexicographic
-    pub const LEXICOGRAPHIC: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const LEXICOGRAPHIC: crate::columnar::ColumnReference = super::COLUMNS[18usize];
     ///refusal
-    pub const REFUSAL: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const REFUSAL: crate::columnar::ColumnReference = super::COLUMNS[19usize];
     ///detail
-    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[20usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -631,6 +1078,14 @@ pub struct RuntimeRouteDecisionsView<'a> {
     selection_column: &'a arrow_array::StringArray,
     requested_backend_column: &'a arrow_array::StringArray,
     classes_column: &'a arrow_array::ListArray,
+    state_column: &'a arrow_array::StringArray,
+    snapshot_column: &'a arrow_array::FixedSizeBinaryArray,
+    pending_backend_column: &'a arrow_array::StringArray,
+    evidence_column: &'a arrow_array::ListArray,
+    artifacts_column: &'a arrow_array::ListArray,
+    evidence_classes_column: &'a arrow_array::ListArray,
+    required_order_column: &'a arrow_array::Int64Array,
+    artifact_representations_column: &'a arrow_array::ListArray,
     eligibility_column: &'a arrow_array::ListArray,
     selected_column: &'a arrow_array::StringArray,
     backend_column: &'a arrow_array::StringArray,
@@ -697,27 +1152,51 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
             classes_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(5usize).as_ref())?,
-            eligibility_column: crate::columnar::array::<
-                arrow_array::ListArray,
-            >(batch.column(6usize).as_ref())?,
-            selected_column: crate::columnar::array::<
+            state_column: crate::columnar::array::<
                 arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            snapshot_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
             >(batch.column(7usize).as_ref())?,
-            backend_column: crate::columnar::array::<
+            pending_backend_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(8usize).as_ref())?,
+            evidence_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(9usize).as_ref())?,
+            artifacts_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(10usize).as_ref())?,
+            evidence_classes_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(11usize).as_ref())?,
+            required_order_column: crate::columnar::array::<
+                arrow_array::Int64Array,
+            >(batch.column(12usize).as_ref())?,
+            artifact_representations_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(13usize).as_ref())?,
+            eligibility_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(14usize).as_ref())?,
+            selected_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(15usize).as_ref())?,
+            backend_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(16usize).as_ref())?,
             representation_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
             lexicographic_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(18usize).as_ref())?,
             refusal_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(19usize).as_ref())?,
             detail_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(20usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -808,6 +1287,106 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "state",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn state_column(&self) -> &'a arrow_array::StringArray {
+        self.state_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "state", "`.")]
+    pub fn state_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "snapshot",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn snapshot_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.snapshot_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "snapshot", "`.")]
+    pub fn snapshot_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "pending_backend",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn pending_backend_column(&self) -> &'a arrow_array::StringArray {
+        self.pending_backend_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "pending_backend", "`.")]
+    pub fn pending_backend_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "evidence",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn evidence_column(&self) -> &'a arrow_array::ListArray {
+        self.evidence_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "evidence", "`.")]
+    pub fn evidence_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "artifacts",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn artifacts_column(&self) -> &'a arrow_array::ListArray {
+        self.artifacts_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "artifacts", "`.")]
+    pub fn artifacts_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "evidence_classes",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn evidence_classes_column(&self) -> &'a arrow_array::ListArray {
+        self.evidence_classes_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "evidence_classes", "`.")]
+    pub fn evidence_classes_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "required_order",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn required_order_column(&self) -> &'a arrow_array::Int64Array {
+        self.required_order_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "required_order", "`.")]
+    pub fn required_order_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "artifact_representations",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn artifact_representations_column(&self) -> &'a arrow_array::ListArray {
+        self.artifact_representations_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "artifact_representations",
+        "`.",
+    )]
+    pub fn artifact_representations_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "eligibility",
         "`, including its offsets and validity bitmap.",
     )]
@@ -816,7 +1395,7 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "eligibility", "`.")]
     pub fn eligibility_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -828,7 +1407,7 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "selected", "`.")]
     pub fn selected_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -840,7 +1419,7 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "backend", "`.")]
     pub fn backend_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[16usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -852,7 +1431,7 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "representation", "`.")]
     pub fn representation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -864,7 +1443,7 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "lexicographic", "`.")]
     pub fn lexicographic_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[18usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -876,7 +1455,7 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "refusal", "`.")]
     pub fn refusal_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[19usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -888,7 +1467,7 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "detail", "`.")]
     pub fn detail_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[20usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -917,6 +1496,29 @@ impl<'a> RuntimeRouteDecisionsView<'a> {
                 index,
             )?,
             r#classes: crate::columnar::ArrowValue::read(self.classes_column, index)?,
+            r#state: crate::columnar::ArrowValue::read(self.state_column, index)?,
+            r#snapshot: crate::columnar::ArrowValue::read(self.snapshot_column, index)?,
+            r#pending_backend: crate::columnar::ArrowValue::read(
+                self.pending_backend_column,
+                index,
+            )?,
+            r#evidence: crate::columnar::ArrowValue::read(self.evidence_column, index)?,
+            r#artifacts: crate::columnar::ArrowValue::read(
+                self.artifacts_column,
+                index,
+            )?,
+            r#evidence_classes: crate::columnar::ArrowValue::read(
+                self.evidence_classes_column,
+                index,
+            )?,
+            r#required_order: crate::columnar::ArrowValue::read(
+                self.required_order_column,
+                index,
+            )?,
+            r#artifact_representations: crate::columnar::ArrowValue::read(
+                self.artifact_representations_column,
+                index,
+            )?,
             r#eligibility: crate::columnar::ArrowValue::read(
                 self.eligibility_column,
                 index,

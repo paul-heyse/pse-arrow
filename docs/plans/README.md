@@ -31,9 +31,10 @@ The integrated
 [25i](25i-identity-reuse-and-resource-ownership.md#outcome-recorded-after-implementation)
 and [25j](25j-generated-boundaries-and-library-consolidation.md#outcome-recorded-after-implementation)
 implementation is complete, with scoped verification and remaining qualification limits in
-those Outcomes. The follow-up implementation scope is
-[25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md),
-which supplies the prerequisite corrections for resuming
+those Outcomes.
+[25l functional implementation is complete](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
+with demand-driven compilation, contextual solver readiness and focused boundary evidence.
+The next work is the refreshed static gate and resumed campaign in
 [25k: Integrated qualification and closure](25k-integrated-qualification-and-closure.md).
 The series reserves full integration and qualification for 25k after all functional
 work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused

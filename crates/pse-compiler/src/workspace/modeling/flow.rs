@@ -69,7 +69,61 @@ impl TryFrom<FlowSelectionDocument> for ModelingFlowSelection {
         Ok(Self { nodes, connections })
     }
 }
-impl PreparedModeling {
+/// Checked finite process meaning, independently usable without numerical body admission.
+#[derive(Clone, Debug)]
+pub struct SemanticModeling {
+    /// Instantiated members and original physical topology.
+    pub model: pse_math::SharedAllocation<SpecializedModel>,
+    port_quantities: Arc<BTreeMap<SemanticId, QuantityTypeId>>,
+}
+impl SemanticModeling {
+    pub(super) fn admit(
+        model: pse_math::SharedAllocation<SpecializedModel>,
+        quantities: &QuantityRegistry,
+        preconditions: &PhysicalPreconditions,
+    ) -> Result<Self> {
+        let port_quantities = model
+            .ports
+            .values()
+            .map(|port| {
+                let symbol = model
+                    .symbols
+                    .get(&port.symbol)
+                    .ok_or_else(|| CompileError::Missing("physical flow symbol".into()))?;
+                let scheme = symbol
+                    .ty
+                    .quantity_scheme()
+                    .ok_or_else(|| CompileError::Missing("physical flow coordinate".into()))?;
+                let quantity = scheme
+                    .resolve_with_evidence(
+                        quantities,
+                        &pse_quantity::scheme::Substitution::new(),
+                        preconditions,
+                    )
+                    .map_err(|error| CompileError::Missing(error.to_string()))?;
+                Ok((port.id, quantity))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        Ok(Self {
+            model,
+            port_quantities: Arc::new(port_quantities),
+        })
+    }
+    /// Charge semantic allocation while aliases survive.
+    pub fn retained_bytes(&self) -> usize {
+        self.descriptor_bytes() + self.model.retained_bytes()
+    }
+    pub(super) fn descriptor_bytes(&self) -> usize {
+        size_of::<Self>()
+            + 256
+            + self.port_quantities.len()
+                * (size_of::<SemanticId>() + size_of::<QuantityTypeId>() + 64)
+    }
+    /// Attach the existing runtime product owner to escaping semantic aliases.
+    pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        self.model = self.model.with_owner(owner);
+        self
+    }
     /// Project declared port ownership and directed connections into the existing graph library.
     pub fn flow_graph(
         &self,
@@ -95,17 +149,9 @@ impl PreparedModeling {
                 .values()
                 .filter(|p| p.lineage.instance == *id)
             {
-                let row = ModelingOutput::Member(port.symbol).row_id();
-                let quantity = self
-                    .admitted
-                    .case
-                    .rows()
-                    .iter()
-                    .find(|r| r.id == row)
-                    .ok_or_else(|| {
-                        CompileError::Missing("admitted physical flow coordinate".into())
-                    })?
-                    .quantity;
+                let quantity = *self.port_quantities.get(&port.id).ok_or_else(|| {
+                    CompileError::Missing("admitted physical flow coordinate".into())
+                })?;
                 let unit = quantities
                     .quantity_type(quantity)
                     .map_err(MathError::from)?

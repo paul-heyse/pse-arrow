@@ -139,6 +139,7 @@ class CandidateRefusal(StrEnum):
     LEAST_INFEASIBLE = "least_infeasible"
     RELAXED_INCUMBENT = "relaxed_incumbent"
     INCUMBENT_REFUSED = "incumbent_refused"
+    FEASIBILITY_UNAVAILABLE = "feasibility_unavailable"
 
 
 class CandidateUse(StrEnum):
@@ -1497,6 +1498,22 @@ class Namespace(StrEnum):
     PROVENANCE = "provenance"
 
 
+class NativeArtifactDemand(StrEnum):
+    """The declared NativeArtifactDemand enumeration."""
+
+    DERIVATIVES = "derivatives"
+    REPRESENTATION = "representation"
+
+
+class NativeAssessmentState(StrEnum):
+    """The declared NativeAssessmentState enumeration."""
+
+    REFUSED = "refused"
+    PENDING_EVIDENCE = "pending_evidence"
+    SUPPORTED_PENDING_ARTIFACTS = "supported_pending_artifacts"
+    READY = "ready"
+
+
 class NativeAssurance(StrEnum):
     """The declared NativeAssurance enumeration."""
 
@@ -1616,6 +1633,17 @@ class NativeDerivativeCapability(StrEnum):
     FACTORABLE = "factorable"
 
 
+class NativeEvidenceDemand(StrEnum):
+    """The declared NativeEvidenceDemand enumeration."""
+
+    CLASS = "class"
+    STRUCTURE = "structure"
+    CALLBACK_CONTRACT = "callback_contract"
+    COEFFICIENTS = "coefficients"
+    CONE = "cone"
+    FACTORABLE = "factorable"
+
+
 class NativeIneligibility(StrEnum):
     """The declared NativeIneligibility enumeration."""
 
@@ -1631,6 +1659,8 @@ class NativeIneligibility(StrEnum):
     LEAST_SQUARES = "least_squares"
     METHOD = "method"
     LEXICOGRAPHIC = "lexicographic"
+    CONTEXTUAL = "contextual"
+    STRUCTURAL = "structural"
 
 
 class NativeInfeasibilityWitness(StrEnum):

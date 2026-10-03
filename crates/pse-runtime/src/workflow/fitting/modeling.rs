@@ -115,7 +115,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
-        let (problem, assessments) = self
+        let (mut problem, assessments) = self
             .prepare_fit_problem(id, profile, compiler, limits, cancel)
             .await?;
         let facts = native::routing::oracle_facts(
@@ -123,7 +123,20 @@ impl ModelingPackage {
             true,
             problem.bounds.iter().all(|(a, b)| a.is_finite() && a == b),
         );
-        let route = native::routing::Requirements {
+        // Contextual interpretations may clone complete inventories, but share the
+        // matching witness already owned by the immutable preparation.
+        let extent = native::structural::construction_bytes(
+            &problem.contract,
+            problem.layout.constraints.matrix().symbolic(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let reservation =
+            datafusion::execution::memory_pool::MemoryConsumer::new("fit:route-structure")
+                .register(&problem.runtime.shared.pool());
+        reservation
+            .try_grow(extent)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let decision = native::routing::Requirements {
             table: &native::execution::LINKED,
             facts: &facts,
             intent: problem.profile.solver.intent,
@@ -132,10 +145,45 @@ impl ModelingPackage {
             controls: &problem.profile.solver.controls,
             settings: &problem.profile.solver.backend,
             sensitivity: false,
+            context: native::routing::Context {
+                snapshot: problem.snapshot.clone(),
+                pending_classes: &[],
+                structure: Some(problem.structure.clone()),
+                oracle: Some(&problem.contract),
+                guards: &BTreeMap::new(),
+                budgets: Some(native::execution::Budgets {
+                    tolerances: &problem.tolerances,
+                    normalization: &problem.normalization,
+                    accuracy: &problem.accuracy,
+                }),
+                coefficients: None,
+                cone: None,
+                factorable: None,
+                certificate: None,
+                prepared: &[native::routing::ArtifactDemand::Representation(
+                    native::execution::Representation::Nlp,
+                )],
+                refusals: &BTreeMap::new(),
+            },
         }
-        .select(problem.profile.solver.selection)
-        .map_err(crate::math::MathRuntimeError::from)?;
-        crate::math::solves::admit_profile(&problem.profile.solver, route)
+        .decision(problem.profile.solver.selection);
+        let route = decision
+            .route()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        problem.structural_assessment = decision.structure;
+        if let Some(assessment) = &mut problem.structural_assessment {
+            let retained = assessment
+                .retained_bytes()
+                .checked_sub(assessment.witness.retained_bytes())
+                .filter(|bytes| *bytes <= reservation.size())
+                .ok_or_else(|| contract("fit structural assessment retained allowance"))?;
+            reservation.shrink(reservation.size() - retained);
+            assessment.witness = assessment
+                .witness
+                .clone()
+                .with_owner(pse_columnar::AllocationLease::new(reservation));
+        }
+        crate::math::solves::admit_profile(&problem.profile.solver, route, &problem.snapshot)
             .map_err(crate::math::MathRuntimeError::from)?;
         Ok(PreparedFit {
             source: self.clone(),
@@ -231,7 +279,11 @@ impl ModelingPackage {
                 "gradient-only fitting requires the limited-memory Hessian",
             ));
         }
-        let order = profile.solver.derivative_order();
+        let order = if hessian == HessianMode::LimitedMemory {
+            DerivativeOrder::First
+        } else {
+            DerivativeOrder::Second
+        };
         let q = &self.quantities;
         // Resolve paths and physical contracts before creating any global coordinates.
         let mut sources = Vec::new();
@@ -446,7 +498,7 @@ impl ModelingPackage {
                 };
                 // The experiment's authored case declares its modes and events.
                 let simulation = self
-                    .prepare_simulation(
+                    .prepare_simulation_for(
                         e.case_id,
                         e.experiment_id,
                         bindings,
@@ -455,6 +507,15 @@ impl ModelingPackage {
                         compiler,
                         integration,
                         transient_order,
+                        &if hessian == HessianMode::Exact {
+                            local
+                                .iter()
+                                .filter(|(parameter, _)| parameter_columns[**parameter].is_some())
+                                .map(|(_, id)| *id)
+                                .collect()
+                        } else {
+                            BTreeSet::new()
+                        },
                         cancel,
                     )
                     .await?;
@@ -544,6 +605,7 @@ impl ModelingPackage {
                     )
                     .ok_or_else(|| contract("fit check extent"))?;
                 let result = Experiment::Transient(Box::new(IntegratedExperiment {
+                    snapshot: simulation.snapshot().clone(),
                     program: simulation.program(),
                     profile: simulation.profile().clone(),
                     parameters: simulation.parameters.clone(),
@@ -850,7 +912,7 @@ impl ModelingPackage {
         {
             return Err(contract("fit observation or dynamic profile ownership"));
         }
-        let problem = PreparedExperiments {
+        let prepared = PreparedExperiments {
             execution_identity: execution_identity.finish_hash(),
             declaration: d,
             lineage,
@@ -868,13 +930,29 @@ impl ModelingPackage {
             declarations,
             bytes,
             physical_cells,
-        }
-        .finish(
-            self.runtime.clone(),
-            q.clone(),
-            identity.finish_hash(),
-            reservation,
-        )?;
+        };
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let runtime = self.runtime.clone();
+        let quantities = q.clone();
+        let source = identity.finish_hash();
+        // The transferred reservation owns construction storage; the canonical job
+        // supplies the bounded worker, CPU admission and native cancellation boundary.
+        let operation = self
+            .runtime
+            .shared
+            .math()
+            .job(1, 0, control.clone(), move |flag| {
+                Ok(prepared.finish(runtime, quantities, source, reservation, &flag))
+            });
+        tokio::pin!(operation);
+        let problem = tokio::select! {
+            result = &mut operation => result.map_err(WorkflowError::from)??,
+            () = cancel.cancelled() => {
+                control.cancel();
+                let _ = operation.await;
+                return Err(crate::math::MathRuntimeError::Cancelled.into());
+            }
+        };
         Ok((problem, assessments))
     }
 }

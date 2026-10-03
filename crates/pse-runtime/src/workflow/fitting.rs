@@ -200,6 +200,9 @@ enum Experiment {
 /// Immutable fitting product; mutable evaluators and native sessions are attempt-owned.
 #[derive(Debug)]
 pub(crate) struct FitProblem {
+    snapshot: native::execution::Snapshot,
+    structure: native::routing::Structure,
+    structural_assessment: Option<native::structural::Assessment>,
     pub(crate) runtime: super::Runtime,
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(crate) source_identity: ContentHash,

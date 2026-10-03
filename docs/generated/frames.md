@@ -28,7 +28,8 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `SchemaExecutionEncodingV1` | `pse.schema.execution-encoding.v1` | The exact observed native field layout. |
 | `NumericalPolicyV1` | `pse.numerical.policy.v1` | An effective numerical policy request. |
 | `NumericalPolicyV2` | `pse.numerical.policy.v2` | Numerical policy including incumbent permission; historical V1 remains unchanged. |
-| `ModelingAdmissionV1` | `pse.modeling.admission.v1` | Request-qualified structural and route admission over bound model and resolved policies. |
+| `ModelingAdmissionV2` | `pse.modeling.admission.v2` | Request-qualified structural and route admission over bound model and resolved policies. |
+| `ModelingAdmissionV1` | `pse.modeling.admission.v1` | Historical generic capability admission before contextual readiness. |
 | `ProviderV4` | `pse.provider.v4` | A kernel provider's physical, algorithm and data identity. |
 | `ProviderConfigurationV1` | `pse.provider.configuration.v1` | A kernel provider's configuration key framed with its checked output envelope. |
 
@@ -173,6 +174,10 @@ Derived in: pse-backend-native.
 | `NativeAccuracyV3` | `pse.native.accuracy.v3` | Resolved native accuracy budgets. |
 | `NativeAccuracyV4` | `pse.native.accuracy.v4` | Canonical complete identity under ADR-0150. |
 | `NativeBuildV1` | `pse.native.build.v1` | Every linked adapter's native build. |
+| `NativeContextSnapshotV1` | `pse.native.context-snapshot.v1` | Immutable adapter build and runtime observations consumed by contextual routing. |
+| `MathArtifactV5` | `pse.math.artifact.v5` | Selected mathematical support and evaluator policy under ADR-0152. |
+| `MathCoefficientAssumptionsV2` | `pse.math.coefficient-assumptions.v2` | Original aggregate coefficient assumptions under ADR-0152. |
+| `MathBoundFactsV3` | `pse.math.bound-facts.v3` | Domain projection and demand-owned class-proof policy under ADR-0152. |
 | `NativeControlsV2` | `pse.native.controls.v2` | Native solve controls. |
 | `NativeControlsV3` | `pse.native.controls.v3` | Canonical complete identity under ADR-0150. |
 | `NativeIpoptBuildV1` | `pse.native.ipopt.build.v1` | The linked Ipopt build. |
@@ -204,7 +209,8 @@ Derived in: pse-runtime.
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |
 | `DynamicProfileV6` | `pse.dynamic.profile.v6` | A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its IDAS settings carry no sign constraints. |
 | `DynamicProfileV7` | `pse.dynamic.profile.v7` | Dynamic profile including explicit endpoint requirement. |
-| `DynamicProfileV8` | `pse.dynamic.profile.v8` | Typed integration profile and resolved method in canonical document framing. |
+| `DynamicProfileV9` | `pse.dynamic.profile.v9` | Typed integration profile and resolved method in canonical document framing. |
+| `DynamicProfileV8` | `pse.dynamic.profile.v8` | Historical profile framing with speculative Auto resolution. |
 | `ExplicitConicV4` | `pse.explicit-conic.v4` | An explicit conic request; its quadratic is certified exactly, so it carries no Gram witness. |
 | `ExplicitConicV5` | `pse.explicit-conic.v5` | Explicit cone request under canonical document floating point framing. |
 | `FitCoordinateV1` | `pse.fit.coordinate.v1` | A fitting coordinate alias of an experiment and source. |
@@ -213,7 +219,8 @@ Derived in: pse-runtime.
 | `FitProfileV4` | `pse.fit.profile.v4` | Fit profile using canonical numeric and uncertainty document framing. |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
-| `ModelingDynamicV2` | `pse.modeling.dynamic.v2` | A modeling dynamic simulation, with the derivative order of its functions, its integration parameter values, event directions and state signs. |
+| `ModelingDynamicV3` | `pse.modeling.dynamic.v3` | A modeling dynamic simulation, with the derivative order of its functions, its integration parameter values, event directions and state signs. |
+| `ModelingDynamicV2` | `pse.modeling.dynamic.v2` | Historical simulation framing before contextual method and snapshot selection. |
 | `ModelingFitExecutionV1` | `pse.modeling.fit-execution.v1` | A modeling fit's execution. |
 | `ModelingFitSourceV2` | `pse.modeling.fit-source.v2` | A modeling fit's source. Typed measured records belong to the admitted source revision; fitting selections are framed separately. |
 | `ModelingFitSourceV1` | `pse.modeling.fit-source.v1` | Historical fitting source with external observations; retained only as an immutable frame vocabulary. |
@@ -226,6 +233,7 @@ Derived in: pse-runtime.
 | `RunTargetV1` | `pse.run.target.v1` | A publication request's target. |
 | `ShootingProblemV1` | `pse.shooting.problem.v1` | A shooting NLP: its simulation, method, nodes, controls, rows and objective. |
 | `SolvePreparationV1` | `pse.solve.preparation.v1` | A solve's compilation and normalization, before a seed is attached. |
+| `SolvePreparationV2` | `pse.solve.preparation.v2` | Retained solve preparation including contextual build/runtime observation. |
 | `SolveRequestV1` | `pse.solve.request.v1` | A complete selected solve request. |
 | `SolveRequestV2` | `pse.solve.request.v2` | Scientific solve request with canonical typed seed content. |
 | `SolveSeedPreparationV1` | `pse.solve.seed_preparation.v1` | The preparation a stored seed is keyed by. |
@@ -233,12 +241,14 @@ Derived in: pse-runtime.
 | `SolverConicLayoutV3` | `pse.solver.conic-layout.v3` | A conic solver layout. |
 | `SolverConicSessionV1` | `pse.solver.conic-session.v1` | A conic solver session. |
 | `SolverConicSessionV2` | `pse.solver.conic-session.v2` | Cone session controls with canonical document and numeric framing. |
+| `SolverConicSessionV3` | `pse.solver.conic-session.v3` | Retained cone session with contextual build/runtime observation. |
 | `SolverCoordinatesV1` | `pse.solver.coordinates.v1` | A solver session's coordinates. |
 | `SolverDataV1` | `pse.solver.data.v1` | A solver session's data. |
 | `SolverProfileV3` | `pse.solver.profile.v3` | A complete effective solver request profile. |
 | `SolverProfileV4` | `pse.solver.profile.v4` | Canonical complete identity under ADR-0150. |
 | `SolverSessionV1` | `pse.solver.session.v1` | A native solver session's compatibility. |
 | `SolverSessionV2` | `pse.solver.session.v2` | Native session controls with canonical document and numeric framing. |
+| `SolverSessionV3` | `pse.solver.session.v3` | Retained native session with contextual build/runtime observation. |
 
 ## Operational store
 

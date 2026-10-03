@@ -24,8 +24,40 @@ impl ModelingPackage {
         limits: Limits,
         case: ModelingCaseBindings,
         compiler: Profile,
-        mut profile: native::Profile,
+        profile: native::Profile,
         derivatives: DerivativeOrder,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
+        self.prepare_simulation_for(
+            root,
+            instance,
+            bindings,
+            limits,
+            case,
+            compiler,
+            profile,
+            derivatives,
+            &BTreeSet::new(),
+            cancel,
+        )
+        .await
+    }
+    /// Prepare the mandatory exact transient consumer before choosing a dynamic method.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the dynamic request carries its exact consumer selection"
+    )]
+    pub(in crate::workflow) async fn prepare_simulation_for(
+        &self,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        case: ModelingCaseBindings,
+        compiler: Profile,
+        profile: native::Profile,
+        derivatives: DerivativeOrder,
+        exact_parameters: &BTreeSet<SemanticId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         if bindings
@@ -65,16 +97,9 @@ impl ModelingPackage {
         } else {
             authored
         };
-        // Routes keep their ADR-0110 limits: Diffsol detects every guard sign change, so a
-        // directional event selects IDAS when the method is automatic.
-        if profile.method == native::Method::Auto
-            && modes
-                .iter()
-                .flat_map(|m| &m.events)
-                .any(|e| e.direction != native::EventDirection::Either)
-        {
-            profile.method = native::Method::Idas;
-        }
+        let snapshot = pse_backend_native::execution::Snapshot::observe(
+            &pse_backend_native::execution::LINKED,
+        );
         self.prepare_simulation_modes(
             root,
             instance,
@@ -85,6 +110,8 @@ impl ModelingPackage {
             profile,
             derivatives,
             &modes,
+            exact_parameters,
+            &snapshot,
             cancel,
         )
         .await
@@ -105,6 +132,8 @@ impl ModelingPackage {
         profile: native::Profile,
         derivatives: DerivativeOrder,
         modes: &[FixtureMode],
+        exact_parameters: &BTreeSet<SemanticId>,
+        snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         if modes.is_empty()
@@ -140,6 +169,8 @@ impl ModelingPackage {
                     derivatives,
                     index,
                     &names,
+                    exact_parameters,
+                    snapshot,
                     cancel,
                 )
                 .await?;

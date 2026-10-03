@@ -36,7 +36,7 @@ async fn solve_with_backend(
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
     solver.selection = SolverSelection::Explicit(backend);
-    let order = DerivativeOrder::First.max(solver.derivative_order());
+    let order = DerivativeOrder::First;
     let mut analysis = ModelingAnalysis {
         root,
         instance: pse_modeling::specialize::root_instance(root),

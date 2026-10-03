@@ -509,6 +509,34 @@ impl CompilerWorkspace {
         self.trim_queries()?;
         result
     }
+    /// Prepare physically checked process meaning without executable arithmetic.
+    /// # Errors
+    /// Invalid specialization, physical coordinates, cancellation or finite limits.
+    pub fn prepare_semantic_modeling_cancellable(
+        &mut self,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<SemanticModeling> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(CompileError::Cancelled);
+        }
+        self.db.cancel = cancel;
+        let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
+        let result = salsa::Cancelled::catch(|| {
+            let model = specialized(&self.db, catalog, request)?;
+            SemanticModeling::admit(
+                model.into(),
+                self.inventory.quantities(&self.db),
+                self.inventory.preconditions(&self.db),
+            )
+        })
+        .map_err(|_| CompileError::Cancelled)?;
+        self.trim_queries()?;
+        result
+    }
     fn modeling_request(
         &mut self,
         root: DeclarationId,
@@ -592,7 +620,9 @@ pub use executable::{
     ModelingTestValue, ModelingValidityResult, ModelingVariableState, ObjectiveBound,
     PreparedModeling, SelectionEquivalence,
 };
-pub use flow::{FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection};
+pub use flow::{
+    FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection, SemanticModeling,
+};
 
 #[cfg(test)]
 mod document_tests;

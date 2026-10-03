@@ -358,7 +358,8 @@
         "gap_exceeded",
         "least_infeasible",
         "relaxed_incumbent",
-        "incumbent_refused"
+        "incumbent_refused",
+        "feasibility_unavailable"
       ],
       "type": "string"
     },

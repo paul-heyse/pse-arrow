@@ -254,15 +254,10 @@ impl ModelingResult {
             );
         }
         if let Outcome::Native(native) = &self.outcome {
-            use pse_backend_native::solve::Termination as T;
-            result.class = match native.termination.category {
-                _ if contradiction.is_some() => C::Inconclusive,
-                T::Cancelled => C::Cancelled,
-                T::TimeLimit | T::IterationLimit => C::ResourceLimit,
-                T::Numerical => C::Numerical,
-                T::Inconclusive => C::Inconclusive,
-                _ => C::TrialRejected,
-            };
+            result.class = super::super::numerics::native_diagnostic_class(
+                native.termination.category,
+                contradiction.is_some(),
+            );
             // Registry names, never Rust `Debug` output (F30).
             result.observations.insert(
                 "termination".into(),

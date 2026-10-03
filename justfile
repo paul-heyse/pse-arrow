@@ -542,7 +542,7 @@ check-solver-contracts:
     source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
-    cargo check -p pse-backend-native -p pse-runtime -p pse-compiler -p pse-relations --all-targets --locked --features pse-runtime/native-solvers,pse-relations/force-validate
+    cargo check --keep-going -p pse-backend-native -p pse-runtime -p pse-compiler -p pse-relations --all-targets --locked --features pse-runtime/native-solvers,pse-relations/force-validate
 
 [group('local')]
 [doc('Static lint of the linked native workspace, conformance and benchmark consumers')]

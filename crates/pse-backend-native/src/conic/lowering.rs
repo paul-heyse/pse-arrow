@@ -259,6 +259,35 @@ pub(crate) fn row_budgets(rows: &[LoweredRow], t: &Tolerances) -> Tolerances {
     }
 }
 impl Lowered {
+    /// Transport an admitted original lowering without repeating coefficient-to-cone lowering.
+    /// The same row/side map and authored orientation govern report raising.
+    pub fn transport(
+        &self,
+        normalization: &pse_math::normalization::Normalization,
+    ) -> Result<Self, ProblemError> {
+        let rows = self
+            .rows
+            .iter()
+            .map(|row| {
+                normalization.rows.get(row.row).copied().ok_or_else(|| {
+                    ProblemError::Contract("lowered row normalization inventory".into())
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let cone_normalization = pse_math::normalization::Normalization {
+            variables: normalization.variables.clone(),
+            rows,
+            objective: normalization.objective,
+        };
+        let (problem, evidence) =
+            crate::transport::conic(&self.problem, &cone_normalization, &self.evidence)?;
+        Ok(Self {
+            problem,
+            evidence,
+            rows: self.rows.clone(),
+            sign: self.sign,
+        })
+    }
     /// Acceptance budgets of the cone form, from those of the coefficient rows.
     pub fn tolerances(&self, t: &Tolerances) -> Tolerances {
         row_budgets(&self.rows, t)
@@ -332,5 +361,230 @@ impl Lowered {
             "authored-sense row multipliers and reduced costs (c + Qx = Aᵀy + d), combined from the cone multipliers of each row's sides and bounds".into(),
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod contextual_tests {
+    use super::*;
+    use pse_math::{binding::ObjectiveSense, normalization::Normalization};
+    fn id(n: u8) -> pse_ids::SemanticId {
+        pse_ids::SemanticId::from_bytes([n; 16])
+    }
+    #[test]
+    fn contextual_unit_admitted_lowering_transport_retains_maps_and_original_orientation() {
+        let p = CoefficientProblem {
+            contract: OracleContract {
+                identity: pse_ids::ContentHash::from_bytes([1; 32]),
+                variables: vec![crate::Variable {
+                    id: id(1),
+                    lower: -10.0,
+                    upper: 10.0,
+                }],
+                rows: vec![id(2), id(3)],
+                derivatives: pse_kernels::DerivativeOrder::Value,
+                smoothness: pse_kernels::DerivativeOrder::Second,
+            },
+            objective: vec![3.0],
+            objective_constant: 7.0,
+            sense: ObjectiveSense::Maximize,
+            domains: vec![ModelingVariableDomain::Continuous],
+            assumptions: pse_ids::ContentHash::from_bytes([2; 32]),
+            constraints: faer::sparse::SparseColMat::try_new_from_triplets(
+                2,
+                1,
+                &[
+                    faer::sparse::Triplet::new(0, 0, 1.0),
+                    faer::sparse::Triplet::new(1, 0, 3.0),
+                ],
+            )
+            .unwrap(),
+            hessian: None,
+            bounds: vec![(4.0, 4.0), (-2.0, 5.0)],
+            objectives: vec![],
+        };
+        let admitted = ConicProblem::from_coefficients(&p, None).unwrap();
+        let normalization = Normalization {
+            variables: vec![2.0],
+            rows: vec![4.0, 8.0],
+            objective: 16.0,
+        };
+        let transported = admitted.transport(&normalization).unwrap();
+        let (normalized, evidence) =
+            crate::transport::coefficients(&p, &normalization, None).unwrap();
+        let reference = ConicProblem::from_coefficients(
+            &normalized,
+            evidence.as_ref().map(|e| -> &dyn QuadraticEvidence { e }),
+        )
+        .unwrap();
+        assert_eq!(transported.sign, -1.0);
+        assert_eq!(
+            transported
+                .rows
+                .iter()
+                .map(|r| (r.row, r.side))
+                .collect::<Vec<_>>(),
+            [
+                (0, RowSide::Equal),
+                (1, RowSide::Upper),
+                (1, RowSide::Lower)
+            ]
+        );
+        assert_eq!(
+            transported.problem.constraints,
+            reference.problem.constraints
+        );
+        assert_eq!(transported.problem.rhs, reference.problem.rhs);
+        assert_eq!(transported.problem.objective, reference.problem.objective);
+        assert_eq!(
+            transported.problem.objective_constant,
+            reference.problem.objective_constant
+        );
+        assert_eq!(
+            transported.problem.contract.rows,
+            admitted.problem.contract.rows
+        );
+        transported.problem.validate(&transported.evidence).unwrap();
+        admitted.problem.validate(&admitted.evidence).unwrap();
+        assert_eq!(admitted.problem.rhs, [4.0, 5.0, 2.0]);
+        let facts = crate::routing::conic_facts(&admitted.problem, &admitted.evidence).unwrap();
+        assert!(facts.convexity.cone());
+        assert!(crate::routing::class_evidence_required(
+            &facts,
+            crate::solve::SolveIntent::Optimize,
+            crate::solve::SolverSelection::Auto
+        ));
+        assert_eq!(
+            crate::routing::problem_classes(&facts, crate::solve::SolveIntent::Optimize, false)[0],
+            crate::solve::ProblemClass::ContinuousCone
+        );
+    }
+    fn assert_cone_ready(
+        problem: &ConicProblem,
+        certificate: &dyn QuadraticEvidence,
+        coefficient_certificate: Option<&dyn QuadraticEvidence>,
+    ) {
+        use crate::{
+            execution::{BackendSettings, Representation},
+            routing::{ArtifactDemand, AssessmentState, ConeEvidence, Requirements, Route},
+            solve::{Backend, Controls, SolveIntent, SolverSelection},
+        };
+        let facts = crate::routing::conic_facts(problem, certificate).unwrap();
+        let mut context = crate::routing::test_context(&crate::execution::LINKED);
+        context.structure = Some(
+            crate::structural::conic_structure_with_cancel(
+                problem,
+                &std::sync::atomic::AtomicBool::new(false),
+            )
+            .unwrap(),
+        );
+        context.cone = Some(ConeEvidence {
+            problem,
+            certificate,
+        });
+        context.certificate = coefficient_certificate;
+        context.prepared = &[ArtifactDemand::Representation(Representation::Cone)];
+        let controls = Controls::default();
+        let decision = Requirements {
+            table: &crate::execution::LINKED,
+            facts: &facts,
+            intent: SolveIntent::Optimize,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &controls,
+            settings: &BackendSettings::Default,
+            sensitivity: false,
+            context,
+        }
+        .decision(SolverSelection::Explicit(Backend::Clarabel));
+        assert_eq!(decision.state, AssessmentState::Ready, "{decision:?}");
+        assert_eq!(decision.route().unwrap(), Route::Native(Backend::Clarabel));
+    }
+    #[test]
+    fn contextual_unit_cone_space_evidence_is_ready_for_linear_max_and_recognized_forms() {
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let linear = ConicProblem {
+            contract: OracleContract {
+                identity: pse_ids::ContentHash::from_bytes([3; 32]),
+                variables: vec![crate::Variable {
+                    id: id(1),
+                    lower: -1.0,
+                    upper: 1.0,
+                }],
+                rows: vec![id(2)],
+                derivatives: pse_kernels::DerivativeOrder::Value,
+                smoothness: pse_kernels::DerivativeOrder::Second,
+            },
+            quadratic: SparseMatrix::zeros(1, 1),
+            objective: vec![1.0],
+            constraints: SparseMatrix::identity(1),
+            rhs: vec![0.0],
+            cones: vec![Cone::Nonnegative { dimension: 1 }],
+            objective_constant: 0.0,
+        };
+        let zero = crate::conic::zero_certificate(1, &cancel).unwrap();
+        assert_cone_ready(&linear, &zero, None);
+        let hessian = faer::sparse::SparseColMat::try_new_from_triplets(
+            1,
+            1,
+            &[faer::sparse::Triplet::new(0, 0, -2.0)],
+        )
+        .unwrap();
+        let pse_math::convexity::Definiteness::Psd(original_proof) =
+            pse_math::convexity::GramCertificate::certify(&hessian, -1.0, 10, &cancel).unwrap()
+        else {
+            panic!("negative Hessian must be concave in maximization sense")
+        };
+        let p = CoefficientProblem {
+            contract: linear.contract.clone(),
+            objective: vec![1.0],
+            objective_constant: 0.0,
+            sense: ObjectiveSense::Maximize,
+            domains: vec![ModelingVariableDomain::Continuous],
+            assumptions: linear.contract.identity,
+            constraints: faer::sparse::SparseColMat::try_new_from_triplets(
+                1,
+                1,
+                &[faer::sparse::Triplet::new(0, 0, 1.0)],
+            )
+            .unwrap(),
+            hessian: Some(hessian),
+            bounds: vec![(f64::NEG_INFINITY, 0.0)],
+            objectives: vec![],
+        };
+        let maximum = ConicProblem::from_coefficients(&p, Some(&original_proof)).unwrap();
+        assert_cone_ready(&maximum.problem, &maximum.evidence, Some(&original_proof));
+        // The epigraph form produced by recognition has a zero quadratic, separate
+        // auxiliary columns, and an exponential block; its retained proof is mandatory.
+        let recognized = ConicProblem {
+            contract: OracleContract {
+                variables: vec![
+                    crate::Variable {
+                        id: id(1),
+                        lower: -1.0,
+                        upper: 1.0,
+                    },
+                    crate::Variable {
+                        id: id(4),
+                        lower: f64::NEG_INFINITY,
+                        upper: f64::INFINITY,
+                    },
+                ],
+                rows: vec![id(5), id(6), id(7)],
+                ..linear.contract.clone()
+            },
+            quadratic: SparseMatrix::zeros(2, 2),
+            objective: vec![0.0, 1.0],
+            constraints: SparseMatrix::new(3, 2, vec![0, 1, 2], vec![0, 2], vec![-1.0, -1.0]),
+            rhs: vec![0.0, 1.0, 0.0],
+            cones: vec![Cone::Exponential],
+            objective_constant: 0.0,
+        };
+        let recognized_proof = crate::conic::zero_certificate(2, &cancel).unwrap();
+        assert_cone_ready(&recognized, &recognized_proof, None);
+        assert!(matches!(
+            crate::conic::zero_certificate(2, &std::sync::atomic::AtomicBool::new(true)),
+            Err(ProblemError::Cancelled)
+        ));
     }
 }

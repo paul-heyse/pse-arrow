@@ -5,7 +5,7 @@
 use crate::{
     MathError,
     binding::{CaseStructure, CaseValues, Target},
-    guarded::{CompiledBody, Evaluation, PreparedBody, Worker},
+    guarded::{CompiledBody, Evaluation, PreparedBody, PreparedSupport, Worker},
     index::{Addend, Entry, GlobalCol, GlobalRow, Slot},
     jets::EvaluationLimits,
     library::Optimization,
@@ -85,7 +85,9 @@ pub struct CasePlan {
     hessian_terms: Arc<Vec<Term>>,
     order: DerivativeOrder,
     requests: Arc<Vec<LocalDemand>>,
-    worker_bytes: usize,
+    supports: Arc<Vec<Arc<PreparedSupport>>>,
+    available: DerivativeOrder,
+    limits: AssemblyLimits,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
 }
 impl CasePlan {
@@ -101,6 +103,7 @@ impl CasePlan {
             Arc::as_ptr(&self.jacobian_terms) as usize,
             Arc::as_ptr(&self.hessian_terms) as usize,
             Arc::as_ptr(&self.requests) as usize,
+            Arc::as_ptr(&self.supports) as usize,
         ]
     }
     /// Plan storage without immutable body data, which has its own unique lease.
@@ -156,11 +159,20 @@ impl CasePlan {
             + self.hessian.retained_bytes()
             + (self.jacobian_terms.capacity() + self.hessian_terms.capacity()) * size_of::<Term>()
             + self.requests.capacity() * size_of::<LocalDemand>()
+            + self.supports.capacity() * size_of::<Arc<PreparedSupport>>()
+            + self
+                .supports
+                .iter()
+                .map(|s| s.retained_bytes())
+                .sum::<usize>()
     }
     /// Retain runtime accounting on every escaping structural plan clone.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
         for body in self.bodies.values_mut() {
             *body = Arc::new(body.as_ref().clone().with_owner(owner.clone()));
+        }
+        for support in Arc::make_mut(&mut self.supports) {
+            *support = Arc::new(support.as_ref().clone().with_owner(owner.clone()));
         }
         self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
@@ -227,19 +239,19 @@ impl CasePlan {
             return Err(MathError::Limit("native index width"));
         }
         let mut requests = Vec::<LocalDemand>::new();
+        let mut supports = Vec::<Arc<PreparedSupport>>::new();
+        let mut available = DerivativeOrder::Second;
+        let mut shared_supports =
+            BTreeMap::<(ContentHash, Vec<usize>, Vec<usize>), PreparedSupport>::new();
         let mut request_indices = BTreeMap::new();
         let mut instances = vec![];
-        let mut jp = Vec::<Entry<GlobalRow, GlobalCol>>::new();
-        let mut hp = Vec::<Entry<GlobalCol, GlobalCol>>::new();
-        let mut jt = vec![];
-        let mut ht = vec![];
         let mut target_counts = BTreeMap::new();
         for binding in structure.instances() {
             for c in &binding.contributions {
                 *target_counts.entry(c.target).or_insert(0usize) += 1;
             }
         }
-        for (index, binding) in structure.instances().iter().enumerate() {
+        for binding in structure.instances() {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
@@ -309,6 +321,22 @@ impl CasePlan {
                 .collect();
             // The library compiles over formal slot positions.
             let formal: Vec<usize> = coordinates.iter().map(|s| s.get()).collect();
+            let all_outputs: Vec<_> = binding
+                .contributions
+                .iter()
+                .map(|c| c.output)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            let shared_key = (binding.body, all_outputs.clone(), formal.clone());
+            if !all_outputs.is_empty() && !shared_supports.contains_key(&shared_key) {
+                let support = if order == DerivativeOrder::First {
+                    body.incidence(&all_outputs, &formal, cancel)?
+                } else {
+                    body.prepare_support(&all_outputs, &formal, order, cancel)?
+                };
+                shared_supports.insert(shared_key.clone(), support);
+            }
             let mut groups = EnumMap::<Demand, Option<Group>>::default();
             for (demand, group) in &mut groups {
                 let outputs: Vec<_> = binding
@@ -333,58 +361,27 @@ impl CasePlan {
                     demand.outputs.clone(),
                     demand.coordinates.clone(),
                 );
-                let request = *request_indices.entry(key).or_insert_with(|| {
+                let request = if let Some(&request) = request_indices.get(&key) {
+                    request
+                } else {
+                    available = available.min(
+                        body.available_order_for_outputs(&demand.outputs, &demand.coordinates)?,
+                    );
+                    let shared = shared_supports
+                        .get(&shared_key)
+                        .ok_or_else(|| MathError::Contract("missing selected support".into()))?;
+                    let support = if demand.outputs == all_outputs {
+                        shared.clone()
+                    } else {
+                        shared.select_outputs(&demand.outputs, cancel)?
+                    };
+                    let request = requests.len();
                     requests.push(demand);
-                    requests.len() - 1
-                });
+                    supports.push(Arc::new(support));
+                    request_indices.insert(key, request);
+                    request
+                };
                 *group = Some(Group { outputs, request });
-            }
-            for c in &binding.contributions {
-                if let Target::Row(r) = c.target {
-                    for (i, &formal) in coordinates.iter().enumerate() {
-                        if body.support().first[c.output].contains(&formal.get()) {
-                            jp.push(Entry::new(rows[&r], local_columns[i]));
-                            jt.push(Term {
-                                instance: index,
-                                output: c.output,
-                                i,
-                                j: 0,
-                                scale: c.scale * binding.slots[formal.get()].scale(),
-                                target: c.target,
-                            });
-                        }
-                    }
-                }
-                if order >= DerivativeOrder::Second && selected(c.target, Demand::All) {
-                    for (i, &a) in coordinates.iter().enumerate() {
-                        for (j, &b) in coordinates.iter().enumerate() {
-                            let (a, b) = (a.get(), b.get());
-                            if local_columns[i] >= local_columns[j]
-                                && body.support().second[c.output].contains(&(a.min(b), a.max(b)))
-                            {
-                                // Both ordered local pairs survive when aliases meet on a global diagonal.
-                                hp.push(Entry::new(local_columns[i], local_columns[j]));
-                                ht.push(Term {
-                                    instance: index,
-                                    output: c.output,
-                                    i,
-                                    j,
-                                    scale: c.scale
-                                        * binding.slots[a].scale()
-                                        * binding.slots[b].scale(),
-                                    target: c.target,
-                                });
-                            }
-                        }
-                    }
-                }
-                if jp
-                    .len()
-                    .checked_add(hp.len())
-                    .is_none_or(|n| n > limits.contributions)
-                {
-                    return Err(MathError::Limit("case derivative contributions"));
-                }
             }
             instances.push(Instance {
                 groups,
@@ -392,22 +389,30 @@ impl CasePlan {
                 columns: local_columns,
             });
         }
-        let bound = limits.native_index;
-        let jacobian = AssemblyMatrix::new(rows.len(), columns.len(), &jp, bound)?;
-        let hessian = AssemblyMatrix::hessian(columns.len(), &hp, bound)?;
+        let patterns = case_patterns(
+            &structure,
+            &rows,
+            &instances,
+            &supports,
+            order,
+            columns.len(),
+            limits,
+        )?;
         Ok(Self {
             structure,
             bodies,
             columns: Arc::new(columns),
             rows: Arc::new(rows),
             instances: Arc::new(instances),
-            jacobian: Arc::new(jacobian),
-            hessian: Arc::new(hessian),
-            jacobian_terms: Arc::new(jt),
-            hessian_terms: Arc::new(ht),
+            jacobian: Arc::new(patterns.jacobian),
+            hessian: Arc::new(patterns.hessian),
+            jacobian_terms: Arc::new(patterns.jacobian_terms),
+            hessian_terms: Arc::new(patterns.hessian_terms),
             order,
             requests: Arc::new(requests),
-            worker_bytes: limits.worker_bytes,
+            supports: Arc::new(supports),
+            available,
+            limits,
             owner: None,
         })
     }
@@ -503,7 +508,7 @@ impl CasePlan {
             registry,
             order,
             AssemblyLimits {
-                worker_bytes: self.worker_bytes,
+                worker_bytes: self.limits.worker_bytes,
                 ..AssemblyLimits::default()
             },
             cancel,
@@ -578,6 +583,83 @@ impl CasePlan {
             cancel,
         )
     }
+    /// Monotonic immutable support upgrade under the original case and body allowances.
+    /// Failed or cancelled stronger construction leaves this plan and its products intact.
+    pub fn prepare_order(
+        &self,
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        if order <= self.order {
+            return Ok(self.clone());
+        }
+        let mut stronger = BTreeMap::new();
+        for instance in self.instances.iter() {
+            if let Some(group) = &instance.groups[Demand::All]
+                && !stronger.contains_key(&group.request)
+            {
+                stronger.insert(
+                    group.request,
+                    Arc::new(self.supports[group.request].upgrade(order, cancel)?),
+                );
+            }
+        }
+        let mut supports = Vec::with_capacity(self.supports.len());
+        for (request, previous) in self.supports.iter().enumerate() {
+            if let Some(support) = stronger.get(&request) {
+                supports.push(Arc::clone(support));
+                continue;
+            }
+            let parent = self
+                .instances
+                .iter()
+                .find_map(|instance| {
+                    instance
+                        .groups
+                        .values()
+                        .flatten()
+                        .any(|group| group.request == request)
+                        .then(|| instance.groups[Demand::All].as_ref().map(|all| all.request))
+                        .flatten()
+                })
+                .ok_or_else(|| {
+                    MathError::Contract("support demand has no instance owner".into())
+                })?;
+            supports.push(Arc::new(
+                stronger[&parent].select_outputs(previous.outputs(), cancel)?,
+            ));
+        }
+        let patterns = case_patterns(
+            &self.structure,
+            &self.rows,
+            &self.instances,
+            &supports,
+            order,
+            self.columns.len(),
+            self.limits,
+        )?;
+        let mut result = self.clone();
+        result.order = order;
+        result.requests = Arc::new(
+            self.requests
+                .iter()
+                .cloned()
+                .map(|mut request| {
+                    request.order = order;
+                    request
+                })
+                .collect(),
+        );
+        result.supports = Arc::new(supports);
+        result.jacobian = Arc::new(patterns.jacobian);
+        result.hessian = Arc::new(patterns.hessian);
+        result.jacobian_terms = Arc::new(patterns.jacobian_terms);
+        result.hessian_terms = Arc::new(patterns.hessian_terms);
+        Ok(result)
+    }
     /// Consumed immutable semantic bodies.
     pub fn bodies(&self) -> &BTreeMap<ContentHash, Arc<PreparedBody>> {
         &self.bodies
@@ -588,11 +670,7 @@ impl CasePlan {
     }
     /// Compiled derivative ceiling.
     pub fn available_order(&self) -> DerivativeOrder {
-        self.requests
-            .iter()
-            .map(|r| self.bodies[&r.body].available_order_for(&r.coordinates))
-            .min()
-            .unwrap_or(DerivativeOrder::Second)
+        self.available
     }
     /// Derivative order requested in the prepared artifact demands.
     pub fn order(&self) -> DerivativeOrder {
@@ -610,14 +688,71 @@ impl CasePlan {
     pub fn demands(&self) -> &[LocalDemand] {
         &self.requests
     }
+    /// Immutable support products aligned with the exact local demand order.
+    pub fn supports(&self) -> &[Arc<PreparedSupport>] {
+        &self.supports
+    }
+    /// Explicit structural First admission, aligned with original instances.
+    /// Each product retains its selected output map and original formal coordinates.
+    pub fn incidence(
+        &self,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<Arc<PreparedSupport>>, MathError> {
+        let mut products = Vec::with_capacity(self.instances.len());
+        let mut shared = BTreeMap::new();
+        for (binding, instance) in self.structure.instances().iter().zip(self.instances.iter()) {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            let group = instance.groups[Demand::All].as_ref().ok_or_else(|| {
+                MathError::Contract("instance has no selected output incidence".into())
+            })?;
+            let ready = &self.supports[group.request];
+            let key = (
+                binding.body,
+                ready.outputs().to_vec(),
+                ready.coordinates().to_vec(),
+            );
+            let product = if let Some(product) = shared.get(&key) {
+                Arc::clone(product)
+            } else {
+                let product = if ready.order() >= DerivativeOrder::First {
+                    Arc::clone(ready)
+                } else {
+                    Arc::new(ready.upgrade(DerivativeOrder::First, cancel)?)
+                };
+                shared.insert(key, Arc::clone(&product));
+                product
+            };
+            products.push(product);
+        }
+        Ok(products)
+    }
+    /// Conservative body-local incidence for an original contribution and instance.
+    /// Value plans hold no derivative support; explicitly prepare First for structure.
+    pub fn incidence_for(&self, instance: usize, output: usize) -> Option<&BTreeSet<usize>> {
+        let group = self.instances.get(instance)?.groups[Demand::All].as_ref()?;
+        let support = self.supports.get(group.request)?;
+        let row = support.outputs().iter().position(|&i| i == output)?;
+        support.support().first.get(row)
+    }
     /// All-branch objective support in global free-variable order.
     pub fn objective_support(&self) -> BTreeSet<GlobalCol> {
         let mut support = BTreeSet::new();
-        for (b, i) in self.structure.instances().iter().zip(self.instances.iter()) {
+        for (instance, (b, i)) in self
+            .structure
+            .instances()
+            .iter()
+            .zip(self.instances.iter())
+            .enumerate()
+        {
             for c in &b.contributions {
                 if c.target == Target::PRIMARY {
                     for (&slot, &col) in i.coordinates.iter().zip(&i.columns) {
-                        if self.bodies[&b.body].support().first[c.output].contains(&slot.get()) {
+                        if self
+                            .incidence_for(instance, c.output)
+                            .is_some_and(|s| s.contains(&slot.get()))
+                        {
                             support.insert(col);
                         }
                     }
@@ -634,6 +769,18 @@ impl CasePlan {
         if programs.len() != self.requests.len() {
             return Err(MathError::Contract("artifact demand count".into()));
         }
+        for (request, program) in self.requests.iter().zip(&programs) {
+            let support = program.prepared_support();
+            if support.outputs() != request.outputs
+                || support.coordinates() != request.coordinates
+                || program.compiled_order() != request.order
+                || support.body() != self.bodies[&request.body].as_ref()
+            {
+                return Err(MathError::Contract(
+                    "artifact does not match selected admitted demand".into(),
+                ));
+            }
+        }
         let bytes = self
             .instances
             .iter()
@@ -642,7 +789,7 @@ impl CasePlan {
                 n.checked_add(programs[g.request].scratch_bytes())
             })
             .ok_or(MathError::Limit("case worker bytes"))?;
-        if bytes > self.worker_bytes {
+        if bytes > self.limits.worker_bytes {
             return Err(MathError::Limit("case worker bytes"));
         }
         Ok(CaseAssembly {
@@ -659,24 +806,110 @@ impl CasePlan {
         cancel: &Arc<AtomicBool>,
     ) -> Result<CaseAssembly, MathError> {
         let programs = self
-            .requests
+            .supports
             .iter()
-            .map(|r| {
-                self.bodies[&r.body]
-                    .compile(
-                        &r.outputs,
-                        &r.coordinates,
-                        r.order,
-                        optimization,
-                        limits,
-                        cancel,
-                    )
-                    .map(Arc::new)
-            })
+            .map(|support| support.compile(optimization, limits, cancel).map(Arc::new))
             .collect::<Result<_, _>>()?;
         self.assemble(programs)
     }
 }
+struct CasePatterns {
+    jacobian: AssemblyMatrix,
+    hessian: AssemblyMatrix,
+    jacobian_terms: Vec<Term>,
+    hessian_terms: Vec<Term>,
+}
+fn case_patterns(
+    structure: &CaseStructure,
+    rows: &BTreeMap<SemanticId, GlobalRow>,
+    instances: &[Instance],
+    supports: &[Arc<PreparedSupport>],
+    order: DerivativeOrder,
+    columns: usize,
+    limits: AssemblyLimits,
+) -> Result<CasePatterns, MathError> {
+    let mut jp = Vec::<Entry<GlobalRow, GlobalCol>>::new();
+    let mut hp = Vec::<Entry<GlobalCol, GlobalCol>>::new();
+    let mut jt = vec![];
+    let mut ht = vec![];
+    for (index, (binding, instance)) in structure.instances().iter().zip(instances).enumerate() {
+        let support = instance.groups[Demand::All]
+            .as_ref()
+            .map(|g| &supports[g.request]);
+        for contribution in &binding.contributions {
+            if order >= DerivativeOrder::First
+                && let Target::Row(row) = contribution.target
+            {
+                let first = support
+                    .and_then(|s| s.first_for_output(contribution.output))
+                    .ok_or_else(|| {
+                        MathError::Contract("missing selected First incidence".into())
+                    })?;
+                for (i, &formal) in instance.coordinates.iter().enumerate() {
+                    if first.contains(&formal.get()) {
+                        contribution_allowance(jp.len(), hp.len(), limits)?;
+                        jp.push(Entry::new(rows[&row], instance.columns[i]));
+                        jt.push(Term {
+                            instance: index,
+                            output: contribution.output,
+                            i,
+                            j: 0,
+                            scale: contribution.scale * binding.slots[formal.get()].scale(),
+                            target: contribution.target,
+                        });
+                    }
+                }
+            }
+            if order >= DerivativeOrder::Second && selected(contribution.target, Demand::All) {
+                let second = support
+                    .and_then(|s| s.second_for_output(contribution.output))
+                    .ok_or_else(|| MathError::Contract("missing selected Second support".into()))?;
+                for (i, &a) in instance.coordinates.iter().enumerate() {
+                    for (j, &b) in instance.coordinates.iter().enumerate() {
+                        let (a, b) = (a.get(), b.get());
+                        if instance.columns[i] >= instance.columns[j]
+                            && second.contains(&(a.min(b), a.max(b)))
+                        {
+                            contribution_allowance(jp.len(), hp.len(), limits)?;
+                            hp.push(Entry::new(instance.columns[i], instance.columns[j]));
+                            ht.push(Term {
+                                instance: index,
+                                output: contribution.output,
+                                i,
+                                j,
+                                scale: contribution.scale
+                                    * binding.slots[a].scale()
+                                    * binding.slots[b].scale(),
+                                target: contribution.target,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(CasePatterns {
+        jacobian: AssemblyMatrix::new(rows.len(), columns, &jp, limits.native_index)?,
+        hessian: AssemblyMatrix::hessian(columns, &hp, limits.native_index)?,
+        jacobian_terms: jt,
+        hessian_terms: ht,
+    })
+}
+fn contribution_allowance(
+    first: usize,
+    second: usize,
+    limits: AssemblyLimits,
+) -> Result<(), MathError> {
+    if first
+        .checked_add(second)
+        .and_then(|n| n.checked_add(1))
+        .is_none_or(|n| n > limits.contributions)
+    {
+        return Err(MathError::Limit("case derivative contributions"));
+    }
+    Ok(())
+}
+
 /// One deduplicated local demand, independent of numeric trial values.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LocalDemand {

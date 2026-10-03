@@ -1858,6 +1858,7 @@ mod tests {
         let route = |c: &OracleContract| {
             let facts = oracle_facts(c, false, true);
             let requirements = Requirements {
+                context: crate::routing::test_context(&LINKED),
                 table: &LINKED,
                 facts: &facts,
                 intent: SolveIntent::Root,
@@ -1872,7 +1873,10 @@ mod tests {
                 .into_iter()
                 .find(|e| e.backend == Backend::Kinsol)
                 .unwrap();
-            (requirements.select(SolverSelection::Auto), kinsol.reasons)
+            (
+                requirements.policy_select_for_test(SolverSelection::Auto),
+                kinsol.reasons,
+            )
         };
         for (lower, upper) in [(0.5, f64::INFINITY), (f64::NEG_INFINITY, 3.0)] {
             let (selected, reasons) = route(&bounded(lower, upper));

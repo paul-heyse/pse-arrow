@@ -68,6 +68,7 @@ impl BackendExecution for Ipopt {
         &self,
         settings: &BackendSettings,
         controls: &Controls,
+        snapshot: &super::Snapshot,
     ) -> Result<(), ProblemError> {
         #[cfg(feature = "ipopt")]
         {
@@ -80,17 +81,46 @@ impl BackendExecution for Ipopt {
             crate::ipopt::admit(
                 settings,
                 controls.threads,
-                &crate::ipopt::Runtime::observe(),
+                snapshot.ipopt.as_ref().ok_or_else(|| {
+                    ProblemError::Unsupported("Ipopt runtime observation missing".into())
+                })?,
             )
         }
         #[cfg(not(feature = "ipopt"))]
         {
-            let _ = controls;
+            let _ = (controls, snapshot);
             if !matches!(settings, BackendSettings::Default) {
                 return Err(super::foreign(Backend::Ipopt));
             }
             Err(super::unlinked(Backend::Ipopt))
         }
+    }
+    fn validate_snapshot(
+        &self,
+        settings: &BackendSettings,
+        snapshot: &super::Snapshot,
+    ) -> Result<(), ProblemError> {
+        snapshot.validate_for(self)?;
+        #[cfg(feature = "ipopt")]
+        {
+            let defaults = crate::ipopt::Settings::default();
+            let settings = match settings {
+                BackendSettings::Default => &defaults,
+                BackendSettings::Ipopt(settings) => settings,
+                _ => return Err(super::foreign(Backend::Ipopt)),
+            };
+            let before = snapshot.ipopt.as_ref().ok_or_else(|| {
+                ProblemError::Unsupported("Ipopt runtime observation missing".into())
+            })?;
+            if !crate::ipopt::same_admission(settings, before, &crate::ipopt::Runtime::observe()) {
+                return Err(ProblemError::Unsupported(
+                    "selected Ipopt runtime observation changed".into(),
+                ));
+            }
+        }
+        #[cfg(not(feature = "ipopt"))]
+        let _ = settings;
+        Ok(())
     }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
         Ok(WarmPayload::primal(primal))

@@ -99,10 +99,22 @@ fn bounds(value: f64) -> Result<f64, ProblemError> {
         Ok(value)
     }
 }
-fn admit(
+pub(crate) fn admit(
     p: &CoefficientProblem,
     certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
 ) -> Result<(), ProblemError> {
+    admit_in_coordinates(p, certificate, None)
+}
+/// Assess the exact coordinates consumed by HiGHS without materializing sparse matrices.
+pub(crate) fn admit_in_coordinates(
+    p: &CoefficientProblem,
+    certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
+    normalization: Option<&pse_math::normalization::Normalization>,
+) -> Result<(), ProblemError> {
+    if let Some(normalization) = normalization {
+        normalization.validate(p.contract.variables.len(), p.contract.rows.len())?;
+        crate::transport::integer_coordinates(p, normalization)?;
+    }
     p.validate_convex(certificate)?;
     let quadratic = p
         .hessian
@@ -129,27 +141,29 @@ fn admit(
     index(p.contract.variables.len())?;
     index(p.contract.rows.len())?;
     index(p.constraints.val().len())?;
-    for (v, d) in p.contract.variables.iter().zip(&p.domains) {
-        bounds(v.lower)?;
-        bounds(v.upper)?;
-        if *d == ModelingVariableDomain::Binary
-            && v.lower.max(0.0).ceil() > v.upper.min(1.0).floor()
-        {
+    for (i, (v, d)) in p.contract.variables.iter().zip(&p.domains).enumerate() {
+        let scale = normalization.map_or(1.0, |normalization| normalization.variables[i]);
+        let lower = crate::transport::bound(v.lower, scale)?;
+        let upper = crate::transport::bound(v.upper, scale)?;
+        bounds(lower)?;
+        bounds(upper)?;
+        if *d == ModelingVariableDomain::Binary && lower.max(0.0).ceil() > upper.min(1.0).floor() {
             return Err(ProblemError::Contract("empty binary domain".into()));
         }
         if d.is_semi()
-            && (!v.lower.is_finite()
-                || !v.upper.is_finite()
-                || v.lower <= 0.0
-                || v.upper > 1e5
-                || d.is_integer() && v.lower.ceil() > v.upper.floor())
+            && (!lower.is_finite()
+                || !upper.is_finite()
+                || lower <= 0.0
+                || upper > 1e5
+                || d.is_integer() && lower.ceil() > upper.floor())
         {
             return Err(ProblemError::Unsupported("pinned HiGHS semi domain needs a nonempty positive interval with upper bound <=1e5".into()));
         }
     }
-    for &(l, u) in &p.bounds {
-        bounds(l)?;
-        bounds(u)?;
+    for (i, &(l, u)) in p.bounds.iter().enumerate() {
+        let scale = normalization.map_or(1.0, |normalization| normalization.rows[i]);
+        bounds(crate::transport::bound(l, scale)?)?;
+        bounds(crate::transport::bound(u, scale)?)?;
     }
     Ok(())
 }
@@ -610,56 +624,13 @@ impl Session {
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
     ) -> Result<SolveReport, ProblemError> {
-        controls.validate()?;
+        settings.admit_controls(controls)?;
+        settings.admit_model(p, accuracy)?;
         let method = settings.method;
-        if settings.nodes == Some(0) || settings.nodes.is_some_and(|v| v > i32::MAX as u32) {
-            return Err(ProblemError::Contract(
-                "a HiGHS node budget must be positive and within the native range".into(),
-            ));
-        }
         let n = p.contract.variables.len();
         let m = p.contract.rows.len();
         tolerances.validate(n, m)?;
         normalization.validate(n, m)?;
-        reject_reserved(
-            &controls.options,
-            &[
-                "threads",
-                "parallel",
-                "time_limit",
-                "solver",
-                "infinite_bound",
-                "infinite_cost",
-                "small_matrix_value",
-                "large_matrix_value",
-                "user_bound_scale",
-                "user_cost_scale",
-                "solve_relaxation",
-                "mip_max_nodes",
-                "simplex_iteration_limit",
-                "ipm_iteration_limit",
-                "pdlp_iteration_limit",
-                "qp_iteration_limit",
-                "qp_regularization_value",
-                "primal_feasibility_tolerance",
-                "dual_feasibility_tolerance",
-                "mip_feasibility_tolerance",
-                "mip_abs_gap",
-                "mip_rel_gap",
-                "simplex_scale_strategy",
-                "log_file",
-                "blend_multi_objectives",
-            ],
-        )?;
-        if controls
-            .options
-            .values()
-            .any(|v| matches!(v,OptionValue::Text(t)if t.len()>=512))
-        {
-            return Err(ProblemError::Unsupported(
-                "HiGHS text option exceeds native readback capacity".into(),
-            ));
-        }
         let mut options = controls.options.clone();
         options.extend([
             (
@@ -705,22 +676,6 @@ impl Session {
             .hessian
             .as_ref()
             .is_some_and(|q| q.val().iter().any(|v| *v != 0.0));
-        if !accuracy.native_scaling && (method != Method::Simplex || discrete || quadratic) {
-            return Err(ProblemError::Unsupported("disabling all HiGHS algorithmic scaling is qualified only for explicit continuous simplex LP".into()));
-        }
-        if discrete && method != Method::Choose {
-            return Err(ProblemError::Unsupported(
-                "explicit LP method cannot relax a mixed-integer model".into(),
-            ));
-        }
-        // HiGHS solves a continuous QP with its active-set QP solver whatever `solver`
-        // says, and HiPO (the QP interior point) is not built: an explicit LP method on a
-        // quadratic objective would be ignored or refused natively (F04).
-        if quadratic && method != Method::Choose {
-            return Err(ProblemError::Unsupported(
-                "explicit LP method cannot solve a quadratic objective".into(),
-            ));
-        }
         for key in [
             "simplex_iteration_limit",
             "ipm_iteration_limit",

@@ -21,6 +21,7 @@ use std::{
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
 #[derive(Clone, Debug)]
 pub struct PreparedInitialization {
+    snapshot: execution::Snapshot,
     quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
     targets: Vec<pse_math::numerics::TargetSpec>,
     requirements: Arc<Vec<pse_math::numerics::SourcedRequirement>>,
@@ -40,25 +41,84 @@ impl PreparedInitialization {
     /// Resolve every conditional block before worker acquisition. No fallback follows a failed attempt.
     pub fn strategies(
         &self,
-        controls: &Controls,
-        selection: SolverSelection,
+        solver: &SolverProfile,
+        numerics: &pse_model::numerics::ResolvedNumericalPolicy,
     ) -> Result<Vec<native::routing::Route>, native::ProblemError> {
         self.blocks
             .iter()
             .map(|block| {
                 let c = native::assembled::contract(&block.executable.assembly);
-                let facts = native::routing::oracle_facts(&c, false, true);
+                let mut facts = native::routing::oracle_facts(&c, false, true);
+                facts.derivatives = block.view.plan.available_order();
+                facts.prepared_derivatives = block.view.plan.order();
+                let rows: Vec<_> = block
+                    .view
+                    .plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|row| row.id)
+                    .collect();
+                let normalization = pse_math::normalization::Normalization::from_policy(
+                    numerics,
+                    block.view.plan.columns(),
+                    &rows,
+                )?;
+                let tolerances =
+                    Tolerances::from_policy(numerics, block.view.plan.columns(), &rows)?;
+                let accuracy =
+                    ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
                 native::routing::Requirements {
                     table: &execution::LINKED,
                     facts: &facts,
                     intent: SolveIntent::Initialize,
                     numerical_psd: false,
                     least_squares: false,
-                    controls,
-                    settings: &execution::BackendSettings::Default,
+                    controls: &solver.controls,
+                    settings: &solver.backend,
                     sensitivity: false,
+                    context: native::routing::Context {
+                        snapshot: self.snapshot.clone(),
+                        pending_classes: &[],
+                        structure: Some(native::routing::Structure {
+                            variables: block.view.plan.columns().to_vec(),
+                            equations: block
+                                .view
+                                .plan
+                                .structure()
+                                .rows()
+                                .iter()
+                                .map(|row| pse_structural::incidence::Constraint {
+                                    id: row.id,
+                                    lower: row.lower.is_finite().then_some(row.lower),
+                                    upper: row.upper.is_finite().then_some(row.upper),
+                                })
+                                .collect(),
+                            witness: block.view.structure.clone().into(),
+                        }),
+                        oracle: Some(&c),
+                        guards: &BTreeMap::new(),
+                        budgets: Some(execution::Budgets {
+                            tolerances: &tolerances,
+                            normalization: &normalization,
+                            accuracy: &accuracy,
+                        }),
+                        coefficients: None,
+                        cone: None,
+                        factorable: None,
+                        certificate: None,
+                        prepared: &[
+                            native::routing::ArtifactDemand::Representation(
+                                execution::Representation::Nlp,
+                            ),
+                            native::routing::ArtifactDemand::Representation(
+                                execution::Representation::Roots,
+                            ),
+                        ],
+                        refusals: &BTreeMap::new(),
+                    },
                 }
-                .select(selection)
+                .select(solver.selection)
             })
             .collect()
     }
@@ -102,14 +162,6 @@ impl PreparedInitialization {
         {
             return Err(native::ProblemError::Contract("initialization uses declared guesses or previous accepted stages; blocks cannot require native reuse".into()).into());
         }
-        let strategies = self.strategies(&solver.controls, solver.selection)?;
-        // Typed settings are route-typed: they must belong to every block's route, so a
-        // KINSOL method never reaches an NLP block. KINSOL scales stay per block.
-        for route in &strategies {
-            if let native::routing::Route::Native(backend) = route {
-                execution::adapter(*backend).admit_settings(&solver.backend, &solver.controls)?;
-            }
-        }
         if solver.controls.threads != 1
             || profile.stages.is_empty()
             || profile
@@ -128,6 +180,7 @@ impl PreparedInitialization {
             &self.requirements,
             &solver.numerics,
         )?);
+        let strategies = self.strategies(solver, &numerics)?;
         let solved: BTreeSet<_> = self
             .boundaries()
             .flat_map(|b| b.members.columns.iter().copied())
@@ -233,6 +286,8 @@ pub struct DeclaredRootReport {
 #[cfg(feature = "solver-kinsol")]
 #[derive(Clone, Debug)]
 pub(crate) struct PreparedConditionalUnit {
+    assessment: Option<native::structural::Assessment>,
+    snapshot: execution::Snapshot,
     pub(crate) view: pse_compiler::workspace::PreparedBlock,
     pub(crate) executable: Arc<ExecutableCase>,
     profile: SolverProfile,
@@ -396,6 +451,8 @@ impl MathService {
             .await?;
         let contract = native::assembled::contract(&executable.assembly);
         let mut facts = native::routing::oracle_facts(&contract, false, true);
+        facts.derivatives = view.plan.available_order();
+        facts.prepared_derivatives = view.plan.order();
         facts.domains = view
             .plan
             .columns()
@@ -412,7 +469,19 @@ impl MathService {
                     )
             })
             .collect();
-        let route = native::routing::Requirements {
+        let snapshot = execution::Snapshot::observe(&execution::LINKED);
+        let normalization = pse_math::normalization::Normalization::from_policy(
+            &numerics,
+            &view.boundary.members.columns,
+            &view.boundary.members.rows,
+        )?;
+        let tolerances = Tolerances::from_policy(
+            &numerics,
+            &view.boundary.members.columns,
+            &view.boundary.members.rows,
+        )?;
+        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        let decision = native::routing::Requirements {
             table: &execution::LINKED,
             facts: &facts,
             intent: profile.intent,
@@ -421,8 +490,43 @@ impl MathService {
             controls: &profile.controls,
             settings: &profile.backend,
             sensitivity: false,
+            context: native::routing::Context {
+                snapshot: snapshot.clone(),
+                pending_classes: &[],
+                structure: Some(native::routing::Structure {
+                    variables: view.plan.columns().to_vec(),
+                    equations: view
+                        .plan
+                        .structure()
+                        .rows()
+                        .iter()
+                        .map(|row| pse_structural::incidence::Constraint {
+                            id: row.id,
+                            lower: row.lower.is_finite().then_some(row.lower),
+                            upper: row.upper.is_finite().then_some(row.upper),
+                        })
+                        .collect(),
+                    witness: view.structure.clone().into(),
+                }),
+                oracle: Some(&contract),
+                guards: &BTreeMap::new(),
+                budgets: Some(execution::Budgets {
+                    tolerances: &tolerances,
+                    normalization: &normalization,
+                    accuracy: &accuracy,
+                }),
+                coefficients: None,
+                cone: None,
+                factorable: None,
+                certificate: None,
+                prepared: &[native::routing::ArtifactDemand::Representation(
+                    execution::Representation::Roots,
+                )],
+                refusals: &BTreeMap::new(),
+            },
         }
-        .select(profile.selection)?;
+        .decision(profile.selection);
+        let route = decision.route()?;
         let native::routing::Route::Native(backend) = route else {
             return Err(native::ProblemError::Unsupported(
                 "conditional unit needs a native root capability".into(),
@@ -442,18 +546,7 @@ impl MathService {
             )
             .into());
         }
-        adapter.admit_settings(&profile.backend, &profile.controls)?;
-        let normalization = pse_math::normalization::Normalization::from_policy(
-            &numerics,
-            &view.boundary.members.columns,
-            &view.boundary.members.rows,
-        )?;
-        let tolerances = Tolerances::from_policy(
-            &numerics,
-            &view.boundary.members.columns,
-            &view.boundary.members.rows,
-        )?;
-        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        adapter.admit_settings(&profile.backend, &profile.controls, &snapshot)?;
         adapter.admit_contract(
             &contract,
             &BTreeMap::new(),
@@ -461,11 +554,13 @@ impl MathService {
             execution::Budgets {
                 tolerances: &tolerances,
                 normalization: &normalization,
-                feasibility: accuracy.feasibility,
+                accuracy: &accuracy,
             },
         )?;
         let profile_key = super::solves::profile_key(&profile)?.as_id();
         Ok(PreparedConditionalUnit {
+            assessment: decision.structure,
+            snapshot,
             view,
             executable,
             profile,
@@ -534,6 +629,8 @@ impl MathService {
         let report = execution::roots(
             execution::Step {
                 adapter: execution::adapter(prepared.backend),
+                snapshot: &prepared.snapshot,
+                structure: prepared.assessment.as_ref(),
                 settings: &prepared.profile.backend,
                 controls: &prepared.profile.controls,
                 accuracy: &prepared.accuracy,
@@ -784,6 +881,7 @@ impl MathService {
             });
         }
         Ok(PreparedInitialization {
+            snapshot: execution::Snapshot::observe(&execution::LINKED),
             quantities,
             targets,
             requirements: Arc::new(requirements),
@@ -993,22 +1091,26 @@ impl Blocks<'_> {
             }
         };
         self.bound[index] = Some(bound.clone());
-        let step = self.service.prepare_conditional(
-            bound,
-            block.executable.clone(),
-            values.clone(),
-            self.providers.clone(),
-            // Admitted by `validate_profile`: a root or initialize intent, exact
-            // convexity and no explicit preprocessing; blocks run the initialize intent
-            // on their identity transport.
-            SolverProfile {
-                presolve: native::presolve::Policy::Off,
-                intent: SolveIntent::Initialize,
-                ..self.profile.solver.clone()
-            },
-            self.numerics.clone(),
-            self.strategies[index],
-        )?;
+        let step = self
+            .service
+            .prepare_conditional(
+                bound,
+                block.executable.clone(),
+                values.clone(),
+                self.providers.clone(),
+                // Admitted by `validate_profile`: a root or initialize intent, exact
+                // convexity and no explicit preprocessing; blocks run the initialize intent
+                // on their identity transport.
+                SolverProfile {
+                    presolve: native::presolve::Policy::Off,
+                    intent: SolveIntent::Initialize,
+                    ..self.profile.solver.clone()
+                },
+                self.numerics.clone(),
+                self.strategies[index],
+                self.prepared.snapshot.clone(),
+            )
+            .await?;
         // The block starts from its staged values. Only a predecessor stage's committed
         // values make that start a seed; the authored initial point is not a warm start (F25).
         let previous = previous

@@ -152,12 +152,10 @@ pub(crate) fn native_use(
     if report.validation_failure().is_some() || report.callback_failure().is_some() {
         decision.refuse(R::ValidationFailed);
     }
-    if !report
-        .quality
-        .as_ref()
-        .is_some_and(pse_backend_native::quality::Quality::feasible)
-    {
-        decision.refuse(R::Infeasible);
+    match report.quality.as_ref() {
+        None => decision.refuse(R::FeasibilityUnavailable),
+        Some(quality) if !quality.feasible() => decision.refuse(R::Infeasible),
+        Some(_) => {}
     }
     if report.qualification == pse_backend_native::solve::Qualification::Unqualified {
         decision.refuse(R::Unqualified);
@@ -225,6 +223,39 @@ pub(crate) fn native_use(
         T::Infeasible => {} // handled as an independent diagnostic source above
     }
     decision
+}
+
+/// Completion's exhaustive public projection; native status remains retained evidence.
+pub(crate) fn native_diagnostic_class(
+    termination: NativeTermination,
+    contradicted: bool,
+) -> pse_model::diagnostic::BoundaryClass {
+    use NativeTermination as T;
+    use pse_model::diagnostic::BoundaryClass as C;
+    if contradicted {
+        return C::Inconclusive;
+    }
+    match termination {
+        T::Cancelled => C::Cancelled,
+        T::TimeLimit
+        | T::IterationLimit
+        | T::NodeLimit
+        | T::SolutionLimit
+        | T::ObjectiveLimit
+        | T::Limit
+        | T::ResourceExhausted => C::ResourceLimit,
+        T::Numerical => C::Numerical,
+        T::Inconclusive => C::Inconclusive,
+        T::Panic => C::Internal,
+        T::Invalid => C::InvalidModel,
+        T::Evaluation
+        | T::Infeasible
+        | T::Unbounded
+        | T::InfeasibleOrUnbounded
+        | T::Success
+        | T::Acceptable
+        | T::FeasibleOnly => C::TrialRejected,
+    }
 }
 pub(crate) fn constant_use(quality: &pse_backend_native::quality::Quality) -> CandidateDecision {
     if quality.feasible() {
@@ -660,6 +691,58 @@ mod tests {
             &ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap(),
         );
         report
+    }
+    #[test]
+    fn absent_feasibility_is_unavailable_and_never_a_feasibility_conclusion() {
+        let policy = pse_model::numerics::NumericalPolicy::default();
+        let mut observed = report(NativeTermination::Success);
+        observed.quality = None;
+        let decision = native_use(&observed, &policy);
+        assert!(
+            decision
+                .refusals
+                .contains(&CandidateRefusal::FeasibilityUnavailable)
+        );
+        assert!(!decision.refusals.contains(&CandidateRefusal::Infeasible));
+        assert!(!decision.permits_use());
+        observed.candidate = None;
+        let decision = native_use(&observed, &policy);
+        assert!(decision.refusals.contains(&CandidateRefusal::NoCandidate));
+        assert!(
+            decision
+                .refusals
+                .contains(&CandidateRefusal::FeasibilityUnavailable)
+        );
+    }
+    #[test]
+    fn native_limits_retain_resource_classification_and_contradictions_override_it() {
+        use pse_model::diagnostic::BoundaryClass;
+        for termination in [
+            NativeTermination::Limit,
+            NativeTermination::IterationLimit,
+            NativeTermination::NodeLimit,
+            NativeTermination::ResourceExhausted,
+            NativeTermination::ObjectiveLimit,
+            NativeTermination::SolutionLimit,
+            NativeTermination::TimeLimit,
+        ] {
+            assert_eq!(
+                native_diagnostic_class(termination, false),
+                BoundaryClass::ResourceLimit
+            );
+            assert_eq!(
+                native_diagnostic_class(termination, true),
+                BoundaryClass::Inconclusive
+            );
+        }
+        assert_eq!(
+            native_diagnostic_class(NativeTermination::Cancelled, false),
+            BoundaryClass::Cancelled
+        );
+        assert_eq!(
+            native_diagnostic_class(NativeTermination::Inconclusive, false),
+            BoundaryClass::Inconclusive
+        );
     }
     fn bound(report: &mut SolveReport, objective: f64, value: f64, absolute: f64, relative: f64) {
         report.observation = Some(

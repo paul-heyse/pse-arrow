@@ -139,6 +139,8 @@ fn run_with(
     let initial = vec![1.5; n];
     execution::nlp(
         Step {
+            snapshot: &execution::Snapshot::observe(&LINKED),
+            structure: None,
             adapter: LINKED.get(Backend::Pounce).unwrap(),
             settings,
             controls: &controls,

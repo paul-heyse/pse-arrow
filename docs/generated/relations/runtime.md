@@ -2387,7 +2387,7 @@ from_version <= through_version
 
 Request-qualified capability admission retained even without a native attempt. No failed route fabricates a run or solver result.
 
-Version: 1. Snapshot class: `derived`. Primary key: `request_identity, step`.
+Version: 2. Snapshot class: `derived`. Primary key: `request_identity, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2398,11 +2398,35 @@ Version: 1. Snapshot class: `derived`. Primary key: `request_identity, step`.
 | `requested_backend` | `enum:NativeBackend` | true | `payload` | — | — |
 | `classes` | `List` | false | `payload` | — | — |
 | `classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
+| `state` | `enum:NativeAssessmentState` | false | `payload` | — | — |
+| `snapshot` | `content_hash` | false | `payload` | — | — |
+| `pending_backend` | `enum:NativeBackend` | true | `payload` | — | — |
+| `evidence` | `List` | false | `payload` | — | — |
+| `evidence.item` | `enum:NativeEvidenceDemand` | false | `payload` | — | — |
+| `artifacts` | `List` | false | `payload` | — | — |
+| `artifacts.item` | `enum:NativeArtifactDemand` | false | `payload` | — | — |
+| `evidence_classes` | `List` | false | `payload` | — | — |
+| `evidence_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
+| `required_order` | `Int64` | true | `payload` | — | — |
+| `artifact_representations` | `List` | false | `payload` | — | — |
+| `artifact_representations.item` | `enum:NativeRepresentation` | false | `payload` | — | — |
 | `eligibility` | `List` | false | `payload` | — | — |
 | `eligibility.item` | `Struct` | false | `payload` | — | — |
 | `eligibility.item.backend` | `enum:NativeBackend` | false | `payload` | — | — |
 | `eligibility.item.reasons` | `List` | false | `payload` | — | — |
 | `eligibility.item.reasons.item` | `enum:NativeIneligibility` | false | `payload` | — | — |
+| `eligibility.item.state` | `enum:NativeAssessmentState` | false | `payload` | — | — |
+| `eligibility.item.evidence` | `List` | false | `payload` | — | — |
+| `eligibility.item.evidence.item` | `enum:NativeEvidenceDemand` | false | `payload` | — | — |
+| `eligibility.item.artifacts` | `List` | false | `payload` | — | — |
+| `eligibility.item.artifacts.item` | `enum:NativeArtifactDemand` | false | `payload` | — | — |
+| `eligibility.item.evidence_classes` | `List` | false | `payload` | — | — |
+| `eligibility.item.evidence_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
+| `eligibility.item.required_order` | `Int64` | true | `payload` | — | — |
+| `eligibility.item.artifact_representations` | `List` | false | `payload` | — | — |
+| `eligibility.item.artifact_representations.item` | `enum:NativeRepresentation` | false | `payload` | — | — |
+| `eligibility.item.structural_mode` | `enum:NativeStructuralMode` | true | `payload` | — | — |
+| `eligibility.item.structurally_admitted` | `Boolean` | true | `payload` | — | — |
 | `selected` | `enum:NativeRouteKind` | true | `payload` | — | — |
 | `backend` | `enum:NativeBackend` | true | `payload` | — | — |
 | `representation` | `enum:NativeRepresentation` | true | `payload` | — | — |

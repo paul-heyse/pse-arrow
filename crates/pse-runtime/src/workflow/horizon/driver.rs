@@ -567,6 +567,7 @@ impl Admitted {
         Ok(Self {
             plant: Arc::new(Plant {
                 experiment: IntegratedExperiment {
+                    snapshot: plant.snapshot().clone(),
                     program: plant.program(),
                     profile: profile.clone(),
                     parameters: plant.parameters.clone(),

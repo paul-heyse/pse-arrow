@@ -39,7 +39,7 @@ impl MathService {
     /// Project an immutable authored model with explicitly selected nodes and tear policies.
     pub async fn prepare_modeling_flow(
         self: &Arc<Self>,
-        model: super::modeling::ModelingPreparation,
+        model: pse_compiler::workspace::SemanticModeling,
         quantities: Arc<pse_quantity::QuantityRegistry>,
         selection: ModelingFlowSelection,
         driver: &crate::CancelSource,
@@ -53,7 +53,7 @@ impl MathService {
                 if flag.load(std::sync::atomic::Ordering::Relaxed) {
                     return Err(MathRuntimeError::Cancelled);
                 }
-                let graph = Arc::new(model.compiled().flow_graph(&selection, &quantities)?);
+                let graph = Arc::new(model.flow_graph(&selection, &quantities)?);
                 let d = graph.declaration();
                 let bytes = d
                     .nodes

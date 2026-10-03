@@ -23,6 +23,8 @@ pub enum BoundShape {
 /// Immutable class facts derived from admitted source and coefficient products.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProblemFacts {
+    /// Explicit coefficient-class assessment, independent of representation readiness.
+    pub class_status: crate::presolve::ClassStatus,
     /// Free variable count; zero selects original constant evaluation.
     pub variables: usize,
     /// Complete selected constraint count.
@@ -91,6 +93,7 @@ impl ProblemFacts {
             (None, None) => Convexity::not_assessed(facts.key),
         };
         Ok(Self {
+            class_status: facts.class_status.clone(),
             variables: plan.columns().len(),
             rows: plan.structure().rows().len(),
             objective: plan.structure().objective().is_some(),
@@ -153,7 +156,11 @@ impl crate::presolve::Facts {
     /// assumptions. Preparation, routing facts and coefficient projection all consume it.
     #[must_use]
     pub fn coefficient_eligible(&self) -> bool {
-        self.affine.iter().all(Option::is_some)
+        matches!(
+            self.class_status,
+            crate::presolve::ClassStatus::Established
+                | crate::presolve::ClassStatus::RepresentationLimited(_)
+        ) && self.affine.iter().all(Option::is_some)
             && self.objective_degree.is_some_and(|d| d <= 2)
             && self.lexicographic_degree.is_some_and(|d| d <= 1)
             && self
@@ -170,6 +177,8 @@ mod tests {
     use std::collections::BTreeMap;
     fn facts() -> Facts {
         Facts {
+            class_status: crate::presolve::ClassStatus::Established,
+            proof_remaining: 1000,
             key: ContentHash::from_bytes([1; 32]),
             structure: ContentHash::from_bytes([2; 32]),
             values: BTreeMap::new(),
@@ -195,6 +204,22 @@ mod tests {
     #[test]
     fn coefficient_eligible_requires_affine_rows_quadratic_degree_and_discharged_obligations() {
         assert!(facts().coefficient_eligible());
+        for status in [
+            crate::presolve::ClassStatus::Unassessed,
+            crate::presolve::ClassStatus::Pending(vec![]),
+            crate::presolve::ClassStatus::RuledOut(crate::presolve::ClassWitness::NonAffineRow {
+                row: SemanticId::NIL,
+            }),
+        ] {
+            let mut unproved = facts();
+            unproved.class_status = status;
+            assert!(!unproved.coefficient_eligible());
+        }
+        let mut limited = facts();
+        limited.class_status = crate::presolve::ClassStatus::RepresentationLimited(
+            crate::presolve::ClassWitness::CoefficientRange,
+        );
+        assert!(limited.coefficient_eligible());
         let mut opaque = facts();
         opaque.affine[0] = None;
         assert!(!opaque.coefficient_eligible());

@@ -465,6 +465,10 @@ Clones and exported Arrow buffers share allocation ownership through the last re
 
 ### 19.3 Studies and reuse
 
+> Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
+
+Completion keeps candidate presence, evaluated original-space quality, unavailable assessment and native termination distinct. Only evaluated violations justify an infeasibility refusal. One shared exhaustive projection retains detailed causes and native limit categories without weakening result/seed/incumbent policy; generated and recorded consumers preserve those meanings.
+
 > Supplement: [ADR-0148](../../adr/0148-studies-diagnostics-and-admitted-bindings.md)
 > (proposed; maintainer-authorized Plan 25f implementation). The shared occurrence contract
 > replaces the former in-process predecessor policy and durable automatic fresh fallback.

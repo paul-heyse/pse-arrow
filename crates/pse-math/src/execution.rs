@@ -36,6 +36,224 @@ pub struct Support {
     pub controls: BTreeSet<usize>,
 }
 
+/// Immutable demand-indexed mathematical support, separate from the value program.
+#[derive(Clone, Debug)]
+pub struct PreparedSupport {
+    data: Arc<PreparedSupportData>,
+    owner: Option<Arc<dyn crate::AllocationOwner>>,
+}
+#[derive(Debug)]
+struct PreparedSupportData {
+    body: PreparedBody,
+    outputs: Vec<usize>,
+    coordinates: Vec<usize>,
+    order: DerivativeOrder,
+    support: Support,
+    remaining_occurrences: usize,
+    derivative_operations: usize,
+}
+impl PartialEq for PreparedSupport {
+    fn eq(&self, other: &Self) -> bool {
+        // Allocation leases and construction receipts do not change mathematical demand identity.
+        self.body() == other.body()
+            && self.outputs() == other.outputs()
+            && self.coordinates() == other.coordinates()
+            && self.order() == other.order()
+            && self.support() == other.support()
+    }
+}
+impl PreparedSupport {
+    /// Original body output ordinals; support rows use this ordered map.
+    pub fn outputs(&self) -> &[usize] {
+        &self.data.outputs
+    }
+    /// Original formal input positions; never renumbered by selection.
+    pub fn coordinates(&self) -> &[usize] {
+        &self.data.coordinates
+    }
+    /// Constructed support ceiling, independent of numerical capability/readiness.
+    pub fn order(&self) -> DerivativeOrder {
+        self.data.order
+    }
+    /// Requested all-branch support. Value products have no derivative support rows.
+    pub fn support(&self) -> &Support {
+        &self.data.support
+    }
+    /// First support by original body output ordinal, through the explicit selected map.
+    pub fn first_for_output(&self, output: usize) -> Option<&BTreeSet<usize>> {
+        self.outputs()
+            .iter()
+            .position(|&i| i == output)
+            .and_then(|row| self.support().first.get(row))
+    }
+    /// Second support by original body output ordinal, through the selected map.
+    pub fn second_for_output(&self, output: usize) -> Option<&BTreeSet<(usize, usize)>> {
+        self.outputs()
+            .iter()
+            .position(|&i| i == output)
+            .and_then(|row| self.support().second.get(row))
+    }
+    /// Unspent finite authored construction allowance.
+    pub fn remaining_occurrences(&self) -> usize {
+        self.data.remaining_occurrences
+    }
+    /// Library derivative calls performed while constructing this immutable support.
+    pub fn derivative_operations(&self) -> usize {
+        self.data.derivative_operations
+    }
+    /// Demand's admitted immutable value program.
+    pub fn body(&self) -> &PreparedBody {
+        &self.data.body
+    }
+    /// Unique owned support storage identity; body data has its own allocation identity.
+    pub fn allocation_identity(&self) -> usize {
+        Arc::as_ptr(&self.data) as usize
+    }
+    /// Known owned demand payload, excluding separately shared body data.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<PreparedSupportData>()
+            + (self.data.outputs.capacity() + self.data.coordinates.capacity()) * size_of::<usize>()
+            + (self.data.support.first.capacity() + self.data.support.second.capacity())
+                * size_of::<BTreeSet<usize>>()
+            + self
+                .data
+                .support
+                .first
+                .iter()
+                .map(|s| s.len() * (size_of::<usize>() + 96))
+                .sum::<usize>()
+            + self
+                .data
+                .support
+                .second
+                .iter()
+                .map(|s| s.len() * (size_of::<(usize, usize)>() + 96))
+                .sum::<usize>()
+            + self.data.support.controls.len() * (size_of::<usize>() + 96)
+    }
+    /// Retain the runtime owner's lease with every escaping support clone.
+    pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
+        self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
+        self
+    }
+    /// Add stronger support under the remaining allowance; failure preserves this product.
+    pub fn upgrade(
+        &self,
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        if order <= self.order() {
+            return Ok(self.clone());
+        }
+        self.body().support_with_allowance(
+            self.outputs(),
+            self.coordinates(),
+            order,
+            self.remaining_occurrences(),
+            cancel,
+            Some(self),
+        )
+    }
+    /// Restrict outputs without repeating symbolic support construction.
+    pub fn select_outputs(
+        &self,
+        outputs: &[usize],
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        self.body().check_selection(outputs, self.coordinates())?;
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        let rows = outputs
+            .iter()
+            .map(|output| {
+                self.outputs()
+                    .iter()
+                    .position(|i| i == output)
+                    .ok_or_else(|| {
+                        MathError::Contract("support output selection is not a subset".into())
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut remaining = self.remaining_occurrences();
+        let mut allowance = SupportAllowance {
+            remaining: &mut remaining,
+            derivatives: 0,
+        };
+        allowance.consume(
+            outputs
+                .len()
+                .checked_add(self.coordinates().len())
+                .ok_or(MathError::Limit("support maps"))?,
+            SemanticId::NIL,
+        )?;
+        let mut support = Support::default();
+        if self.order() > DerivativeOrder::Value {
+            allowance.consume(self.support().controls.len(), SemanticId::NIL)?;
+            support.controls = self.support().controls.clone();
+            for &row in &rows {
+                allowance.consume(self.support().first[row].len(), SemanticId::NIL)?;
+                support.first.push(self.support().first[row].clone());
+                if self.order() >= DerivativeOrder::Second {
+                    allowance.consume(self.support().second[row].len(), SemanticId::NIL)?;
+                    support.second.push(self.support().second[row].clone());
+                }
+            }
+        }
+        Ok(Self {
+            data: Arc::new(PreparedSupportData {
+                body: self.body().clone(),
+                outputs: outputs.to_vec(),
+                coordinates: self.coordinates().to_vec(),
+                order: self.order(),
+                support,
+                remaining_occurrences: remaining,
+                derivative_operations: 0,
+            }),
+            owner: self.owner.clone(),
+        })
+    }
+    /// Compile numerical products after independent selected-closure capability admission.
+    pub fn compile(
+        &self,
+        options: Optimization,
+        limits: EvaluationLimits,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<CompiledBody, MathError> {
+        self.body().compile_scope(
+            self.outputs(),
+            self.coordinates(),
+            self.order(),
+            options,
+            limits,
+            cancel,
+            false,
+            self,
+        )
+    }
+    /// Compile strict-interior derivatives; every trial retains boundary admission.
+    pub fn compile_branch_local(
+        &self,
+        options: Optimization,
+        limits: EvaluationLimits,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<CompiledBody, MathError> {
+        self.body().compile_scope(
+            self.outputs(),
+            self.coordinates(),
+            self.order(),
+            options,
+            limits,
+            cancel,
+            true,
+            self,
+        )
+    }
+}
+
 /// Physically admitted symbolic regions without mutable evaluators or foreign workers.
 #[derive(Clone, Debug)]
 pub struct PreparedBody {
@@ -50,9 +268,8 @@ pub struct PreparedBodyData {
     pub(crate) outputs: Vec<usize>,
     output_effects: Option<Vec<BTreeSet<usize>>>,
     pub(crate) stages: Vec<Stage>,
-    pub(crate) smooth: DerivativeOrder,
-    support: Support,
-    switches: BTreeSet<usize>,
+    /// Unspent authored construction allowance, continued by each demand.
+    remaining_occurrences: usize,
     pub(crate) obligations: Vec<(Option<Atom>, Condition)>,
     input_quantities: Vec<Option<pse_quantity::QuantityTypeId>>,
     output_quantities: Vec<pse_quantity::QuantityTypeId>,
@@ -77,9 +294,6 @@ impl PartialEq for PreparedBody {
             && self.outputs == other.outputs
             && self.output_effects == other.output_effects
             && self.stages == other.stages
-            && self.smooth == other.smooth
-            && self.support == other.support
-            && self.switches == other.switches
             && self.obligations == other.obligations
             && self.input_quantities == other.input_quantities
             && self.output_quantities == other.output_quantities
@@ -175,18 +389,6 @@ impl PreparedBody {
                 .chain(self.obligations.iter().filter_map(|(a, _)| a.as_ref()))
                 .map(|a| a.as_view().get_byte_size())
                 .sum::<usize>()
-            + self
-                .support
-                .first
-                .iter()
-                .map(|s| s.len() * size_of::<usize>())
-                .sum::<usize>()
-            + self
-                .support
-                .second
-                .iter()
-                .map(|s| s.len() * size_of::<(usize, usize)>())
-                .sum::<usize>()
     }
     /// Declare body-local checked-member attribution after typed closure admission.
     /// Every declared token must occur in an emitted closure validity stage; form/data
@@ -248,57 +450,55 @@ impl PreparedBody {
         slots: usize,
         outputs: Vec<usize>,
         stages: Vec<Stage>,
-        smooth: DerivativeOrder,
+        _smooth: DerivativeOrder,
     ) -> Result<Self, MathError> {
         Self::new_with_allowance(
             inputs,
             slots,
             outputs,
             stages,
-            smooth,
             &mut crate::typed::BodyLimits::default().occurrences,
         )
     }
-    /// Support construction consumes the caller's remaining body occurrence allowance.
+    /// Value admission continues the caller's finite authored construction allowance.
     pub(crate) fn new_with_allowance(
         inputs: usize,
         slots: usize,
         outputs: Vec<usize>,
         stages: Vec<Stage>,
-        smooth: DerivativeOrder,
         remaining: &mut usize,
     ) -> Result<Self, MathError> {
         if slots == 0 || inputs > slots || outputs.is_empty() || outputs.iter().any(|&i| i >= slots)
         {
             return Err(MathError::Contract("prepared body layout".into()));
         }
+        let mut allowance = SupportAllowance {
+            remaining,
+            derivatives: 0,
+        };
+        allowance.consume(slots, SemanticId::NIL)?;
         let parameters = (0..slots)
             .map(library::formal)
             .collect::<Result<Vec<_>, _>>()?;
         let symbols = symbol_map(&parameters);
         let mut assigned = (0..inputs).collect::<BTreeSet<_>>();
-        validate_dependencies(&stages, &symbols, &mut assigned, 0, remaining)?;
+        validate_dependencies(&stages, &symbols, &mut assigned, 0, allowance.remaining)?;
         if outputs.iter().any(|i| !assigned.contains(i)) {
             return Err(MathError::Contract(
                 "output unassigned on some branch".into(),
             ));
         }
-        let mut allowance = SupportAllowance { remaining };
         allowance.consume(slots, SemanticId::NIL)?;
         allowance.consume(1, SemanticId::NIL)?;
-        let mut facts = vec![Arc::new(Fact::default()); slots];
+        let empty_fact = Arc::new(Fact::default());
+        let mut facts = vec![empty_fact; slots];
         for i in 0..inputs {
-            allowance.consume(1, SemanticId::NIL)?; // Newly constructed input support entry.
-            allowance.consume(1, SemanticId::NIL)?; // Its immutable fact allocation.
+            allowance.consume(1, SemanticId::NIL)?;
             facts[i] = Arc::new(Fact {
                 expression: Some(parameters[i].clone()),
-                first: BTreeSet::from([i]),
-                second: BTreeSet::new(),
-                source: None,
+                ..Fact::default()
             });
         }
-        let mut controls = BTreeSet::new();
-        let mut switches = BTreeSet::new();
         let mut providers = BTreeMap::new();
         let mut obligations = vec![];
         analyze(
@@ -306,27 +506,20 @@ impl PreparedBody {
             &parameters,
             &symbols,
             &mut facts,
-            &mut controls,
-            &mut switches,
+            &mut BTreeSet::new(),
+            &mut BTreeSet::new(),
             &mut providers,
             &mut obligations,
             &mut allowance,
+            DerivativeOrder::Value,
+            None,
+            None,
+            None,
         )?;
-        for &slot in &outputs {
-            let source = facts[slot].source.unwrap_or(SemanticId::NIL);
-            allowance.consume(facts[slot].first.len(), source)?;
-            allowance.consume(facts[slot].second.len(), source)?;
-        }
-        let support = Support {
-            first: outputs.iter().map(|&i| facts[i].first.clone()).collect(),
-            second: outputs.iter().map(|&i| facts[i].second.clone()).collect(),
-            controls,
-        };
         let expressions = outputs
             .iter()
             .map(|&i| facts[i].expression.clone())
             .collect();
-        let smooth = smooth.min(crate::typed::proven_branch_order(&stages));
         Ok(Self {
             data: Arc::new(PreparedBodyData {
                 inputs,
@@ -334,9 +527,7 @@ impl PreparedBody {
                 outputs,
                 output_effects: None,
                 stages,
-                smooth,
-                support,
-                switches,
+                remaining_occurrences: *allowance.remaining,
                 obligations,
                 input_quantities: vec![None; inputs],
                 output_quantities: vec![],
@@ -348,25 +539,211 @@ impl PreparedBody {
             owner: None,
         })
     }
-    /// Smooth derivative capability established by admitted operations and providers.
+    /// Smooth derivative capability of all admitted outputs and formal coordinates.
     pub fn available_order(&self) -> DerivativeOrder {
-        if self.switches.is_empty() {
-            self.smooth
-        } else {
-            DerivativeOrder::Value
-        }
+        self.available_order_for(&(0..self.inputs).collect::<Vec<_>>())
     }
-    /// Order available inside an active branch; its boundary still requires runtime checks.
+    /// Order available inside selected active branches; boundaries require trial checks.
     pub fn branch_local_order(&self) -> DerivativeOrder {
-        self.smooth
+        self.selected_order(
+            &(0..self.output_count()).collect::<Vec<_>>(),
+            &(0..self.inputs).collect::<Vec<_>>(),
+            true,
+        )
+        .unwrap_or(DerivativeOrder::Value)
     }
-    /// Fixed external guards do not reduce derivatives with respect to selected free coordinates.
+    /// Capability of all outputs with respect to selected formal coordinates.
     pub fn available_order_for(&self, coordinates: &[usize]) -> DerivativeOrder {
-        if coordinates.iter().any(|c| self.switches.contains(c)) {
-            DerivativeOrder::Value
-        } else {
-            self.smooth
+        self.available_order_for_outputs(&(0..self.output_count()).collect::<Vec<_>>(), coordinates)
+            .unwrap_or(DerivativeOrder::Value)
+    }
+    /// Capability of precisely the selected output/effect closure, independent of readiness.
+    pub fn available_order_for_outputs(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+    ) -> Result<DerivativeOrder, MathError> {
+        self.selected_order(outputs, coordinates, false)
+    }
+    fn selected_order(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        local_branches: bool,
+    ) -> Result<DerivativeOrder, MathError> {
+        self.check_selection(outputs, coordinates)?;
+        let stages = self.demanded_stages(outputs)?;
+        let parameters = (0..self.slots)
+            .map(library::formal)
+            .collect::<Result<Vec<_>, _>>()?;
+        let symbols = symbol_map(&parameters);
+        let mut depends = vec![false; self.slots];
+        for &i in coordinates {
+            depends[i] = true;
         }
+        let numeric = numeric_slots(
+            &stages,
+            &outputs.iter().map(|&i| self.outputs[i]).collect::<Vec<_>>(),
+            &symbols,
+        )?;
+        selected_capability(&stages, &symbols, &mut depends, local_branches, &numeric)
+    }
+    fn check_selection(&self, outputs: &[usize], coordinates: &[usize]) -> Result<(), MathError> {
+        if outputs.is_empty()
+            || outputs.iter().any(|&i| i >= self.output_count())
+            || outputs.iter().collect::<BTreeSet<_>>().len() != outputs.len()
+            || coordinates.iter().any(|&i| i >= self.inputs)
+            || coordinates.iter().collect::<BTreeSet<_>>().len() != coordinates.len()
+        {
+            return Err(MathError::Contract(
+                "compiled output/coordinate demand".into(),
+            ));
+        }
+        Ok(())
+    }
+    /// Construct selected immutable support without constructing an evaluator.
+    pub fn prepare_support(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedSupport, MathError> {
+        self.support_with_allowance(
+            outputs,
+            coordinates,
+            order,
+            self.remaining_occurrences,
+            cancel,
+            None,
+        )
+    }
+    /// Conservative all-branch incidence, including opaque value-only providers.
+    pub fn incidence(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedSupport, MathError> {
+        self.prepare_support(outputs, coordinates, DerivativeOrder::First, cancel)
+    }
+    fn support_with_allowance(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        order: DerivativeOrder,
+        mut remaining: usize,
+        cancel: &Arc<AtomicBool>,
+        prior: Option<&PreparedSupport>,
+    ) -> Result<PreparedSupport, MathError> {
+        self.check_selection(outputs, coordinates)?;
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        let mut allowance = SupportAllowance {
+            remaining: &mut remaining,
+            derivatives: 0,
+        };
+        allowance.consume(
+            outputs
+                .len()
+                .checked_add(coordinates.len())
+                .ok_or(MathError::Limit("support demand maps"))?,
+            SemanticId::NIL,
+        )?;
+        let mut support = Support::default();
+        if order > DerivativeOrder::Value {
+            allowance.consume(self.slots, SemanticId::NIL)?;
+            let parameters = (0..self.slots)
+                .map(library::formal)
+                .collect::<Result<Vec<_>, _>>()?;
+            let symbols = symbol_map(&parameters);
+            let stages = self.demand(outputs, &symbols);
+            allowance.consume(self.slots, SemanticId::NIL)?;
+            allowance.consume(1, SemanticId::NIL)?;
+            let empty_fact = Arc::new(Fact::default());
+            let mut facts = vec![empty_fact; self.slots];
+            for &i in coordinates {
+                allowance.consume(2, SemanticId::NIL)?;
+                facts[i] = Arc::new(Fact {
+                    expression: Some(parameters[i].clone()),
+                    first: BTreeSet::from([i]),
+                    ..Fact::default()
+                });
+            }
+            // Non-coordinate inputs remain symbolic parameters for exact local composition.
+            for i in (0..self.inputs).filter(|i| !coordinates.contains(i)) {
+                allowance.consume(1, SemanticId::NIL)?;
+                facts[i] = Arc::new(Fact {
+                    expression: Some(parameters[i].clone()),
+                    ..Fact::default()
+                });
+            }
+            let selected = coordinates.iter().copied().collect::<BTreeSet<_>>();
+            let numeric = numeric_slots(
+                &stages,
+                &outputs.iter().map(|&i| self.outputs[i]).collect::<Vec<_>>(),
+                &symbols,
+            )?;
+            analyze(
+                &stages,
+                &parameters,
+                &symbols,
+                &mut facts,
+                &mut support.controls,
+                &mut BTreeSet::new(),
+                &mut BTreeMap::new(),
+                &mut vec![],
+                &mut allowance,
+                order,
+                Some(&selected),
+                Some(cancel),
+                Some(&numeric),
+            )?;
+            allowance.consume(
+                outputs
+                    .len()
+                    .checked_mul(if order >= DerivativeOrder::Second {
+                        2
+                    } else {
+                        1
+                    })
+                    .ok_or(MathError::Limit("support output extent"))?,
+                SemanticId::NIL,
+            )?;
+            for &output in outputs {
+                let fact = &facts[self.outputs[output]];
+                let source = fact.source.unwrap_or(SemanticId::NIL);
+                allowance.consume(fact.first.len(), source)?;
+                support.first.push(fact.first.clone());
+                if order >= DerivativeOrder::Second {
+                    allowance.consume(fact.second.len(), source)?;
+                    support.second.push(fact.second.clone());
+                }
+            }
+        }
+        if let Some(prior) = prior
+            && order >= DerivativeOrder::First
+            && prior.order() >= DerivativeOrder::First
+            && support.first != prior.support().first
+        {
+            return Err(MathError::Contract(
+                "support upgrade changed incidence".into(),
+            ));
+        }
+        let derivative_operations = allowance.derivatives;
+        Ok(PreparedSupport {
+            data: Arc::new(PreparedSupportData {
+                body: self.clone(),
+                outputs: outputs.to_vec(),
+                coordinates: coordinates.to_vec(),
+                order,
+                support,
+                remaining_occurrences: remaining,
+                derivative_operations,
+            }),
+            owner: prior.and_then(|p| p.owner.clone()),
+        })
     }
     /// Number of formal inputs.
     pub fn input_count(&self) -> usize {
@@ -409,10 +786,6 @@ impl PreparedBody {
     pub fn output_count(&self) -> usize {
         self.outputs.len()
     }
-    /// Complete support, including all branch alternatives.
-    pub fn support(&self) -> &Support {
-        &self.support
-    }
     /// Consumed executable contracts, keyed by full physical/data interpretation.
     pub fn providers(&self) -> &[ProviderSpec] {
         &self.providers
@@ -423,28 +796,47 @@ impl PreparedBody {
         &self,
         order: DerivativeOrder,
     ) -> Result<BTreeMap<ProviderKey, DerivativeOrder>, MathError> {
+        self.provider_demands_for_outputs(&(0..self.output_count()).collect::<Vec<_>>(), order)
+    }
+    /// Actual provider requirements for selected outputs and their mandatory effects.
+    pub fn provider_demands_for_outputs(
+        &self,
+        outputs: &[usize],
+        order: DerivativeOrder,
+    ) -> Result<BTreeMap<ProviderKey, DerivativeOrder>, MathError> {
         fn collect(
             stages: &[Stage],
             order: DerivativeOrder,
             demands: &mut BTreeMap<ProviderKey, DerivativeOrder>,
+            numeric: &BTreeSet<usize>,
         ) -> Result<(), MathError> {
             for stage in stages {
                 match stage {
-                    Stage::Provider { spec, partial, .. } => {
-                        let required = provider_request_order(order, partial.len())?;
+                    Stage::Provider {
+                        spec,
+                        partial,
+                        outputs,
+                        ..
+                    } => {
+                        let requested = if outputs.iter().any(|i| numeric.contains(i)) {
+                            order
+                        } else {
+                            DerivativeOrder::Value
+                        };
+                        let required = provider_request_order(requested, partial.len())?;
                         demands
                             .entry(spec.key())
                             .and_modify(|o| *o = (*o).max(required))
                             .or_insert(required);
                     }
                     Stage::Domain { stages, .. } | Stage::Applicability { stages, .. } => {
-                        collect(stages, DerivativeOrder::Value, demands)?
+                        collect(stages, DerivativeOrder::Value, demands, numeric)?
                     }
                     Stage::Branch {
                         then, otherwise, ..
                     } => {
-                        collect(then, order, demands)?;
-                        collect(otherwise, order, demands)?;
+                        collect(then, order, demands, numeric)?;
+                        collect(otherwise, order, demands, numeric)?;
                     }
                     Stage::Block { .. } | Stage::Require { .. } => {}
                 }
@@ -452,7 +844,16 @@ impl PreparedBody {
             Ok(())
         }
         let mut demands = BTreeMap::new();
-        collect(&self.stages, order, &mut demands)?;
+        let stages = self.demanded_stages(outputs)?;
+        let parameters = (0..self.slots)
+            .map(library::formal)
+            .collect::<Result<Vec<_>, _>>()?;
+        let numeric = numeric_slots(
+            &stages,
+            &outputs.iter().map(|&i| self.outputs[i]).collect::<Vec<_>>(),
+            &symbol_map(&parameters),
+        )?;
+        collect(&stages, order, &mut demands, &numeric)?;
         Ok(demands)
     }
     /// Optional flattened library expression of one output. It is absent when a provider or
@@ -503,15 +904,8 @@ impl PreparedBody {
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<CompiledBody, MathError> {
-        self.compile_scope(
-            outputs,
-            coordinates,
-            order,
-            options,
-            limits,
-            cancelled,
-            false,
-        )
+        self.prepare_support(outputs, coordinates, order, cancelled)?
+            .compile(options, limits, cancelled)
     }
     /// Compile derivatives restricted to the strict interior of the selected control path.
     /// Each trial checks separation from every unproved guard boundary, including domain
@@ -528,15 +922,8 @@ impl PreparedBody {
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<CompiledBody, MathError> {
-        self.compile_scope(
-            outputs,
-            coordinates,
-            order,
-            options,
-            limits,
-            cancelled,
-            true,
-        )
+        self.prepare_support(outputs, coordinates, order, cancelled)?
+            .compile_branch_local(options, limits, cancelled)
     }
     #[allow(
         clippy::too_many_arguments,
@@ -551,25 +938,14 @@ impl PreparedBody {
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
         local_branches: bool,
+        prepared_support: &PreparedSupport,
     ) -> Result<CompiledBody, MathError> {
         limits.check()?;
         if cancelled.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
         }
-        if outputs.is_empty()
-            || outputs.iter().any(|&i| i >= self.outputs.len())
-            || outputs.iter().collect::<BTreeSet<_>>().len() != outputs.len()
-            || coordinates.iter().any(|&i| i >= self.inputs)
-        {
-            return Err(MathError::Contract(
-                "compiled output/coordinate demand".into(),
-            ));
-        }
-        if order > self.smooth
-            || (!local_branches
-                && order > DerivativeOrder::Value
-                && coordinates.iter().any(|c| self.switches.contains(c)))
-        {
+        self.check_selection(outputs, coordinates)?;
+        if order > self.selected_order(outputs, coordinates, local_branches)? {
             return Err(MathError::Contract(
                 "nonsmooth operation lacks a derivative neighborhood".into(),
             ));
@@ -580,24 +956,34 @@ impl PreparedBody {
             .collect::<Result<Vec<_>, _>>()?;
         let symbols = symbol_map(&parameters);
         let stages = self.demand(outputs, &symbols);
+        let numeric = numeric_slots(&stages, &selected, &symbols)?;
         // Conservative coordinate reachability includes every branch alternative. It
         // selects Taylor coefficients; Symbolica still owns every derivative operation.
+        let reachability_coordinates = if order > DerivativeOrder::Value {
+            coordinates.len()
+        } else {
+            0
+        };
         let support_entries = self
             .slots
-            .checked_mul(coordinates.len().saturating_add(3))
+            .checked_mul(reachability_coordinates.saturating_add(3))
             .ok_or(MathError::Limit("coordinate reachability"))?;
         limits.allocation(support_entries)?;
-        let mut coordinate_support = vec![vec![false; coordinates.len()]; self.slots];
-        for (coordinate, &slot) in coordinates.iter().enumerate() {
-            coordinate_support[slot][coordinate] = true;
+        let mut coordinate_support = vec![vec![false; reachability_coordinates]; self.slots];
+        if order > DerivativeOrder::Value {
+            for (coordinate, &slot) in coordinates.iter().enumerate() {
+                coordinate_support[slot][coordinate] = true;
+            }
+            coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         }
-        coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         // One layout and program per compiled order, `Value` through `order`.
         let mut layouts = EnumMap::<DerivativeOrder, Option<JetLayout>>::default();
         let mut programs = EnumMap::<DerivativeOrder, Option<Vec<CompiledStage>>>::default();
         let mut used = 0usize;
         let mut retained_numeric = 0usize;
         let mut retained_instructions = 0usize;
+        let mut remaining_operations = limits.operations;
+        let mut remaining_providers = limits.provider_calls;
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -613,8 +999,8 @@ impl PreparedBody {
                 .ok_or(MathError::Limit("jet frame"))?;
             limits.allocation(frame)?;
             let mut allowance = BuildAllowance {
-                operations: limits.operations,
-                providers: limits.provider_calls,
+                operations: remaining_operations,
+                providers: remaining_providers,
                 entries: frame,
                 instructions: 0,
                 local_order: if local_branches {
@@ -628,12 +1014,15 @@ impl PreparedBody {
                 &parameters,
                 &symbols,
                 &coordinate_support,
+                &numeric,
                 &layout,
                 options,
                 limits,
                 cancelled,
                 &mut allowance,
             )?;
+            remaining_operations = allowance.operations;
+            remaining_providers = allowance.providers;
             retained_numeric = retained_numeric
                 .checked_add(allowance.entries - frame)
                 .ok_or(MathError::Limit("retained numeric storage"))?;
@@ -684,22 +1073,13 @@ impl PreparedBody {
                 .checked_mul(size_of::<f64>())
                 .and_then(|n| n.checked_add(retained_instructions))
                 .and_then(|n| n.checked_add(evidence_bytes))
+                .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
                 .ok_or(MathError::Limit("retained program storage"))?,
             outputs: Arc::new(selected),
             layouts: Arc::new(layouts),
             programs: Arc::new(programs),
             limits,
-            support: Arc::new(Support {
-                first: outputs
-                    .iter()
-                    .map(|&i| self.support.first[i].clone())
-                    .collect(),
-                second: outputs
-                    .iter()
-                    .map(|&i| self.support.second[i].clone())
-                    .collect(),
-                controls: self.support.controls.clone(),
-            }),
+            support: prepared_support.clone(),
         })
     }
 }
@@ -774,7 +1154,7 @@ pub struct CompiledBody {
     layouts: Arc<EnumMap<DerivativeOrder, Option<JetLayout>>>,
     programs: Arc<EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>>,
     limits: EvaluationLimits,
-    support: Arc<Support>,
+    support: PreparedSupport,
 }
 impl std::fmt::Debug for CompiledBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -798,6 +1178,7 @@ impl CompiledBody {
     }
     /// Attach accounting to the allocation itself so evaluator/worker clones retain it.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
+        self.support = self.support.with_owner(owner.clone());
         self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
     }
@@ -825,9 +1206,20 @@ impl CompiledBody {
             frame: vec![0.0; self.slots * width],
         }
     }
+    /// Exact selected admitted demand retained by this evaluator product.
+    pub fn prepared_support(&self) -> &PreparedSupport {
+        &self.support
+    }
     /// Structural support survives trials and numerical zeros.
     pub fn support(&self) -> &Support {
-        &self.support
+        self.support.support()
+    }
+    /// Explicit structural incidence admission from this retained output demand.
+    pub fn incidence(&self, cancel: &Arc<AtomicBool>) -> Result<PreparedSupport, MathError> {
+        if self.support.order() >= DerivativeOrder::First {
+            return Ok(self.support.clone());
+        }
+        self.support.upgrade(DerivativeOrder::First, cancel)
     }
     /// Differentiation coordinates in formal input order.
     pub fn coordinates(&self) -> &[usize] {
@@ -992,6 +1384,146 @@ fn coordinate_reachability(
     Ok(())
 }
 
+fn numeric_slots(
+    stages: &[Stage],
+    outputs: &[usize],
+    symbols: &HashMap<Symbol, usize>,
+) -> Result<BTreeSet<usize>, MathError> {
+    fn collect(
+        stages: &[Stage],
+        needed: &mut BTreeSet<usize>,
+        seen: &mut BTreeSet<usize>,
+        symbols: &HashMap<Symbol, usize>,
+    ) -> Result<(), MathError> {
+        for stage in stages.iter().rev() {
+            match stage {
+                Stage::Block {
+                    expressions,
+                    outputs,
+                    ..
+                } => {
+                    for (expression, &output) in expressions.iter().zip(outputs) {
+                        if needed.remove(&output) {
+                            seen.insert(output);
+                            let inputs = reads(std::slice::from_ref(expression), symbols)?;
+                            needed.extend(&inputs);
+                            seen.extend(inputs);
+                        }
+                    }
+                }
+                Stage::Provider {
+                    inputs, outputs, ..
+                } => {
+                    if outputs.iter().any(|i| needed.contains(i)) {
+                        for output in outputs {
+                            if needed.remove(output) {
+                                seen.insert(*output);
+                            }
+                        }
+                        needed.extend(inputs);
+                        seen.extend(inputs);
+                    }
+                }
+                Stage::Branch {
+                    then, otherwise, ..
+                } => {
+                    let mut a = needed.clone();
+                    let mut b = needed.clone();
+                    collect(then, &mut a, seen, symbols)?;
+                    collect(otherwise, &mut b, seen, symbols)?;
+                    *needed = a.union(&b).copied().collect();
+                }
+                Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
+            }
+        }
+        Ok(())
+    }
+    let mut needed = outputs.iter().copied().collect();
+    let mut seen = BTreeSet::new();
+    collect(stages, &mut needed, &mut seen, symbols)?;
+    Ok(seen)
+}
+
+fn selected_capability(
+    stages: &[Stage],
+    symbols: &HashMap<Symbol, usize>,
+    depends: &mut [bool],
+    local_branches: bool,
+    numeric: &BTreeSet<usize>,
+) -> Result<DerivativeOrder, MathError> {
+    let mut available = DerivativeOrder::Second;
+    for stage in stages {
+        match stage {
+            Stage::Block {
+                expressions,
+                outputs,
+                ..
+            } => {
+                for (expression, &output) in expressions.iter().zip(outputs) {
+                    depends[output] |= reads(std::slice::from_ref(expression), symbols)?
+                        .iter()
+                        .any(|&i| depends[i]);
+                }
+            }
+            Stage::Provider {
+                spec,
+                partial,
+                inputs,
+                outputs,
+                ..
+            } => {
+                let remaining = (spec.derivatives.min(spec.smoothness) as usize)
+                    .checked_sub(partial.len())
+                    .ok_or_else(|| MathError::Contract("provider partial capability".into()))?;
+                let dependent = inputs.iter().any(|&i| depends[i]);
+                if dependent && outputs.iter().any(|i| numeric.contains(i)) {
+                    available = available.min(match remaining {
+                        0 => DerivativeOrder::Value,
+                        1 => DerivativeOrder::First,
+                        _ => DerivativeOrder::Second,
+                    });
+                }
+                for &output in outputs.iter().filter(|&&s| s != usize::MAX) {
+                    depends[output] |= dependent;
+                }
+            }
+            Stage::Branch {
+                continuity,
+                left,
+                right,
+                then,
+                otherwise,
+                ..
+            } => {
+                if depends[*left] || depends[*right] {
+                    available =
+                        available.min(if local_branches && *continuity == DerivativeOrder::Value {
+                            DerivativeOrder::Second
+                        } else {
+                            *continuity
+                        });
+                }
+                available = available.min(selected_capability(
+                    then,
+                    symbols,
+                    depends,
+                    local_branches,
+                    numeric,
+                )?);
+                available = available.min(selected_capability(
+                    otherwise,
+                    symbols,
+                    depends,
+                    local_branches,
+                    numeric,
+                )?);
+            }
+            Stage::Domain { .. } | Stage::Applicability { .. } | Stage::Require { .. } => {}
+        }
+    }
+    Ok(available)
+}
+
 struct BuildAllowance {
     local_order: DerivativeOrder,
     operations: usize,
@@ -1023,6 +1555,7 @@ fn compile_stages(
     parameters: &[Atom],
     symbols: &HashMap<Symbol, usize>,
     coordinate_support: &[Vec<bool>],
+    numeric: &BTreeSet<usize>,
     layout: &JetLayout,
     options: Optimization,
     limits: EvaluationLimits,
@@ -1054,6 +1587,7 @@ fn compile_stages(
                         parameters,
                         symbols,
                         coordinate_support,
+                        numeric,
                         &value_layout,
                         options,
                         limits,
@@ -1086,6 +1620,7 @@ fn compile_stages(
                         parameters,
                         symbols,
                         coordinate_support,
+                        numeric,
                         &value_layout,
                         options,
                         limits,
@@ -1115,6 +1650,7 @@ fn compile_stages(
                     .enumerate()
                     .filter_map(|(i, &slot)| {
                         (layout.order > DerivativeOrder::Value
+                            && outputs.iter().any(|i| numeric.contains(i))
                             && inputs.iter().any(|&input| coordinate_support[input][i]))
                         .then_some((i, slot))
                     })
@@ -1214,6 +1750,7 @@ fn compile_stages(
                     parameters,
                     symbols,
                     coordinate_support,
+                    numeric,
                     layout,
                     options,
                     limits,
@@ -1225,6 +1762,7 @@ fn compile_stages(
                     parameters,
                     symbols,
                     coordinate_support,
+                    numeric,
                     layout,
                     options,
                     limits,
@@ -1243,20 +1781,32 @@ fn compile_stages(
                     .providers
                     .checked_sub(1)
                     .ok_or(MathError::Limit("provider calls"))?;
+                let differentiated = layout.order > DerivativeOrder::Value
+                    && outputs.iter().any(|i| numeric.contains(i))
+                    && inputs
+                        .iter()
+                        .any(|&i| coordinate_support[i].iter().any(|&dependent| dependent));
                 let request = ProviderRequest {
                     outputs: outputs
                         .iter()
                         .enumerate()
                         .filter_map(|(i, &slot)| (slot != usize::MAX).then_some(i))
                         .collect(),
-                    order: provider_request_order(layout.order, partial.len())?,
+                    order: provider_request_order(
+                        if differentiated {
+                            layout.order
+                        } else {
+                            DerivativeOrder::Value
+                        },
+                        partial.len(),
+                    )?,
                 };
                 let destinations = outputs
                     .iter()
                     .copied()
                     .filter(|&s| s != usize::MAX)
                     .collect();
-                let lift = if layout.width() > 1 {
+                let lift = if differentiated && layout.width() > 1 {
                     Some(ProviderLift::compile(
                         inputs.len(),
                         layout,
@@ -1551,6 +2101,7 @@ fn evaluate_stages(
                         }
                         frame[slot * width..(slot + 1) * width].copy_from_slice(&lift.output);
                     } else {
+                        frame[slot * width..(slot + 1) * width].fill(0.0);
                         frame[slot * width] = selected;
                     }
                 }
@@ -1756,6 +2307,7 @@ struct Fact {
 }
 struct SupportAllowance<'a> {
     remaining: &'a mut usize,
+    derivatives: usize,
 }
 impl SupportAllowance<'_> {
     fn consume(&mut self, required: usize, source_id: SemanticId) -> Result<(), MathError> {
@@ -1770,6 +2322,14 @@ impl SupportAllowance<'_> {
             });
         }
         *self.remaining -= required;
+        Ok(())
+    }
+    fn derivative(&mut self, source: SemanticId) -> Result<(), MathError> {
+        self.consume(1, source)?;
+        self.derivatives = self
+            .derivatives
+            .checked_add(1)
+            .ok_or(MathError::Limit("support derivative calls"))?;
         Ok(())
     }
     fn insert(
@@ -1866,8 +2426,15 @@ fn analyze(
     providers: &mut BTreeMap<ProviderKey, ProviderSpec>,
     obligations: &mut Vec<(Option<Atom>, Condition)>,
     allowance: &mut SupportAllowance<'_>,
+    requested: DerivativeOrder,
+    coordinates: Option<&BTreeSet<usize>>,
+    cancel: Option<&Arc<AtomicBool>>,
+    numeric: Option<&BTreeSet<usize>>,
 ) -> Result<(), MathError> {
     for stage in stages {
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            return Err(MathError::Cancelled);
+        }
         match stage {
             Stage::Applicability {
                 stages,
@@ -1888,6 +2455,10 @@ fn analyze(
                     providers,
                     obligations,
                     allowance,
+                    requested.min(DerivativeOrder::First),
+                    coordinates,
+                    cancel,
+                    numeric,
                 )?;
                 for slot in predicates.iter().chain(inputs) {
                     allowance.consume(local[*slot].first.len(), source)?;
@@ -1919,6 +2490,10 @@ fn analyze(
                     providers,
                     obligations,
                     allowance,
+                    requested.min(DerivativeOrder::First),
+                    coordinates,
+                    cancel,
+                    numeric,
                 )?;
                 allowance.consume(local[*argument].first.len(), source)?;
                 controls.extend(&local[*argument].first);
@@ -1940,10 +2515,14 @@ fn analyze(
                     for &i in &inputs {
                         allowance.consume(facts[i].first.len(), *source)?;
                     }
-                    let first = inputs
-                        .iter()
-                        .flat_map(|&i| facts[i].first.iter().copied())
-                        .collect::<BTreeSet<_>>();
+                    let first = if requested > DerivativeOrder::Value {
+                        inputs
+                            .iter()
+                            .flat_map(|&i| facts[i].first.iter().copied())
+                            .collect::<BTreeSet<_>>()
+                    } else {
+                        BTreeSet::new()
+                    };
                     // Flattening is only an optional support/coefficient optimization.
                     // Bound substitution BEFORE allocating the expanded tree. Every symbol
                     // occurrence occupies at least one source byte; the byte product is a
@@ -1966,36 +2545,51 @@ fn analyze(
                         first,
                         source: Some(*source),
                     };
-                    if let Some(expr) = &fact.expression {
+                    if requested > DerivativeOrder::Value
+                        && let Some(expr) = &fact.expression
+                    {
                         if operation_count(expr.count_operations()) > 16384 {
                             return Err(MathError::Limit("local symbolic support expansion"));
                         }
                         let first = reads(std::slice::from_ref(expr), symbols)?;
                         allowance.consume(first.len(), *source)?;
-                        fact.first = first.into_iter().collect();
+                        fact.first = first
+                            .into_iter()
+                            .filter(|i| coordinates.is_none_or(|c| c.contains(i)))
+                            .collect();
                         fact.second.clear();
-                        for &i in &fact.first {
-                            allowance.consume(1, *source)?;
-                            let d = expr.derivative(
-                                Indeterminate::try_from(parameters[i].clone())
-                                    .map_err(|e| MathError::Library(e.clone()))?,
-                            );
-                            for j in reads(std::slice::from_ref(&d), symbols)? {
-                                allowance.insert(
-                                    &mut fact.second,
-                                    (i.min(j), i.max(j)),
-                                    *source,
-                                )?;
+                        if requested >= DerivativeOrder::Second
+                            && numeric.is_none_or(|n| n.contains(&slot))
+                        {
+                            for &i in &fact.first {
+                                allowance.derivative(*source)?;
+                                let d = expr.derivative(
+                                    Indeterminate::try_from(parameters[i].clone())
+                                        .map_err(|e| MathError::Library(e.clone()))?,
+                                );
+                                for j in reads(std::slice::from_ref(&d), symbols)?
+                                    .into_iter()
+                                    .filter(|j| coordinates.is_none_or(|c| c.contains(j)))
+                                {
+                                    allowance.insert(
+                                        &mut fact.second,
+                                        (i.min(j), i.max(j)),
+                                        *source,
+                                    )?;
+                                }
                             }
                         }
                     }
-                    if fact.expression.is_none() {
+                    if requested >= DerivativeOrder::Second
+                        && fact.expression.is_none()
+                        && numeric.is_none_or(|n| n.contains(&slot))
+                    {
                         // Compose support through the shared program. Losing the optional
                         // flattened expression does not make unrelated coordinates nonlinear.
                         // Symbolica owns each local derivative; only its dependency sets
                         // are propagated here (the two terms of the Hessian chain rule).
                         for &i in &inputs {
-                            allowance.consume(1, *source)?;
+                            allowance.derivative(*source)?;
                             let derivative = expression.derivative(
                                 Indeterminate::try_from(parameters[i].clone())
                                     .map_err(|e| MathError::Library(e.clone()))?,
@@ -2028,8 +2622,10 @@ fn analyze(
                 source,
                 ..
             } => {
-                allowance.consume(facts[*argument].first.len(), *source)?;
-                controls.extend(&facts[*argument].first);
+                if requested >= *order {
+                    allowance.consume(facts[*argument].first.len(), *source)?;
+                    controls.extend(&facts[*argument].first);
+                }
                 if *order == DerivativeOrder::Value {
                     obligations.push((facts[*argument].expression.clone(), *condition));
                 }
@@ -2049,13 +2645,19 @@ fn analyze(
                     .iter()
                     .flat_map(|&i| facts[i].first.iter().copied())
                     .collect::<BTreeSet<_>>();
-                for &slot in outputs {
+                for &slot in outputs.iter().filter(|&&s| s != usize::MAX) {
                     allowance.consume(first.len(), *source)?;
                     allowance.consume(1, *source)?;
                     facts[slot] = Arc::new(Fact {
                         expression: None,
                         first: first.clone(),
-                        second: dense_second(&first, allowance, *source)?,
+                        second: if requested >= DerivativeOrder::Second
+                            && numeric.is_none_or(|n| n.contains(&slot))
+                        {
+                            dense_second(&first, allowance, *source)?
+                        } else {
+                            BTreeSet::new()
+                        },
                         source: Some(*source),
                     });
                 }
@@ -2092,6 +2694,10 @@ fn analyze(
                     providers,
                     obligations,
                     allowance,
+                    requested,
+                    coordinates,
+                    cancel,
+                    numeric,
                 )?;
                 analyze(
                     otherwise,
@@ -2103,6 +2709,10 @@ fn analyze(
                     providers,
                     obligations,
                     allowance,
+                    requested,
+                    coordinates,
+                    cancel,
+                    numeric,
                 )?;
                 for i in 0..facts.len() {
                     if Arc::ptr_eq(&a[i], &b[i]) {

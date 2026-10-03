@@ -1618,7 +1618,7 @@ impl ModelingPackage {
             let solved = if let Some(result) = initialized {
                 Ok(result)
             } else {
-                match self.finish_case(resolution).await {
+                match self.finish_case(resolution, cancel).await {
                     Ok(prepared) => {
                         report.admissions.insert(
                             fixture,

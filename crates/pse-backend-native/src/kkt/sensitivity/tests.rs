@@ -566,6 +566,8 @@ mod solved {
         let tolerances = tolerances(n, m);
         execution::nlp(
             Step {
+                snapshot: &execution::Snapshot::observe(&LINKED),
+                structure: None,
                 adapter: LINKED.get(backend).unwrap(),
                 settings: &BackendSettings::Default,
                 controls: &controls,

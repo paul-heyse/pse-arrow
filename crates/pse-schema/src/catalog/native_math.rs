@@ -222,10 +222,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         "StructuralScopeKind",
         ["whole", "independent", "conditional", "partial"],
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "route_decisions",
+        2,
         S::Derived,
         &["request_identity", "step"],
         vec![
@@ -235,11 +236,42 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("selection", T::enumeration("NativeRouteSelection")),
             column("requested_backend", T::enumeration("NativeBackend")).optional(),
             column("classes", T::list(T::enumeration("NativeProblemClass"))),
+            column("state", T::enumeration("NativeAssessmentState")),
+            column("snapshot", T::hash()),
+            column("pending_backend", T::enumeration("NativeBackend")).optional(),
+            column("evidence", T::list(T::enumeration("NativeEvidenceDemand"))),
+            column("artifacts", T::list(T::enumeration("NativeArtifactDemand"))),
+            column(
+                "evidence_classes",
+                T::list(T::enumeration("NativeProblemClass")),
+            ),
+            column("required_order", T::nonnegative(2)).optional(),
+            column(
+                "artifact_representations",
+                T::list(T::enumeration("NativeRepresentation")),
+            ),
             column(
                 "eligibility",
                 T::list(record(vec![
                     ("backend", T::enumeration("NativeBackend")),
                     ("reasons", T::list(T::enumeration("NativeIneligibility"))),
+                    ("state", T::enumeration("NativeAssessmentState")),
+                    ("evidence", T::list(T::enumeration("NativeEvidenceDemand"))),
+                    ("artifacts", T::list(T::enumeration("NativeArtifactDemand"))),
+                    (
+                        "evidence_classes",
+                        T::list(T::enumeration("NativeProblemClass")),
+                    ),
+                    ("required_order", T::nonnegative(2).optional()),
+                    (
+                        "artifact_representations",
+                        T::list(T::enumeration("NativeRepresentation")),
+                    ),
+                    (
+                        "structural_mode",
+                        T::enumeration("NativeStructuralMode").optional(),
+                    ),
+                    ("structurally_admitted", flag().optional()),
                 ])),
             ),
             column("selected", T::enumeration("NativeRouteKind")).optional(),
@@ -344,6 +376,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "least_infeasible",
             "relaxed_incumbent",
             "incumbent_refused",
+            "feasibility_unavailable",
         ],
     );
     enumeration(
@@ -714,8 +747,33 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "least_squares",
             "method",
             "lexicographic",
+            "contextual",
+            "structural",
         ],
     );
+    enumeration(
+        b,
+        "NativeAssessmentState",
+        [
+            "refused",
+            "pending_evidence",
+            "supported_pending_artifacts",
+            "ready",
+        ],
+    );
+    enumeration(
+        b,
+        "NativeEvidenceDemand",
+        [
+            "class",
+            "structure",
+            "callback_contract",
+            "coefficients",
+            "cone",
+            "factorable",
+        ],
+    );
+    enumeration(b, "NativeArtifactDemand", ["derivatives", "representation"]);
     // Constraint handlers a native realization leaves to the backend (ADR-0104).
     enumeration(
         b,

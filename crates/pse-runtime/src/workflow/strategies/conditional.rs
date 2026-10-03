@@ -35,8 +35,9 @@ impl PreparedInitializationStrategy {
     /// Chosen routes, without an implicit failure fallback.
     pub fn strategies(&self) -> Result<Vec<native::routing::Route>, WorkflowError> {
         self.prepared
-            .strategies(&self.profile.solver.controls, self.profile.solver.selection)
-            .map_err(|e| MathRuntimeError::from(e).into())
+            .validate_profile(&self.values, &self.profile)
+            .map(|(routes, _)| routes)
+            .map_err(WorkflowError::from)
     }
     /// Execute with this revision's original values and provider bindings.
     pub fn start(&self) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
@@ -285,7 +286,7 @@ impl ModelingPackage {
             .runtime
             .native()
             .prepare_modeling_flow(
-                resolved.model.model.clone(),
+                resolved.model.model.compiled().semantic(),
                 self.quantities.clone(),
                 selection,
                 cancel,
@@ -518,17 +519,29 @@ impl ModelingPackage {
                 .filter(|v| !v.fixed)
                 .map(|v| v.port.id)
                 .collect();
+            let incidence = program
+                .assembly
+                .incidence(&Arc::new(std::sync::atomic::AtomicBool::new(false)))
+                .map_err(MathRuntimeError::from)?;
             if conditional.is_none()
-                && program.assembly.structure().instances().iter().any(|i| {
-                    i.contributions.iter().any(|c| {
-                        program.assembly.bodies()[&i.body].support().first[c.output]
-                            .iter()
-                            .any(|slot| {
-                                let id = i.slots[*slot].source();
-                                free.contains(&id) && !declared.contains(&id)
-                            })
+                && program
+                    .assembly
+                    .structure()
+                    .instances()
+                    .iter()
+                    .enumerate()
+                    .any(|(index, i)| {
+                        i.contributions.iter().any(|c| {
+                            incidence[index]
+                                .first_for_output(c.output)
+                                .into_iter()
+                                .flatten()
+                                .any(|slot| {
+                                    let id = i.slots[*slot].source();
+                                    free.contains(&id) && !declared.contains(&id)
+                                })
+                        })
                     })
-                })
             {
                 return Err(contract(
                     "causal function depends on an undeclared free input",

@@ -112,6 +112,8 @@ pub(crate) fn run(
     let constants = vec![0.0; p.bounds.len()];
     execution::coefficients(
         Step {
+            snapshot: &execution::Snapshot::observe(&execution::LINKED),
+            structure: None,
             adapter: execution::adapter(backend),
             settings,
             controls,
@@ -124,6 +126,7 @@ pub(crate) fn run(
         },
         &mut Retained::default(),
         Coefficients {
+            lowered: None,
             problem: p,
             certificate: evidence,
             row_constants: &constants,
@@ -499,7 +502,11 @@ fn solve_both(direct: Direct, threads: usize) -> [SolveReport; 2] {
     };
     let settings = clarabel(direct);
     execution::adapter(Backend::Clarabel)
-        .admit_settings(&settings, &controls)
+        .admit_settings(
+            &settings,
+            &controls,
+            &execution::Snapshot::observe(&execution::LINKED),
+        )
         .unwrap();
     let evidence: &dyn QuadraticEvidence = &proof;
     [(&lp, None), (&qp, Some(evidence))].map(|(p, evidence)| {
@@ -550,11 +557,19 @@ fn clarabel_mkl_pardiso_matches_qdldl() {
     };
     let adapter = execution::adapter(Backend::Clarabel);
     assert!(matches!(
-        adapter.admit_settings(&clarabel(Direct::Qdldl), &two),
+        adapter.admit_settings(
+            &clarabel(Direct::Qdldl),
+            &two,
+            &execution::Snapshot::observe(&execution::LINKED)
+        ),
         Err(ProblemError::Unsupported(_))
     ));
     adapter
-        .admit_settings(&clarabel(Direct::MklPardiso), &two)
+        .admit_settings(
+            &clarabel(Direct::MklPardiso),
+            &two,
+            &execution::Snapshot::observe(&execution::LINKED),
+        )
         .unwrap();
     assert!(adapter.capability().parallel);
 }
@@ -565,7 +580,11 @@ fn clarabel_mkl_pardiso_matches_qdldl() {
 fn clarabel_mkl_pardiso_refused_without_profile() {
     let adapter = execution::adapter(Backend::Clarabel);
     assert!(matches!(
-        adapter.admit_settings(&clarabel(Direct::MklPardiso), &Controls::default()),
+        adapter.admit_settings(
+            &clarabel(Direct::MklPardiso),
+            &Controls::default(),
+            &execution::Snapshot::observe(&execution::LINKED)
+        ),
         Err(ProblemError::Unsupported(_))
     ));
     assert!(!adapter.capability().parallel);

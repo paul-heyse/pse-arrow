@@ -63,10 +63,8 @@ impl Settings {
     /// # Errors
     /// SPRAL without `OMP_CANCELLATION=TRUE`; exact mode with reoptimization, IIS
     /// generation or concurrency; reoptimization with concurrency.
-    pub fn admit(&self, threads: usize) -> Result<(), ProblemError> {
-        if self.nlp_linear_solver == IpoptLinearSolver::Spral
-            && !std::env::var("OMP_CANCELLATION").is_ok_and(|v| v.eq_ignore_ascii_case("true"))
-        {
+    pub fn admit(&self, threads: usize, snapshot: &super::Snapshot) -> Result<(), ProblemError> {
+        if self.nlp_linear_solver == IpoptLinearSolver::Spral && !snapshot.scip_omp_cancellation {
             return Err(ProblemError::Unsupported(
                 "SPRAL in SCIP's nested Ipopt needs OMP_CANCELLATION=TRUE".into(),
             ));
@@ -157,10 +155,11 @@ impl BackendExecution for Scip {
         &self,
         settings: &BackendSettings,
         controls: &Controls,
+        snapshot: &super::Snapshot,
     ) -> Result<(), ProblemError> {
         match settings {
-            BackendSettings::Default => Settings::default().admit(controls.threads),
-            BackendSettings::Scip(s) => s.admit(controls.threads),
+            BackendSettings::Default => Settings::default().admit(controls.threads, snapshot),
+            BackendSettings::Scip(s) => s.admit(controls.threads, snapshot),
             _ => Err(super::foreign(Backend::Scip)),
         }
     }
@@ -169,6 +168,29 @@ impl BackendExecution for Scip {
     }
     fn accepts(&self, payload: &WarmPayload) -> bool {
         matches!(payload, WarmPayload::Nlp { .. })
+    }
+    fn validate_snapshot(
+        &self,
+        settings: &BackendSettings,
+        snapshot: &super::Snapshot,
+    ) -> Result<(), ProblemError> {
+        snapshot.validate_for(self)?;
+        let defaults = Settings::default();
+        let settings = match settings {
+            BackendSettings::Default => &defaults,
+            BackendSettings::Scip(settings) => settings,
+            _ => return Err(super::foreign(Backend::Scip)),
+        };
+        if settings.nlp_linear_solver == IpoptLinearSolver::Spral
+            && snapshot.scip_omp_cancellation
+                != std::env::var("OMP_CANCELLATION")
+                    .is_ok_and(|value| value.eq_ignore_ascii_case("true"))
+        {
+            return Err(ProblemError::Unsupported(
+                "selected SCIP runtime observation changed".into(),
+            ));
+        }
+        Ok(())
     }
     fn execute(
         &self,
@@ -195,6 +217,7 @@ impl BackendExecution for Scip {
             // Only a reoptimization session retains native state across attempts.
             crate::scip::solve(
                 &crate::scip::Request {
+                    snapshot: input.snapshot,
                     program,
                     initial,
                     intent,

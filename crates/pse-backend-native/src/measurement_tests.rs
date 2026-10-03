@@ -233,6 +233,8 @@ fn nlp(
     let started = Instant::now();
     let report = execution::nlp(
         Step {
+            snapshot: &execution::Snapshot::observe(&LINKED),
+            structure: None,
             adapter: LINKED.get(backend).unwrap(),
             settings,
             controls: &controls,

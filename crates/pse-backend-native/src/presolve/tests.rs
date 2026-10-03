@@ -89,6 +89,8 @@ impl Mixed {
                 smoothness: pse_kernels::DerivativeOrder::Second,
             },
             facts: Facts {
+                class_status: pse_math::presolve::ClassStatus::Established,
+                proof_remaining: 65536,
                 obligations: BTreeMap::new(),
                 signs: BTreeMap::new(),
                 has_guards: false,

@@ -11,6 +11,134 @@ use crate::{
     },
 };
 use pse_kernels::DerivativeOrder;
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+/// Readiness is distinct from scientific eligibility and static inventory.
+pub use pse_model::generated::enums::NativeAssessmentState as AssessmentState;
+/// A finite piece of evidence whose absence prevents a contextual decision.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EvidenceDemand {
+    /// Establish or rule out this intent-relevant mathematical class.
+    Class(ProblemClass),
+    /// Complete original-equation conservative incidence and its matching witness.
+    Structure,
+    /// The callback contract, guards and policy budgets needed by its owner.
+    CallbackContract,
+    /// The original coefficient representation and its requested guarantees.
+    Coefficients,
+    /// The admitted cone subtypes and representation.
+    Cone,
+    /// The original factorable graph and native-handler admission.
+    Factorable,
+}
+/// A scientifically supported candidate's still-unprepared execution products.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArtifactDemand {
+    /// Exact selected mathematical derivative order.
+    Derivatives(DerivativeOrder),
+    /// The selected native representation and its executable realization.
+    Representation(crate::execution::Representation),
+}
+impl EvidenceDemand {
+    /// Generated publication vocabulary; exact class payload stays typed beside it.
+    pub const fn code(self) -> pse_model::generated::enums::NativeEvidenceDemand {
+        use pse_model::generated::enums::NativeEvidenceDemand as E;
+        match self {
+            Self::Class(_) => E::Class,
+            Self::Structure => E::Structure,
+            Self::CallbackContract => E::CallbackContract,
+            Self::Coefficients => E::Coefficients,
+            Self::Cone => E::Cone,
+            Self::Factorable => E::Factorable,
+        }
+    }
+}
+impl ArtifactDemand {
+    /// Generated publication vocabulary; exact order/representation stay typed beside it.
+    pub const fn code(self) -> pse_model::generated::enums::NativeArtifactDemand {
+        use pse_model::generated::enums::NativeArtifactDemand as A;
+        match self {
+            Self::Derivatives(_) => A::Derivatives,
+            Self::Representation(_) => A::Representation,
+        }
+    }
+}
+fn evidence_classes(evidence: &[EvidenceDemand]) -> Vec<ProblemClass> {
+    evidence
+        .iter()
+        .filter_map(|demand| match demand {
+            EvidenceDemand::Class(class) => Some(*class),
+            _ => None,
+        })
+        .collect()
+}
+fn required_order(artifacts: &[ArtifactDemand]) -> Option<i64> {
+    artifacts
+        .iter()
+        .filter_map(|demand| match demand {
+            ArtifactDemand::Derivatives(order) => Some(*order as i64),
+            _ => None,
+        })
+        .max()
+}
+fn artifact_representations(artifacts: &[ArtifactDemand]) -> Vec<crate::execution::Representation> {
+    artifacts
+        .iter()
+        .filter_map(|demand| match demand {
+            ArtifactDemand::Representation(representation) => Some(*representation),
+            _ => None,
+        })
+        .collect()
+}
+/// Complete original structural inputs, shared by every candidate interpretation.
+#[derive(Clone, Debug)]
+pub struct Structure {
+    /// All original free columns.
+    pub variables: Vec<pse_ids::SemanticId>,
+    /// All original rows, including inequalities and isolated rows.
+    pub equations: Vec<pse_structural::incidence::Constraint>,
+    /// Existing library matching, never a candidate-specific second search.
+    pub witness: pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>,
+}
+/// One admitted cone representation paired with proof for that exact matrix/orientation.
+#[derive(Clone, Copy, Debug)]
+pub struct ConeEvidence<'a> {
+    /// The actual cone-space representation.
+    pub problem: &'a crate::ConicProblem,
+    /// PSD evidence in these same cone coordinates and minimization orientation.
+    pub certificate: &'a dyn pse_math::convexity::QuadraticEvidence,
+}
+/// Immutable contextual inputs supplied by the composition boundary.
+#[derive(Clone, Debug)]
+pub struct Context<'a> {
+    /// Build/runtime observation captured before policy assessment.
+    pub snapshot: crate::execution::Snapshot,
+    /// Missing class proofs relevant to this intent/selection, in class priority order.
+    pub pending_classes: &'a [ProblemClass],
+    /// Established candidate-specific scientific/representation incompatibilities.
+    /// Resource, cancellation, infrastructure and attempt failures are never entered here.
+    pub refusals: &'a BTreeMap<Backend, Arc<ProblemError>>,
+    /// Complete original structural evidence; absent means pending evidence.
+    pub structure: Option<Structure>,
+    /// Original callback metadata, without acquiring any evaluator/worker.
+    pub oracle: Option<&'a crate::OracleContract>,
+    /// Existing checked guard facts, used by root/sign admission.
+    pub guards: &'a BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
+    /// Existing physical/native policy budgets used by callback settings admission.
+    pub budgets: Option<crate::execution::Budgets<'a>>,
+    /// Established original coefficient representation, when demanded.
+    pub coefficients: Option<&'a crate::CoefficientProblem>,
+    /// Original-space PSD proof consumed by coefficient/cone admission.
+    pub certificate: Option<&'a dyn pse_math::convexity::QuadraticEvidence>,
+    /// Established original cone representation, when demanded.
+    pub cone: Option<ConeEvidence<'a>>,
+    /// Established original factorable representation, when demanded.
+    pub factorable: Option<&'a pse_math::factorable::FactorableProgram>,
+    /// Already prepared products for this exact immutable case/profile.
+    pub prepared: &'a [ArtifactDemand],
+}
+
 use pse_math::facts::{BoundShape, ProblemFacts};
 use pse_model::generated::enums::{
     ModelingStructuralRequirement, ModelingVariableDomain, NativeConstraintForm,
@@ -65,12 +193,35 @@ pub struct Decision {
     pub structure: Option<crate::structural::Assessment>,
     /// Admission refusal, never inferred from an absent candidate.
     pub refusal: Option<Refusal>,
+    /// Contextual readiness of this decision.
+    pub state: AssessmentState,
+    /// Finite missing evidence; no eligibility conclusion is inferred from its absence.
+    pub evidence: Vec<EvidenceDemand>,
+    /// Highest-priority unresolved candidate whose contextual evidence is requested.
+    pub pending_backend: Option<Backend>,
+    /// Execution products demanded by the selected scientifically supported candidate.
+    pub artifacts: Vec<ArtifactDemand>,
+    /// Exact build/runtime observation consumed by this assessment.
+    pub snapshot: pse_ids::ContentHash,
 }
 impl Decision {
     /// Return the admitted route or preserve all refusal facts in its typed cause.
     pub fn route(&self) -> Result<Route, ProblemError> {
         self.selected
-            .filter(|_| self.refusal.is_none())
+            .filter(|_| self.refusal.is_none() && self.state == AssessmentState::Ready)
+            .ok_or_else(|| ProblemError::RouteRefused(Box::new(self.clone())))
+    }
+    /// Select the established candidate whose pending artifacts the caller must prepare.
+    /// Missing decision evidence or a contextual refusal never selects a candidate.
+    pub fn candidate(&self) -> Result<Route, ProblemError> {
+        self.selected
+            .filter(|_| {
+                self.refusal.is_none()
+                    && matches!(
+                        self.state,
+                        AssessmentState::Ready | AssessmentState::SupportedPendingArtifacts
+                    )
+            })
             .ok_or_else(|| ProblemError::RouteRefused(Box::new(self.clone())))
     }
     /// Publish retained admission facts without manufacturing a numerical run identity.
@@ -110,12 +261,31 @@ impl Decision {
             selection,
             requested_backend,
             classes: self.classes.clone(),
+            state: self.state,
+            snapshot: self.snapshot,
+            evidence: self.evidence.iter().map(|demand| demand.code()).collect(),
+            artifacts: self.artifacts.iter().map(|demand| demand.code()).collect(),
+            evidence_classes: evidence_classes(&self.evidence),
+            required_order: required_order(&self.artifacts),
+            artifact_representations: artifact_representations(&self.artifacts),
+            pending_backend: self.pending_backend,
             eligibility: self
                 .eligibility
                 .iter()
                 .map(|entry| RuntimeRouteDecisionsFieldEligibilityItem {
                     backend: entry.backend,
                     reasons: entry.reasons.iter().map(Ineligible::code).collect(),
+                    state: entry.state,
+                    evidence: entry.evidence.iter().map(|demand| demand.code()).collect(),
+                    artifacts: entry.artifacts.iter().map(|demand| demand.code()).collect(),
+                    evidence_classes: evidence_classes(&entry.evidence),
+                    required_order: required_order(&entry.artifacts),
+                    artifact_representations: artifact_representations(&entry.artifacts),
+                    structural_mode: entry.structure.as_ref().map(|structure| structure.mode),
+                    structurally_admitted: entry
+                        .structure
+                        .as_ref()
+                        .map(|structure| structure.refusal.is_none()),
                 })
                 .collect(),
             selected,
@@ -128,16 +298,39 @@ impl Decision {
     }
     /// Bytes retained outside a fixed route receipt.
     pub fn retained_bytes(&self) -> usize {
+        let structure_bytes = |structure: &crate::structural::Assessment| {
+            structure.variables.capacity() * size_of::<pse_ids::SemanticId>()
+                + structure.equations.capacity()
+                    * size_of::<pse_structural::incidence::Constraint>()
+                + structure.refusal.as_ref().map_or(0, |(rows, columns)| {
+                    (rows.capacity() + columns.capacity()) * size_of::<pse_ids::SemanticId>()
+                })
+        };
         self.classes.capacity() * size_of::<ProblemClass>()
+            + self.evidence.capacity() * size_of::<EvidenceDemand>()
+            + self.artifacts.capacity() * size_of::<ArtifactDemand>()
+            + self.eligibility.capacity() * size_of::<Eligibility>()
             + self
                 .eligibility
                 .iter()
-                .map(|e| e.reasons.capacity() * size_of::<Ineligible>())
+                .map(|entry| {
+                    entry.reasons.capacity() * size_of::<Ineligible>()
+                        + entry.causes.capacity() * size_of::<Arc<ProblemError>>()
+                        + entry.class_dependencies.capacity()
+                            * size_of::<pse_math::presolve::ClassDependency>()
+                        + entry
+                            .causes
+                            .iter()
+                            .map(|cause| cause.retained_bytes())
+                            .sum::<usize>()
+                        + entry.evidence.capacity() * size_of::<EvidenceDemand>()
+                        + entry.artifacts.capacity() * size_of::<ArtifactDemand>()
+                        + entry.factorable_refusals.capacity()
+                            * size_of::<crate::execution::Refusal>()
+                        + entry.structure.as_ref().map_or(0, structure_bytes)
+                })
                 .sum::<usize>()
-            + self.structure.as_ref().map_or(0, |s| {
-                s.variables.capacity() * size_of::<pse_ids::SemanticId>()
-                    + s.equations.capacity() * size_of::<pse_structural::incidence::Constraint>()
-            })
+            + self.structure.as_ref().map_or(0, structure_bytes)
     }
 }
 impl std::fmt::Display for Decision {
@@ -170,9 +363,9 @@ pub enum Ineligible {
         /// Classes the facts and intent establish for this problem.
         problem: Vec<ProblemClass>,
     },
-    /// The prepared smooth derivative order is below the adapter's requirement.
+    /// Scientifically available selected smooth derivatives are below the requirement.
     Derivatives {
-        /// Required prepared order.
+        /// Required scientific order.
         required: DerivativeOrder,
     },
     /// A bound shape the adapter cannot represent.
@@ -194,9 +387,11 @@ pub enum Ineligible {
         /// Unmet requirements, in order.
         requirements: Vec<ModelingStructuralRequirement>,
     },
-    /// Several objectives, in none of the classes the adapter optimizes lexicographically
-    /// in one native solve (ADR-0111 item 4); a staged sequence optimizes them one level
-    /// at a time instead.
+    /// The adapter-owned settings or representation contract refuses this case.
+    Contextual,
+    /// The candidate's original structural interpretation refuses this case.
+    Structural,
+    /// Several objectives require an admitted native or staged lexicographic sequence.
     Lexicographic {
         /// Classes the facts and intent establish for this problem.
         problem: Vec<ProblemClass>,
@@ -205,6 +400,8 @@ pub enum Ineligible {
 impl std::fmt::Display for Ineligible {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Contextual => f.write_str("adapter-owned contextual contract refused"),
+            Self::Structural => f.write_str("original structural interpretation refused"),
             Self::NotLinked => f.write_str("adapter not linked"),
             Self::Serial => f.write_str("linked profile is serial"),
             Self::NotSquareRoot => f.write_str(
@@ -227,7 +424,7 @@ impl std::fmt::Display for Ineligible {
             }
             Self::Derivatives { required } => write!(
                 f,
-                "requires prepared smooth {} derivatives",
+                "requires available smooth {} derivatives",
                 match required {
                     DerivativeOrder::Second => "second",
                     _ => "first",
@@ -271,6 +468,8 @@ impl Ineligible {
     /// Registry reason code: the one name of this reason across the Python boundary.
     pub const fn code(&self) -> NativeIneligibility {
         match self {
+            Self::Contextual => NativeIneligibility::Contextual,
+            Self::Structural => NativeIneligibility::Structural,
             Self::NotLinked => NativeIneligibility::NotLinked,
             Self::Serial => NativeIneligibility::Serial,
             Self::NotSquareRoot => NativeIneligibility::NotSquareRoot,
@@ -293,6 +492,43 @@ pub struct Eligibility {
     pub backend: Backend,
     /// Every applicable refusal; empty means eligible.
     pub reasons: Vec<Ineligible>,
+    /// Original typed causes supplied by settings/representation/structural owners.
+    pub causes: Vec<Arc<ProblemError>>,
+    /// Original unresolved class dependencies, retaining actual instance/output attribution.
+    pub class_dependencies: Vec<pse_math::presolve::ClassDependency>,
+    /// Finite missing decision evidence.
+    pub evidence: Vec<EvidenceDemand>,
+    /// Supported but unprepared execution products.
+    pub artifacts: Vec<ArtifactDemand>,
+    /// Existing factorable owner refusals, retained without rendering away their types.
+    pub factorable_refusals: Vec<crate::execution::Refusal>,
+    /// This candidate's interpretation of the shared original witness.
+    pub structure: Option<crate::structural::Assessment>,
+    /// Contextual readiness, never inferred merely from empty static reasons.
+    pub state: AssessmentState,
+}
+impl Eligibility {
+    /// Retain an original typed owner refusal without replacing its cause.
+    pub fn refuse(&mut self, cause: ProblemError) {
+        if !self.reasons.contains(&Ineligible::Contextual) {
+            self.reasons.push(Ineligible::Contextual);
+        }
+        self.causes.push(Arc::new(cause));
+    }
+    /// Derive readiness from the complete assessment, in semantic precedence order.
+    pub fn finish(&mut self) {
+        self.evidence.dedup();
+        self.artifacts.dedup();
+        self.state = if !self.reasons.is_empty() || !self.causes.is_empty() {
+            AssessmentState::Refused
+        } else if !self.evidence.is_empty() {
+            AssessmentState::PendingEvidence
+        } else if !self.artifacts.is_empty() {
+            AssessmentState::SupportedPendingArtifacts
+        } else {
+            AssessmentState::Ready
+        };
+    }
 }
 impl std::fmt::Display for Eligibility {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -342,11 +578,76 @@ pub struct Requirements<'a> {
     /// analysis differentiates. An explicit selection of any other adapter still solves,
     /// and the quantities are withheld with their reason.
     pub sensitivity: bool,
+    /// Explicit immutable case/profile/build context consumed by this assessment.
+    pub context: Context<'a>,
+}
+/// Whether authored-model routing needs original coefficient-class proof before choice.
+/// Callback-only workflows state their available representation separately; they do not
+/// invent symbolic export evidence from numerical callbacks.
+pub fn class_evidence_required(
+    facts: &ProblemFacts,
+    intent: SolveIntent,
+    selection: SolverSelection,
+) -> bool {
+    if facts.variables == 0 || matches!(intent, SolveIntent::Root | SolveIntent::Initialize) {
+        return false;
+    }
+    if !matches!(
+        facts.class_status,
+        pse_math::presolve::ClassStatus::Unassessed
+    ) {
+        return false;
+    }
+    match selection {
+        SolverSelection::Auto => true,
+        SolverSelection::Explicit(backend) => matches!(
+            crate::execution::adapter(backend).representation(),
+            crate::execution::Representation::Coefficients | crate::execution::Representation::Cone
+        ),
+    }
+}
+/// Unknown authored coefficient proofs remain finite evidence demands, never a negative class.
+pub fn pending_class_evidence(
+    facts: &ProblemFacts,
+    intent: SolveIntent,
+    selection: SolverSelection,
+) -> Vec<ProblemClass> {
+    if facts.variables == 0
+        || root_intent(intent)
+        || !matches!(
+            facts.class_status,
+            pse_math::presolve::ClassStatus::Pending(_)
+                | pse_math::presolve::ClassStatus::Unassessed
+        )
+    {
+        return vec![];
+    }
+    if let SolverSelection::Explicit(backend) = selection
+        && !matches!(
+            crate::execution::adapter(backend).representation(),
+            crate::execution::Representation::Coefficients | crate::execution::Representation::Cone
+        )
+    {
+        return vec![];
+    }
+    if continuous(facts) {
+        vec![
+            ProblemClass::Linear,
+            ProblemClass::ConvexQuadratic,
+            ProblemClass::NonconvexQuadratic,
+        ]
+    } else {
+        vec![
+            ProblemClass::MixedLinear,
+            ProblemClass::MixedIntegerQuadratic,
+        ]
+    }
 }
 /// Project an already admitted native oracle into the same contextual selector.
 /// Callers supply the represented objective/equality meaning, not a backend preference.
 pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool) -> ProblemFacts {
     ProblemFacts {
+        class_status: pse_math::presolve::ClassStatus::Unassessed,
         variables: c.variables.len(),
         rows: c.rows.len(),
         objective,
@@ -377,6 +678,38 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         requirements: vec![],
         convexity: pse_math::convexity::Convexity::not_assessed(c.identity),
     }
+}
+/// Facts established by a validated explicit convex-cone representation.
+/// Cone membership itself establishes this class; no callback coefficient proof is invented.
+pub fn conic_facts(
+    problem: &crate::ConicProblem,
+    certificate: &dyn pse_math::convexity::QuadraticEvidence,
+) -> Result<ProblemFacts, ProblemError> {
+    use crate::conic::Cone;
+    problem.validate(certificate)?;
+    let mut summary = pse_math::convexity::ConeSummary::default();
+    for cone in &problem.cones {
+        match cone {
+            Cone::Zero { .. } | Cone::PsdTriangle { .. } => {}
+            Cone::Nonnegative { dimension } => summary.nonnegative += dimension,
+            Cone::SecondOrder { .. } => summary.second_order += 1,
+            Cone::Exponential => summary.exponential += 1,
+            Cone::Power { .. } | Cone::GeneralizedPower { .. } => summary.power += 1,
+        }
+    }
+    let mut facts = oracle_facts(
+        &problem.contract,
+        true,
+        problem
+            .cones
+            .iter()
+            .all(|cone| matches!(cone, Cone::Zero { .. })),
+    );
+    facts.convexity = pse_math::convexity::Convexity {
+        key: problem.contract.identity,
+        class: pse_math::convexity::ConvexityClass::Cone(summary),
+    };
+    Ok(facts)
 }
 fn continuous(f: &ProblemFacts) -> bool {
     f.domains
@@ -428,7 +761,15 @@ pub fn problem_classes(
     }
     if !root_intent(intent) {
         let convex = f.convexity.convex_quadratic().is_some() || numerical_psd;
-        match (f.coefficients, f.quadratic, continuous(f)) {
+        let coefficient_class = f.coefficients
+            || matches!(
+                f.class_status,
+                pse_math::presolve::ClassStatus::Established
+                    | pse_math::presolve::ClassStatus::RepresentationLimited(_)
+            ) && f.affine_rows.iter().all(|affine| *affine)
+                && f.objective_degree.is_some_and(|degree| degree <= 2);
+        let quadratic = f.quadratic || !f.coefficients && f.objective_degree == Some(2);
+        match (coefficient_class, quadratic, continuous(f)) {
             (true, false, true) => classes.push(ProblemClass::Linear),
             (true, false, false) => classes.push(ProblemClass::MixedLinear),
             (true, true, true) if convex => classes.push(ProblemClass::ConvexQuadratic),
@@ -476,7 +817,13 @@ pub fn admit(
             problem: classes.clone(),
         });
     }
-    if !classes.iter().any(|c| capability.classes.contains(c)) {
+    if !classes.iter().any(|c| capability.classes.contains(c))
+        && !r
+            .context
+            .pending_classes
+            .iter()
+            .any(|c| capability.classes.contains(c))
+    {
         reasons.push(Ineligible::Class { problem: classes });
     }
     if r.controls.hessian == HessianMode::GaussNewton && !r.least_squares {
@@ -484,9 +831,12 @@ pub fn admit(
     }
     // Every mode other than the library's quasi-Newton approximation is a supplied
     // Hessian: exact, or the Gauss–Newton Gram with constraint curvature.
-    let required = derivative_demand(capability, r.controls);
+    let required = r
+        .table
+        .get(backend)
+        .and_then(|adapter| adapter.required_order(r));
     if let Some(required) = required
-        && f.derivatives.min(f.prepared_derivatives) < required
+        && f.derivatives < required
     {
         reasons.push(Ineligible::Derivatives { required });
     }
@@ -530,16 +880,85 @@ pub fn admit(
     }
     reasons
 }
+/// Interpret shared original evidence separately for each candidate before suitability.
+pub fn assess_static(
+    backend: Backend,
+    capability: &Capability,
+    requirements: &Requirements<'_>,
+) -> Eligibility {
+    let mut assessment = Eligibility {
+        backend,
+        reasons: admit(
+            backend,
+            capability,
+            requirements.context.snapshot.linked(backend),
+            requirements,
+        ),
+        class_dependencies: if requirements.context.pending_classes.is_empty() {
+            vec![]
+        } else {
+            match &requirements.facts.class_status {
+                pse_math::presolve::ClassStatus::Pending(dependencies) => dependencies.clone(),
+                _ => vec![],
+            }
+        },
+        causes: vec![],
+        evidence: requirements
+            .context
+            .pending_classes
+            .iter()
+            .copied()
+            .map(EvidenceDemand::Class)
+            .collect(),
+        artifacts: vec![],
+        factorable_refusals: vec![],
+        structure: None,
+        state: AssessmentState::PendingEvidence,
+    };
+    if let Some(original) = &requirements.context.structure {
+        let mode = crate::structural::mode(
+            capability.structural,
+            requirements.facts,
+            requirements.intent,
+        );
+        match crate::structural::Assessment::new(
+            mode,
+            original.variables.clone(),
+            original.equations.clone(),
+            original.witness.clone(),
+        ) {
+            Ok(structure) => {
+                if let Err(cause) = structure.admit() {
+                    assessment.reasons.push(Ineligible::Structural);
+                    assessment.causes.push(Arc::new(cause));
+                }
+                assessment.structure = Some(structure);
+            }
+            Err(cause) => assessment.refuse(cause),
+        }
+    } else {
+        assessment.evidence.push(EvidenceDemand::Structure);
+    }
+    if let Some(required) = requirements
+        .table
+        .get(backend)
+        .and_then(|adapter| adapter.required_order(requirements))
+        && requirements.facts.derivatives >= required
+        && requirements.facts.prepared_derivatives < required
+    {
+        assessment
+            .artifacts
+            .push(ArtifactDemand::Derivatives(required));
+    }
+    assessment
+}
 impl Requirements<'_> {
     /// Assess every exposed algebraic adapter through the one eligibility rule.
     pub fn eligibility(&self) -> Vec<Eligibility> {
         self.table
             .adapters()
-            .filter(|a| crate::execution::algebraic(a.representation()))
-            .map(|a| Eligibility {
-                backend: a.backend(),
-                reasons: a.admit(self),
-            })
+            .filter(|adapter| crate::execution::algebraic(adapter.representation()))
+            .map(|adapter| adapter.assess(self))
             .collect()
     }
     /// Deterministic route; explicit selection never silently falls back.
@@ -555,34 +974,24 @@ impl Requirements<'_> {
         equations: Vec<pse_structural::incidence::Constraint>,
         witness: pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>,
     ) -> Result<Decision, ProblemError> {
-        let mut decision = self.decision(selection);
-        let policy = match decision.selected {
-            Some(Route::Native(backend)) => {
-                self.table.get(backend).map(|a| a.capability().structural)
-            }
-            _ => match selection {
-                SolverSelection::Explicit(backend) => {
-                    self.table.get(backend).map(|a| a.capability().structural)
-                }
-                SolverSelection::Auto => None,
-            },
-        }
-        .unwrap_or(if self.facts.coefficients || self.facts.convexity.cone() {
-            crate::structural::Policy::NativeFeasibility
-        } else {
-            crate::structural::Policy::Equalities
+        let mut context = self.context.clone();
+        context.structure = Some(Structure {
+            variables,
+            equations,
+            witness,
         });
-        let mode = if decision.selected == Some(Route::Constant) {
-            crate::structural::Mode::PointEvaluation
-        } else {
-            crate::structural::mode(policy, self.facts, self.intent)
+        let requirements = Requirements {
+            context,
+            table: self.table,
+            facts: self.facts,
+            intent: self.intent,
+            numerical_psd: self.numerical_psd,
+            least_squares: self.least_squares,
+            controls: self.controls,
+            settings: self.settings,
+            sensitivity: self.sensitivity,
         };
-        let assessment = crate::structural::Assessment::new(mode, variables, equations, witness)?;
-        if assessment.refusal.is_some() && decision.refusal.is_none() {
-            decision.refusal = Some(Refusal::Structure);
-        }
-        decision.structure = Some(assessment);
-        Ok(decision)
+        Ok(requirements.decision(selection))
     }
     fn decide_assessed(
         &self,
@@ -590,37 +999,121 @@ impl Requirements<'_> {
         eligibility: Vec<Eligibility>,
         lexicographic: Option<Lexicographic>,
     ) -> Decision {
-        let result = self.select_assessed(selection, &eligibility);
-        let (selected, refusal) = match result {
-            Ok(route) => (Some(route), None),
-            Err(ProblemError::Contract(detail)) => (None, Some(Refusal::InvalidRequest(detail))),
-            Err(ProblemError::Unavailable { backend, .. }) => {
+        // Candidates needing evidence keep their class/rank position. They cannot be
+        // silently skipped in favour of a lower-class or already-prepared candidate.
+        let ordered = |sensitivities: bool| {
+            let mut classes = self.context.pending_classes.to_vec();
+            for class in problem_classes(self.facts, self.intent, self.numerical_psd) {
+                if !classes.contains(&class) {
+                    classes.push(class);
+                }
+            }
+            classes.into_iter().find_map(|class| {
+                self.table
+                    .adapters()
+                    .filter(|a| a.capability().automatic_classes.contains(&class))
+                    .filter(|a| !sensitivities || a.capability().sensitivities)
+                    .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
+                    .filter(|(_, backend)| {
+                        eligibility.iter().any(|entry| {
+                            entry.backend == *backend && entry.state != AssessmentState::Refused
+                        })
+                    })
+                    .min_by_key(|(rank, _)| *rank)
+                    .map(|(_, backend)| backend)
+            })
+        };
+        let preferred = match selection {
+            SolverSelection::Explicit(backend) => Some(backend),
+            SolverSelection::Auto => self
+                .sensitivity
+                .then(|| ordered(true))
+                .flatten()
+                .or_else(|| ordered(false)),
+        };
+        let preferred_entry =
+            preferred.and_then(|backend| eligibility.iter().find(|entry| entry.backend == backend));
+        let mut evidence = preferred_entry.map_or_else(Vec::new, |entry| entry.evidence.clone());
+        let pending =
+            preferred_entry.is_some_and(|entry| entry.state == AssessmentState::PendingEvidence);
+        let result = if let Err(cause) = self.controls.validate() {
+            Some(Err(cause))
+        } else if pending {
+            None
+        } else {
+            Some(self.select_assessed(selection, &eligibility))
+        };
+        let (selected, mut refusal) = match result {
+            None => (None, None),
+            Some(Ok(route)) => (Some(route), None),
+            Some(Err(ProblemError::Contract(detail))) => {
+                (None, Some(Refusal::InvalidRequest(detail)))
+            }
+            Some(Err(ProblemError::Unavailable { backend, .. })) => {
                 (None, Some(Refusal::Unavailable(backend)))
             }
-            Err(_) if self.facts.variables == 0 && !self.facts.native.is_empty() => {
+            Some(Err(_)) if self.facts.variables == 0 && !self.facts.native.is_empty() => {
                 (None, Some(Refusal::ConstantNativeForms))
             }
-            Err(_) => (
+            Some(Err(_)) => (
                 None,
                 Some(match selection {
                     SolverSelection::Auto => Refusal::NoEligible,
-                    SolverSelection::Explicit(b) => Refusal::Ineligible(b),
+                    SolverSelection::Explicit(backend) => Refusal::Ineligible(backend),
                 }),
             ),
+        };
+        let chosen = selected.and_then(|route| match route {
+            Route::Native(backend) => eligibility.iter().find(|entry| entry.backend == backend),
+            Route::Constant => None,
+        });
+        let mut structure = chosen.and_then(|entry| entry.structure.clone());
+        if selected == Some(Route::Constant) {
+            if let Some(original) = &self.context.structure {
+                match crate::structural::Assessment::new(
+                    crate::structural::Mode::PointEvaluation,
+                    original.variables.clone(),
+                    original.equations.clone(),
+                    original.witness.clone(),
+                ) {
+                    Ok(assessment) => structure = Some(assessment),
+                    Err(_) => refusal = Some(Refusal::Structure),
+                }
+            } else {
+                evidence.push(EvidenceDemand::Structure);
+            }
+        }
+        let artifacts = chosen.map_or_else(Vec::new, |entry| entry.artifacts.clone());
+        let state = if refusal.is_some() {
+            AssessmentState::Refused
+        } else if pending || !evidence.is_empty() {
+            AssessmentState::PendingEvidence
+        } else if !artifacts.is_empty() {
+            AssessmentState::SupportedPendingArtifacts
+        } else {
+            AssessmentState::Ready
         };
         Decision {
             intent: self.intent,
             selection,
             classes: problem_classes(self.facts, self.intent, self.numerical_psd),
-            eligibility,
             selected,
-            representation: selected.and_then(|r| match r {
-                Route::Native(b) => self.table.get(b).map(|a| a.representation()),
+            representation: selected.and_then(|route| match route {
+                Route::Native(backend) => self
+                    .table
+                    .get(backend)
+                    .map(|adapter| adapter.representation()),
                 Route::Constant => None,
             }),
             lexicographic,
-            structure: None,
+            structure,
             refusal,
+            state,
+            evidence,
+            artifacts,
+            snapshot: self.context.snapshot.identity(),
+            pending_backend: pending.then_some(preferred).flatten(),
+            eligibility,
         }
     }
     /// A capability query chooses native priorities first, otherwise admitted stages.
@@ -637,9 +1130,10 @@ impl Requirements<'_> {
                     problem: problem_classes(self.facts, self.intent, self.numerical_psd),
                 });
             }
+            choice.finish();
         }
         let native = self.decide_assessed(selection, eligibility, Some(Lexicographic::Native));
-        if native.selected.is_some() {
+        if native.selected.is_some() || native.state == AssessmentState::PendingEvidence {
             return native;
         }
         let mut facts = self.facts.clone();
@@ -653,6 +1147,7 @@ impl Requirements<'_> {
             controls: self.controls,
             settings: self.settings,
             sensitivity: self.sensitivity,
+            context: self.context.clone(),
         };
         let mut decision =
             staged.decide_assessed(selection, staged.eligibility(), Some(Lexicographic::Staged));
@@ -661,7 +1156,7 @@ impl Requirements<'_> {
     }
     /// Select from the retained decision consumed by diagnostics.
     pub fn select(&self, selection: SolverSelection) -> Result<Route, ProblemError> {
-        self.decision(selection).route()
+        self.decision(selection).candidate()
     }
     fn select_assessed(
         &self,
@@ -675,9 +1170,13 @@ impl Requirements<'_> {
             ));
         }
         let admitted = |backend| {
-            choices
-                .iter()
-                .any(|c| c.backend == backend && c.reasons.is_empty())
+            choices.iter().any(|c| {
+                c.backend == backend
+                    && matches!(
+                        c.state,
+                        AssessmentState::Ready | AssessmentState::SupportedPendingArtifacts
+                    )
+            })
         };
         if self.intent == SolveIntent::Certify && !choices.iter().any(|c| c.reasons.is_empty()) {
             return Err(ProblemError::Unsupported(
@@ -766,6 +1265,93 @@ fn native_forms(forms: &[NativeConstraintForm]) -> String {
         .join(", ")
 }
 #[cfg(test)]
+pub(crate) fn test_context(table: &Table) -> Context<'static> {
+    static GUARDS: std::sync::LazyLock<
+        BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
+    > = std::sync::LazyLock::new(BTreeMap::new);
+    static REFUSALS: std::sync::LazyLock<BTreeMap<Backend, Arc<ProblemError>>> =
+        std::sync::LazyLock::new(BTreeMap::new);
+    Context {
+        snapshot: crate::execution::Snapshot {
+            adapters: table
+                .adapters()
+                .map(|adapter| {
+                    (
+                        adapter.backend(),
+                        crate::execution::BuildObservation {
+                            linked: adapter.linked(),
+                            identity: None,
+                        },
+                    )
+                })
+                .collect(),
+            ipopt: None,
+            scip_omp_cancellation: false,
+        },
+        pending_classes: &[],
+        refusals: &REFUSALS,
+        structure: None,
+        oracle: None,
+        guards: &GUARDS,
+        budgets: None,
+        coefficients: None,
+        certificate: None,
+        cone: None,
+        factorable: None,
+        prepared: &[],
+    }
+}
+#[cfg(test)]
+impl Requirements<'_> {
+    // These existing controls exercise the static class/rank rule only. Contextual
+    // readiness is exercised separately with concrete structural/representation inputs.
+    pub(crate) fn policy_eligibility_for_test(&self) -> Vec<Eligibility> {
+        self.table
+            .adapters()
+            .filter(|adapter| crate::execution::algebraic(adapter.representation()))
+            .map(|adapter| {
+                let reasons = admit(
+                    adapter.backend(),
+                    adapter.capability(),
+                    adapter.linked(),
+                    self,
+                );
+                let state = if reasons.is_empty() {
+                    AssessmentState::Ready
+                } else {
+                    AssessmentState::Refused
+                };
+                Eligibility {
+                    backend: adapter.backend(),
+                    reasons,
+                    causes: vec![],
+                    class_dependencies: vec![],
+                    evidence: vec![],
+                    artifacts: vec![],
+                    factorable_refusals: vec![],
+                    structure: None,
+                    state,
+                }
+            })
+            .collect()
+    }
+    pub(crate) fn policy_decision_for_test(&self, selection: SolverSelection) -> Decision {
+        let choices = self.policy_eligibility_for_test();
+        let mut decision = self.decide_assessed(selection, choices, None);
+        if decision.selected == Some(Route::Constant) && decision.refusal.is_none() {
+            decision.evidence.clear();
+            decision.state = AssessmentState::Ready;
+        }
+        decision
+    }
+    pub(crate) fn policy_select_for_test(
+        &self,
+        selection: SolverSelection,
+    ) -> Result<Route, ProblemError> {
+        self.policy_decision_for_test(selection).candidate()
+    }
+}
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::execution::{BackendSettings, LINKED, adapter};
@@ -795,7 +1381,7 @@ mod tests {
         else {
             panic!("a positive diagonal is PSD")
         };
-        fact(ConvexityClass::ConvexQuadratic(std::sync::Arc::new(c)))
+        fact(ConvexityClass::ConvexQuadratic(Arc::new(c)))
     }
     fn cone() -> Convexity {
         fact(ConvexityClass::Cone(ConeSummary {
@@ -808,6 +1394,7 @@ mod tests {
     fn caller_inventory_limits_automatic_selection() {
         let facts = root_facts();
         let requirements = Requirements {
+            context: test_context(&Table::new(&[])),
             table: &Table::new(&[]),
             facts: &facts,
             intent: SolveIntent::Root,
@@ -818,7 +1405,7 @@ mod tests {
             sensitivity: false,
         };
         assert!(matches!(
-            requirements.select(SolverSelection::Auto),
+            requirements.policy_select_for_test(SolverSelection::Auto),
             Err(ProblemError::RouteRefused(_))
         ));
         if adapter(Backend::Ipopt).linked() {
@@ -828,7 +1415,9 @@ mod tests {
                 ..requirements
             };
             assert_eq!(
-                requirements.select(SolverSelection::Auto).unwrap(),
+                requirements
+                    .policy_select_for_test(SolverSelection::Auto)
+                    .unwrap(),
                 Route::Native(Backend::Ipopt)
             );
         }
@@ -840,6 +1429,7 @@ mod tests {
         numerical_psd: bool,
     ) -> Result<Route, ProblemError> {
         Requirements {
+            context: test_context(&LINKED),
             table: &LINKED,
             facts: f,
             intent,
@@ -849,7 +1439,7 @@ mod tests {
             settings: &BackendSettings::Default,
             sensitivity: false,
         }
-        .select(selection)
+        .policy_select_for_test(selection)
     }
     #[test]
     fn conditional_unit_derivative_demand_comes_from_adapter_capability() {
@@ -873,6 +1463,7 @@ mod tests {
     }
     fn root_facts() -> ProblemFacts {
         ProblemFacts {
+            class_status: pse_math::presolve::ClassStatus::Established,
             variables: 1,
             rows: 1,
             objective: false,
@@ -909,6 +1500,7 @@ mod tests {
             ..Default::default()
         };
         let requirements = |least_squares| Requirements {
+            context: test_context(&LINKED),
             table: &LINKED,
             facts: &f,
             intent: SolveIntent::Optimize,
@@ -918,7 +1510,7 @@ mod tests {
             settings: &BackendSettings::Default,
             sensitivity: false,
         };
-        let steady = requirements(false).eligibility();
+        let steady = requirements(false).policy_eligibility_for_test();
         assert!(!steady.is_empty());
         for e in &steady {
             assert!(e.reasons.contains(&Ineligible::LeastSquares), "{e}");
@@ -928,14 +1520,18 @@ mod tests {
             Ineligible::LeastSquares.code(),
             NativeIneligibility::LeastSquares
         );
-        assert!(requirements(false).select(SolverSelection::Auto).is_err());
-        for e in requirements(true).eligibility() {
+        assert!(
+            requirements(false)
+                .policy_select_for_test(SolverSelection::Auto)
+                .is_err()
+        );
+        for e in requirements(true).policy_eligibility_for_test() {
             assert!(!e.reasons.contains(&Ineligible::LeastSquares), "{e}");
-            // A supplied Gauss–Newton Hessian needs second-order derivatives from the
-            // Hessian-consuming NLP adapters, like the exact one.
+            // Available second-order mathematics is eligible before its executable
+            // artifact is prepared; contextual controls cover that demand separately.
             if matches!(e.backend, Backend::Ipopt | Backend::Pounce) {
                 assert!(
-                    e.reasons.contains(&Ineligible::Derivatives {
+                    !e.reasons.contains(&Ineligible::Derivatives {
                         required: DerivativeOrder::Second
                     }),
                     "{e}"
@@ -950,6 +1546,7 @@ mod tests {
         let mut controls = crate::solve::Controls::default();
         let assess = |f: &ProblemFacts, c: &crate::solve::Controls| {
             Requirements {
+                context: test_context(&LINKED),
                 table: &LINKED,
                 facts: f,
                 intent: SolveIntent::Root,
@@ -959,7 +1556,7 @@ mod tests {
                 settings: &BackendSettings::Default,
                 sensitivity: false,
             }
-            .eligibility()
+            .policy_eligibility_for_test()
         };
         let reasons = |q: &[Eligibility], backend| {
             q.iter()
@@ -998,6 +1595,7 @@ mod tests {
         f.variables = 0;
         assert!(
             Requirements {
+                context: test_context(&LINKED),
                 table: &LINKED,
                 facts: &f,
                 intent: SolveIntent::Optimize,
@@ -1007,12 +1605,13 @@ mod tests {
                 settings: &BackendSettings::Default,
                 sensitivity: false,
             }
-            .select(SolverSelection::Auto)
+            .policy_select_for_test(SolverSelection::Auto)
             .is_err()
         );
     }
     fn miqp_facts() -> ProblemFacts {
         ProblemFacts {
+            class_status: pse_math::presolve::ClassStatus::Established,
             variables: 2,
             rows: 1,
             objective: true,
@@ -1043,6 +1642,7 @@ mod tests {
         f.objective_degree = Some(1);
         f.native = vec![NativeConstraintForm::Indicator];
         let requirements = Requirements {
+            context: test_context(&LINKED),
             table: &LINKED,
             facts: &f,
             intent: SolveIntent::Optimize,
@@ -1057,7 +1657,7 @@ mod tests {
         };
         // SCIP's record consumes the indicator handler (Plan 22 G7); every other record
         // is refused with the form it lacks, and automatic routing selects SCIP.
-        for choice in requirements.eligibility() {
+        for choice in requirements.policy_eligibility_for_test() {
             let consumes = adapter(choice.backend)
                 .capability()
                 .native_forms
@@ -1066,7 +1666,9 @@ mod tests {
             assert_eq!(!consumes, choice.reasons.contains(&missing), "{choice:?}");
         }
         assert_eq!(
-            requirements.select(SolverSelection::Auto).ok(),
+            requirements
+                .policy_select_for_test(SolverSelection::Auto)
+                .ok(),
             adapter(Backend::Scip)
                 .linked()
                 .then_some(Route::Native(Backend::Scip))
@@ -1103,6 +1705,7 @@ mod tests {
         let controls = crate::solve::Controls::default();
         let route = |f: &ProblemFacts| {
             let requirements = Requirements {
+                context: test_context(&LINKED),
                 table: &LINKED,
                 facts: f,
                 intent: SolveIntent::Optimize,
@@ -1113,8 +1716,10 @@ mod tests {
                 sensitivity: false,
             };
             (
-                requirements.eligibility(),
-                requirements.select(SolverSelection::Auto).ok(),
+                requirements.policy_eligibility_for_test(),
+                requirements
+                    .policy_select_for_test(SolverSelection::Auto)
+                    .ok(),
             )
         };
         let lexicographic = |choice: &Eligibility| {
@@ -1286,6 +1891,7 @@ mod tests {
                 fact(ConvexityClass::Affine)
             };
             let requirements = Requirements {
+                context: test_context(&CLARABEL_ONLY),
                 table: &CLARABEL_ONLY,
                 facts: &f,
                 intent: SolveIntent::Optimize,
@@ -1297,12 +1903,12 @@ mod tests {
             };
             assert_eq!(
                 requirements
-                    .select(SolverSelection::Explicit(Backend::Clarabel))
+                    .policy_select_for_test(SolverSelection::Explicit(Backend::Clarabel))
                     .unwrap(),
                 Route::Native(Backend::Clarabel)
             );
             assert!(matches!(
-                requirements.select(SolverSelection::Auto),
+                requirements.policy_select_for_test(SolverSelection::Auto),
                 Err(ProblemError::RouteRefused(_))
             ));
             // In the linked table, HiGHS keeps both classes automatically.
@@ -1389,6 +1995,7 @@ mod tests {
         f.convexity = convex_quadratic();
         let controls = crate::solve::Controls::default();
         let requirements = Requirements {
+            context: test_context(&LINKED),
             table: &LINKED,
             facts: &f,
             intent: SolveIntent::Optimize,
@@ -1399,22 +2006,26 @@ mod tests {
             sensitivity: true,
         };
         let plain = Requirements {
+            context: requirements.context.clone(),
             sensitivity: false,
             ..requirements
         };
         if adapter(Backend::Highs).linked() {
             assert_eq!(
-                plain.select(SolverSelection::Auto).unwrap(),
+                plain.policy_select_for_test(SolverSelection::Auto).unwrap(),
                 Route::Native(Backend::Highs)
             );
             assert_eq!(
                 requirements
-                    .select(SolverSelection::Explicit(Backend::Highs))
+                    .policy_select_for_test(SolverSelection::Explicit(Backend::Highs))
                     .unwrap(),
                 Route::Native(Backend::Highs)
             );
         }
-        let Route::Native(backend) = requirements.select(SolverSelection::Auto).unwrap() else {
+        let Route::Native(backend) = requirements
+            .policy_select_for_test(SolverSelection::Auto)
+            .unwrap()
+        else {
             panic!("a native route");
         };
         assert!(adapter(backend).capability().sensitivities, "{backend:?}");
@@ -1493,6 +2104,7 @@ mod tests {
         });
         let controls = crate::solve::Controls::default();
         let requirements = |settings| Requirements {
+            context: test_context(&LINKED),
             table: &LINKED,
             facts: &f,
             intent: SolveIntent::FeasiblePoint,
@@ -1503,7 +2115,7 @@ mod tests {
             sensitivity: false,
         };
         for settings in [&BackendSettings::Default, &interior, &l1] {
-            for e in requirements(settings).eligibility() {
+            for e in requirements(settings).policy_eligibility_for_test() {
                 let honours = e.backend == Backend::Pounce && !std::ptr::eq(settings, &interior);
                 assert_eq!(!e.reasons.contains(&requirement), honours, "{e}");
             }
@@ -1512,20 +2124,20 @@ mod tests {
             for settings in [&BackendSettings::Default, &l1] {
                 assert_eq!(
                     requirements(settings)
-                        .select(SolverSelection::Auto)
+                        .policy_select_for_test(SolverSelection::Auto)
                         .unwrap(),
                     Route::Native(Backend::Pounce)
                 );
             }
             assert!(
                 requirements(&interior)
-                    .select(SolverSelection::Explicit(Backend::Pounce))
+                    .policy_select_for_test(SolverSelection::Explicit(Backend::Pounce))
                     .is_err()
             );
         }
         assert!(
             requirements(&BackendSettings::Default)
-                .select(SolverSelection::Explicit(Backend::Ipopt))
+                .policy_select_for_test(SolverSelection::Explicit(Backend::Ipopt))
                 .is_err()
         );
         // Native defaults take the author's method on POUNCE only, and only under the
@@ -1553,7 +2165,7 @@ mod tests {
             facts: &plain,
             ..requirements(&BackendSettings::Default)
         };
-        for e in unrequired.eligibility() {
+        for e in unrequired.policy_eligibility_for_test() {
             assert!(
                 !e.reasons
                     .iter()
@@ -1567,6 +2179,7 @@ mod tests {
         let f = miqp_facts();
         let assess = |numerical_psd| {
             Requirements {
+                context: test_context(&LINKED),
                 table: &LINKED,
                 facts: &f,
                 intent: SolveIntent::Optimize,
@@ -1576,7 +2189,7 @@ mod tests {
                 settings: &BackendSettings::Default,
                 sensitivity: false,
             }
-            .eligibility()
+            .policy_eligibility_for_test()
         };
         for numerical_psd in [false, true] {
             // Every admitted adapter represents the mixed-integer quadratic class.
@@ -1675,6 +2288,7 @@ mod tests {
             Err(ProblemError::RouteRefused(_))
         ));
         let requirements = Requirements {
+            context: test_context(&LINKED),
             table: &LINKED,
             facts: &root_facts(),
             intent: SolveIntent::Certify,
@@ -1685,7 +2299,7 @@ mod tests {
             sensitivity: false,
         };
         // Only a certifying record is eligible; the rule reads the record, not the backend.
-        for e in requirements.eligibility() {
+        for e in requirements.policy_eligibility_for_test() {
             let certifies = LINKED
                 .get(e.backend)
                 .is_some_and(|a| a.capability().certifies);
@@ -1703,3 +2317,6 @@ mod tests {
         assert_eq!(SolveIntent::Certify.as_str(), "certify");
     }
 }
+
+#[cfg(test)]
+mod contextual_tests;

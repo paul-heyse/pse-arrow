@@ -132,12 +132,13 @@ impl Problem {
                 "implicit identities or intervals".into(),
             ));
         }
-        if body.support().first.len() != n {
+        let incidence = body.incidence(&Arc::new(AtomicBool::new(false)))?;
+        if incidence.support().first.len() != n {
             return Err(MathError::Contract(
                 "implicit residual support extent".into(),
             ));
         }
-        let indices = body
+        let indices = incidence
             .support()
             .first
             .iter()

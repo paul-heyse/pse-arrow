@@ -7,7 +7,7 @@ use pse_math::{
     normalization::{Normalization, checked_product as mul, checked_ratio as div},
 };
 
-fn bound(v: f64, scale: f64) -> Result<f64, ProblemError> {
+pub(crate) fn bound(v: f64, scale: f64) -> Result<f64, ProblemError> {
     if v.is_infinite() {
         Ok(v)
     } else {
@@ -52,14 +52,11 @@ fn sparse(
     faer::sparse::SparseColMat::try_new_from_triplets(rows.len(), columns.len(), &entries)
         .map_err(|e| ProblemError::Internal(e.to_string()))
 }
-/// Project coefficients once; original PSD evidence is checked before congruence transport.
-pub fn coefficients(
+/// Check the existing exact discrete coordinate substitution contract.
+pub(crate) fn integer_coordinates(
     p: &CoefficientProblem,
     n: &Normalization,
-    evidence: Option<&dyn QuadraticEvidence>,
-) -> Result<(CoefficientProblem, Option<TransportedEvidence>), ProblemError> {
-    p.validate_convex(evidence)?;
-    let contract = contract(&p.contract, n)?;
+) -> Result<(), ProblemError> {
     if p.domains
         .iter()
         .zip(&n.variables)
@@ -69,6 +66,17 @@ pub fn coefficients(
             "integer coordinate substitution".into(),
         ));
     }
+    Ok(())
+}
+/// Project coefficients once; original PSD evidence is checked before congruence transport.
+pub fn coefficients(
+    p: &CoefficientProblem,
+    n: &Normalization,
+    evidence: Option<&dyn QuadraticEvidence>,
+) -> Result<(CoefficientProblem, Option<TransportedEvidence>), ProblemError> {
+    p.validate_convex(evidence)?;
+    let contract = contract(&p.contract, n)?;
+    integer_coordinates(p, n)?;
     let (hessian, proof) = match &p.hessian {
         Some(q) if q.val().iter().any(|v| *v != 0.0) => {
             let (q, proof) = normalize_quadratic(
@@ -436,6 +444,9 @@ impl Roots {
     }
 }
 impl NleOracle for Roots {
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        self.original.structural_analysis()
+    }
     fn guard_signs(
         &self,
     ) -> std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign> {

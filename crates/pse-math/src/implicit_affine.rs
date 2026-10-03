@@ -17,8 +17,15 @@ impl Affine {
             return Err(MathError::Contract("affine residual extent".into()));
         }
         let coordinates = (0..unknowns).collect::<Vec<_>>();
-        if body.available_order_for(&coordinates) != DerivativeOrder::Second
-            || body
+        let support = body.prepare_support(
+            &(0..body.output_count()).collect::<Vec<_>>(),
+            &coordinates,
+            DerivativeOrder::Second,
+            &Arc::new(AtomicBool::new(false)),
+        )?;
+        if body.available_order_for_outputs(support.outputs(), &coordinates)?
+            != DerivativeOrder::Second
+            || support
                 .support()
                 .second
                 .iter()

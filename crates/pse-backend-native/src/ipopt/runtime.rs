@@ -46,21 +46,7 @@ const CBWR: [(&str, i32); 10] = [
 /// The solver image manifest embedded at build time; empty outside the image.
 const MANIFEST: &str = include_str!(concat!(env!("OUT_DIR"), "/solver-manifest.txt"));
 
-/// Process state that linear-solver admission depends on, observed on the calling thread.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Runtime {
-    /// Linear solvers the linked Ipopt was built with (`IpoptGetAvailableLinearSolvers`);
-    /// the runtime library loader is excluded.
-    pub linked: u32,
-    /// OpenMP cancellation (`OMP_CANCELLATION`), fixed when the OpenMP runtime started.
-    pub cancellation: bool,
-    /// OpenMP thread-binding policy (`OMP_PROC_BIND`); `0` is unbound.
-    pub proc_bind: i32,
-    /// oneMKL conditional-numerical-reproducibility branch in force.
-    pub cbwr: i32,
-    /// oneMKL dynamic thread adjustment (`MKL_DYNAMIC`).
-    pub mkl_dynamic: bool,
-}
+pub use crate::settings::ipopt::Runtime;
 impl Runtime {
     /// Observe the linked library and process state now.
     pub fn observe() -> Self {

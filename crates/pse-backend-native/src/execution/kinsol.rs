@@ -54,7 +54,7 @@ fn settings(
         method,
         budgets.tolerances,
         budgets.normalization,
-        budgets.feasibility,
+        budgets.accuracy.feasibility,
     ))
 }
 impl BackendExecution for Kinsol {
@@ -72,6 +72,25 @@ impl BackendExecution for Kinsol {
     }
     fn automatic(&self) -> Option<u8> {
         Some(0)
+    }
+    fn admit_settings(
+        &self,
+        settings: &BackendSettings,
+        controls: &crate::solve::Controls,
+        _: &super::Snapshot,
+    ) -> Result<(), ProblemError> {
+        if !matches!(
+            settings,
+            BackendSettings::Default | BackendSettings::Kinsol(_)
+        ) {
+            return Err(super::foreign(Backend::Kinsol));
+        }
+        if controls.threads != 1 || !controls.options.is_empty() {
+            return Err(ProblemError::Unsupported(
+                "serial KINSOL uses typed Settings and one core".into(),
+            ));
+        }
+        Ok(())
     }
     fn admit_contract(
         &self,

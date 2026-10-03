@@ -103,6 +103,8 @@ enum Row {
 /// A prepared shooting problem: the NLP over the controls and the inner nodes' states.
 #[derive(Debug)]
 pub struct ShootingProblem {
+    snapshot: native::execution::Snapshot,
+    structural_assessment: Option<native::structural::Assessment>,
     pub(super) simulation: super::ModelingSimulation,
     experiment: IntegratedExperiment,
     method: ShootingMethod,
@@ -209,7 +211,23 @@ impl super::ModelingPackage {
             execution.analysis.instance,
             execution.analysis.solver.clone(),
         )?;
-        simulation.shooting(request)
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let operation = self
+            .runtime
+            .shared
+            .math()
+            .job(1, 0, control.clone(), move |flag| {
+                Ok(ShootingProblem::new(&simulation, request, &flag))
+            });
+        tokio::pin!(operation);
+        tokio::select! {
+            result = &mut operation => result.map_err(WorkflowError::from)?,
+            () = cancel.cancelled() => {
+                control.cancel();
+                let _ = operation.await;
+                Err(crate::math::MathRuntimeError::Cancelled.into())
+            }
+        }
     }
 }
 
@@ -218,7 +236,7 @@ impl super::ModelingSimulation {
     /// controls are scheduled inputs of the simulation's profile; path bounds and terminal
     /// weights name outputs; integral weights name declared quadratures.
     pub fn shooting(&self, request: ShootingProfile) -> Result<ShootingProblem, WorkflowError> {
-        ShootingProblem::new(self, request)
+        ShootingProblem::new(self, request, &AtomicBool::new(false))
     }
 }
 
@@ -226,6 +244,7 @@ impl ShootingProblem {
     fn new(
         simulation: &super::ModelingSimulation,
         request: ShootingProfile,
+        cancel: &AtomicBool,
     ) -> Result<Self, WorkflowError> {
         let profile = simulation.profile();
         let c = simulation.contract();
@@ -348,6 +367,7 @@ impl ShootingProblem {
             .chain(std::iter::once(profile.end))
             .collect::<Vec<_>>();
         let experiment = IntegratedExperiment {
+            snapshot: simulation.snapshot().clone(),
             program: simulation.program(),
             profile: profile.clone(),
             parameters: simulation.parameters.clone(),
@@ -566,6 +586,8 @@ impl ShootingProblem {
             smoothness: DerivativeOrder::First,
         };
         let mut problem = Self {
+            snapshot: native::execution::Snapshot::observe(&native::execution::LINKED),
+            structural_assessment: None,
             simulation: simulation.clone(),
             experiment,
             method: request.method,
@@ -593,8 +615,25 @@ impl ShootingProblem {
         problem.pattern = problem.jacobian_structure()?;
         problem.admit_windows(simulation)?;
         if !problem.contract.variables.is_empty() {
+            let structural_extent =
+                native::structural::construction_bytes(&problem.contract, problem.pattern.as_ref())
+                    .map_err(crate::math::MathRuntimeError::from)?;
+            let reservation =
+                datafusion::execution::memory_pool::MemoryConsumer::new("shooting:structure")
+                    .register(&problem.runtime.shared.pool());
+            reservation
+                .try_grow(structural_extent)
+                .map_err(crate::math::MathRuntimeError::from)?;
+            let structure = native::structural::oracle_structure_with_cancel(
+                &problem.contract,
+                problem.pattern.as_ref(),
+                &problem.bounds,
+                true,
+                cancel,
+            )
+            .map_err(crate::math::MathRuntimeError::from)?;
             let facts = native::routing::oracle_facts(&problem.contract, true, false);
-            problem.route = native::routing::Requirements {
+            let decision = native::routing::Requirements {
                 table: &native::execution::LINKED,
                 facts: &facts,
                 intent: problem.solver.intent,
@@ -603,10 +642,44 @@ impl ShootingProblem {
                 controls: &problem.solver.controls,
                 settings: &problem.solver.backend,
                 sensitivity: false,
+                context: native::routing::Context {
+                    snapshot: problem.snapshot.clone(),
+                    pending_classes: &[],
+                    structure: Some(structure),
+                    oracle: Some(&problem.contract),
+                    guards: &BTreeMap::new(),
+                    budgets: Some(native::execution::Budgets {
+                        tolerances: &problem.tolerances,
+                        normalization: &problem.normalization,
+                        accuracy: &problem.accuracy,
+                    }),
+                    coefficients: None,
+                    cone: None,
+                    factorable: None,
+                    certificate: None,
+                    prepared: &[native::routing::ArtifactDemand::Representation(
+                        native::execution::Representation::Nlp,
+                    )],
+                    refusals: &BTreeMap::new(),
+                },
             }
-            .select(problem.solver.selection)
-            .map_err(crate::math::MathRuntimeError::from)?;
-            crate::math::solves::admit_profile(&problem.solver, problem.route)
+            .decision(problem.solver.selection);
+            problem.route = decision
+                .route()
+                .map_err(crate::math::MathRuntimeError::from)?;
+            problem.structural_assessment = decision.structure;
+            if let Some(assessment) = &mut problem.structural_assessment {
+                let retained = assessment.retained_bytes();
+                if retained > reservation.size() {
+                    return Err(contract("shooting structural retained allowance"));
+                }
+                reservation.shrink(reservation.size() - retained);
+                assessment.witness = assessment
+                    .witness
+                    .clone()
+                    .with_owner(pse_columnar::AllocationLease::new(reservation));
+            }
+            crate::math::solves::admit_profile(&problem.solver, problem.route, &problem.snapshot)
                 .map_err(crate::math::MathRuntimeError::from)?;
         }
         Ok(problem)
@@ -1124,6 +1197,8 @@ impl ShootingProblem {
             let report = native::execution::nlp(
                 native::execution::Step {
                     adapter: native::execution::adapter(backend),
+                    snapshot: &self.snapshot,
+                    structure: self.structural_assessment.as_ref(),
                     settings: &self.solver.backend,
                     controls: &self.solver.controls,
                     accuracy: &self.accuracy,

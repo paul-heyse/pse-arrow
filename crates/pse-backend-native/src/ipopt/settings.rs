@@ -19,6 +19,20 @@ pub(crate) const fn mask(solver: IpoptLinearSolver) -> u32 {
         IpoptLinearSolver::Pardisomkl => pse_ipopt_sys::IPOPTLINEARSOLVER_PARDISOMKL,
     }
 }
+/// Equality of the exact runtime observations consumed by this selected linear solver.
+pub(crate) fn same_admission(settings: &Settings, before: &Runtime, after: &Runtime) -> bool {
+    let solver = settings.linear.solver();
+    before.linked & mask(solver) == after.linked & mask(solver)
+        && match solver {
+            IpoptLinearSolver::Mumps => true,
+            IpoptLinearSolver::Spral => {
+                before.cancellation == after.cancellation && before.proc_bind == after.proc_bind
+            }
+            IpoptLinearSolver::Pardisomkl => {
+                before.cbwr == after.cbwr && before.mkl_dynamic == after.mkl_dynamic
+            }
+        }
+}
 /// Whether `solver` consumes more than one admitted thread; MUMPS is sequential.
 const fn parallel(solver: IpoptLinearSolver) -> bool {
     !matches!(solver, IpoptLinearSolver::Mumps)
@@ -175,4 +189,67 @@ pub fn admit(settings: &Settings, threads: usize, runtime: &Runtime) -> Result<(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod contextual_tests {
+    use super::*;
+    use crate::settings::ipopt::{
+        Linear, PardisoMatching, PardisoOrdering, SpralOrdering, SpralPivot, SpralScaling,
+    };
+    #[test]
+    fn contextual_unit_selected_snapshot_consumes_only_its_linear_solver_prerequisites() {
+        let before = Runtime {
+            linked: mask(IpoptLinearSolver::Mumps)
+                | mask(IpoptLinearSolver::Spral)
+                | mask(IpoptLinearSolver::Pardisomkl),
+            cancellation: true,
+            proc_bind: 1,
+            cbwr: 7,
+            mkl_dynamic: false,
+        };
+        let mumps = Settings::default();
+        let mut after = before;
+        after.cancellation = false;
+        after.proc_bind = 0;
+        after.cbwr = 99;
+        after.mkl_dynamic = true;
+        after.linked &= !mask(IpoptLinearSolver::Spral);
+        assert!(same_admission(&mumps, &before, &after));
+        after.linked &= !mask(IpoptLinearSolver::Mumps);
+        assert!(!same_admission(&mumps, &before, &after));
+        let spral = Settings {
+            linear: Linear::Spral {
+                ordering: SpralOrdering::Metis,
+                scaling: SpralScaling::Matching,
+                pivot: SpralPivot::Block,
+            },
+            ..Settings::default()
+        };
+        after = before;
+        after.cbwr = 99;
+        after.mkl_dynamic = true;
+        assert!(same_admission(&spral, &before, &after));
+        after.cancellation = false;
+        assert!(!same_admission(&spral, &before, &after));
+        after = before;
+        after.proc_bind = 0;
+        assert!(!same_admission(&spral, &before, &after));
+        let pardiso = Settings {
+            linear: Linear::PardisoMkl {
+                ordering: PardisoOrdering::Metis,
+                matching: PardisoMatching::CompletePlus2x2,
+            },
+            ..Settings::default()
+        };
+        after = before;
+        after.cancellation = false;
+        after.proc_bind = 0;
+        assert!(same_admission(&pardiso, &before, &after));
+        after.cbwr = 99;
+        assert!(!same_admission(&pardiso, &before, &after));
+        after = before;
+        after.mkl_dynamic = true;
+        assert!(!same_admission(&pardiso, &before, &after));
+    }
 }

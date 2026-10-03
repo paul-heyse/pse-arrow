@@ -512,6 +512,8 @@ fn second_order_analysis_needs_an_optimizing_intent() {
     let tolerances = crate::restart_tests::tolerances(6);
     let error = execution::nlp(
         Step {
+            snapshot: &execution::Snapshot::observe(&LINKED),
+            structure: None,
             adapter: LINKED.get(Backend::Ipopt).unwrap(),
             settings: &BackendSettings::Default,
             controls: &controls,

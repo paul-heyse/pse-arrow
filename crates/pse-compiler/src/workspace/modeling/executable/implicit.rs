@@ -317,10 +317,10 @@ impl AdmittedImplicit {
         requested_output: DerivativeOrder,
         inner_minimum: DerivativeOrder,
     ) -> Result<pse_kernels::DerivativeRequirements> {
-        let available = residual
-            .body
-            .math
-            .available_order_for(&(0..residual.body.math.input_count()).collect::<Vec<_>>());
+        let available = residual.body.math.available_order_for_outputs(
+            &(0..residual.body.math.output_count()).collect::<Vec<_>>(),
+            &(0..residual.body.math.input_count()).collect::<Vec<_>>(),
+        )?;
         pse_kernels::DerivativeRequirements::new(
             available,
             available,
@@ -354,10 +354,10 @@ impl AdmittedImplicit {
         let mut available = None;
         let mut minimum = DerivativeOrder::Value;
         for residual in &self.residuals {
-            let order = residual
-                .body
-                .math
-                .available_order_for(&(0..residual.body.math.input_count()).collect::<Vec<_>>());
+            let order = residual.body.math.available_order_for_outputs(
+                &(0..residual.body.math.output_count()).collect::<Vec<_>>(),
+                &(0..residual.body.math.input_count()).collect::<Vec<_>>(),
+            )?;
             available = Some(available.map_or(order, |a: DerivativeOrder| a.min(order)));
             let inner = match &self.algorithm {
                 ImplicitAlgorithm::Native => native_minimum,
@@ -390,7 +390,10 @@ impl AdmittedImplicit {
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, DerivativeOrder>> {
         let mut demands = BTreeMap::new();
         let mut add = |body: &Arc<AdmittedBody>, order| -> Result<()> {
-            for (key, required) in body.math.provider_demands(order)? {
+            for (key, required) in body.math.provider_demands_for_outputs(
+                &(0..body.math.output_count()).collect::<Vec<_>>(),
+                order,
+            )? {
                 demands
                     .entry(key)
                     .and_modify(|o: &mut DerivativeOrder| *o = (*o).max(required))
@@ -1401,7 +1404,14 @@ impl AdmittedModeling {
                 .bodies
                 .get(&instance.body)
                 .ok_or_else(|| CompileError::Missing("observation body".into()))?;
-            for (key, required) in body.math.provider_demands(order)? {
+            let outputs = instance
+                .contributions
+                .iter()
+                .map(|contribution| contribution.output)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+            for (key, required) in body.math.provider_demands_for_outputs(&outputs, order)? {
                 demands
                     .entry(key)
                     .and_modify(|o: &mut DerivativeOrder| *o = (*o).max(required))
@@ -1422,9 +1432,20 @@ impl AdmittedModeling {
             .map(|id| (*id, graph.add_node(*id)))
             .collect::<BTreeMap<_, _>>();
         for (id, inner) in &self.implicit {
-            for provider in inner.bodies().flat_map(|b| b.math.providers()) {
-                if let Some(dependency) = nodes.get(&provider.id) {
-                    graph.add_edge(*dependency, nodes[id], ());
+            for body in inner.bodies() {
+                let demanded = body.math.provider_demands_for_outputs(
+                    &(0..body.math.output_count()).collect::<Vec<_>>(),
+                    DerivativeOrder::Value,
+                )?;
+                for provider in body
+                    .math
+                    .providers()
+                    .iter()
+                    .filter(|provider| demanded.contains_key(&provider.key()))
+                {
+                    if let Some(dependency) = nodes.get(&provider.id) {
+                        graph.add_edge(*dependency, nodes[id], ());
+                    }
                 }
             }
         }
@@ -1440,11 +1461,22 @@ impl AdmittedModeling {
                     .bodies
                     .get(&instance.body)
                     .ok_or_else(|| CompileError::Missing("observation body".into()))?;
+                let outputs = instance
+                    .contributions
+                    .iter()
+                    .map(|contribution| contribution.output)
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                let demanded = body
+                    .math
+                    .provider_demands_for_outputs(&outputs, DerivativeOrder::Value)?;
                 pending.extend(
                     body.math
                         .providers()
                         .iter()
-                        .filter_map(|p| nodes.get(&p.id).copied()),
+                        .filter(|provider| demanded.contains_key(&provider.key()))
+                        .filter_map(|provider| nodes.get(&provider.id).copied()),
                 );
             }
             let mut required = BTreeSet::new();
@@ -1583,10 +1615,13 @@ pub(super) fn admit(
         let available_order = residuals
             .iter()
             .map(|r| {
-                r.body
-                    .math
-                    .available_order_for(&(0..r.body.math.input_count()).collect::<Vec<_>>())
+                r.body.math.available_order_for_outputs(
+                    &(0..r.body.math.output_count()).collect::<Vec<_>>(),
+                    &(0..r.body.math.input_count()).collect::<Vec<_>>(),
+                )
             })
+            .collect::<std::result::Result<Vec<_>, _>>()?
+            .into_iter()
             .min()
             .ok_or_else(|| CompileError::Missing("empty implicit residuals".into()))?;
         let mut meaning = implicit.selection.meaning.clone();

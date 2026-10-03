@@ -10,7 +10,7 @@
 use crate::{
     CoefficientProblem, ConicProblem, NleOracle, NlpOracle, OracleContract, ProblemError,
     quality::Tolerances,
-    routing::{Ineligible, Requirements},
+    routing::Requirements,
     solve::{
         Backend, Compatibility, Controls, DerivativeCapability, Execution, ProblemClass,
         ResolvedAccuracy, SolveIntent, SolveReport, WarmCapability, WarmPayload, WarmStart,
@@ -23,6 +23,9 @@ use pse_math::{
 };
 use pse_model::generated::enums::{ModelingStructuralRequirement, NativeConstraintForm};
 use std::{any::Any, collections::BTreeMap};
+
+mod context;
+pub use context::{BuildObservation, Snapshot};
 
 mod clarabel;
 mod dynamics;
@@ -137,12 +140,12 @@ impl Capability {
 /// of one solved function: the policy inputs an adapter derives native scaling from.
 #[derive(Clone, Copy, Debug)]
 pub struct Budgets<'a> {
+    /// Complete resolved numerical policy consumed by conditional adapter admission.
+    pub accuracy: &'a ResolvedAccuracy,
     /// Original physical acceptance budgets.
     pub tolerances: &'a Tolerances,
     /// Coordinate transport of the function the adapter evaluates.
     pub normalization: &'a Normalization,
-    /// Normalized feasibility budget (`ResolvedAccuracy::feasibility`).
-    pub feasibility: f64,
 }
 
 /// One execution of a selected adapter on the owning worker, in native coordinates.
@@ -155,6 +158,10 @@ pub struct Input<'a> {
     pub accuracy: &'a ResolvedAccuracy,
     /// Typed settings, admitted for this adapter.
     pub settings: &'a BackendSettings,
+    /// Immutable contextual observation admitted for this attempt.
+    pub snapshot: &'a Snapshot,
+    /// Original contextual witness; representation transforms retain their own checks.
+    pub structure: Option<&'a crate::structural::Assessment>,
     /// Cancellation, deadline and bounded progress.
     pub execution: Execution,
     /// Native-coordinate acceptance budgets.
@@ -260,16 +267,50 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     fn build(&self) -> Option<ContentHash> {
         None
     }
-    /// Contextual eligibility with every typed reason; empty means eligible. It derives
-    /// only from the capability record and linkage, so the published row is the routing
-    /// rule; adapters do not override it.
-    fn admit(&self, requirements: &Requirements<'_>) -> Vec<Ineligible> {
-        crate::routing::admit(
-            self.backend(),
-            self.capability(),
-            self.linked(),
-            requirements,
-        )
+    /// Revalidate only observations this adapter's selected settings consume.
+    fn validate_snapshot(
+        &self,
+        _settings: &BackendSettings,
+        snapshot: &Snapshot,
+    ) -> Result<(), ProblemError> {
+        snapshot.validate_for(self)
+    }
+    /// Exact mathematical order required by this adapter's selected method.
+    fn required_order(
+        &self,
+        requirements: &Requirements<'_>,
+    ) -> Option<pse_kernels::DerivativeOrder> {
+        crate::routing::derivative_demand(self.capability(), requirements.controls)
+    }
+    /// Compose static class/intent rules with existing contextual owners. This operation
+    /// reads no ambient environment and starts no native service or worker.
+    fn assess(&self, requirements: &Requirements<'_>) -> crate::routing::Eligibility {
+        let mut assessment =
+            crate::routing::assess_static(self.backend(), self.capability(), requirements);
+        if let Some(cause) = requirements.context.refusals.get(&self.backend()) {
+            assessment
+                .reasons
+                .push(crate::routing::Ineligible::Contextual);
+            assessment.causes.push(cause.clone());
+        }
+        if let Err(cause) = self.admit_settings(
+            requirements.settings,
+            requirements.controls,
+            &requirements.context.snapshot,
+        ) {
+            assessment.refuse(cause);
+        }
+        self.assess_representation(requirements, &mut assessment);
+        assessment.finish();
+        assessment
+    }
+    /// Representation-specific contextual checks remain with their adapter owner.
+    fn assess_representation(
+        &self,
+        requirements: &Requirements<'_>,
+        assessment: &mut crate::routing::Eligibility,
+    ) {
+        assess_representation(self, requirements, assessment);
     }
     /// Typed settings and native controls of a selected route: settings must belong to
     /// this adapter and the thread count to its capability.
@@ -280,6 +321,7 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         &self,
         settings: &BackendSettings,
         controls: &Controls,
+        _snapshot: &Snapshot,
     ) -> Result<(), ProblemError> {
         if settings.backend().is_some_and(|b| b != self.backend()) {
             return Err(ProblemError::Contract(
@@ -736,3 +778,159 @@ fn representation(backend: Backend) -> ProblemError {
 
 #[cfg(test)]
 mod tests;
+
+/// Shared representation contracts, composed by adapter-owned subtype checks.
+pub(crate) fn assess_representation<A: BackendExecution + ?Sized>(
+    adapter: &A,
+    requirements: &Requirements<'_>,
+    assessment: &mut crate::routing::Eligibility,
+) {
+    use crate::routing::{ArtifactDemand, EvidenceDemand};
+    let context = &requirements.context;
+    if matches!(
+        adapter.representation(),
+        Representation::Coefficients | Representation::Cone
+    ) && matches!(
+        requirements.facts.class_status,
+        pse_math::presolve::ClassStatus::RepresentationLimited(
+            pse_math::presolve::ClassWitness::CoefficientRange
+        )
+    ) {
+        assessment.refuse(ProblemError::Math(pse_math::MathError::CoefficientRange));
+        return;
+    }
+
+    if let pse_math::presolve::ClassStatus::Pending(dependencies) = &requirements.facts.class_status
+    {
+        let unavailable = dependencies.iter().any(|dependency| {
+            matches!(
+                dependency,
+                pse_math::presolve::ClassDependency::MissingSymbolicExpression { .. }
+            )
+        });
+        if unavailable
+            && matches!(
+                adapter.representation(),
+                Representation::Coefficients | Representation::Cone
+            )
+        {
+            // The performed extractor named a missing mandatory input for this
+            // representation; this is not a proof of mathematical nonlinearity.
+            assessment
+                .reasons
+                .push(crate::routing::Ineligible::Contextual);
+            return;
+        }
+        if !dependencies.is_empty()
+            && dependencies.iter().all(|dependency| {
+                matches!(
+                    dependency,
+                    pse_math::presolve::ClassDependency::MissingSymbolicExpression { .. }
+                )
+            })
+            && matches!(
+                adapter.representation(),
+                Representation::Nlp | Representation::Roots
+            )
+        {
+            // Callback admission has independent numeric contracts. Only the
+            // performed coefficient-export restriction permits lower-class choice.
+            assessment
+                .evidence
+                .retain(|demand| !matches!(demand, EvidenceDemand::Class(_)));
+        }
+    }
+
+    match adapter.representation() {
+        Representation::Nlp | Representation::Roots => {
+            if let Some(original) = context.oracle {
+                // Prepared callbacks may be weaker than available selected mathematics.
+                // Scientific admission uses that availability; final execution validates
+                // the actually prepared contract before native construction.
+                let mut scientific = original.clone();
+                scientific.derivatives = requirements.facts.derivatives;
+                let contract = &scientific;
+                let order = adapter
+                    .required_order(requirements)
+                    .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                if let Err(cause) = contract.validate(order) {
+                    assessment.refuse(cause);
+                }
+                if let Some(budgets) = context.budgets {
+                    if let Err(cause) = adapter.admit_contract(
+                        contract,
+                        context.guards,
+                        requirements.settings,
+                        budgets,
+                    ) {
+                        assessment.refuse(cause);
+                    }
+                } else if adapter.backend() == Backend::Kinsol {
+                    assessment.evidence.push(EvidenceDemand::CallbackContract);
+                }
+            } else {
+                assessment.evidence.push(EvidenceDemand::CallbackContract);
+            }
+        }
+        Representation::Coefficients => {
+            if let Some(problem) = context.coefficients {
+                if problem
+                    .hessian
+                    .as_ref()
+                    .is_some_and(|q| q.val().iter().any(|value| *value != 0.0))
+                    && context.certificate.is_none()
+                {
+                    assessment
+                        .evidence
+                        .push(EvidenceDemand::Class(ProblemClass::ConvexQuadratic));
+                } else if let Err(cause) = problem.validate_convex(context.certificate) {
+                    assessment.refuse(cause);
+                }
+            } else {
+                assessment.evidence.push(EvidenceDemand::Coefficients);
+            }
+        }
+        Representation::Cone => {
+            if let Some(cone) = context.cone {
+                if let Err(cause) = cone.problem.validate(cone.certificate) {
+                    assessment.refuse(cause);
+                }
+            } else if let Some(problem) = context.coefficients {
+                // The existing coefficient-to-cone owner lowers only equality and
+                // nonnegative row/bound cones. Assess its existing convex contract;
+                // lowering is a selected artifact, not an unrelated cone proof.
+                if problem
+                    .hessian
+                    .as_ref()
+                    .is_some_and(|q| q.val().iter().any(|value| *value != 0.0))
+                    && context.certificate.is_none()
+                {
+                    assessment
+                        .evidence
+                        .push(EvidenceDemand::Class(ProblemClass::ConvexQuadratic));
+                } else if let Err(cause) = problem.validate_convex(context.certificate) {
+                    assessment.refuse(cause);
+                }
+            } else {
+                assessment.evidence.push(EvidenceDemand::Cone);
+            }
+        }
+        Representation::Factorable => {
+            if let Some(program) = context.factorable {
+                assessment.factorable_refusals = admit_program(program, requirements.intent);
+                if !assessment.factorable_refusals.is_empty() {
+                    assessment
+                        .reasons
+                        .push(crate::routing::Ineligible::Contextual);
+                }
+            } else {
+                assessment.evidence.push(EvidenceDemand::Factorable);
+            }
+        }
+        Representation::Trajectory => {}
+    }
+    let representation = ArtifactDemand::Representation(adapter.representation());
+    if !context.prepared.contains(&representation) {
+        assessment.artifacts.push(representation);
+    }
+}

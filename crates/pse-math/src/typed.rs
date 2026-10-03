@@ -17,7 +17,6 @@ use crate::{
     library::{self, Optimization},
 };
 use piecewise::branch_order;
-pub(crate) use piecewise::proven_branch_order;
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use pse_quantity::{
@@ -1592,7 +1591,6 @@ impl<'a> BodyBuilder<'a> {
             self.next_slot,
             output_slots,
             self.stages,
-            self.provider_order,
             &mut remaining,
         )?;
         body.set_effects(outputs.iter().map(|v| v.effects.clone()).collect());
@@ -1617,7 +1615,6 @@ impl<'a> BodyBuilder<'a> {
         options: Optimization,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<CompiledBody, MathError> {
-        self.validate_order(order)?;
         let body = self.prepare(outputs)?;
         body.compile(
             &(0..body.output_count()).collect::<Vec<_>>(),

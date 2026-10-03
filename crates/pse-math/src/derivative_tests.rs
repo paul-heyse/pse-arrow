@@ -80,8 +80,11 @@ fn wide_opaque_affine_support_retains_sparse_derivatives() {
         DerivativeOrder::Second,
     )
     .unwrap();
-    assert_eq!(body.support().first[0], (0..n).collect());
-    assert!(body.support().second[0].is_empty());
+    assert_eq!(
+        crate::requested_test_support(&body).first[0],
+        (0..n).collect()
+    );
+    assert!(crate::requested_test_support(&body).second[0].is_empty());
     let mut worker = body
         .compile(
             &[0],
@@ -136,9 +139,12 @@ fn shared_branch_snapshots_keep_distinct_alternatives_isolated() {
         DerivativeOrder::Second,
     )
     .unwrap();
-    assert_eq!(body.support().first[0], [0, 1].into_iter().collect());
     assert_eq!(
-        body.support().second[0],
+        crate::requested_test_support(&body).first[0],
+        [0, 1].into_iter().collect()
+    );
+    assert_eq!(
+        crate::requested_test_support(&body).second[0],
         [(0, 0), (1, 1)].into_iter().collect()
     );
     assert!(body.expression(0).is_none());
@@ -205,9 +211,12 @@ fn separately_reconstructed_equal_branch_facts_remain_symbolic() {
     )
     .unwrap();
     assert_eq!(body.expression(0), Some(&expression));
-    assert_eq!(body.support().first[0], [0, 1].into_iter().collect());
     assert_eq!(
-        body.support().second[0],
+        crate::requested_test_support(&body).first[0],
+        [0, 1].into_iter().collect()
+    );
+    assert_eq!(
+        crate::requested_test_support(&body).second[0],
         [(0, 0), (0, 1), (1, 1)].into_iter().collect()
     );
     let cancel = Arc::new(AtomicBool::new(false));
@@ -257,21 +266,24 @@ fn shared_domain_snapshots_preserve_dense_support_and_local_isolation() {
     stages.push(block(vec![library::formal(1).unwrap()], vec![n + 1]));
     // This finite allowance covers new supports and handle snapshots, but cannot
     // cover sixteen deep copies of the already accumulated dense Hessian support.
-    let mut remaining = 1200;
-    let body = PreparedBody::new_with_allowance(
-        n,
-        n + 2 + guards,
-        vec![n, n + 1],
-        stages,
-        DerivativeOrder::Second,
-        &mut remaining,
-    )
-    .unwrap();
-    assert!(remaining > 0 && remaining < 1200);
-    assert_eq!(body.support().first[0], (0..n).collect());
-    assert_eq!(body.support().second[0].len(), n * (n + 1) / 2);
-    assert_eq!(body.support().first[1], [1].into_iter().collect());
-    assert!(body.support().second[1].is_empty());
+    let mut remaining = 2400;
+    let body =
+        PreparedBody::new_with_allowance(n, n + 2 + guards, vec![n, n + 1], stages, &mut remaining)
+            .unwrap();
+    assert!(remaining > 0 && remaining < 2400);
+    assert_eq!(
+        crate::requested_test_support(&body).first[0],
+        (0..n).collect()
+    );
+    assert_eq!(
+        crate::requested_test_support(&body).second[0].len(),
+        n * (n + 1) / 2
+    );
+    assert_eq!(
+        crate::requested_test_support(&body).first[1],
+        [1].into_iter().collect()
+    );
+    assert!(crate::requested_test_support(&body).second[1].is_empty());
     let cancel = Arc::new(AtomicBool::new(false));
     let mut worker = body
         .compile(
@@ -311,17 +323,24 @@ fn opaque_nonlinear_support_refuses_actual_work_and_preserves_complete_pairs() {
     crate::initialize().unwrap();
     let n = 300;
     let mut remaining = crate::typed::BodyLimits::default().occurrences;
-    let error = PreparedBody::new_with_allowance(
+    let weak_body = PreparedBody::new_with_allowance(
         n + 1,
         n + 4,
         vec![n + 3],
         wide_opaque_stages(n, true),
-        DerivativeOrder::Second,
         &mut remaining,
     )
-    .unwrap_err();
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let first = weak_body
+        .incidence(&[0], &(0..n).collect::<Vec<_>>(), &cancel)
+        .unwrap();
+    assert!(first.support().second.is_empty());
+    let error = first.upgrade(DerivativeOrder::Second, &cancel).unwrap_err();
+    assert_eq!(first.support().first[0], (0..n).collect());
+    assert!(first.support().second.is_empty());
     assert!(matches!(error, MathError::WorkLimit {
-        source_id, resource: "derivative support construction", required: 1, available: 0, ..
+        source_id, resource: "derivative support construction", ..
     } if source_id == id(1)));
     let mut remaining = 300_000;
     let body = PreparedBody::new_with_allowance(
@@ -329,13 +348,15 @@ fn opaque_nonlinear_support_refuses_actual_work_and_preserves_complete_pairs() {
         n + 4,
         vec![n + 3],
         wide_opaque_stages(n, true),
-        DerivativeOrder::Second,
         &mut remaining,
     )
     .unwrap();
     assert!(remaining < 300_000);
-    assert_eq!(body.support().second[0].len(), n * (n + 1) / 2);
-    assert!(body.support().second[0].contains(&(0, n - 1)));
+    assert_eq!(
+        crate::requested_test_support(&body).second[0].len(),
+        n * (n + 1) / 2
+    );
+    assert!(crate::requested_test_support(&body).second[0].contains(&(0, n - 1)));
     let result = body
         .compile(
             &[0],
@@ -379,29 +400,26 @@ fn dense_provider_support_checks_cardinality_before_allocation() {
         source: id(1),
     }];
     let mut remaining = 1000;
-    let error = PreparedBody::new_with_allowance(
-        n,
-        n + 1,
-        vec![n],
-        stages.clone(),
-        DerivativeOrder::Second,
-        &mut remaining,
-    )
-    .unwrap_err();
+    let weak_body =
+        PreparedBody::new_with_allowance(n, n + 1, vec![n], stages.clone(), &mut remaining)
+            .unwrap();
+    let error = weak_body
+        .prepare_support(
+            &[0],
+            &(0..n).collect::<Vec<_>>(),
+            DerivativeOrder::Second,
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap_err();
     assert!(matches!(error, MathError::WorkLimit {
         source_id, resource: "derivative support construction", required, available, ..
     } if source_id == id(1) && required == n * (n + 1) / 2 && available < required));
     let mut remaining = 10_000;
-    let body = PreparedBody::new_with_allowance(
-        n,
-        n + 1,
-        vec![n],
-        stages,
-        DerivativeOrder::Second,
-        &mut remaining,
-    )
-    .unwrap();
-    assert_eq!(body.support().second[0].len(), n * (n + 1) / 2);
+    let body = PreparedBody::new_with_allowance(n, n + 1, vec![n], stages, &mut remaining).unwrap();
+    assert_eq!(
+        crate::requested_test_support(&body).second[0].len(),
+        n * (n + 1) / 2
+    );
 }
 
 #[test]
@@ -434,21 +452,44 @@ fn support_construction_consumes_the_remaining_authored_body_allowance() {
             .unwrap();
         builder.prepare(&[value])
     };
-    // Two authored occurrences, schedule validation, two initial slot handles,
-    // one empty fact, an input fact/support entry, two constructed first supports,
-    // one derivative, one Hessian pair, the output fact and two exports: fifteen.
-    assert!(matches!(
-        prepare(14),
-        Err(MathError::WorkLimit {
-            resource: "derivative support construction",
-            required: 1,
-            available: 0,
-            ..
-        })
-    ));
-    let body = prepare(15).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let body = prepare(128).unwrap();
     assert_eq!(body.occurrence_count(), 2);
-    assert_eq!(body.support().second[0], [(0, 0)].into_iter().collect());
+    let value = body
+        .prepare_support(&[0], &[0], DerivativeOrder::Value, &cancel)
+        .unwrap();
+    assert!(value.support().first.is_empty());
+    assert!(value.support().second.is_empty());
+    let first = value.upgrade(DerivativeOrder::First, &cancel).unwrap();
+    assert!(first.remaining_occurrences() < value.remaining_occurrences());
+    assert!(first.support().second.is_empty());
+    let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
+    assert!(second.remaining_occurrences() < first.remaining_occurrences());
+    assert_eq!(second.support().second[0], [(0, 0)].into_iter().collect());
+    assert!(first.support().second.is_empty());
+    // An authored allowance cannot be reset at the support boundary.
+    let exhausted = (4..128)
+        .filter_map(|limit| prepare(limit).ok())
+        .find(|body| {
+            body.prepare_support(&[0], &[0], DerivativeOrder::Value, &cancel)
+                .is_ok()
+                && body
+                    .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
+                    .is_err()
+        })
+        .unwrap();
+    assert!(
+        exhausted
+            .compile(
+                &[0],
+                &[0],
+                DerivativeOrder::Value,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel
+            )
+            .is_ok()
+    );
 }
 
 #[test]
@@ -653,7 +694,11 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
     let guarded = b.with_assumption(square.clone(), &assumption);
     let prepared = b.prepare(&[guarded, square]).unwrap();
     assert_eq!(prepared.available_order(), DerivativeOrder::Second);
-    assert!(prepared.support().controls.contains(&0));
+    assert!(
+        crate::requested_test_support(&prepared)
+            .controls
+            .contains(&0)
+    );
     let cancel = Arc::new(AtomicBool::new(false));
     let key = spec.key();
     let provider: Box<dyn Provider> = Box::new(Cubic {
@@ -959,9 +1004,12 @@ fn parameter_only_switches_preserve_all_branch_support() {
         )
         .unwrap();
     assert_eq!(b.hessians, vec![12.0]);
-    assert!(body.support().controls.contains(&1));
-    assert!(!body.support().first[0].contains(&1));
-    assert_eq!(body.support().second[0], [(0, 0)].into_iter().collect());
+    assert!(crate::requested_test_support(&body).controls.contains(&1));
+    assert!(!crate::requested_test_support(&body).first[0].contains(&1));
+    assert_eq!(
+        crate::requested_test_support(&body).second[0],
+        [(0, 0)].into_iter().collect()
+    );
     let _ = p;
 }
 #[test]
@@ -1364,6 +1412,7 @@ fn derivative_work_refusal_retains_required_and_available_operations() {
         DerivativeOrder::Second,
     )
     .unwrap();
+    // Value consumes one operation; First receives the remaining one, not a reset budget.
     let error = body
         .compile(
             &[0],
@@ -1371,14 +1420,15 @@ fn derivative_work_refusal_retains_required_and_available_operations() {
             DerivativeOrder::First,
             Optimization::default(),
             EvaluationLimits {
-                operations: 1,
+                operations: 2,
                 ..Default::default()
             },
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap_err();
     assert!(
-        matches!(error,MathError::WorkLimit{source_id,required,available:1,components:3,..} if source_id==id(1) && required>1)
+        matches!(error,MathError::WorkLimit{source_id,required,available:1,components:3,..} if source_id==id(1) && required>1),
+        "{error:?}"
     );
 }
 
@@ -1453,4 +1503,265 @@ fn form_lineage(source: SemanticId) -> Arc<pse_model::diagnostic::ValidityLineag
         variables: Vec::new(),
         members: Vec::new(),
     })
+}
+
+#[test]
+fn selected_support_separates_value_first_second_and_retries_after_cancellation() {
+    crate::initialize().unwrap();
+    let n = 80;
+    let body = PreparedBody::new(
+        n + 1,
+        n + 4,
+        vec![n + 3],
+        wide_opaque_stages(n, true),
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let value = body
+        .prepare_support(&[0], &[0, n - 1], DerivativeOrder::Value, &cancel)
+        .unwrap();
+    assert!(value.support().first.is_empty());
+    assert!(value.support().second.is_empty());
+    assert_eq!(value.derivative_operations(), 0);
+    let first = value.upgrade(DerivativeOrder::First, &cancel).unwrap();
+    assert_eq!(first.support().first[0], [0, n - 1].into_iter().collect());
+    assert!(first.support().second.is_empty());
+    assert_eq!(first.derivative_operations(), 0);
+    cancel.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        first.upgrade(DerivativeOrder::Second, &cancel),
+        Err(MathError::Cancelled)
+    ));
+    cancel.store(false, Ordering::Relaxed);
+    let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
+    assert_eq!(second.outputs(), &[0]);
+    assert_eq!(second.coordinates(), &[0, n - 1]);
+    assert_eq!(
+        second.support().second[0],
+        [(0, 0), (0, n - 1), (n - 1, n - 1)].into_iter().collect()
+    );
+    assert!(second.derivative_operations() > 0);
+    assert!(first.support().second.is_empty());
+}
+
+#[test]
+fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() {
+    use crate::typed::{Binary, BodyBuilder, BodyLimits};
+    use pse_quantity::{
+        IndexSet,
+        standard::{StandardInvariantChecker, standard_registry},
+    };
+    let registry = standard_registry().unwrap();
+    let (mut spec, _, _) = provider();
+    spec.derivatives = DerivativeOrder::Value;
+    spec.smoothness = DerivativeOrder::Value;
+    let admitted = AdmittedProvider::new(spec.clone(), &registry).unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = builder
+        .input(0, spec.inputs[0].quantity, IndexSet::new(), id(1))
+        .unwrap();
+    let opaque = builder
+        .provider(&admitted, std::slice::from_ref(&x), id(2))
+        .unwrap()
+        .remove(0);
+    let square = builder
+        .binary(Binary::Mul, x.clone(), x, None, id(3))
+        .unwrap();
+    let canceled = builder
+        .binary(Binary::Sub, opaque.clone(), opaque.clone(), None, id(4))
+        .unwrap();
+    let effectful_square = builder
+        .binary(Binary::Add, square.clone(), canceled, None, id(5))
+        .unwrap();
+    let body = builder
+        .prepare(&[opaque, square, effectful_square])
+        .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    assert_eq!(
+        body.available_order_for_outputs(&[1], &[0]).unwrap(),
+        DerivativeOrder::Second
+    );
+    assert_eq!(
+        body.available_order_for_outputs(&[0], &[0]).unwrap(),
+        DerivativeOrder::Value
+    );
+    assert!(
+        body.provider_demands_for_outputs(&[1], DerivativeOrder::Second)
+            .unwrap()
+            .is_empty()
+    );
+    let incidence = body.incidence(&[0], &[0], &cancel).unwrap();
+    assert_eq!(incidence.support().first[0], [0].into_iter().collect());
+    assert!(incidence.support().second.is_empty());
+    assert!(
+        incidence
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel
+            )
+            .is_err()
+    );
+    let selected = body
+        .prepare_support(&[1], &[0], DerivativeOrder::Second, &cancel)
+        .unwrap();
+    assert_eq!(selected.outputs(), &[1]);
+    assert_eq!(selected.support().second[0], [(0, 0)].into_iter().collect());
+    let mut worker = selected
+        .compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    let result = worker
+        .evaluate(
+            &[3.0],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(result.values, [9.0]);
+    assert_eq!(result.jacobian, [6.0]);
+    assert_eq!(result.hessians, [2.0]);
+    // Algebraic cancellation keeps the provider's fallible Value effect without
+    // demanding numerical provider derivatives for the surviving square.
+    assert_eq!(
+        body.available_order_for_outputs(&[2], &[0]).unwrap(),
+        DerivativeOrder::Second
+    );
+    assert_eq!(
+        body.provider_demands_for_outputs(&[2], DerivativeOrder::Second)
+            .unwrap()[&spec.key()],
+        DerivativeOrder::Value
+    );
+    let calls = Arc::new(AtomicUsize::new(0));
+    let provider: Box<dyn Provider> = Box::new(Cubic {
+        spec,
+        calls: calls.clone(),
+    });
+    let mut providers = BTreeMap::from([(provider.spec().key(), provider)]);
+    let mut effect_worker = body
+        .compile(
+            &[2],
+            &[0],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    let result = effect_worker
+        .evaluate(&[3.0], DerivativeOrder::Second, &mut providers, &cancel)
+        .unwrap();
+    assert_eq!(result.values, [9.0]);
+    assert_eq!(result.jacobian, [6.0]);
+    assert_eq!(result.hessians, [2.0]);
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn opaque_class_evidence_remains_pending_after_actual_bounded_request() {
+    use crate::{
+        assembly::{AssemblyLimits, CasePlan},
+        binding::*,
+        presolve::{ClassDependency, ClassEvidence, ClassRequest, ClassStatus},
+        typed::{BodyBuilder, BodyLimits},
+    };
+    use pse_model::generated::enums::ModelingVariableDomain;
+    use pse_quantity::{
+        IndexSet,
+        standard::{StandardInvariantChecker, standard_registry},
+    };
+    let registry = standard_registry().unwrap();
+    let (spec, _, _) = provider();
+    let admitted = AdmittedProvider::new(spec.clone(), &registry).unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = builder
+        .input(0, spec.inputs[0].quantity, IndexSet::new(), id(1))
+        .unwrap();
+    let opaque = builder.provider(&admitted, &[x], id(2)).unwrap().remove(0);
+    let body = Arc::new(builder.prepare(&[opaque]).unwrap());
+    let key = ContentHash::from_bytes([4; 32]);
+    let structure = CaseStructure::new(
+        vec![Variable {
+            port: spec.inputs[0].clone(),
+            fixed: false,
+            domain: ModelingVariableDomain::Continuous,
+            lower: None,
+            upper: None,
+        }],
+        vec![],
+        vec![InstanceBinding {
+            instance: id(3),
+            body: key,
+            checked_members: Default::default(),
+            slots: vec![SlotBinding::new(&spec.inputs[0], &spec.inputs[0], &registry).unwrap()],
+            contributions: vec![Contribution {
+                output: 0,
+                target: Target::PRIMARY,
+                scale: 1.0,
+            }],
+        }],
+        vec![],
+        Some(Objective {
+            quantity: spec.outputs[0].quantity,
+            sense: ObjectiveSense::Minimize,
+        }),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let values = CaseValues::default();
+    let plan = CasePlan::prepare(
+        Arc::new(structure),
+        BTreeMap::from([(key, body)]),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let base = plan
+        .presolve_domain_facts(&values, 10_000, &cancel)
+        .unwrap();
+    let ClassEvidence::Pending {
+        facts,
+        dependencies,
+    } = plan
+        .class_evidence(&values, &base, ClassRequest::Coefficients, 10_000, &cancel)
+        .unwrap()
+    else {
+        panic!("opaque scientific class must remain unresolved");
+    };
+    assert_eq!(
+        dependencies,
+        [ClassDependency::MissingSymbolicExpression {
+            instance: id(3),
+            output: 0
+        }]
+    );
+    assert_eq!(facts.class_status, ClassStatus::Pending(dependencies));
+    assert_eq!(facts.objective_degree, None);
+    assert!(!facts.coefficient_eligible());
+    assert!(facts.proof_remaining < base.proof_remaining);
+    assert_eq!(base.class_status, ClassStatus::Unassessed);
 }

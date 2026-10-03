@@ -271,6 +271,8 @@ impl Chains<'_> {
         let report = native::execution::nlp(
             native::execution::Step {
                 adapter: native::execution::adapter(self.backend),
+                snapshot: &p.snapshot,
+                structure: p.structural_assessment.as_ref(),
                 settings: &p.profile.solver.backend,
                 controls: &controls,
                 accuracy: &p.accuracy,

@@ -154,7 +154,7 @@ mod simulation_results;
 #[cfg(test)]
 mod study_tests;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 #[cfg(test)]
 mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
