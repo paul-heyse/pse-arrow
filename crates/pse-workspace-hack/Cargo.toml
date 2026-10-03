@@ -87,7 +87,7 @@ ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "s
 proc-macro2 = { version = "1", features = ["span-locations"] }
 quote = { version = "1" }
 rand = { version = "0.9" }
-rand_chacha = { version = "0.9", default-features = false, features = ["std"] }
+rand_chacha = { version = "0.10", default-features = false, features = ["std"] }
 refinery-core = { version = "0.9", default-features = false, features = ["tokio-postgres"] }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa", "perf", "std", "unicode"] }
 regex-syntax = { version = "0.8" }
