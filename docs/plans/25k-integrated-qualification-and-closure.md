@@ -15,6 +15,8 @@ This is the **only full qualification stage** of the [Plan 25 series](25-design-
 Plans 25a–25j implement the target directly, use compilation and focused behavioral checks,
 and delete replaced mechanisms as their callers move. They do not repeat this campaign at
 section or document boundaries. This plan starts after all their functional packets are complete.
+The later [25l functional follow-up](25l-flowsheet-compilation-and-solver-routing.md) supplies
+the corrections required at the current review boundary before K3 resumes.
 
 The coordinator owns finding dispositions. This document owns the assembled system's eventual
 qualification evidence. A passed packet, an accepted ADR and a historical Plan 23 result are
@@ -61,9 +63,39 @@ and fixture inputs authored alongside the implementation that supplies the behav
 |---|---|---|---|
 | <a id="k1"></a>K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | done |
 | <a id="k2"></a>K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | done |
-| <a id="k3"></a>K3 Behavioral and scientific qualification | K2 | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress |
+| <a id="k3"></a>K3 Behavioral and scientific qualification | K2; at the current review boundary, 25l L6 and refreshed static evidence for its changed source | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress |
 | <a id="k4"></a>K4 Reuse and performance measurement | K3 | Measure cold/warm preparation, one-body edits, in-process/durable value studies, retention after eviction and worker admission; report counts, timing distributions, memory and all refusals/failures | planned |
 | <a id="k5"></a>K5 Architectural assessment and closure | K3/K4 | Conduct one bounded target-design review of the assembled change, reconcile every finding with its evidence, update enduring owners and close only demonstrated scope | planned |
+
+### Review boundary — full case compilation and solver execution
+
+Execution checkpoint, 2026-10-02: the maintainer paused further qualification to assess
+full flowsheet/case compilation, capability-driven mathematical execution and the design
+issues exposed by integrated failures. The
+[target review](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md)
+records the current implementation's Revise judgment and proposed direction. It identifies
+consumer demand arriving after executable/support admission, incomplete composition of
+preparation with contextual solver eligibility, and misleading public interpretation of
+unavailable feasibility evidence/resource failure. It also preserves the existing physical,
+structural, implicit-meaning, identity and lifecycle contracts.
+
+K3 remains incomplete; K4 and closure remain pending. This requested review is broader in
+its compilation/routing inquiry than the planned final K5 evidence assessment and does not
+complete that packet. Its findings are now scheduled in the
+[coordinator's existing disposition owner](25-design-remediation.md#full-case-compilation-and-solver-routing-follow-up)
+through the proposed [25l implementation plan](25l-flowsheet-compilation-and-solver-routing.md).
+Production execution remains to be authorized. L6 must establish functional readiness and
+required decision routes before this campaign resumes. Then refresh scope-end static checks
+for the changed source and execute the affected scientific/integrated scopes; earlier K1/K2
+results retain their historical conditions. No remediation, successful whole-case qualification
+or performance measurement is implied by plan creation. The selected dev-profile measurement
+choice remains in force.
+
+The resumed campaign includes 25l's demand separation, pending class/capability evidence,
+contextual method/build/representation controls and original failure-meaning matrix alongside
+these existing journeys. K4 extends its current workload owners to measure actual selected
+output and Value/First/Second support construction, reuse and resource lifetimes. This remains
+one composite qualification campaign; 25l adds no second full gate.
 
 ### K1 — Readiness without a new governance framework
 

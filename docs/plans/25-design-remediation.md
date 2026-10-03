@@ -3,7 +3,7 @@ title: "25: Coordinated design remediation"
 status: in-progress
 date: 2026-09-30
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
+review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md, docs/design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s01, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md#fs01]
 ---
 
@@ -12,6 +12,15 @@ scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alig
 ## State, purpose and reading order
 
 **25a–25j implementation is complete.**
+
+The 2026-10-02 full-case
+[review](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md)
+adds three source-qualified findings after the earlier functional implementation. Their
+proposed correction is [25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md).
+Its functional scope precedes resuming [25k qualification](25k-integrated-qualification-and-closure.md#review-boundary--full-case-compilation-and-solver-execution).
+Earlier companion Outcomes and K1/K2 receipts retain their original scope; the new plan
+does not reopen them or claim current whole-series qualification. Production execution of
+25l remains to be authorized. The disposition rows below own these adopted planning obligations.
 
 The [25c Outcome](25c-process-composition-and-conservation.md#outcome-recorded-after-implementation)
 owns its composite focused evidence, final compilation and limits.
@@ -92,6 +101,7 @@ workflow engine, new solver mathematics, generic ontology or architecture-scorin
 | [25i: Identity, reuse and resource ownership](25i-identity-reuse-and-resource-ownership.md) | Distinct identity roles, shared immutable products, fresh attribution and completion/allocation owners |
 | [25j: Generated boundaries and library consolidation](25j-generated-boundaries-and-library-consolidation.md) | Owned decoded/admitted request boundaries and mechanically generated public transport |
 | [25k: Integrated qualification and closure](25k-integrated-qualification-and-closure.md) | One evidence campaign for the complete target, followed by architecture and disposition closure |
+| [25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md) | Follow-up functional correction of semantic/output/support staging, contextual readiness and failure interpretation before qualification resumes |
 
 ### Grounding and boundary
 
@@ -212,7 +222,8 @@ independent packet can start once its own prerequisites and required decision ro
 | 11 | [F4](25f-studies-diagnostics-and-continuation.md#f4), [J1](25j-generated-boundaries-and-library-consolidation.md#j1) | Durable executor cutover and completion of owned boundary declarations |
 | 12 | [F5](25f-studies-diagnostics-and-continuation.md#f5) | General study operations and truthful provenance |
 | 13 | [J2](25j-generated-boundaries-and-library-consolidation.md#j2) | Completion of generated consumer migration |
-| 14 | [K1](25k-integrated-qualification-and-closure.md#k1), [K2](25k-integrated-qualification-and-closure.md#k2), [K3](25k-integrated-qualification-and-closure.md#k3), [K4](25k-integrated-qualification-and-closure.md#k4), [K5](25k-integrated-qualification-and-closure.md#k5) | Readiness, final format/static checks, integrated qualification, measurement and architectural closure |
+| 14 | [L0–L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | Follow-up contracts, selective preparation, contextual routing and completion; L6 supplies readiness to resume the paused campaign |
+| 15 | [K1](25k-integrated-qualification-and-closure.md#k1), [K2](25k-integrated-qualification-and-closure.md#k2), [K3](25k-integrated-qualification-and-closure.md#k3), [K4](25k-integrated-qualification-and-closure.md#k4), [K5](25k-integrated-qualification-and-closure.md#k5) | Preserve original readiness/static evidence; after L6 refresh static checks for changed source, resume integrated qualification, measurement and architectural closure |
 
 The important joins are E1 → D4 → E2, C5 → E3/E4, G3 → durable schema cutovers, and
 H/A/I ownership → wider reuse. D3 implements the shared demand operation before E2 migrates
@@ -230,6 +241,20 @@ work is a complete resolution scope, not a deferral. “Owns closure” identifi
 finding; each contributing obligation has one implementing packet. Sxx refers to the original
 review's scenarios; FSxx refers to the follow-up's. Existing definitions are linked in the reviews,
 not copied into a second scenario registry.
+
+### Full-case compilation and solver-routing follow-up
+
+These IDs refer to the 2026-10-02 review, not the original review's identically numbered
+findings. Scheduled means adopted into the proposed implementation scope; production
+authorization, required decisions and correction evidence are still outstanding.
+
+| Finding | Scenario | Disposition | Decision/work owner | Evidence and closure boundary |
+|---|---|---|---|---|
+| [Compilation/routing F01](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f01) | Review S01/S03/S05 | scheduled | [25l L0/L1/L2/L4/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Proposed:** topology without executable admission, selected output/mandatory closure, and Value/First without unrequested Second; preserve physical/domain/effect checks, attribution and owned reuse; focused controls plus required 25k scientific/architectural evidence before resolution |
+| [Compilation/routing F02](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f02) | Review S02/S04/S05 | scheduled | [25l L0/L2/L3/L4/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Proposed:** explicit pending evidence/artifacts distinct from scientific incapability and runtime absence; contextual adapter and per-candidate structural admission, deterministic policy and all affected consumers; local controls plus required 25k journeys before resolution |
+| [Compilation/routing F03](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md#f03) | Review S06 | scheduled | [25l L0/L5/L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | **Proposed:** unavailable assessment distinct from evaluated infeasibility; exhaustive termination projection preserves causes, precise limits and incumbent permissions; generated/current/recorded boundary controls before resolution |
+
+### Original and domain-alignment follow-up findings
 
 | Finding | Obligation | Disposition | Decision/work packets | Scenario and closure boundary |
 |---|---|---|---|---|

@@ -4,8 +4,8 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 25](25-design-remediation.md) coordinates the proposed remediation of the two
-codebase domain-alignment reviews. Its 25a–25k plans describe the target contracts,
+[Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
+and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,
 implementation packets, dependency order and final qualification. The coordinator owns
 finding dispositions; the linked plans own packet progress.
 [25a is complete](25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation),
@@ -31,7 +31,9 @@ The integrated
 [25i](25i-identity-reuse-and-resource-ownership.md#outcome-recorded-after-implementation)
 and [25j](25j-generated-boundaries-and-library-consolidation.md#outcome-recorded-after-implementation)
 implementation is complete, with scoped verification and remaining qualification limits in
-those Outcomes. The remaining stage is
+those Outcomes. The follow-up implementation scope is
+[25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md),
+which supplies the prerequisite corrections for resuming
 [25k: Integrated qualification and closure](25k-integrated-qualification-and-closure.md).
 The series reserves full integration and qualification for 25k after all functional
 work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
