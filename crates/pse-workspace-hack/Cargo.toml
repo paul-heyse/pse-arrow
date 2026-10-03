@@ -77,7 +77,7 @@ num-complex = { version = "0.4", features = ["bytemuck"] }
 num-integer = { version = "0.1", features = ["i128"] }
 num-rational = { version = "0.4", default-features = false, features = ["num-bigint-std", "std"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
-object_store = { version = "0.13", features = ["aws", "azure", "gcp", "http"] }
+object_store = { version = "0.14", features = ["aws", "azure", "gcp", "http"] }
 once_cell = { version = "1" }
 percent-encoding = { version = "2" }
 petgraph = { version = "0.8" }
