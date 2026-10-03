@@ -2965,7 +2965,7 @@ dependencies = [
  "nalgebra",
  "num-dual",
  "num-traits",
- "quantity",
+ "quantity 0.14.1",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -2983,7 +2983,7 @@ dependencies = [
  "nalgebra",
  "num-dual",
  "num-traits",
- "quantity",
+ "quantity 0.14.1",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -6309,7 +6309,7 @@ dependencies = [
  "pse-structural",
  "pse-testkit",
  "pse-workspace-hack",
- "quantity",
+ "quantity 0.15.0",
  "serde",
  "serde-saphyr",
  "serde_json",
@@ -6692,13 +6692,23 @@ dependencies = [
 
 [[package]]
 name = "quantity"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89033a89e427162dc9065d22d09e910ee10f3ce024b307f9ed6e7700db1dc2ac"
+checksum = "f9bd381e5de017fafd4b50731ab58add9053ceaf576b08766f3a16ecb0154185"
 dependencies = [
  "document-features",
  "nalgebra",
  "num-dual",
+ "num-traits",
+]
+
+[[package]]
+name = "quantity"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cde8cf8dd31b88189237db7037214f44a976d30d156d5de9aaa0120b86c7622"
+dependencies = [
+ "document-features",
  "num-traits",
 ]
 
@@ -9320,7 +9330,7 @@ dependencies = [
  "pse-schema",
  "pse-workspace-hack",
  "pyo3-introspection",
- "quantity",
+ "quantity 0.15.0",
  "quote",
  "regex",
  "schemars",
