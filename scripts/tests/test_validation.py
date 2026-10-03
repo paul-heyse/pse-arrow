@@ -526,6 +526,80 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "identities must be unique"):
             case_measure.selected_workloads((declarations[0], declarations[0]), [])
 
+    def test_k4_smoke_selectors_build_and_dispatch_only_the_preparation_target(
+        self,
+    ) -> None:
+        root = Path(__file__).resolve().parents[2]
+        process = json.loads((root / ".config/process-cases.json").read_text())
+        preparation = json.loads((root / ".config/preparation-cases.json").read_text())
+        identities = ["k4-demand-orders-selected-output", "k4-worker-permit-lifetime"]
+        selected = case_measure.selected_workloads((process, preparation), identities)
+        self.assertEqual({w["id"] for w in selected}, set(identities))
+        self.assertTrue(all(w["model"] == "scalar-k4" and w["smoke"] for w in selected))
+        artifact = json.dumps(
+            {
+                "reason": "compiler-artifact",
+                "target": {"name": "modeling_preparation"},
+                "executable": "/bench/modeling_preparation",
+            }
+        )
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(
+                case_measure.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, stdout=artifact),
+            ) as run,
+            patch.object(case_measure, "native_provenance", return_value={}),
+        ):
+            case_measure.smoke_campaign(
+                Path(directory), "dev", process, preparation, set(identities)
+            )
+            calls = run.call_args_list
+            self.assertEqual(len(calls), 3)
+            build = calls[0].args[0]
+            self.assertEqual(
+                build[build.index("--bench") + 1 :], ["modeling_preparation"]
+            )
+            self.assertEqual(
+                {call.kwargs["env"]["PSE_PREPARATION_CASE"] for call in calls[1:]},
+                set(identities),
+            )
+            self.assertTrue(
+                all(
+                    call.args[0] == ["/bench/modeling_preparation", "--test"]
+                    for call in calls[1:]
+                )
+            )
+            receipt = json.loads((Path(directory) / "case-smoke.json").read_text())
+            self.assertFalse(receipt["measured"])
+
+    def test_case_build_failure_retains_json_and_surfaces_rendered_diagnostics(
+        self,
+    ) -> None:
+        stdout = (
+            json.dumps(
+                {
+                    "reason": "compiler-message",
+                    "message": {"rendered": "error[E0599]: no method named keys\n"},
+                }
+            )
+            + "\n"
+        )
+        stderr = "error: could not compile pse-benches\n"
+        with patch.object(
+            case_measure.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                ["cargo"], 101, stdout=stdout, stderr=stderr
+            ),
+        ) as run:
+            with self.assertRaisesRegex(RuntimeError, "error\\[E0599\\].*keys"):
+                case_measure.build_benchmark(["cargo", "bench"], self.output, "smoke")
+            self.assertFalse(run.call_args.kwargs["check"])
+        self.assertEqual((self.output / "smoke-cargo.jsonl").read_text(), stdout)
+        self.assertEqual((self.output / "smoke-cargo.stderr.log").read_text(), stderr)
+
     def test_native_command_preserves_filter_and_full_feature_graph(self) -> None:
         selection = "test(=a) or test(=b); $(touch injected)"
         command = native_tests.rust_command("list", ["-E", selection])

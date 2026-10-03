@@ -207,6 +207,8 @@ frames! {
         ImplicitFixedConfigurationV1 => "pse.implicit.fixed-configuration.v1",
         /// An implicit block's regime configuration.
         ImplicitRegimeConfigurationV1 => "pse.implicit.regime-configuration.v1",
+        /// Regime configuration with admitted nonlinear selection proof capability.
+        ImplicitRegimeConfigurationV2 => "pse.implicit.regime-configuration.v2",
         /// An inner solver implementation's versioned capability name.
         InnerSolverV1 => "pse.inner-solver.v1",
     }

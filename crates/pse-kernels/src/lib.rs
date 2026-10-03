@@ -4,7 +4,13 @@
 //! Physical provider contracts, independent of compiler and library scalar types.
 use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
+};
 
 mod shape;
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
@@ -70,6 +76,53 @@ impl ProviderRequest {
             return Err(ProviderError::Limit("property result bytes"));
         }
         Ok(())
+    }
+}
+
+/// Immutable cancellation owner and absolute deadline of one enclosing execution.
+/// A direct mathematical invocation has no outer deadline; local native allowances remain finite.
+#[derive(Clone, Debug)]
+pub struct ExecutionScope {
+    cancel: Arc<AtomicBool>,
+    deadline: Option<Instant>,
+}
+impl ExecutionScope {
+    /// Bind an execution's original deadline without starting or renewing its clock.
+    pub fn new(cancel: Arc<AtomicBool>, deadline: Option<Instant>) -> Self {
+        Self { cancel, deadline }
+    }
+    /// Same cancellation owner shared by every nested operation.
+    pub fn cancellation(&self) -> &Arc<AtomicBool> {
+        &self.cancel
+    }
+    /// Original absolute deadline; absent only for direct mathematical invocation.
+    pub fn deadline(&self) -> Option<Instant> {
+        self.deadline
+    }
+    /// Cancellation and time expiry remain distinct and never mutate cancellation.
+    pub fn check(&self) -> Result<(), ProviderError> {
+        if self.cancel.load(Ordering::Acquire) {
+            Err(ProviderError::Cancelled)
+        } else if self
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            Err(ProviderError::Limit("execution deadline"))
+        } else {
+            Ok(())
+        }
+    }
+    /// Cap a finite local allowance by the enclosing execution's remaining time.
+    pub fn remaining(&self, allowance: Duration) -> Result<Duration, ProviderError> {
+        self.check()?;
+        let remaining = self.deadline.map_or(allowance, |deadline| {
+            allowance.min(deadline.saturating_duration_since(Instant::now()))
+        });
+        if remaining.is_zero() {
+            Err(ProviderError::Limit("execution time allowance"))
+        } else {
+            Ok(remaining)
+        }
     }
 }
 
@@ -541,14 +594,13 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
     /// # Errors
     /// Returns the concrete provider construction failure.
     fn create(&self) -> Result<Box<dyn Provider>, ProviderError>;
-    /// Construct state attached to the admitted attempt's cooperative cancellation.
-    /// Ordinary providers receive cancellation on evaluation; nested native solvers
-    /// also need its owned handle while iterating.
-    fn create_scoped(
-        &self,
-        _cancel: std::sync::Arc<AtomicBool>,
-    ) -> Result<Box<dyn Provider>, ProviderError> {
-        self.create()
+    /// Construct state attached to the enclosing execution's original controls.
+    /// Nested providers pass this same scope recursively; no callback renews its deadline.
+    fn create_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {
+        scope.check()?;
+        let inner = self.create()?;
+        scope.check()?;
+        Ok(Box::new(ScopedProvider { inner, scope }))
     }
     /// Closed output intervals every evaluation of this provider keeps, one per output
     /// in output order: a sound envelope a global export may relax the provider to
@@ -560,8 +612,30 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
         None
     }
 }
+#[derive(Debug)]
+struct ScopedProvider {
+    inner: Box<dyn Provider>,
+    scope: ExecutionScope,
+}
+impl Provider for ScopedProvider {
+    fn spec(&self) -> &ProviderSpec {
+        self.inner.spec()
+    }
+    fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        request: &ProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderValues, ProviderError> {
+        self.scope.check()?;
+        let result = self.inner.evaluate(inputs, request, context);
+        self.scope.check()?;
+        result
+    }
+}
+
 /// A provider's checked output envelope: one interval per output, each containing a real.
-type Envelope = std::sync::Arc<[(f64, f64)]>;
+type Envelope = Arc<[(f64, f64)]>;
 /// Check a declared envelope against the admitted outputs (ADR-0120 items 2 and 5).
 fn checked_envelope(
     factory: &dyn ProviderFactory,
@@ -626,7 +700,7 @@ impl Provider for Enveloped {
 /// Physically admitted registration backed by an executable factory.
 #[derive(Clone, Debug)]
 pub struct Registration {
-    factory: std::sync::Arc<dyn ProviderFactory>,
+    factory: Arc<dyn ProviderFactory>,
     descriptor: AdmittedProvider,
     envelope: Option<Envelope>,
 }
@@ -664,7 +738,7 @@ impl Registration {
     /// Every subsequent worker construction checks the factory product again.
     pub fn bind(
         descriptor: AdmittedProvider,
-        factory: std::sync::Arc<dyn ProviderFactory>,
+        factory: Arc<dyn ProviderFactory>,
     ) -> Result<Self, ProviderError> {
         if factory.spec() != descriptor.spec() {
             return Err(ProviderError::Contract(
@@ -682,7 +756,7 @@ impl Registration {
     /// # Errors
     /// Returns invalid physical contracts, factory failures or descriptor mismatch.
     pub fn new(
-        factory: std::sync::Arc<dyn ProviderFactory>,
+        factory: Arc<dyn ProviderFactory>,
         registry: &QuantityRegistry,
     ) -> Result<Self, ProviderError> {
         let descriptor = AdmittedProvider::new(factory.spec().clone(), registry)?;
@@ -729,14 +803,13 @@ impl Registration {
     /// # Errors
     /// Returns factory failure or a contract error when its product changes meaning.
     pub fn worker(&self) -> Result<Box<dyn Provider>, ProviderError> {
-        self.worker_scoped(std::sync::Arc::new(AtomicBool::new(false)))
+        self.worker_scoped(ExecutionScope::new(Arc::new(AtomicBool::new(false)), None))
     }
-    /// Construct a worker with the enclosing attempt's cancellation owner.
-    pub fn worker_scoped(
-        &self,
-        cancel: std::sync::Arc<AtomicBool>,
-    ) -> Result<Box<dyn Provider>, ProviderError> {
-        let worker = self.factory.create_scoped(cancel)?;
+    /// Construct a worker with the enclosing attempt's immutable execution scope.
+    pub fn worker_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {
+        scope.check()?;
+        let worker = self.factory.create_scoped(scope.clone())?;
+        scope.check()?;
         if worker.spec() != self.spec() {
             return Err(ProviderError::Contract(
                 "factory returned a different provider contract".into(),
@@ -751,6 +824,9 @@ impl Registration {
         })
     }
 }
+
+#[cfg(test)]
+mod execution_scope_tests;
 
 #[cfg(test)]
 mod envelope_tests;

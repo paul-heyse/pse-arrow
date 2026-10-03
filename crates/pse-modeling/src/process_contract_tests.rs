@@ -449,6 +449,17 @@ fn process_contract_inherited_guarded_balance_members_share_only_their_source_ph
         let model = run(&source.replace("MODE", mode)).unwrap();
         assert_eq!(model.closures.len(), 1);
         assert_eq!(model.closures.values().next().unwrap().mode, expected);
+        let required = usize::from(mode != "2");
+        assert_eq!(model.required_closure_checks(), required);
+        let magnitudes = model
+            .closures
+            .values()
+            .flat_map(|closure| closure.terms.iter().map(|term| (term.id, 1.0)))
+            .collect();
+        let assessed = model.assess_closure(&magnitudes).unwrap();
+        assert_eq!(assessed.len(), 1);
+        assert_eq!(assessed[0].net, 1.0);
+        assert_eq!(assessed[0].satisfied, (required == 1).then_some(false));
     }
     let unlike = source
         .replace(

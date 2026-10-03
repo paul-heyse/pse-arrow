@@ -475,7 +475,9 @@ impl PreparedFit {
         self.assessments
             .iter()
             .map(|assessment| match assessment {
-                modeling::Assessment::Steady { model, .. } => model.compiled().model.closures.len(),
+                modeling::Assessment::Steady { model, .. } => {
+                    model.compiled().model.required_closure_checks()
+                }
                 modeling::Assessment::Transient(simulation) => simulation.required_closure_checks(),
             })
             .sum()

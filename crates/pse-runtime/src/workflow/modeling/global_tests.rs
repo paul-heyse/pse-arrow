@@ -73,28 +73,71 @@ fn report(result: &ModelingResult, label: &str) -> f64 {
 /// commitments, only h3 is worth running: its interior optimum x = 1.2/0.01 = 120 W earns
 /// 144 − 72 − 50 = 22 W. Running h2 alone loses 18 W and h2 with h3 shares the 150 W
 /// budget at 55 W and 95 W for −2.25 W.
-const PRICE_TAKER: &str = "package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = \"synthetic test data\" }
-    entity kind period {} entity period h1 {} entity period h2 {} entity period h3 {}
-    set periods: Set<period> = {h1, h2, h3};
-    table price[t: period]: Scalar complete_over(t in periods);
-    dataset signal: price provenance(s, role.given) { [h1] = [-0.5]; [h2] = [0.8]; [h3] = [1.2]; }
-    def Root {
-      param capacity: Power = 150{W}; param minimum: Power = 40{W};
-      param standby: Power = 50{W}; param budget: Power = 150{W};
-      param scale: Power = 100{W}; param curvature: Power = 50{W};
-      var on[t in periods]: Indicator in binary;
-      var output[t in periods]: Power;
-      var load[t in periods]: Scalar;
-      eq most[t in periods]: output[t] <= capacity*on[t];
-      eq least[t in periods]: output[t] >= minimum*on[t];
-      eq energy: sum(t in periods | output[t]) <= budget;
-      eq loading[t in periods]: output[t] == scale*load[t];
-      let margin: Power = sum(t in periods | price[t]*output[t] - curvature*load[t]*load[t] - standby*on[t]);
-      let peak: Power = output[h3];
-      annotation objective margin(maximize);
-      annotation bounds output(0{W}, 150{W}); annotation bounds load(0, 1.5);
-      annotation start on(0{1}); annotation start output(0{W}); annotation start load(0);
-      annotation report margin(\"margin\"); annotation report peak(\"h3\"); } }";
+const PRICE_TAKER: &str =
+    include_str!("../../../../../tests/fixtures/models/native-price-taker.pse");
+
+#[tokio::test]
+async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_rerouting() {
+    use pse_model::diagnostic::BoundaryClass;
+    let source = "package p { def Root { var x:Scalar; eq root:x*x==1; annotation bounds x(-2,2); annotation start x(1); } }";
+    for worker_bytes in [512, 8 << 20] {
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let runtime = fixture::runtime_on(
+            2 << 30,
+            crate::math::MathPolicy {
+                worker_bytes,
+                workspace_bytes: 16 << 20,
+                foreign_bytes: 16 << 20,
+                ..Default::default()
+            },
+        );
+        let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+        let mut request = analysis(
+            root,
+            profile(
+                SolveIntent::FeasiblePoint,
+                SolverSelection::Explicit(Backend::Scip),
+            ),
+        );
+        // The same compiler policy admits the small numeric template. Complete
+        // attempt storage has a distinct gate and must refuse before publishing a route.
+        request.compiler.evaluation.scratch_bytes = 512;
+        let prepared = package
+            .prepare_analysis(&request, &crate::CancelSource::new())
+            .await;
+        if worker_bytes == 512 {
+            let error = prepared.unwrap_err();
+            let diagnostic = error.boundary_diagnostic();
+            assert_eq!(
+                diagnostic.class,
+                BoundaryClass::ResourceLimit,
+                "{diagnostic:?}"
+            );
+            assert!(error.to_string().contains("worker storage"), "{error}");
+        } else {
+            let prepared = prepared.unwrap();
+            assert_eq!(
+                prepared.solve.route(),
+                pse_backend_native::routing::Route::Native(Backend::Scip)
+            );
+            assert_eq!(
+                prepared.solve.route_decision().unwrap().state,
+                pse_backend_native::routing::AssessmentState::Ready
+            );
+        }
+    }
+}
 
 #[tokio::test]
 async fn price_taker_quadratic_cost_miqp() {

@@ -494,3 +494,151 @@ impl RunResult {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_backend_native::{
+        OracleContract, ProblemError, quality,
+        solve::{
+            Assurance, Backend, Candidate, CandidateKind, Controls, Execution,
+            NativeTermination as NativeStop, Qualification, SolveReport, Termination,
+        },
+    };
+    use pse_ids::SemanticId;
+    use pse_model::diagnostic::BoundaryClass;
+
+    #[tokio::test]
+    async fn validation_failure_keeps_solve_projection_nullable_and_unqualified() {
+        let runtime = super::super::tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { param x:Scalar=2; eq square:x*x==4; } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, super::super::tests::physical())
+            .unwrap();
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                pse_kernels::DerivativeOrder::First,
+                super::super::tests::compiler_profile(),
+                super::super::tests::profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let run_id = pse_model::generated::identities::RunId::from_bytes([7; 16]);
+        let owner = runtime
+            .shared
+            .math()
+            .reserve("completion-unit", 4096)
+            .unwrap();
+        for (failure, class) in [
+            (
+                ProblemError::numerical("original observation"),
+                BoundaryClass::Numerical,
+            ),
+            (
+                ProblemError::memory("original observation allowance"),
+                BoundaryClass::ResourceLimit,
+            ),
+        ] {
+            // Boundary fixture: source preparation supplies real lineage, while this
+            // report exercises projection only and is not scientific solve evidence.
+            let contract = OracleContract {
+                identity: ContentHash::from_bytes([1; 32]),
+                variables: vec![],
+                rows: vec![],
+                derivatives: pse_kernels::DerivativeOrder::First,
+                smoothness: pse_kernels::DerivativeOrder::First,
+            };
+            let mut report = SolveReport::new(
+                Backend::Clarabel,
+                &contract,
+                NativeStop {
+                    code: 1,
+                    name: "Solved".into(),
+                    message: None,
+                    category: Termination::Success,
+                    assurance: Assurance::NativeOptimal,
+                },
+                &Execution::new(std::sync::Arc::default(), &Controls::default()),
+            );
+            report.candidate = Some(Candidate {
+                kind: CandidateKind::FinalIterate,
+                primal: vec![],
+                objective: None,
+                row_dual: None,
+                bound_dual: None,
+                reduced_costs: None,
+                slacks: None,
+                commitment: None,
+            });
+            report.quality = Some(quality::Quality::new(vec![], vec![], vec![]).unwrap());
+            report.qualification = Qualification::OptimalWithinTolerance;
+            report.record_validation_failure(failure);
+            let step = super::super::ModelingResult::from_assessment(
+                prepared.clone(),
+                run_id,
+                0,
+                Outcome::Native(Box::new(report)),
+                super::super::modeling::assessment::AssessedPoint {
+                    values: prepared.model.values.clone(),
+                    checks: vec![],
+                    reports: vec![],
+                    error: None,
+                    complete: true,
+                    required_closure: 0,
+                    owner: owner.clone(),
+                },
+                owner.clone(),
+            );
+            let mut result = RunResult::joined(
+                run_id,
+                runtime.clone(),
+                RunRequest::Modeling(vec![prepared.clone()]),
+                None,
+                Ok(RunReport::Modeling(vec![step])),
+            );
+            result.assessments = result.assess_candidates();
+            let completion = result.capture_completion().unwrap();
+            let [solve] = completion.solves.as_slice() else {
+                panic!("one solve expected")
+            };
+            assert_eq!(solve.feasible, None);
+            assert_eq!(solve.qualification, Qualification::Unqualified);
+            assert_eq!(solve.assurance, Assurance::None);
+            assert_eq!(solve.termination, Some(Termination::Success));
+            assert_eq!(solve.native_code, Some(1));
+            assert_eq!(solve.candidate_kind, Some(CandidateKind::FinalIterate));
+            assert!(solve.validation_error.is_some());
+            let [assessment] = completion.assessments.as_slice() else {
+                panic!("one assessment expected")
+            };
+            assert_eq!(assessment.numerically_feasible, None);
+            assert!(
+                assessment
+                    .refusals
+                    .contains(&CandidateRefusal::FeasibilityUnavailable)
+            );
+            assert!(!assessment.refusals.contains(&CandidateRefusal::Infeasible));
+            assert!(!assessment.permits_result);
+            assert!(!assessment.permits_seed);
+            assert!(completion.diagnostics.iter().any(|d| d.class == class));
+        }
+    }
+}

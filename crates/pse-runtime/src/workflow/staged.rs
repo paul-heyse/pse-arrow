@@ -255,13 +255,13 @@ impl Staged {
                 progress,
                 owner.clone(),
                 cancel,
-                move |outcome, flag, budget| {
+                move |outcome, execution, budget| {
                     let point = assessment.assess(
                         &evaluated,
                         run_id,
                         attempt,
                         outcome,
-                        flag,
+                        execution,
                         budget,
                         point_owner,
                     );
@@ -419,14 +419,15 @@ impl Staged {
                 members,
                 progress,
                 cancel,
-                move |i, outcome, flag, budget| match states.get_mut(i).and_then(Option::take) {
+                move |i, outcome, execution, budget| match states.get_mut(i).and_then(Option::take)
+                {
                     Some((prepared, run_id, assessment, point_owner)) => {
                         let point = assessment.assess(
                             &prepared,
                             run_id,
                             0,
                             outcome,
-                            flag,
+                            execution,
                             budget,
                             point_owner,
                         );

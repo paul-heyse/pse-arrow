@@ -17,6 +17,16 @@ pub enum ImplicitMeaning {
     /// Authored minimum-score selection among alternative regimes.
     MinimumScore,
 }
+/// How the selected function's local derivative neighborhood is established.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SelectionNeighborhood {
+    /// No supported uniqueness/selection evidence beyond values.
+    Unestablished,
+    /// Existing library-established graph or explicitly admitted branch meaning.
+    Static,
+    /// A validated winning chart must exclude competitive roots across all alternatives.
+    RuntimeIsolation,
+}
 /// One compiler-issued selector, consumed by evaluation, native realization and export.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImplicitSelection {
@@ -36,6 +46,8 @@ pub struct ImplicitSelection {
     pub equivalence: SelectionEquivalence,
     /// Justified selector-neighborhood derivative capability.
     pub neighborhood: DerivativeOrder,
+    /// Proof mechanism; a declared runtime obligation is not a completed certificate.
+    pub neighborhood_evidence: SelectionNeighborhood,
 }
 #[derive(Clone, Debug, PartialEq)]
 struct SelectionProjection {
@@ -246,6 +258,18 @@ pub struct AdmittedResidual {
     pub terms: Option<Arc<AdmittedBody>>,
     pub scales: Vec<ImplicitScale>,
     pub hint_targets: Vec<(SemanticId, DeclarationId, ModelingHint)>,
+    /// Exact residual, eligibility and criterion for conditional selection certification.
+    pub isolation: Option<Arc<pse_math::factorable::RootIsolationProgram>>,
+}
+/// Injected mathematics and algorithm registrations for one implicit execution.
+#[derive(Clone, Debug)]
+pub struct ImplicitCapabilities<'a> {
+    /// Numerical root solver used by the native algorithm.
+    pub solver: Arc<dyn pse_math::implicit::InnerSolver>,
+    /// Validated global minimum selection evidence, when nonlinear derivatives need it.
+    pub verifier: Option<Arc<dyn pse_math::implicit::SelectionVerifier>>,
+    /// Attempt's admitted named accelerator registrations.
+    pub accelerators: &'a pse_math::implicit::accelerators::Accelerators,
 }
 /// Checked implicit systems over a single ordered unknown set.
 #[derive(Clone, Debug, PartialEq)]
@@ -347,6 +371,7 @@ impl AdmittedImplicit {
         &self,
         requested_output: DerivativeOrder,
         native_minimum: DerivativeOrder,
+        verifier: Option<&dyn pse_math::implicit::SelectionVerifier>,
         accelerators: &pse_math::implicit::accelerators::Accelerators,
         cancel: &Arc<AtomicBool>,
         limits: EvaluationLimits,
@@ -377,7 +402,13 @@ impl AdmittedImplicit {
         pse_kernels::DerivativeRequirements::new(
             available,
             available,
-            self.selection.neighborhood,
+            if self.selection.neighborhood_evidence == SelectionNeighborhood::RuntimeIsolation
+                && verifier.is_none()
+            {
+                DerivativeOrder::Value
+            } else {
+                self.selection.neighborhood
+            },
             minimum,
             requested_output,
         )
@@ -457,6 +488,9 @@ impl AdmittedImplicit {
                         + size_of_val(r.hint_targets.as_slice())
                         + size_of_val(r.scales.as_slice())
                         + size_of::<AdmittedResidual>()
+                        + r.isolation
+                            .as_ref()
+                            .map_or(0, |program| program.retained_bytes())
                 })
                 .sum::<usize>()
             + self
@@ -472,16 +506,28 @@ impl AdmittedImplicit {
     pub fn factory(
         &self,
         mut configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
-        solver: Arc<dyn pse_math::implicit::InnerSolver>,
+        capabilities: ImplicitCapabilities<'_>,
         requested_output: DerivativeOrder,
-        accelerators: &pse_math::implicit::accelerators::Accelerators,
         cancel: Arc<AtomicBool>,
         limits: EvaluationLimits,
     ) -> Result<pse_math::implicit::ImplicitFactory> {
         use pse_math::implicit::{Factory, ImplicitFactory, RegimeFactory, RegimeFactoryBranch};
+        let ImplicitCapabilities {
+            solver,
+            verifier,
+            accelerators,
+        } = capabilities;
         if configurations.len() != self.residuals.len() || self.residuals.is_empty() {
             return Err(CompileError::Missing(
                 "implicit branch configuration extent".into(),
+            ));
+        }
+        if requested_output > DerivativeOrder::Value
+            && self.selection.neighborhood_evidence == SelectionNeighborhood::RuntimeIsolation
+            && verifier.is_none()
+        {
+            return Err(CompileError::Missing(
+                "nonlinear selection requires a validated isolation capability".into(),
             ));
         }
         let mut branches = Vec::new();
@@ -637,6 +683,14 @@ impl AdmittedImplicit {
                     residual: factory,
                     eligibility: local(&a.eligibility)?,
                     criterion: local(&a.criterion)?,
+                    isolation: if requested_output > DerivativeOrder::Value
+                        && self.selection.neighborhood_evidence
+                            == SelectionNeighborhood::RuntimeIsolation
+                    {
+                        residual.isolation.clone()
+                    } else {
+                        None
+                    },
                 }),
                 None if self.residuals.len() == 1 => return Ok(ImplicitFactory::Root(factory)),
                 None => {
@@ -658,6 +712,7 @@ impl AdmittedImplicit {
             time_limit: total_time
                 .ok_or_else(|| CompileError::Missing("empty implicit selector".into()))?,
             cancel,
+            verifier,
         }))
     }
 }
@@ -1610,7 +1665,70 @@ pub(super) fn admit(
                 },
                 scales: r.scales.clone(),
                 hint_targets: r.hints.iter().map(|h| (h.0, h.1, h.2)).collect(),
+                isolation: None,
             });
+        }
+        if implicit.selection.meaning == ImplicitMeaning::MinimumScore {
+            let cancel = Arc::new(AtomicBool::new(false));
+            for residual in &mut residuals {
+                let Some(assessment) = &residual.assessment else {
+                    continue;
+                };
+                let Some(hints) = &residual.hints else {
+                    continue;
+                };
+                // The first validated binding covers constant authored physical
+                // boxes. Parameter-dependent bounds need their own uniform bound
+                // predicates; resolving them at one input cannot establish a chart.
+                let bounds = residual
+                    .hint_targets
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (_, _, hint))| {
+                        matches!(hint, ModelingHint::Lower | ModelingHint::Upper)
+                    })
+                    .map(|(index, _)| index)
+                    .collect::<Vec<_>>();
+                if implicit.unknowns.iter().any(|unknown| {
+                    [ModelingHint::Lower, ModelingHint::Upper]
+                        .into_iter()
+                        .any(|kind| {
+                            !residual
+                                .hint_targets
+                                .iter()
+                                .any(|(id, _, hint)| id == unknown && *hint == kind)
+                        })
+                }) {
+                    continue;
+                }
+                let support = hints.math.incidence(
+                    &bounds,
+                    &(0..hints.math.input_count()).collect::<Vec<_>>(),
+                    &cancel,
+                )?;
+                if !support.support().controls.is_empty()
+                    || support
+                        .support()
+                        .first
+                        .iter()
+                        .any(|columns| !columns.is_empty())
+                {
+                    continue;
+                }
+                residual.isolation = pse_math::factorable::root_isolation_program(
+                    residual.id,
+                    &residual.body.math,
+                    &assessment.eligibility.math,
+                    &assessment.criterion.math,
+                    &cancel,
+                    BodyLimits::default().occurrences,
+                )
+                .map_err(|error| match error {
+                    pse_math::factorable::FactorableError::Math(error) => CompileError::from(error),
+                    error => CompileError::Missing(error.to_string()),
+                })?
+                .map(Arc::new);
+            }
         }
         let available_order = residuals
             .iter()
@@ -1641,9 +1759,9 @@ pub(super) fn admit(
                 return Err(CompileError::Missing("implicit expression requires an explicit function selector; numerical starts and bounds do not select mathematical meaning".into()));
             }
         }
-        // Regime margin and assessor separation establish a stable winner only after
-        // each alternative has a checked root selection of its own. One native iterate
-        // per regime cannot establish which of multiple roots within that regime is selected.
+        // Static graph evidence establishes one root per alternative. Nonlinear
+        // alternatives instead require the whole selection's runtime certificate:
+        // one native iterate per regime cannot exclude better unobserved roots.
         let unique_regimes = if matches!(meaning, ImplicitMeaning::MinimumScore) {
             let mut unique = true;
             for residual in &residuals {
@@ -1661,10 +1779,14 @@ pub(super) fn admit(
         } else {
             false
         };
-        let mut neighborhood = if unique_regimes
+        let static_neighborhood = unique_regimes
             || implicit.algorithm == ImplicitAlgorithm::AffineRates
-            || equivalence != SelectionEquivalence::Unestablished
-        {
+            || equivalence != SelectionEquivalence::Unestablished;
+        let isolated_regimes = meaning == ImplicitMeaning::MinimumScore
+            && residuals
+                .iter()
+                .all(|residual| residual.isolation.is_some());
+        let mut neighborhood = if static_neighborhood || isolated_regimes {
             available_order
         } else {
             DerivativeOrder::Value
@@ -1680,6 +1802,13 @@ pub(super) fn admit(
             neighborhood = DerivativeOrder::Value;
         }
         let mut selection = ImplicitSelection {
+            neighborhood_evidence: if neighborhood == DerivativeOrder::Value {
+                SelectionNeighborhood::Unestablished
+            } else if static_neighborhood {
+                SelectionNeighborhood::Static
+            } else {
+                SelectionNeighborhood::RuntimeIsolation
+            },
             identity: implicit.selection.identity,
             meaning,
             anchors: if implicit.selection.anchors.is_empty() {
@@ -1728,6 +1857,7 @@ pub(super) fn admit(
             .is_some_and(|b| b.math.branch_local_order() < DerivativeOrder::First)
         {
             selection.neighborhood = DerivativeOrder::Value;
+            selection.neighborhood_evidence = SelectionNeighborhood::Unestablished;
         }
         let mut spec = implicit.spec.clone();
         spec.derivatives = available_order.min(selection.neighborhood);

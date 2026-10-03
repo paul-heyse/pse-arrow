@@ -48,6 +48,12 @@ realization), and the nested flash `nested_equilibrium.NestedPRFlash` (two-phase
 liquid-only and vapor-only regimes solved on compressibility roots and selected by
 eligibility and the minimum Gibbs energy of the split). Each compares with the test's
 outlet flows, compositions, temperature and pressure at its absolute 1e-3.
+The smooth relational-density fixture declares the inherited `ideal-K` initialization
+stage before the original PR specification. It supplies an approximate physical start
+for the coupled inlet and outlet equilibrium states; it does not replace the final
+fugacity or pressure equations. Its finite initialization allowance is 1800 seconds,
+with no homotopy and at most four attempts. The final solve retains every original
+bound, conservation check and reference expectation.
 
 `models/exchanger-costing.pse` costs the IDAES 2.13 `test_heat_exchanger`
 TestBT_Generic_cocurrent exchanger (BT_PR on both sides, 5 mol/s at 365 K against 1 mol/s

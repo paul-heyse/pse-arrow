@@ -45,6 +45,14 @@ filter = 'test(authored_vessel_fitting_preserves_shared_parameters_checks_and_id
 slow-timeout = { period = "300s", terminate-after = 3 }
 
 [[profile.default.overrides]]
+# This original scientific closure has untimed preparation followed by a bounded
+# 1800-second native derivative diagnostic on one worker.
+filter = 'test(original_pr_case_jacobian_matches_stable_value_differences)'
+test-group = "engineering"
+threads-required = 2
+slow-timeout = { period = "300s", terminate-after = 9 }
+
+[[profile.default.overrides]]
 # Global certification admits the package closure and then runs spatial branch-and-bound
 # under its own solver deadline.
 filter = 'test(/^acceptance::global_certification::/)'

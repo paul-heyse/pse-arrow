@@ -190,7 +190,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
             .worker(
                 program.program.clone(),
                 &prepared.providers,
-                execution.cancel.clone(),
+                execution.scope().unwrap(),
                 &budget,
             )
             .unwrap();

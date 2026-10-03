@@ -46,6 +46,18 @@
       "body_occurrences": 1048576
     },
     {
+      "id": "k4-demand-orders-selected-output",
+      "model": "scalar-k4",
+      "demand_orders": true,
+      "smoke": true
+    },
+    {
+      "id": "k4-worker-permit-lifetime",
+      "model": "scalar-k4",
+      "worker_permit_lifetime": true,
+      "smoke": true
+    },
+    {
       "id": "k4-scalar-preparation",
       "model": "scalar-k4"
     },

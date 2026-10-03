@@ -245,17 +245,6 @@ impl CasePlan {
                 .obligations
                 .insert(b.instance, ObligationStatus::Discharged);
         }
-        // An instance whose projection exhausted the budget is admitted only when its body
-        // retains no obligation at all.
-        for b in self.structure().instances() {
-            if program.incomplete.contains(&b.instance)
-                && !self.bodies()[&b.body].obligations.is_empty()
-            {
-                facts
-                    .obligations
-                    .insert(b.instance, ObligationStatus::Unestablished);
-            }
-        }
         for obligation in &program.obligations {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);

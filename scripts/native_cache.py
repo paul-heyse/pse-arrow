@@ -13,7 +13,9 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
+import tomllib
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
@@ -275,6 +277,114 @@ def klu(base: Path, env: dict[str, str]) -> Path:
     return prepare(base, "klu", identity, KLU_FILES, build)
 
 
+def isolation(base: Path, env: dict[str, str]) -> Path:
+    """Prepare the source-pinned validated interval and supported LP binding."""
+    with (ROOT / "Cargo.toml").open("rb") as stream:
+        pin = tomllib.load(stream)["workspace"]["metadata"]["pse"]["root-isolation"]
+    env = env.copy()
+    env.setdefault("CC", shutil.which("cc") or "cc")
+    env.setdefault("CXX", shutil.which("c++") or "c++")
+    identity = {
+        "pin": pin,
+        "target": env.get("CARGO_BUILD_TARGET")
+        or subprocess.check_output([env["CC"], "-dumpmachine"], text=True).strip(),
+        "toolchain_file": digest(Path(env["CMAKE_TOOLCHAIN_FILE"]))
+        if env.get("CMAKE_TOOLCHAIN_FILE")
+        else None,
+        "cc": subprocess.check_output([env["CC"], "--version"], text=True),
+        "cxx": subprocess.check_output([env["CXX"], "--version"], text=True),
+        "cc_bytes": digest(Path(shutil.which(env["CC"]) or env["CC"])),
+        "cxx_bytes": digest(Path(shutil.which(env["CXX"]) or env["CXX"])),
+        "cmake": subprocess.check_output(["cmake", "--version"], text=True),
+        "flags": {
+            key: env.get(key)
+            for key in ("CFLAGS", "CXXFLAGS", "LDFLAGS", "CMAKE_TOOLCHAIN_FILE")
+        },
+    }
+    required = (
+        "include/ibex.h",
+        "lib/libibex.a",
+        "lib/ibex/3rd/libprim.a",
+        "lib/ibex/3rd/libsoplex.a",
+        "share/pkgconfig/ibex.pc",
+    )
+    destination = location(base, "isolation", identity)
+
+    def build(stage: Path, work: Path) -> None:
+        work.mkdir(parents=True)
+        archive = work / "source.tar.gz"
+        run(
+            [
+                "curl",
+                "--fail",
+                "--location",
+                "--proto",
+                "-all,https",
+                "--proto-redir",
+                "-all,https",
+                "--max-time",
+                "120",
+                "--output",
+                str(archive),
+                pin["archive"],
+            ],
+            env=env,
+        )
+        if digest(archive) != pin["sha256"]:
+            raise ValueError("validated-root source archive checksum mismatch")
+        source = work / "source"
+        source.mkdir()
+        with tarfile.open(archive, "r:gz") as package:
+            package.extractall(source, filter="data")
+        directories = [path for path in source.iterdir() if path.is_dir()]
+        if len(directories) != 1:
+            raise ValueError("validated-root archive layout")
+        cap = ["bash", str(ROOT / "scripts/memory-cap.sh")]
+        run(
+            [
+                *cap,
+                "cmake",
+                "-S",
+                str(directories[0]),
+                "-B",
+                str(work / "compiled"),
+                "-G",
+                "Unix Makefiles",
+                f"-DCMAKE_INSTALL_PREFIX={stage}",
+                *[f"-D{option}" for option in pin["options"]],
+            ],
+            env=env,
+        )
+        run(
+            [
+                *cap,
+                "cmake",
+                "--build",
+                str(work / "compiled"),
+                "--parallel",
+                env.get("CARGO_BUILD_JOBS", "4"),
+            ],
+            env=env,
+        )
+        run([*cap, "cmake", "--install", str(work / "compiled")], env=env)
+        configuration = (stage / "share/ibex/cmake/ibex-config.cmake").read_text()
+        for key, expected in (
+            ("IBEX_INTERVAL_LIB_VERSION", pin["interval-version"]),
+            ("IBEX_LP_LIB_VERSION", pin["lp-version"]),
+        ):
+            if f"set ({key} {expected})" not in configuration:
+                raise ValueError(f"validated-root native dependency mismatch: {key}")
+        # prepare() atomically relocates the stage. Native metadata must describe
+        # the final prefix, not the temporary build/install directory.
+        for pattern in ("*.pc", "*.cmake"):
+            for metadata in stage.rglob(pattern):
+                metadata.write_text(
+                    metadata.read_text().replace(str(stage), str(destination))
+                )
+
+    return prepare(base, "isolation", identity, required, build)
+
+
 def solver_image() -> str:
     """The solver image native work uses.
 
@@ -397,7 +507,8 @@ def runtime_env(dockerfile: Path) -> dict[str, str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "action", choices=("klu", "solver", "compiler-shell", "runtime-env")
+        "action",
+        choices=("klu", "isolation", "solver", "compiler-shell", "runtime-env"),
     )
     args = parser.parse_args()
     if args.action == "runtime-env":
@@ -412,6 +523,8 @@ def main() -> None:
         print(
             klu(base, compiler_env(dict(os.environ)))
             if args.action == "klu"
+            else isolation(base, compiler_env(dict(os.environ)))
+            if args.action == "isolation"
             else solver(base)
         )
 

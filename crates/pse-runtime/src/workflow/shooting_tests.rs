@@ -338,7 +338,12 @@ async fn multiple_shooting_continuity_closes() {
             // One integration of the horizon at the candidate's controls.
             let mut profile = simulation.profile().clone();
             profile.sensitivity = DynamicSensitivity::None;
-            let mut worker = simulation.worker(Arc::new(AtomicBool::new(false))).unwrap();
+            let mut worker = simulation
+                .worker(pse_kernels::ExecutionScope::new(
+                    Arc::new(AtomicBool::new(false)),
+                    Some(Instant::now().checked_add(profile.time_limit).unwrap()),
+                ))
+                .unwrap();
             let horizon = native::dynamics::integrate(
                 &mut worker,
                 &profile,

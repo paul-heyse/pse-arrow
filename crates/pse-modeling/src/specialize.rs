@@ -210,6 +210,13 @@ pub struct Closure {
     /// Source attribution.
     pub lineage: Lineage,
 }
+impl Closure {
+    /// Conservation and observation require an independent physical check; accounting
+    /// records a signed total without asserting that the total is zero.
+    pub fn requires_check(&self) -> bool {
+        self.mode != Mode::Accounting
+    }
+}
 /// One actual definition instance, sharing executable structure with its dispatch group.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Instance {
@@ -2807,6 +2814,13 @@ impl Contribution {
     }
 }
 impl SpecializedModel {
+    /// Number of required original physical closure checks, excluding accounting reports.
+    pub fn required_closure_checks(&self) -> usize {
+        self.closures
+            .values()
+            .filter(|c| c.requires_check())
+            .count()
+    }
     /// Borrow revision attribution under the specialized model's allocation owner.
     pub fn source_occurrences(
         &self,
@@ -2981,7 +2995,7 @@ impl SpecializedModel {
                     accumulator: closure.id,
                     net,
                     tolerance,
-                    satisfied: (closure.mode != Mode::Accounting).then_some(net.abs() <= tolerance),
+                    satisfied: closure.requires_check().then_some(net.abs() <= tolerance),
                 })
             })
             .collect()

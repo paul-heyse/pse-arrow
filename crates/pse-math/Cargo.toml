@@ -32,6 +32,7 @@ typed-index-collections.workspace = true
 enum-map.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+tracing.workspace = true
 pse-workspace-hack.workspace = true
 
 [dev-dependencies]

@@ -22,6 +22,7 @@ solver-ipopt = ["pse-backend-native/ipopt"]
 solver-highs = ["pse-backend-native/highs"]
 solver-pounce = ["pse-backend-native/pounce"]
 solver-kinsol = ["pse-backend-native/kinsol"]
+solver-root-isolation = ["pse-backend-native/root-isolation"]
 solver-sdp = ["pse-backend-native/sdp"]
 solver-clarabel-pardiso = ["pse-backend-native/clarabel-pardiso"]
 solver-diffsol = ["pse-backend-native/diffsol"]
@@ -32,6 +33,7 @@ native-solvers = [
   "solver-highs",
   "solver-pounce",
   "solver-kinsol",
+  "solver-root-isolation",
   "solver-sdp",
   "solver-clarabel-pardiso",
   "solver-diffsol",

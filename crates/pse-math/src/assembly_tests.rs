@@ -438,13 +438,10 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
             .obligations[&id(9)],
         crate::presolve::ObligationStatus::Discharged
     );
-    assert_eq!(
-        prepare(1.0)
-            .presolve_domain_facts(&values, 1, &cancel)
-            .unwrap()
-            .obligations[&id(9)],
-        crate::presolve::ObligationStatus::Unestablished
-    );
+    assert!(matches!(
+        prepare(1.0).presolve_domain_facts(&values, 1, &cancel),
+        Err(crate::MathError::Limit("factorable projection extent"))
+    ));
     assert!(prepare(1.0).coefficients(&values, 1, &cancel).is_err());
     assert!(prepare(0.0).coefficients(&values, 10_000, &cancel).is_err());
     assert_eq!(
@@ -741,24 +738,13 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
 }
 
 #[test]
-fn exhausted_optional_presolve_tapes_preserve_original_evaluation_and_independent_facts() {
+fn exhausted_factorable_projection_refuses_facts_and_preserves_original_evaluation() {
     let (assembly, values) = fixture(true, false);
     let cancel = Arc::new(AtomicBool::new(false));
-    let limited = assembly.presolve_domain_facts(&values, 2, &cancel).unwrap();
-    assert!(!limited.complete[0]);
-    assert!(limited.complete[1]);
-    assert_eq!(
-        limited.class_status,
-        crate::presolve::ClassStatus::Unassessed
-    );
-    assert!(limited.affine.iter().all(Option::is_none));
-    assert_eq!(limited.objective_degree, None);
-    assert!(
-        limited
-            .tapes
-            .iter()
-            .all(|t| t.first_invalid_slot().is_none())
-    );
+    assert!(matches!(
+        assembly.presolve_domain_facts(&values, 2, &cancel),
+        Err(crate::MathError::Limit("factorable projection extent"))
+    ));
     let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![20., 0.]);
     let complete = assembly.presolve_facts(&values, 1000, &cancel).unwrap();
@@ -1438,4 +1424,296 @@ fn class_proof_and_coefficients_share_aggregate_objective_cancellation() {
     assert_eq!(facts.objective_degree, Some(1));
     assert_eq!(coefficients.objective, [2.0, 0.0]);
     assert!(coefficients.hessian.val().is_empty());
+}
+
+#[test]
+fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_budget() {
+    let (original, mut values) = fixture(true, false);
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let a = builder.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let b = builder.input(1, quantity, IndexSet::new(), id(21)).unwrap();
+    let product = builder
+        .binary(Binary::Mul, a.clone(), b.clone(), None, id(22))
+        .unwrap();
+    let sum = builder
+        .binary(Binary::Add, a.clone(), b, None, id(23))
+        .unwrap();
+    let square = builder
+        .binary(Binary::Mul, sum.clone(), sum, None, id(25))
+        .unwrap();
+    let aa = builder
+        .binary(Binary::Mul, a.clone(), a.clone(), None, id(26))
+        .unwrap();
+    let cube = builder
+        .binary(Binary::Mul, aa, a.clone(), None, id(27))
+        .unwrap();
+    // Admitted inventory can be much larger than this consumer's selected outputs.
+    let mut unrelated = a.clone();
+    for _ in 0..512 {
+        unrelated = builder
+            .binary(Binary::Add, unrelated, a.clone(), None, id(24))
+            .unwrap();
+    }
+    let body = Arc::new(builder.prepare(&[product, square, cube]).unwrap());
+    let key = original.structure().instances()[0].body;
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let instances = (0..64)
+        .map(|n| {
+            let mut binding = original.structure().instances()[0].clone();
+            binding.instance = id(n + 100);
+            binding.contributions.push(Contribution {
+                output: 2,
+                target: Target::Row(id(11)),
+                scale: -2.0,
+            });
+            let source = if n % 2 == 0 { 1 } else { 2 };
+            binding.slots = vec![
+                SlotBinding::new(&port(source), &port(1), &registry).unwrap(),
+                SlotBinding::new(&port(source), &port(2), &registry).unwrap(),
+            ];
+            binding
+        })
+        .collect();
+    let structure = Arc::new(
+        CaseStructure::new(
+            original.structure().variables().to_vec(),
+            vec![],
+            instances,
+            original.structure().rows().to_vec(),
+            original.structure().objectives().first().cloned(),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let prepare = |worker_bytes| {
+        Arc::new(
+            CasePlan::prepare(
+                structure.clone(),
+                BTreeMap::from([(key, body.clone())]),
+                &registry,
+                DerivativeOrder::Second,
+                AssemblyLimits {
+                    worker_bytes,
+                    ..AssemblyLimits::default()
+                },
+                &cancel,
+            )
+            .unwrap(),
+        )
+    };
+    let assembly = prepare(usize::MAX)
+        .compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+    let bytes = assembly.numeric_worker_bytes();
+    // Repeated workers would exceed this admitted extent even before their caches.
+    assert!(
+        bytes
+            < 64 * assembly
+                .programs()
+                .iter()
+                .map(|p| p.worker_bytes())
+                .sum::<usize>()
+    );
+    assert!(matches!(
+        prepare(bytes - 1).assemble(assembly.programs().to_vec()),
+        Err(crate::MathError::Limit("case worker bytes"))
+    ));
+    let assembly = Arc::new(
+        prepare(bytes)
+            .assemble(assembly.programs().to_vec())
+            .unwrap(),
+    );
+    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    for (x, objective, row, gradient) in [
+        (2.0, 416.0, 8320.0, 128.0),
+        (5.0, 1088.0, 21760.0, 320.0),
+        (2.0, 416.0, 8320.0, 128.0),
+    ] {
+        values.scalars.insert(id(1), x);
+        assert_eq!(worker.objective(&values).unwrap(), objective);
+        assert_eq!(
+            worker.constraints(&values).unwrap(),
+            vec![row, -64.0 * (x * x * x + 27.0)]
+        );
+        assert_eq!(worker.gradient(&values).unwrap(), vec![gradient, 192.0]);
+        assert_eq!(
+            worker
+                .hessian(&values, 1.0, &[0.0, 0.0])
+                .unwrap()
+                .to_dense()[(0, 0)],
+            64.0
+        );
+        // Distinct signed row weights must contract the occurrence's selected output,
+        // even when the derivative cache at this same point is already populated.
+        let h = worker
+            .hessian(&values, 2.5, &[0.75, -0.25])
+            .unwrap()
+            .to_dense();
+        assert_eq!(h[(0, 0)], 1120.0 + 96.0 * x);
+        assert_eq!(h[(1, 1)], 1408.0);
+        let h = worker
+            .hessian(&values, 0.0, &[-1.0, 2.0])
+            .unwrap()
+            .to_dense();
+        assert_eq!(h[(0, 0)], -1280.0 - 768.0 * x);
+        assert_eq!(h[(1, 1)], -3584.0);
+        let sources = worker.constraint_sources().unwrap();
+        assert_eq!(sources.len(), 128);
+        assert_eq!(sources.iter().filter(|s| s.instance == id(100)).count(), 2);
+        assert_eq!(
+            sources
+                .iter()
+                .find(|s| s.instance == id(100) && s.output == 1)
+                .unwrap()
+                .value,
+            4.0 * x * x
+        );
+        assert_eq!(
+            sources
+                .iter()
+                .find(|s| s.instance == id(101) && s.output == 1)
+                .unwrap()
+                .value,
+            36.0
+        );
+    }
+    // Separate attempts have separate scratch and caches even over the same assembly.
+    let mut other = assembly.worker(BTreeMap::new(), cancel);
+    values.scalars.insert(id(1), 5.0);
+    assert_eq!(other.objective(&values).unwrap(), 1088.0);
+    values.scalars.insert(id(1), 2.0);
+    assert_eq!(worker.objective(&values).unwrap(), 416.0);
+}
+
+#[test]
+fn value_function_incidence_retains_all_original_free_inputs_and_selected_outputs() {
+    let (assembly, _) = fixture(false, false);
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let original = CasePlan::prepare(
+        Arc::new(assembly.structure().clone()),
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    // id(2) is a free source variable even when it is omitted from numeric columns.
+    for coordinates in [vec![], vec![id(1)]] {
+        let function = original
+            .functions(
+                &[id(10)],
+                coordinates.clone(),
+                &registry,
+                DerivativeOrder::Value,
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(function.columns(), coordinates);
+        assert_eq!(function.jacobian_pattern().ncols(), coordinates.len());
+        assert!(
+            function
+                .supports()
+                .iter()
+                .all(|support| support.support().first.is_empty())
+        );
+        let incidence = function.incidence(&cancel).unwrap();
+        assert_eq!(incidence.len(), 1);
+        assert_eq!(incidence[0].outputs(), &[1]);
+        assert_eq!(incidence[0].coordinates(), &[0, 1]);
+        assert_eq!(
+            incidence[0].first_for_output(1).unwrap(),
+            &[0, 1].into_iter().collect()
+        );
+        assert!(incidence[0].first_for_output(0).is_none());
+        assert_eq!(function.order(), DerivativeOrder::Value);
+        assert_eq!(function.columns(), coordinates);
+        assert!(
+            function
+                .supports()
+                .iter()
+                .all(|support| support.support().first.is_empty())
+        );
+    }
+}
+
+#[test]
+fn changed_coordinate_incidence_retains_support_owner_and_unspent_budget() {
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits {
+            slots: 8,
+            occurrences: 128,
+        },
+    )
+    .unwrap();
+    let first = builder.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let second = builder.input(1, quantity, IndexSet::new(), id(21)).unwrap();
+    let body = builder.prepare(&[first, second]).unwrap();
+    let owner = Arc::new(());
+    let weak_owner = Arc::downgrade(&owner);
+    let ready = body
+        .prepare_support(&[0], &[], DerivativeOrder::Value, &cancel)
+        .unwrap()
+        .with_owner(owner.clone());
+    let original_remaining = ready.remaining_occurrences();
+    let incidence = ready.incidence(&[0, 1], &cancel).unwrap();
+    let same_coordinates = ready.incidence(&[], &cancel).unwrap();
+    assert_eq!(incidence.outputs(), &[0]);
+    assert_eq!(
+        incidence.first_for_output(0).unwrap(),
+        &[0].into_iter().collect()
+    );
+    assert!(incidence.first_for_output(1).is_none());
+    assert!(incidence.remaining_occurrences() < original_remaining);
+    assert_eq!(ready.remaining_occurrences(), original_remaining);
+    assert!(ready.support().first.is_empty());
+    drop(owner);
+    drop(ready);
+    assert!(weak_owner.upgrade().is_some());
+    drop(incidence);
+    assert!(weak_owner.upgrade().is_some());
+    drop(same_coordinates);
+    assert!(weak_owner.upgrade().is_none());
+
+    // Selecting the same output consumes the existing finite map allowance only.
+    // Exhaust that product while the original body still has fresh admission capacity.
+    let mut exhausted = body
+        .prepare_support(&[0], &[], DerivativeOrder::Value, &cancel)
+        .unwrap();
+    while exhausted.remaining_occurrences() > 0 {
+        exhausted = exhausted.select_outputs(&[0], &cancel).unwrap();
+    }
+    assert!(matches!(
+        exhausted.incidence(&[0, 1], &cancel),
+        Err(crate::MathError::WorkLimit { .. })
+    ));
+    assert_eq!(exhausted.remaining_occurrences(), 0);
+    assert!(exhausted.support().first.is_empty());
+    assert!(body.incidence(&[0], &[0, 1], &cancel).is_ok());
 }

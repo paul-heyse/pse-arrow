@@ -2,7 +2,7 @@
 title: "25k: Integrated qualification and closure"
 status: in-progress
 date: 2026-09-30
-adrs: []
+adrs: [ADR-0153]
 review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s01, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md#fs11]
 ---
@@ -135,6 +135,130 @@ mandatory symbol manifest or automated architecture score. An intentional retain
 must still have a current target responsibility; deleted-path tests are not historical artifacts
 to preserve. Legitimate independent oracles and native-library adapters remain.
 
+Execution checkpoint, 2026-10-03: the resumed scientific campaign exposed two additional
+consumer/resource issues after the scoped support analysis correction: derivative sampling
+consumed a Value-only case, and repeated occurrences multiplied mutable evaluator scratch.
+The correction requests First only at the sampling consumer and shares scratch sequentially
+inside one attempt while retaining occurrence-specific caches and attribution. Required
+factorable projection exhaustion now refuses with a typed resource failure; §7.5 is reconciled
+with that behavior. The maintainer authorized larger finite admission ceilings for the 192 GB workstation:
+512 MiB local numeric scratch, 2 GiB complete case-worker storage and an 8 GiB runtime worker
+allowance. Explicit small-budget refusal controls remain bounded; scientific tolerances,
+reference expectations and physical bounds remain the acceptance inputs. The runtime allowance
+also raises its existing derived factorable/cone/SOS capacities fourfold. A successful focused
+control does not close K3. The PR smooth fixture now reaches Ipopt, but its candidate remains
+infeasible and fails physical closure and seven independent expectations; the larger allowance
+is not scientific acceptance. A same-model limited-memory diagnostic also fails. The smooth
+fixture now declares its inherited `ideal-K` initialization stage followed by the original PR
+specification, with a finite 1800-second initialization allowance; the staged probe satisfied
+all original model checks and reference expectations. This does not qualify the other
+formulations or enclosing campaign. The affected
+multi-fixture run exposed a separate conformance assumption about preliminary route decisions:
+no selected candidate means its structural assessment may be absent while preparation remains
+pending. Conformance now distinguishes that state from refusal and continues independent
+fixtures after a resource interruption. A genuine common original witness survives refusal;
+ambiguous full candidate assessments remain Rust-owned, with mode/admission summaries in
+serialized route records until a common or selected flat assessment exists. Publication errors
+retain their diagnostics and incompleteness without reinterpreting a completed native result.
+Finish the affected scientific journeys, then collect the comprehensive qualification and
+measurements.
+
+The retained affected run passed the smooth and complementarity PR formulations. Its PFR
+failures exposed a distinction lost at completion: nonzero accounting totals were counted as
+required zero-closure observations. The specialized domain model now owns that distinction,
+and steady, transient and fitting completion consume its required-check count. Accounting
+totals retain evaluation and finiteness checks. The finite case-specialization ceiling is now
+8,192 distinct bodies; repeated occurrences still count once and explicit small ceilings refuse.
+
+The maintainer authorized the nonlinear selection extension on 2026-10-03.
+ADR-0153 records its new kernel binding before integration. Constant authored
+physical boxes and an exact residual/eligibility/guard DAG now admit conditional
+First/Second preparation when a validated verifier is present. Numerical KINSOL
+execution remains separate: a direct uniform root chart and native closed-slab
+exclusion must establish one eligible root throughout a parameter neighborhood,
+or complete exclusion must establish an empty alternative. Unresolved coverage,
+multiple roots, strict boundaries and opaque projection never confer derivatives.
+IBEX owns interval arithmetic, contraction and covering; its supported bundled
+SoPlex route is guarded before Taylor contraction. Proof state is consumed in its
+originating request, with finite shared time/cells and reserved transient storage.
+
+Projection, isolated adapter and compiler controls pass. The full linked profile
+exposed a SoPlex ABI collision: IBEX's bundled library calls resolved to incompatible
+SCIP exports and crashed during LP contraction. The selected correction is source-built
+static PIC libraries with hidden C++ visibility, preserving the one proof implementation.
+The corrected fully linked adapter controls pass; the original nested PR journey still
+requires successful execution. Independent
+inspection identified IBEX's partial-coordinate ACID mask edge case and unnecessary
+parameter shaving. HC4 with guarded Taylor/LP alone exhausted the covering allowance.
+The adapter now adds library-owned parametric interval Newton behind the same full-box
+C1 guard admission, with the same native covering and complete-exclusion requirements.
+The linked controls pass. Exact request replay proves the first liquid-only alternative
+empty; whole-case qualification remains pending. Refusals now preserve chart, boundary
+and coverage reasons rather than collapsing them.
+Exact two-phase replay establishes its uniform chart and excludes the lower-fraction
+complement slab, but exhausts 131,072 cells in the upper slab. Identical native predicates
+now share guard functions while the source retains attribution. The finite covering ceiling
+is raised to 1,048,576 cells, with its conservative reservation derived from that ceiling;
+the outer deadline, worker admission and OS memory cap remain enforced.
+The expanded exact replay completes two-phase exclusion in 322,286 cells. Whole-case
+execution then reveals a different issue: the vapor-only domain contains an eligible
+middle cubic root although the numerical stable-liquid-root proposal is ineligible.
+Empty coverage would be false. The authorized capability now establishes a unique
+minimum across the entire eligible-root union: a regular winning chart plus complete
+score/tolerance competitive-root exclusion. Losing regimes may contain roots without
+being unique or empty. Exact criteria and tolerances enter the shared projection, and
+one worker-owned certificate may be reused only within its exact source, physical-domain,
+parameter, winner and derivative scopes. This replaces the stronger per-alternative proof.
+The first production whole-selection run reached Ipopt but exhausted its case
+time allowance without establishing physical closure or the reference expectations.
+Exact replay of its full three-alternative request establishes complete competitive
+exclusion with IBEX's largest-first bisector; this changes covering strategy without
+changing the original domains, predicates or proof requirements. The run also exposed
+a deadline ownership defect: nested numerical and proof calls could start a fresh
+allowance instead of consuming the parent attempt's remaining time. Scoped provider
+construction now carries the original absolute deadline and cancellation together;
+the repair must reject late evidence without relabeling time exhaustion as cancellation.
+Fitting, shooting and dynamic final checks consume the same enclosing scope, including
+empty observation programs. Targeted causal-map controls also exposed a separate
+structural admission defect: upgrading a Value function's empty numeric coordinate map
+could erase its original free dependencies. Structural incidence now derives those
+coordinates from the original free inventory, retains the selected outputs and unspent
+construction allowance, and keeps control dependencies separate from numerical Jacobian
+support. Boundary admission checks those controls without promoting a Value evaluator.
+The shared-deadline, structural-incidence and linked boundary controls pass, and the
+refreshed hygiene, default/no-default Clippy and linked-native Clippy checks meet the
+zero-failure target. Independent implementation review identified a final operational
+branch binding committed before a deadline check; the check now precedes that commit.
+The unchanged nested PR case still exhausts its 600-second attempt allowance. A focused
+run uses the maintainer-authorized larger finite allowance of 3,600 seconds, preserving
+the fixture's authored inputs, original bounds, procedure, expectations and tolerances.
+That run also exhausts the shared execution deadline. Its completed competitive proofs
+have no unresolved boxes, while outer Ipopt progress remains slow with large dual residuals
+and heavily reduced trial steps. A focused original-case diagnostic now compares the
+complete Jacobian against independent Value differences and examines normalized numerical
+rank before selecting a repair; more wall time alone is not an established solution.
+The initial Jacobian agrees on stable material entries, including selected-root links,
+and has numerical rank 120 at the recorded cutoff. A separate weighted Hessian comparison
+finds no stable material selected-root disagreement. Its combined-row check exposes
+finite-difference resolution limits when tiny non-selector steps are subtracted from
+gradients dominated by affine terms. Those columns now use the central-difference
+truncation/roundoff step scale; actual selector inputs retain chart-sized steps, and
+the original bounds and comparison tolerances remain unchanged. The rerun has no stable
+Jacobian or weighted Hessian disagreements. Twelve apparent differences resolve within
+the unchanged tolerance; the remaining direction is noisy and its symmetric counterpart
+agrees. The original-start probe retains its other noisy entries and two-combination
+Hessian coverage limits. A separately reported explicit POUNCE probe is next: the published
+capability admits this unchanged bounded problem, but the automatic Ipopt timeout remains
+an unsuccessful receipt rather than becoming a pass through another profile.
+Whole-case acceptance remains pending. The next dependencies are successful production nested PR execution,
+full campaign/static assessment, K4 measurements and bounded K5 closure. K3, K4 and K5
+remain open.
+
+The ten historical 25a/25b/25d/25e worktrees have been assessed against current source owners,
+registered tests and completed packet outcomes. No missing aligned work was identified; their
+changes are integrated or superseded, and merge debris has no product value. Remove those
+worktrees after qualification passes, without retaining differences merely because they exist.
+
 ### K2/K3 — Recipe selection and reporting
 
 Execution checkpoint, 2026-10-02: static repairs are complete. Registry-owned enum defaults,
@@ -182,7 +306,8 @@ Positive Peng–Robinson flowsheets now explicitly select the original density r
 outer problem. ADR-0144 distinguishes this authored relational formulation from the retained
 operational selector; an unproved nonlinear selector remains value-only and its derivative
 refusal retains a typed capability cause. Intensive fixtures declare finite construction/support
-allowances rather than changing global defaults. Original independent expectations remain.
+allowances; the 2026-10-03 maintainer-authorized workstation adjustment also raises the memory
+defaults recorded in the checkpoint above. Original independent expectations remain.
 The complete seed campaign and assembled receipt must pass before measurement begins.
 
 Use the current `just --list` contract at execution time. The initial selection is `just fmt`,

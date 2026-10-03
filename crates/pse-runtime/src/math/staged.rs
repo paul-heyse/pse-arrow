@@ -308,7 +308,11 @@ impl NativeSession {
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
         cancel: &crate::CancelSource,
-        assess: impl FnOnce(&super::solves::Outcome, &Arc<AtomicBool>, &Arc<WorkerBudget>) -> (T, bool)
+        assess: impl FnOnce(
+            &super::solves::Outcome,
+            Option<&pse_kernels::ExecutionScope>,
+            &Arc<WorkerBudget>,
+        ) -> (T, bool)
         + Send
         + 'static,
     ) -> Result<(super::solves::Outcome, T), MathRuntimeError> {
@@ -317,10 +321,10 @@ impl NativeSession {
         let allowance = service.reserve("math:step-foreign", step.declared_foreign_bytes())?;
         self.run(threads, backend, cancel, move |retained, flag, budget| {
             let _allowance = allowance;
-            let outcome = service.execute(
+            let (outcome, scope) = service.execute(
                 step, previous, attempt, retained, flag, &progress, budget, &owner,
             )?;
-            let (assessed, accepted) = assess(&outcome, flag, budget);
+            let (assessed, accepted) = assess(&outcome, scope.as_ref(), budget);
             if !accepted {
                 retained.clear();
             }
@@ -343,7 +347,7 @@ impl NativeSession {
         mut assess: impl FnMut(
             usize,
             &super::solves::Outcome,
-            &Arc<AtomicBool>,
+            Option<&pse_kernels::ExecutionScope>,
             &Arc<WorkerBudget>,
         ) -> (T, bool)
         + Send
@@ -369,8 +373,8 @@ impl NativeSession {
                 .into_iter()
                 .enumerate()
                 .map(|(i, outcome)| {
-                    outcome.map(|outcome| {
-                        let (assessed, accepted) = assess(i, &outcome, flag, budget);
+                    outcome.map(|(outcome, scope)| {
+                        let (assessed, accepted) = assess(i, &outcome, scope.as_ref(), budget);
                         kept &= accepted;
                         (outcome, assessed)
                     })

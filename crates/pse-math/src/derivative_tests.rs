@@ -9,7 +9,7 @@ use crate::{
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::*;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -244,6 +244,72 @@ fn separately_reconstructed_equal_branch_facts_remain_symbolic() {
         assert_eq!(result.jacobian, vec![10.0, 10.0]);
         assert_eq!(result.hessians, vec![2.0; 4]);
     }
+}
+
+#[test]
+fn local_guard_facts_do_not_copy_the_enclosing_slot_inventory() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let lineage = form_lineage(id(13));
+    let mut stages = vec![block(vec![&x * &x], vec![2])];
+    for guard in 0..128 {
+        stages.push(Stage::Domain {
+            stages: vec![block(vec![x.clone()], vec![3])],
+            argument: 3,
+            token: 4 + guard,
+            lineage: lineage.clone(),
+        });
+    }
+    // Every local producer assigns slot 3, but the outer producer still owns it.
+    stages.push(block(vec![&y * &y], vec![3]));
+    // This covers base slot admission and actual local writes. Full snapshots for
+    // these 128 guards would require over half a million handle copies.
+    let mut remaining = 25_000;
+    let body =
+        PreparedBody::new_with_allowance(2, 4096, vec![2, 3], stages, &mut remaining).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let support = body
+        .prepare_support(&[0, 1], &[0, 1], DerivativeOrder::Second, &cancel)
+        .unwrap();
+    assert_eq!(
+        support.support().first,
+        vec![BTreeSet::from([0]), BTreeSet::from([1])]
+    );
+    assert_eq!(
+        support.support().second,
+        vec![BTreeSet::from([(0, 0)]), BTreeSet::from([(1, 1)])]
+    );
+    assert!(support.remaining_occurrences() > 0);
+    let mut worker = body
+        .compile(
+            &[0, 1],
+            &[0, 1],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    let result = worker
+        .evaluate(
+            &[2.0, 3.0],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![4.0, 9.0]);
+    assert_eq!(result.jacobian, vec![4.0, 0.0, 0.0, 6.0]);
+    assert_eq!(
+        result.hessians,
+        vec![2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0]
+    );
+    assert!(
+        matches!(worker.evaluate(&[-2.0, 3.0], DerivativeOrder::Second,
+        &mut BTreeMap::new(), &cancel), Err(MathError::Validity(actual)) if actual.as_ref() == lineage.as_ref())
+    );
 }
 
 #[test]

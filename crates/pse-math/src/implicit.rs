@@ -9,6 +9,8 @@ mod affine;
 mod configuration;
 #[path = "implicit_cubic.rs"]
 mod cubic;
+#[path = "implicit_isolation.rs"]
+mod isolation;
 #[path = "implicit_regimes.rs"]
 mod regimes;
 #[path = "implicit_selection.rs"]
@@ -28,6 +30,10 @@ use faer::{
         SparseColMat, SymbolicSparseColMat,
         linalg::solvers::{Lu, SymbolicLu},
     },
+};
+pub use isolation::{
+    ProofInterval, SelectionAlternative, SelectionChart, SelectionEvidence, SelectionProofRefusal,
+    SelectionProofRequest, SelectionScope, SelectionVerifier,
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, ProviderValues};
@@ -538,15 +544,42 @@ impl ImplicitFactory {
         match self {
             Self::Root(factory) => root(factory),
             Self::Regimes(factory) => {
-                factory
+                let programs = factory
                     .alternatives
                     .iter()
                     .try_fold(0usize, |bytes, branch| {
                         bytes
                             .checked_add(root(&branch.residual)?)?
                             .checked_add(branch.eligibility.retained_bytes())?
-                            .checked_add(branch.criterion.retained_bytes())
-                    })
+                            .checked_add(branch.criterion.retained_bytes())?
+                            .checked_add(
+                                branch
+                                    .isolation
+                                    .as_ref()
+                                    .map_or(0, |program| program.retained_bytes()),
+                            )
+                    });
+                let workspace = match &factory.verifier {
+                    Some(verifier) => {
+                        let programs = factory
+                            .alternatives
+                            .iter()
+                            .filter_map(|branch| branch.isolation.clone())
+                            .collect::<Vec<_>>();
+                        verifier.workspace_bytes(&programs)?
+                    }
+                    None => 0,
+                };
+                let certificate = regimes::certificate_bytes(
+                    factory.spec.inputs.len(),
+                    factory
+                        .alternatives
+                        .iter()
+                        .map(|branch| branch.residual.unknowns.len()),
+                )?;
+                programs
+                    .and_then(|bytes| bytes.checked_add(workspace))
+                    .and_then(|bytes| bytes.checked_add(certificate))
             }
         }
         .ok_or(MathError::Limit("implicit factory retained extent"))
@@ -633,11 +666,11 @@ impl pse_kernels::ProviderFactory for ImplicitFactory {
     }
     fn create_scoped(
         &self,
-        cancel: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
     ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
         match self {
-            Self::Root(v) => v.create_scoped(cancel),
-            Self::Regimes(v) => v.create_scoped(cancel),
+            Self::Root(v) => v.create_scoped(scope),
+            Self::Regimes(v) => v.create_scoped(scope),
         }
     }
 }
@@ -668,13 +701,14 @@ impl pse_kernels::ProviderFactory for Factory {
         h.finish_hash()
     }
     fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
-        self.create_scoped(self.cancel.clone())
+        self.create_scoped(pse_kernels::ExecutionScope::new(self.cancel.clone(), None))
     }
     fn create_scoped(
         &self,
-        cancel: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
     ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
-        let problem = self.problem(cancel.clone())?;
+        scope.check()?;
+        let problem = self.problem(scope.clone())?;
         Ok(Box::new(Nested {
             spec: self.spec.clone(),
             problem,
@@ -684,14 +718,19 @@ impl pse_kernels::ProviderFactory for Factory {
                 self.terms.as_ref(),
             ),
             solver: self.solver.clone(),
-            cancel,
+            cancel: scope.cancellation().clone(),
+            scope,
             selection: selection::SelectionWorker::new(&self.selection),
             requested_output: self.requirements.requested_output,
         }))
     }
 }
 impl Factory {
-    fn problem(&self, cancel: Arc<AtomicBool>) -> Result<Arc<Problem>, pse_kernels::ProviderError> {
+    fn problem(
+        &self,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<Arc<Problem>, pse_kernels::ProviderError> {
+        scope.check()?;
         if self.requirements.inner_minimum != self.solver.minimum_order()
             || self.body.compiled_order() != self.requirements.residual_compilation
         {
@@ -712,23 +751,30 @@ impl Factory {
         let providers = self
             .providers
             .iter()
-            .map(|(k, r)| r.worker_scoped(cancel.clone()).map(|w| (*k, w)))
+            .map(|(k, r)| r.worker_scoped(scope.clone()).map(|w| (*k, w)))
             .collect::<Result<_, _>>()?;
-        let problem = Arc::new(
-            Problem::new(
-                self.spec.id,
-                self.spec.identity(),
-                self.unknowns.clone(),
-                self.rows.clone(),
-                self.spec.inputs.len(),
-                self.body.clone(),
-                self.max_entries,
-            )
-            .map_err(provider_error)?
-            .with_requirements(self.requirements)
-            .map_err(provider_error)?
-            .with_providers(providers),
-        );
+        let mut problem = Problem::new(
+            self.spec.id,
+            self.spec.identity(),
+            self.unknowns.clone(),
+            self.rows.clone(),
+            self.spec.inputs.len(),
+            self.body.clone(),
+            self.max_entries,
+        )
+        .map_err(provider_error)?
+        .with_requirements(self.requirements)
+        .map_err(provider_error)?
+        .with_providers(providers);
+        problem
+            .worker
+            .get_mut()
+            .map_err(|_| {
+                pse_kernels::ProviderError::Terminal("implicit worker lock poisoned".into())
+            })?
+            .set_scope(scope.clone());
+        let problem = Arc::new(problem);
+        scope.check()?;
         if let Configuration::Fixed(_, options) = &self.configuration
             && self.selection.anchor.is_none()
         {
@@ -740,6 +786,7 @@ impl Factory {
 
 #[derive(Debug)]
 struct Nested {
+    scope: pse_kernels::ExecutionScope,
     requested_output: DerivativeOrder,
     selection: selection::SelectionWorker,
     spec: pse_kernels::ProviderSpec,
@@ -758,6 +805,7 @@ impl pse_kernels::Provider for Nested {
         request: &pse_kernels::ProviderRequest,
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<ProviderValues, pse_kernels::ProviderError> {
+        self.scope.check()?;
         request.validate(&self.spec, context)?;
         if request.order > self.requested_output {
             return Err(pse_kernels::ProviderError::Contract(
@@ -782,20 +830,27 @@ impl pse_kernels::Provider for Nested {
         self.selection
             .configure(&mut self.problem, &options)
             .map_err(provider_error)?;
-        options.time_limit = allowance.saturating_sub(started.elapsed());
+        options.time_limit = self
+            .scope
+            .remaining(allowance.saturating_sub(started.elapsed()))?;
         if options.time_limit.is_zero() {
             return Err(pse_kernels::ProviderError::Limit(
                 "implicit configuration time",
             ));
         }
+        self.scope.check()?;
         let point = self
             .solver
             .solve(self.problem.clone(), inputs, &options, &self.cancel)
             .map_err(provider_error)?;
+        self.scope
+            .remaining(allowance.saturating_sub(started.elapsed()))?;
         let all = self
             .problem
             .derivatives(inputs, &point, request.order, &options, &self.cancel)
             .map_err(provider_error)?;
+        self.scope
+            .remaining(allowance.saturating_sub(started.elapsed()))?;
         self.selection
             .verify(&self.problem, inputs, &point, request.order, &self.cancel)
             .map_err(provider_error)?;
@@ -822,6 +877,7 @@ impl pse_kernels::Provider for Nested {
             }
         }
         out.validate(&self.spec, request)?;
+        self.scope.check()?;
         Ok(out)
     }
 }
@@ -839,6 +895,10 @@ fn provider_error(error: MathError) -> pse_kernels::ProviderError {
         other => pse_kernels::ProviderError::Terminal(other.to_string()),
     }
 }
+
+#[cfg(test)]
+#[path = "implicit_deadline_tests.rs"]
+mod deadline_tests;
 
 #[cfg(test)]
 mod tests {

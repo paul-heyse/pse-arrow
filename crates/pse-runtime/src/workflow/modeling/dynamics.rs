@@ -131,13 +131,15 @@ impl ModelingTrajectory {
             )
             .ok_or_else(|| contract("derivative sample extent"))?;
         let handle = self.prepared.runtime.shared.math().submit(1, bytes, move |flag, _| {
+            let execution = pse_backend_native::solve::Execution::new(flag.clone(), &controls);
+            let scope = execution.scope()?;
             let mut outcomes = Vec::new();
             for (index, sample) in trajectory.report.samples.iter().enumerate() {
                 let p = &trajectory.prepared;
                 let parameters = p.profile.parameters_at(&p.parameters, sample.time);
                 // The box the mode's range obligations admit, so a difference step stays
                 // inside it: one-sided at an input or state held at its bound.
-                let bounds = p.worker(flag.clone())?.coordinate_box(sample.mode, sample.time, &sample.state, &parameters)?;
+                let bounds = p.worker(scope.clone())?.coordinate_box(sample.mode, sample.time, &sample.state, &parameters)?;
                 let mut functions = vec![(Function::Rhs, p.contract.states.len()), (Function::Output, p.contract.outputs.len())];
                 if !p.contract.quadratures.is_empty() { functions.push((Function::QuadratureFlux, p.contract.quadratures.len())); }
                 if !p.contract.balances.is_empty() { functions.push((Function::Inventory, p.contract.balances.len())); }
@@ -146,9 +148,9 @@ impl ModelingTrajectory {
                     let mut normalization = pse_math::normalization::Normalization::identity(p.contract.states.len() + p.contract.parameters.len(), rows);
                     normalization.variables[p.contract.states.len()..].copy_from_slice(&p.profile.parameter_scales);
                     let result = pse_backend_native::derivative_diagnostics::analyze_dynamic(
-                        Box::new(p.worker(flag.clone())?),
+                        Box::new(p.worker(scope.clone())?),
                         pse_backend_native::derivative_diagnostics::DynamicSample { mode: sample.mode, function, time: sample.time, state: sample.state.clone(), parameters: parameters.clone(), bounds: bounds.clone() },
-                        normalization, policy, pse_backend_native::solve::Execution::new(flag.clone(), &controls),
+                        normalization, policy, execution.clone(),
                     )?;
                     if !result.passed() { details.push(format!("{function:?}: {}", result.summary())); }
                     complete &= result.complete; passed &= result.passed();
@@ -242,7 +244,7 @@ impl ModelingSimulation {
             + self
                 .modes
                 .iter()
-                .map(|mode| mode.model.compiled().model.closures.len())
+                .map(|mode| mode.model.compiled().model.required_closure_checks())
                 .max()
                 .unwrap_or(0)
     }
@@ -278,9 +280,9 @@ impl ModelingSimulation {
     }
     pub(crate) fn worker(
         &self,
-        cancel: Arc<std::sync::atomic::AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
     ) -> Result<DynamicWorker, ProblemError> {
-        self.program().worker(cancel)
+        self.program().worker(scope)
     }
     pub(crate) fn snapshot(&self) -> &pse_backend_native::execution::Snapshot {
         &self.snapshot
@@ -397,7 +399,11 @@ impl ModelingSimulation {
             #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
             {
                 let started = std::time::Instant::now();
-                let mut worker = prepared.worker(flag.clone())?;
+                let deadline = started
+                    .checked_add(prepared.profile.time_limit)
+                    .ok_or_else(|| ProblemError::Contract("simulation deadline extent".into()))?;
+                let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+                let mut worker = prepared.worker(scope.clone())?;
                 let report = native::integrate_with_progress_observed(
                     &mut worker,
                     &prepared.profile,
@@ -406,8 +412,7 @@ impl ModelingSimulation {
                     progress,
                     &prepared.snapshot,
                 )?;
-                let checks =
-                    prepared.check_samples(run_id, &report, &prepared.parameters, &flag, started);
+                let checks = prepared.check_samples(run_id, &report, &prepared.parameters, &scope);
                 let bytes = report
                     .numeric_bytes()
                     .checked_add(checks.rows.capacity() * size_of::<ModelingCheck>())
@@ -4310,7 +4315,9 @@ mod tests {
         assert_eq!(rows.len(), 4);
         assert!((rows.last().unwrap().value - 5.).abs() < 1e-6);
         let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let mut worker = prepared.worker(flag.clone()).unwrap();
+        let mut worker = prepared
+            .worker(pse_kernels::ExecutionScope::new(flag.clone(), None))
+            .unwrap();
         assert!(
             worker
                 .evaluate(0, Function::Rhs, 0., &[0.1], &prepared.parameters, true)
@@ -4334,8 +4341,7 @@ mod tests {
             run,
             &trial,
             &trial_parameters,
-            &flag,
-            std::time::Instant::now(),
+            &pse_kernels::ExecutionScope::new(flag.clone(), None),
         );
         assert!(checks.complete && checks.error.is_none());
         assert!(checks.rows.iter().all(|c| c.satisfied));
@@ -4343,16 +4349,29 @@ mod tests {
             run,
             &trial,
             &prepared.parameters,
-            &flag,
-            std::time::Instant::now(),
+            &pse_kernels::ExecutionScope::new(flag.clone(), None),
         );
         assert!(wrong.rows.iter().any(|c| !c.satisfied));
+        // A final trajectory assessment consumes its enclosing deadline even
+        // when the simulation's own local allowance would be longer.
+        let expired = prepared.check_samples(
+            run,
+            &trial,
+            &trial_parameters,
+            &pse_kernels::ExecutionScope::new(flag.clone(), Some(std::time::Instant::now())),
+        );
+        assert!(!expired.complete);
+        assert!(expired.error.is_some());
+        assert!(expired.rows.is_empty());
+        assert!(!flag.load(std::sync::atomic::Ordering::Acquire));
         assert_eq!(prepared.parameters[pi], 2.);
         assert_eq!(prepared.parameters[oi], 1.);
         flag.store(true, std::sync::atomic::Ordering::Release);
         assert!(matches!(
             worker.evaluate(0, Function::Rhs, 0., &[0.1], &prepared.parameters, true),
-            Err(ProblemError::Math(pse_math::MathError::Cancelled))
+            Err(ProblemError::Provider(
+                pse_kernels::ProviderError::Cancelled
+            ))
         ));
     }
     #[tokio::test]
@@ -4580,7 +4599,10 @@ mod tests {
             .await
             .unwrap();
         let mut worker = prepared
-            .worker(Arc::new(std::sync::atomic::AtomicBool::new(false)))
+            .worker(pse_kernels::ExecutionScope::new(
+                Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                None,
+            ))
             .unwrap();
         let mut outside = vec![4.; 2];
         outside[xi] = 3.;

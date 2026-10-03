@@ -24,9 +24,18 @@ from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
     AttemptKind,
     AttemptState,
+    CandidateQualifier,
+    CandidateRefusal,
+    CandidateUse,
+    IncumbentPolicy,
     ModelingAnalysisRoute,
+    NativeAssurance,
     NativeBackend,
+    NativeBoundaryClass,
+    NativeCandidateKind,
+    NativeQualification,
     NativeSolveIntent,
+    NativeTermination,
     PresolvePolicyKind,
 )
 from pse.contracts.identities import (
@@ -589,6 +598,182 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert isinstance(settled, pse.PublicationSettlementProvedNoncommit)
     assert settled == durable_runtime.settle_publication(ticket)
     assert not tuple(tmp_path.iterdir())
+
+
+def price_taker_package(
+    runtime: pse.Runtime,
+) -> tuple[w.ModelingPackage, DeclarationId]:
+    root = Path(__file__).resolve().parents[3]
+    physical_root = root / "packages/reference/physical"
+    physical = runtime.physical_from_documents(
+        {
+            str(path.relative_to(physical_root)): path.read_text()
+            for path in physical_root.rglob("*")
+            if path.is_file() and path.suffix in {".toml", ".yaml", ".yml", ".pse"}
+        }
+    )
+    physical_manifest = msgspec.toml.decode(
+        (physical_root / "package.toml").read_bytes(),
+        type=dict[str, dict[str, object]],
+    )["package"]
+    physical_id = cast("str", physical_manifest["package_id"])
+    major, minor, patch = map(int, cast("str", physical_manifest["version"]).split("."))
+    dependency = (
+        f'dependencies = [{{ package_id = "{physical_id}", '
+        f'version_req = {{ operator = "exact", major = {major}, '
+        f"minor = {minor}, patch = {patch} }} }}]"
+    )
+    manifest = (
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+        .replace("dependencies = []", dependency)
+    )
+    package = runtime.modeling_from_documents(
+        [
+            {
+                "package.toml": manifest,
+                "models/price-taker.pse": (
+                    root / "tests/fixtures/models/native-price-taker.pse"
+                ).read_text(),
+            }
+        ],
+        physical,
+    )
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
+    return package, case
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "incumbent",
+    [IncumbentPolicy.ACCEPT_FEASIBLE, IncumbentPolicy.REFUSE],
+)
+def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
+    durable_runtime: pse.Runtime,
+    incumbent: IncumbentPolicy,
+) -> None:
+    package, case = price_taker_package(durable_runtime)
+    settings = pse.SolveSettings(
+        intent=NativeSolveIntent.OPTIMIZE,
+        backend=NativeBackend.SCIP,
+        controls=pse.SolveControls(
+            foreign_bytes=16 << 20,
+            options={"limits/solutions": 1},
+        ),
+        numerics=documents.NumericalPolicy(incumbent=incumbent),
+    )
+    handle = package.prepare_solve(case, settings).start()
+    result = handle.wait()
+    assert result.attempt_id is not None
+    assert handle.attempt_id == result.attempt_id
+    (stored,) = durable_runtime.runs(run_id=result.run_id)
+    assert stored.attempt_id == result.attempt_id
+    assert stored.finished_at is not None
+    (solve,) = result.completion.solves
+    assert solve.backend == NativeBackend.SCIP
+    assert solve.termination == NativeTermination.SOLUTION_LIMIT
+    assert solve.candidate_kind == NativeCandidateKind.FEASIBLE_POINT
+    assert solve.feasible is True
+    assert solve.qualification == NativeQualification.FEASIBLE
+    assert solve.assurance != NativeAssurance.GLOBAL_BOUND
+    assert solve.validation_error is None
+    # The shared authored MIQP's independent enumeration gives an optimum of 22 W;
+    # the first feasible native incumbent is explicitly below that optimum.
+    assert solve.objective is not None
+    assert solve.objective < 22.0 - 1e-5
+    (assessment,) = result.completion.assessments
+    assert assessment.native_termination == NativeTermination.SOLUTION_LIMIT
+    assert assessment.numerically_feasible is True
+    assert assessment.validated is True
+    assert assessment.qualification == NativeQualification.FEASIBLE
+    assert assessment.incumbent_policy == incumbent
+    if incumbent == IncumbentPolicy.ACCEPT_FEASIBLE:
+        assert result.usable
+        assert assessment.usability == CandidateUse.USABLE
+        assert assessment.permits_result
+        assert CandidateQualifier.ACCEPTED_INCUMBENT_FEASIBLE in assessment.qualifiers
+        assert stored.state == AttemptState.COMPLETED
+    else:
+        assert not result.usable
+        assert assessment.usability == CandidateUse.SEED_ONLY
+        assert not assessment.permits_result
+        assert CandidateRefusal.INCUMBENT_REFUSED in assessment.refusals
+        assert stored.state == AttemptState.FAILED
+    assert assessment.permits_seed
+    variables = pa.table(result.table("runtime.solve_variables")).to_pylist()
+    candidates = [row for row in variables if not row["parameter"]]
+    assert len(candidates) == 9
+    assert all(row["value"] is not None for row in candidates)
+    constraints = pa.table(result.table("runtime.solve_constraints")).to_pylist()
+    assert len(constraints) == 10
+    for row in constraints:
+        assert row["quantity_id"] is not None
+        assert row["unit_id"] is not None
+        assert row["value"] is not None
+        assert row["tolerance"] is not None
+        assert row["lower_violation"] <= row["tolerance"]
+        assert row["upper_violation"] <= row["tolerance"]
+        if row["equality_residual"] is not None:
+            assert abs(row["equality_residual"]) <= row["tolerance"]
+
+
+@pytest.mark.integration
+def test_durable_native_memory_stop_keeps_unavailable_feasibility(
+    durable_runtime: pse.Runtime,
+) -> None:
+    package, case = price_taker_package(durable_runtime)
+    prepared = package.prepare_solve(
+        case,
+        pse.SolveSettings(
+            intent=NativeSolveIntent.OPTIMIZE,
+            backend=NativeBackend.SCIP,
+            controls=pse.SolveControls(foreign_bytes=1 << 20),
+        ),
+    )
+    handle = prepared.start()
+    result = handle.wait()
+    assert result.attempt_id is not None
+    assert handle.attempt_id == result.attempt_id
+    (stored,) = durable_runtime.runs(run_id=result.run_id)
+    assert stored.attempt_id == result.attempt_id
+    assert stored.state == AttemptState.FAILED
+    assert stored.finished_at is not None
+    assert stored.termination_native == NativeTermination.RESOURCE_EXHAUSTED
+    (solve,) = result.completion.solves
+    assert solve.backend == NativeBackend.SCIP
+    assert solve.native_status == "SCIP_STATUS_MEMLIMIT"
+    assert solve.termination == NativeTermination.RESOURCE_EXHAUSTED
+    assert solve.candidate_kind is None
+    assert solve.feasible is None
+    assert solve.objective is None
+    assert solve.qualification == NativeQualification.UNQUALIFIED
+    assert solve.assurance == NativeAssurance.NONE
+    assert not result.usable
+    (assessment,) = result.completion.assessments
+    assert assessment.numerically_feasible is None
+    assert assessment.validated is False
+    assert assessment.qualification == NativeQualification.UNQUALIFIED
+    assert CandidateRefusal.NO_CANDIDATE in assessment.refusals
+    assert CandidateRefusal.FEASIBILITY_UNAVAILABLE in assessment.refusals
+    assert CandidateRefusal.INFEASIBLE not in assessment.refusals
+    assert not assessment.permits_result
+    assert not assessment.permits_seed
+    diagnostics = result.completion.diagnostics
+    assert any(d.class_ == NativeBoundaryClass.RESOURCE_LIMIT for d in diagnostics)
+    assert stored.termination_detail is not None
+    detail = codec.decode_json(stored.termination_detail, documents.TerminationDetail)
+    assert isinstance(detail.cause, documents.TerminationCauseAssessment)
+    assert not detail.cause.usable
+    assert any(
+        d.class_ == NativeBoundaryClass.RESOURCE_LIMIT for d in detail.cause.diagnostics
+    )
+    variables = pa.table(result.table("runtime.solve_variables")).to_pylist()
+    candidates = [row for row in variables if not row["parameter"]]
+    assert len(candidates) == 9
+    assert all(row["value"] is None for row in candidates)
 
 
 @pytest.mark.unit

@@ -804,7 +804,7 @@ impl Default for CaseLimits {
             scalars: 100_000,
             instances: 100_000,
             rows: 100_000,
-            bodies: 1024,
+            bodies: 8192,
             slots: 1_000_000,
         }
     }

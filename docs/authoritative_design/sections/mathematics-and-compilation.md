@@ -68,7 +68,7 @@ in the workspace manifest ([§3](workspace-and-dependencies.md#section-3)).
 
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
-The admitted implicit contract distinguishes a residual relation from a selected function. Expression use requires compiler-owned selection: a justified branch, an explicit operational anchor/settings, or library-established uniqueness. Ordinary starts remain numerical aids. Realizations preserve this selection or refuse; operational determinism without established neighborhood stability supports values only. A minimum-score margin establishes a stable winner among candidates; full derivative admission additionally needs established root selection within every alternative. Initial native regime derivative admission retains checked nondegenerate-affine alternatives; unsupported nonlinear alternatives remain value-only. Selected-function derivatives also require the declared unknown bounds to be inactive at their physical tolerance.
+The admitted implicit contract distinguishes a residual relation from a selected function. Expression use requires compiler-owned selection: a justified branch, an explicit operational anchor/settings, or library-established uniqueness. Ordinary starts remain numerical aids. Realizations preserve this selection or refuse; operational determinism without established neighborhood stability supports values only. A minimum-score margin establishes a stable winner among candidates; full derivative admission additionally needs validated exclusion of every root that could beat or tie the regular winning chart across the complete alternative union. Native regime derivatives retain checked nondegenerate-affine alternatives. Nonlinear alternatives require conditional validated selection evidence as described in §7.5; unsupported alternatives remain value-only. Selected-function derivatives also require the declared unknown bounds to be inactive at their physical tolerance.
 
 The primitive vocabulary is the `pse_quantity::functions::Function` enum backed by
 library capabilities. Package functions compose those primitives with checked signatures,
@@ -171,6 +171,35 @@ as constants, not model inputs.
 `crates/pse-compiler/src/typed_math.rs` (`literal_exponent`).
 
 ### 7.5 Rows, contributions and established facts
+
+> Decision: [ADR-0153](../../adr/0153-certify-nonlinear-regime-selection.md) (proposed; authorized kernel binding).
+
+Nonlinear minimum-score selection has a separate validated mathematics capability,
+`SelectionVerifier`, alongside the numerical `InnerSolver`. Constant authored physical
+boxes and an exact shared residual/eligibility/guard projection admit conditional
+First/Second preparation. At execution, the verified winning proposal requires a regular eligible root chart
+uniform over an independent-input neighborhood. Complete competitive-root exclusion
+covers every rival regime and the winning regime outside its chart: no eligible root
+may beat or tie the winner under the authored score and tolerance. Losing regimes
+need not be unique, regular or empty. Their numerical failures supply no exclusion evidence.
+A numerical proposal supplies no selection authority.
+Existing original residual, score-gap, regularity, physical-bound and IFT checks still apply.
+No certificate upgrades residual-only selected-function export to Exact.
+
+The native binding uses source-pinned IBEX, FILIB and bundled supported SoPlex as
+static PIC libraries with hidden C++ symbols. This isolates their ABI from SCIP's
+independently embedded SoPlex. Original
+residual equalities become paired inequalities only for root-free covering; native HC4
+and guard-admitted parametric interval Newton and certified Taylor contraction preserve that domain. Closed sequential coordinate
+slabs cover the complement of a validated uniqueness box, including shared faces. Native
+undefined arithmetic or incomplete covering is never empty evidence. All C1 domain premises
+are established before Taylor exclusion and on the accepted root chart; strict eligibility
+must have a proved margin. Opaque operations, parameter-dependent bounds, unrepresented criteria or tolerances,
+competitive roots and unresolved coverage refuse derivatives. The library owns arithmetic, contraction,
+chart construction and covering. Evidence carries the exact immutable alternative programs, physical domains,
+selector and residual/library provenance, parameter scope and derivative order.
+One worker-owned certificate may be reused only within all of those scopes; a changed
+winner, higher order or changed source, bounds or parameters requires revalidation.
 
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
@@ -301,8 +330,10 @@ and original-coordinate qualification remain the authority for every candidate.
   Residuals are exported only where the call is unconditional, since inside a branch region
   they would constrain points where the call is never made. Other provider outputs become
   auxiliaries within the envelope their evaluation enforces, which makes the dependent rows
-  `Relaxed`. An exhausted node budget leaves the affected rows `Unavailable` and records
-  the instance as incomplete.
+  `Relaxed`. Exhausting the node budget of a required projection is a typed resource
+  refusal. It produces no completed partial representation and does not authorize a
+  relaxed export or a different solver route; genuine opaque-provider fidelity remains
+  distinct from resource exhaustion.
 
 The SCIP route ([§18.10.1](numerical-execution.md#section-18-10-1)) projects under a request
 that carries the case's implicit definitions (`factorable_definitions`, where a case bound
@@ -589,23 +620,35 @@ they protect.
 |---|---|
 | DSL text | 65,535 bytes; nesting and unit depth 64 |
 | Body construction (`BodyLimits`) | 8,192 formal slots by default (one pool chunk; the pool grows to an explicitly raised allowance); 16,384 construction occurrences; syntax, filter and conditional depth 128; integral power degree 1,024 |
-| Local evaluation (`EvaluationLimits`) | 4,096 derivative components; 1,000,000 scalar operations per demand; 64 MiB worker scratch; 4,096 provider calls |
+| Local evaluation (`EvaluationLimits`) | 4,096 derivative components; 1,000,000 scalar operations per demand; 512 MiB numeric worker scratch; 4,096 provider calls |
 | Optimizer (`Optimization`) | cores 1–64 (default 1); Horner iterations up to 1,000 (default 10); common-pair rounds up to 32 (default 1); a fixed Horner-scheme budget of 8,192 variables, an optimizer budget rather than a symbol bound |
-| Case (`CaseLimits`, `AssemblyLimits`) | 100,000 scalars, instances and rows; 1,024 bodies; 1,000,000 slots and contributions; native index within `i32`; 256 MiB aggregate worker scratch |
+| Case (`CaseLimits`, `AssemblyLimits`) | 100,000 scalars, instances and rows; 8,192 distinct bodies; 1,000,000 slots and contributions; native index within `i32`; 2 GiB complete attempt storage (shared evaluator scratch, cloned instructions/descriptors, occurrence caches and sparse refills) |
 | Workspace (`WorkspaceLimits`) | 4,096 input entries; 2 GiB input extent; 16,384 retained entries and 256 MiB known retained bytes; LRU of 64 values per expensive query |
 | Structural matching | 100,000 rows on a 32 MiB stack |
-| Runtime (`MathPolicy`) | 8 GiB artifact retention; 64 MiB foreign allowance per job/program; 2 GiB worker, 4 GiB workspace; 4 jobs; 128 flights |
+| Runtime (`MathPolicy`) | 8 GiB artifact retention; 64 MiB foreign allowance per job/program; 8 GiB worker, 4 GiB workspace; 4 jobs; 128 flights |
 
 Derivative admission bounds the pinned Numerica Taylor convolution and primitive expansion
 from the source operation counts before vectorization, then reconciles the actual built
-operations. Opaque or provider derivative support wider than 256 local coordinates is
-refused; this is not a global model-size limit. Shared bindings count once, preventing
-exponential growth from repeated substitution. `ModelingLimits.body_occurrences` and
+operations. Support admission checks the actual selected first/second cardinalities and
+remaining construction allowance before allocation, including dense opaque/provider support;
+there is no fixed 256-coordinate support cutoff. Shared bindings count once, and local
+obligation/branch scopes retain inherited facts while copying only their assigned facts. `ModelingLimits.body_occurrences` and
 `body_slots` (`pse_modeling::Limits`, also a fixture's execution policy) raise the
 occurrence and slot allowances explicitly; the formal-symbol pool extends to a raised slot
 allowance ([§7.1](#section-7-1)), and a body beyond its allowance is refused with
 `MathError::SlotLimit`. Limits are tracked policy inputs and cannot authorize a differently
 typed or truncated model.
+
+Nonlinear selection proof work reserves all coexisting input transports and the maximum
+sequential native graph/cell extent under the same escaped program allocation owner.
+A worker retains at most one source- and domain-scoped winning chart within its finite
+admission. The group contains at most 64 alternatives; each transport is bounded by
+65,536 nodes, 1,048,576 edges, 8,192 guards and 128 coordinates. Covering allows
+1,048,576 cells shared across all winning complement slabs, rival domains and chart retries. Proof execution
+shares the outer deadline and cancellation. Native calls are checked before and after;
+a result returned after cancellation or deadline has no proof authority. Direct library
+chart calls can delay interruption until the bounded call returns. No global proof cache
+or separately admitted nested worker exists.
 
 `MathPolicy` allowances draw from the deployment memory pool, never a second budget.
 Immutable prepared products, artifacts, active worker scratch, foreign allowances and

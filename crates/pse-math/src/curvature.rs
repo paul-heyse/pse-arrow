@@ -381,7 +381,6 @@ impl<'a> Pass<'a> {
         if !p.auxiliaries.is_empty()
             || !p.implicit.is_empty()
             || !p.native.is_empty()
-            || !p.incomplete.is_empty()
             || p.rows
                 .iter()
                 .any(|r| r.fidelity != Fidelity::Exact || r.expression.is_none())

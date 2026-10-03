@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use datafusion::execution::memory_pool::FairSpillPool;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 pub(super) fn service() -> Arc<MathService> {
     service_and_cache().0
 }

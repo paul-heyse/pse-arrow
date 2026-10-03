@@ -226,6 +226,7 @@ pub(super) fn measure(
                 let admission=started.elapsed();
                 let admission_counts=support::counts(before,owner.runtime.math().preparations());
                 let admission_phases=phases.report(8);
+                let admission_constructions=phases.constructions();
                 // Both adapters begin execution with the same admission-warmed cache;
                 // each iteration has a fresh independent one-thread runtime.
                 let before=owner.runtime.math().preparations();
@@ -293,6 +294,8 @@ pub(super) fn measure(
                 drop(package); drop(physical); drop(runtime); drop(owner);
                 tokio::task::yield_now().await;
                 let mut record=record;
+                record["admission_constructions"]=admission_constructions;
+                record["execution_constructions"]=phases.constructions();
                 record["after_runtime_teardown_bytes"]=pool.reserved().into();
                 assert_eq!(pool.reserved(), 0, "study allocations survive all runtime owners");
                 if let Some(database)=database { database.remove().await.unwrap(); }

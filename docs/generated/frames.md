@@ -81,6 +81,7 @@ Derived in: pse-math.
 | `ImplicitConfigurationV2` | `pse.implicit.configuration.v2` | Implicit selection and resolved derivative requirements. |
 | `ImplicitFixedConfigurationV1` | `pse.implicit.fixed-configuration.v1` | An implicit block's fixed configuration. |
 | `ImplicitRegimeConfigurationV1` | `pse.implicit.regime-configuration.v1` | An implicit block's regime configuration. |
+| `ImplicitRegimeConfigurationV2` | `pse.implicit.regime-configuration.v2` | Regime configuration with admitted nonlinear selection proof capability. |
 | `InnerSolverV1` | `pse.inner-solver.v1` | An inner solver implementation's versioned capability name. |
 
 ## Compilation

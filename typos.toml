@@ -43,6 +43,15 @@ extend-ignore-identifiers-re = [
 
 [default.extend-words]
 formate = "formate" # Chemical anion and ester name.
+# Solver names, scientific controllers and established bibliography abbreviations.
+CACE = "CACE"     # Computers & Chemical Engineering.
+LOCA = "LOCA"     # Trilinos continuation package.
+SER = "SER"       # Switched evolution relaxation controller.
+RTO = "RTO"       # Real-time optimization.
+Comput = "Comput" # Standard abbreviated journal titles.
+Numer = "Numer"   # Standard abbreviated journal titles.
+Thm = "Thm"       # Mathematical theorem references.
+Paret = "Paret"   # Mathematician John Mallet-Paret.
 # Domain vocabulary and identifiers that are not typos.
 IDAES = "IDAES"
 idaes = "idaes"

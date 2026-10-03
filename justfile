@@ -535,6 +535,14 @@ unit-ipopt-abi:
     cargo nextest run -p pse-ipopt-sys -p pse-relations --lib --locked --features pse-ipopt-sys/link,pse-relations/force-validate -E 'test(abi_tests::)'
 
 [group('local')]
+[doc('Prepare source-pinned validated root isolation with FILIB and bundled SoPlex')]
+native-isolation-prepare:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/build-env.sh
+    "{{ py }}" scripts/native_cache.py isolation
+
+[group('local')]
 [doc('Compile native solver adapters and unit contracts; no solver journeys')]
 check-solver-contracts:
     #!/usr/bin/env bash
@@ -1231,19 +1239,15 @@ unit-invariant-harness filter *args:
 unit-native-selected filter *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    cargo nextest {{ nextest_action }} --workspace --lib --locked --features pse-py/native-solvers,pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+    source scripts/native-execution-env.sh
+    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} --workspace --lib --locked --features pse-py/native-solvers,pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
 
 [group('local')]
 [doc('Targeted native package units with explicitly selected adapter features')]
 unit-native-package pkg features filter *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
+    source scripts/native-execution-env.sh
     bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --lib --locked --features {{ features }},pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
 
 [group('local')]

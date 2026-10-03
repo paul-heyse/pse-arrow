@@ -30,7 +30,7 @@ pub struct AssemblyLimits {
     pub contributions: usize,
     /// Largest dimension/index/entry count representable by the selected native ABI.
     pub native_index: usize,
-    /// Aggregate numeric scratch budget for compiled case demands.
+    /// Complete attempt storage budget: shared evaluator scratch, clones and occurrence caches.
     pub worker_bytes: usize,
 }
 impl Default for AssemblyLimits {
@@ -38,7 +38,7 @@ impl Default for AssemblyLimits {
         Self {
             contributions: 1_000_000,
             native_index: i32::MAX as usize,
-            worker_bytes: 256 * 1024 * 1024,
+            worker_bytes: 2 * 1024 * 1024 * 1024,
         }
     }
 }
@@ -91,6 +91,105 @@ pub struct CasePlan {
     owner: Option<Arc<dyn crate::AllocationOwner>>,
 }
 impl CasePlan {
+    /// Shared component identities and known payload estimates, excluding body and
+    /// support payloads and the shallow plan wrapper. Deduplicate each component
+    /// separately when observing live plans of different derivative orders.
+    pub fn allocation_components(&self) -> Vec<(&'static str, usize, usize)> {
+        let structure = &self.structure;
+        let structure_bytes = size_of::<CaseStructure>()
+            + size_of_val(structure.variables())
+            + size_of_val(structure.parameters())
+            + size_of_val(structure.rows())
+            + size_of_val(structure.objectives())
+            + size_of_val(structure.degradations())
+            + size_of_val(structure.requirements())
+            + structure
+                .instances()
+                .iter()
+                .map(|i| {
+                    size_of_val(i)
+                        + i.checked_members.len() * (size_of::<(SemanticId, SemanticId)>() + 96)
+                        + size_of_val(i.slots.as_slice())
+                        + size_of_val(i.contributions.as_slice())
+                })
+                .sum::<usize>();
+        let instance_bytes = size_of::<Vec<Instance>>()
+            + self.instances.capacity() * size_of::<Instance>()
+            + self
+                .instances
+                .iter()
+                .map(|i| {
+                    i.coordinates.capacity() * size_of::<Slot>()
+                        + i.columns.capacity() * size_of::<GlobalCol>()
+                        + i.groups
+                            .values()
+                            .flatten()
+                            .map(|g| g.outputs.capacity() * size_of::<usize>())
+                            .sum::<usize>()
+                })
+                .sum::<usize>();
+        let request_bytes = size_of::<Vec<LocalDemand>>()
+            + self.requests.capacity() * size_of::<LocalDemand>()
+            + self
+                .requests
+                .iter()
+                .map(|r| (r.outputs.capacity() + r.coordinates.capacity()) * size_of::<usize>())
+                .sum::<usize>();
+        vec![
+            (
+                "structure",
+                Arc::as_ptr(&self.structure) as usize,
+                structure_bytes,
+            ),
+            (
+                "columns",
+                Arc::as_ptr(&self.columns) as usize,
+                size_of::<Vec<SemanticId>>() + self.columns.capacity() * size_of::<SemanticId>(),
+            ),
+            (
+                "rows",
+                Arc::as_ptr(&self.rows) as usize,
+                size_of::<BTreeMap<SemanticId, GlobalRow>>()
+                    + self.rows.len() * (size_of::<(SemanticId, GlobalRow)>() + 96),
+            ),
+            (
+                "instances",
+                Arc::as_ptr(&self.instances) as usize,
+                instance_bytes,
+            ),
+            (
+                "jacobian",
+                Arc::as_ptr(&self.jacobian) as usize,
+                self.jacobian.retained_bytes(),
+            ),
+            (
+                "hessian",
+                Arc::as_ptr(&self.hessian) as usize,
+                self.hessian.retained_bytes(),
+            ),
+            (
+                "jacobian_terms",
+                Arc::as_ptr(&self.jacobian_terms) as usize,
+                size_of::<Vec<Term>>() + self.jacobian_terms.capacity() * size_of::<Term>(),
+            ),
+            (
+                "hessian_terms",
+                Arc::as_ptr(&self.hessian_terms) as usize,
+                size_of::<Vec<Term>>() + self.hessian_terms.capacity() * size_of::<Term>(),
+            ),
+            (
+                "requests",
+                Arc::as_ptr(&self.requests) as usize,
+                request_bytes,
+            ),
+            (
+                "supports",
+                Arc::as_ptr(&self.supports) as usize,
+                size_of::<Vec<Arc<PreparedSupport>>>()
+                    + self.supports.capacity() * size_of::<Arc<PreparedSupport>>(),
+            ),
+        ]
+    }
     /// Process-local shared storage identities, independent of owner wrappers and body data.
     pub fn allocation_identity(&self) -> Vec<usize> {
         vec![
@@ -693,13 +792,15 @@ impl CasePlan {
         &self.supports
     }
     /// Explicit structural First admission, aligned with original instances.
-    /// Each product retains its selected output map and original formal coordinates.
+    /// Each product retains its selected output map and original free-variable formal
+    /// coordinates, independently of the numerical derivative column selection.
     pub fn incidence(
         &self,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Vec<Arc<PreparedSupport>>, MathError> {
         let mut products = Vec::with_capacity(self.instances.len());
         let mut shared = BTreeMap::new();
+        let free = self.structure.free_variables().collect::<BTreeSet<_>>();
         for (binding, instance) in self.structure.instances().iter().zip(self.instances.iter()) {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
@@ -708,18 +809,22 @@ impl CasePlan {
                 MathError::Contract("instance has no selected output incidence".into())
             })?;
             let ready = &self.supports[group.request];
-            let key = (
-                binding.body,
-                ready.outputs().to_vec(),
-                ready.coordinates().to_vec(),
-            );
+            let coordinates = binding
+                .slots
+                .iter()
+                .enumerate()
+                .filter_map(|(slot, binding)| free.contains(&binding.source()).then_some(slot))
+                .collect::<Vec<_>>();
+            let key = (binding.body, ready.outputs().to_vec(), coordinates.clone());
             let product = if let Some(product) = shared.get(&key) {
                 Arc::clone(product)
             } else {
-                let product = if ready.order() >= DerivativeOrder::First {
+                let product = if ready.coordinates() == coordinates
+                    && ready.order() >= DerivativeOrder::First
+                {
                     Arc::clone(ready)
                 } else {
-                    Arc::new(ready.upgrade(DerivativeOrder::First, cancel)?)
+                    Arc::new(ready.incidence(&coordinates, cancel)?)
                 };
                 shared.insert(key, Arc::clone(&product));
                 product
@@ -781,13 +886,27 @@ impl CasePlan {
                 ));
             }
         }
+        let scratch = programs
+            .iter()
+            .try_fold(0usize, |n, p| n.checked_add(p.worker_bytes()))
+            .ok_or(MathError::Limit("case worker bytes"))?;
         let bytes = self
             .instances
             .iter()
             .flat_map(|i| i.groups.values().flatten())
-            .try_fold(0usize, |n, g| {
-                n.checked_add(programs[g.request].scratch_bytes())
+            .try_fold(scratch, |n, g| {
+                n.checked_add(programs[g.request].evaluation_cache_bytes())
             })
+            .and_then(|n| n.checked_add(self.jacobian.retained_bytes()))
+            .and_then(|n| n.checked_add(self.hessian.retained_bytes()))
+            .and_then(|n| {
+                n.checked_add(
+                    self.instances
+                        .len()
+                        .checked_mul(size_of::<EnumMap<Demand, Option<GroupCache>>>())?,
+                )
+            })
+            .and_then(|n| n.checked_add(programs.len().checked_mul(size_of::<Worker>())?))
             .ok_or(MathError::Limit("case worker bytes"))?;
         if bytes > self.limits.worker_bytes {
             return Err(MathError::Limit("case worker bytes"));
@@ -936,7 +1055,20 @@ impl std::ops::Deref for CaseAssembly {
     }
 }
 impl CaseAssembly {
-    /// Aggregate per-instance numeric evaluator capacity admitted by the plan.
+    /// Identity and known extent of the shallow plan wrapper and its body map only.
+    pub fn plan_wrapper_allocation(&self) -> (usize, usize) {
+        (
+            Arc::as_ptr(&self.plan) as usize,
+            size_of::<CasePlan>()
+                + self.plan.bodies.len()
+                    * (size_of::<Arc<PreparedBody>>() + size_of::<ContentHash>() + 96),
+        )
+    }
+    /// Immutable compiled products for deduplicated live allocation observation.
+    pub fn programs(&self) -> &[Arc<CompiledBody>] {
+        &self.programs
+    }
+    /// Attempt-local shared evaluator scratch, occurrence caches and sparse refill capacity.
     pub fn numeric_worker_bytes(&self) -> usize {
         self.numeric_worker_bytes
     }
@@ -946,38 +1078,53 @@ impl CaseAssembly {
         providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancel: Arc<AtomicBool>,
     ) -> CaseWorker {
+        self.worker_scoped(providers, pse_kernels::ExecutionScope::new(cancel, None))
+    }
+    /// Attach the original enclosing deadline to every primitive and nested callback.
+    pub fn worker_scoped(
+        self: &Arc<Self>,
+        providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
+        scope: pse_kernels::ExecutionScope,
+    ) -> CaseWorker {
         let groups = self
             .instances
             .iter()
             .map(|i| {
                 EnumMap::from_fn(|demand| {
-                    i.groups[demand].as_ref().map(|g| GroupWorker {
-                        worker: self.programs[g.request].worker(),
-                        cache: None,
-                    })
+                    i.groups[demand]
+                        .as_ref()
+                        .map(|_| GroupCache { cache: None })
                 })
             })
             .collect();
         CaseWorker {
             assembly: Arc::clone(self),
             groups,
+            workers: self
+                .programs
+                .iter()
+                .map(|p| p.worker_scoped(scope.clone()))
+                .collect(),
             providers,
-            cancel,
+            cancel: scope.cancellation().clone(),
+            scope,
             jacobian: self.jacobian.as_ref().clone(),
             hessian: self.hessian.as_ref().clone(),
         }
     }
 }
 #[derive(Debug)]
-struct GroupWorker {
-    worker: Worker,
+struct GroupCache {
     cache: Option<(Vec<u64>, DerivativeOrder, Evaluation)>,
 }
 /// Isolated attempt scratch. Failed evaluation clears the failed cache and never publishes output.
 #[derive(Debug)]
 pub struct CaseWorker {
+    scope: pse_kernels::ExecutionScope,
     assembly: Arc<CaseAssembly>,
-    groups: Vec<EnumMap<Demand, Option<GroupWorker>>>,
+    groups: Vec<EnumMap<Demand, Option<GroupCache>>>,
+    // Evaluation is serial under &mut self; scratch is shared only inside this attempt.
+    workers: Vec<Worker>,
     providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
     cancel: Arc<AtomicBool>,
     jacobian: AssemblyMatrix,
@@ -1008,10 +1155,9 @@ impl CaseWorker {
         demand: Demand,
         order: DerivativeOrder,
     ) -> Result<(), MathError> {
-        if self.cancel.load(Ordering::Relaxed) {
-            return Err(MathError::Cancelled);
-        }
+        self.scope.check().map_err(crate::error::scope_error)?;
         for (i, binding) in self.assembly.structure.instances().iter().enumerate() {
+            self.scope.check().map_err(crate::error::scope_error)?;
             let Some(worker) = &mut self.groups[i][demand] else {
                 continue;
             };
@@ -1033,12 +1179,17 @@ impl CaseWorker {
                 continue;
             }
             worker.cache = None;
-            let result = worker
-                .worker
+            let request = self.assembly.instances[i].groups[demand]
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("missing compiled demand".into()))?
+                .request;
+            let result = self.workers[request]
                 .evaluate(&inputs, order, &mut self.providers, &self.cancel)
                 .map_err(context)?;
+            self.scope.check().map_err(crate::error::scope_error)?;
             worker.cache = Some((bits, order, result));
         }
+        self.scope.check().map_err(crate::error::scope_error)?;
         Ok(())
     }
     fn result(

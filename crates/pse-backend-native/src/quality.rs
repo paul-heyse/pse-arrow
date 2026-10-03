@@ -209,10 +209,7 @@ pub fn attach_nlp(
             report.clear_validation_failure();
         }
         Err(e) => {
-            report.quality = None;
-            report.observation = None;
             report.record_validation_failure(e);
-            report.termination.assurance = crate::solve::Assurance::None;
         }
     }
 }
@@ -741,6 +738,10 @@ mod qualification_tests {
     #[test]
     fn original_validation_keeps_typed_failure_until_a_fresh_observation_succeeds() {
         let mut r = report(Backend::Ipopt, Termination::Success);
+        r.observation = Some(Observation::from_values(Some(10.0), vec![], vec![]).unwrap());
+        r.qualification = Qualification::Stationary;
+        r.metrics
+            .insert("native.iterations".into(), Metric::Integer(7));
         let source_id = SemanticId::from_bytes([17; 16]);
         r.record_validation_failure(
             pse_math::MathError::Domain {
@@ -749,11 +750,32 @@ mod qualification_tests {
             }
             .into(),
         );
-        qualify(&mut r, &ResolvedAccuracy::nominal());
+        assert!(r.quality.is_none());
+        assert!(r.observation.is_none());
         assert_eq!(r.qualification, Qualification::Unqualified);
+        assert_eq!(r.termination.category, Termination::Success);
+        assert_eq!(r.termination.assurance, Assurance::None);
+        assert_eq!(r.metrics["native.iterations"], Metric::Integer(7));
+        assert!(r.candidate.is_some());
         let retained = r.clone();
-        r.clear_validation_failure();
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        r.rows = oracle.c.rows.clone();
+        r.candidate.as_mut().unwrap().primal[0] = 1.0;
+        attach_nlp(
+            &mut r,
+            &mut oracle,
+            &Tolerances {
+                variables: vec![1e-9],
+                rows: vec![1e-9],
+                integrality: 1e-9,
+            },
+            pse_math::binding::ObjectiveSense::Minimize,
+        );
         assert!(r.validation_failure().is_none());
+        assert!(r.quality.as_ref().unwrap().feasible());
+        assert_eq!(r.observation.as_ref().unwrap().objective, Some(1.0));
+        qualify(&mut r, &ResolvedAccuracy::nominal());
+        assert_eq!(r.qualification, Qualification::Feasible);
         assert!(
             matches!(retained.validation_failure(),Some(ProblemError::Math(pse_math::MathError::Domain {source_id:id,..})) if *id==source_id)
         );

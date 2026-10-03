@@ -28,6 +28,48 @@ def source_digest(root: Path) -> str:
     ).hexdigest()
 
 
+def build_benchmark(
+    command: list[str], output: Path, phase: str
+) -> subprocess.CompletedProcess[str]:
+    """Retain Cargo JSON and surface rendered diagnostics before failing the collector."""
+    build = subprocess.run(
+        command,
+        cwd=ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    stdout = build.stdout or ""
+    stderr = build.stderr or ""
+    json_log = output / f"{phase}-cargo.jsonl"
+    stderr_log = output / f"{phase}-cargo.stderr.log"
+    json_log.write_text(stdout)
+    stderr_log.write_text(stderr)
+    if build.returncode:
+        diagnostics = []
+        for line in stdout.splitlines():
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                diagnostics.append(line)
+                continue
+            if isinstance(row, dict) and row.get("reason") == "compiler-message":
+                rendered = row.get("message", {}).get("rendered")
+                if rendered:
+                    diagnostics.append(rendered)
+        error = subprocess.CalledProcessError(
+            build.returncode, command, output=stdout, stderr=stderr
+        )
+        raise RuntimeError(
+            f"Cargo benchmark build failed with exit {build.returncode}; "
+            f"full output: {json_log}, {stderr_log}\n"
+            + "\n".join(diagnostics)
+            + "\n"
+            + stderr
+        ) from error
+    return build
+
+
 def samples(path: Path) -> dict:
     """Read Criterion's public CSV format; retain the original Criterion report."""
     values = []
@@ -101,7 +143,15 @@ def smoke_campaign(
     output: Path, profile: str, process: dict, preparation: dict, selected: set[str]
 ) -> None:
     """Execute benchmark controls once; this produces no performance qualification."""
-    targets = {"native_process", "modeling_preparation", "document_admission"}
+    targets = {
+        target
+        for declaration, target in (
+            (process, "native_process"),
+            (preparation, "modeling_preparation"),
+            ({"workloads": [{"id": "document-admission"}]}, "document_admission"),
+        )
+        if any(workload["id"] in selected for workload in declaration["workloads"])
+    }
     command = [
         "cargo",
         "bench",
@@ -117,9 +167,7 @@ def smoke_campaign(
     ]
     for target in sorted(targets):
         command.extend(("--bench", target))
-    build = subprocess.run(
-        command, cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE
-    )
+    build = build_benchmark(command, output, "smoke")
     binaries = {
         row["target"]["name"]: row["executable"]
         for line in build.stdout.splitlines()
@@ -198,9 +246,7 @@ def preparation_campaign(
         "--no-run",
         "--message-format=json",
     ]
-    build = subprocess.run(
-        command, cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE
-    )
+    build = build_benchmark(command, output, "preparation")
     binaries = {
         row["target"]["name"]: row["executable"]
         for line in build.stdout.splitlines()
@@ -332,9 +378,7 @@ def main() -> int:
         "--no-run",
         "--message-format=json",
     ]
-    build = subprocess.run(
-        command, cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE
-    )
+    build = build_benchmark(command, output, "process")
     artifacts = [
         json.loads(line) for line in build.stdout.splitlines() if line.startswith("{")
     ]

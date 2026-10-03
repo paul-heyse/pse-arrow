@@ -507,21 +507,66 @@ fn unavailable_objective_reported() {
         bounded.objective.as_ref().unwrap().fidelity,
         Fidelity::Relaxed
     );
-    // A node budget that cannot hold the objective leaves it unavailable, never partial.
-    let limited = assembly
-        .factorable_program(
-            &CaseValues::default(),
-            &FactorableRequest::default(),
-            2,
-            &Arc::new(AtomicBool::new(false)),
-        )
-        .unwrap();
-    assert_eq!(limited.incomplete, vec![id(9)]);
-    assert_eq!(
-        limited.objective.as_ref().unwrap().fidelity,
-        Fidelity::Unavailable
+}
+
+fn assert_projection_budget_refusal(objective: bool) {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let square = op(&mut b, Binary::Mul, &x, &x);
+    let expression = op(&mut b, Binary::Add, &square, &x);
+    let assembly = case(
+        &registry,
+        b.prepare(&[expression]).unwrap(),
+        &[(0.0, 3.0)],
+        if objective { &[0] } else { &[] },
     );
-    assert!(limited.objective.as_ref().unwrap().expression.is_none());
+    let values = CaseValues::default();
+    let request = FactorableRequest::default();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let complete = assembly
+        .factorable_program(&values, &request, 100, &cancel)
+        .unwrap();
+    assert_eq!(complete.fidelity(), Fidelity::Exact);
+    let root = if objective {
+        assert!(complete.rows.is_empty());
+        complete.objective.as_ref().unwrap().expression.unwrap()
+    } else {
+        assert!(complete.objective.is_none());
+        complete.rows[0].expression.unwrap()
+    };
+    assert_eq!(complete.evaluate(&[2.0], &[]).unwrap()[root], 6.0);
+    assert!(matches!(
+        assembly.factorable_program(&values, &request, 2, &cancel),
+        Err(FactorableError::Math(MathError::Limit(
+            "factorable projection extent"
+        )))
+    ));
+    // Presolve must propagate the same extraction failure before it can publish facts.
+    assert!(matches!(
+        assembly.presolve_domain_facts(&values, 2, &cancel),
+        Err(MathError::Limit("factorable projection extent"))
+    ));
+    assert!(
+        assembly
+            .presolve_domain_facts(&values, 100, &cancel)
+            .is_ok()
+    );
+    cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    assert!(matches!(
+        assembly.factorable_program(&values, &request, 100, &cancel),
+        Err(FactorableError::Math(MathError::Cancelled))
+    ));
+}
+
+#[test]
+fn mandatory_row_projection_budget_is_a_resource_refusal() {
+    assert_projection_budget_refusal(false);
+}
+
+#[test]
+fn selected_objective_projection_budget_is_a_resource_refusal() {
+    assert_projection_budget_refusal(true);
 }
 
 #[test]
@@ -910,7 +955,7 @@ fn fbbt_tapes_follow_the_shared_stage_projection() {
     let body = b.prepare(&[e, l, s, c, a, twice]).unwrap();
     let assembly = case(&registry, body, &[(1.0, 2.0)], &[]);
     let facts = assembly
-        .presolve_facts(
+        .presolve_domain_facts(
             &CaseValues::default(),
             1000,
             &Arc::new(AtomicBool::new(false)),
@@ -988,4 +1033,546 @@ fn arbitrary_precision_rational_coefficients_survive_factorable_transport() {
             .any(|node| matches!(node, Node::Const(Constant::Float(_))))
     );
     assert_eq!(program.fidelity(), Fidelity::Exact);
+}
+
+fn isolation_body(
+    inputs: usize,
+    slots: usize,
+    outputs: Vec<usize>,
+    stages: Vec<Stage>,
+) -> PreparedBody {
+    crate::initialize().unwrap();
+    PreparedBody::new(inputs, slots, outputs, stages, DerivativeOrder::Second).unwrap()
+}
+fn isolation_true(inputs: usize) -> PreparedBody {
+    isolation_body(
+        inputs,
+        inputs + 1,
+        vec![inputs],
+        vec![Stage::Block {
+            expressions: vec![Atom::num(1)],
+            outputs: vec![inputs],
+            source: id(240),
+        }],
+    )
+}
+fn isolation_criterion(inputs: usize) -> PreparedBody {
+    isolation_body(
+        inputs,
+        inputs + 2,
+        vec![inputs, inputs + 1],
+        vec![Stage::Block {
+            expressions: vec![Atom::num(0), Atom::num(0)],
+            outputs: vec![inputs, inputs + 1],
+            source: id(246),
+        }],
+    )
+}
+fn isolation_project(
+    residual: &PreparedBody,
+    eligibility: &PreparedBody,
+) -> Option<RootIsolationProgram> {
+    root_isolation_program(
+        id(240),
+        residual,
+        eligibility,
+        &isolation_criterion(residual.input_count()),
+        &Arc::new(AtomicBool::new(false)),
+        10_000,
+    )
+    .unwrap()
+}
+
+#[test]
+fn root_isolation_predicate_conjunction_preserves_original_coordinates_and_exact_bounds() {
+    let registry = standard_registry().unwrap();
+    let residual = isolation_body(2, 2, vec![0, 1], vec![]);
+    let mut b = builder(&registry, 2);
+    let v = inputs(&mut b, 2);
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    let third = number(Atom::num(1) / Atom::num(3));
+    let predicate = select(
+        &mut b,
+        Comparison::Lt,
+        &zero,
+        &v[0],
+        &|b| {
+            select(
+                b,
+                Comparison::Le,
+                &v[1],
+                &third,
+                &|_| Ok(one.clone()),
+                &zero,
+            )
+        },
+        &zero,
+    )
+    .unwrap();
+    let eligibility = b.prepare(&[predicate]).unwrap();
+    let p = isolation_project(&residual, &eligibility).unwrap();
+    assert_eq!(p.inputs, 2);
+    assert!(matches!(p.nodes[p.residuals[0]], Node::Var(0)));
+    assert!(matches!(p.nodes[p.residuals[1]], Node::Var(1)));
+    assert_eq!(p.eligibility.len(), 2);
+    assert_eq!(p.eligibility.iter().filter(|c| c.strict).count(), 1);
+    assert!(
+        p.eligibility
+            .iter()
+            .all(|c| c.upper == 0.0 && c.lower == f64::NEG_INFINITY)
+    );
+    assert!(
+        p.nodes
+            .iter()
+            .any(|n| matches!(n, Node::Const(Constant::Rational(r)) if r == &Rational::new(1, 3)))
+    );
+    assert!(
+        !p.nodes
+            .iter()
+            .any(|n| matches!(n, Node::Aux(_) | Node::Abs(_)))
+    );
+}
+
+#[test]
+fn root_isolation_retains_strict_nonzero_and_derivative_order_guards() {
+    use crate::guarded::Condition;
+    let require = |condition, order, argument| Stage::Require {
+        argument,
+        condition,
+        order,
+        source: id(241),
+        lineage: None,
+    };
+    let residual = isolation_body(
+        2,
+        2,
+        vec![0],
+        vec![
+            require(Condition::Nonnegative, DerivativeOrder::Value, 0),
+            require(Condition::Nonzero, DerivativeOrder::Value, 1),
+            require(Condition::Positive, DerivativeOrder::First, 0),
+            require(Condition::Nonzero, DerivativeOrder::Second, 1),
+        ],
+    );
+    let p = isolation_project(&residual, &isolation_true(2)).unwrap();
+    assert_eq!(p.obligations.len(), 2);
+    assert_eq!(p.derivative_obligations.len(), 2);
+    let nonnegative = &p.obligations[0];
+    assert_eq!(
+        nonnegative.kind,
+        ObligationKind::Require(Condition::Nonnegative)
+    );
+    assert!(!nonnegative.constraints[0].strict);
+    let nonzero = &p.obligations[1];
+    assert_eq!(nonzero.kind, ObligationKind::Require(Condition::Nonzero));
+    assert!(nonzero.argument.is_some());
+    assert!(nonzero.constraints.is_empty());
+    assert!(nonzero.represented);
+    assert_eq!(p.derivative_obligations[0].0, DerivativeOrder::First);
+    assert!(p.derivative_obligations[0].1.constraints[0].strict);
+    assert_eq!(p.derivative_obligations[1].0, DerivativeOrder::Second);
+    assert_eq!(p.derivative_obligations[1].1.argument, nonzero.argument);
+    assert!(
+        p.obligations
+            .iter()
+            .chain(p.derivative_obligations.iter().map(|(_, o)| o))
+            .all(|o| o.fidelity == Fidelity::Exact && o.scope == ObligationScope::Unconditional)
+    );
+}
+
+#[test]
+fn root_isolation_refuses_conditional_guards_even_when_the_result_is_constant() {
+    use crate::guarded::Condition;
+    let guarded = vec![
+        Stage::Require {
+            argument: 0,
+            condition: Condition::Nonzero,
+            order: DerivativeOrder::Value,
+            source: id(242),
+            lineage: None,
+        },
+        Stage::Block {
+            expressions: vec![Atom::num(1)],
+            outputs: vec![2],
+            source: id(242),
+        },
+    ];
+    let eligibility = isolation_body(
+        1,
+        3,
+        vec![2],
+        vec![
+            Stage::Block {
+                expressions: vec![Atom::num(0)],
+                outputs: vec![1],
+                source: id(242),
+            },
+            Stage::Branch {
+                continuity: DerivativeOrder::Value,
+                comparison: Comparison::Lt,
+                left: 1,
+                right: 0,
+                then: guarded,
+                otherwise: vec![Stage::Block {
+                    expressions: vec![Atom::num(1)],
+                    outputs: vec![2],
+                    source: id(242),
+                }],
+            },
+        ],
+    );
+    let residual = isolation_body(1, 1, vec![0], vec![]);
+    assert!(isolation_project(&residual, &eligibility).is_none());
+}
+
+#[test]
+fn root_isolation_refuses_nonzero_eligibility_disjunction() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 1);
+    let v = inputs(&mut b, 1);
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    let predicate = select(
+        &mut b,
+        Comparison::Ne,
+        &v[0],
+        &zero,
+        &|_| Ok(one.clone()),
+        &zero,
+    )
+    .unwrap();
+    let eligibility = b.prepare(&[predicate]).unwrap();
+    let residual = isolation_body(1, 1, vec![0], vec![]);
+    assert!(isolation_project(&residual, &eligibility).is_none());
+}
+
+#[test]
+fn root_isolation_refuses_provider_opacity_and_nonsmooth_residuals() {
+    let registry = standard_registry().unwrap();
+    let provider = AdmittedProvider::new(spec(&registry, 40), &registry).unwrap();
+    let mut b = builder(&registry, 1);
+    let v = inputs(&mut b, 1);
+    let value = b.provider(&provider, &v, id(243)).unwrap().remove(0);
+    let residual = b.prepare(&[value]).unwrap();
+    assert!(isolation_project(&residual, &isolation_true(1)).is_none());
+    let mut b = builder(&registry, 1);
+    let v = inputs(&mut b, 1);
+    let value = unary(&mut b, Function::Abs, &v[0]);
+    let residual = b.prepare(&[value]).unwrap();
+    assert!(isolation_project(&residual, &isolation_true(1)).is_none());
+}
+
+#[test]
+fn root_isolation_preserves_stored_binary_coefficients_and_exact_constant_comparisons() {
+    let registry = standard_registry().unwrap();
+    let binary = 0.1_f64;
+    let exact = Rational::try_from(binary).unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let residual = op(&mut b, Binary::Mul, &number(Atom::num(binary)), &x);
+    let residual = b.prepare(&[residual]).unwrap();
+    let p = isolation_project(&residual, &isolation_true(1)).unwrap();
+    assert!(
+        p.nodes
+            .iter()
+            .any(|n| matches!(n, Node::Const(Constant::Rational(r)) if r == &exact))
+    );
+    assert!(
+        !p.nodes
+            .iter()
+            .any(|n| matches!(n, Node::Const(Constant::Float(_))))
+    );
+    // A positive rational below binary64's subnormal range remains positive.
+    let tiny = Rational::one() / Rational::from(2).pow(1200);
+    let eligibility = isolation_body(
+        1,
+        2,
+        vec![1],
+        vec![Stage::Block {
+            expressions: vec![Atom::num(tiny)],
+            outputs: vec![1],
+            source: id(244),
+        }],
+    );
+    assert!(
+        isolation_project(&residual, &eligibility)
+            .unwrap()
+            .eligibility
+            .is_empty()
+    );
+}
+
+#[test]
+fn root_isolation_projection_budget_and_cancellation_are_errors() {
+    let residual = isolation_body(2, 2, vec![0, 1], vec![]);
+    let eligibility = isolation_true(2);
+    for limit in [0, 1] {
+        assert!(matches!(
+            root_isolation_program(
+                id(240),
+                &residual,
+                &eligibility,
+                &isolation_criterion(2),
+                &Arc::new(AtomicBool::new(false)),
+                limit
+            ),
+            Err(FactorableError::Math(MathError::Limit(_)))
+        ));
+    }
+    assert!(matches!(
+        root_isolation_program(
+            id(240),
+            &residual,
+            &eligibility,
+            &isolation_criterion(2),
+            &Arc::new(AtomicBool::new(true)),
+            10_000
+        ),
+        Err(FactorableError::Math(MathError::Cancelled))
+    ));
+}
+
+#[test]
+fn root_isolation_refuses_unrepresented_domain_obligations() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    let predicate = b
+        .domain(form_lineage(id(245)), |b| {
+            select(b, Comparison::Ne, &x, &zero, &|_| Ok(one.clone()), &zero)
+        })
+        .unwrap();
+    let output = b.with_assumption(x, &predicate);
+    let residual = b.prepare(&[output]).unwrap();
+    assert!(isolation_project(&residual, &isolation_true(1)).is_none());
+}
+
+#[test]
+fn root_isolation_projects_shared_dag_without_a_flattened_expression() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 2);
+    let v = inputs(&mut b, 2);
+    let mut value = v[0].clone();
+    for _ in 0..16 {
+        let s = unary(&mut b, Function::Sin, &value);
+        let c = unary(&mut b, Function::Cos, &value);
+        let weighted = op(&mut b, Binary::Mul, &s, &v[1]);
+        let next = op(&mut b, Binary::Add, &weighted, &c);
+        value = b.bind(next).unwrap();
+    }
+    let residual = b.prepare(&[value]).unwrap();
+    assert!(residual.expression(0).is_none());
+    let p = isolation_project(&residual, &isolation_true(2)).unwrap();
+    assert!(p.nodes.len() < 128);
+    assert_eq!(p.residuals.len(), 1);
+}
+
+#[test]
+fn root_isolation_criterion_preserves_score_tolerance_order_and_exact_shared_nodes() {
+    let residual = isolation_body(2, 2, vec![1, 0], vec![]);
+    let tiny = Rational::one() / Rational::from(2).pow(1200);
+    let criterion = isolation_body(
+        2,
+        3,
+        vec![0, 2],
+        vec![Stage::Block {
+            expressions: vec![Atom::num(tiny.clone())],
+            outputs: vec![2],
+            source: id(246),
+        }],
+    );
+    let p = root_isolation_program(
+        id(240),
+        &residual,
+        &isolation_true(2),
+        &criterion,
+        &Arc::new(AtomicBool::new(false)),
+        10_000,
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(p.criterion[0], p.residuals[1]);
+    assert!(matches!(&p.nodes[p.criterion[1]], Node::Const(Constant::Rational(r)) if r == &tiny));
+    assert!(
+        !p.nodes
+            .iter()
+            .any(|node| matches!(node, Node::Const(Constant::Float(_))))
+    );
+}
+
+#[test]
+fn root_isolation_criterion_retains_value_and_derivative_guards() {
+    use crate::guarded::Condition;
+    let residual = isolation_body(2, 2, vec![0], vec![]);
+    let criterion = isolation_body(
+        2,
+        2,
+        vec![0, 1],
+        vec![
+            Stage::Require {
+                argument: 1,
+                condition: Condition::Nonnegative,
+                order: DerivativeOrder::Value,
+                source: id(246),
+                lineage: None,
+            },
+            Stage::Require {
+                argument: 0,
+                condition: Condition::Positive,
+                order: DerivativeOrder::First,
+                source: id(246),
+                lineage: None,
+            },
+            Stage::Require {
+                argument: 1,
+                condition: Condition::Nonzero,
+                order: DerivativeOrder::Second,
+                source: id(246),
+                lineage: None,
+            },
+        ],
+    );
+    let p = root_isolation_program(
+        id(240),
+        &residual,
+        &isolation_true(2),
+        &criterion,
+        &Arc::new(AtomicBool::new(false)),
+        10_000,
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(p.obligations.len(), 1);
+    assert_eq!(p.obligations[0].argument, Some(p.criterion[1]));
+    assert_eq!(
+        p.obligations[0].kind,
+        ObligationKind::Require(Condition::Nonnegative)
+    );
+    assert_eq!(p.derivative_obligations.len(), 2);
+    assert_eq!(p.derivative_obligations[0].0, DerivativeOrder::First);
+    assert_eq!(p.derivative_obligations[0].1.argument, Some(p.criterion[0]));
+    assert!(p.derivative_obligations[0].1.constraints[0].strict);
+    assert_eq!(p.derivative_obligations[1].0, DerivativeOrder::Second);
+    assert_eq!(p.derivative_obligations[1].1.argument, Some(p.criterion[1]));
+    assert!(p.derivative_obligations[1].1.represented);
+    assert!(p.derivative_obligations[1].1.constraints.is_empty());
+}
+
+#[test]
+fn root_isolation_refuses_opaque_nonsmooth_or_unrepresented_criteria() {
+    let registry = standard_registry().unwrap();
+    let residual = isolation_body(1, 1, vec![0], vec![]);
+    let provider = AdmittedProvider::new(spec(&registry, 40), &registry).unwrap();
+    let mut b = builder(&registry, 1);
+    let v = inputs(&mut b, 1);
+    let value = b.provider(&provider, &v, id(246)).unwrap().remove(0);
+    let opaque = b.prepare(&[value, number(Atom::num(0))]).unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let value = unary(&mut b, Function::Abs, &x);
+    let nonsmooth = b.prepare(&[value, number(Atom::num(0))]).unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    let predicate = b
+        .domain(form_lineage(id(246)), |b| {
+            select(b, Comparison::Ne, &x, &zero, &|_| Ok(one.clone()), &zero)
+        })
+        .unwrap();
+    let value = b.with_assumption(x, &predicate);
+    let unrepresented = b.prepare(&[value, zero]).unwrap();
+    for criterion in [opaque, nonsmooth, unrepresented] {
+        assert!(
+            root_isolation_program(
+                id(240),
+                &residual,
+                &isolation_true(1),
+                &criterion,
+                &Arc::new(AtomicBool::new(false)),
+                10_000,
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
+}
+
+#[test]
+fn root_isolation_refuses_conditional_criterion_guards_with_constant_score() {
+    use crate::guarded::Condition;
+    let criterion = isolation_body(
+        1,
+        3,
+        vec![2, 1],
+        vec![
+            Stage::Block {
+                expressions: vec![Atom::num(0)],
+                outputs: vec![1],
+                source: id(246),
+            },
+            Stage::Branch {
+                continuity: DerivativeOrder::Second,
+                comparison: Comparison::Lt,
+                left: 1,
+                right: 0,
+                then: vec![
+                    Stage::Require {
+                        argument: 0,
+                        condition: Condition::Nonzero,
+                        order: DerivativeOrder::Second,
+                        source: id(246),
+                        lineage: None,
+                    },
+                    Stage::Block {
+                        expressions: vec![Atom::num(1)],
+                        outputs: vec![2],
+                        source: id(246),
+                    },
+                ],
+                otherwise: vec![Stage::Block {
+                    expressions: vec![Atom::num(1)],
+                    outputs: vec![2],
+                    source: id(246),
+                }],
+            },
+        ],
+    );
+    assert!(
+        root_isolation_program(
+            id(240),
+            &isolation_body(1, 1, vec![0], vec![]),
+            &isolation_true(1),
+            &criterion,
+            &Arc::new(AtomicBool::new(false)),
+            10_000,
+        )
+        .unwrap()
+        .is_none()
+    );
+}
+
+#[test]
+fn root_isolation_criterion_layout_must_match_original_inputs_and_two_outputs() {
+    let residual = isolation_body(2, 2, vec![0], vec![]);
+    for criterion in [
+        isolation_criterion(1),
+        isolation_true(2),
+        isolation_body(2, 2, vec![0, 1, 0], vec![]),
+    ] {
+        assert!(matches!(
+            root_isolation_program(
+                id(240),
+                &residual,
+                &isolation_true(2),
+                &criterion,
+                &Arc::new(AtomicBool::new(false)),
+                10_000,
+            ),
+            Err(FactorableError::Math(MathError::Contract(_)))
+        ));
+    }
 }

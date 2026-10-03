@@ -615,10 +615,10 @@ mod executable;
 mod flow;
 pub use executable::{
     AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
-    ImplicitMeaning, ImplicitScale, ImplicitSelection, ModelingCaseBindings,
+    ImplicitCapabilities, ImplicitMeaning, ImplicitScale, ImplicitSelection, ModelingCaseBindings,
     ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingPointChecks,
     ModelingTestValue, ModelingValidityResult, ModelingVariableState, ObjectiveBound,
-    PreparedModeling, SelectionEquivalence,
+    PreparedModeling, SelectionEquivalence, SelectionNeighborhood,
 };
 pub use flow::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection, SemanticModeling,

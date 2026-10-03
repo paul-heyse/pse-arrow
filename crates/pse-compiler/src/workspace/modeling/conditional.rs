@@ -164,6 +164,8 @@ impl CompilerWorkspace {
                         .ok_or_else(|| {
                             CompileError::Missing("conditional boundary incidence".into())
                         })?
+                        .iter()
+                        .chain(&incidence[index].support().controls)
                     {
                         let id = binding.slots[*slot].source();
                         if free.contains(&id) && !unknowns.contains(&id) && !direct.contains(&id) {
@@ -269,6 +271,8 @@ impl CompilerWorkspace {
                     .ok_or_else(|| {
                         CompileError::Missing("conditional observation incidence".into())
                     })?
+                    .iter()
+                    .chain(&incidence[index].support().controls)
                 {
                     let id = instance.slots[*slot].source();
                     if free.contains(&id) && !unknowns.contains(&id) && !inputs.contains(&id) {
@@ -347,6 +351,8 @@ fn admit_boundary(
             for slot in incidence[index]
                 .first_for_output(contribution.output)
                 .ok_or_else(|| CompileError::Missing("conditional source incidence".into()))?
+                .iter()
+                .chain(&incidence[index].support().controls)
             {
                 let symbol = instance.slots[*slot].source();
                 if rows.contains(&row)

@@ -377,6 +377,15 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
     }
 }
 
+/// Preserve execution time expiry as a resource limit, distinct from cancellation.
+pub(crate) fn scope_error(error: pse_kernels::ProviderError) -> MathError {
+    match error {
+        pse_kernels::ProviderError::Cancelled => MathError::Cancelled,
+        pse_kernels::ProviderError::Limit(limit) => MathError::Limit(limit),
+        other => MathError::Contract(other.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

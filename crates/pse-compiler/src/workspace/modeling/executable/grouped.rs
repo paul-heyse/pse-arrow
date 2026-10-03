@@ -61,6 +61,13 @@ fn semantic_body(
         .body_retention()
         .and_then(|cache| cache.get(input.identity))
     {
+        let _reuse = tracing::info_span!(
+            "pse.case.semantic_body_reuse",
+            product = "body",
+            derivative_order = "value",
+            reused = true
+        )
+        .entered();
         if body.semantic_identity() != Some(input.identity) || body.spec.physical != input.physical
         {
             body_refused(
@@ -74,7 +81,13 @@ fn semantic_body(
     }
     // Enter only after retained lookup misses: a query validation/cache hit is not
     // a fresh arithmetic admission. The benchmark subscriber observes this owner.
-    let _admission = tracing::info_span!("pse.case.semantic_body_admission").entered();
+    let admission = tracing::info_span!(
+        "pse.case.semantic_body_admission",
+        product = "body",
+        derivative_order = "value",
+        success = false
+    );
+    let _admission = admission.enter();
     let generation = db.body_retention().map(|cache| cache.generation());
     let mut body = crate::typed_math::Request {
         definition: SemanticId::NIL,
@@ -103,6 +116,7 @@ fn semantic_body(
     );
     checkpoint(db);
     let body = Arc::new(body.for_semantic_identity(input.identity));
+    admission.record("success", true);
     if let Some(cache) = db.body_retention() {
         return match cache.retain(generation.unwrap_or(u64::MAX), input.identity, body.clone()) {
             Ok(retained) if retained.as_ref() == body.as_ref() => Ok(retained),

@@ -567,7 +567,7 @@ fn reobserve(
     let (Some(candidate), Some(observation)) = (&report.candidate, &mut report.observation) else {
         return Ok(());
     };
-    let validation = (|| -> Result<_, ProblemError> {
+    let validation = quality::contained(|| -> Result<_, ProblemError> {
         let fresh = original.evaluate(&candidate.primal)?;
         if fresh
             .constraints
@@ -593,28 +593,26 @@ fn reobserve(
             &fresh.constraints,
             step.tolerances,
         )?;
-        Ok((quality, fresh))
-    })();
+        let mut observed = Observation::from_values(
+            fresh.objective,
+            fresh.constraints,
+            observation.bounds.clone(),
+        )?;
+        observed.sources = fresh.sources;
+        // Semi-continuous/semi-integer zero branches belong to the coefficient
+        // domain, not the enclosing bound interval. Recompute that domain's checks
+        // rather than carrying observations an earlier validation may have withdrawn.
+        let domain = problem.quality(&candidate.primal, step.tolerances)?;
+        Ok((
+            Quality::new(quality.rows, domain.bounds, domain.integrality)?,
+            observed,
+        ))
+    });
     match validation {
-        Ok((q, fresh)) => {
-            let mut observed = Observation::from_values(
-                fresh.objective,
-                fresh.constraints,
-                observation.bounds.clone(),
-            )?;
-            observed.sources = fresh.sources;
-            *observation = observed;
-            let integrality = report
-                .quality
-                .as_ref()
-                .map_or_else(Vec::new, |q| q.integrality.clone());
-            // Semi-continuous/semi-integer zero branches belong to the coefficient
-            // domain, not the enclosing bound interval.
-            let bounds = report
-                .quality
-                .as_ref()
-                .map_or(q.bounds, |prior| prior.bounds.clone());
-            report.quality = Some(Quality::new(q.rows, bounds, integrality)?);
+        Ok((q, observed)) => {
+            report.observation = Some(observed);
+            report.quality = Some(q);
+            report.clear_validation_failure();
         }
         Err(e) => report.record_validation_failure(e),
     }
@@ -742,4 +740,127 @@ pub fn cone(
     }
     quality::qualify(&mut report, step.accuracy);
     Ok(report)
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+    use crate::{
+        clarabel_tests::{Affine, budgets, mixed_lp},
+        solve::{Assurance, Backend, Qualification, Termination},
+        solver_tests::stamp,
+    };
+
+    /// Only original-model revalidation fails; Clarabel receives unchanged coefficients.
+    struct Original<'a> {
+        affine: Affine<'a>,
+        evaluations: usize,
+        source: pse_ids::SemanticId,
+        panic_next: bool,
+    }
+    impl OriginalModel for Original<'_> {
+        fn evaluate(&mut self, primal: &[f64]) -> Result<Evaluation, ProblemError> {
+            self.evaluations += 1;
+            assert!(primal.iter().all(|v| v.is_finite()));
+            assert!(!self.panic_next, "test original-model callback panic");
+            if self.evaluations == 1 {
+                return Err(pse_math::MathError::Domain {
+                    source_id: self.source,
+                    requirement: "test original-model revalidation",
+                }
+                .into());
+            }
+            self.affine.evaluate(primal)
+        }
+    }
+
+    #[test]
+    fn linked_coefficient_revalidation_withdraws_stale_quality_and_recovers() {
+        let problem = mixed_lp();
+        let backend = Backend::Clarabel;
+        let controls = Controls::default();
+        let accuracy = ResolvedAccuracy::nominal();
+        let tolerances = budgets(&problem, 1e-7);
+        let normalization = Normalization::identity(
+            problem.contract.variables.len(),
+            problem.contract.rows.len(),
+        );
+        let snapshot = super::super::Snapshot::observe(&super::super::LINKED);
+        let step = || Step {
+            adapter: super::super::adapter(backend),
+            settings: &BackendSettings::Default,
+            snapshot: &snapshot,
+            structure: None,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: crate::solve::Execution::new(std::sync::Arc::default(), &controls),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: stamp(backend),
+            warm: None,
+        };
+        let source = pse_ids::SemanticId::from_bytes([17; 16]);
+        let mut original = Original {
+            affine: Affine(&problem),
+            evaluations: 0,
+            source,
+            panic_next: false,
+        };
+        let constants = vec![0.0; problem.bounds.len()];
+        let mut report = coefficients(
+            step(),
+            &mut Retained::default(),
+            Coefficients {
+                lowered: None,
+                problem: &problem,
+                certificate: None,
+                row_constants: &constants,
+                row_bounds: problem.bounds.clone(),
+                original: &mut original,
+            },
+        )
+        .unwrap();
+        assert_eq!(original.evaluations, 1);
+        assert!(report.candidate.is_some());
+        assert_eq!(report.termination.category, Termination::Success);
+        assert!(report.quality.is_none());
+        assert!(report.observation.is_none());
+        assert_eq!(report.qualification, Qualification::Unqualified);
+        assert_eq!(report.termination.assurance, Assurance::None);
+        assert!(matches!(report.validation_failure(),
+            Some(ProblemError::Math(pse_math::MathError::Domain { source_id, .. }))
+                if *source_id == source));
+        assert!(report.evidence.conic.is_some());
+        assert!(!report.metrics.is_empty());
+        assert!(report.provenance["native"].contains("Clarabel"));
+
+        // Reconstruct the coefficient observation before another independent original
+        // evaluation of this same native candidate; no native solve or failure switch.
+        let candidate = report.candidate.as_ref().unwrap();
+        report.observation = Some(
+            problem
+                .observation(&candidate.primal, &constants, problem.bounds.clone())
+                .unwrap(),
+        );
+        reobserve(&mut report, &problem, &mut original, &step()).unwrap();
+        assert_eq!(original.evaluations, 2);
+        assert!(report.validation_failure().is_none());
+        assert!(report.quality.as_ref().unwrap().feasible());
+        assert!(report.observation.is_some());
+        quality::qualify(&mut report, &accuracy);
+        assert_eq!(report.qualification, Qualification::OptimalWithinTolerance);
+
+        original.panic_next = true;
+        reobserve(&mut report, &problem, &mut original, &step()).unwrap();
+        assert!(matches!(
+            report.validation_failure(),
+            Some(ProblemError::Internal(_))
+        ));
+        assert!(report.candidate.is_some());
+        assert!(report.quality.is_none());
+        assert!(report.observation.is_none());
+        assert_eq!(report.qualification, Qualification::Unqualified);
+        assert_eq!(report.termination.category, Termination::Success);
+        assert!(report.evidence.conic.is_some());
+    }
 }

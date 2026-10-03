@@ -715,6 +715,61 @@ mod tests {
         );
     }
     #[test]
+    fn validation_failure_projects_unavailable_feasibility_and_retains_resource_cause() {
+        use pse_backend_native::solve::Qualification;
+        use pse_model::diagnostic::BoundaryClass;
+        let policy = pse_model::numerics::NumericalPolicy::default();
+        for (failure, class) in [
+            (
+                pse_backend_native::ProblemError::numerical("original observation"),
+                BoundaryClass::Numerical,
+            ),
+            (
+                pse_backend_native::ProblemError::memory("original observation allowance"),
+                BoundaryClass::ResourceLimit,
+            ),
+        ] {
+            // Boundary fixture only: these reports are not scientific execution evidence.
+            let mut native = report(NativeTermination::Success);
+            native.record_validation_failure(failure);
+            let decision = native_use(&native, &policy);
+            assert!(
+                decision
+                    .refusals
+                    .contains(&CandidateRefusal::ValidationFailed)
+            );
+            assert!(
+                decision
+                    .refusals
+                    .contains(&CandidateRefusal::FeasibilityUnavailable)
+            );
+            assert!(decision.refusals.contains(&CandidateRefusal::Unqualified));
+            assert!(!decision.refusals.contains(&CandidateRefusal::Infeasible));
+            assert!(!decision.refusals.contains(&CandidateRefusal::NoCandidate));
+            let completion = complete(decision, CompletionEvidence::point(&[], true, 0), &policy);
+            let row = completion.assessment_row(
+                RunId::from_bytes([1; 16]),
+                0,
+                &policy,
+                Some(&native),
+                native.quality.as_ref().map(|q| q.feasible()),
+                false,
+            );
+            assert_eq!(row.numerically_feasible, None);
+            assert_eq!(row.qualification, Some(Qualification::Unqualified));
+            assert_eq!(row.validated, Some(false));
+            assert_eq!(row.native_termination, Some(NativeTermination::Success));
+            assert!(row.candidate_kind.is_some());
+            assert!(!row.permits_result);
+            assert!(!row.permits_seed);
+            let diagnostic = super::super::diagnostics::observed(
+                native.validation_failure().unwrap(),
+                pse_diagnostics::DiagnosticStage::Native,
+            );
+            assert_eq!(diagnostic.class, class);
+        }
+    }
+    #[test]
     fn native_limits_retain_resource_classification_and_contradictions_override_it() {
         use pse_model::diagnostic::BoundaryClass;
         for termination in [

@@ -353,7 +353,7 @@ impl Plant {
         use native::dynamics::Oracle;
         let integration = self.integration(applied);
         let contract = &self.experiment.program.contract;
-        let mut worker = self.experiment.program.worker(execution.cancel.clone())?;
+        let mut worker = self.experiment.program.worker(execution.scope()?)?;
         let initial = worker.evaluate(
             0,
             native::dynamics::Function::Initial,

@@ -127,6 +127,101 @@ async fn root_response_withheld_at_active_bound_keeps_base_solution() {
     );
 }
 
+#[tokio::test]
+async fn root_response_rank_loss_withholds_sensitivity_and_keeps_feasible_base() {
+    let rows = pse_authoring::language::parse(
+        "package p { def Root { param p:Scalar=0; var x:Scalar; eq root:x*x*x==p; annotation start x(0); } }",
+        SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = fixture::runtime_with(16 << 20, 16 << 20, 1 << 30)
+        .modeling_package(rows, fixture::physical())
+        .unwrap();
+    let mut solver = fixture::profile();
+    solver.intent = SolveIntent::Root;
+    solver.selection = SolverSelection::Explicit(Backend::Kinsol);
+    let mut analysis = ModelingAnalysis {
+        root,
+        instance: pse_modeling::specialize::root_instance(root),
+        bindings: Bindings::default(),
+        limits: Limits::default(),
+        case: Default::default(),
+        order: DerivativeOrder::First,
+        compiler: fixture::compiler_profile(),
+        solver,
+        numerical: NumericalInputs::default(),
+    };
+    analysis.bindings.demand.push("p".into());
+    let cancel = crate::CancelSource::new();
+    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let parameter = prepared.model.model.compiled().model.paths["p"];
+    analysis.solver.sensitivity = Some(SensitivityRequest {
+        parameters: vec![parameter],
+        reduced_hessian: false,
+        propagation: None,
+    });
+    let result = package
+        .prepare_analysis(&analysis, &cancel)
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    // The native initial point satisfies x³=p exactly; its actual original Jacobian
+    // is zero, so a finite square response cannot be established there.
+    assert!(result.usable());
+    let crate::workflow::RunReport::Modeling(steps) = result.report().unwrap() else {
+        panic!("modeling report expected");
+    };
+    let crate::math::solves::Outcome::Native(native) = &steps[0].outcome else {
+        panic!("native root report expected");
+    };
+    assert_eq!(native.backend, Backend::Kinsol);
+    assert_eq!(native.candidate.as_ref().unwrap().primal, [0.]);
+    assert!(native.quality.as_ref().unwrap().feasible());
+    assert!(matches!(
+        native.evidence.root_response.as_ref(),
+        Some(Err(pse_backend_native::square_response::Withheld::Rank {
+            rank: 0,
+            dimension: 1,
+            ..
+        }))
+    ));
+    let validity =
+        local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+    let [validity] = validity.as_slice() else {
+        panic!("one validity record expected")
+    };
+    assert!(!validity.validity.certified);
+    assert_eq!(validity.validity.root_rank, Some(0));
+    assert_eq!(
+        validity.validity.reason,
+        Some(pse_relations::generated::enums::WithheldReason::RankDeficient)
+    );
+    assert!(validity.validity.licq.is_none());
+    assert!(validity.validity.second_order.is_none());
+    assert!(
+        parametric_sensitivities::Row::rows(
+            &result.table("runtime.parametric_sensitivities").unwrap()
+        )
+        .unwrap()
+        .is_empty()
+    );
+    let runs = solve_runs::Row::rows(&result.table("runtime.solve_runs").unwrap()).unwrap();
+    assert!(runs.iter().any(|r| r.feasible == Some(true)
+        && r.qualification == pse_relations::generated::enums::NativeQualification::Feasible
+        && r.objective.is_none()));
+}
+
 #[cfg(any(
     feature = "solver-ipopt",
     feature = "solver-pounce",

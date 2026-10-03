@@ -3,7 +3,6 @@
 //! The same original-model assessments at explicit trajectory samples.
 use super::*;
 use pse_model::generated::identities::RunId;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 pub(in crate::workflow) struct SampleChecks {
     pub rows: Vec<ModelingCheck>,
@@ -54,8 +53,7 @@ impl ModelingSimulation {
         run_id: RunId,
         report: &native::Report,
         parameters: &[f64],
-        cancel: &Arc<AtomicBool>,
-        started: std::time::Instant,
+        scope: &pse_kernels::ExecutionScope,
     ) -> SampleChecks {
         let mut result = SampleChecks {
             rows: Vec::new(),
@@ -63,8 +61,17 @@ impl ModelingSimulation {
             complete: false,
             error: None,
         };
+        let checkpoint = || {
+            scope.check().map_err(|error| {
+                WorkflowError::from(crate::math::MathRuntimeError::from(ProblemError::Provider(
+                    error,
+                )))
+            })
+        };
         let mut run = || -> Result<(), WorkflowError> {
+            checkpoint()?;
             for obligation in &self.modes[0].original_initial_conditions {
+                checkpoint()?;
                 let actual = report
                     .consistent_initial
                     .get(obligation.coordinate)
@@ -84,6 +91,7 @@ impl ModelingSimulation {
                 ));
             }
             for (index, point) in report.conservation.iter().enumerate() {
+                checkpoint()?;
                 let mode = self
                     .modes
                     .get(point.mode)
@@ -119,9 +127,11 @@ impl ModelingSimulation {
                         .as_ref()
                         .map(|p| {
                             let providers =
-                                crate::math::attempt_providers(&mode.context.providers, cancel)
+                                crate::math::attempt_providers(&mode.context.providers, scope)
                                     .map_err(|e| contract(e.to_string()))?;
-                            Ok::<_, WorkflowError>(p.assembly.worker(providers, cancel.clone()))
+                            Ok::<_, WorkflowError>(
+                                p.assembly.worker_scoped(providers, scope.clone()),
+                            )
                         })
                         .transpose()
                 };
@@ -155,15 +165,7 @@ impl ModelingSimulation {
                 let (worker, terminal_worker, point) = workers
                     .get_mut(sample.mode)
                     .ok_or_else(|| contract("trajectory check mode absent"))?;
-                if cancel.load(Ordering::Acquire) {
-                    return Err(crate::math::MathRuntimeError::Cancelled.into());
-                }
-                if started.elapsed() > self.profile.time_limit {
-                    return Err(crate::math::MathRuntimeError::Limit(
-                        "trajectory check time limit",
-                    )
-                    .into());
-                }
+                checkpoint()?;
                 if let Some(inputs) = endpoint_inputs {
                     self.update_point_values(sample, inputs, point)?;
                 } else {
@@ -278,14 +280,7 @@ impl ModelingSimulation {
                 }
                 result.rows.extend(sample_checks);
             }
-            if cancel.load(Ordering::Acquire) {
-                return Err(crate::math::MathRuntimeError::Cancelled.into());
-            }
-            if started.elapsed() > self.profile.time_limit {
-                return Err(
-                    crate::math::MathRuntimeError::Limit("trajectory check time limit").into(),
-                );
-            }
+            checkpoint()?;
             Ok(())
         };
         match run() {

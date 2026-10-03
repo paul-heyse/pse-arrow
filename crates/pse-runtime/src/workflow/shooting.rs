@@ -416,7 +416,10 @@ impl ShootingProblem {
         let start = {
             use native::dynamics::Oracle;
             let mut worker = simulation
-                .worker(Arc::new(AtomicBool::new(false)))
+                .worker(pse_kernels::ExecutionScope::new(
+                    Arc::new(AtomicBool::new(false)),
+                    None,
+                ))
                 .map_err(|e| WorkflowError::Math(e.into()))?;
             let initial = worker
                 .evaluate(
@@ -731,7 +734,10 @@ impl ShootingProblem {
         let problem = |e: ProblemError| WorkflowError::Math(e.into());
         let worker = |observed| {
             native::dynamics::Anchored::new(
-                simulation.worker(Arc::new(AtomicBool::new(false)))?,
+                simulation.worker(pse_kernels::ExecutionScope::new(
+                    Arc::new(AtomicBool::new(false)),
+                    None,
+                ))?,
                 observed,
             )
         };
@@ -1392,7 +1398,7 @@ impl ShootingProblem {
             }
             let checks =
                 self.simulation
-                    .check_samples(run_id, &stitched, &integration, &flag, started);
+                    .check_samples(run_id, &stitched, &integration, &execution.scope()?);
             report.checks_complete = checks.complete && checks.error.is_none();
             report.checks = checks.rows;
             report.reports = checks.reports;

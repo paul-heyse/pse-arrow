@@ -1,0 +1,22 @@
+package p { entity kind source provenance { attribute title: Text; } enum role { given } entity source s { title = "synthetic test data" }
+    entity kind period {} entity period h1 {} entity period h2 {} entity period h3 {}
+    set periods: Set<period> = {h1, h2, h3};
+    table price[t: period]: Scalar complete_over(t in periods);
+    dataset signal: price provenance(s, role.given) { [h1] = [-0.5]; [h2] = [0.8]; [h3] = [1.2]; }
+    def Root {
+      param capacity: Power = 150{W}; param minimum: Power = 40{W};
+      param standby: Power = 50{W}; param budget: Power = 150{W};
+      param scale: Power = 100{W}; param curvature: Power = 50{W};
+      var on[t in periods]: Indicator in binary;
+      var output[t in periods]: Power;
+      var load[t in periods]: Scalar;
+      eq most[t in periods]: output[t] <= capacity*on[t];
+      eq least[t in periods]: output[t] >= minimum*on[t];
+      eq energy: sum(t in periods | output[t]) <= budget;
+      eq loading[t in periods]: output[t] == scale*load[t];
+      let margin: Power = sum(t in periods | price[t]*output[t] - curvature*load[t]*load[t] - standby*on[t]);
+      let peak: Power = output[h3];
+      annotation objective margin(maximize);
+      annotation bounds output(0{W}, 150{W}); annotation bounds load(0, 1.5);
+      annotation start on(0{1}); annotation start output(0{W}); annotation start load(0);
+      annotation report margin("margin"); annotation report peak("h3"); } }

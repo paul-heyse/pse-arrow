@@ -464,8 +464,11 @@ fn preparation(c: &mut Criterion) {
         k4_preparation::measure(c, workload, output.as_deref(), &phases);
         return;
     }
-    if selected.is_none() && measuring {
-        for workload in workloads.iter().filter(|w| w["model"] == "scalar-k4") {
+    if selected.is_none() {
+        for workload in workloads
+            .iter()
+            .filter(|w| w["model"] == "scalar-k4" && (measuring || w["smoke"] == true))
+        {
             k4_preparation::measure(c, workload, output.as_deref(), &phases);
         }
     }

@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 97
-date: 2026-10-02
+revision: 99
+date: 2026-10-03
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -73,6 +73,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | 96 | 2026-10-02 | ADR-0150/0151 integrated ownership amendments: checked occurrences and one grammar, explicit validation contexts/memo cycles and real predicate boundaries (§4.6/§7.7/§14.2/§22.2); canonical role-typed framing and preserving V7 operational identity (§5.3); immutable complete Salsa inputs, shared byte-bounded products and independent live allocation ownership (§14.3/§14.4/§18.8); actual operation-owned generated documents, Rust defaults, typed Python getters and library graph/cardinality/vocabulary mechanics (§21.5). Obsolete raw compiler, structural projection, requirement-planner and ambient installer descriptions are removed. | Maintainer-authorized integrated Plans 25h/25i/25j implementation; ADRs remain proposed; focused evidence belongs to their Outcomes and integrated qualification to 25k; `PSE_DESIGN_EDIT=1`. |
 | 97 | 2026-10-02 | ADR-0152 / Plan 25l target: staged semantic/output/support preparation, contextual candidate evidence/readiness through adapter owners, current demand identity and truthful completion projections (§5.3, §14.1/§14.3/§14.4, §18.7, §19.3, §23.2). Proposed target; implementation and qualification tracked by 25l/25k. | Maintainer-authorized implementation; `PSE_DESIGN_EDIT=1`; ADR remains proposed. |
+| 98 | 2026-10-03 | Plan 25k reconciliation of mandatory factorable projection exhaustion (§7.5): typed resource refusal, no completed partial export and no budget-induced rerouting, consistent with §14.3.2 and the ADR-0152 target. §14.3.2 records maintainer-authorized workstation allowances: 512 MiB local numeric scratch, 2 GiB complete case storage and 8 GiB runtime worker storage, and actual bounded support cardinality/local scopes replace the obsolete fixed-width description. Qualification remains owned by 25k until its Outcome. | Maintainer-authorized implementation and bounded K5 review; `PSE_DESIGN_EDIT=1`; ADR status unchanged. |
+| 99 | 2026-10-03 | ADR-0153 adds conditional library-owned nonlinear selection evidence (§7.5) and bounded shared proof ownership (§14.3.2). Numerical iteration, validated root selection and residual-only export retain distinct contracts; global neighborhood exclusion is required before derivatives. | Maintainer-authorized nonlinear extension; `PSE_DESIGN_EDIT=1`; focused source and adapter controls, full case qualification remains owned by 25k. |
 
 ## Former anchors
 

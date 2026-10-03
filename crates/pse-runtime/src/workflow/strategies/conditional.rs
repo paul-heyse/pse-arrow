@@ -207,7 +207,7 @@ impl PreparedRecycle {
                         .worker(
                             program.program.clone(),
                             &prepared.providers,
-                            execution.cancel.clone(),
+                            execution.scope()?,
                             &budget,
                         )
                         .map_err(MathRuntimeError::into_problem)?;
@@ -523,29 +523,31 @@ impl ModelingPackage {
                 .assembly
                 .incidence(&Arc::new(std::sync::atomic::AtomicBool::new(false)))
                 .map_err(MathRuntimeError::from)?;
-            if conditional.is_none()
-                && program
-                    .assembly
-                    .structure()
-                    .instances()
-                    .iter()
-                    .enumerate()
-                    .any(|(index, i)| {
-                        i.contributions.iter().any(|c| {
-                            incidence[index]
-                                .first_for_output(c.output)
-                                .into_iter()
-                                .flatten()
-                                .any(|slot| {
-                                    let id = i.slots[*slot].source();
-                                    free.contains(&id) && !declared.contains(&id)
-                                })
-                        })
-                    })
-            {
-                return Err(contract(
-                    "causal function depends on an undeclared free input",
-                ));
+            if conditional.is_none() {
+                for (index, binding) in program.assembly.structure().instances().iter().enumerate()
+                {
+                    for contribution in &binding.contributions {
+                        let support = &incidence[index];
+                        let inputs =
+                            support
+                                .first_for_output(contribution.output)
+                                .ok_or_else(|| {
+                                    contract("causal function structural incidence is absent")
+                                })?;
+                        if inputs
+                            .iter()
+                            .chain(&support.support().controls)
+                            .any(|slot| {
+                                let id = binding.slots[*slot].source();
+                                free.contains(&id) && !declared.contains(&id)
+                            })
+                        {
+                            return Err(contract(
+                                "causal function depends on an undeclared free input",
+                            ));
+                        }
+                    }
+                }
             }
             let mut mapped = Vec::new();
             for port in &unit.outputs {

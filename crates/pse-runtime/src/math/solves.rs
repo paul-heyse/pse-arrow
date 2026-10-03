@@ -1354,20 +1354,9 @@ impl MathService {
                 })
                 .max();
             if let Some(order) = order {
-                let source = prepared.prepared.clone();
-                let upgraded = self
-                    .job_retained(
-                        1,
-                        self.policy.workspace_bytes,
-                        FlightCancellation::default(),
-                        move |flag| {
-                            let product = source.prepare_order(order, &flag)?;
-                            let bytes = product.retained_bytes();
-                            Ok((product, bytes))
-                        },
-                    )
+                prepared = self
+                    .prepare_order(prepared, order, FlightCancellation::default())
                     .await?;
-                prepared = self.own_preparation(upgraded)?;
             }
             if decision
                 .artifacts
@@ -1480,20 +1469,9 @@ impl MathService {
         )
         .unwrap_or(pse_kernels::DerivativeOrder::Value);
         let (prepared, executable) = if prepared.prepared.plan.order() < order {
-            let source = prepared.prepared.clone();
-            let product = self
-                .job_retained(
-                    1,
-                    self.policy.workspace_bytes,
-                    FlightCancellation::default(),
-                    move |flag| {
-                        let product = source.prepare_order(order, &flag)?;
-                        let bytes = product.retained_bytes();
-                        Ok((product, bytes))
-                    },
-                )
+            let prepared = self
+                .prepare_order(prepared, order, FlightCancellation::default())
                 .await?;
-            let prepared = self.own_preparation(product)?;
             let executable = self.assemble(prepared.clone()).await?;
             (prepared, executable)
         } else {
@@ -1880,10 +1858,10 @@ impl MathService {
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
         owner: &Arc<pse_columnar::AllocationLease>,
-    ) -> Result<Outcome, MathRuntimeError> {
+    ) -> Result<ScopedOutcome, MathRuntimeError> {
         let admitted = match self.admit_step(step, previous, retained, flag, progress) {
             Ok(admitted) => admitted,
-            Err(refused) => return Ok(refused),
+            Err(refused) => return Ok((refused, None)),
         };
         let Admitted {
             step,
@@ -1892,10 +1870,12 @@ impl MathService {
             receipt,
             normalization,
         } = admitted;
+        let scope = execution.scope()?;
         let outcome = self
             .run_step(step, execution, chosen.as_ref(), retained, budget)
             .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
         self.conclude(outcome, receipt, normalization, attempt, owner)
+            .map(|outcome| (outcome, Some(scope)))
     }
     /// The independent steps of one batch on the session's retained native state (Plan 22
     /// N5): each is admitted as [`Self::execute`] admits it, those that share one batching
@@ -1909,14 +1889,14 @@ impl MathService {
         flag: &Arc<std::sync::atomic::AtomicBool>,
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
-    ) -> Vec<Result<Outcome, MathRuntimeError>> {
-        let mut outcomes: Vec<Option<Result<Outcome, MathRuntimeError>>> =
+    ) -> Vec<Result<ScopedOutcome, MathRuntimeError>> {
+        let mut outcomes: Vec<Option<Result<ScopedOutcome, MathRuntimeError>>> =
             members.iter().map(|_| None).collect();
         let mut admitted = Vec::new();
         for (i, member) in members.into_iter().enumerate() {
             match self.admit_step(member.step, None, retained, flag, progress) {
                 Ok(step) => admitted.push((i, member.attempt, member.owner, step)),
-                Err(refused) => outcomes[i] = Some(Ok(refused)),
+                Err(refused) => outcomes[i] = Some(Ok((refused, None))),
             }
         }
         let batching = |a: &Admitted| {
@@ -1961,10 +1941,20 @@ impl MathService {
                     receipt,
                     normalization,
                 } = a;
+                let scope = match execution.scope() {
+                    Ok(scope) => scope,
+                    Err(error) => {
+                        outcomes[i] = Some(Err(error.into()));
+                        continue;
+                    }
+                };
                 let outcome = self
                     .run_step(step, execution, chosen.as_ref(), retained, budget)
                     .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
-                outcomes[i] = Some(self.conclude(outcome, receipt, normalization, attempt, &owner));
+                outcomes[i] = Some(
+                    self.conclude(outcome, receipt, normalization, attempt, &owner)
+                        .map(|outcome| (outcome, Some(scope))),
+                );
             }
         }
         outcomes
@@ -2129,7 +2119,7 @@ impl MathService {
         admitted: Vec<(usize, usize, Arc<pse_columnar::AllocationLease>, Admitted)>,
         retained: &mut Retained,
         budget: &Arc<WorkerBudget>,
-    ) -> Vec<(usize, Result<Outcome, MathRuntimeError>)> {
+    ) -> Vec<(usize, Result<ScopedOutcome, MathRuntimeError>)> {
         /// One member's owned parts, which the runner's views borrow.
         struct Part {
             index: usize,
@@ -2139,6 +2129,7 @@ impl MathService {
             key: pse_ids::ContentHash,
             chosen: Option<WarmStart>,
             execution: Execution,
+            scope: pse_kernels::ExecutionScope,
             profile: SolverProfile,
             snapshot: execution::Snapshot,
             structure: Option<native::structural::Assessment>,
@@ -2173,6 +2164,7 @@ impl MathService {
                 ..
             } = step;
             let part = (|| -> Result<Part, MathRuntimeError> {
+                let scope = execution.scope()?;
                 let (Representation::Algebraic(case), Route::Native(backend)) =
                     (representation, route)
                 else {
@@ -2202,6 +2194,7 @@ impl MathService {
                     key,
                     chosen: chosen.clone(),
                     execution: execution.clone(),
+                    scope,
                     profile,
                     snapshot,
                     structure: route_decision.and_then(|decision| decision.structure),
@@ -2218,7 +2211,11 @@ impl MathService {
                 Ok(part) => parts.push(part),
                 Err(error) => {
                     let outcome = Outcome::Rejected(Arc::new(error));
-                    concluded.push((index, self.conclude(outcome, receipt, key, attempt, &owner)));
+                    concluded.push((
+                        index,
+                        self.conclude(outcome, receipt, key, attempt, &owner)
+                            .map(|outcome| (outcome, None)),
+                    ));
                 }
             }
         }
@@ -2230,7 +2227,7 @@ impl MathService {
                 providers: &p.case.providers,
                 values: &p.case.values,
                 plan: &p.case.prepared.prepared.plan,
-                cancel: p.execution.cancel.clone(),
+                scope: p.scope.clone(),
                 budget,
             })
             .collect();
@@ -2282,7 +2279,8 @@ impl MathService {
             };
             concluded.push((
                 p.index,
-                self.conclude(outcome, p.receipt, p.key, p.attempt, &p.owner),
+                self.conclude(outcome, p.receipt, p.key, p.attempt, &p.owner)
+                    .map(|outcome| (outcome, Some(p.scope))),
             ));
         }
         concluded
@@ -2321,7 +2319,7 @@ impl MathService {
             .into());
         }
         let Route::Native(backend) = route else {
-            return self.constant(representation, &tolerances, &execution.cancel, budget);
+            return self.constant(representation, &tolerances, &execution.scope()?, budget);
         };
         let adapter = execution::adapter(backend);
         let stamp = compatibility
@@ -2423,7 +2421,7 @@ impl MathService {
             providers: &providers,
             values: &values,
             plan,
-            cancel: run.execution.cancel.clone(),
+            scope: run.execution.scope()?,
             budget,
         };
         Ok(execution::coefficients(
@@ -2470,7 +2468,7 @@ impl MathService {
             providers: &providers,
             values: &values,
             plan,
-            cancel: run.execution.cancel.clone(),
+            scope: run.execution.scope()?,
             budget,
         };
         Ok(execution::recognized(
@@ -2519,12 +2517,12 @@ impl MathService {
             providers: &providers,
             values: &values,
             plan,
-            cancel: run.execution.cancel.clone(),
+            scope: run.execution.scope()?,
             budget,
         };
         let normalization = run.normalization.clone();
         let tolerance = run.tolerances.clone();
-        let cancel = run.execution.cancel.clone();
+        let scope = run.execution.scope()?;
         // Executable owners and their budget charges outlive every re-solve oracle.
         let mut owners = Vec::new();
         let mut relaxed = || {
@@ -2533,7 +2531,7 @@ impl MathService {
                     worker,
                     _case,
                     _charge,
-                } = self.case_worker(case.clone(), providers.clone(), &cancel, budget)?;
+                } = self.case_worker(case.clone(), providers.clone(), &scope, budget)?;
                 owners.push((_case, _charge));
                 Ok(native::assembled::AlgebraicOracle::relaxation(
                     worker,
@@ -2563,7 +2561,7 @@ impl MathService {
                     worker,
                     _case,
                     _charge,
-                } = self.worker(request.program.clone(), &providers, cancel.clone(), budget)?;
+                } = self.worker(request.program.clone(), &providers, scope.clone(), budget)?;
                 parametric_owners.push((_case, _charge));
                 Ok(native::assembled::AlgebraicOracle::relaxation(
                     worker,
@@ -2604,7 +2602,7 @@ impl MathService {
                 sensitivity.as_ref(),
                 &values,
                 &providers,
-                &cancel,
+                &scope,
                 &normalization,
                 &tolerance,
                 budget,
@@ -2636,22 +2634,19 @@ impl MathService {
         let available = sensitivity
             .as_ref()
             .and_then(ParametricPreparation::available);
-        let parametric_cancel = run.execution.cancel.clone();
+        let scope = run.execution.scope()?;
         let build_parametric = |program: &SensitivityProgram| {
-            self.worker(
-                program.program.clone(),
-                &providers,
-                parametric_cancel.clone(),
-                budget,
-            )
-            .map_err(MathRuntimeError::into_problem)
-            .and_then(
-                |ExecutionWorker {
-                     worker,
-                     _case,
-                     _charge,
-                 }| { Ok((program.request(worker, &values)?, (_case, _charge))) },
-            )
+            self.worker(program.program.clone(), &providers, scope.clone(), budget)
+                .map_err(MathRuntimeError::into_problem)
+                .and_then(
+                    |ExecutionWorker {
+                         worker,
+                         _case,
+                         _charge,
+                     }| {
+                        Ok((program.request(worker, &values)?, (_case, _charge)))
+                    },
+                )
         };
         // Optional Root analysis must not consume the base solver's resource allowance.
         // Construct its worker only after the original root is solved and qualified.
@@ -2664,7 +2659,7 @@ impl MathService {
             worker,
             _case,
             _charge,
-        } = self.case_worker(case, providers.clone(), &run.execution.cancel, budget)?;
+        } = self.case_worker(case, providers.clone(), &scope, budget)?;
         let plan = &prepared.prepared.plan;
         let initial: Vec<_> = plan.columns().iter().map(|id| values.scalars[id]).collect();
         let mut oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
@@ -2727,7 +2722,7 @@ impl MathService {
                 sensitivity.as_ref(),
                 &values,
                 &providers,
-                &parametric_cancel,
+                &scope,
                 &normalization,
                 &tolerance,
                 budget,
@@ -2767,7 +2762,7 @@ impl MathService {
         sensitivity: Option<&ParametricPreparation<SensitivityProgram>>,
         values: &CaseValues,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        cancel: &Arc<std::sync::atomic::AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         normalization: &Normalization,
         tolerances: &Tolerances,
         budget: &Arc<WorkerBudget>,
@@ -2787,7 +2782,7 @@ impl MathService {
                     ParametricPreparation::Unavailable(cause) => return Err(cause.clone()),
                 };
                 let (mut request, _owner) = self
-                    .worker(program.program.clone(), providers, cancel.clone(), budget)
+                    .worker(program.program.clone(), providers, scope.clone(), budget)
                     .map_err(MathRuntimeError::into_problem)
                     .and_then(
                         |ExecutionWorker {
@@ -2895,19 +2890,19 @@ impl MathService {
         &self,
         case: Option<Arc<ExecutableCase>>,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        cancel: &Arc<std::sync::atomic::AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         budget: &Arc<WorkerBudget>,
     ) -> Result<ExecutionWorker, MathRuntimeError> {
         let case =
             case.ok_or_else(|| ProblemError::Internal("missing executable representation".into()))?;
-        self.worker(case, &providers, cancel.clone(), budget)
+        self.worker(case, &providers, scope.clone(), budget)
     }
     /// All-fixed original evaluation without a native attempt.
     fn constant(
         &self,
         representation: Representation,
         tolerances: &Tolerances,
-        cancel: &Arc<std::sync::atomic::AtomicBool>,
+        scope: &pse_kernels::ExecutionScope,
         budget: &Arc<WorkerBudget>,
     ) -> Result<Outcome, MathRuntimeError> {
         let Representation::Algebraic(AlgebraicCase {
@@ -2926,7 +2921,7 @@ impl MathService {
             mut worker,
             _case,
             _charge,
-        } = self.case_worker(case, providers, cancel, budget)?;
+        } = self.case_worker(case, providers, scope, budget)?;
         let structure = prepared.prepared.plan.structure();
         let objective = structure
             .objective()
@@ -2963,6 +2958,9 @@ impl MathService {
         })))
     }
 }
+/// Outcome with its original admitted execution, absent for a pre-attempt refusal.
+pub(crate) type ScopedOutcome = (Outcome, Option<pse_kernels::ExecutionScope>);
+
 /// A step admitted for native work: its seed, execution controls and start receipt.
 struct Admitted {
     step: PreparedSolve,
@@ -2988,7 +2986,7 @@ struct OriginalCase<'a> {
     providers: &'a BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     values: &'a CaseValues,
     plan: &'a pse_math::assembly::CasePlan,
-    cancel: Arc<std::sync::atomic::AtomicBool>,
+    scope: pse_kernels::ExecutionScope,
     budget: &'a Arc<WorkerBudget>,
 }
 impl execution::OriginalModel for OriginalCase<'_> {
@@ -2999,7 +2997,7 @@ impl execution::OriginalModel for OriginalCase<'_> {
             })?;
             let mut original =
                 self.service
-                    .worker(case, self.providers, self.cancel.clone(), self.budget)?;
+                    .worker(case, self.providers, self.scope.clone(), self.budget)?;
             let mut trial = self.values.clone();
             for (id, value) in self.plan.columns().iter().zip(primal) {
                 trial.scalars.insert(*id, *value);

@@ -8,7 +8,7 @@ use super::*;
 use crate::math::{ExecutableCase, WorkerBudget, solves::Outcome};
 use pse_math::binding::CaseValues;
 use pse_model::generated::identities::RunId;
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::Arc;
 
 /// One assessed candidate: the complete values it implies, its original-model checks and
 /// reports, and why checks could not be evaluated.
@@ -83,7 +83,7 @@ impl ModelingPackage {
             program,
             rows,
             scope,
-            required_closure: product.model.closures.len(),
+            required_closure: product.model.required_closure_checks(),
         })
     }
 }
@@ -101,7 +101,7 @@ impl Assessment {
         run_id: RunId,
         attempt: usize,
         outcome: &Outcome,
-        flag: &Arc<AtomicBool>,
+        execution: Option<&pse_kernels::ExecutionScope>,
         budget: &Arc<WorkerBudget>,
         owner: Arc<pse_columnar::AllocationLease>,
     ) -> AssessedPoint {
@@ -135,6 +135,11 @@ impl Assessment {
             },
             Outcome::Rejected(_) => return point,
         }
+        let Some(execution) = execution else {
+            point.error =
+                Some(contract("candidate assessment has no execution scope").boundary_diagnostic());
+            return point;
+        };
         point.complete = true;
         let certified = CertifiedBound::of(outcome);
         match self.evaluate(
@@ -143,7 +148,7 @@ impl Assessment {
             attempt,
             &point.values,
             certified,
-            flag,
+            execution,
             budget,
         ) {
             Ok((checks, reports)) => {
@@ -165,15 +170,23 @@ impl Assessment {
         attempt: usize,
         values: &CaseValues,
         certified: Option<CertifiedBound>,
-        flag: &Arc<AtomicBool>,
+        execution: &pse_kernels::ExecutionScope,
         budget: &Arc<WorkerBudget>,
     ) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
+        let checkpoint = || {
+            execution.check().map_err(|error| {
+                crate::math::MathRuntimeError::from(pse_backend_native::ProblemError::Provider(
+                    error,
+                ))
+            })
+        };
+        checkpoint()?;
         let mut applicability = Vec::new();
         let observed = if let Some(program) = &self.program {
             let mut evaluator = prepared.source.runtime.native().worker(
                 program.clone(),
                 &prepared.providers,
-                flag.clone(),
+                execution.clone(),
                 budget,
             )?;
             let observed = evaluator
@@ -203,6 +216,7 @@ impl Assessment {
         for row in &mut reports {
             row.step = attempt as i64;
         }
+        checkpoint()?;
         Ok((checks, reports))
     }
 }

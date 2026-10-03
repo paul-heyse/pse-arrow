@@ -8,10 +8,7 @@ use pse_backend_native::{
 };
 use pse_ids::{FramedHasher, SemanticId};
 use pse_math::{assembly::CaseWorker, binding::CaseValues};
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::{collections::BTreeMap, sync::Arc};
 /// Dynamic controls use the concrete native profile; values are validated at preparation.
 pub type SimulationProfile = native::Profile;
 #[derive(Clone, Debug)]
@@ -141,9 +138,9 @@ impl GuardWorker {
 }
 fn provider_workers(
     providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-    cancel: &Arc<AtomicBool>,
+    scope: &pse_kernels::ExecutionScope,
 ) -> Result<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>, ProblemError> {
-    crate::math::attempt_providers(providers, cancel).map_err(ProblemError::Provider)
+    crate::math::attempt_providers(providers, scope).map_err(ProblemError::Provider)
 }
 /// Immutable function execution inputs, independent of their source representation.
 #[derive(Clone, Debug)]
@@ -187,14 +184,17 @@ impl DynamicProgram {
             );
         cells.saturating_mul(512).saturating_add(size_of::<Self>())
     }
-    pub(crate) fn worker(&self, cancel: Arc<AtomicBool>) -> Result<DynamicWorker, ProblemError> {
+    pub(crate) fn worker(
+        &self,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<DynamicWorker, ProblemError> {
         DynamicWorker::new(
             self.contract.clone(),
             &self.programs,
             self.coordinates.clone(),
             &self.modes,
             self.max_cells,
-            cancel,
+            scope,
         )
     }
 }
@@ -227,8 +227,9 @@ impl DynamicWorker {
         coordinates: DynamicCoordinates,
         modes: &[DynamicMode],
         max_cells: usize,
-        cancel: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
     ) -> Result<Self, ProblemError> {
+        scope.check().map_err(ProblemError::Provider)?;
         if modes.len() != contract.events.len() {
             return Err(ProblemError::Internal("dynamic mode extent".into()));
         }
@@ -243,7 +244,7 @@ impl DynamicWorker {
             let mode = modes
                 .get(program.mode)
                 .ok_or_else(|| ProblemError::Internal("dynamic function mode absent".into()))?;
-            let providers = provider_workers(&mode.providers, &cancel)?;
+            let providers = provider_workers(&mode.providers, &scope)?;
             let source = program.case.assembly.jacobian_pattern();
             // The dynamic oracle's support: `(row, coordinate)` entries over the
             // function's rows and the state followed by the parameters.
@@ -277,7 +278,10 @@ impl DynamicWorker {
                 (program.mode, program.function),
                 FunctionWorker {
                     program: program.clone(),
-                    worker: program.case.assembly.worker(providers, cancel.clone()),
+                    worker: program
+                        .case
+                        .assembly
+                        .worker_scoped(providers, scope.clone()),
                     jacobian,
                     refill,
                     pairs,
@@ -296,9 +300,9 @@ impl DynamicWorker {
                     .map(|g| {
                         Ok::<_, ProblemError>(GuardWorker {
                             program: g.clone(),
-                            worker: g.case.assembly.worker(
-                                provider_workers(&mode.providers, &cancel)?,
-                                cancel.clone(),
+                            worker: g.case.assembly.worker_scoped(
+                                provider_workers(&mode.providers, &scope)?,
+                                scope.clone(),
                             ),
                         })
                     })
@@ -314,7 +318,7 @@ impl DynamicWorker {
             contract,
             coordinates,
             functions,
-            cancel,
+            scope,
         })
     }
 }
@@ -342,7 +346,7 @@ pub(crate) struct DynamicWorker {
     contract: native::Contract,
     coordinates: DynamicCoordinates,
     functions: BTreeMap<(usize, Function), FunctionWorker>,
-    cancel: Arc<AtomicBool>,
+    scope: pse_kernels::ExecutionScope,
 }
 impl DynamicWorker {
     /// Bind one trial point into the mode's physical values and validate the mode's range
@@ -415,9 +419,7 @@ impl DynamicWorker {
         state: &[f64],
         parameters: &[f64],
     ) -> Result<(), ProblemError> {
-        if self.cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return Err(pse_math::MathError::Cancelled.into());
-        }
+        self.scope.check().map_err(ProblemError::Provider)?;
         let d = &self.coordinates;
         if state.len() != d.state.len()
             || parameters.len() != d.parameters.len()
@@ -465,9 +467,7 @@ impl Oracle for DynamicWorker {
         parameters: &[f64],
         derivatives: bool,
     ) -> Result<native::Evaluation, ProblemError> {
-        if self.cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return Err(pse_math::MathError::Cancelled.into());
-        }
+        self.scope.check().map_err(ProblemError::Provider)?;
         let role = function;
         let Some(function) = self.functions.get(&(mode, function)) else {
             if function == Function::Roots && mode < self.contract.events.len() {
@@ -532,6 +532,7 @@ impl Oracle for DynamicWorker {
             return Err(ProblemError::numerical("nonfinite dynamic values"));
         }
         let result = native::Evaluation { values, jacobian };
+        self.scope.check().map_err(ProblemError::Provider)?;
         function.cache = Some((bits.collect(), result.clone()));
         Ok(result)
     }

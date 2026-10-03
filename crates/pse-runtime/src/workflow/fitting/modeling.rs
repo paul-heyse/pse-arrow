@@ -972,6 +972,11 @@ impl PreparedFit {
             return Ok(report);
         };
         let assess=|| -> Result<(Vec<super::super::ModelingCheck>,Vec<super::super::ModelingReport>),WorkflowError> {
+            let deadline = started.checked_add(self.problem.profile.solver.controls.time_limit)
+                .ok_or_else(|| contract("fit assessment deadline extent"))?;
+            let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+            let checkpoint=|| scope.check().map_err(|error| WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(error))));
+            checkpoint()?;
             let mut rows=Vec::new(); let mut reports=Vec::new();
             for (ei,(source,experiment)) in self.assessments.iter().zip(&self.problem.experiments).enumerate() {
                 match (source,experiment) {
@@ -980,8 +985,8 @@ impl PreparedFit {
                         for (id,col) in &s.coordinates {values.scalars.insert(*id,candidate[col.get()]);}
                         let mut applicability=Vec::new();
                         let observed=if let Some(program)=program {
-                            let providers=crate::math::attempt_providers(&s.providers,&flag).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))?;
-                            let mut worker=program.assembly.worker(providers,flag.clone());
+                            let providers=crate::math::attempt_providers(&s.providers,&scope).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))?;
+                            let mut worker=program.assembly.worker_scoped(providers,scope.clone());
                             let outputs=worker.constraints(&values).map_err(math)?;
                             applicability=worker.applicability_observations();
                             program.assembly.structure().rows().iter().map(|r|r.id).zip(outputs).collect()
@@ -996,7 +1001,7 @@ impl PreparedFit {
                             parameters[binding.local]=value*binding.conversion.scale+binding.conversion.offset;
                         }
                         let trajectory=report.trajectories.get(&self.problem.declaration.experiments[ei].experiment_id).ok_or_else(||contract("final original trajectory unavailable"))?;
-                        let checks=simulation.check_samples(run_id,trajectory,&parameters,&flag,started);
+                        let checks=simulation.check_samples(run_id,trajectory,&parameters,&scope);
                         if let Some(error)=checks.error {return Err(WorkflowError::Boundary(Box::new(error)));}
                         if !checks.complete{return Err(contract("original trajectory assessment incomplete"));}
                         rows.extend(checks.rows); reports.extend(checks.reports);
@@ -1004,6 +1009,7 @@ impl PreparedFit {
                     _=>return Err(contract("fit assessment source mismatch")),
                 }
             }
+            checkpoint()?;
             Ok((rows,reports))
         };
         match assess() {

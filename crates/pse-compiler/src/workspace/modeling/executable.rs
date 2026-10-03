@@ -19,8 +19,8 @@ mod solve;
 pub use conformance::{ModelingExpectationResult, ModelingPointChecks, ModelingValidityResult};
 pub use derived::{Derivation, Derived};
 pub use implicit::{
-    AdmittedImplicit, ImplicitAlgorithm, ImplicitMeaning, ImplicitScale, ImplicitSelection,
-    SelectionEquivalence,
+    AdmittedImplicit, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale,
+    ImplicitSelection, SelectionEquivalence, SelectionNeighborhood,
 };
 pub use solve::{BoundStructure, ModelingCaseBindings, ModelingVariableState};
 
@@ -686,6 +686,17 @@ fn projection(
     }));
     // Conditional boundary factories consume physical port coordinates explicitly.
     observed.extend(model.ports.values().map(|port| port.symbol));
+    if !model.integrated.is_empty() {
+        // Integration consumes original trial coordinates and quadrature integrands
+        // whether or not a report/start annotation observes them. Generated coordinates
+        // have semantic identities and need no caller-authored path spelling.
+        observed.extend(model.symbols.values().filter_map(|symbol| {
+            (symbol.role == pse_model::generated::enums::ModelingDeclarationKind::Variable
+                && symbol.expression.is_none())
+            .then_some(symbol.id)
+        }));
+        observed.extend(model.integrals.values().map(|integral| integral.integrand));
+    }
     for id in p
         .inputs
         .iter()

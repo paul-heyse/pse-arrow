@@ -31,6 +31,8 @@ pub mod presolve;
 pub mod quality;
 #[cfg(feature = "kinsol")]
 pub mod recycle;
+#[cfg(feature = "root-isolation")]
+pub mod root_isolation;
 pub mod routing;
 #[cfg(feature = "scip")]
 pub mod scip;

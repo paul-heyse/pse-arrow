@@ -13,3 +13,6 @@ unset pse_native_exports
 pse_klu_prefix="$(python3 "$pse_math_root/scripts/native_cache.py" klu)"
 export SUITESPARSE_INCLUDE_DIR="$pse_klu_prefix/include/suitesparse"
 export SUITESPARSE_LIBRARY_DIR="$pse_klu_prefix/lib"
+
+pse_isolation_prefix="$(python3 "$pse_math_root/scripts/native_cache.py" isolation)"
+export PSE_ROOT_ISOLATION_DIR="$pse_isolation_prefix"

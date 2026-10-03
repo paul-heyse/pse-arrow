@@ -12,6 +12,27 @@ pub(super) struct ProductOwner {
     _parents: Vec<Arc<ProductOwner>>,
 }
 impl MathService {
+    /// Prepare the consumer's derivative demand on an admitted job, retaining the
+    /// original weaker product and sharing its unchanged owned components.
+    pub(crate) async fn prepare_order(
+        self: &Arc<Self>,
+        prepared: Preparation,
+        order: pse_kernels::DerivativeOrder,
+        control: FlightCancellation,
+    ) -> Result<Preparation, MathRuntimeError> {
+        if prepared.compiled().plan.order() >= order {
+            return Ok(prepared);
+        }
+        let source = prepared.prepared.clone();
+        let upgraded = self
+            .job_retained(1, self.policy.workspace_bytes, control, move |flag| {
+                let product = source.prepare_order(order, &flag)?;
+                let bytes = product.retained_bytes();
+                Ok((product, bytes))
+            })
+            .await?;
+        self.own_preparation(upgraded)
+    }
     pub(super) fn shared_product(
         &self,
         key: Vec<usize>,

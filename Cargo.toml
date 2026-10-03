@@ -342,6 +342,7 @@ regex = "=1.13.1"
 ignore = "=0.4.33"
 bindgen = "=0.73.2"
 pkg-config = "=0.3.34"
+cc = "=1.4.6"
 semver = "=1.0.28"
 # xtask writes python/pse/contracts/GENERATED.sha256 with it; semantic identity is
 # blake3 in pse-ids and never this (blueprint §5.3, ADR-0051).
@@ -473,6 +474,28 @@ unsafe-allowlist = [
   "pse-ipopt-sys",
   "pse-backend-native",
   "pse-py",
+]
+
+# Native validated mathematics, prepared by scripts/native_cache.py. The archive
+# includes FILIB and the upstream patches for bundled SoPlex; no system LP/BLAS.
+[workspace.metadata.pse.root-isolation]
+version = "2.9.1"
+interval-version = "3.0.2.2"
+lp-version = "4.0.2"
+archive = "https://github.com/ibex-team/ibex-lib/archive/refs/tags/ibex-2.9.1.tar.gz"
+sha256 = "b3cd09c3be137fd2ff0f2570c3bcbdfcd9ea62fcf04d45d058db3b0dbb1d8872"
+options = [
+  "CMAKE_BUILD_TYPE=Release",
+  "BUILD_SHARED_LIBS=OFF",
+  "CMAKE_POSITION_INDEPENDENT_CODE=ON",
+  "CMAKE_CXX_FLAGS=-fvisibility=hidden -fvisibility-inlines-hidden -ffp-contract=off -fno-fast-math",
+  "BUILD_TESTING=OFF",
+  "INTERVAL_LIB=filib",
+  "LP_LIB=soplex",
+  "SOPLEX_LIBRARY=SOPLEX_LIBRARY-NOTFOUND",
+  "SOPLEX_INC_DIR=SOPLEX_INC_DIR-NOTFOUND",
+  "GMP=OFF",
+  "ZLIB=OFF",
 ]
 
 # Consumed by `cargo xtask family-check`: one resolved version per family, equal to the

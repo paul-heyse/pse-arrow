@@ -20,6 +20,49 @@ fn source() -> SemanticId {
 }
 
 #[test]
+fn case_specialization_limit_counts_distinct_bodies_not_occurrences() {
+    let row = SemanticId::from_bytes([4; 16]);
+    let instances = [1, 1, 2]
+        .into_iter()
+        .enumerate()
+        .map(|(index, body)| InstanceBinding {
+            instance: SemanticId::from_bytes([index as u8; 16]),
+            body: ContentHash::from_bytes([body; 32]),
+            checked_members: Default::default(),
+            slots: vec![],
+            contributions: vec![Contribution {
+                output: 0,
+                target: Target::Row(row),
+                scale: 1.0,
+            }],
+        })
+        .collect::<Vec<_>>();
+    let prepare = |bodies| {
+        CaseStructure::new(
+            vec![],
+            vec![],
+            instances.clone(),
+            vec![Row {
+                id: row,
+                quantity: ids::quantity("scalar"),
+                lower: 0.0,
+                upper: 0.0,
+            }],
+            None,
+            CaseLimits {
+                bodies,
+                ..CaseLimits::default()
+            },
+        )
+    };
+    assert_eq!(prepare(2).unwrap().instances().len(), 3);
+    assert!(matches!(
+        prepare(1),
+        Err(crate::MathError::Limit("case specializations"))
+    ));
+}
+
+#[test]
 fn physical_intermediates_lower_ua_delta_t_and_qualified_cancellation() {
     use pse_quantity::PhysicalName;
     let registry = standard_registry().unwrap();

@@ -30,7 +30,7 @@ impl Default for EvaluationLimits {
         Self {
             derivative_components: 4096,
             operations: 1_000_000,
-            scratch_bytes: 64 * 1024 * 1024,
+            scratch_bytes: 512 * 1024 * 1024,
             provider_calls: 4096,
         }
     }

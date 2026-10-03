@@ -582,6 +582,176 @@ pub struct FidelityCounts {
     pub unavailable: usize,
 }
 
+/// Exact original-coordinate program for a validated root-isolation adapter.
+///
+/// This is a projection, not a root proof. Strict bounds remain strict; nonzero
+/// requirements retain their argument and kind even though their closure is empty.
+/// Consumers must enforce obligations as well as eligibility constraints.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RootIsolationProgram {
+    /// All original formals, without coordinate selection or renumbering.
+    pub inputs: usize,
+    /// Shared exact real DAG; children precede parents.
+    pub nodes: Vec<Node>,
+    /// All residual outputs, in the original body output order.
+    pub residuals: Vec<NodeId>,
+    /// Exact conjunctive predicate, with each open bound marked by `strict`.
+    pub eligibility: Vec<Constraint>,
+    /// Exact score and absolute tolerance, in the authored criterion output order.
+    pub criterion: [NodeId; 2],
+    /// Unconditional value-domain obligations of all three demanded bodies.
+    pub obligations: Vec<ProjectedObligation>,
+    /// Additional guards, with their minimum required derivative order.
+    /// First consumes entries through First; Second consumes entries through Second.
+    pub derivative_obligations: Vec<(DerivativeOrder, ProjectedObligation)>,
+}
+impl RootIsolationProgram {
+    /// Complete owned projection extent; native transient work is admitted separately.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.nodes.capacity() * size_of::<Node>()
+            + self.residuals.capacity() * size_of::<NodeId>()
+            + self.eligibility.capacity() * size_of::<Constraint>()
+            + self.obligations.capacity() * size_of::<ProjectedObligation>()
+            + self.derivative_obligations.capacity()
+                * size_of::<(DerivativeOrder, ProjectedObligation)>()
+            + self
+                .nodes
+                .iter()
+                .map(|node| match node {
+                    Node::Sum(children) | Node::Product(children) => {
+                        children.capacity() * size_of::<NodeId>()
+                    }
+                    Node::Const(constant)
+                    | Node::Pow {
+                        exponent: constant, ..
+                    } => constant.allocated_bytes(),
+                    _ => 0,
+                })
+                .sum::<usize>()
+            + self
+                .obligations
+                .iter()
+                .chain(
+                    self.derivative_obligations
+                        .iter()
+                        .map(|(_, obligation)| obligation),
+                )
+                .map(|obligation| obligation.constraints.capacity() * size_of::<Constraint>())
+                .sum::<usize>()
+    }
+}
+
+/// Project residuals, eligibility and score/tolerance without introducing auxiliaries.
+///
+/// Unsupported arithmetic, nonsmooth residuals, providers, conditional obligations
+/// and predicates without an exact conjunctive representation return `Ok(None)`.
+/// Resource limits, cancellation and invalid body layout remain explicit errors.
+/// This makes no claim about the existence or uniqueness of roots, or about guard
+/// discharge: a validated consumer must establish every retained exact condition.
+/// # Errors
+/// Unequal input arities, invalid eligibility or criterion output arity, cancellation,
+/// or a node limit.
+pub fn root_isolation_program(
+    instance: SemanticId,
+    residual: &PreparedBody,
+    eligibility: &PreparedBody,
+    criterion: &PreparedBody,
+    cancel: &Arc<AtomicBool>,
+    max_nodes: usize,
+) -> Result<Option<RootIsolationProgram>, FactorableError> {
+    if cancel.load(Ordering::Relaxed) {
+        return fail(MathError::Cancelled);
+    }
+    if residual.input_count() != eligibility.input_count()
+        || residual.input_count() != criterion.input_count()
+        || eligibility.output_count() != 1
+        || criterion.output_count() != 2
+    {
+        return fail(MathError::Contract("root isolation body layout".into()));
+    }
+    if max_nodes == 0 {
+        return fail(MathError::Limit(EXTENT));
+    }
+    let request = FactorableRequest::default();
+    let mut builder = Builder::new(
+        &request,
+        cancel,
+        max_nodes,
+        residual.slots.max(eligibility.slots).max(criterion.slots),
+    )?;
+    builder.exact_real = true;
+    let inputs = (0..residual.input_count())
+        .map(|column| Input::Column(column, 1.0, 0.0))
+        .collect::<Vec<_>>();
+    let outputs = (0..residual.output_count()).collect::<Vec<_>>();
+    let projected = builder.instance(instance, residual, &inputs, &outputs)?;
+    let residuals = outputs.iter().map(|o| projected[o]).collect();
+    // Preserve branch predicates symbolically: materializing an indicator would
+    // replace its exact truth set with an unconstrained auxiliary.
+    let formals = (0..residual.input_count())
+        .map(|column| builder.push(Node::Var(column)))
+        .collect::<Result<Vec<_>, _>>()?;
+    let cx = Context {
+        instance,
+        local: false,
+        record: true,
+        depth: 0,
+    };
+    let mut env = Env::new(eligibility.slots);
+    for (slot, &node) in formals.iter().enumerate() {
+        env.assign(
+            slot,
+            Value::Node(node),
+            Some(Arc::new(library::formal(slot)?)),
+        )?;
+    }
+    builder.stages(&eligibility.demanded_stages(&[0])?, &mut env, cx)?;
+    let predicate = env.read(eligibility.outputs[0])?;
+    let constraints = match builder.holds(&predicate, Test::Positive)? {
+        Truth::When(constraints, true) => constraints,
+        Truth::Never => {
+            let one = builder.constant(Constant::integer(1))?;
+            vec![at_most(one, 0.0, false)]
+        }
+        Truth::When(_, false) => return Ok(None),
+    };
+    let projected_criterion = builder.instance(instance, criterion, &inputs, &[0, 1])?;
+    let criterion = [projected_criterion[&0], projected_criterion[&1]];
+    if !builder.auxiliaries.is_empty()
+        || !builder.implicit.is_empty()
+        || builder
+            .nodes
+            .iter()
+            .any(|n| matches!(n, Node::Aux(_) | Node::Abs(_)))
+        || builder
+            .obligations
+            .iter()
+            .chain(builder.derivative_obligations.iter().map(|(_, o)| o))
+            .any(|o| o.scope != ObligationScope::Unconditional || !o.represented)
+    {
+        return Ok(None);
+    }
+    // Without auxiliaries every retained node is exact. Fidelity alone cannot
+    // establish guard completeness; represented and unconditional were checked above.
+    for obligation in &mut builder.obligations {
+        obligation.fidelity = Fidelity::Exact;
+    }
+    for (_, obligation) in &mut builder.derivative_obligations {
+        obligation.fidelity = Fidelity::Exact;
+    }
+    builder.check()?;
+    Ok(Some(RootIsolationProgram {
+        inputs: residual.input_count(),
+        nodes: builder.nodes,
+        residuals,
+        eligibility: constraints,
+        criterion,
+        obligations: builder.obligations,
+        derivative_obligations: builder.derivative_obligations,
+    }))
+}
+
 /// Immutable factorable projection of one case under fixed consumed values.
 #[derive(Clone, Debug)]
 pub struct FactorableProgram {
@@ -609,8 +779,6 @@ pub struct FactorableProgram {
     pub implicit: Vec<ProjectedImplicit>,
     /// Constraint forms left to native handlers, in structure order (ADR-0104).
     pub native: Vec<ProjectedNative>,
-    /// Instances whose projection exhausted the node budget.
-    pub incomplete: Vec<SemanticId>,
     fidelity: Vec<Fidelity>,
 }
 impl FactorableProgram {
@@ -639,7 +807,6 @@ impl FactorableProgram {
                     .map(|o| o.fidelity),
             )
             .chain(self.implicit.iter().map(|i| i.fidelity))
-            .chain((!self.incomplete.is_empty()).then_some(Fidelity::Unavailable))
             .max()
             .unwrap_or(Fidelity::Exact)
     }
@@ -757,7 +924,6 @@ impl FactorableProgram {
                         }
                 })
                 .sum::<usize>()
-            + self.incomplete.capacity() * size_of::<SemanticId>()
     }
 }
 pub(crate) fn power(base: f64, exponent: &Constant) -> f64 {
@@ -778,8 +944,7 @@ impl CasePlan {
     /// Missing or nonfinite consumed values, cancellation, an inconsistent implicit
     /// definition or envelope ([`FactorableError::Math`]), or the typed refusal of the
     /// declared disjunctive branch policy ([`FactorableError::DisjunctiveBranch`]). An
-    /// exhausted node budget leaves the affected rows `Unavailable` and records the instance
-    /// in [`FactorableProgram::incomplete`].
+    /// exhausted node budget returns [`MathError::Limit`] through [`FactorableError::Math`].
     pub fn factorable_program(
         &self,
         values: &CaseValues,
@@ -873,13 +1038,10 @@ impl CasePlan {
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect();
-            let projected = optional(builder.instance(b.instance, body, &inputs, &outputs))?;
-            if projected.is_none() {
-                builder.incomplete.push(b.instance);
-            }
+            let projected = builder.instance(b.instance, body, &inputs, &outputs)?;
             for c in &b.contributions {
-                let term = match projected.as_ref().and_then(|p| p.get(&c.output)) {
-                    Some(&node) => optional(builder.scaled(node, c.scale))?,
+                let term = match projected.get(&c.output) {
+                    Some(&node) => Some(builder.scaled(node, c.scale)?),
                     None => None,
                 };
                 match (c.target, term) {
@@ -897,7 +1059,7 @@ impl CasePlan {
             let expression = if unavailable[r] {
                 None
             } else {
-                optional(builder.sum(std::mem::take(&mut terms[r])))?
+                Some(builder.sum(std::mem::take(&mut terms[r]))?)
             };
             projected_rows.push(ProjectedRow {
                 id: row.id,
@@ -912,7 +1074,7 @@ impl CasePlan {
                 expression: if objective_unavailable {
                     None
                 } else {
-                    optional(builder.sum(objective_terms))?
+                    Some(builder.sum(objective_terms)?)
                 },
                 sense: o.sense,
                 fidelity: Fidelity::Unavailable,
@@ -1003,7 +1165,6 @@ impl CasePlan {
             obligations: builder.obligations,
             implicit: builder.implicit,
             native,
-            incomplete: builder.incomplete,
             fidelity: vec![],
         };
         classify(&mut program);
@@ -1224,12 +1385,6 @@ fn fail<T>(error: MathError) -> Result<T, FactorableError> {
     Err(FactorableError::Math(error))
 }
 const EXTENT: &str = "factorable projection extent";
-fn optional<T>(result: Result<T, FactorableError>) -> Result<Option<T>, FactorableError> {
-    match result {
-        Err(FactorableError::Math(MathError::Limit(EXTENT))) => Ok(None),
-        other => other.map(Some),
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 enum Input {
@@ -1361,10 +1516,12 @@ struct Builder<'a> {
     auxiliaries: Vec<Auxiliary>,
     obligations: Vec<ProjectedObligation>,
     implicit: Vec<ProjectedImplicit>,
-    incomplete: Vec<SemanticId>,
     calls: HashMap<Call, Vec<NodeId>>,
     selects: HashMap<usize, NodeId>,
     next_select: usize,
+    /// Validated projection preserves exact real arithmetic and guard bounds.
+    exact_real: bool,
+    derivative_obligations: Vec<(DerivativeOrder, ProjectedObligation)>,
 }
 impl<'a> Builder<'a> {
     fn new(
@@ -1391,10 +1548,11 @@ impl<'a> Builder<'a> {
             auxiliaries: vec![],
             obligations: vec![],
             implicit: vec![],
-            incomplete: vec![],
             calls: HashMap::new(),
             selects: HashMap::new(),
             next_select: 0,
+            exact_real: false,
+            derivative_obligations: vec![],
         })
     }
     fn check(&self) -> Result<(), FactorableError> {
@@ -1491,7 +1649,51 @@ impl<'a> Builder<'a> {
             .iter()
             .map(|&c| self.constant_of(c))
             .collect::<Option<Vec<_>>>()?;
+        if self.exact_real && constants.iter().any(|c| matches!(c, Constant::Float(_))) {
+            return None;
+        }
         Constant::fold(&constants, rational, float, unit)
+    }
+    /// Exact stored binary coefficients use the library's rational conversion.
+    /// The ordinary numerical export keeps its existing binary64 conversion.
+    fn coefficient(&self, view: CoefficientView<'_>) -> Option<Constant> {
+        if self.exact_real
+            && let CoefficientView::Float(re, im) = view
+        {
+            return im
+                .is_zero()
+                .then(|| re.to_float().try_to_rational())
+                .flatten()
+                .map(Constant::Rational);
+        }
+        constant(view)
+    }
+    fn value_is_zero(&self, value: &Value) -> bool {
+        if !self.exact_real {
+            return self.value_constant(value) == Some(0.0);
+        }
+        match value {
+            Value::Node(node) => match self.constant_of(*node) {
+                Some(Constant::Rational(r)) => r.is_zero(),
+                Some(Constant::Float(v)) => v == 0.0,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+    fn nonnegative_outcomes(&self, value: &Value) -> bool {
+        match value {
+            Value::Node(node) => match self.constant_of(*node) {
+                Some(Constant::Rational(r)) => r >= 0,
+                Some(Constant::Float(v)) => v.is_finite() && v >= 0.0,
+                _ => false,
+            },
+            Value::Select(s) => {
+                self.nonnegative_outcomes(&s.then) && self.nonnegative_outcomes(&s.otherwise)
+            }
+            Value::Terms(terms) => terms.iter().all(|v| self.nonnegative_outcomes(v)),
+            Value::Unset => false,
+        }
     }
     fn constant(&mut self, c: Constant) -> Result<NodeId, FactorableError> {
         self.push(Node::Const(c))
@@ -1636,12 +1838,24 @@ impl<'a> Builder<'a> {
                     source,
                     ..
                 } => {
-                    // Higher-order requirements admit derivatives; the value domain is the
-                    // Value-order obligation.
-                    if cx.record && *order == DerivativeOrder::Value {
+                    // Ordinary export retains only the value domain. Root projection
+                    // separately retains each derivative guard's minimum admission order.
+                    if cx.record && (*order == DerivativeOrder::Value || self.exact_real) {
                         let value = env.read(*argument)?;
                         let node = self.materialize(&value)?;
                         let truth = match (self.constant_of(node), condition) {
+                            (Some(Constant::Rational(r)), condition) if self.exact_real => {
+                                let permitted = match condition {
+                                    Condition::Positive => r > 0,
+                                    Condition::Nonnegative => r >= 0,
+                                    Condition::Nonzero => !r.is_zero(),
+                                };
+                                if permitted {
+                                    Truth::ALWAYS
+                                } else {
+                                    Truth::Never
+                                }
+                            }
                             (Some(c), _) if !c.value().is_finite() => Truth::Never,
                             (Some(c), condition) => {
                                 if condition.permits(c.value()) {
@@ -1666,6 +1880,12 @@ impl<'a> Builder<'a> {
                             Some(node),
                             truth,
                         )?;
+                        if self.exact_real
+                            && *order > DerivativeOrder::Value
+                            && let Some(obligation) = self.obligations.pop()
+                        {
+                            self.derivative_obligations.push((*order, obligation));
+                        }
                     }
                 }
                 Stage::Applicability {
@@ -1860,7 +2080,7 @@ impl<'a> Builder<'a> {
         }
         self.check()?;
         match view {
-            AtomView::Num(n) => match constant(n.get_coeff_view()) {
+            AtomView::Num(n) => match self.coefficient(n.get_coeff_view()) {
                 Some(c) => self.constant(c),
                 None => self.opaque(cx, Opacity::Constant),
             },
@@ -1869,6 +2089,11 @@ impl<'a> Builder<'a> {
                 if let Some(&k) = self.symbols.get(&s) {
                     let value = env.read(k)?;
                     self.materialize(&value)
+                } else if s == Symbol::E && self.exact_real {
+                    let one = self.constant(Constant::integer(1))?;
+                    self.push(Node::Exp(one))
+                } else if s == Symbol::PI && self.exact_real {
+                    self.opaque(cx, Opacity::Constant)
                 } else if s == Symbol::E {
                     self.float(std::f64::consts::E)
                 } else if s == Symbol::PI {
@@ -1901,7 +2126,7 @@ impl<'a> Builder<'a> {
                 }
                 let b = self.atom(base, env, cx, depth + 1)?;
                 if let AtomView::Num(n) = exponent {
-                    return match constant(n.get_coeff_view()) {
+                    return match self.coefficient(n.get_coeff_view()) {
                         Some(c) => self.push(Node::Pow {
                             base: b,
                             exponent: c,
@@ -2003,7 +2228,22 @@ impl<'a> Builder<'a> {
         let l = env.read(left)?;
         let r = env.read(right)?;
         // Both regions were physically admitted; a constant guard selects one statically.
-        if let (Some(a), Some(b)) = (self.value_constant(&l), self.value_constant(&r)) {
+        if self.exact_real
+            && let (Value::Node(a), Value::Node(b)) = (&l, &r)
+            && let (Some(Constant::Rational(a)), Some(Constant::Rational(b))) =
+                (self.constant_of(*a), self.constant_of(*b))
+        {
+            let selected = match comparison {
+                Comparison::Eq => a == b,
+                Comparison::Ne => a != b,
+                Comparison::Lt => a < b,
+                Comparison::Le => a <= b,
+            };
+            return self.stages(if selected { then } else { otherwise }, env, cx);
+        }
+        if !self.exact_real
+            && let (Some(a), Some(b)) = (self.value_constant(&l), self.value_constant(&r))
+        {
             let taken = if comparison.select(a, b) {
                 then
             } else {
@@ -2031,7 +2271,7 @@ impl<'a> Builder<'a> {
                 merged.push((slot, Value::Unset, None));
                 continue;
             }
-            let exact = if pure {
+            let exact = if pure && !self.exact_real {
                 self.identity(env, (&a, &b), slot, (left, right))?
             } else {
                 None
@@ -2384,6 +2624,17 @@ impl<'a> Builder<'a> {
                 "predicate reads a value before its producer".into(),
             )),
             Value::Node(n) => Ok(match self.constant_of(*n) {
+                Some(Constant::Rational(r)) if self.exact_real => {
+                    let accepted = match test {
+                        Test::Positive => r > 0,
+                        Test::Zero => r.is_zero(),
+                    };
+                    if accepted {
+                        Truth::ALWAYS
+                    } else {
+                        Truth::Never
+                    }
+                }
                 Some(c) if test.accepts(c.value()) => Truth::ALWAYS,
                 Some(_) => Truth::Never,
                 None => Truth::When(
@@ -2418,9 +2669,13 @@ impl<'a> Builder<'a> {
                 // A sum of terms whose outcomes are all nonnegative is zero only when every
                 // term is zero.
                 if test == Test::Zero
-                    && terms
-                        .iter()
-                        .all(|t| self.range(t).is_some_and(|(lower, _)| lower >= 0.0))
+                    && terms.iter().all(|t| {
+                        if self.exact_real {
+                            self.nonnegative_outcomes(t)
+                        } else {
+                            self.range(t).is_some_and(|(lower, _)| lower >= 0.0)
+                        }
+                    })
                 {
                     let mut truth = Truth::ALWAYS;
                     for term in terms.iter() {
@@ -2440,10 +2695,10 @@ impl<'a> Builder<'a> {
             (Comparison::Eq, false) | (Comparison::Ne, true)
         );
         if equality {
-            if self.value_constant(&s.right) == Some(0.0) {
+            if self.value_is_zero(&s.right) {
                 return self.holds(&s.left, Test::Zero);
             }
-            if self.value_constant(&s.left) == Some(0.0) {
+            if self.value_is_zero(&s.left) {
                 return self.holds(&s.right, Test::Zero);
             }
         }
@@ -2470,6 +2725,12 @@ impl<'a> Builder<'a> {
             // An inequation is open; its closure admits every point.
             (Comparison::Eq, true) | (Comparison::Ne, false) => return Ok(Truth::UNKNOWN),
         };
+        if self.exact_real {
+            // A rational or stored binary bound must not be rounded into the
+            // binary64 Constraint envelope. Keep both operands in the DAG.
+            let gap = self.difference(small, large)?;
+            return Ok(Truth::When(vec![at_most(gap, 0.0, strict)], true));
+        }
         let constraint = match (self.constant_of(small), self.constant_of(large)) {
             (Some(a), Some(b)) => {
                 let (a, b) = (a.value(), b.value());
@@ -2534,6 +2795,20 @@ fn constant(view: CoefficientView<'_>) -> Option<Constant> {
 #[cfg(test)]
 mod exact_constant_tests {
     use super::*;
+    #[test]
+    fn validated_projection_does_not_round_binary64_constant_arithmetic() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = Builder::new(&request, &cancel, 32, 0).unwrap();
+        builder.exact_real = true;
+        let large = builder.float(1e16).unwrap();
+        let one = builder.float(1.0).unwrap();
+        let sum = builder.sum(vec![large, one]).unwrap();
+        assert!(matches!(builder.nodes[sum], Node::Sum(_)));
+        let product = builder.push(Node::Product(vec![large, one])).unwrap();
+        assert!(matches!(builder.nodes[product], Node::Product(_)));
+    }
     #[test]
     fn rational_folding_exceeds_machine_integer_range_without_rounding() {
         let max = Constant::Rational(Rational::from(i64::MAX));

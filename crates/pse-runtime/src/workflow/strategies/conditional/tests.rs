@@ -6,6 +6,116 @@ use crate::workflow::tests::{compiler_profile, id, physical, runtime};
 use pse_structural::flowsheet::{Decision, Policy};
 
 #[tokio::test]
+async fn explicit_map_admission_requires_free_branch_controls_without_promoting_value() {
+    for (index, declaration, allowed) in [
+        (
+            0,
+            "var switching:Scalar; eq switch_value:switching==1; annotation start switching(1);",
+            false,
+        ),
+        (1, "param switching:Scalar=1;", true),
+    ] {
+        let runtime = runtime();
+        let source = "package p {def Root {CONTROL var x:Scalar; let result:Scalar=(if switching>0 then 1 else -1); state incoming supplied(true) {coordinate value=x; transport value=x tolerance 1e-7{1};} state outgoing supplied(false) {coordinate value=result; transport value=result tolerance 1e-7{1};} state_port inlet=incoming; state_port outlet=outgoing; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(1);}}".replace("CONTROL", declaration);
+        let declarations = pse_authoring::language::parse(
+            &source,
+            id(91 + index),
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(declarations, physical()).unwrap();
+        let cancel = crate::CancelSource::new();
+        let analysis = package
+            .declared_execution(
+                root,
+                compiler_profile(),
+                super::super::tests::profile(SolveIntent::Root),
+                Default::default(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap()
+            .analysis;
+        let prepared = package
+            .prepare(
+                root,
+                analysis.instance,
+                analysis.bindings.clone(),
+                analysis.limits,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let model = &prepared.compiled().model;
+        let port = |name: &str| {
+            model
+                .material_ports
+                .values()
+                .find(|port| port.lineage.path.ends_with(&format!(".{name}")))
+                .unwrap()
+                .id
+        };
+        let selection = ModelingFlowSelection {
+            nodes: BTreeSet::from([analysis.instance]),
+            connections: model
+                .connections
+                .keys()
+                .map(|&id| {
+                    (
+                        id,
+                        Decision {
+                            id,
+                            cost: 1.0,
+                            policy: Policy::Mandatory,
+                        },
+                    )
+                })
+                .collect(),
+        };
+        let request = RecycleRequest {
+            tears: selection.connections.keys().copied().collect(),
+            units: vec![CausalUnitRequest {
+                node: analysis.instance.as_id(),
+                inputs: BTreeSet::from([port("inlet")]),
+                outputs: BTreeSet::from([port("outlet")]),
+                realization: CausalUnitRealization::ExplicitMap,
+            }],
+            anderson: 0,
+            damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
+        };
+        let result = package
+            .prepare_recycle(&analysis, selection, request, &cancel)
+            .await;
+        if allowed {
+            let admitted = result.unwrap();
+            let assembly = &admitted.programs[0].program.assembly;
+            assert_eq!(assembly.order(), DerivativeOrder::Value);
+            assert!(
+                assembly
+                    .supports()
+                    .iter()
+                    .all(|support| support.support().first.is_empty())
+            );
+        } else {
+            let error = result.unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("causal function depends on an undeclared free input"),
+                "{error}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
 async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overlay() {
     let runtime = runtime();
     let declarations = pse_authoring::language::parse(
@@ -181,7 +291,7 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
         .worker(
             program.program.clone(),
             &prepared.providers,
-            execution.cancel.clone(),
+            execution.scope().unwrap(),
             &budget,
         )
         .unwrap();
@@ -422,7 +532,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         .worker(
             program.program.clone(),
             &prepared.providers,
-            execution.cancel.clone(),
+            execution.scope().unwrap(),
             &budget,
         )
         .unwrap();
@@ -804,7 +914,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         .worker(
             program.program.clone(),
             &prepared.providers,
-            execution.cancel.clone(),
+            execution.scope().unwrap(),
             &budget,
         )
         .unwrap();

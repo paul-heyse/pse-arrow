@@ -604,6 +604,17 @@ impl Execution {
             memory: None,
         }
     }
+    /// Propagate this execution's original absolute deadline into nested evaluation.
+    pub fn scope(&self) -> Result<pse_kernels::ExecutionScope, ProblemError> {
+        let deadline = self
+            .started
+            .checked_add(self.time_limit)
+            .ok_or_else(|| ProblemError::Contract("execution deadline extent".into()))?;
+        Ok(pse_kernels::ExecutionScope::new(
+            self.cancel.clone(),
+            Some(deadline),
+        ))
+    }
     /// Stop reason; cancellation and deadline remain distinguishable.
     pub fn stopped(&self) -> Option<Termination> {
         if self.cancel.load(Ordering::Acquire) {
@@ -1730,10 +1741,14 @@ impl SolveReport {
     pub fn validation_failure(&self) -> Option<&ProblemError> {
         self.validation_failure.as_deref()
     }
-    /// Record why independent validation failed. Assurance is withdrawn; the native
-    /// termination is preserved.
+    /// Record why independent validation failed. Original-space observations and
+    /// qualification are withdrawn; the candidate and native evidence are preserved.
     pub fn record_validation_failure(&mut self, error: ProblemError) {
         self.validation_failure = Some(Arc::new(error));
+        self.quality = None;
+        self.observation = None;
+        self.qualification = Qualification::Unqualified;
+        self.least_infeasible = None;
         self.termination.assurance = Assurance::None;
     }
     pub(crate) fn clear_validation_failure(&mut self) {

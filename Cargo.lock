@@ -5678,6 +5678,7 @@ dependencies = [
 name = "pse-backend-native"
 version = "0.0.1"
 dependencies = [
+ "cc",
  "clarabel",
  "diffsol",
  "diffsol-la",
@@ -5975,6 +5976,7 @@ dependencies = [
  "serde_json",
  "symbolica",
  "thiserror 2.0.20",
+ "tracing",
  "typed-index-collections",
 ]
 

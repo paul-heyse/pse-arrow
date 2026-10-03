@@ -120,12 +120,9 @@ pub fn polynomial(program: &FactorableProgram) -> Result<Polynomial, ProblemErro
             "no polynomial projection: {why}"
         )))
     };
-    if !program.auxiliaries.is_empty()
-        || !program.implicit.is_empty()
-        || !program.native.is_empty()
-        || !program.incomplete.is_empty()
+    if !program.auxiliaries.is_empty() || !program.implicit.is_empty() || !program.native.is_empty()
     {
-        return refuse("auxiliary, implicit, native or incomplete structure");
+        return refuse("auxiliary, implicit or native structure");
     }
     if !program.obligations.is_empty() {
         return refuse("validity obligations restrict the domain");

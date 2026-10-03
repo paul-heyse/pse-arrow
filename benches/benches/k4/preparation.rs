@@ -2,8 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 //! Small production-route controls complement the independently qualified thermodynamic M1 cases.
 use super::*;
+#[path = "demand.rs"]
+mod demand;
 #[path = "support.rs"]
 mod support;
+#[path = "worker_lifetime.rs"]
+mod worker_lifetime;
 use pse_engine::cache_service::CacheComponent;
 use pse_runtime::workflow::ModelingDiagnosticPreparation;
 use std::{collections::BTreeSet, num::NonZeroUsize};
@@ -77,6 +81,8 @@ async fn stage(
         );
     }
     let record = json!({"body_admission_attempts":body_admissions,"stage":name,"outcome":"prepared","seconds":{"analysis":analysis_seconds,"case_resolution":resolution_seconds,"derivative_programs":derivative_seconds,"total":elapsed.as_secs_f64()},"preparations":support::counts(before,owner.runtime.math().preparations()),"compiler_phases":observations,"bodies":product.admitted.bodies.len(),"allocations":{"model":product.model.allocation_identity(),"admitted":product.admitted.allocation_identity(),"math_bodies":body_ids,"plan":case.plan.allocation_identity(),"bindings":case.coefficient_values.allocation_identity(),"attribution":case.occurrences.allocation_identity()},"pool_reserved_bytes":owner.runtime.pool().reserved(),"pool_peak_bytes":owner.runtime.observation_peak_bytes(),"process_peak_rss_bytes":owner.runtime.report().unwrap().process_peak_rss_bytes});
+    let mut record = record;
+    record["constructions"] = phases.constructions();
     (elapsed, record, prepared)
 }
 async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Duration, Value) {
@@ -313,6 +319,7 @@ async fn pressure(
         .map(|b| b.math().allocation_identity())
         .collect();
     let recomputation_phases = phases.report(1);
+    let recomputation_constructions = phases.constructions();
     assert_ne!(
         first_ids, recomputed_ids,
         "fresh workspace recomputes arithmetic after pressure or denied retention"
@@ -352,7 +359,7 @@ async fn pressure(
     let elapsed = started.elapsed();
     (
         elapsed,
-        json!({"stages":[{"stage":"pressure-and-release","outcome":"prepared","seconds":{"total":elapsed.as_secs_f64()}}],"baseline_pool_bytes":baseline,"before_pressure_pool_bytes":before_pressure,"after_pressure_pool_bytes":pressure_pool,"before_retention_clear_bytes":escaped_before_clear,"after_retention_clear_bytes":after_retention_clear,"escaped_only_bytes":escaped_only,"model_alias_only_bytes":model_only,"admitted_alias_only_bytes":admitted_alias_only,"after_final_alias_bytes":after_final_alias,"initial_cache":initial_cache,"pressured_cache":pressured_cache,"after_clear_cache":service.report(),"escaped_allocation_ids":escaped_ids,"unique_live_escaped_allocation_count":escaped_ids.len(),"live_allocation_scope":"escaped math payloads and SharedAllocation model/admitted descriptors; pool separately accounts for their attached ownership graph and wrappers","first_math_ids":first_ids,"recomputed_math_ids":recomputed_ids,"recomputation_phases":recomputation_phases,"unique_observed_math_addresses":unique_ids,"address_scope":"local payload addresses; released allocations can reuse addresses, so historical union is not a simultaneous-live count","variants":cold_admissions}),
+        json!({"stages":[{"stage":"pressure-and-release","outcome":"prepared","seconds":{"total":elapsed.as_secs_f64()}}],"baseline_pool_bytes":baseline,"before_pressure_pool_bytes":before_pressure,"after_pressure_pool_bytes":pressure_pool,"before_retention_clear_bytes":escaped_before_clear,"after_retention_clear_bytes":after_retention_clear,"escaped_only_bytes":escaped_only,"model_alias_only_bytes":model_only,"admitted_alias_only_bytes":admitted_alias_only,"after_final_alias_bytes":after_final_alias,"initial_cache":initial_cache,"pressured_cache":pressured_cache,"after_clear_cache":service.report(),"escaped_allocation_ids":escaped_ids,"unique_live_escaped_allocation_count":escaped_ids.len(),"live_allocation_scope":"escaped math payloads and SharedAllocation model/admitted descriptors; pool separately accounts for their attached ownership graph and wrappers","first_math_ids":first_ids,"recomputed_math_ids":recomputed_ids,"recomputation_phases":recomputation_phases,"recomputation_constructions":recomputation_constructions,"unique_observed_math_addresses":unique_ids,"address_scope":"local payload addresses; released allocations can reuse addresses, so historical union is not a simultaneous-live count","variants":cold_admissions}),
     )
 }
 
@@ -383,15 +390,24 @@ pub(super) fn measure(
                 if let Some(bytes) = spec["retention_bytes"].as_u64() {
                     policy.artifact_bytes = bytes as usize;
                 }
+                if spec["worker_permit_lifetime"] == true {
+                    policy.jobs = 1;
+                }
+                let math_policy = format!("{policy:?}");
                 let owner =
                     WorkflowRuntime::with_math(NonZeroUsize::new(1).unwrap(), policy).unwrap();
                 let pool = owner.runtime.pool();
-                let (elapsed, mut record) = if spec["pressure"] == true {
+                let (elapsed, mut record) = if spec["demand_orders"] == true {
+                    executor.block_on(demand::run(&owner, phases))
+                } else if spec["worker_permit_lifetime"] == true {
+                    executor.block_on(worker_lifetime::run(&owner, phases))
+                } else if spec["pressure"] == true {
                     executor.block_on(pressure(&owner, spec, phases))
                 } else {
                     executor.block_on(preparation(&owner, phases))
                 };
                 record["pool_peak_bytes"] = owner.runtime.observation_peak_bytes().into();
+                record["math_policy"] = math_policy.into();
                 record["process_peak_rss_bytes"] = owner
                     .runtime
                     .report()

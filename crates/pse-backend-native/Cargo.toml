@@ -24,6 +24,7 @@ ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
 highs = ["dep:highs", "dep:highs-sys"]
 pounce = ["dep:pounce-rs", "dep:rayon", "pounce-nlp/serde"]
 kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
+root-isolation = []
 # Clarabel's SDP cones call BLAS/LAPACK through provider-less `blas-src`/`lapack-src`; the
 # build script links the solver image's oneMKL (LP64, GNU threading), the process's one
 # provider (ADR-0108 item 5). `clarabel/sdp-mkl` is not used: its intel-mkl-src pins a static
@@ -42,6 +43,7 @@ native-solvers = [
   "highs",
   "pounce",
   "kinsol",
+  "root-isolation",
   "sdp",
   "clarabel-pardiso",
   "diffsol",
@@ -86,6 +88,7 @@ scip-sys = { workspace = true, optional = true }
 pse-workspace-hack.workspace = true
 
 [build-dependencies]
+cc.workspace = true
 pkg-config.workspace = true
 
 [dev-dependencies]

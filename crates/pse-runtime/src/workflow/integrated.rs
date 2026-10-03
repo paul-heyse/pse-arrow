@@ -199,7 +199,7 @@ impl IntegratedExperiment {
             ));
         }
         let profile = attempt(&self.profile, execution, sensitivity);
-        let mut worker = self.program.worker(execution.cancel.clone())?;
+        let mut worker = self.program.worker(execution.scope()?)?;
         let report = native::dynamics::integrate_with_progress_observed(
             &mut worker,
             &profile,
@@ -226,7 +226,7 @@ impl IntegratedExperiment {
             )
         })?;
         let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
-        let mut worker = self.program.worker(execution.cancel.clone())?;
+        let mut worker = self.program.worker(execution.scope()?)?;
         let native::dynamics::Gradient {
             report, gradient, ..
         } = native::dynamics::gradient_observed(
@@ -291,7 +291,7 @@ impl IntegratedExperiment {
         directions.sort_unstable();
         directions.dedup();
         let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
-        let mut worker = self.program.worker(execution.cancel.clone())?;
+        let mut worker = self.program.worker(execution.scope()?)?;
         let native::dynamics::Gradient {
             report,
             gradient,
@@ -358,7 +358,7 @@ impl IntegratedExperiment {
             ));
         }
         let mut oracle =
-            native::dynamics::Anchored::new(self.program.worker(execution.cancel.clone())?, false)?;
+            native::dynamics::Anchored::new(self.program.worker(execution.scope()?)?, false)?;
         let profile = oracle.profile(&attempt(&window.profile, execution, sensitivity));
         let report = native::dynamics::integrate_with_progress_observed(
             &mut oracle,
@@ -388,7 +388,7 @@ impl IntegratedExperiment {
             )
         })?;
         let mut oracle =
-            native::dynamics::Anchored::new(self.program.worker(execution.cancel.clone())?, true)?;
+            native::dynamics::Anchored::new(self.program.worker(execution.scope()?)?, true)?;
         let profile = oracle.profile(&attempt(
             &window.profile,
             execution,

@@ -31,10 +31,7 @@ use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
 use std::{
     collections::BTreeMap,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, AtomicUsize},
-    },
+    sync::{Arc, Mutex, atomic::AtomicUsize},
 };
 /// Finite math allowances draw from the deployment pool, never a second memory budget.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -65,7 +62,7 @@ impl Default for MathPolicy {
             artifact_bytes: 8 << 30,
             foreign_bytes: 64 << 20,
             inner_session_bytes: 16 << 20,
-            worker_bytes: 2 << 30,
+            worker_bytes: 8 << 30,
             workspace_bytes: 4 << 30,
             stack_bytes: pse_structural::incidence::MATCHING_STACK,
             jobs: 4,
@@ -330,13 +327,13 @@ pub struct ExecutableCase {
 /// so cancelling an attempt reaches every evaluator it builds (F31).
 pub(crate) fn attempt_providers(
     registrations: &BTreeMap<ProviderKey, pse_kernels::Registration>,
-    cancel: &Arc<AtomicBool>,
+    scope: &pse_kernels::ExecutionScope,
 ) -> Result<BTreeMap<ProviderKey, Box<dyn Provider>>, pse_kernels::ProviderError> {
     registrations
         .iter()
         .map(|(key, registration)| {
             registration
-                .worker_scoped(cancel.clone())
+                .worker_scoped(scope.clone())
                 .map(|worker| (*key, worker))
         })
         .collect()
@@ -482,7 +479,12 @@ impl MathService {
                 worker,
                 _case,
                 _charge,
-            } = service.worker(case, &providers, flag, &budget)?;
+            } = service.worker(
+                case,
+                &providers,
+                pse_kernels::ExecutionScope::new(flag, None),
+                &budget,
+            )?;
             let result = work(worker);
             drop(_case);
             drop(_charge);
@@ -499,7 +501,7 @@ impl MathService {
         &self,
         case: Arc<ExecutableCase>,
         registrations: &BTreeMap<ProviderKey, pse_kernels::Registration>,
-        cancel: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
         budget: &Arc<WorkerBudget>,
     ) -> Result<ExecutionWorker, MathRuntimeError> {
         let bytes = case.assembly.numeric_worker_bytes();
@@ -507,9 +509,12 @@ impl MathService {
             return Err(MathRuntimeError::Limit("worker storage"));
         }
         let charge = budget.charge(bytes)?;
-        let providers = attempt_providers(registrations, &cancel)
+        scope
+            .check()
             .map_err(pse_backend_native::ProblemError::Provider)?;
-        let worker = case.assembly.worker(providers, cancel);
+        let providers = attempt_providers(registrations, &scope)
+            .map_err(pse_backend_native::ProblemError::Provider)?;
+        let worker = case.assembly.worker_scoped(providers, scope);
         Ok(ExecutionWorker {
             worker,
             _case: case,

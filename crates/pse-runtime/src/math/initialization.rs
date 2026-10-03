@@ -596,7 +596,7 @@ impl MathService {
             .worker(
                 prepared.executable.clone(),
                 providers,
-                execution.cancel.clone(),
+                execution.scope()?,
                 budget,
             )
             .map_err(MathRuntimeError::into_problem)?;

@@ -1400,9 +1400,12 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                         },
                     ),
                 )]),
-                Arc::new(AnalyticRoot),
+                ImplicitCapabilities {
+                    solver: Arc::new(AnalyticRoot),
+                    verifier: None,
+                    accelerators: &accelerators,
+                },
                 DerivativeOrder::Second,
-                &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
             )
@@ -1421,9 +1424,12 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         let first_factory = inner
             .factory(
                 BTreeMap::from([(inner.residuals[0].id, configuration)]),
-                Arc::new(AnalyticRoot),
+                ImplicitCapabilities {
+                    solver: Arc::new(AnalyticRoot),
+                    verifier: None,
+                    accelerators: &accelerators,
+                },
                 DerivativeOrder::First,
-                &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
             )
@@ -1451,7 +1457,9 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         let mut first_worker = first.assembly.worker(
             BTreeMap::from([(
                 inner.descriptor.spec().key(),
-                bound.worker_scoped(cancel.clone()).unwrap(),
+                bound
+                    .worker_scoped(pse_kernels::ExecutionScope::new(cancel.clone(), None))
+                    .unwrap(),
             )]),
             cancel.clone(),
         );
@@ -1460,7 +1468,9 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         let mut unavailable = f.assembly.worker(
             BTreeMap::from([(
                 inner.descriptor.spec().key(),
-                bound.worker_scoped(cancel.clone()).unwrap(),
+                bound
+                    .worker_scoped(pse_kernels::ExecutionScope::new(cancel.clone(), None))
+                    .unwrap(),
             )]),
             cancel.clone(),
         );
@@ -1668,9 +1678,12 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
             let error = inner
                 .factory(
                     configs.clone(),
-                    Arc::new(Anchored),
+                    ImplicitCapabilities {
+                        solver: Arc::new(Anchored),
+                        verifier: None,
+                        accelerators: &accelerators,
+                    },
                     requested,
-                    &accelerators,
                     cancel.clone(),
                     EvaluationLimits::default(),
                 )
@@ -1686,6 +1699,7 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
                 .requirements(
                     requested,
                     DerivativeOrder::First,
+                    None,
                     &accelerators,
                     &cancel,
                     EvaluationLimits::default(),
@@ -1702,9 +1716,12 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         let contract = inner
             .factory(
                 BTreeMap::new(),
-                Arc::new(Anchored),
+                ImplicitCapabilities {
+                    solver: Arc::new(Anchored),
+                    verifier: None,
+                    accelerators: &accelerators,
+                },
                 DerivativeOrder::Value,
-                &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
             )
@@ -1721,9 +1738,12 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         let factory = inner
             .factory(
                 configs,
-                Arc::new(Anchored),
+                ImplicitCapabilities {
+                    solver: Arc::new(Anchored),
+                    verifier: None,
+                    accelerators: &accelerators,
+                },
                 DerivativeOrder::Value,
-                &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
             )
@@ -1789,9 +1809,12 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
                     },
                 ),
             )]),
-            Arc::new(Anchored),
+            ImplicitCapabilities {
+                solver: Arc::new(Anchored),
+                verifier: None,
+                accelerators: &pse_math::implicit::accelerators::Accelerators::standard(),
+            },
             DerivativeOrder::Value,
-            &pse_math::implicit::accelerators::Accelerators::standard(),
             cancel,
             EvaluationLimits::default(),
         )
@@ -1896,9 +1919,12 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
     let factory = inner
         .factory(
             configs.clone(),
-            Arc::new(First),
+            ImplicitCapabilities {
+                solver: Arc::new(First),
+                verifier: None,
+                accelerators: &accelerators,
+            },
             DerivativeOrder::First,
-            &accelerators,
             cancel.clone(),
             EvaluationLimits::default(),
         )
@@ -1910,9 +1936,12 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
     let error = inner
         .factory(
             configs,
-            Arc::new(First),
+            ImplicitCapabilities {
+                solver: Arc::new(First),
+                verifier: None,
+                accelerators: &accelerators,
+            },
             DerivativeOrder::Second,
-            &accelerators,
             cancel,
             EvaluationLimits::default(),
         )
@@ -1975,6 +2004,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
         .requirements(
             DerivativeOrder::Value,
             DerivativeOrder::First,
+            None,
             &accelerators,
             &cancel,
             limits,
@@ -2010,9 +2040,12 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     let parent_factory = parent
         .factory(
             configs(parent),
-            Arc::new(FirstRoot),
+            ImplicitCapabilities {
+                solver: Arc::new(FirstRoot),
+                verifier: None,
+                accelerators: &accelerators,
+            },
             DerivativeOrder::Value,
-            &accelerators,
             cancel.clone(),
             limits,
         )
@@ -2026,9 +2059,12 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     let child_value = child
         .factory(
             configs(child),
-            Arc::new(FirstRoot),
+            ImplicitCapabilities {
+                solver: Arc::new(FirstRoot),
+                verifier: None,
+                accelerators: &accelerators,
+            },
             DerivativeOrder::Value,
-            &accelerators,
             cancel.clone(),
             limits,
         )
@@ -2045,9 +2081,12 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
     let child_first = child
         .factory(
             configs(child),
-            Arc::new(FirstRoot),
+            ImplicitCapabilities {
+                solver: Arc::new(FirstRoot),
+                verifier: None,
+                accelerators: &accelerators,
+            },
             demands[&child.descriptor.spec().key()],
-            &accelerators,
             cancel.clone(),
             limits,
         )
@@ -2069,6 +2108,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
         .requirements(
             DerivativeOrder::Value,
             DerivativeOrder::First,
+            None,
             &accelerators,
             &cancel,
             limits,
@@ -3367,9 +3407,12 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
     let factory = inner
         .factory(
             configs,
-            Arc::new(Roots),
+            ImplicitCapabilities {
+                solver: Arc::new(Roots),
+                verifier: None,
+                accelerators: &pse_math::implicit::accelerators::Accelerators::standard(),
+            },
             DerivativeOrder::Second,
-            &pse_math::implicit::accelerators::Accelerators::standard(),
             cancel.clone(),
             EvaluationLimits::default(),
         )
@@ -3423,6 +3466,11 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
         ImplicitMeaning::MinimumScore
     ));
     assert_eq!(inner.selection.neighborhood, DerivativeOrder::Value);
+    assert_eq!(
+        inner.selection.neighborhood_evidence,
+        SelectionNeighborhood::Unestablished
+    );
+    assert!(inner.residuals.iter().all(|r| r.isolation.is_none()));
     assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Value);
     assert_eq!(inner.descriptor.spec().smoothness, DerivativeOrder::Value);
     let cancel = Arc::new(AtomicBool::new(false));
@@ -3462,9 +3510,12 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
             let error = inner
                 .factory(
                     configs.clone(),
-                    Arc::new(Candidate),
+                    ImplicitCapabilities {
+                        solver: Arc::new(Candidate),
+                        verifier: None,
+                        accelerators: &accelerators,
+                    },
                     requested,
-                    &accelerators,
                     cancel.clone(),
                     EvaluationLimits::default(),
                 )
@@ -3480,6 +3531,7 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
                 .requirements(
                     requested,
                     DerivativeOrder::First,
+                    None,
                     &accelerators,
                     &cancel,
                     EvaluationLimits::default(),
@@ -3496,9 +3548,12 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
         let factory = inner
             .factory(
                 configs,
-                Arc::new(Candidate),
+                ImplicitCapabilities {
+                    solver: Arc::new(Candidate),
+                    verifier: None,
+                    accelerators: &accelerators,
+                },
                 DerivativeOrder::Value,
-                &accelerators,
                 cancel.clone(),
                 EvaluationLimits::default(),
             )
@@ -3533,6 +3588,592 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
                     .is_err()
             );
         }
+    }
+}
+
+/// These controls exercise compiler admission and certificate consumption. The
+/// chart stub is an injected test capability, not interval-library qualification.
+mod nonlinear_selection_isolation_tests {
+    use super::*;
+    use pse_kernels::{EvaluationContext, ProviderFactory, ProviderRequest};
+    use pse_math::implicit::{
+        Configuration, InnerSolver, Options, Problem, ProofInterval, SelectionChart,
+        SelectionEvidence, SelectionProofRefusal, SelectionProofRequest, SelectionScope,
+        SelectionVerifier, Unknown,
+    };
+    use std::sync::atomic::AtomicUsize;
+
+    #[derive(Debug)]
+    struct ExactSquareRoots;
+    impl InnerSolver for ExactSquareRoots {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::Value
+        }
+        fn identity(&self) -> ContentHash {
+            pse_math::implicit::solver_identity("test.exact-isolation-square-roots.v1")
+        }
+        fn solve(
+            &self,
+            _: Arc<Problem>,
+            parameters: &[f64],
+            options: &Options,
+            _: &Arc<AtomicBool>,
+        ) -> std::result::Result<Vec<f64>, MathError> {
+            Ok(vec![options.start[0].signum() * parameters[0].sqrt()])
+        }
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    enum ProofOutcome {
+        Unique,
+        MissingAlternative,
+        AlteredCriterion,
+        AlteredBounds,
+        Multiple,
+        Incomplete(SelectionProofRefusal),
+    }
+    #[derive(Debug)]
+    struct ChartStub {
+        outcome: ProofOutcome,
+        calls: AtomicUsize,
+    }
+    impl ChartStub {
+        fn new(outcome: ProofOutcome) -> Self {
+            Self {
+                outcome,
+                calls: AtomicUsize::new(0),
+            }
+        }
+    }
+    impl SelectionVerifier for ChartStub {
+        fn identity(&self) -> ContentHash {
+            pse_math::implicit::solver_identity("test.selection-chart-stub.v1")
+        }
+        fn workspace_bytes(
+            &self,
+            programs: &[Arc<pse_math::factorable::RootIsolationProgram>],
+        ) -> std::result::Result<usize, MathError> {
+            Ok(programs
+                .iter()
+                .map(|program| program.retained_bytes())
+                .sum())
+        }
+        fn certify(
+            &self,
+            request: &SelectionProofRequest<'_>,
+        ) -> std::result::Result<SelectionEvidence, MathError> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            assert_eq!(request.alternatives.len(), 2);
+            for alternative in request.alternatives {
+                assert_eq!(alternative.program.inputs, 2);
+                assert_eq!(alternative.program.residuals.len(), 1);
+                assert_eq!(alternative.unknowns.len(), 1);
+                assert_eq!(alternative.unknowns[0].lower, -10.0);
+                assert_eq!(alternative.unknowns[0].upper, 10.0);
+                assert!(matches!(
+                    alternative.program.nodes[alternative.program.criterion[0]],
+                    pse_math::factorable::Node::Var(0)
+                ));
+                assert!(
+                    matches!(&alternative.program.nodes[alternative.program.criterion[1]],
+                    pse_math::factorable::Node::Const(constant) if constant.value() == 1e-8)
+                );
+            }
+            assert_ne!(request.alternatives[0].id, request.alternatives[1].id);
+            assert!(request.winner < request.alternatives.len());
+            assert_eq!(request.parameters.len(), 1);
+            assert_eq!(request.candidate.len(), 1);
+            assert!(request.candidate[0] < 0.0);
+            assert!(request.time_limit > std::time::Duration::ZERO);
+            assert!(matches!(
+                request.order,
+                DerivativeOrder::First | DerivativeOrder::Second
+            ));
+            Ok(match self.outcome {
+                ProofOutcome::Unique
+                | ProofOutcome::MissingAlternative
+                | ProofOutcome::AlteredCriterion
+                | ProofOutcome::AlteredBounds => {
+                    let mut chart = SelectionChart {
+                        selection: request.selection,
+                        alternatives: request
+                            .alternatives
+                            .iter()
+                            .map(|alternative| SelectionScope {
+                                id: alternative.id,
+                                program: Arc::clone(alternative.program),
+                                residual_identity: alternative.residual_identity,
+                                unknowns: alternative.unknowns.to_vec(),
+                            })
+                            .collect(),
+                        winner: request.winner,
+                        verifier_identity: self.identity(),
+                        parameters: vec![ProofInterval {
+                            lower: request.parameters[0] - 0.01,
+                            upper: request.parameters[0] + 0.01,
+                        }],
+                        existence: vec![ProofInterval {
+                            lower: request.candidate[0] - 0.01,
+                            upper: request.candidate[0] + 0.01,
+                        }],
+                        uniqueness: vec![ProofInterval {
+                            lower: request.candidate[0] - 0.02,
+                            upper: request.candidate[0] + 0.02,
+                        }],
+                        order: request.order,
+                    };
+                    match self.outcome {
+                        ProofOutcome::MissingAlternative => {
+                            chart.alternatives.pop();
+                        }
+                        ProofOutcome::AlteredCriterion => {
+                            let program = Arc::make_mut(&mut chart.alternatives[0].program);
+                            program.criterion.swap(0, 1);
+                        }
+                        ProofOutcome::AlteredBounds => {
+                            chart.alternatives[0].unknowns[0].lower = -9.0;
+                        }
+                        _ => {}
+                    }
+                    SelectionEvidence::Unique(chart)
+                }
+                ProofOutcome::Multiple => SelectionEvidence::Multiple,
+                ProofOutcome::Incomplete(reason) => SelectionEvidence::Incomplete(reason),
+            })
+        }
+    }
+    fn bounded_model() -> Arc<AdmittedModeling> {
+        let text = r#"package p {def Root {var x:Scalar;
+          implicit roots select minimum(y,1e-8) {
+            var y:Scalar; annotation bounds y(-10,10);
+            regime negative eligible(y<0) {eq root:y*y==x;}
+            regime positive eligible(y>0) {eq root:y*y==x;}
+          }
+          realize policy on roots using nested; eq pin:roots.y==-2;
+        }}"#;
+        let (mut workspace, _, _, root) = setup(text);
+        admit(&mut workspace, root)
+    }
+    fn configurations(
+        inner: &AdmittedImplicit,
+        cancel: &Arc<AtomicBool>,
+    ) -> BTreeMap<SemanticId, Configuration> {
+        inner
+            .residuals
+            .iter()
+            .map(|residual| {
+                // Residual order is semantic-ID order; determine the branch through
+                // its authored predicate rather than assigning starts by position.
+                let mut eligibility = residual
+                    .assessment
+                    .as_ref()
+                    .unwrap()
+                    .eligibility
+                    .math
+                    .compile(
+                        &[0],
+                        &[0, 1],
+                        DerivativeOrder::Value,
+                        Optimization::default(),
+                        EvaluationLimits::default(),
+                        cancel,
+                    )
+                    .unwrap()
+                    .worker();
+                let negative = eligibility
+                    .evaluate(
+                        &[-1.0, 4.0],
+                        DerivativeOrder::Value,
+                        &mut BTreeMap::new(),
+                        cancel,
+                    )
+                    .unwrap()
+                    .values[0]
+                    == 1.0;
+                (
+                    residual.id,
+                    Configuration::Fixed(
+                        vec![Unknown {
+                            id: inner.unknowns[0],
+                            lower: -10.0,
+                            upper: 10.0,
+                        }],
+                        Options {
+                            start: vec![if negative { -1.0 } else { 1.0 }],
+                            variable_nominals: vec![1.0],
+                            variable_tolerance: vec![1e-9],
+                            residual_tolerance: vec![1e-9],
+                            iterations: 10,
+                            time_limit: std::time::Duration::from_secs(2),
+                            derivative_tolerance: 1e-10,
+                        },
+                    ),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn implicit_minimum_score_bounded_nonlinear_admission_requires_runtime_isolation() {
+        let admitted = bounded_model();
+        let inner = admitted.implicit.values().next().unwrap();
+        assert_eq!(inner.selection.meaning, ImplicitMeaning::MinimumScore);
+        assert_eq!(
+            inner.selection.equivalence,
+            SelectionEquivalence::Unestablished
+        );
+        assert_eq!(
+            inner.selection.neighborhood_evidence,
+            SelectionNeighborhood::RuntimeIsolation
+        );
+        assert_eq!(inner.selection.neighborhood, DerivativeOrder::Second);
+        assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Second);
+        assert_eq!(inner.descriptor.spec().smoothness, DerivativeOrder::Second);
+        assert!(inner.residuals.iter().all(|r| r.isolation.is_some()));
+        let cancel = Arc::new(AtomicBool::new(false));
+        let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+        let configs = configurations(inner, &cancel);
+        for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let error = inner
+                .requirements(
+                    requested,
+                    DerivativeOrder::Value,
+                    None,
+                    &accelerators,
+                    &cancel,
+                    EvaluationLimits::default(),
+                )
+                .unwrap_err();
+            assert_implicit_derivative_refusal(
+                &error,
+                inner,
+                requested,
+                DerivativeOrder::Value,
+                pse_kernels::DerivativeCapability::SelectorNeighborhood,
+            );
+            let error = inner
+                .factory(
+                    configs.clone(),
+                    ImplicitCapabilities {
+                        solver: Arc::new(ExactSquareRoots),
+                        verifier: None,
+                        accelerators: &accelerators,
+                    },
+                    requested,
+                    cancel.clone(),
+                    EvaluationLimits::default(),
+                )
+                .unwrap_err();
+            assert!(
+                error.to_string().contains("validated isolation capability"),
+                "{error}"
+            );
+        }
+        let requirements = inner
+            .requirements(
+                DerivativeOrder::Value,
+                DerivativeOrder::Value,
+                None,
+                &accelerators,
+                &cancel,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        assert_eq!(requirements.requested_output, DerivativeOrder::Value);
+        assert_eq!(requirements.selector_neighborhood, DerivativeOrder::Value);
+        let factory = inner
+            .factory(
+                configs,
+                ImplicitCapabilities {
+                    solver: Arc::new(ExactSquareRoots),
+                    verifier: None,
+                    accelerators: &accelerators,
+                },
+                DerivativeOrder::Value,
+                cancel.clone(),
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        let mut provider = factory.create().unwrap();
+        let context = EvaluationContext {
+            cancelled: &cancel,
+            max_result_bytes: 1024,
+        };
+        let values = provider
+            .evaluate(
+                &[4.0],
+                &ProviderRequest {
+                    outputs: vec![0],
+                    order: DerivativeOrder::Value,
+                },
+                &context,
+            )
+            .unwrap();
+        assert_eq!(values.values, vec![-2.0]);
+        assert!(values.jacobian.is_empty());
+        assert!(values.hessians.is_empty());
+    }
+
+    #[test]
+    fn implicit_minimum_score_unprojected_criterion_does_not_admit_runtime_isolation() {
+        let text = r#"package p {def Root {var x:Scalar;
+          implicit roots select minimum(abs(y),1e-8) {
+            var y:Scalar; annotation bounds y(-10,10);
+            regime negative eligible(y<0) {eq root:y*y==x;}
+            regime positive eligible(y>0) {eq root:y*y==x;}
+          }
+          realize policy on roots using nested; eq pin:roots.y==-2;
+        }}"#;
+        let (mut workspace, _, _, root) = setup(text);
+        let admitted = admit(&mut workspace, root);
+        let inner = admitted.implicit.values().next().unwrap();
+        assert!(
+            inner
+                .residuals
+                .iter()
+                .all(|residual| residual.isolation.is_none())
+        );
+        assert_eq!(
+            inner.selection.neighborhood_evidence,
+            SelectionNeighborhood::Unestablished
+        );
+        assert_eq!(inner.selection.neighborhood, DerivativeOrder::Value);
+        assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Value);
+    }
+
+    #[test]
+    fn implicit_minimum_score_chart_discharge_permits_analytic_first_and_second() {
+        let admitted = bounded_model();
+        let inner = admitted.implicit.values().next().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+        let verifier = Arc::new(ChartStub::new(ProofOutcome::Unique));
+        for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let requirements = inner
+                .requirements(
+                    requested,
+                    DerivativeOrder::Value,
+                    Some(verifier.as_ref()),
+                    &accelerators,
+                    &cancel,
+                    EvaluationLimits::default(),
+                )
+                .unwrap();
+            assert_eq!(requirements.requested_output, requested);
+            assert_eq!(requirements.selector_neighborhood, DerivativeOrder::Second);
+            let factory = inner
+                .factory(
+                    configurations(inner, &cancel),
+                    ImplicitCapabilities {
+                        solver: Arc::new(ExactSquareRoots),
+                        verifier: Some(verifier.clone()),
+                        accelerators: &accelerators,
+                    },
+                    requested,
+                    cancel.clone(),
+                    EvaluationLimits::default(),
+                )
+                .unwrap();
+            let mut provider = factory.create().unwrap();
+            let context = EvaluationContext {
+                cancelled: &cancel,
+                max_result_bytes: 1024,
+            };
+            let before = verifier.calls.load(Ordering::Relaxed);
+            let jet = provider
+                .evaluate(
+                    &[4.0],
+                    &ProviderRequest {
+                        outputs: vec![0],
+                        order: requested,
+                    },
+                    &context,
+                )
+                .unwrap();
+            assert_eq!(verifier.calls.load(Ordering::Relaxed) - before, 1);
+            assert_eq!(jet.values, vec![-2.0]);
+            assert_eq!(jet.jacobian.len(), 1);
+            assert!((jet.jacobian[0] + 0.25).abs() < 1e-12);
+            if requested == DerivativeOrder::Second {
+                assert_eq!(jet.hessians.len(), 1);
+                assert!((jet.hessians[0] - 0.03125).abs() < 1e-12);
+            } else {
+                assert!(jet.hessians.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn implicit_minimum_score_multiple_or_incomplete_evidence_refuses_derivatives() {
+        let admitted = bounded_model();
+        let inner = admitted.implicit.values().next().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+        for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
+            for (outcome, message) in [
+                (ProofOutcome::Multiple, "tied or better competitive roots"),
+                (
+                    ProofOutcome::Incomplete(SelectionProofRefusal::Coverage),
+                    "coverage is incomplete",
+                ),
+                (
+                    ProofOutcome::Incomplete(SelectionProofRefusal::Chart),
+                    "root chart is not certified",
+                ),
+                (
+                    ProofOutcome::Incomplete(SelectionProofRefusal::Boundary),
+                    "no proved guard or boundary margin",
+                ),
+                (
+                    ProofOutcome::Incomplete(SelectionProofRefusal::Unsupported),
+                    "projection is unsupported",
+                ),
+            ] {
+                let verifier = Arc::new(ChartStub::new(outcome));
+                let factory = inner
+                    .factory(
+                        configurations(inner, &cancel),
+                        ImplicitCapabilities {
+                            solver: Arc::new(ExactSquareRoots),
+                            verifier: Some(verifier.clone()),
+                            accelerators: &accelerators,
+                        },
+                        requested,
+                        cancel.clone(),
+                        EvaluationLimits::default(),
+                    )
+                    .unwrap();
+                let mut provider = factory.create().unwrap();
+                let context = EvaluationContext {
+                    cancelled: &cancel,
+                    max_result_bytes: 1024,
+                };
+                let error = provider
+                    .evaluate(
+                        &[4.0],
+                        &ProviderRequest {
+                            outputs: vec![0],
+                            order: requested,
+                        },
+                        &context,
+                    )
+                    .unwrap_err();
+                assert!(
+                    matches!(error, pse_kernels::ProviderError::Trial(ref reason)
+                    if reason.contains(message)),
+                    "{error}"
+                );
+                assert_eq!(verifier.calls.load(Ordering::Relaxed), 1);
+            }
+        }
+    }
+
+    #[test]
+    fn implicit_minimum_score_rejects_incomplete_or_changed_certificate_scope() {
+        let admitted = bounded_model();
+        let inner = admitted.implicit.values().next().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+        for outcome in [
+            ProofOutcome::MissingAlternative,
+            ProofOutcome::AlteredCriterion,
+            ProofOutcome::AlteredBounds,
+        ] {
+            let verifier = Arc::new(ChartStub::new(outcome));
+            let factory = inner
+                .factory(
+                    configurations(inner, &cancel),
+                    ImplicitCapabilities {
+                        solver: Arc::new(ExactSquareRoots),
+                        verifier: Some(verifier.clone()),
+                        accelerators: &accelerators,
+                    },
+                    DerivativeOrder::First,
+                    cancel.clone(),
+                    EvaluationLimits::default(),
+                )
+                .unwrap();
+            let mut provider = factory.create().unwrap();
+            let error = provider
+                .evaluate(
+                    &[4.0],
+                    &ProviderRequest {
+                        outputs: vec![0],
+                        order: DerivativeOrder::First,
+                    },
+                    &EvaluationContext {
+                        cancelled: &cancel,
+                        max_result_bytes: 1024,
+                    },
+                )
+                .unwrap_err();
+            assert!(
+                matches!(error, pse_kernels::ProviderError::Terminal(ref reason)
+                if reason.contains("nonlinear selection chart transport")),
+                "{error}"
+            );
+            assert_eq!(verifier.calls.load(Ordering::Relaxed), 1);
+        }
+    }
+
+    #[test]
+    fn implicit_minimum_score_compiler_consumes_group_evidence_with_a_multiroot_loser() {
+        let text = r#"package p {def Root {var x:Scalar;
+          implicit roots select minimum(y,1e-8) {
+            var y:Scalar; annotation bounds y(-10,10);
+            regime negative eligible(y<0) {eq root:y*y==x;}
+            regime positive eligible(y>0) {eq root:(y*y-x)*(y*y-4*x)==0;}
+          }
+          realize policy on roots using nested; eq pin:roots.y==-2;
+        }}"#;
+        let (mut workspace, _, _, root) = setup(text);
+        let admitted = admit(&mut workspace, root);
+        let inner = admitted.implicit.values().next().unwrap();
+        assert_eq!(
+            inner.selection.neighborhood_evidence,
+            SelectionNeighborhood::RuntimeIsolation
+        );
+        assert!(
+            inner
+                .residuals
+                .iter()
+                .all(|residual| residual.isolation.is_some())
+        );
+        let cancel = Arc::new(AtomicBool::new(false));
+        let verifier = Arc::new(ChartStub::new(ProofOutcome::Unique));
+        let factory = inner
+            .factory(
+                configurations(inner, &cancel),
+                ImplicitCapabilities {
+                    solver: Arc::new(ExactSquareRoots),
+                    verifier: Some(verifier.clone()),
+                    accelerators: &pse_math::implicit::accelerators::Accelerators::standard(),
+                },
+                DerivativeOrder::Second,
+                cancel.clone(),
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        let mut provider = factory.create().unwrap();
+        // This injected certificate tests consumption of the entire source union;
+        // the native verifier separately proves competitive-root exclusion.
+        let jet = provider
+            .evaluate(
+                &[4.0],
+                &ProviderRequest {
+                    outputs: vec![0],
+                    order: DerivativeOrder::Second,
+                },
+                &EvaluationContext {
+                    cancelled: &cancel,
+                    max_result_bytes: 1024,
+                },
+            )
+            .unwrap();
+        assert_eq!(verifier.calls.load(Ordering::Relaxed), 1);
+        assert_eq!(jet.values, vec![-2.0]);
+        assert!((jet.jacobian[0] + 0.25).abs() < 1e-12);
+        assert!((jet.hessians[0] - 0.03125).abs() < 1e-12);
     }
 }
 

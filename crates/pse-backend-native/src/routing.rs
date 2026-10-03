@@ -1083,6 +1083,22 @@ impl Requirements<'_> {
                 evidence.push(EvidenceDemand::Structure);
             }
         }
+        if structure.is_none() {
+            // A refused or pending decision can still have one unambiguous original
+            // assessment. Retain that witness without selecting a candidate or changing
+            // readiness; distinct candidate interpretations remain on eligibility entries.
+            let mut assessments = eligibility
+                .iter()
+                .filter_map(|entry| entry.structure.as_ref());
+            if let Some(first) = assessments.next() {
+                let original = first.row(self.context.snapshot.identity(), 0);
+                if assessments.all(|assessment| {
+                    assessment.row(self.context.snapshot.identity(), 0) == original
+                }) {
+                    structure = Some(first.clone());
+                }
+            }
+        }
         let artifacts = chosen.map_or_else(Vec::new, |entry| entry.artifacts.clone());
         let state = if refusal.is_some() {
             AssessmentState::Refused
@@ -1577,6 +1593,37 @@ mod tests {
                 .all(|r| *r == Ineligible::NotLinked)
         );
         f.prepared_derivatives = DerivativeOrder::Value;
+        // Available mathematics remains eligible; the unprepared executable order is
+        // an artifact demand. Genuine unavailable derivatives still refuse below.
+        let requirements = Requirements {
+            context: test_context(&LINKED),
+            table: &LINKED,
+            facts: &f,
+            intent: SolveIntent::Root,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &controls,
+            settings: &BackendSettings::Default,
+            sensitivity: false,
+        };
+        for backend in [Backend::Ipopt, Backend::Pounce, Backend::Kinsol] {
+            let adapter = adapter(backend);
+            let required = adapter.required_order(&requirements).unwrap();
+            let candidate = assess_static(backend, adapter.capability(), &requirements);
+            assert!(
+                !candidate
+                    .reasons
+                    .iter()
+                    .any(|reason| matches!(reason, Ineligible::Derivatives { .. })),
+                "{candidate:?}"
+            );
+            assert!(
+                candidate
+                    .artifacts
+                    .contains(&ArtifactDemand::Derivatives(required))
+            );
+        }
+        f.derivatives = DerivativeOrder::Value;
         assert!(
             assess(&f, &controls)
                 .iter()
@@ -1774,8 +1821,10 @@ mod tests {
             );
         }
         let mut f = f;
-        // A coefficient MILP is not conic data, and neither is an opaque nonlinear model.
+        // A coefficient MILP retains its authored discrete domains and cannot use a
+        // continuous cone adapter.
         f.quadratic = false;
+        f.objective_degree = Some(1);
         assert!(
             select(
                 &f,
@@ -1787,6 +1836,31 @@ mod tests {
         );
         f.domains.fill(ModelingVariableDomain::Continuous);
         f.coefficients = false;
+        // The proved affine rows and degree-one objective still establish a linear
+        // class without a materialized coefficient snapshot.
+        assert_eq!(
+            select(
+                &f,
+                SolveIntent::Optimize,
+                SolverSelection::Explicit(Backend::Clarabel),
+                true,
+            )
+            .unwrap(),
+            Route::Native(Backend::Clarabel)
+        );
+        // Actual nonlinear evidence excludes coefficient admission; without recognized
+        // cone evidence this model must still refuse the explicit cone adapter.
+        f.class_status = pse_math::presolve::ClassStatus::RuledOut(
+            pse_math::presolve::ClassWitness::NonAffineRow {
+                row: pse_ids::SemanticId::from_bytes([9; 16]),
+            },
+        );
+        f.affine_rows.fill(false);
+        f.objective_degree = None;
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, true),
+            [ProblemClass::SmoothNlp]
+        );
         assert!(
             select(
                 &f,

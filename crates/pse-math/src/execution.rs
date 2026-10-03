@@ -25,6 +25,14 @@ use symbolica::{
     evaluate::ExpressionEvaluator,
 };
 
+fn order_name(order: DerivativeOrder) -> &'static str {
+    match order {
+        DerivativeOrder::Value => "value",
+        DerivativeOrder::First => "first",
+        DerivativeOrder::Second => "second",
+    }
+}
+
 /// Conservative complete mathematical support and separate control dependencies.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Support {
@@ -146,6 +154,13 @@ impl PreparedSupport {
             return Err(MathError::Cancelled);
         }
         if order <= self.order() {
+            let _reuse = tracing::info_span!(
+                "pse.case.support_reuse",
+                product = "support",
+                derivative_order = order_name(order),
+                reused = true
+            )
+            .entered();
             return Ok(self.clone());
         }
         self.body().support_with_allowance(
@@ -157,12 +172,42 @@ impl PreparedSupport {
             Some(self),
         )
     }
+    /// Admit structural First support on explicit original formal coordinates.
+    /// Selected outputs and the unspent construction allowance remain authoritative;
+    /// changing coordinates constructs new incidence without promoting numerical capability.
+    pub fn incidence(
+        &self,
+        coordinates: &[usize],
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        let mut incidence = if coordinates == self.coordinates() {
+            self.upgrade(DerivativeOrder::First, cancel)?
+        } else {
+            self.body().support_with_allowance(
+                self.outputs(),
+                coordinates,
+                DerivativeOrder::First,
+                self.remaining_occurrences(),
+                cancel,
+                None,
+            )?
+        };
+        incidence.owner = self.owner.clone();
+        Ok(incidence)
+    }
     /// Restrict outputs without repeating symbolic support construction.
     pub fn select_outputs(
         &self,
         outputs: &[usize],
         cancel: &Arc<AtomicBool>,
     ) -> Result<Self, MathError> {
+        let construction = tracing::info_span!(
+            "pse.case.support_selection",
+            product = "support_selection",
+            derivative_order = order_name(self.order()),
+            success = false
+        );
+        let _construction = construction.enter();
         self.body().check_selection(outputs, self.coordinates())?;
         if cancel.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
@@ -203,6 +248,7 @@ impl PreparedSupport {
                 }
             }
         }
+        construction.record("success", true);
         Ok(Self {
             data: Arc::new(PreparedSupportData {
                 body: self.body().clone(),
@@ -491,13 +537,16 @@ impl PreparedBody {
         allowance.consume(slots, SemanticId::NIL)?;
         allowance.consume(1, SemanticId::NIL)?;
         let empty_fact = Arc::new(Fact::default());
-        let mut facts = vec![empty_fact; slots];
-        for i in 0..inputs {
+        let mut facts = Facts::Dense(vec![empty_fact; slots]);
+        for (i, parameter) in parameters.iter().enumerate().take(inputs) {
             allowance.consume(1, SemanticId::NIL)?;
-            facts[i] = Arc::new(Fact {
-                expression: Some(parameters[i].clone()),
-                ..Fact::default()
-            });
+            facts.set(
+                i,
+                Arc::new(Fact {
+                    expression: Some(parameter.clone()),
+                    ..Fact::default()
+                }),
+            );
         }
         let mut providers = BTreeMap::new();
         let mut obligations = vec![];
@@ -636,6 +685,14 @@ impl PreparedBody {
         cancel: &Arc<AtomicBool>,
         prior: Option<&PreparedSupport>,
     ) -> Result<PreparedSupport, MathError> {
+        let construction = tracing::info_span!(
+            "pse.case.support_construction",
+            product = "support",
+            derivative_order = order_name(order),
+            success = false,
+            derivative_operations = tracing::field::Empty
+        );
+        let _construction = construction.enter();
         self.check_selection(outputs, coordinates)?;
         if cancel.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
@@ -662,22 +719,28 @@ impl PreparedBody {
             allowance.consume(self.slots, SemanticId::NIL)?;
             allowance.consume(1, SemanticId::NIL)?;
             let empty_fact = Arc::new(Fact::default());
-            let mut facts = vec![empty_fact; self.slots];
+            let mut facts = Facts::Dense(vec![empty_fact; self.slots]);
             for &i in coordinates {
                 allowance.consume(2, SemanticId::NIL)?;
-                facts[i] = Arc::new(Fact {
-                    expression: Some(parameters[i].clone()),
-                    first: BTreeSet::from([i]),
-                    ..Fact::default()
-                });
+                facts.set(
+                    i,
+                    Arc::new(Fact {
+                        expression: Some(parameters[i].clone()),
+                        first: BTreeSet::from([i]),
+                        ..Fact::default()
+                    }),
+                );
             }
             // Non-coordinate inputs remain symbolic parameters for exact local composition.
             for i in (0..self.inputs).filter(|i| !coordinates.contains(i)) {
                 allowance.consume(1, SemanticId::NIL)?;
-                facts[i] = Arc::new(Fact {
-                    expression: Some(parameters[i].clone()),
-                    ..Fact::default()
-                });
+                facts.set(
+                    i,
+                    Arc::new(Fact {
+                        expression: Some(parameters[i].clone()),
+                        ..Fact::default()
+                    }),
+                );
             }
             let selected = coordinates.iter().copied().collect::<BTreeSet<_>>();
             let numeric = numeric_slots(
@@ -732,6 +795,8 @@ impl PreparedBody {
             ));
         }
         let derivative_operations = allowance.derivatives;
+        construction.record("success", true);
+        construction.record("derivative_operations", derivative_operations as u64);
         Ok(PreparedSupport {
             data: Arc::new(PreparedSupportData {
                 body: self.clone(),
@@ -940,6 +1005,13 @@ impl PreparedBody {
         local_branches: bool,
         prepared_support: &PreparedSupport,
     ) -> Result<CompiledBody, MathError> {
+        let construction = tracing::info_span!(
+            "pse.case.compiled_body_construction",
+            product = "compiled_artifact",
+            derivative_order = order_name(order),
+            success = false
+        );
+        let _construction = construction.enter();
         limits.check()?;
         if cancelled.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
@@ -992,6 +1064,13 @@ impl PreparedBody {
         .into_iter()
         .filter(|requested| *requested <= order)
         {
+            let order_construction = tracing::info_span!(
+                "pse.case.compiled_order_construction",
+                product = "compiled_order",
+                derivative_order = order_name(requested),
+                success = false
+            );
+            let _order_construction = order_construction.enter();
             let layout = JetLayout::new(coordinates.to_vec(), requested, limits)?;
             let frame = self
                 .slots
@@ -1055,6 +1134,7 @@ impl PreparedBody {
             limits.allocation(used)?;
             layouts[requested] = Some(layout);
             programs[requested] = Some(program);
+            order_construction.record("success", true);
         }
         let evidence_bytes = applicability_extent(&stages).saturating_mul(4);
         let scratch_bytes = used
@@ -1064,14 +1144,51 @@ impl PreparedBody {
         if scratch_bytes > limits.scratch_bytes {
             return Err(MathError::Limit("applicability observation storage"));
         }
-        Ok(CompiledBody {
+        let n = coordinates.len();
+        let output_width = 1usize
+            .checked_add(if order >= DerivativeOrder::First {
+                n
+            } else {
+                0
+            })
+            .and_then(|v| {
+                if order >= DerivativeOrder::Second {
+                    n.checked_mul(n).and_then(|h| v.checked_add(h))
+                } else {
+                    Some(v)
+                }
+            })
+            .ok_or(MathError::Limit("evaluation cache storage"))?;
+        let evaluation_cache_bytes = selected
+            .len()
+            .checked_mul(output_width)
+            .and_then(|n| n.checked_add(self.inputs))
+            .and_then(|n| n.checked_mul(2 * size_of::<f64>()))
+            .and_then(|n| n.checked_add(evidence_bytes))
+            .and_then(|n| n.checked_add(size_of::<Evaluation>() + size_of::<Vec<u64>>() + 64))
+            .ok_or(MathError::Limit("evaluation cache storage"))?;
+        let descriptor_bytes = programs
+            .values()
+            .flatten()
+            .try_fold(0usize, |bytes, stages| {
+                bytes.checked_add(cloned_stage_descriptors(stages)?)
+            })
+            .ok_or(MathError::Limit("worker descriptor storage"))?;
+        let worker_bytes = scratch_bytes
+            .checked_add(retained_instructions)
+            .and_then(|n| n.checked_add(descriptor_bytes))
+            .ok_or(MathError::Limit("worker owned storage"))?;
+        let compiled = CompiledBody {
             owner: None,
             inputs: self.inputs,
             slots: self.slots,
             scratch_bytes,
+            evaluation_cache_bytes,
+            worker_bytes,
             retained_bytes: retained_numeric
                 .checked_mul(size_of::<f64>())
                 .and_then(|n| n.checked_add(retained_instructions))
+                .and_then(|n| n.checked_add(descriptor_bytes))
                 .and_then(|n| n.checked_add(evidence_bytes))
                 .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
                 .ok_or(MathError::Limit("retained program storage"))?,
@@ -1080,7 +1197,9 @@ impl PreparedBody {
             programs: Arc::new(programs),
             limits,
             support: prepared_support.clone(),
-        })
+        };
+        construction.record("success", true);
+        Ok(compiled)
     }
 }
 
@@ -1147,6 +1266,8 @@ enum CompiledStage {
 pub struct CompiledBody {
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
+    evaluation_cache_bytes: usize,
+    worker_bytes: usize,
     retained_bytes: usize,
     inputs: usize,
     slots: usize,
@@ -1166,6 +1287,40 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    /// Individually shared evaluator component identities and known payload estimates.
+    /// Body, support and shallow evaluator wrappers are observed separately.
+    pub fn allocation_components(&self) -> Vec<(&'static str, usize, usize)> {
+        let layout_bytes = size_of::<EnumMap<DerivativeOrder, Option<JetLayout>>>()
+            + self
+                .layouts
+                .values()
+                .flatten()
+                .map(|layout| {
+                    layout.coordinates.capacity() * size_of::<usize>()
+                        + layout.shape.capacity() * size_of::<Vec<usize>>()
+                        + layout
+                            .shape
+                            .iter()
+                            .map(|s| s.capacity() * size_of::<usize>())
+                            .sum::<usize>()
+                        + layout.pairs.capacity() * size_of::<(usize, usize)>()
+                })
+                .sum::<usize>();
+        vec![
+            (
+                "outputs",
+                Arc::as_ptr(&self.outputs) as usize,
+                size_of::<Vec<usize>>() + self.outputs.capacity() * size_of::<usize>(),
+            ),
+            ("layouts", Arc::as_ptr(&self.layouts) as usize, layout_bytes),
+            (
+                "programs",
+                Arc::as_ptr(&self.programs) as usize,
+                self.retained_bytes
+                    .saturating_sub(self.support.retained_bytes()),
+            ),
+        ]
+    }
     /// Highest residual order actually compiled, distinct from symbolic availability.
     pub fn compiled_order(&self) -> DerivativeOrder {
         if self.layouts[DerivativeOrder::Second].is_some() {
@@ -1186,6 +1341,16 @@ impl CompiledBody {
     pub fn scratch_bytes(&self) -> usize {
         self.scratch_bytes
     }
+    /// Conservative complete attempt-owned evaluator extent: numeric scratch plus
+    /// cloned library instructions and stage descriptors; shared Arc payloads excluded.
+    pub fn worker_bytes(&self) -> usize {
+        self.worker_bytes
+    }
+    /// Conservative retained result and input-signature extent of one occurrence's
+    /// cache at the compiled derivative ceiling, including applicability evidence.
+    pub(crate) fn evaluation_cache_bytes(&self) -> usize {
+        self.evaluation_cache_bytes
+    }
     /// Storage retained by the immutable evaluator templates: their numeric buffers and
     /// library instruction streams, excluding attempt frames and returned derivative
     /// buffers.
@@ -1194,6 +1359,13 @@ impl CompiledBody {
     }
     /// Independent mutable scratch; caller/attempt owns its provider worker map.
     pub fn worker(&self) -> Worker {
+        self.worker_scoped(pse_kernels::ExecutionScope::new(
+            Arc::new(AtomicBool::new(false)),
+            None,
+        ))
+    }
+    /// Independent scratch attached to the enclosing execution's immutable controls.
+    pub fn worker_scoped(&self, scope: pse_kernels::ExecutionScope) -> Worker {
         let width = self
             .layouts
             .values()
@@ -1204,6 +1376,7 @@ impl CompiledBody {
             body: self.clone(),
             programs: self.programs.as_ref().clone(),
             frame: vec![0.0; self.slots * width],
+            scope,
         }
     }
     /// Exact selected admitted demand retained by this evaluator product.
@@ -1243,6 +1416,7 @@ pub struct Evaluation {
 /// Worker-local numeric frame and Symbolica scratch.
 #[derive(Clone)]
 pub struct Worker {
+    scope: pse_kernels::ExecutionScope,
     body: CompiledBody,
     programs: EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>,
     frame: Vec<f64>,
@@ -1256,6 +1430,10 @@ impl std::fmt::Debug for Worker {
     }
 }
 impl Worker {
+    /// Attach original execution controls while constructing a nested problem worker.
+    pub(crate) fn set_scope(&mut self, scope: pse_kernels::ExecutionScope) {
+        self.scope = scope;
+    }
     /// Evaluate only the requested order, publishing no result on failure.
     pub fn evaluate(
         &mut self,
@@ -1264,6 +1442,7 @@ impl Worker {
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
+        self.scope.check().map_err(crate::error::scope_error)?;
         self.frame.fill(f64::NAN);
         if inputs.len() != self.body.inputs || inputs.iter().any(|v| !v.is_finite()) {
             return Err(MathError::Contract(
@@ -1334,6 +1513,7 @@ impl Worker {
                 }
             }
         }
+        self.scope.check().map_err(crate::error::scope_error)?;
         Ok(result)
     }
 }
@@ -1524,13 +1704,100 @@ fn selected_capability(
     Ok(available)
 }
 
+// Numeric vectors are already covered by BuildAllowance.entries. These are the
+// separately owned descriptors and indices copied by Vec/JetLayout/ProviderSpec clone.
+fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
+    fn indices<T>(values: &Vec<T>) -> Option<usize> {
+        values.capacity().checked_mul(size_of::<T>())
+    }
+    fn layout(layout: &JetLayout) -> Option<usize> {
+        layout
+            .shape
+            .iter()
+            .try_fold(indices(&layout.shape)?, |n, shape| {
+                n.checked_add(indices(shape)?)
+            })?
+            .checked_add(indices(&layout.coordinates)?)?
+            .checked_add(indices(&layout.pairs)?)
+    }
+    stages.iter().try_fold(indices(stages)?, |n, stage| {
+        let bytes = match stage {
+            CompiledStage::Applicability {
+                stages,
+                layout: l,
+                predicates,
+                inputs,
+                ..
+            } => cloned_stage_descriptors(stages)?
+                .checked_add(layout(l)?)?
+                .checked_add(indices(predicates)?)?
+                .checked_add(indices(inputs)?)?,
+            CompiledStage::Domain {
+                stages, layout: l, ..
+            } => cloned_stage_descriptors(stages)?.checked_add(layout(l)?)?,
+            CompiledStage::Block {
+                components,
+                inputs,
+                outputs,
+                ..
+            } => indices(components)?
+                .checked_add(indices(inputs)?)?
+                .checked_add(indices(outputs)?)?,
+            CompiledStage::Require { .. } => 0,
+            CompiledStage::Branch {
+                then, otherwise, ..
+            } => {
+                cloned_stage_descriptors(then)?.checked_add(cloned_stage_descriptors(otherwise)?)?
+            }
+            CompiledStage::Provider {
+                spec,
+                partial,
+                inputs,
+                outputs,
+                request,
+                lift,
+                ..
+            } => {
+                let shapes = spec
+                    .shapes
+                    .inputs
+                    .iter()
+                    .chain(&spec.shapes.outputs)
+                    .try_fold(
+                        indices(&spec.shapes.inputs)?
+                            .checked_add(indices(&spec.shapes.outputs)?)?,
+                        |n, shape| {
+                            let coordinates = shape
+                                .coordinates
+                                .iter()
+                                .try_fold(indices(&shape.coordinates)?, |n, c| {
+                                    n.checked_add(indices(c)?)
+                                })?;
+                            n.checked_add(indices(&shape.axes)?)?
+                                .checked_add(indices(&shape.cells)?)?
+                                .checked_add(coordinates)
+                        },
+                    )?;
+                indices(&spec.inputs)?
+                    .checked_add(indices(&spec.outputs)?)?
+                    .checked_add(shapes)?
+                    .checked_add(indices(partial)?)?
+                    .checked_add(indices(inputs)?)?
+                    .checked_add(indices(outputs)?)?
+                    .checked_add(indices(&request.outputs)?)?
+                    .checked_add(lift.as_ref().map_or(Some(0), |l| indices(&l.inputs))?)?
+            }
+        };
+        n.checked_add(bytes)
+    })
+}
+
 struct BuildAllowance {
     local_order: DerivativeOrder,
     operations: usize,
     providers: usize,
     entries: usize,
-    /// Instruction storage of the evaluators built so far, in bytes: retained with the
-    /// program, never scratch.
+    /// Instruction storage retained by the template and copied by each attempt worker.
     instructions: usize,
 }
 fn provider_request_order(
@@ -1820,6 +2087,16 @@ fn compile_stages(
                 } else {
                     None
                 };
+                let lift_storage = lift
+                    .as_ref()
+                    .map(|lift| library::storage(&lift.evaluator))
+                    .transpose()?;
+                if let Some(storage) = &lift_storage {
+                    allowance.instructions = allowance
+                        .instructions
+                        .checked_add(storage.instruction_bytes)
+                        .ok_or(MathError::Limit("provider lift instruction storage"))?;
+                }
                 if let Some(lift) = &lift {
                     allowance.operations = allowance
                         .operations
@@ -1835,7 +2112,7 @@ fn compile_stages(
                             + lift.as_ref().map_or(0, |l| {
                                 l.scratch.len()
                                     + l.output.len()
-                                    + operation_count(l.evaluator.count_operations())
+                                    + lift_storage.as_ref().map_or(0, |s| s.numeric_entries)
                             }),
                     )
                     .ok_or(MathError::Limit("provider scratch"))?;
@@ -2305,6 +2582,50 @@ struct Fact {
     /// Actual producer occurrence, without inventing a source for formal inputs.
     source: Option<SemanticId>,
 }
+/// Private branch/obligation writes over immutable inherited facts. A local scope
+/// copies only facts it assigns, regardless of the enclosing body's slot count.
+enum Facts<'a> {
+    Dense(Vec<Arc<Fact>>),
+    Scoped {
+        parent: &'a Facts<'a>,
+        assigned: BTreeMap<usize, Arc<Fact>>,
+    },
+}
+impl Facts<'_> {
+    fn scope(&self) -> Facts<'_> {
+        Facts::Scoped {
+            parent: self,
+            assigned: BTreeMap::new(),
+        }
+    }
+    fn set(&mut self, slot: usize, fact: Arc<Fact>) {
+        match self {
+            Self::Dense(facts) => facts[slot] = fact,
+            Self::Scoped { assigned, .. } => {
+                assigned.insert(slot, fact);
+            }
+        }
+    }
+    fn written_slots(&self) -> impl Iterator<Item = usize> + '_ {
+        match self {
+            Self::Dense(_) => None,
+            Self::Scoped { assigned, .. } => Some(assigned),
+        }
+        .into_iter()
+        .flat_map(|assigned| assigned.keys().copied())
+    }
+}
+impl std::ops::Index<usize> for Facts<'_> {
+    type Output = Arc<Fact>;
+    fn index(&self, slot: usize) -> &Self::Output {
+        match self {
+            Self::Dense(facts) => &facts[slot],
+            Self::Scoped { parent, assigned } => {
+                assigned.get(&slot).unwrap_or_else(|| &parent[slot])
+            }
+        }
+    }
+}
 struct SupportAllowance<'a> {
     remaining: &'a mut usize,
     derivatives: usize,
@@ -2352,14 +2673,14 @@ impl SupportAllowance<'_> {
         target.extend(values);
         Ok(())
     }
-    fn clone_facts(
+    fn scope_facts<'a>(
         &mut self,
-        facts: &[Arc<Fact>],
+        facts: &'a Facts<'_>,
         source: SemanticId,
-    ) -> Result<Vec<Arc<Fact>>, MathError> {
-        // Snapshot immutable slot handles; no accumulated support set is copied.
-        self.consume(facts.len(), source)?;
-        Ok(facts.to_vec())
+    ) -> Result<Facts<'a>, MathError> {
+        // The scope is constant-size; each assigned fact is charged at its producer.
+        self.consume(1, source)?;
+        Ok(facts.scope())
     }
     fn equal_facts(&mut self, a: &Fact, b: &Fact, source: SemanticId) -> Result<bool, MathError> {
         // A distinct allocation can still denote exactly the same symbolic fact. Charge
@@ -2420,7 +2741,7 @@ fn analyze(
     stages: &[Stage],
     parameters: &[Atom],
     symbols: &HashMap<Symbol, usize>,
-    facts: &mut [Arc<Fact>],
+    facts: &mut Facts<'_>,
     controls: &mut BTreeSet<usize>,
     switches: &mut BTreeSet<usize>,
     providers: &mut BTreeMap<ProviderKey, ProviderSpec>,
@@ -2444,7 +2765,7 @@ fn analyze(
                 plan,
             } => {
                 let source = plan.claim.form;
-                let mut local = allowance.clone_facts(facts, source)?;
+                let mut local = allowance.scope_facts(facts, source)?;
                 analyze(
                     stages,
                     parameters,
@@ -2465,11 +2786,14 @@ fn analyze(
                     controls.extend(&local[*slot].first);
                 }
                 allowance.consume(1, source)?;
-                facts[*token] = Arc::new(Fact {
-                    expression: Some(Atom::num(0)),
-                    source: Some(source),
-                    ..Fact::default()
-                });
+                facts.set(
+                    *token,
+                    Arc::new(Fact {
+                        expression: Some(Atom::num(0)),
+                        source: Some(source),
+                        ..Fact::default()
+                    }),
+                );
             }
             Stage::Domain {
                 stages,
@@ -2478,7 +2802,7 @@ fn analyze(
                 lineage,
             } => {
                 let source = lineage.source;
-                let mut local = allowance.clone_facts(facts, source)?;
+                let mut local = allowance.scope_facts(facts, source)?;
                 // Domain boundaries do not constitute branch transitions of a numerical output.
                 analyze(
                     stages,
@@ -2499,11 +2823,14 @@ fn analyze(
                 controls.extend(&local[*argument].first);
                 obligations.push((local[*argument].expression.clone(), Condition::Positive));
                 allowance.consume(1, source)?;
-                facts[*token] = Arc::new(Fact {
-                    expression: Some(Atom::num(0)),
-                    source: Some(source),
-                    ..Fact::default()
-                });
+                facts.set(
+                    *token,
+                    Arc::new(Fact {
+                        expression: Some(Atom::num(0)),
+                        source: Some(source),
+                        ..Fact::default()
+                    }),
+                );
             }
             Stage::Block {
                 expressions,
@@ -2612,7 +2939,7 @@ fn analyze(
                         }
                     }
                     allowance.consume(1, *source)?;
-                    facts[slot] = Arc::new(fact);
+                    facts.set(slot, Arc::new(fact));
                 }
             }
             Stage::Require {
@@ -2648,18 +2975,21 @@ fn analyze(
                 for &slot in outputs.iter().filter(|&&s| s != usize::MAX) {
                     allowance.consume(first.len(), *source)?;
                     allowance.consume(1, *source)?;
-                    facts[slot] = Arc::new(Fact {
-                        expression: None,
-                        first: first.clone(),
-                        second: if requested >= DerivativeOrder::Second
-                            && numeric.is_none_or(|n| n.contains(&slot))
-                        {
-                            dense_second(&first, allowance, *source)?
-                        } else {
-                            BTreeSet::new()
-                        },
-                        source: Some(*source),
-                    });
+                    facts.set(
+                        slot,
+                        Arc::new(Fact {
+                            expression: None,
+                            first: first.clone(),
+                            second: if requested >= DerivativeOrder::Second
+                                && numeric.is_none_or(|n| n.contains(&slot))
+                            {
+                                dense_second(&first, allowance, *source)?
+                            } else {
+                                BTreeSet::new()
+                            },
+                            source: Some(*source),
+                        }),
+                    );
                 }
             }
             Stage::Branch {
@@ -2682,8 +3012,8 @@ fn analyze(
                     switches.extend(&facts[*left].first);
                     switches.extend(&facts[*right].first);
                 }
-                let mut a = allowance.clone_facts(facts, source)?;
-                let mut b = allowance.clone_facts(facts, source)?;
+                let mut a = allowance.scope_facts(facts, source)?;
+                let mut b = allowance.scope_facts(facts, source)?;
                 analyze(
                     then,
                     parameters,
@@ -2714,11 +3044,23 @@ fn analyze(
                     cancel,
                     numeric,
                 )?;
-                for i in 0..facts.len() {
+                let mut merged = Vec::new();
+                allowance.consume(
+                    a.written_slots()
+                        .count()
+                        .checked_add(b.written_slots().count())
+                        .ok_or(MathError::Limit("support branch writes"))?,
+                    source,
+                )?;
+                let slots = a
+                    .written_slots()
+                    .chain(b.written_slots())
+                    .collect::<BTreeSet<_>>();
+                for i in slots {
                     if Arc::ptr_eq(&a[i], &b[i]) {
                         if !Arc::ptr_eq(&facts[i], &a[i]) {
                             allowance.consume(1, source)?;
-                            facts[i] = a[i].clone();
+                            merged.push((i, a[i].clone()));
                         }
                         continue;
                     }
@@ -2729,16 +3071,24 @@ fn analyze(
                         allowance.consume(a[i].first.len(), source)?;
                         allowance.consume(b[i].first.len(), source)?;
                         allowance.consume(1, source)?;
-                        facts[i] = Arc::new(Fact {
-                            expression: None,
-                            first: a[i].first.union(&b[i].first).copied().collect(),
-                            second,
-                            source: a[i].source.or(b[i].source),
-                        });
+                        merged.push((
+                            i,
+                            Arc::new(Fact {
+                                expression: None,
+                                first: a[i].first.union(&b[i].first).copied().collect(),
+                                second,
+                                source: a[i].source.or(b[i].source),
+                            }),
+                        ));
                     } else {
                         allowance.consume(1, source)?;
-                        facts[i] = a[i].clone();
+                        merged.push((i, a[i].clone()));
                     }
+                }
+                drop(a);
+                drop(b);
+                for (slot, fact) in merged {
+                    facts.set(slot, fact);
                 }
             }
         }

@@ -59,10 +59,11 @@ impl FitOracle {
             .iter()
             .map(|e| match e {
                 Experiment::Steady(s) => {
-                    let providers = crate::math::attempt_providers(&s.providers, &execution.cancel)
-                        .map_err(ProblemError::Provider)?;
+                    let providers =
+                        crate::math::attempt_providers(&s.providers, &execution.scope()?)
+                            .map_err(ProblemError::Provider)?;
                     Ok(Some(
-                        s.case.assembly.worker(providers, execution.cancel.clone()),
+                        s.case.assembly.worker_scoped(providers, execution.scope()?),
                     ))
                 }
                 Experiment::Transient(_) => Ok(None),

@@ -225,6 +225,14 @@ impl MathService {
                     Arc::new(pse_backend_native::implicit::Kinsol);
                 #[cfg(not(feature = "solver-kinsol"))]
                 let solver: Arc<dyn pse_math::implicit::InnerSolver> = Arc::new(MissingInnerSolver);
+                #[cfg(feature = "solver-root-isolation")]
+                let verifier: Option<
+                    Arc<dyn pse_math::implicit::SelectionVerifier>,
+                > = Some(Arc::new(pse_backend_native::root_isolation::Ibex));
+                #[cfg(not(feature = "solver-root-isolation"))]
+                let verifier: Option<
+                    Arc<dyn pse_math::implicit::SelectionVerifier>,
+                > = None;
                 // Inputs are in dependency order. Propagate the actual consumer demands
                 // backwards before compiling any provider, including the inner adapter's
                 // residual minimum and explicitly authored partial derivatives.
@@ -237,6 +245,7 @@ impl MathService {
                     let requirements = item.admitted.requirements(
                         requested,
                         solver.minimum_order(),
+                        verifier.as_deref(),
                         &accelerators,
                         &flag,
                         profile.evaluation,
@@ -265,9 +274,12 @@ impl MathService {
                     }
                     let factory = item.admitted.factory(
                         item.configurations,
-                        solver.clone(),
+                        pse_compiler::workspace::ImplicitCapabilities {
+                            solver: solver.clone(),
+                            verifier: verifier.clone(),
+                            accelerators: &accelerators,
+                        },
                         requested_output,
-                        &accelerators,
                         flag.clone(),
                         profile.evaluation,
                     )?;

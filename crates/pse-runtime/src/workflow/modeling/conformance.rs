@@ -1064,7 +1064,11 @@ impl ModelingPackage {
             );
         }
         for (index, (row, policy)) in fixtures.iter().zip(policies).enumerate() {
-            if index >= policy.maximum_fixtures || cancel.token().is_cancelled() || !report.complete
+            // A fixture-local resource refusal makes the report incomplete, but does
+            // not prevent independent fixtures from running within the remaining bounds.
+            if index >= policy.maximum_fixtures
+                || cancel.token().is_cancelled()
+                || report.checks.len() >= cap
             {
                 report.complete = false;
                 for row in &fixtures[index..] {
@@ -1452,33 +1456,67 @@ impl ModelingPackage {
                 cap,
             );
             let structure = resolution.model.case.compiled().plan.structure();
-            let decision = resolution.route_decision()?;
-            let identity = resolution.admission_identity(&decision)?;
-            report.admissions.insert(
-                fixture,
-                analysis_tables::admission_tables(&self.runtime, &decision, identity, 0)?,
-            );
-            let assessment = decision
-                .structure
-                .as_ref()
-                .ok_or_else(|| contract("original fixture structural assessment absent"))?;
-            let free = assessment.variables.len();
-            let dof = assessment.inventory_difference();
-            let equalities = free as i64 - dof;
-            report.record_fixture(
-                fixture,
-                Kind::DegreesOfFreedom,
-                if dof == expected {
-                    Status::Passed
-                } else {
-                    Status::Failed
-                },
-                format!(
-                    "original free variables {free}; equalities {equalities}; inventory difference {dof}; expected {expected}"
-                ),
-                oracle,
-                cap,
-            );
+            let decision = match resolution.route_decision().and_then(|decision| {
+                let identity = resolution.admission_identity(&decision)?;
+                let tables =
+                    analysis_tables::admission_tables(&self.runtime, &decision, identity, 0)?;
+                Ok((decision, tables))
+            }) {
+                Ok((decision, tables)) => {
+                    report.admissions.insert(fixture, tables);
+                    decision
+                }
+                Err(error) => {
+                    report.failed(
+                        fixture,
+                        Kind::Preparation,
+                        &error,
+                        expected_failure,
+                        oracle,
+                        cap,
+                    );
+                    continue;
+                }
+            };
+            // An unresolved or refused route has no selected assessment. Each candidate
+            // still retains the same original variable/equality inventory; using that
+            // inventory does not select its structural mode or bypass evidence acquisition.
+            let assessment = decision.structure.as_ref().or_else(|| {
+                decision
+                    .eligibility
+                    .iter()
+                    .find_map(|candidate| candidate.structure.as_ref())
+            });
+            if let Some(assessment) = assessment {
+                let free = assessment.variables.len();
+                let dof = assessment.inventory_difference();
+                let equalities = free as i64 - dof;
+                report.record_fixture(
+                    fixture,
+                    Kind::DegreesOfFreedom,
+                    if dof == expected {
+                        Status::Passed
+                    } else {
+                        Status::Failed
+                    },
+                    format!(
+                        "original free variables {free}; equalities {equalities}; inventory difference {dof}; expected {expected}"
+                    ),
+                    oracle,
+                    cap,
+                );
+            } else {
+                report.complete = false;
+                report.record_fixture(
+                    fixture,
+                    Kind::DegreesOfFreedom,
+                    Status::Inconclusive,
+                    "original fixture structural assessment unavailable; inventory difference unassessed",
+                    oracle,
+                    cap,
+                );
+            }
+            let free = resolution.model.case.compiled().plan.columns().len();
             if free == 0 {
                 report.record_fixture(
                     fixture,
@@ -1620,10 +1658,26 @@ impl ModelingPackage {
             } else {
                 match self.finish_case(resolution, cancel).await {
                     Ok(prepared) => {
-                        report.admissions.insert(
-                            fixture,
-                            prepared.admission_tables(prepared.admission_identity()?, 0)?,
-                        );
+                        match prepared
+                            .admission_identity()
+                            .and_then(|identity| prepared.admission_tables(identity, 0))
+                        {
+                            Ok(tables) => {
+                                report.admissions.insert(fixture, tables);
+                            }
+                            Err(error) => {
+                                report.complete = false;
+                                report.failed(
+                                    fixture,
+                                    Kind::Preparation,
+                                    &error,
+                                    None,
+                                    oracle,
+                                    cap,
+                                );
+                                continue;
+                            }
+                        }
                         self.solve_case(prepared, policy.compiler, cancel).await
                     }
                     Err(error) => Err(error),
@@ -1631,12 +1685,22 @@ impl ModelingPackage {
             };
             match solved {
                 Ok(result) => {
-                    report.admissions.insert(
-                        fixture,
-                        result
-                            .prepared
-                            .admission_tables(result.prepared.admission_identity()?, 0)?,
-                    );
+                    // Keep the actual completed attempt even if its admission export
+                    // refuses. Publication failure does not reinterpret the native result.
+                    report.results.insert(fixture, result.clone());
+                    match result
+                        .prepared
+                        .admission_identity()
+                        .and_then(|identity| result.prepared.admission_tables(identity, 0))
+                    {
+                        Ok(tables) => {
+                            report.admissions.insert(fixture, tables);
+                        }
+                        Err(error) => {
+                            report.complete = false;
+                            report.failed(fixture, Kind::Preparation, &error, None, oracle, cap);
+                        }
+                    }
                     if let Some(failure) = result.diagnostic() {
                         report.failed(
                             fixture,
@@ -1649,7 +1713,6 @@ impl ModelingPackage {
                         if expected_failure.is_none() {
                             report.model_checks(fixture, &result.checks, oracle, cap);
                         }
-                        report.results.insert(fixture, result);
                         continue;
                     }
                     report.record_fixture(
@@ -1708,7 +1771,6 @@ impl ModelingPackage {
                             cap,
                         );
                     }
-                    report.results.insert(fixture, result);
                 }
                 Err(error) => report.failed(
                     fixture,
@@ -1810,7 +1872,22 @@ impl ModelingPackage {
             "modeling:derivative-sample",
             policy.allowance().map_err(MathRuntimeError::from)?,
         )?;
-        let plan = &resolution.model.case.compiled().plan;
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let operation = service.prepare_order(
+            resolution.model.case.clone(),
+            DerivativeOrder::First,
+            control.clone(),
+        );
+        tokio::pin!(operation);
+        let prepared = tokio::select! {
+            result = &mut operation => result?,
+            () = cancel.cancelled() => {
+                control.cancel();
+                let _ = operation.await;
+                return Err(MathRuntimeError::Cancelled.into());
+            }
+        };
+        let plan = &prepared.compiled().plan;
         let mut targets = plan
             .numerical_targets(&self.quantities)
             .map_err(MathRuntimeError::from)?;
@@ -1834,7 +1911,7 @@ impl ModelingPackage {
         let values = resolution.model.values.clone();
         let initial = plan.columns().iter().map(|id| values.scalars[id]).collect();
         let controls = resolution.solver.controls.clone();
-        let assembly = service.assemble(resolution.model.case.clone()).await?;
+        let assembly = service.assemble(prepared).await?;
         Ok(service
             .with_owned_worker(
                 assembly,
@@ -2543,6 +2620,59 @@ mod tests {
             structure
         );
     }
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn accounting_totals_do_not_create_missing_closure_obligations() {
+        let p = package(
+            r#"package p {
+ def D(net:Power) {
+  var x:Scalar; eq e:x==1; annotation start x(0);
+  accumulate tally:Power accounting tolerance 1e-6{W};
+  contribute tally role positive=7{W};
+  accumulate balance:Power observation tolerance 1e-6{W};
+  contribute balance role positive=net;
+ }
+ test closed fixture {dof 0; route steady; procedure solve;} {child root:D=D(net=0{W});}
+ test unclosed fixture {dof 0; route steady; procedure solve;} {child root:D=D(net=1{W});}
+ }"#,
+        );
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        assert!(report.complete);
+        assert_eq!(
+            report.fixture_statuses[&id("closed")],
+            Status::Passed,
+            "{:?}; {:?}",
+            report.checks,
+            report.failures
+        );
+        assert_eq!(report.fixture_statuses[&id("unclosed")], Status::Failed);
+        assert!(report.results[&id("closed")].accepted);
+        assert!(!report.results[&id("unclosed")].accepted);
+        for (fixture, expected) in [("closed", Status::Passed), ("unclosed", Status::Failed)] {
+            let closure = report
+                .checks
+                .iter()
+                .filter(|c| c.fixture_id == id(fixture) && c.kind == Kind::Closure)
+                .collect::<Vec<_>>();
+            assert_eq!(closure.len(), 1);
+            assert_eq!(closure[0].status, expected);
+        }
+        assert!(!report.failures.iter().any(|f| {
+            f.observations.values().any(|v| matches!(v,
+            pse_model::diagnostic::Observation::Text(text) if text.contains("closure_unavailable")
+        ))
+        }));
+    }
     /// An over-specified root model is refused structurally before any route is selected,
     /// naming its over-determined equations; its fixture expects that typed refusal, which
     /// the derivative inspection observes as well.
@@ -2864,6 +2994,9 @@ mod tests {
  }"#,
         );
         let mut policy = policy();
+        // One coordinate admits Value/First (two Taylor components), while Second
+        // would need three. Shared diagnostic sampling must request only First.
+        policy.compiler.evaluation.derivative_components = 2;
         policy.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Kinsol,
         );
@@ -3388,5 +3521,257 @@ mod tests {
                 .filter(|r| r.parameter)
                 .all(|r| r.domain.is_none())
         );
+    }
+
+    #[tokio::test]
+    async fn kernel_conformance_retains_route_refusal_and_runs_following_fixture() {
+        use pse_backend_native::routing::{AssessmentState, Refusal};
+        use pse_relations::columnar::RelationRow;
+        let p = package(
+            r#"package p {
+ test refused fixture { dof -1; route steady; procedure solve; } {
+   var x:Scalar; eq a:x==1; eq b:x==2; annotation start x(0);
+ }
+ test following fixture { dof 0; route steady; procedure solve; } {
+   param value:Scalar=2; expect value==2 tolerance 1e-8;
+ }
+ }"#,
+        );
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let cancel = crate::CancelSource::new();
+        let defaults = policy();
+        let admitted = p
+            .declared_execution(
+                id("refused"),
+                defaults.compiler,
+                defaults.solver,
+                defaults.numerical,
+                defaults.limits,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let resolution = p
+            .resolve_case(
+                id("refused"),
+                pse_modeling::specialize::root_instance(id("refused")),
+                admitted.analysis.bindings.clone(),
+                admitted.analysis.limits,
+                admitted.analysis.case.clone(),
+                admitted.analysis.order,
+                admitted.analysis.compiler,
+                admitted.analysis.solver.clone(),
+                admitted.analysis.numerical.clone(),
+                cases::CaseOverrides::default(),
+                false,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let decision = resolution.route_decision().unwrap();
+        assert_eq!(decision.state, AssessmentState::Refused);
+        assert!(matches!(decision.refusal, Some(Refusal::NoEligible)));
+        assert!(decision.selected.is_none());
+        assert!(decision.structure.as_ref().is_some_and(|assessment| {
+            assessment.refusal.is_some() && assessment.inventory_difference() == -1
+        }));
+        assert!(decision.eligibility.iter().any(|candidate| {
+            candidate.structure.as_ref().is_some_and(|assessment| {
+                assessment.variables.len() == 1 && assessment.inventory_difference() == -1
+            })
+        }));
+        let diagnostic = p
+            .finish_case(resolution, &cancel)
+            .await
+            .unwrap_err()
+            .boundary_diagnostic();
+        let report = p.conform(policy(), &cancel).await.unwrap();
+        assert!(report.complete);
+        assert!(!report.passed());
+        assert_eq!(report.fixture_statuses[&id("refused")], Status::Failed);
+        assert_eq!(report.fixture_statuses[&id("following")], Status::Passed);
+        assert!(!report.results.contains_key(&id("refused")));
+        assert!(report.results[&id("following")].accepted);
+        let refusal = report
+            .checks
+            .iter()
+            .find(|check| check.fixture_id == id("refused") && check.kind == Kind::StartToSolve)
+            .unwrap();
+        assert_eq!(refusal.status, Status::Failed);
+        assert_eq!(
+            serde_json::to_value(&report.failures[refusal.failure_ordinal.unwrap() as usize])
+                .unwrap(),
+            serde_json::to_value(&diagnostic).unwrap()
+        );
+        assert!(report.checks.iter().any(|check| {
+            check.fixture_id == id("refused")
+                && check.kind == Kind::DegreesOfFreedom
+                && check.status == Status::Passed
+                && check.message.contains("inventory difference -1")
+        }));
+        let tables = report.admission_tables().unwrap();
+        let route_id =
+            pse_relations::generated::runtime::route_decisions::spec(&p.runtime.registry)
+                .unwrap()
+                .id;
+        let routes =
+            pse_relations::generated::runtime::route_decisions::Row::rows(&tables[&route_id])
+                .unwrap();
+        assert!(routes.iter().any(|route| {
+            route.refusal == Some(pse_model::generated::enums::NativeRouteRefusal::NoEligible)
+                && route.selected.is_none()
+        }));
+    }
+
+    #[tokio::test]
+    async fn kernel_conformance_continues_after_fixture_resource_refusal() {
+        let p = package(
+            r#"package p {
+ def D { var x:Scalar; let y:Scalar=x*x; }
+ test exhausted fixture { dof 0; route steady; procedure check;
+   policy { limits items(1); } fix root.x=2;
+ } { child root:D=D(); expect root.y==4 tolerance 1e-12; }
+ test following fixture { dof 0; route steady; procedure solve; } {
+   param value:Scalar=2; expect value==2 tolerance 1e-8;
+ }
+ }"#,
+        );
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let report = p
+            .conform(policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(!report.complete);
+        assert!(!report.passed());
+        assert_eq!(
+            report.fixture_statuses[&id("exhausted")],
+            Status::Inconclusive
+        );
+        assert_eq!(report.fixture_statuses[&id("following")], Status::Passed);
+        assert!(report.results[&id("following")].accepted);
+        let refused = report
+            .checks
+            .iter()
+            .find(|check| check.fixture_id == id("exhausted") && check.kind == Kind::Preparation)
+            .unwrap();
+        assert_eq!(refused.status, Status::Inconclusive);
+        assert!(refused.message.ends_with("required 2, allowed 1"));
+        let failure = &report.failures[refused.failure_ordinal.unwrap() as usize];
+        assert_eq!(
+            failure.class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit
+        );
+        assert_eq!(
+            failure.rule,
+            pse_diagnostics::DiagnosticRule::ModelingBudget
+        );
+    }
+
+    #[cfg(feature = "solver-highs")]
+    #[tokio::test]
+    async fn kernel_conformance_acquires_pending_class_evidence_and_continues() {
+        use pse_backend_native::routing::AssessmentState;
+        let p = package(
+            r#"package p {
+ test pending fixture { dof 1; route steady; procedure solve; intent optimize; } {
+   var x:Scalar; let cost:Scalar=(x-3)^2; annotation objective cost(minimize);
+   annotation start x(1); annotation bounds x(0,10); expect x==3 tolerance 1e-6;
+ }
+ test following fixture { dof 0; route steady; procedure solve; } {
+   param value:Scalar=2; expect value==2 tolerance 1e-8;
+ }
+ }"#,
+        );
+        let id = |name: &str| {
+            p.declarations()
+                .iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let cancel = crate::CancelSource::new();
+        let defaults = policy();
+        let admitted = p
+            .declared_execution(
+                id("pending"),
+                defaults.compiler,
+                defaults.solver,
+                defaults.numerical,
+                defaults.limits,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let resolution = p
+            .resolve_case(
+                id("pending"),
+                pse_modeling::specialize::root_instance(id("pending")),
+                admitted.analysis.bindings.clone(),
+                admitted.analysis.limits,
+                admitted.analysis.case.clone(),
+                admitted.analysis.order,
+                admitted.analysis.compiler,
+                admitted.analysis.solver.clone(),
+                admitted.analysis.numerical.clone(),
+                cases::CaseOverrides::default(),
+                false,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let decision = resolution.route_decision().unwrap();
+        assert_eq!(decision.state, AssessmentState::PendingEvidence);
+        assert!(decision.selected.is_none() && decision.structure.is_none());
+        assert!(!decision.evidence.is_empty());
+        // Distinct candidate modes remain nested route facts; the flat assessment
+        // relation has one request/step key and cannot claim an ambiguous common mode.
+        use pse_relations::columnar::RelationRow;
+        let identity = resolution.admission_identity(&decision).unwrap();
+        let tables = analysis_tables::admission_tables(&p.runtime, &decision, identity, 0).unwrap();
+        let structural_id =
+            pse_relations::generated::runtime::structural_assessments::spec(&p.runtime.registry)
+                .unwrap()
+                .id;
+        assert!(!tables.contains_key(&structural_id));
+        let route_id =
+            pse_relations::generated::runtime::route_decisions::spec(&p.runtime.registry)
+                .unwrap()
+                .id;
+        let routes =
+            pse_relations::generated::runtime::route_decisions::Row::rows(&tables[&route_id])
+                .unwrap();
+        assert_eq!(routes, vec![decision.row(identity, 0)]);
+        for (projected, candidate) in routes[0].eligibility.iter().zip(&decision.eligibility) {
+            assert_eq!(projected.backend, candidate.backend);
+            assert_eq!(
+                projected.structural_mode,
+                candidate.structure.as_ref().map(|s| s.mode)
+            );
+            assert_eq!(
+                projected.structurally_admitted,
+                candidate.structure.as_ref().map(|s| s.refusal.is_none())
+            );
+        }
+        drop(resolution);
+        let report = p.conform(policy(), &cancel).await.unwrap();
+        assert!(report.complete);
+        assert!(report.passed(), "{:?}", report.checks);
+        for fixture in [id("pending"), id("following")] {
+            assert_eq!(report.fixture_statuses[&fixture], Status::Passed);
+            assert!(report.results[&fixture].accepted);
+        }
+        assert!(report.failures.is_empty());
     }
 }

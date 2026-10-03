@@ -76,7 +76,7 @@ fn register(
 ) -> Result<Registration, ProviderError> {
     let registry = standard_registry().unwrap();
     Registration::new(
-        std::sync::Arc::new(Bounded {
+        Arc::new(Bounded {
             spec: spec(),
             envelope,
             outputs,
@@ -110,7 +110,7 @@ fn provider_envelope_is_checked_against_the_contract() {
     // The factory-free descriptor bound to a factory is checked the same way.
     let registry = standard_registry().unwrap();
     let descriptor = AdmittedProvider::new(spec(), &registry).unwrap();
-    let factory = std::sync::Arc::new(Bounded {
+    let factory = Arc::new(Bounded {
         spec: spec(),
         envelope: Some(vec![(0.0, 1.0)]),
         outputs: vec![0.0, 0.0],
@@ -193,7 +193,7 @@ fn envelope_violation_is_typed_contract_error() {
     // Scoped workers are checked the same way.
     assert!(matches!(
         outside
-            .worker_scoped(std::sync::Arc::new(AtomicBool::new(false)))
+            .worker_scoped(ExecutionScope::new(Arc::new(AtomicBool::new(false)), None))
             .unwrap()
             .evaluate(&[1.0], &all, &context),
         Err(ProviderError::Contract(_))
@@ -227,7 +227,7 @@ fn envelope_in_provider_key() {
     // A provider without an envelope keeps its factory's key.
     assert_eq!(key(None), factory.configuration_key());
     assert_eq!(
-        Registration::new(std::sync::Arc::new(factory), &registry)
+        Registration::new(Arc::new(factory), &registry)
             .unwrap()
             .configuration_key(),
         key(None)
