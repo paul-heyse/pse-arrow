@@ -28,19 +28,19 @@ delta_kernel_default_engine = {  package = "buoyant_kernel_engine",  git = "http
 
 
 # arrow
-arrow = { version = "59" }
-arrow-arith = { version = "59" }
-arrow-array = { version = "59", features = ["chrono-tz"] }
-arrow-buffer = { version = "59" }
-arrow-cast = { version = "59" }
-arrow-ipc = { version = "59" }
-arrow-json = { version = "59" }
-arrow-ord = { version = "59" }
-arrow-row = { version = "59" }
-arrow-schema = { version = "59" }
-arrow-select = { version = "59" }
+arrow = { version = "60" }
+arrow-arith = { version = "60" }
+arrow-array = { version = "60", features = ["chrono-tz"] }
+arrow-buffer = { version = "60" }
+arrow-cast = { version = "60" }
+arrow-ipc = { version = "60" }
+arrow-json = { version = "60" }
+arrow-ord = { version = "60" }
+arrow-row = { version = "60" }
+arrow-schema = { version = "60" }
+arrow-select = { version = "60" }
 object_store = { version = "0.13.2" }
-parquet = { version = "59" }
+parquet = { version = "60" }
 
 # datafusion 54
 datafusion = { version = "55" }
