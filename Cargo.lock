@@ -2589,11 +2589,11 @@ dependencies = [
 
 [[package]]
 name = "diffsol"
-version = "0.16.2"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b324c954a5178683516e35e06051f02e3e2471d22b8175d9a01b274bd81269d"
+checksum = "00b968c69464a2c74f97377038e4a017a2b48190086f55c95902a6d00238a25a"
 dependencies = [
- "diffsol-la",
+ "diffsol-la 0.2.0",
  "diffsol-nl",
  "log",
  "num-traits",
@@ -2617,12 +2617,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "diffsol-nl"
-version = "0.1.1"
+name = "diffsol-la"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b24ab3f56ff94c563ab85e7897ba57f884617d0dc83a081028d28ec800213a1"
+checksum = "d43ceb38a6e0d7442e87c7b2ee97c7998355b8f15da51b2a054bdabf872fd24a"
 dependencies = [
- "diffsol-la",
+ "faer",
+ "faer-traits",
+ "nalgebra",
+ "num-traits",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "diffsol-nl"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f064c45030d3ddc765101ed7464c2e89ec08e838f88a5b657d1c584ba5c3ac32"
+dependencies = [
+ "diffsol-la 0.2.0",
  "log",
  "num-traits",
  "thiserror 2.0.20",
@@ -2963,7 +2976,7 @@ dependencies = [
  "indexmap",
  "itertools 0.15.0",
  "nalgebra",
- "num-dual",
+ "num-dual 0.14.2",
  "num-traits",
  "quantity",
  "serde",
@@ -2981,7 +2994,7 @@ dependencies = [
  "indexmap",
  "itertools 0.15.0",
  "nalgebra",
- "num-dual",
+ "num-dual 0.14.2",
  "num-traits",
  "quantity",
  "serde",
@@ -4758,6 +4771,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-dual"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66fe0dba4263f0d5a17ea63c52fa0cb9488275b827e40389c0a9ce7074efedbd"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5681,7 +5703,7 @@ dependencies = [
  "cc",
  "clarabel",
  "diffsol",
- "diffsol-la",
+ "diffsol-la 0.1.1",
  "enum-map",
  "faer",
  "feral",
@@ -6286,7 +6308,7 @@ dependencies = [
  "highs-sys",
  "libtest-mimic",
  "nalgebra",
- "num-dual",
+ "num-dual 0.15.0",
  "object_store",
  "parquet",
  "proptest",
@@ -6698,7 +6720,7 @@ checksum = "89033a89e427162dc9065d22d09e910ee10f3ce024b307f9ed6e7700db1dc2ac"
 dependencies = [
  "document-features",
  "nalgebra",
- "num-dual",
+ "num-dual 0.14.2",
  "num-traits",
 ]
 
