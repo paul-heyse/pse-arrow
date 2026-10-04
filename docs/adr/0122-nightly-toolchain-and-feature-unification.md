@@ -1,7 +1,7 @@
 ---
 id: ADR-0122
 title: Pin a dated nightly for workspace feature unification, with a cargo-hakari workspace-hack
-status: accepted
+status: superseded
 date: 2026-09-28
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§3.1, §3.2]
 review: docs/design_review/reviews/design_review_build-infrastructure_2026-09-29.md
 evidence: Implemented
 supersedes: [ADR-0018]
-superseded-by: null
+superseded-by: ADR-0159
 revisit: Cargo stabilizes `feature-unification` (the nightly pin can then return to a stable channel); a nightly regression or a missing component blocks moving the date; `cargo hakari generate` emits a `force_validate` or native-solver line despite the traversal excludes; or Cargo keys path packages by absolute source location, so a build directory shared across checkouts becomes sound.
 verification: Unit-graph comparison of the seven recipe selections without compiling (`cargo … --unit-graph -Z unstable-options`), before and after, counting distinct units of symbolica, DataFusion, arrow-array and faer; `just check`, `just check-solver-contracts` and `just codegen-hakari-check` on nightly-2026-09-29; governance tests `toolchain_matches_msrv`, `every_crate_registered::workspace_hack_keeps_force_validate_opt_in` and `dependency_floors`; `scripts/tests/test_build_environment.py` and `test_audit_tools.py`.
 standard: core-3.1
@@ -159,3 +159,4 @@ different branches. Correctness decides it; sccache recovers part of the saving 
 ## Status history
 
 - 2026-09-28 — accepted on the maintainer decisions of 2026-09-28 and the change-tier review (Accept, author review); supersedes ADR-0018, whose pins, lockfile and supply-chain checks stand. Before merge, the shared build directory the maintainer had also decided was withdrawn as unsound (Options; review F09).
+- 2026-10-04 — superseded by ADR-0159 for the exact-pin clause (Outcome item 6); ADR-0159 restates the nightly, feature-unification, lockfile and supply-chain decisions, which stand.
