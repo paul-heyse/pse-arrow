@@ -22,7 +22,7 @@ use pse_structural::{
 };
 use salsa::Database;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -172,11 +172,11 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AdmittedImplicit, AdmittedModeling, BoundStructure, ConditionalUnitInventory, Derivation,
-    Derived, FlowConnectionDocument, FlowSelectionDocument, ImplicitAlgorithm,
-    ImplicitCapabilities, ImplicitMeaning, ImplicitScale, ImplicitSelection, ModelingBodyRetention,
-    ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection, ModelingHint,
-    ModelingOutput, ModelingPointChecks, ModelingRevision, ModelingTestValue,
+    AdmittedImplicit, AdmittedModeling, AutomaticCausalUnit, BoundStructure,
+    ConditionalUnitInventory, Derivation, Derived, FlowConnectionDocument, FlowSelectionDocument,
+    ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale, ImplicitSelection,
+    ModelingBodyRetention, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
+    ModelingHint, ModelingOutput, ModelingPointChecks, ModelingRevision, ModelingTestValue,
     ModelingValidityResult, ModelingVariableState, ObjectiveBound, PreparedModeling,
     SelectionEquivalence, SelectionNeighborhood, SemanticModeling,
 };
@@ -297,9 +297,11 @@ fn structural_plan(
         }
     }
     let objective = p
-        .objective_support()
+        .dependencies(cancel)?
         .into_iter()
-        .map(|c| columns[c.get()])
+        .filter(|dependency| matches!(dependency.target, Target::Objective(_)))
+        .flat_map(|dependency| dependency.execution)
+        .filter(|id| columns.binary_search(id).is_ok())
         .collect();
     let inc = CaseIncidence::new(
         Scope::Whole(id),
@@ -471,6 +473,158 @@ pub struct PreparedCase {
     pub derived: pse_math::SharedAllocation<Derived>,
 }
 impl PreparedCase {
+    /// Prepare the discovered block alternative with the exact retained compiler
+    /// environment and evaluator controls. No workspace or new profile is inferred.
+    pub fn automatic_blocks(
+        &self,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Alternative<Arc<Vec<PreparedBlock>>>> {
+        let schedule = match self.automatic_alternatives(cancel)?.initialization {
+            Alternative::Available(schedule) => schedule,
+            Alternative::Unavailable(reason) => return Ok(Alternative::Unavailable(reason)),
+        };
+        let Some(request) = self.artifacts.first() else {
+            return Ok(Alternative::Unavailable(
+                "original compiler environment has no retained evaluator request".into(),
+            ));
+        };
+        let profile = Profile {
+            optimization: request.optimization,
+            evaluation: request.evaluation,
+            class_proof_work: self.class_proof_work,
+            assembly: AssemblyLimits::default(),
+        };
+        Ok(Alternative::Available(conditional_blocks(
+            &self.plan,
+            &schedule,
+            &self.quantities,
+            profile,
+            &request.environment,
+            cancel,
+        )?))
+    }
+    /// Conservative original-coordinate separator for class-native decomposition.
+    /// This is a performance projection, never a numerical rank or elimination proof.
+    pub fn automatic_separator(
+        &self,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Option<pse_structural::incidence::Part>> {
+        let dependencies = self.plan.dependencies(cancel)?;
+        let free: BTreeSet<_> = self.plan.columns().iter().copied().collect();
+        let mut owners: BTreeMap<SemanticId, BTreeSet<SemanticId>> = BTreeMap::new();
+        for instance in self.plan.structure().instances() {
+            for slot in &instance.slots {
+                let id = slot.source();
+                if free.contains(&id) {
+                    owners.entry(id).or_default().insert(instance.instance);
+                }
+            }
+        }
+        let mut separator: BTreeSet<_> = owners
+            .iter()
+            .filter(|(_, owners)| owners.len() > 1)
+            .map(|(id, _)| *id)
+            .collect();
+        let columns: BTreeMap<_, _> = self
+            .structure
+            .blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(i, b)| b.members.columns.iter().map(move |c| (*c, i)))
+            .collect();
+        let rows: BTreeMap<_, _> = self
+            .structure
+            .blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(i, b)| b.members.rows.iter().map(move |r| (*r, i)))
+            .collect();
+        for dependency in &dependencies {
+            let used: BTreeSet<_> = dependency.execution.intersection(&free).copied().collect();
+            match dependency.target {
+                Target::Row(row) if rows.contains_key(&row) => {
+                    for column in &used {
+                        if columns.get(column) != rows.get(&row) {
+                            separator.insert(*column);
+                        }
+                    }
+                }
+                _ => {
+                    let blocks: BTreeSet<_> = used.iter().map(|c| columns.get(c)).collect();
+                    if blocks.len() > 1 {
+                        separator.extend(used);
+                    }
+                }
+            }
+        }
+        if separator.is_empty() {
+            return Ok(None);
+        }
+        let rows = dependencies
+            .iter()
+            .filter_map(|d| match d.target {
+                Target::Row(row) if !d.execution.is_disjoint(&separator) => Some(row),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        Ok(Some(pse_structural::incidence::Part {
+            rows,
+            columns: separator.into_iter().collect(),
+        }))
+    }
+    /// Discover supported mathematical alternatives from the complete original
+    /// projections. This does no native iteration or selected-sheet proof work.
+    pub fn automatic_alternatives(
+        &self,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<AutomaticAlternatives> {
+        let dependencies = self.plan.dependencies(cancel)?;
+        let execution: Vec<_> = dependencies
+            .iter()
+            .filter_map(|dependency| match dependency.target {
+                Target::Row(row) => Some(
+                    dependency
+                        .execution
+                        .iter()
+                        .map(move |column| (row, *column)),
+                ),
+                Target::Objective(_) => None,
+            })
+            .flatten()
+            .collect();
+        let initialization = if !self.plan.structure().native().is_empty() {
+            Alternative::Unavailable("native constraint locality is unavailable".into())
+        } else if !self.plan.structure().objectives().is_empty()
+            || self
+                .plan
+                .structure()
+                .rows()
+                .iter()
+                .any(|row| !row.lower.is_finite() || row.lower != row.upper)
+        {
+            Alternative::Unavailable(
+                "block initialization requires complete equalities without an objective".into(),
+            )
+        } else {
+            match pse_structural::initialization::Plan::with_execution_dependencies(
+                &self.structure,
+                &execution,
+                cancel,
+            ) {
+                Ok(plan) => Alternative::Available(plan),
+                Err(pse_structural::projection::ProjectionError::Cancelled) => {
+                    return Err(CompileError::Cancelled);
+                }
+                Err(cause) => Alternative::Unavailable(cause.to_string()),
+            }
+        };
+        Ok(AutomaticAlternatives {
+            initialization,
+            dependencies,
+        })
+    }
     /// Resolve demanded coefficient-class evidence without preparing solver derivatives.
     /// Missing proof remains explicitly unresolved, and resource failure remains an error.
     pub fn prepare_class(&self, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
@@ -611,6 +765,22 @@ impl PreparedCase {
             .sum::<usize>()
             + 64
     }
+}
+/// Candidate availability retains the actual mathematical reason for refusal.
+#[derive(Clone, Debug)]
+pub enum Alternative<T> {
+    /// A supported lossless projection or initialization proposal, awaiting execution.
+    Available(T),
+    /// Current contracts do not establish this alternative; simultaneous remains valid.
+    Unavailable(String),
+}
+/// Compiler-owned candidate inventory, distinct from native capability selection.
+#[derive(Clone, Debug)]
+pub struct AutomaticAlternatives {
+    /// Complete block proposal; matching alone establishes no regular reduced sheet.
+    pub initialization: Alternative<pse_structural::initialization::Plan>,
+    /// Separate original numerical, execution/validity and objective/inequality targets.
+    pub dependencies: Vec<pse_math::assembly::ContributionDependencies>,
 }
 /// The value-dependent products of a prepared plan: the library presolve projection, the
 /// optional coefficient snapshot, the problem facts derived from both, and the fixed and
@@ -854,7 +1024,26 @@ impl CompilerWorkspace {
         profile: Profile,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Arc<Vec<PreparedBlock>>> {
-        let schedule = pse_structural::initialization::Plan::from_analysis(&case.structure)?;
+        let dependencies = case
+            .plan
+            .dependencies(cancel)?
+            .into_iter()
+            .filter_map(|dependency| match dependency.target {
+                Target::Row(row) => Some(
+                    dependency
+                        .execution
+                        .into_iter()
+                        .map(move |column| (row, column)),
+                ),
+                Target::Objective(_) => None,
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        let schedule = pse_structural::initialization::Plan::with_execution_dependencies(
+            &case.structure,
+            &dependencies,
+            cancel,
+        )?;
         conditional_blocks(
             &case.plan,
             &schedule,

@@ -102,7 +102,69 @@ pub struct CasePlan {
     limits: AssemblyLimits,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
 }
+/// Distinct dependency projections of one original contribution. Execution includes
+/// branch and validity inputs, including fixed symbols; numerical support does not.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ContributionDependencies {
+    /// Original target, retaining every objective level and inequality identity.
+    pub target: Target,
+    /// Numerical all-branch first support, without promoting derivative capability.
+    pub numerical: BTreeSet<SemanticId>,
+    /// Inputs needed to execute and validate this contribution.
+    pub execution: BTreeSet<SemanticId>,
+}
 impl CasePlan {
+    /// Complete original dependency projections. Body-wide control attribution is
+    /// conservative; unlike solver columns this inventory retains fixed inputs.
+    pub fn dependencies(
+        &self,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<ContributionDependencies>, MathError> {
+        let mut result = Vec::new();
+        for binding in self.structure.instances() {
+            let outputs: Vec<_> = binding
+                .contributions
+                .iter()
+                .map(|c| c.output)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            if outputs.is_empty() {
+                continue;
+            }
+            let body = &self.bodies[&binding.body];
+            let support = body.incidence(
+                &outputs,
+                &(0..binding.slots.len()).collect::<Vec<_>>(),
+                cancel,
+            )?;
+            for contribution in &binding.contributions {
+                let numerical: BTreeSet<_> = support
+                    .first_for_output(contribution.output)
+                    .ok_or_else(|| MathError::Contract("dependency output support absent".into()))?
+                    .iter()
+                    .map(|slot| binding.slots[*slot].source())
+                    .collect();
+                let execution = numerical
+                    .iter()
+                    .copied()
+                    .chain(
+                        support
+                            .support()
+                            .controls
+                            .iter()
+                            .map(|slot| binding.slots[*slot].source()),
+                    )
+                    .collect();
+                result.push(ContributionDependencies {
+                    target: contribution.target,
+                    numerical,
+                    execution,
+                });
+            }
+        }
+        Ok(result)
+    }
     /// Shared component identities and known payload estimates, excluding body and
     /// support payloads and the shallow plan wrapper. Deduplicate each component
     /// separately when observing live plans of different derivative orders.

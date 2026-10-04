@@ -55,6 +55,10 @@ pub struct SolverProfile {
     pub numerics: NumericalPolicy,
     /// Exact default or explicitly requested numerical convexity qualification.
     pub convexity: ConvexityPolicy,
+    /// Requested automatic or declared composition and its preserved branch/work constraints.
+    pub composition: pse_model::strategy::CompositionRequest,
+    /// Consumer-owned evidence class and finite work for optional selected reconstruction.
+    pub reconstruction: Option<native::derived::ReconstructionAccuracy>,
     /// Mathematical purpose.
     pub intent: SolveIntent,
     /// Deterministic auto or an explicit eligible backend.
@@ -77,9 +81,27 @@ impl Default for SolverProfile {
             convexity: ConvexityPolicy::default(),
             intent: SolveIntent::Optimize,
             selection: SolverSelection::Auto,
-            controls: Controls::default(),
+            controls: Controls {
+                hessian: HessianMode::Auto,
+                ..Controls::default()
+            },
             backend: BackendSettings::Default,
             sensitivity: None,
+            composition: Default::default(),
+            reconstruction: None,
+        }
+    }
+}
+impl SolverProfile {
+    /// Resolve request-only curvature from the original producer's actual capability.
+    /// Native adapters receive only a concrete acting method.
+    pub(crate) fn resolve_curvature(&mut self, available: pse_kernels::DerivativeOrder) {
+        if self.controls.hessian == HessianMode::Auto {
+            self.controls.hessian = if available >= pse_kernels::DerivativeOrder::Second {
+                HessianMode::Exact
+            } else {
+                HessianMode::LimitedMemory
+            };
         }
     }
 }
@@ -198,6 +220,7 @@ enum Representation {
 pub struct PreparedSolve {
     representation: Representation,
     profile: SolverProfile,
+    requested_hessian: HessianMode,
     numerics: Arc<ResolvedNumericalPolicy>,
     normalization: Normalization,
     tolerances: Tolerances,
@@ -219,6 +242,223 @@ pub(crate) struct PreparedComposition {
     pub(crate) declaration: pse_model::strategy::NumericalStrategy,
     pub(crate) rungs: Vec<PreparedRung>,
     _owner: Arc<pse_columnar::AllocationLease>,
+}
+/// An immutable owner-issued operation beside the resolver's cheap applicability facts.
+/// The index selected by the resolver is consumed from this inventory, never rebound.
+#[derive(Clone, Debug)]
+pub(crate) struct AutomaticOperation {
+    pub(crate) candidate: super::strategy::AutoCandidate,
+    binding: AutomaticBinding,
+}
+#[derive(Clone, Debug)]
+enum AutomaticBinding {
+    Original(Box<PreparedSolve>),
+    #[cfg(feature = "solver-pounce")]
+    NativeProfile {
+        original: Box<PreparedSolve>,
+        profile: Box<SolverProfile>,
+    },
+    Reduced {
+        original: Box<PreparedSolve>,
+        accuracy: native::derived::ReconstructionAccuracy,
+        profile: Box<SolverProfile>,
+    },
+}
+impl PreparedSolve {
+    /// Produce descriptions only. Optional artifacts are prepared after one decision.
+    pub(crate) fn automatic_operations(
+        &self,
+        last: Option<&SolveReport>,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Vec<AutomaticOperation>, MathRuntimeError> {
+        use pse_model::strategy::{MechanismKind, StartOrigin};
+        if cancel.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        let start = match self.profile.controls.start {
+            StartPolicy::Explicit => StartOrigin::Explicit,
+            StartPolicy::PreviousAccepted => StartOrigin::Accepted,
+            StartPolicy::NoPriorStart => StartOrigin::Specification,
+        };
+        let original_request = self.request_identity()?.as_id();
+        let candidate = |kind: MechanismKind,
+                         replacement,
+                         profile: &SolverProfile|
+         -> Result<super::strategy::AutoCandidate, ProblemError> {
+            let mut binding = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+            binding
+                .hash(&original_request)
+                .hash(&profile_key(profile)?.as_id())
+                .str(kind.as_str());
+            Ok(super::strategy::AutoCandidate {
+                identity: binding.finish_hash(),
+                kind,
+                start: if replacement {
+                    StartOrigin::Auxiliary
+                } else {
+                    start
+                },
+                replacement,
+                support: std::collections::BTreeSet::new(),
+                reservation: None,
+            })
+        };
+        if last.is_none() {
+            let mut operations = Vec::new();
+            if let Some(accuracy) = self.profile.reconstruction
+                && let Representation::Algebraic(source) = &self.representation
+                && source.providers.values().any(|registration| {
+                    registration
+                        .source::<pse_math::implicit::RegimeFactory>()
+                        .is_some()
+                        || registration
+                            .source::<pse_math::implicit::ImplicitFactory>()
+                            .is_some()
+                })
+                && let Some(adapter) = execution::LINKED
+                    .adapters()
+                    .filter(|adapter| {
+                        adapter.linked()
+                            && adapter.representation() == execution::Representation::Nlp
+                            && match self.profile.selection {
+                                SolverSelection::Auto => true,
+                                SolverSelection::Explicit(backend) => adapter.backend() == backend,
+                            }
+                            && self
+                                .profile
+                                .backend
+                                .backend()
+                                .is_none_or(|backend| adapter.backend() == backend)
+                    })
+                    .min_by_key(|adapter| adapter.automatic().unwrap_or(u8::MAX))
+            {
+                let mut profile = self.profile.clone();
+                profile.selection = SolverSelection::Explicit(adapter.backend());
+                // Exact curvature is an explicit request, not permission to substitute
+                // a reduced First-only family. Eligibility is checked by its binder.
+                if self.requested_hessian == HessianMode::Auto {
+                    profile.controls.hessian = HessianMode::LimitedMemory;
+                }
+                profile.sensitivity = None;
+                operations.push(AutomaticOperation {
+                    candidate: candidate(MechanismKind::ReducedSpace, false, &profile)?,
+                    binding: AutomaticBinding::Reduced {
+                        original: Box::new(self.clone()),
+                        accuracy,
+                        profile: Box::new(profile),
+                    },
+                });
+            }
+            operations.push(AutomaticOperation {
+                candidate: candidate(MechanismKind::Direct, false, &self.profile)?,
+                binding: AutomaticBinding::Original(Box::new(self.clone())),
+            });
+            return Ok(operations);
+        }
+        #[cfg(feature = "solver-pounce")]
+        if self.backend() == Some(Backend::Pounce) {
+            let settings = match &self.profile.backend {
+                BackendSettings::Default => native::settings::pounce::Settings::default(),
+                BackendSettings::Pounce(settings) => settings.clone(),
+                _ => {
+                    return Err(
+                        ProblemError::Contract("POUNCE route settings differ".into()).into(),
+                    );
+                }
+            };
+            let allow_replacement = self
+                .profile
+                .composition
+                .recovery
+                .contains(&StartOrigin::Auxiliary);
+            let descriptions = native::pounce::second_opinion_profiles(
+                &self.profile.controls,
+                &settings,
+                last.ok_or_else(|| {
+                    ProblemError::Internal("missing actual native observation".into())
+                })?,
+                allow_replacement,
+            )?;
+            return Ok(descriptions
+                .into_iter()
+                .map(|description| {
+                    let mut profile = self.profile.clone();
+                    profile.controls = description.controls;
+                    profile.backend = BackendSettings::Pounce(description.settings);
+                    Ok(AutomaticOperation {
+                        candidate: candidate(
+                            MechanismKind::NativeGlobalization,
+                            description.replaces_start,
+                            &profile,
+                        )?,
+                        binding: AutomaticBinding::NativeProfile {
+                            original: Box::new(self.clone()),
+                            profile: Box::new(profile),
+                        },
+                    })
+                })
+                .collect::<Result<Vec<_>, ProblemError>>()?);
+        }
+        Ok(Vec::new())
+    }
+}
+impl MathService {
+    /// Bind only the selected description under the existing mathematical/native owners.
+    pub(crate) async fn prepare_automatic_operation(
+        self: &Arc<Self>,
+        operation: AutomaticOperation,
+        scope: pse_kernels::ExecutionScope,
+        cancel: &crate::CancelSource,
+    ) -> Result<PreparedRung, MathRuntimeError> {
+        scope.check().map_err(ProblemError::Provider)?;
+        if cancel.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        let prepared = match operation.binding {
+            AutomaticBinding::Original(original) => (*original).within_task(scope)?,
+            AutomaticBinding::Reduced {
+                original,
+                accuracy,
+                profile,
+            } => {
+                let request = self
+                    .automatic_reduced_request(&original, accuracy)?
+                    .ok_or_else(|| {
+                        ProblemError::Unsupported(
+                            "selected providers do not establish a complete original reduction"
+                                .into(),
+                        )
+                    })?;
+                return Ok(self
+                    .prepare_derived(*original, request, *profile, scope, cancel)
+                    .await?
+                    .into());
+            }
+            #[cfg(feature = "solver-pounce")]
+            AutomaticBinding::NativeProfile { original, profile } => {
+                let Representation::Algebraic(source) = &original.representation else {
+                    return Err(ProblemError::Unsupported(
+                        "native profile recovery requires algebraic source".into(),
+                    )
+                    .into());
+                };
+                let mut rebound = self
+                    .prepare_resolved(
+                        source.prepared.clone(),
+                        source.values.clone(),
+                        source.providers.clone(),
+                        *profile,
+                        original.numerics.clone(),
+                        BTreeMap::new(),
+                    )
+                    .await?;
+                rebound.explicit_start = original.explicit_start.clone();
+                rebound.requested_hessian = original.requested_hessian;
+                rebound.within_task(scope)?
+            }
+        };
+        Ok(prepared.into())
+    }
 }
 impl PreparedSolve {
     /// Preserve a caller's finite task deadline and cancellation through queued execution.
@@ -417,6 +657,7 @@ impl PreparedSolve {
             .map_err(|error| ProblemError::memory(error.to_string()))?;
         let owner = pse_columnar::AllocationLease::new(reservation);
         self.task_scope = task_scope;
+        self.profile.composition.policy = pse_model::strategy::CompositionPolicy::Declared;
         self.composition = Some(Arc::new(PreparedComposition {
             declaration,
             rungs,
@@ -538,7 +779,7 @@ impl PreparedSolve {
 
     /// Immutable compilation and normalization selected before attaching a seed.
     pub fn preparation_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
-        let mut h = FramedHasher::new(pse_ids::Frame::SolvePreparationV2);
+        let mut h = FramedHasher::new(pse_ids::Frame::SolvePreparationV3);
         h.hash(&self.snapshot.identity())
             .hash(&profile_key(&self.profile)?.as_id())
             .hash(&self.numerics.key);
@@ -583,7 +824,7 @@ impl PreparedSolve {
         }
         let base = h.finish_hash();
         if let Some(composition) = &self.composition {
-            let mut strategy = FramedHasher::new(pse_ids::Frame::SolveStrategyPreparationV1);
+            let mut strategy = FramedHasher::new(pse_ids::Frame::SolveStrategyPreparationV2);
             strategy.hash(&base).hash(
                 &composition
                     .declaration
@@ -632,12 +873,13 @@ impl PreparedSolve {
     /// Complete selected request, including explicit seed payload and compatibility data.
     pub fn request_identity(&self) -> Result<pse_ids::roles::LineageRequestHash, ProblemError> {
         let mut h = FramedHasher::new(if self.composition.is_some() {
-            pse_ids::Frame::SolveStrategyRequestV1
+            pse_ids::Frame::SolveStrategyRequestV2
         } else {
-            pse_ids::Frame::SolveRequestV2
+            pse_ids::Frame::SolveRequestV3
         });
         h.hash(&self.preparation_identity()?)
-            .hash(&self.numerics.key);
+            .hash(&self.numerics.key)
+            .str(self.requested_hessian.as_str());
         if let Some(compatibility) = &self.compatibility {
             h.bool(true)
                 .hash(&compatibility.layout)
@@ -889,6 +1131,10 @@ impl PreparedSolve {
     pub fn route(&self) -> Route {
         self.route
     }
+    /// Requested policy, retained separately from effective native settings and decisions.
+    pub fn composition_request(&self) -> &pse_model::strategy::CompositionRequest {
+        &self.profile.composition
+    }
     /// One explicit minimal strategy when no composition was declared.
     pub fn numerical_strategy(&self) -> pse_model::strategy::NumericalStrategy {
         self.composition.as_ref().map_or_else(
@@ -1115,6 +1361,11 @@ pub struct ConstantReport {
     pub observation: quality::Observation,
     /// Source-space quality without a fake native attempt.
     pub quality: Quality,
+    /// Actual original free coordinates from a fully reconstructing supplier.
+    /// Empty for an all-fixed source.
+    pub coordinates: Vec<(pse_ids::SemanticId, f64)>,
+    /// Direct evaluation work; absent counters retain unavailable supplier totals.
+    pub work: WorkEvidence,
 }
 /// A step has either an actual native attempt or direct constant evaluation.
 #[derive(Clone, Debug)]
@@ -1451,11 +1702,20 @@ impl MathService {
         prepared: Preparation,
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        profile: SolverProfile,
+        mut profile: SolverProfile,
         numerics: Arc<ResolvedNumericalPolicy>,
         implicit: BTreeMap<pse_kernels::ProviderKey, pse_math::factorable::ImplicitDefinition>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
+        let requested_hessian = profile.controls.hessian;
+        profile.resolve_curvature(prepared.prepared.plan.available_order());
+        profile
+            .composition
+            .validate()
+            .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        if let Some(accuracy) = profile.reconstruction {
+            accuracy.validate()?;
+        }
         // Per-solve overlays are separate from the shared compiler product.
         let prepared = self
             .discover_class(prepared, values.clone(), &profile)
@@ -1977,6 +2237,7 @@ impl MathService {
                 coefficient_cone,
             }),
             profile,
+            requested_hessian,
             numerics,
             normalization,
             tolerances,
@@ -2007,13 +2268,15 @@ impl MathService {
         executable: Arc<ExecutableCase>,
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        profile: SolverProfile,
+        mut profile: SolverProfile,
         numerics: Arc<ResolvedNumericalPolicy>,
         route: Route,
         snapshot: execution::Snapshot,
         scope: &pse_kernels::ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedSolve, MathRuntimeError> {
+        let requested_hessian = profile.controls.hessian;
+        profile.resolve_curvature(prepared.prepared.plan.available_order());
         profile.controls.validate()?;
         let Route::Native(selected) = route else {
             return Err(ProblemError::Contract(
@@ -2156,6 +2419,7 @@ impl MathService {
                 coefficient_cone: None,
             }),
             profile,
+            requested_hessian,
             numerics,
             normalization,
             tolerances,
@@ -2175,9 +2439,11 @@ impl MathService {
         self: &Arc<Self>,
         problem: Arc<native::ConicProblem>,
         certificate: Arc<dyn QuadraticEvidence>,
-        profile: SolverProfile,
+        mut profile: SolverProfile,
         numerics: Arc<ResolvedNumericalPolicy>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
+        let requested_hessian = profile.controls.hessian;
+        profile.resolve_curvature(problem.contract.derivatives);
         profile.controls.validate()?;
         if profile.numerics.key() != numerics.policy.key() {
             return Err(ProblemError::Contract(
@@ -2382,6 +2648,7 @@ impl MathService {
                 certificate,
             },
             profile,
+            requested_hessian,
             numerics,
             normalization,
             tolerances,
@@ -2439,12 +2706,13 @@ impl MathService {
                     owner.clone(),
                     &cancel,
                     move |outcome, _, _| {
-                        (
+                        super::strategy::Assessed::native(
                             (),
                             super::StepRetention {
                                 candidate: outcome.candidate_use(&numerical_policy),
                                 session: super::SessionDisposition::Discard,
                             },
+                            outcome,
                         )
                     },
                 )
@@ -3309,6 +3577,41 @@ impl MathService {
         if let Some(c) = &prepared.prepared.coefficients {
             oracle = oracle.with_coefficient_facts(c)?;
         }
+        if run.adapter.backend() == Backend::Pounce
+            && profile.composition.policy == pse_model::strategy::CompositionPolicy::Auto
+            && let Some(separator) = prepared
+                .compiled()
+                .automatic_separator(&scope.cancellation().clone())?
+        {
+            let ordinal = |id: &pse_ids::SemanticId, ids: &[pse_ids::SemanticId]| {
+                ids.iter()
+                    .position(|candidate| candidate == id)
+                    .ok_or_else(|| {
+                        ProblemError::Contract(
+                            "compiler separator outside original inventory".into(),
+                        )
+                    })
+            };
+            let row_ids = plan
+                .structure()
+                .rows()
+                .iter()
+                .map(|row| row.id)
+                .collect::<Vec<_>>();
+            oracle = oracle.with_solve_separator(native::SolveSeparator {
+                variables: separator
+                    .columns
+                    .iter()
+                    .map(|id| ordinal(id, plan.columns()))
+                    .collect::<Result<_, _>>()?,
+                rows: separator
+                    .rows
+                    .iter()
+                    .map(|id| ordinal(id, &row_ids))
+                    .collect::<Result<_, _>>()?,
+            })?;
+        }
+
         let sense = plan
             .structure()
             .objective()
@@ -3756,6 +4059,8 @@ impl MathService {
             objective,
             observation,
             quality: Quality::new(rows, vec![], vec![])?,
+            coordinates: vec![],
+            work: WorkEvidence::default(),
         })))
     }
 }
@@ -3831,8 +4136,12 @@ impl execution::OriginalModel for OriginalCase<'_> {
 /// named by its registry spelling, and the linked native build (library versions, image
 /// manifest and numerical contract, ADR-0108 item 14).
 pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
-    let mut h = FramedHasher::new(pse_ids::Frame::SolverProfileV4);
+    let mut h = FramedHasher::new(pse_ids::Frame::SolverProfileV5);
     hash_session(&mut h, p)?;
+    pse_ids::document::frame(&mut h, &p.composition)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    pse_ids::document::frame(&mut h, &p.reconstruction)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
     h.hash(&p.controls.identity()?)
         .hash(&execution::LINKED.build_identity());
     match p.selection {

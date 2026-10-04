@@ -418,6 +418,11 @@ impl FitReport {
     }
 }
 impl PreparedFit {
+    /// Requested composition constraints retained independently from native fit settings.
+    pub fn composition_request(&self) -> &pse_model::strategy::CompositionRequest {
+        &self.problem.profile.solver.composition
+    }
+
     /// Complete immutable source/execution identity.
     pub fn identity(&self) -> ContentHash {
         self.problem.key

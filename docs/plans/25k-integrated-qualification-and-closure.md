@@ -18,10 +18,12 @@ section or document boundaries. This plan starts after all their functional pack
 The later [25l functional follow-up](25l-flowsheet-compilation-and-solver-routing.md) supplies
 the corrections required at the full-case review boundary. The subsequent
 [25m pipeline follow-up](25m-integrated-solve-pipeline.md) supplies the combined solver-review
-functional handoff before K3 next resumes.
+functional handoff. The draft
+[25n automatic-pipeline correction](25n-automatic-simulation-solve-pipeline.md) adds the corrected
+functional prerequisite before K3 next resumes.
 
 The coordinator owns its original finding dispositions; 25m owns its distinct adopted
-solver-review findings. This document owns the assembled system's eventual
+solver-review findings; 25n owns AF-01–AF-08. This document owns the assembled system's eventual
 qualification evidence. A passed packet, an accepted ADR and a historical Plan 23 result are
 different evidence from a qualified Plan 25 implementation. The execution checkpoints below
 record current readiness; the Outcome will record the completed campaign and its limits.
@@ -66,7 +68,7 @@ and fixture inputs authored alongside the implementation that supplies the behav
 |---|---|---|---|
 | <a id="k1"></a>K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | done |
 | <a id="k2"></a>K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | done |
-| <a id="k3"></a>K3 Behavioral and scientific qualification | K2; 25l L6 and 25m P11 functional handoffs, with refreshed static evidence for affected source | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress |
+| <a id="k3"></a>K3 Behavioral and scientific qualification | K2; 25l L6, 25m P11 and 25n N11 functional handoffs, with refreshed static evidence for affected source | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress; paused |
 | <a id="k4"></a>K4 Reuse and performance measurement | K3 | Measure cold/warm preparation, one-body edits, in-process/durable value studies, retention after eviction and worker admission; report counts, timing distributions, memory and all refusals/failures | planned |
 | <a id="k5"></a>K5 Architectural assessment and closure | K3/K4 | Conduct one bounded target-design review of the assembled change, reconcile every finding with its evidence, update enduring owners and close only demonstrated scope | planned |
 
@@ -306,9 +308,22 @@ reported 2,629 passes, two failures and one timeout, and native Rust reported 3,
 and eight failures, all against a zero-failure target. Its linked Python run and the refreshed
 original PR campaign were stopped before completion. Source changed during repair, so this
 is partial historical evidence and cannot support K4. The frozen complete qualification,
-full seed/domain scope, required dev measurements and final closure remain pending. No
-obsolete worktree has been removed; their already authorized assessment/removal remains
-a post-qualification obligation, not indefinite retention.
+full seed/domain scope, required dev measurements and final closure remain pending. At that historical checkpoint, no obsolete worktree had been removed. The maintainer later
+requested their assessment/removal during the 25n current-task closeout; the 25n checkpoint owns
+the resulting cleanup.
+
+Plan-creation checkpoint, 2026-10-04: the
+[automatic-pipeline review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md)
+is organized in [25n](25n-automatic-simulation-solve-pipeline.md), which owns its functional
+corrections and the missing native bindings. Its N11 handoff is now a prerequisite to resuming
+this campaign. The original scientific criteria, full seed/domain scope, current dev-profile K4
+measurements and post-qualification worktree assessment/removal remain unchanged. Creating that
+plan does not resume execution or revise the historical receipts above.
+
+Current-task closeout, 2026-10-04: 25n is partially implemented and paused for a review whose
+structure the maintainer will provide. Its checkpoint owns landed work, focused verification and
+remaining scope. No 25n N11 handoff or resumed full K3/K4/K5 campaign is claimed. The latest
+maintainer instruction moves stale-worktree cleanup into that closeout.
 
 ### K2/K3 — Recipe selection and reporting
 

@@ -14,14 +14,19 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `RegistryV1` | `pse:registry:v1` | Registry identity and the registry fingerprint. |
 | `SettingsV1` | `pse:settings:v1` | An engine settings or profile digest (blueprint §14.3, §23.2). |
 | `NumericalStrategyV1` | `pse:numerical-strategy:v1` | Declared numerical mechanisms, permissions, finite work and consumed accuracy. |
+| `NumericalStrategyV2` | `pse:numerical-strategy:v2` | Current operation-bound composition declaration; historical V1 remains frozen. |
+| `NumericalDecisionV1` | `pse:numerical-decision:v1` | One resolved next operation and its consumed products/constraints. |
 | `NumericalWorkV1` | `pse:numerical-work:v1` | One actual numerical charging operation within a task's attempt/mechanism. |
 | `SolveStrategyPreparationV1` | `pse:solve-strategy-preparation:v1` | Resolved strategy and all admitted original/derived prepared rungs. |
+| `SolveStrategyPreparationV2` | `pse:solve-strategy-preparation:v2` | Current preparation bound to requested composition and actual products. |
 | `SolveStrategyRequestV1` | `pse:solve-strategy-request:v1` | Complete declared strategy request and admitted starts. |
+| `SolveStrategyRequestV2` | `pse:solve-strategy-request:v2` | Current requested automatic/declared composition interpretation. |
 | `OriginalSolveContractV1` | `pse:original-solve-contract:v1` | Frozen original equations, binding, bounds, objective and final numerical policy. |
 | `NativeUnoBuildV1` | `pse:native-uno-build:v1` | Qualified Uno source, native inputs and project foreign bridge. |
 | `NativePetscBuildV1` | `pse:native-petsc-build:v1` | Qualified PETSc source, native inputs and project foreign bridge. |
 | `DerivedFamilyV1` | `pse:derived-family:v1` | Immutable numerical family structure and reconstruction contract. |
 | `DerivedBindingV1` | `pse:derived-binding:v1` | Numerical family values, anchors, mass and step binding. |
+| `DerivedBindingV2` | `pse:derived-binding:v2` | Composite admitted reconstruction suppliers and their original-space binding. |
 | `AccuracyProductV1` | `pse:accuracy-product:v1` | Consumed numerical action/output accuracy, order, source and normalization. |
 | `ImplicitNumericalProductV1` | `pse:implicit-numerical-product:v1` | Selected-root numerical proposals/jets with their consumed accuracy binding. |
 | `SelectedRootSheetV1` | `pse:selected-root-sheet:v1` | Verified selected-root sheet lineage, distinct from a regime identifier. |
@@ -221,9 +226,12 @@ Derived in: pse-runtime.
 | `DurableHorizonRequestV1` | `pse.durable.horizon_request.v1` | A durable rolling horizon's request: its plant, loop and stage templates (Plan 22 Y5c). |
 | `DurableJobRequestV2` | `pse.durable.job_request.v2` | A durable job request. |
 | `DurableJobRequestV3` | `pse.durable.job_request.v3` | Canonical role-typed operational job request, with explicit nonfinite framing. |
+| `DurableJobRequestV4` | `pse.durable.job_request.v4` | Operational job with current automatic composition interpretation. |
 | `DurableModelingRequestV1` | `pse.durable.modeling_request.v1` | A durable modeling request. |
+| `DurableModelingRequestV2` | `pse.durable.modeling_request.v2` | Modeling request with current automatic composition interpretation. |
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |
 | `DurableStudyRequestV2` | `pse.durable.study_request.v2` | Canonical study request including unrestricted submitted numerical settings. |
+| `DurableStudyRequestV3` | `pse.durable.study_request.v3` | Study request with current automatic composition interpretation. |
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |
 | `DynamicProfileV6` | `pse.dynamic.profile.v6` | A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its IDAS settings carry no sign constraints. |
 | `DynamicProfileV7` | `pse.dynamic.profile.v7` | Dynamic profile including explicit endpoint requirement. |
@@ -252,8 +260,10 @@ Derived in: pse-runtime.
 | `ShootingProblemV1` | `pse.shooting.problem.v1` | A shooting NLP: its simulation, method, nodes, controls, rows and objective. |
 | `SolvePreparationV1` | `pse.solve.preparation.v1` | A solve's compilation and normalization, before a seed is attached. |
 | `SolvePreparationV2` | `pse.solve.preparation.v2` | Retained solve preparation including contextual build/runtime observation. |
+| `SolvePreparationV3` | `pse.solve.preparation.v3` | Automatic request preparation with separately frozen requested curvature. |
 | `SolveRequestV1` | `pse.solve.request.v1` | A complete selected solve request. |
 | `SolveRequestV2` | `pse.solve.request.v2` | Scientific solve request with canonical typed seed content. |
+| `SolveRequestV3` | `pse.solve.request.v3` | Current requested composition and curvature interpretation. |
 | `SolveSeedPreparationV1` | `pse.solve.seed_preparation.v1` | The preparation a stored seed is keyed by. |
 | `SolverConicDataV1` | `pse.solver.conic-data.v1` | Conic solver data. |
 | `SolverConicLayoutV3` | `pse.solver.conic-layout.v3` | A conic solver layout. |
@@ -264,6 +274,7 @@ Derived in: pse-runtime.
 | `SolverDataV1` | `pse.solver.data.v1` | A solver session's data. |
 | `SolverProfileV3` | `pse.solver.profile.v3` | A complete effective solver request profile. |
 | `SolverProfileV4` | `pse.solver.profile.v4` | Canonical complete identity under ADR-0150. |
+| `SolverProfileV5` | `pse.solver.profile.v5` | Requested composition plus the complete effective solve profile. |
 | `SolverSessionV1` | `pse.solver.session.v1` | A native solver session's compatibility. |
 | `SolverSessionV2` | `pse.solver.session.v2` | Native session controls with canonical document and numeric framing. |
 | `SolverSessionV3` | `pse.solver.session.v3` | Retained native session with contextual build/runtime observation. |

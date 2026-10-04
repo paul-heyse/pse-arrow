@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+fn native_report(outcome: &Outcome) -> &SolveReport {
+    match outcome {
+        Outcome::Native(report) => report,
+        _ => panic!("actual PETSc report required"),
+    }
+}
+
 use pse_ids::SemanticId;
 use std::{
     sync::atomic::{AtomicBool, Ordering},
@@ -149,21 +156,37 @@ async fn compiled_flow_keeps_original_offsets_scope_and_auxiliary_role() {
     ));
     let result = execute(service, &prepared, &[0.0]);
     assert_eq!(
-        result.report.termination.name, "TS_CONVERGED_USER",
+        native_report(&result.outcome).termination.name,
+        "TS_CONVERGED_USER",
         "{:?}",
-        result.report
+        native_report(&result.outcome)
     );
-    assert_eq!(result.report.termination.category, Termination::Success);
+    assert_eq!(
+        native_report(&result.outcome).termination.category,
+        Termination::Success
+    );
     let proposal = result.proposal.unwrap();
     assert!((proposal.coordinates[0] - 3.0).abs() < 1e-7);
     assert_eq!(proposal.original, original.original_identity().unwrap());
     assert!(result.screening_failure.is_none());
     assert_eq!(
-        result.report.provenance["mathematical_role"],
+        native_report(&result.outcome).provenance["mathematical_role"],
         "auxiliary-original-coordinate-proposal"
     );
-    assert!(result.report.evidence.work.iterations.is_some());
-    assert!(result.report.evidence.work.evaluations.is_none());
+    assert!(
+        native_report(&result.outcome)
+            .evidence
+            .work
+            .iterations
+            .is_some()
+    );
+    assert!(
+        native_report(&result.outcome)
+            .evidence
+            .work
+            .evaluations
+            .is_none()
+    );
 }
 #[tokio::test]
 async fn compiled_original_guard_refuses_invalid_flow_initial_without_proposal() {
@@ -199,14 +222,19 @@ async fn compiled_original_guard_refuses_invalid_flow_initial_without_proposal()
         .unwrap();
     let result = execute(service, &prepared, &[-1.0]);
     assert_eq!(
-        result.report.termination.name,
+        native_report(&result.outcome).termination.name,
         "PETSC_FLOW_INITIAL_DOMAIN_REFUSED"
     );
-    assert!(result.report.evidence.callback.terminal_failure);
-    assert!(result.report.callback_failure().is_some());
+    assert!(
+        native_report(&result.outcome)
+            .evidence
+            .callback
+            .terminal_failure
+    );
+    assert!(native_report(&result.outcome).callback_failure().is_some());
     assert!(result.proposal.is_none());
     assert!(result.screening_failure.is_none());
-    assert!(result.report.quality.is_none());
+    assert!(native_report(&result.outcome).quality.is_none());
 }
 #[tokio::test]
 async fn actual_compiled_guard_inventory_and_deadline_are_mandatory() {

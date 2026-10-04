@@ -3485,6 +3485,7 @@ fn attempt<T>(
         time_limit: p.time_limit,
         progress,
         memory: None,
+        work_admission: None,
         enclosing_scope: None,
         abandonment: Arc::default(),
     };

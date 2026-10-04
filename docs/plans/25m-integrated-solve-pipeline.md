@@ -479,10 +479,10 @@ Packet IDs P0–P11 are distinct from method-family IDs M1–M18. Status has one
 | <a id="p3"></a>P3 Shared driver and direct cutover | P0/P1; P2 slice for derived execution | Pure planner/classifier/transitions, injected executor/assessment, direct minimal strategy and visible rungs. Runtime math and direct/public consumers. | implemented; targeted controls passed |
 | <a id="p4"></a>P4 Selection products and continuity | P0/P1; P2 consumed-accuracy contract | Root-sheet transport, verified root/jet/proof retention/promotion and useful charts. Existing implicit/compiler/verifier/native owners. | implemented; targeted controls passed |
 | <a id="p5"></a>P5 Reuse and prediction | P1/P3; P2 accuracy; P4 where nested selectors consumed | Actual setups/factors, sparse response actions and common predictor/start admission; M1/M3/M5. Native math retention and target consumers. | implemented; targeted controls passed |
-| <a id="p6"></a>P6 Native profiles and globalization | P1/P3; P2 bounded-feasibility family; foreign decision route | M4/M6/M7/M8 and demanded JVP; Uno/PETSc scoped profiles and truthful visible second opinions. Native integration and compiler support. | implemented; targeted controls passed |
+| <a id="p6"></a>P6 Native profiles and globalization | P1/P3; P2 bounded-feasibility family; foreign decision route | M4/M6/M7/M8 and demanded JVP; Uno/PETSc scoped profiles and truthful visible second opinions. Native integration and compiler support. | scoped profiles implemented; targeted controls passed; missing POUNCE second opinions/Hessian routes in [25n N5](25n-automatic-simulation-solve-pipeline.md#n5) |
 | <a id="p7"></a>P7 Paths and homotopies | P2/P3/P5; P4 when selected functions participate | M1b/M2/M9/M10: activity binding, limited correctors, oriented tracker, events and homotopy families. Math/native/runtime path owners. | implemented; targeted controls passed |
 | <a id="p8"></a>P8 Pseudo-time and DAE starts | P2/P3/P6; P4 for nested functions | M11/M12 with declared mass/flow, library solve composition and role-preserving IC recovery. Derived preparation/dynamics/native owners. | implemented; targeted controls passed |
-| <a id="p9"></a>P9 Structure-driven execution | P2/P3/P4/P6; P5 response products where demanded | M13/M14/M15/M17: BTF/block/reduced/preconditioned/Schur/batch forms with original reconstruction and branch-aware multistart. Structural/math/native/runtime owners. | implemented; targeted controls passed |
+| <a id="p9"></a>P9 Structure-driven execution | P2/P3/P4/P6; P5 response products where demanded | M13/M14/M15/M17: BTF/block/reduced/preconditioned/Schur/batch forms with original reconstruction and branch-aware multistart. Structural/math/native/runtime owners. | scoped forms implemented; targeted controls passed; dependency/reconstruction corrections and solve Schur in [25n N4/N6](25n-automatic-simulation-solve-pipeline.md#n4) |
 | <a id="p10"></a>P10 Multifidelity and surrogates | P1/P2/P3; target correction from P6 | M16: fidelity correspondence and retained library model management producing screened starts. Math/runtime and library integration owner. | implemented; targeted controls passed |
 | <a id="p11"></a>P11 Consumer completion and K handoff | P0–P10 functional obligations | Complete migration/deletion inventory, generated/durable consumers, registered integration fixtures and qualification handoff; no second full campaign. Runtime/public/store owners. | functional handoff complete; assembled qualification pending |
 
@@ -619,8 +619,8 @@ corrected implementation. Complete methods are also covered by the family table 
 | [F11](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f11) prediction keys | [S01](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s01) | scheduled | P1/P5 | Product-specific invalidation and semantic/native compatibility controls |
 | [F12](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f12) reuse leverage | [S02](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s02) | scheduled | P4/P5/P7 | Actual roots/proofs/factors/setup/activity products reused lawfully |
 | [F13](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f13) budget/accuracy/observations | [S08](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s08) | scheduled, existing scope retained | P1/P2/P3 | Phase/scope charging and consumed error; no fresh rung deadline |
-| [F14](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f14) profiles | [S06](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s06) | scheduled | P1/P6 | Typed admitted methods, effective settings and visible retry trajectories |
-| [F15](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f15) structure shapes execution | [S07](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s07) | scheduled | P2/P9 | Block/reduced/preconditioned forms preserve original coupling/qualification |
+| [F14](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f14) profiles | [S06](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s06) | scheduled | P1/P6 | Typed admitted methods, effective settings and visible retry trajectories; missing native consumers in [25n N5/N6](25n-automatic-simulation-solve-pipeline.md#n5) |
+| [F15](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f15) structure shapes execution | [S07](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s07) | scheduled | P2/P9 | Block/reduced/preconditioned forms preserve original coupling/qualification; dependency/reconstruction and solve Schur corrections in [25n N4/N6](25n-automatic-simulation-solve-pipeline.md#n4) |
 | [F16](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f16) costly JVP/preconditioning | [S07](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s07) | scheduled | P2/P6/P9 | Demanded JVP avoids full assembly; library factors supply admitted preconditioning |
 | [F17](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#f17) inner warm roots | [S08](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md#s08) | scheduled, refined by IP08/IP11 | P4/P9 | Selected meaning, sheet continuity, proof and numeric accuracy govern reuse |
 
@@ -696,6 +696,16 @@ authoring nor differences alone justify retaining obsolete worktrees.
   retire through ADR-0096.
 
 ### Execution checkpoint
+
+The maintainer committed and pushed the implementation as
+`58b700bc36d59517d77886496c6ad4072ed4a560`. The subsequent
+[automatic simulation/solve pipeline review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md)
+assesses that baseline, identifies additional integration corrections and distinguishes
+them from the broader automatic-composition target. The draft
+[25n](25n-automatic-simulation-solve-pipeline.md) owns AF-01–AF-08 and the proposed corrections.
+The P6/P9 packet rows distinguish delivered scoped forms from missing native obligations now assigned to
+25n N5/N6; earlier finding ownership and receipts stay here. Plan creation supplies no correction
+evidence. Implementation and qualification remain paused.
 
 The shared driver now consumes actual prepared original, derived, arclength and PETSc
 operations under one original task scope. Only an original correction followed by the
@@ -1008,8 +1018,10 @@ of those pending campaigns is running in the background.
 
 ### What was built
 
-**Implemented, scoped Tested:** P0–P11 functional work and migration are present, with the
-targeted evidence described in the checkpoint. The current repair handoff is paused at the maintainer's request.
+**Implemented, scoped Tested:** P0–P11 functional work and migration are present within the
+targeted evidence described in the checkpoint. This does not establish the missing M8/M17/M18
+routes or the newly reviewed integration corrections, now proposed in
+[25n](25n-automatic-simulation-solve-pipeline.md). The current repair handoff is paused at the maintainer's request.
 Plan 25k's final stable assembled campaign, required dev-profile measurements and worktree
 retirement remain incomplete; these functional results do not close either plan.
 

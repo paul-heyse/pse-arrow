@@ -268,7 +268,8 @@ impl Oracle for ZeroResidualBridge {
 }
 /// Consumer-issued normalized allowances. Each actual point/action creates its own
 /// fully scoped demand; no default tolerance or default certificate is supplied.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ReconstructionAccuracy {
     /// Actual consumer allowance for normalized reconstructed point error.
     pub point: f64,
@@ -280,6 +281,21 @@ pub struct ReconstructionAccuracy {
     pub refinement: math::RefinementLimits,
 }
 impl ReconstructionAccuracy {
+    /// Validate finite consumer allowances and explicit bounded refinement before preparation.
+    /// # Errors
+    /// Invalid error budgets or absent refinement work.
+    pub fn validate(self) -> Result<(), ProblemError> {
+        if !self.point.is_finite()
+            || self.point < 0.0
+            || !self.action.is_finite()
+            || self.action < 0.0
+        {
+            return Err(ProblemError::Contract(
+                "reconstruction allowances must be finite and nonnegative".into(),
+            ));
+        }
+        self.refinement.validate().map_err(ProblemError::Math)
+    }
     fn demand(
         self,
         product: math::AccuracyProduct,

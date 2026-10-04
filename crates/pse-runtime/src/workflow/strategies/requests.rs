@@ -68,6 +68,65 @@ pub struct RecycleRequest {
     /// Native fixed-point damping in (0,1].
     pub damping: pse_model::scalars::Fraction,
 }
+impl RecycleRequest {
+    /// Bind a complete compiler-issued causal inventory and a checked tear witness.
+    /// Explicit tears constrain selection; absent tears use the existing graph
+    /// heuristic, which still validates mandatory/forbidden policies and the DAG.
+    pub fn from_model(
+        model: &pse_compiler::workspace::PreparedModeling,
+        source: &pse_compiler::workspace::PreparedCase,
+        selection: &pse_compiler::workspace::ModelingFlowSelection,
+        quantities: &pse_quantity::QuantityRegistry,
+        solver: crate::math::settings::SolveSettings,
+        tears: Option<BTreeSet<SemanticId>>,
+    ) -> Result<Self, crate::workflow::WorkflowError> {
+        let graph = model
+            .semantic()
+            .flow_graph(selection, quantities)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let tears = match tears {
+            Some(tears) => {
+                graph
+                    .witness(&tears)
+                    .map_err(|cause| super::contract(cause.to_string()))?;
+                tears
+            }
+            None => graph
+                .unweighted_heuristic()
+                .map_err(|cause| super::contract(cause.to_string()))?,
+        };
+        let units = model
+            .automatic_causal_units(source, &selection.nodes)
+            .map_err(crate::math::MathRuntimeError::from)?
+            .into_iter()
+            .map(|unit| {
+                let realization =
+                    if unit.local.residuals.is_empty() && unit.local.unknowns.is_empty() {
+                        CausalUnitRealization::ExplicitMap
+                    } else {
+                        CausalUnitRealization::Conditional {
+                            residuals: unit.local.residuals,
+                            unknowns: unit.local.unknowns,
+                            solver: Box::new(solver.clone()),
+                        }
+                    };
+                CausalUnitRequest {
+                    node: unit.node,
+                    inputs: unit.inputs,
+                    outputs: unit.outputs,
+                    realization,
+                }
+            })
+            .collect();
+        Ok(Self {
+            tears,
+            units,
+            anderson: 0,
+            damping: pse_model::scalars::Fraction::try_new(1.0)
+                .map_err(|cause| super::contract(cause.to_string()))?,
+        })
+    }
+}
 
 #[cfg(test)]
 mod boundary_unit {

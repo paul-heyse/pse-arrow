@@ -544,8 +544,11 @@ impl NlpOracle for FitOracle {
         let exact = match self.prepared.profile.solver.controls.hessian {
             HessianMode::Exact => true,
             HessianMode::GaussNewton => false,
-            HessianMode::LimitedMemory => {
-                return Err(ProblemError::internal("limited-memory fit Hessian demand"));
+            HessianMode::Auto
+            | HessianMode::LimitedMemory
+            | HessianMode::Partitioned
+            | HessianMode::FiniteDifference => {
+                return Err(ProblemError::Contract("fitting does not supply Hessians for request-only or native-approximated curvature modes".into()));
             }
         };
         // The exact Hessian's transient curvature Σ rᵢwᵢ∇²yᵢ, by second-order adjoint
@@ -1217,6 +1220,8 @@ mod tests {
                 controls: Default::default(),
                 backend: native::execution::BackendSettings::Default,
                 sensitivity: None,
+                composition: Default::default(),
+                reconstruction: None,
             },
             simulations: BTreeMap::new(),
             rank_tolerance: 1e-8,
@@ -1972,6 +1977,8 @@ mod tests {
             controls: Controls::default(),
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
+            composition: Default::default(),
+            reconstruction: None,
         };
         // A solve sequence step.
         let prepared = package

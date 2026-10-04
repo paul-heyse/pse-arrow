@@ -195,7 +195,7 @@ impl ModelingPackage {
     pub(in crate::workflow::fitting) async fn prepare_fit_problem(
         &self,
         id: FitId,
-        profile: FitProfile,
+        mut profile: FitProfile,
         compiler: Profile,
         limits: Limits,
         cancel: &crate::CancelSource,
@@ -270,16 +270,24 @@ impl ModelingPackage {
         // curvature, which a transient experiment takes from IDAS forward-over-adjoint
         // second-order sensitivities over dynamic functions compiled to second order
         // (ADR-0110 item 4).
+        if profile.solver.controls.hessian == HessianMode::Auto {
+            profile.solver.controls.hessian = if profile.derivatives == FitDerivatives::Gradient {
+                HessianMode::LimitedMemory
+            } else {
+                HessianMode::GaussNewton
+            };
+        }
         let hessian = profile.solver.controls.hessian;
         // An adjoint gradient carries no response Jacobian, so no supplied Hessian can be
         // formed from it (ADR-0110 item 3).
-        if profile.derivatives == FitDerivatives::Gradient && hessian != HessianMode::LimitedMemory
+        if profile.derivatives == FitDerivatives::Gradient
+            && matches!(hessian, HessianMode::Exact | HessianMode::GaussNewton)
         {
             return Err(contract(
-                "gradient-only fitting requires the limited-memory Hessian",
+                "gradient-only fitting cannot supply exact or Gauss-Newton curvature",
             ));
         }
-        let order = if hessian == HessianMode::LimitedMemory {
+        let order = if !matches!(hessian, HessianMode::Exact | HessianMode::GaussNewton) {
             DerivativeOrder::First
         } else {
             DerivativeOrder::Second

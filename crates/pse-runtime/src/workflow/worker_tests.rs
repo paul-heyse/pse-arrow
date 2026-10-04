@@ -356,7 +356,7 @@ fn job_request_identity_independent_of_key_order() {
 }
 
 #[test]
-fn study_job_v6_codec_unit_retains_binding_policy_and_operation() {
+fn study_job_v7_codec_unit_retains_binding_policy_and_operation() {
     use pse_model::study::*;
     let hash = pse_ids::ContentHash::from_bytes([1; 32]);
     let binding = AdmittedBinding {
@@ -398,8 +398,8 @@ fn study_job_v6_codec_unit_retains_binding_policy_and_operation() {
         point,
     })));
     let encoded = serde_json::to_value(payload).unwrap();
-    assert_eq!(encoded["version"], 6);
-    assert_eq!(encoded["task"]["point"]["operation"]["version"], 2);
+    assert_eq!(encoded["version"], 7);
+    assert_eq!(encoded["task"]["point"]["operation"]["version"], 3);
     assert_eq!(encoded["task"]["kind"], "study_operation");
     let decoded: JobPayload = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);

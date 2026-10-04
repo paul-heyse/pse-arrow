@@ -9,6 +9,7 @@ use crate::{
 use arrow_schema::DataType as D;
 
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    enumeration(b, "NumericalCompositionPolicy", ["auto", "declared"]);
     enumeration(
         b,
         "NumericalMechanism",
@@ -115,6 +116,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "infeasible",
         ],
     );
+    enumeration(
+        b,
+        "NumericalOriginalConclusion",
+        ["satisfied", "refused", "unavailable"],
+    );
     relation(
         b, N::Runtime, "solve_strategy_events", S::Derived,
         &["run_id", "step", "event"],
@@ -123,12 +129,14 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("step", T::nonnegative(i64::from(u32::MAX))),
             column("event", T::nonnegative(i64::from(u32::MAX))),
             column("strategy_identity", T::hash()),
+            documented("decision_identity", T::hash(), "Identity of the actual bound automatic or declared execution decision.").optional(),
             column("mechanism", T::enumeration("NumericalMechanism")),
             column("kind", T::enumeration("NumericalEventKind")),
             column("phase", T::enumeration("NumericalPhase")),
             column("scope", T::enumeration("NumericalScope")),
             column("charging_owner", T::hash()).optional(),
             column("original_identity", T::hash()),
+            documented("original_conclusion", T::enumeration("NumericalOriginalConclusion"), "Independent original-model assessment; native termination remains separate.").optional(),
             column("derived_identity", T::hash()).optional(),
             column("profile_identity", T::hash()).optional(),
             column("backend", T::enumeration("NativeBackend")).optional(),

@@ -54,14 +54,19 @@ impl BackendExecution for Pounce {
     fn admit_settings(
         &self,
         settings: &BackendSettings,
-        _: &crate::solve::Controls,
+        controls: &crate::solve::Controls,
         _: &super::Snapshot,
     ) -> Result<(), ProblemError> {
         match settings {
-            BackendSettings::Default => crate::settings::pounce::Settings::default()
-                .restart
-                .validate(),
-            BackendSettings::Pounce(settings) => settings.restart.validate(),
+            BackendSettings::Default => {
+                let settings = crate::settings::pounce::Settings::default();
+                settings.restart.validate()?;
+                settings.curvature_options(controls.hessian).map(|_| ())
+            }
+            BackendSettings::Pounce(settings) => {
+                settings.restart.validate()?;
+                settings.curvature_options(controls.hessian).map(|_| ())
+            }
             _ => Err(super::foreign(Backend::Pounce)),
         }
     }

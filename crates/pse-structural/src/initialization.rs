@@ -26,6 +26,86 @@ pub struct Plan {
     pub blocks: Vec<Block>,
 }
 impl Plan {
+    /// Complete an unchanged numerical matching/BTF witness with execution and
+    /// validity dependencies. Control cycles merge square numerical blocks; they
+    /// never supply a matching edge or establish numerical regularity.
+    pub fn with_execution_dependencies(
+        a: &StructuralAnalysis,
+        dependencies: &[(SemanticId, SemanticId)],
+        cancel: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Self, ProjectionError> {
+        let numerical = Self::from_analysis(a)?;
+        let rows: BTreeMap<_, _> = numerical
+            .blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(index, block)| block.members.rows.iter().map(move |id| (*id, index)))
+            .collect();
+        let columns: BTreeMap<_, _> = numerical
+            .blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(index, block)| block.members.columns.iter().map(move |id| (*id, index)))
+            .collect();
+        let mut graph = petgraph::graph::DiGraph::<(), ()>::new();
+        let nodes: Vec<_> = numerical
+            .blocks
+            .iter()
+            .map(|_| graph.add_node(()))
+            .collect();
+        let edges: BTreeSet<_> = a
+            .contributions
+            .iter()
+            .map(|e| (e.row, e.column))
+            .chain(dependencies.iter().copied())
+            .collect();
+        for (row, column) in &edges {
+            if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                return Err(ProjectionError::Cancelled);
+            }
+            let Some(&consumer) = rows.get(row) else {
+                continue;
+            };
+            if let Some(&producer) = columns.get(column)
+                && producer != consumer
+            {
+                graph.update_edge(nodes[producer], nodes[consumer], ());
+            }
+        }
+        let mut components = petgraph::algo::kosaraju_scc(&graph);
+        components.reverse();
+        let mut blocks = Vec::new();
+        for component in components {
+            if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                return Err(ProjectionError::Cancelled);
+            }
+            let mut members = Part::default();
+            for node in component {
+                let block = &numerical.blocks[node.index()];
+                members.rows.extend_from_slice(&block.members.rows);
+                members.columns.extend_from_slice(&block.members.columns);
+            }
+            members.rows.sort_unstable();
+            members.columns.sort_unstable();
+            let inputs = edges
+                .iter()
+                .filter(|(row, _)| members.rows.binary_search(row).is_ok())
+                .map(|(_, column)| *column)
+                .filter(|column| members.columns.binary_search(column).is_err())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            blocks.push(Block {
+                id: crate::incidence::BlockId::new(&a.scope, &members),
+                members,
+                inputs,
+            });
+        }
+        Ok(Self {
+            scope: a.scope.clone(),
+            blocks,
+        })
+    }
     /// Structural deficiency is refused before attempting numerical factorization.
     pub fn from_analysis(a: &StructuralAnalysis) -> Result<Self, ProjectionError> {
         if matches!(a.scope, Scope::Partial(_))
@@ -108,6 +188,60 @@ mod tests {
     use crate::incidence::{CaseIncidence, Constraint, Incidence};
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
+    }
+    #[test]
+    fn execution_cycles_merge_numerical_blocks_and_fixed_inputs_remain_explicit() {
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let analysis = CaseIncidence::new(
+            Scope::Whole(id(40)),
+            vec![
+                Constraint {
+                    id: id(1),
+                    lower: Some(0.0),
+                    upper: Some(0.0),
+                },
+                Constraint {
+                    id: id(2),
+                    lower: Some(0.0),
+                    upper: Some(0.0),
+                },
+            ],
+            vec![id(11), id(12)],
+            vec![
+                Incidence {
+                    row: id(1),
+                    column: id(11),
+                    instance: id(30),
+                    output: 0,
+                },
+                Incidence {
+                    row: id(2),
+                    column: id(12),
+                    instance: id(30),
+                    output: 1,
+                },
+            ],
+            BTreeSet::new(),
+            crate::projection::GraphLimits {
+                nodes: 100,
+                edges: 100,
+            },
+        )
+        .unwrap()
+        .analyze(&cancel)
+        .unwrap();
+        assert_eq!(analysis.blocks.len(), 2);
+        let plan = Plan::with_execution_dependencies(
+            &analysis,
+            &[(id(1), id(12)), (id(2), id(11)), (id(1), id(90))],
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(plan.blocks.len(), 1);
+        assert_eq!(plan.blocks[0].members.rows, [id(1), id(2)]);
+        assert_eq!(plan.blocks[0].members.columns, [id(11), id(12)]);
+        assert_eq!(plan.blocks[0].inputs, [id(90)]);
+        assert_eq!(analysis.blocks.len(), 2); // No invented numerical matching/rank.
     }
     #[test]
     fn structural_identity_preserves_independent_block_order() {

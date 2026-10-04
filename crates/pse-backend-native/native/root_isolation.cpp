@@ -810,7 +810,7 @@ void point_cell(Budget& budget,PseRootResult& out) {
 // library operator. The immutable original chart still owns selected-root meaning.
 bool fixed_root(const PseRootRequest& r,Graph& graph,Budget& budget,PseRootResult& out,
     const double* el,const double* eu,const double* ul,const double* uu,
-    IntervalVector& local,IntervalVector& hull) {
+    IntervalVector& local,IntervalVector& hull,const double* pl=nullptr,const double* pu=nullptr) {
     const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
     IntervalVector seed(dimension),unique(dimension),proved_unique(dimension);
     for(uint32_t i=0;i<r.unknown_count;++i) {
@@ -821,7 +821,10 @@ bool fixed_root(const PseRootRequest& r,Graph& graph,Budget& budget,PseRootResul
     }
     for(uint32_t j=0;j<r.parameter_count;++j) {
         if(!std::isfinite(r.parameters[j])) return false;
-        seed[r.unknown_count+j]=unique[r.unknown_count+j]=Interval(r.parameters[j]);
+        if(pl&&pu) {
+            if(!std::isfinite(pl[j])||!std::isfinite(pu[j])||pl[j]>pu[j]||r.parameters[j]<pl[j]||r.parameters[j]>pu[j]) return false;
+            seed[r.unknown_count+j]=unique[r.unknown_count+j]=Interval(pl[j],pu[j]);
+        } else seed[r.unknown_count+j]=unique[r.unknown_count+j]=Interval(r.parameters[j]);
     }
     if(guards(r,graph,seed,true,true)!=GuardState::Admitted) throw Boundary();
     point_cell(budget,out);
@@ -923,6 +926,54 @@ extern "C" int32_t pse_ibex_enclose_action(const PseRootRequest* request,PseRoot
         for(int i=0;i<n;++i) {
             if(action[i].is_empty()||!std::isfinite(action[i].lb())||!std::isfinite(action[i].ub())) {out->status=2;return 0;}
             action_lower[i]=action[i].lb();action_upper[i]=action[i].ub();
+        }
+        budget.check();out->solution=1;out->status=0;
+    } catch(const Resource&) {out->status=4;}
+      catch(const Boundary&) {out->status=5;}
+      catch(const std::bad_alloc&) {out->status=4;}
+      catch(const std::invalid_argument&) {out->status=6;}
+      catch(...) {out->status=2;}
+    return 0;
+}
+
+// Uniform incoming parameter/direction enclosure; the Rust caller verifies that
+// the complete parameter box lies in the unchanged selected chart.
+extern "C" int32_t pse_ibex_enclose_neighborhood(const PseRootRequest* request,PseRootResult* out,
+    const double* existence_lower,const double* existence_upper,
+    const double* uniqueness_lower,const double* uniqueness_upper,
+    const double* parameter_lower,const double* parameter_upper,
+    const double* direction_lower,const double* direction_upper,
+    double* point_lower,double* point_upper,double* action_lower,double* action_upper) noexcept {
+    if(!request||!out) return -1;
+    *out={6,0,0,0,0,0};
+    try {
+        const auto& r=*request;
+        if(!point_request(r)||!existence_lower||!existence_upper||!uniqueness_lower||!uniqueness_upper||
+           !parameter_lower||!parameter_upper||!point_lower||!point_upper||
+           ((direction_lower==nullptr)!=(direction_upper==nullptr))||
+           (direction_lower&&(!action_lower||!action_upper))) return 0;
+        Budget budget{r};budget.check();Graph graph(r,budget);
+        const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
+        IntervalVector local(dimension),hull(dimension);
+        if(!fixed_root(r,graph,budget,*out,existence_lower,existence_upper,
+            uniqueness_lower,uniqueness_upper,local,hull,parameter_lower,parameter_upper)) {out->status=2;return 0;}
+        for(uint32_t i=0;i<r.unknown_count;++i) {point_lower[i]=local[i].lb();point_upper[i]=local[i].ub();}
+        if(direction_lower) {
+            const auto inverse=root_inverse(r,graph,local,budget,*out);
+            const auto jacobian=graph.equations->f_ctrs.jacobian(local);budget.check();
+            const int n=static_cast<int>(r.unknown_count);IntervalVector rhs(n);
+            for(int i=0;i<n;++i) {
+                rhs[i]=Interval(0.0);
+                for(uint32_t j=0;j<r.parameter_count;++j) {
+                    if(!std::isfinite(direction_lower[j])||!std::isfinite(direction_upper[j])||direction_lower[j]>direction_upper[j]) return 0;
+                    rhs[i]-=jacobian[i][n+static_cast<int>(j)]*Interval(direction_lower[j],direction_upper[j]);
+                }
+            }
+            const auto action=inverse*rhs;
+            for(int i=0;i<n;++i) {
+                if(action[i].is_empty()||!std::isfinite(action[i].lb())||!std::isfinite(action[i].ub())) {out->status=2;return 0;}
+                action_lower[i]=action[i].lb();action_upper[i]=action[i].ub();
+            }
         }
         budget.check();out->solution=1;out->status=0;
     } catch(const Resource&) {out->status=4;}

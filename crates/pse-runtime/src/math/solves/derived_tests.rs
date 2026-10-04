@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+#[cfg(feature = "solver-kinsol")]
+fn native_report(outcome: &Outcome) -> &SolveReport {
+    match outcome {
+        Outcome::Native(report) => report,
+        _ => panic!("actual native attempt required"),
+    }
+}
+
 use pse_ids::SemanticId;
 
 #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
@@ -441,6 +449,26 @@ async fn original_order(
 ) -> (crate::workflow::Runtime, PreparedSolve) {
     use crate::workflow::tests as fixture;
     let runtime = fixture::runtime_with(128 << 20, 1 << 20, 512 << 20);
+    original_order_on(
+        runtime,
+        text,
+        order,
+        SolverProfile {
+            intent: SolveIntent::Root,
+            selection: SolverSelection::Explicit(Backend::Kinsol),
+            ..Default::default()
+        },
+    )
+    .await
+}
+#[cfg(feature = "solver-kinsol")]
+async fn original_order_on(
+    runtime: crate::workflow::Runtime,
+    text: &str,
+    order: DerivativeOrder,
+    profile: SolverProfile,
+) -> (crate::workflow::Runtime, PreparedSolve) {
+    use crate::workflow::tests as fixture;
     let rows = pse_authoring::language::parse(
         text,
         SemanticId::NIL,
@@ -463,11 +491,7 @@ async fn original_order(
             pse_compiler::workspace::ModelingCaseBindings::default(),
             order,
             fixture::compiler_profile(),
-            SolverProfile {
-                intent: SolveIntent::Root,
-                selection: SolverSelection::Explicit(Backend::Kinsol),
-                ..Default::default()
-            },
+            profile,
             NumericalInputs::default(),
             &crate::CancelSource::new(),
         )
@@ -531,7 +555,6 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
         prepared.original().profile.controls.start,
         StartPolicy::NoPriorStart
     );
-    assert!(prepared.accuracy_evidence().is_empty());
     assert!(Arc::ptr_eq(
         prepared.scope().cancellation(),
         scope.cancellation()
@@ -547,7 +570,34 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
         service.policy.stack_bytes,
         || {
             let mut retained = Retained::default();
-            let result = service.derived_step(&prepared, execution, &mut retained, &budget, &[0.0]);
+            let result =
+                service.derived_step(&prepared, execution.clone(), &mut retained, &budget, &[0.0]);
+            if let Ok(attempt) = &result {
+                let complete = service
+                    .derived_original_outcome(&prepared, attempt, &execution, &budget)
+                    .unwrap();
+                let original_report = native_report(&complete);
+                assert_eq!(original_report.termination.category, Termination::Success);
+                assert!(!original_report.quality.as_ref().unwrap().feasible());
+                assert_eq!(original_report.qualification, Qualification::Unqualified);
+                assert!(
+                    original_report
+                        .candidate
+                        .as_ref()
+                        .unwrap()
+                        .row_dual
+                        .is_none()
+                );
+                assert_eq!(
+                    original_report.variables,
+                    prepared
+                        .physical
+                        .coordinates()
+                        .iter()
+                        .map(|c| c.id)
+                        .collect::<Vec<_>>()
+                );
+            }
             drop(retained);
             assert_eq!(budget.used(), 0);
             result
@@ -560,7 +610,10 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
     assert_eq!(proposal.original, original.original_identity().unwrap());
     assert!(proposal.reconstruction_accuracy.is_none());
     assert!(result.screening_failure.is_none());
-    assert_eq!(result.report.termination.category, Termination::Success);
+    assert_eq!(
+        native_report(&result.outcome).termination.category,
+        Termination::Success
+    );
     assert_eq!(budget.used(), 0);
 }
 #[cfg(feature = "solver-kinsol")]
@@ -697,7 +750,33 @@ async fn least_deviation_preserves_original_rows_metric_roles_and_actual_derivat
         service.policy.stack_bytes,
         || {
             let mut retained = Retained::default();
-            let result = service.derived_step(&prepared, execution, &mut retained, &budget, &[0.0]);
+            let result =
+                service.derived_step(&prepared, execution.clone(), &mut retained, &budget, &[0.0]);
+            if let Ok(attempt) = &result {
+                let complete = service
+                    .derived_original_outcome(&prepared, attempt, &execution, &budget)
+                    .unwrap();
+                let original_report = native_report(&complete);
+                assert!(original_report.quality.as_ref().unwrap().feasible());
+                assert_eq!(original_report.qualification, Qualification::Feasible);
+                assert!(
+                    original_report
+                        .candidate
+                        .as_ref()
+                        .unwrap()
+                        .row_dual
+                        .is_none()
+                );
+                assert!(original_report.certificate.is_none());
+                assert!(
+                    original_report
+                        .observation
+                        .as_ref()
+                        .unwrap()
+                        .stationarity
+                        .is_none()
+                );
+            }
             drop(retained);
             assert_eq!(budget.used(), 0);
             result
@@ -706,7 +785,10 @@ async fn least_deviation_preserves_original_rows_metric_roles_and_actual_derivat
     .unwrap();
     assert!((result.proposal.unwrap().coordinates[0] - 3.0).abs() < 1e-6);
     assert!(result.screening_failure.is_none());
-    assert_eq!(result.report.termination.category, Termination::Success);
+    assert_eq!(
+        native_report(&result.outcome).termination.category,
+        Termination::Success
+    );
     profile.controls.hessian = HessianMode::Exact;
     assert!(
         service
@@ -797,7 +879,10 @@ async fn least_deviation_exact_second_and_named_held_roles_use_actual_source() {
         },
     )
     .unwrap();
-    assert_eq!(result.report.termination.category, Termination::Success);
+    assert_eq!(
+        native_report(&result.outcome).termination.category,
+        Termination::Success
+    );
     assert!((result.proposal.unwrap().coordinates[0] - 3.0).abs() < 1e-6);
     let held = DerivedRequest::LeastDeviation {
         center: vec![3.0],
@@ -925,12 +1010,13 @@ async fn expired_optional_derived_preparation_refuses_before_dispatch_and_origin
                         pse_model::generated::enums::CandidateRefusal::NoCandidate,
                     ),
                 };
-                (
+                crate::math::strategy::Assessed::native(
                     candidate.permits_use(),
                     StepRetention {
                         candidate,
                         session: SessionDisposition::Discard,
                     },
+                    outcome,
                 )
             },
         )
@@ -1008,6 +1094,8 @@ async fn actual_derived_callback_local_expiry_continues_with_charged_work_but_ot
     let facts = |_: usize| strategy::Facts {
         support: prepared.support(),
         accuracy: Vec::new(),
+        consumption: Vec::new(),
+        reservation: None,
         start: StartOrigin::Specification,
         inherited: false,
         connected: false,
@@ -1067,6 +1155,8 @@ async fn actual_derived_callback_local_expiry_continues_with_charged_work_but_ot
                 |residual, observation| {
                     assert_eq!(*residual, 0.);
                     strategy::Assessment {
+                        original: strategy::OriginalConclusion::Satisfied,
+                        work: vec![],
                         auxiliary: false,
                         retention: StepRetention {
                             candidate: crate::workflow::numerics::CandidateDecision {
@@ -1237,7 +1327,10 @@ async fn derived_expiry_marker_preserves_actual_native_report_work_and_foreign_f
         },
     )
     .unwrap();
-    assert_eq!(result.report.termination.category, Termination::Success);
+    assert_eq!(
+        native_report(&result.outcome).termination.category,
+        Termination::Success
+    );
     assert!(result.work().evaluations.is_some_and(|n| n > 0));
     assert!(
         prepared
@@ -1259,7 +1352,9 @@ async fn derived_expiry_marker_preserves_actual_native_report_work_and_foreign_f
         .reserve("test:derived-report-pool-refusal", usize::MAX)
         .unwrap_err()
         .into_problem();
-    result.report.record_validation_failure(actual_pool_failure);
+    if let Outcome::Native(report) = &mut result.outcome {
+        report.record_validation_failure(actual_pool_failure);
+    }
     assert!(
         prepared
             .local_attempt_failure(&result, &enclosing)
@@ -1549,11 +1644,15 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         )
         .unwrap();
     let request = DerivedRequest::Reduced {
-        factory,
-        factory_owner: owner,
+        suppliers: vec![ReducedSupplier {
+            factory,
+            factory_owner: owner,
+            validity: source_key,
+            realization: SelectedResidualRealization::ZeroResiduals {
+                authored_offsets: vec![(row, plan.structure().rows()[eliminated].lower)],
+            },
+        }],
         retained: vec![GlobalCol::new(retained_column)],
-        eliminated: vec![GlobalRow::new(eliminated)],
-        validity: source_key,
         accuracy: ReconstructionAccuracy {
             point: 1e-11,
             action: 1e-11,
@@ -1562,9 +1661,6 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 rounds: 8,
                 proof_cells: 64,
             },
-        },
-        realization: SelectedResidualRealization::ZeroResiduals {
-            authored_offsets: vec![(row, plan.structure().rows()[eliminated].lower)],
         },
     };
     let mut limited_request = request.clone();
@@ -1582,7 +1678,6 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         )
         .await
         .unwrap();
-    assert!(auxiliary.accuracy_evidence().is_empty());
     let mut declaration = NumericalStrategy::direct(
         StartPolicy::NoPriorStart,
         WorkLimits {
@@ -1616,7 +1711,8 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .solve_case(prepared, compiler, &cancel)
         .await
         .unwrap();
-    assert!(result.prediction_anchor(0.0).is_ok());
+    let anchor = result.prediction_anchor(0.0);
+    assert!(anchor.is_ok(), "{anchor:?}; diagnostic={:?}", result.diagnostic());
     let Outcome::Native(report) = &result.outcome else {
         panic!("actual original corrector")
     };
@@ -1740,6 +1836,8 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 inherited: false,
                 support: auxiliary.support(),
                 accuracy: vec![],
+                consumption: vec![],
+                reservation: None,
                 connected: false,
                 refusal: None,
             },
@@ -1776,6 +1874,8 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
             inherited: false,
             support: auxiliary.support(),
             accuracy: vec![],
+            consumption: vec![],
+            reservation: None,
             connected: false,
             refusal: None,
         },
@@ -1877,4 +1977,253 @@ async fn composition_retains_boxed_rung_bodies_and_refuses_a_short_pool() {
     ));
     use datafusion::execution::memory_pool::MemoryPool;
     assert_eq!(pool.reserved(), 0);
+}
+
+#[cfg(all(
+    feature = "solver-kinsol",
+    feature = "solver-ipopt",
+    feature = "solver-root-isolation"
+))]
+#[tokio::test]
+async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_attempt() {
+    use pse_math::implicit::reconstruction::SelectedResidualRealization;
+    use pse_math::{
+        implicit::{Configuration, Factory, Options, RegimeFactoryBranch, Selection, Unknown},
+        typed::{Binary, BodyBuilder, BodyLimits},
+    };
+    use pse_model::strategy::AccuracyClass;
+    // IBEX's existing declared covering workspace is admitted even for this small
+    // chart; retain the same bounded pool used by other actual isolation tests.
+    let runtime = crate::workflow::tests::runtime_on(
+        24usize << 30,
+        crate::math::MathPolicy {
+            worker_bytes: 8usize << 30,
+            workspace_bytes: 8usize << 30,
+            foreign_bytes: 16usize << 20,
+            ..Default::default()
+        },
+    );
+    let (runtime, original) = original_order_on(runtime,
+        "package p { def Root { var x:Scalar; eq balance:x==3; annotation bounds x(1,4); annotation start x(2.5); } }",
+        DerivativeOrder::First, SolverProfile {
+            intent: SolveIntent::Initialize,
+            selection: SolverSelection::Explicit(Backend::Ipopt),
+            controls: Controls { hessian: HessianMode::LimitedMemory, ..Default::default() },
+            ..Default::default()
+        }).await;
+    let service = runtime.native();
+    let Representation::Algebraic(source) = &original.representation else {
+        panic!("authored source required")
+    };
+    let plan = &source.prepared.prepared.plan;
+    let coordinate = plan.columns()[0];
+    let row = plan.structure().rows()[0].id;
+    let registry = &source.prepared.prepared.quantities;
+    let port = plan
+        .structure()
+        .variables()
+        .iter()
+        .find(|v| v.port.id == coordinate)
+        .unwrap()
+        .port
+        .clone();
+    let unit = registry.unit(port.unit).unwrap();
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let scope = ExecutionScope::new(
+        flag.clone(),
+        Some(Instant::now() + std::time::Duration::from_secs(30)),
+    );
+    let builder = || {
+        BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            1,
+            BodyLimits::default(),
+        )
+        .unwrap()
+    };
+    let literal = |b: &mut BodyBuilder<'_>, value| {
+        b.literal(
+            value,
+            unit,
+            pse_quantity::literal::LiteralContext::Explicit {
+                quantity_type: port.quantity,
+            },
+            row,
+        )
+        .unwrap()
+    };
+    let mut b = builder();
+    let x = b
+        .input(0, port.quantity, pse_quantity::IndexSet::new(), coordinate)
+        .unwrap();
+    let rhs = literal(&mut b, 3.0);
+    let residual = b.binary(Binary::Sub, x, rhs, None, row).unwrap();
+    let residual = b.prepare(&[residual]).unwrap();
+    let make = |values: &[f64]| {
+        let mut b = builder();
+        let out = values
+            .iter()
+            .map(|v| literal(&mut b, *v))
+            .collect::<Vec<_>>();
+        b.prepare(&out).unwrap()
+    };
+    let eligibility = make(&[1.0]);
+    let criterion = make(&[0.0, 0.0]);
+    let compile = |body: &pse_math::guarded::PreparedBody, outputs: &[usize]| {
+        Arc::new(
+            body.compile(
+                outputs,
+                &[0],
+                DerivativeOrder::First,
+                pse_math::library::Optimization::default(),
+                pse_math::jets::EvaluationLimits::default(),
+                &flag,
+            )
+            .unwrap(),
+        )
+    };
+    let isolation = pse_math::factorable::root_isolation_program_for_outputs(
+        row,
+        &residual,
+        &[0],
+        &eligibility,
+        &criterion,
+        &flag,
+        10_000,
+    )
+    .unwrap()
+    .unwrap();
+    let key = pse_ids::ContentHash::from_bytes([84; 32]);
+    let spec = pse_kernels::ProviderSpec {
+        id: row,
+        revision: key,
+        data: key,
+        derivative_source: pse_kernels::DerivativeSource::Implicit,
+        shapes: Default::default(),
+        inputs: vec![],
+        outputs: vec![port],
+        derivatives: DerivativeOrder::First,
+        smoothness: DerivativeOrder::First,
+    };
+    let unknowns = vec![Unknown {
+        id: coordinate,
+        lower: 1.0,
+        upper: 4.0,
+    }];
+    let factory = Arc::new(RegimeFactory {
+        spec: spec.clone(),
+        alternatives: vec![RegimeFactoryBranch {
+            residual: Factory {
+                selection: Selection::default(),
+                requirements: pse_kernels::DerivativeRequirements::new(
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                )
+                .unwrap(),
+                spec,
+                body: compile(&residual, &[0]),
+                unknowns: unknowns.clone(),
+                rows: vec![row],
+                configuration: Configuration::Fixed(
+                    unknowns,
+                    Options {
+                        start: vec![2.5],
+                        variable_nominals: vec![1.0],
+                        variable_tolerance: vec![1e-8],
+                        residual_tolerance: vec![1e-8],
+                        iterations: 100,
+                        time_limit: std::time::Duration::from_secs(10),
+                        derivative_tolerance: 1e-8,
+                    },
+                ),
+                hints: None,
+                terms: None,
+                solver: Arc::new(native::implicit::Kinsol),
+                cancel: flag.clone(),
+                max_entries: 1000,
+                providers: Default::default(),
+            },
+            eligibility: compile(&eligibility, &[0]),
+            criterion: compile(&criterion, &[0, 1]),
+            isolation: Some(Arc::new(isolation)),
+        }],
+        maximum_regimes: 1,
+        time_limit: std::time::Duration::from_secs(10),
+        cancel: flag.clone(),
+        verifier: Some(Arc::new(native::root_isolation::Ibex)),
+    });
+    let owner = service
+        .reserve(
+            "test:complete-admitted-factory",
+            factory.retained_bytes().unwrap(),
+        )
+        .unwrap();
+    let request = DerivedRequest::Reduced {
+        suppliers: vec![ReducedSupplier {
+            factory,
+            factory_owner: owner,
+            validity: key,
+            realization: SelectedResidualRealization::ZeroResiduals {
+                authored_offsets: vec![(row, plan.structure().rows()[0].lower)],
+            },
+        }],
+        retained: vec![],
+        accuracy: ReconstructionAccuracy {
+            point: 1e-10,
+            action: 1e-10,
+            class: AccuracyClass::Certified,
+            refinement: math::RefinementLimits {
+                rounds: 4,
+                proof_cells: 64,
+            },
+        },
+    };
+    let mut profile = original.profile.clone();
+    profile.selection = SolverSelection::Explicit(Backend::Ipopt);
+    profile.controls.hessian = HessianMode::LimitedMemory;
+    let prepared = service
+        .prepare_derived(
+            original,
+            request,
+            profile,
+            scope.clone(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let execution = Execution::within(flag, prepared.controls(), scope).unwrap();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+    let result = execution::scoped(
+        &[execution::adapter(Backend::Kinsol)],
+        1,
+        service.policy.stack_bytes,
+        || {
+            let mut retained = Retained::default();
+            service.derived_step(&prepared, execution, &mut retained, &budget, &[2.5])
+        },
+    )
+    .unwrap();
+    let Outcome::Constant(report) = &result.outcome else {
+        panic!("no native outer attempt exists")
+    };
+    assert!(report.quality.feasible());
+    assert_eq!(report.coordinates, vec![(coordinate, 3.0)]);
+    assert!(report.work.evaluations.is_none());
+    assert!(
+        result
+            .proposal
+            .as_ref()
+            .unwrap()
+            .reconstruction_accuracy
+            .as_ref()
+            .unwrap()
+            .class
+            == AccuracyClass::Certified
+    );
+    assert_eq!(budget.used(), 0);
 }

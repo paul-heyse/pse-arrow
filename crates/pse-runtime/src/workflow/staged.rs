@@ -269,7 +269,12 @@ impl Staged {
                         candidate: completion.decision.clone(),
                         session: SessionDisposition::RetainCompatible,
                     };
-                    ((point, completion), retention)
+                    crate::math::strategy::Assessed {
+                        original: point.conclusion(&completion),
+                        work: point.work.clone(),
+                        product: (point, completion),
+                        retention,
+                    }
                 },
             )
             .await?;
@@ -446,17 +451,28 @@ impl Staged {
                             candidate: completion.decision.clone(),
                             session: SessionDisposition::RetainCompatible,
                         };
-                        (Some((point, completion)), retention)
+                        crate::math::strategy::Assessed {
+                            original: point.conclusion(&completion),
+                            work: point.work.clone(),
+                            product: Some((point, completion)),
+                            retention,
+                        }
                     }
-                    None => (
-                        None,
-                        StepRetention {
+                    None => crate::math::strategy::Assessed {
+                        product: None,
+                        original: crate::math::strategy::OriginalConclusion::Unavailable {
+                            cause: Arc::new(pse_backend_native::ProblemError::Unsupported(
+                                "batch scientific assessment missing".into(),
+                            )),
+                        },
+                        work: Vec::new(),
+                        retention: StepRetention {
                             candidate: refused(
                                 pse_model::generated::enums::CandidateRefusal::NoCandidate,
                             ),
                             session: SessionDisposition::Discard,
                         },
-                    ),
+                    },
                 },
             )
             .await;

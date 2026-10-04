@@ -224,7 +224,19 @@ fn declare_controls(builder: &mut RegistryBuilder) {
         builder,
         "HessianMode",
         &[
+            (
+                "auto",
+                "Resolve a supported concrete curvature mode before adapter admission.",
+            ),
             ("exact", "Exact weighted Lagrangian Hessian."),
+            (
+                "partitioned",
+                "Library-owned partitioned quasi-Newton curvature using conservative structural support and analytic First.",
+            ),
+            (
+                "finite_difference",
+                "Library-owned finite-difference curvature using analytic First, conservative structure and bounded probes.",
+            ),
             (
                 "limited_memory",
                 "Library-owned quasi-Newton approximation.",
@@ -233,6 +245,44 @@ fn declare_controls(builder: &mut RegistryBuilder) {
                 "gauss_newton",
                 "Gauss–Newton Hessian of a least-squares objective: the weighted response Gram JᵀWJ plus the constraint-multiplier Hessians, without residual curvature. Admitted for least-squares fits only.",
             ),
+        ],
+    );
+    vocabulary(
+        builder,
+        "PouncePartitionedUpdate",
+        &[
+            ("bfgs", "BFGS partition updates."),
+            ("sr1", "SR1 partition updates."),
+        ],
+    );
+    vocabulary(
+        builder,
+        "PouncePartitionedElements",
+        &[
+            (
+                "per_constraint",
+                "One element per conservative contribution.",
+            ),
+            ("primal_block", "Bounded primal-coordinate blocks."),
+        ],
+    );
+    vocabulary(
+        builder,
+        "PounceFdPattern",
+        &[
+            ("declared", "Conservative declared Hessian structure."),
+            (
+                "jacobian",
+                "Conservative structure inferred from Jacobian support.",
+            ),
+        ],
+    );
+    vocabulary(
+        builder,
+        "PounceFdColoring",
+        &[
+            ("cpr", "Library CPR coloring."),
+            ("star", "Library star coloring."),
         ],
     );
     vocabulary(

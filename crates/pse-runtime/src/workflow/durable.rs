@@ -429,7 +429,7 @@ impl DurableAttempt {
                         pse_ids::roles::RecordedOperationalJobIdentity::current(
                             pse_ids::roles::OperationalJobHash::from(
                                 pse_ids::document::of(
-                                    pse_ids::Frame::DurableJobRequestV3,
+                                    pse_ids::Frame::DurableJobRequestV4,
                                     &(self.attempt, run_id, kind, request_identity),
                                 )
                                 .map_err(|error| super::contract(error.to_string()))?,
@@ -722,7 +722,7 @@ fn identities(
     };
     Ok(match request {
         RunRequest::Modeling(steps) => {
-            let mut h = FramedHasher::new(pse_ids::Frame::DurableModelingRequestV1);
+            let mut h = FramedHasher::new(pse_ids::Frame::DurableModelingRequestV2);
             h.u64(steps.len() as u64);
             for step in steps {
                 h.hash(&step.solve.request_identity().map_err(math)?.as_id());

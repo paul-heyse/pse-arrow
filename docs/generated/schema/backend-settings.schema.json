@@ -47,6 +47,15 @@
     "FeralSettings": {
       "additionalProperties": false,
       "properties": {
+        "bounded_dense_max_dimension": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "cascade_break": {
           "default": null,
           "type": [
@@ -133,6 +142,29 @@
       "description": "A finite real of either sign: a bound, a weight or a stated value.",
       "format": "double",
       "type": "number"
+    },
+    "FiniteDifferenceSettings": {
+      "additionalProperties": false,
+      "description": "Typed finite-difference pattern, coloring and native reuse controls.",
+      "properties": {
+        "coloring": {
+          "$ref": "#/$defs/PounceFdColoring",
+          "default": "cpr",
+          "description": "Library coloring algorithm."
+        },
+        "pattern": {
+          "$ref": "#/$defs/PounceFdPattern",
+          "default": "declared",
+          "description": "Declared Hessian support, falling back to conservative Jacobian/objective support."
+        },
+        "reuse_tolerance": {
+          "default": 0.0,
+          "description": "Relative native iterate distance permitting Hessian reuse.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "type": "object"
     },
     "Fraction": {
       "description": "A finite fraction in (0, 1]: a damping factor, a step fraction or a relative push.",
@@ -610,17 +642,92 @@
       ],
       "type": "string"
     },
+    "PartitionedSettings": {
+      "additionalProperties": false,
+      "description": "Typed partitioned update controls. An absent formula preserves the library's\nmode-dependent default and its option set-ness.",
+      "properties": {
+        "block_size": {
+          "default": 64,
+          "description": "Width of primal blocks.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "curvature_cap": {
+          "default": null,
+          "description": "Finite positive curvature multiplier, absent for uncapped native updates.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "elements": {
+          "$ref": "#/$defs/PouncePartitionedElements",
+          "default": "per_constraint",
+          "description": "Element construction."
+        },
+        "max_element": {
+          "default": 64,
+          "description": "Wider elements degrade to the library diagonal approximation.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "update_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PouncePartitionedUpdate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit element update, or the library default."
+        }
+      },
+      "type": "object"
+    },
     "PositiveCount": {
       "description": "A strictly positive count: a dimension, a thread count or an iteration budget.",
       "format": "uint",
       "minimum": 1,
       "type": "integer"
     },
+    "PounceFdColoring": {
+      "enum": [
+        "cpr",
+        "star"
+      ],
+      "type": "string"
+    },
+    "PounceFdPattern": {
+      "enum": [
+        "declared",
+        "jacobian"
+      ],
+      "type": "string"
+    },
     "PounceMethod": {
       "enum": [
         "interior_point",
         "active_set_sqp",
         "l1_exact_penalty"
+      ],
+      "type": "string"
+    },
+    "PouncePartitionedElements": {
+      "enum": [
+        "per_constraint",
+        "primal_block"
+      ],
+      "type": "string"
+    },
+    "PouncePartitionedUpdate": {
+      "enum": [
+        "bfgs",
+        "sr1"
       ],
       "type": "string"
     },
@@ -898,9 +1005,19 @@
           "const": "pounce",
           "type": "string"
         },
+        "finite_difference": {
+          "$ref": "#/$defs/FiniteDifferenceSettings",
+          "default": {
+            "coloring": "cpr",
+            "pattern": "declared",
+            "reuse_tolerance": 0.0
+          },
+          "description": "Library-owned finite-difference curvature settings."
+        },
         "linear": {
           "$ref": "#/$defs/FeralSettings",
           "default": {
+            "bounded_dense_max_dimension": null,
             "cascade_break": null,
             "fma": false,
             "increase_quality": true,
@@ -922,6 +1039,17 @@
           "$ref": "#/$defs/PounceMethod",
           "default": "interior_point",
           "description": "NLP method."
+        },
+        "partitioned": {
+          "$ref": "#/$defs/PartitionedSettings",
+          "default": {
+            "block_size": 64,
+            "curvature_cap": null,
+            "elements": "per_constraint",
+            "max_element": 64,
+            "update_type": null
+          },
+          "description": "Library-owned partitioned curvature settings."
         },
         "restart": {
           "$ref": "#/$defs/WarmRestart",
@@ -1362,6 +1490,7 @@
         "linear": {
           "$ref": "#/$defs/FeralSettings",
           "default": {
+            "bounded_dense_max_dimension": null,
             "cascade_break": null,
             "fma": false,
             "increase_quality": true,

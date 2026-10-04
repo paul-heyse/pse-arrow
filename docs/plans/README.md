@@ -7,8 +7,8 @@ progress. The current architecture and its supported scope live in the
 [Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
 and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,
 implementation packets, dependency order and final qualification. The coordinator owns the
-original finding dispositions; the later solver reviews have their single disposition owner
-in 25m. The linked plans own packet progress.
+original finding dispositions; the later solver reviews have their disposition owners
+in 25m and 25n. The linked plans own packet progress.
 [25a is complete](25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation),
 with focused verification recorded in its Outcome.
 [25b is complete](25b-scientific-knowledge-and-applicability.md#outcome-recorded-after-implementation),
@@ -43,6 +43,15 @@ including repairs from assembled qualification; 25k remains the sole full campai
 Execution is paused at the maintainer's request (2026-10-04); the
 [25m checkpoint](25m-integrated-solve-pipeline.md#execution-checkpoint) records integrated
 repairs, targeted verification and the dependency order for resumption.
+The [automatic simulation/solve pipeline review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md)
+assesses the committed 25m implementation and the requested automatic-composition target.
+Its corrections are organized in
+[25n: Automatic simulation and solve pipeline](25n-automatic-simulation-solve-pipeline.md),
+which owns AF-01–AF-08 and the confirmed automatic-composition default for `Auto`.
+25n implementation is paused for a maintainer-directed review after current-task integration,
+focused compile/test repair and stale-worktree cleanup; its [checkpoint](25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
+owns implemented slices and remaining scope.
+Full qualification resumes through 25k after the functional handoff.
 The series reserves full integration and qualification for 25k after all functional
 work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
 checks and immediate deletion of replaced mechanisms during the pivot.

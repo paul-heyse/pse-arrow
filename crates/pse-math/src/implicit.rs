@@ -35,9 +35,9 @@ use faer::{
 };
 pub use isolation::{
     ChartChainCoverage, ChartChainEvidence, ChartChainProof, ChartChainRequest, ChartChainWork,
-    ProofInterval, RootActionEvidence, RootPointEvidence, SelectionAlternative, SelectionChart,
-    SelectionEvidence, SelectionProofRefusal, SelectionProofRequest, SelectionScope,
-    SelectionVerifier,
+    ProofInterval, RootActionEvidence, RootNeighborhoodEvidence, RootPointEvidence,
+    SelectionAlternative, SelectionChart, SelectionEvidence, SelectionProofRefusal,
+    SelectionProofRequest, SelectionScope, SelectionVerifier,
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, ProviderValues};
@@ -572,7 +572,7 @@ pub(super) fn numerical_product_bytes(inputs: usize, unknowns: usize) -> Result<
 
 /// Attempt-bound provider construction, using the same callback and cancellation owner
 /// as outer math evaluation. The factory never acquires runtime CPU permits.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Factory {
     /// Compiler-issued semantic choice, independent of ordinary numerical starts.
     pub selection: Selection,
@@ -753,6 +753,9 @@ impl ImplicitFactory {
     }
 }
 impl pse_kernels::ProviderFactory for ImplicitFactory {
+    fn source_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
     fn spec(&self) -> &pse_kernels::ProviderSpec {
         match self {
             Self::Root(v) => v.spec(),

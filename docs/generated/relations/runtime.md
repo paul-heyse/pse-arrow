@@ -2775,12 +2775,14 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, event`.
 | `step` | `Int64` | false | `key` | — | — |
 | `event` | `Int64` | false | `key` | — | — |
 | `strategy_identity` | `content_hash` | false | `payload` | — | — |
+| `decision_identity` | `content_hash` | true | `payload` | — | — |
 | `mechanism` | `enum:NumericalMechanism` | false | `payload` | — | — |
 | `kind` | `enum:NumericalEventKind` | false | `payload` | — | — |
 | `phase` | `enum:NumericalPhase` | false | `payload` | — | — |
 | `scope` | `enum:NumericalScope` | false | `payload` | — | — |
 | `charging_owner` | `content_hash` | true | `payload` | — | — |
 | `original_identity` | `content_hash` | false | `payload` | — | — |
+| `original_conclusion` | `enum:NumericalOriginalConclusion` | true | `payload` | — | — |
 | `derived_identity` | `content_hash` | true | `payload` | — | — |
 | `profile_identity` | `content_hash` | true | `payload` | — | — |
 | `backend` | `enum:NativeBackend` | true | `payload` | — | — |

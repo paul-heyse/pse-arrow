@@ -43,6 +43,8 @@ fn facts(index: usize) -> Facts {
     Facts {
         support: BTreeSet::new(),
         accuracy: Vec::new(),
+        consumption: Vec::new(),
+        reservation: Some(charge(index).observed),
         start: if index == 0 {
             StartOrigin::Specification
         } else {
@@ -80,6 +82,14 @@ fn assessment(use_result: bool, auxiliary: bool, observation: Observation) -> As
     };
     Assessment {
         auxiliary,
+        original: if use_result {
+            OriginalConclusion::Satisfied
+        } else {
+            OriginalConclusion::Refused {
+                cause: Arc::new(ProblemError::numerical("original refusal")),
+            }
+        },
+        work: Vec::new(),
         retention: StepRetention {
             candidate,
             session: SessionDisposition::RetainCompatible,
@@ -190,6 +200,7 @@ fn declared_accuracy_is_consumed_and_an_estimate_cannot_establish_certification(
         class: AccuracyClass::Certified,
     });
     let mut supplied = facts(0);
+    supplied.consumption = declaration.accuracy.clone();
     assert!(matches!(
         admit(&declaration, 0, true, &supplied),
         Admission::RequiredRefusal(_)
@@ -315,26 +326,22 @@ fn actual_work_is_charged_once_unknown_is_not_zero_and_task_cap_is_terminal() {
     assert_eq!(ledger.observation().evaluations, None);
     let mut s = strategy();
     s.limits.evaluations = Some(2);
-    let result = run(
+    let result = run::<()>(
         &s,
         &scope(),
         facts,
-        |index, _| {
-            Ok(Attempt {
-                value: index,
-                observation: Observation::Converged,
-                work: charge(index),
-            })
-        },
+        |_, _| panic!("the complete reservation exceeds the task allowance before dispatch"),
         |_, _| panic!("exhausted work cannot be assessed or retained"),
     );
-    assert_eq!(result.events.last().unwrap().kind, EventKind::Abandoned);
+    assert_eq!(result.events.last().unwrap().kind, EventKind::Refused);
+    assert_eq!(result.work.attempts, 0);
+    assert_eq!(result.work.evaluations, Some(0));
     assert!(result.assessment.is_none());
     assert!(result.terminal.is_some());
 }
 
 #[test]
-fn optional_slice_exhaustion_keeps_base_admitted_and_charges_its_actual_work() {
+fn optional_slice_refusal_keeps_base_admitted_and_charges_only_actual_work() {
     let mut s = strategy();
     s.start.recovery.push(StartOrigin::Specification);
     s.mechanisms[0].position = Position::Preparation;
@@ -347,6 +354,10 @@ fn optional_slice_exhaustion_keeps_base_admitted_and_charges_its_actual_work() {
         &scope(),
         |_| facts(0),
         |index, _| {
+            assert_eq!(
+                index, 1,
+                "the optional complete reservation cannot fit its slice"
+            );
             Ok(Attempt {
                 value: index,
                 observation: Observation::Converged,
@@ -359,14 +370,14 @@ fn optional_slice_exhaustion_keeps_base_admitted_and_charges_its_actual_work() {
         },
     );
     assert_eq!(result.value, Some(1));
-    assert_eq!(result.work.attempts, 2);
-    assert_eq!(result.work.evaluations, Some(6));
+    assert_eq!(result.work.attempts, 1);
+    assert_eq!(result.work.evaluations, Some(3));
     assert!(result.terminal.is_none());
     assert!(
         result
             .events
             .iter()
-            .any(|event| event.kind == EventKind::Abandoned
+            .any(|event| event.kind == EventKind::Refused
                 && event.transition == Some(Transition::Continue))
     );
 }
@@ -627,4 +638,311 @@ fn tagged_native_report_failures_are_terminal_under_declared_recovery() {
             matches!(cause_native(&report).as_deref(),Some(ProblemError::Native {kind:actual,..}) if *actual==kind)
         );
     }
+}
+
+#[test]
+fn native_convergence_retains_original_refusal_and_terminal_assessor_cause() {
+    let cause = Arc::new(ProblemError::Contract(
+        "authored safety check refused the original point".into(),
+    ));
+    let result = run(
+        &strategy(),
+        &scope(),
+        facts,
+        |index, _| {
+            Ok(Attempt {
+                value: index,
+                observation: Observation::Converged,
+                work: charge(index),
+            })
+        },
+        |_, observation| {
+            let mut assessed = assessment(false, false, observation);
+            assessed.original = OriginalConclusion::Refused {
+                cause: cause.clone(),
+            };
+            assessed
+        },
+    );
+    let event = result.events.last().unwrap();
+    assert_eq!(event.observation, Some(Observation::Converged));
+    assert_eq!(event.transition, Some(Transition::Stop));
+    assert!(Arc::ptr_eq(event.cause.as_ref().unwrap(), &cause));
+    assert_eq!(result.work.attempts, 1);
+}
+#[test]
+fn strict_unknown_inclusive_work_refuses_before_dispatch_and_keeps_complete_reservation_unknown() {
+    let result = run::<()>(
+        &strategy(),
+        &scope(),
+        |_| Facts {
+            support: BTreeSet::new(),
+            accuracy: Vec::new(),
+            consumption: Vec::new(),
+            reservation: None,
+            start: StartOrigin::Specification,
+            inherited: false,
+            connected: false,
+            refusal: None,
+        },
+        |_, _| panic!("unknown inclusive work under strict caps cannot dispatch"),
+        |_, _| panic!("no assessment before admission"),
+    );
+    assert!(matches!(
+        result.terminal.as_deref(),
+        Some(ProblemError::Unsupported(_))
+    ));
+    assert_eq!(result.work.attempts, 0);
+    let mut ledger = Ledger::new(limits());
+    ledger.reserve(limits(), Some(charge(0).observed)).unwrap();
+    let mut actual = charge(0);
+    actual.observed.evaluations = None;
+    ledger.charge(actual).unwrap();
+    assert_eq!(ledger.observation().evaluations, None);
+    let mut excessive = charge(1).observed;
+    excessive.evaluations = Some(18);
+    assert!(ledger.reserve(limits(), Some(excessive)).is_err());
+}
+#[test]
+fn disjoint_scientific_assessment_work_is_charged_after_failed_original_check() {
+    let result = run(
+        &strategy(),
+        &scope(),
+        |index| {
+            let mut f = facts(index);
+            f.reservation.as_mut().unwrap().evaluations = Some(5);
+            f
+        },
+        |index, _| {
+            Ok(Attempt {
+                value: index,
+                observation: Observation::Converged,
+                work: charge(index),
+            })
+        },
+        |_, observation| {
+            let mut assessed = assessment(false, false, observation);
+            assessed.original = OriginalConclusion::Unavailable {
+                cause: Arc::new(ProblemError::Internal(
+                    "assessor failed after its callback".into(),
+                )),
+            };
+            assessed.work.push(WorkCharge {
+                phase: Phase::Assessment,
+                scope: Scope::Task,
+                charging_owner: hash(100),
+                observed: WorkObservation {
+                    attempts: 0,
+                    evaluations: Some(2),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                },
+            });
+            assessed
+        },
+    );
+    assert_eq!(result.work.evaluations, Some(5));
+    assert_eq!(result.work.attempts, 1);
+    assert_eq!(
+        result.events.last().unwrap().transition,
+        Some(Transition::Stop)
+    );
+}
+#[test]
+fn actual_producer_state_consumes_exact_point_source_order_normalization_and_class() {
+    use pse_model::strategy::*;
+    let source = SemanticProductKey {
+        structure: hash(1),
+        binding: hash(2),
+        numerical_policy: Some(hash(3)),
+        normalization: Some(hash(4)),
+        point: Some(hash(5)),
+        parameters: Some(hash(6)),
+        derivation: Some(hash(7)),
+        branch: None,
+        accuracy: Some(hash(8)),
+    };
+    let accuracy = AccuracyEvidence {
+        product: hash(8),
+        normalization: hash(4),
+        class: AccuracyClass::Certified,
+        error: Some(1e-8),
+    };
+    let actual = ProductEvidence {
+        source,
+        derivative_order: 0,
+        branch: BranchPolicy::any_qualified(),
+        accuracy,
+    };
+    let demand = AccuracyDemand {
+        product: hash(8),
+        normalization: hash(4),
+        class: AccuracyClass::Certified,
+        allowance: 1e-6,
+    };
+    let mut state = ProductState::default();
+    assert!(
+        state
+            .bind_inputs(
+                &[demand],
+                hash(2),
+                hash(5),
+                BranchPolicy::any_qualified(),
+                0
+            )
+            .is_err()
+    );
+    state.publish(actual.clone()).unwrap();
+    let contract = state
+        .bind_inputs(
+            &[demand],
+            hash(2),
+            hash(5),
+            BranchPolicy::any_qualified(),
+            0,
+        )
+        .unwrap();
+    assert_eq!(state.consume(&contract).unwrap(), vec![accuracy]);
+    assert!(
+        state
+            .bind_inputs(
+                &[demand],
+                hash(2),
+                hash(9),
+                BranchPolicy::any_qualified(),
+                0
+            )
+            .is_err()
+    );
+    assert!(
+        state
+            .bind_inputs(
+                &[demand],
+                hash(9),
+                hash(5),
+                BranchPolicy::any_qualified(),
+                0
+            )
+            .is_err()
+    );
+    assert!(
+        state
+            .bind_inputs(
+                &[demand],
+                hash(2),
+                hash(5),
+                BranchPolicy::any_qualified(),
+                1
+            )
+            .is_err()
+    );
+    let mut wrong = demand;
+    wrong.normalization = hash(9);
+    assert!(
+        state
+            .bind_inputs(&[wrong], hash(2), hash(5), BranchPolicy::any_qualified(), 0)
+            .is_err()
+    );
+    let mut estimate = actual;
+    estimate.accuracy.class = AccuracyClass::Estimated;
+    let mut estimated_state = ProductState::default();
+    estimated_state.publish(estimate).unwrap();
+    assert!(
+        estimated_state
+            .bind_inputs(
+                &[demand],
+                hash(2),
+                hash(5),
+                BranchPolicy::any_qualified(),
+                0
+            )
+            .is_err()
+    );
+}
+
+#[test]
+fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal() {
+    use pse_model::strategy::{CompositionRequest, MechanismKind, StartPolicy, StartRules};
+    let request = CompositionRequest {
+        limits: Some(limits()),
+        ..CompositionRequest::default()
+    };
+    let start = StartRules {
+        policy: StartPolicy::NoPriorStart,
+        recovery: Vec::new(),
+    };
+    let candidates = vec![
+        AutoCandidate {
+            identity: hash(1),
+            kind: MechanismKind::ReducedSpace,
+            start: StartOrigin::Auxiliary,
+            replacement: true,
+            support: BTreeSet::new(),
+            reservation: None,
+        },
+        AutoCandidate {
+            identity: hash(2),
+            kind: MechanismKind::Direct,
+            start: StartOrigin::Specification,
+            replacement: false,
+            support: BTreeSet::new(),
+            reservation: None,
+        },
+    ];
+    let work = WorkObservation {
+        attempts: 0,
+        evaluations: Some(0),
+        iterations: Some(0),
+        factorizations: Some(0),
+        proof_steps: Some(0),
+    };
+    assert!(matches!(
+        next_automatic(
+            &request,
+            &start,
+            &candidates,
+            &BTreeSet::new(),
+            None,
+            work,
+            false
+        ),
+        AutoDecision::Dispatch { candidate: 1 }
+    ));
+    let refused = AutoObservation {
+        native: Observation::Converged,
+        original: Some(OriginalConclusion::Unavailable {
+            cause: Arc::new(ProblemError::Internal(
+                "scientific assessor unavailable".into(),
+            )),
+        }),
+        permission: Some(CandidateUse::Unusable),
+    };
+    assert!(matches!(
+        next_automatic(
+            &request,
+            &start,
+            &candidates,
+            &BTreeSet::new(),
+            Some(&refused),
+            work,
+            false
+        ),
+        AutoDecision::Stop { .. }
+    ));
+    let mut attempted = BTreeSet::new();
+    attempted.insert(1);
+    assert!(matches!(
+        next_automatic(&request, &start, &candidates, &attempted, None, work, false),
+        AutoDecision::Stop { .. }
+    ));
+}
+#[test]
+fn preparation_refusal_does_not_consume_first_actual_execution_allowance() {
+    let mut only = limits();
+    only.attempts = 1;
+    let ledger = Ledger::new(only);
+    ledger.reserve_attempt().unwrap();
+    ledger.reserve_attempt().unwrap();
+    assert_eq!(ledger.observation().attempts, 0);
 }

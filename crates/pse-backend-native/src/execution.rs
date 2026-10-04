@@ -465,6 +465,7 @@ impl Table {
     /// Identity of every linked adapter's native build, in table order.
     pub fn build_identity(&self) -> ContentHash {
         let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NativeBuildV1);
+        h.str(include_str!(concat!(env!("OUT_DIR"), "/pounce-source.txt")));
         for adapter in self.adapters().filter(|a| a.linked()) {
             h.str(adapter.backend().as_str());
             match adapter.build() {

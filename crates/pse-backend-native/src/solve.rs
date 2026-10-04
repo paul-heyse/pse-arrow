@@ -643,6 +643,34 @@ impl AttemptAbandonment {
         }
     }
 }
+/// The admitted storage scope. Application storage is deployment-owned; a
+/// complete Linear reservation covers factors, actions, scratch and fallback.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeStorageScope {
+    /// Algorithm and oracle storage outside the bounded linear lifetime.
+    Application,
+    /// Factors, actions, scratch and retained fallback storage.
+    Linear,
+}
+/// Task-owned pre-operation admission for disjoint native work. Reservations and
+/// actual observations remain distinct, and an absent counter is unknown.
+pub trait WorkAdmission: std::fmt::Debug + Send + Sync {
+    /// Reserve the next operation before it starts, including failed operations.
+    fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError>;
+    /// Reconcile work that actually ran; the enclosing driver must not charge it again.
+    fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError>;
+    /// Admit owner allocations before they happen. `opaque` means known bytes do not
+    /// cover library factors/scratch; strict storage needs a complete external bound.
+    fn admit_storage(
+        &self,
+        _scope: NativeStorageScope,
+        _owner: &str,
+        _known_bytes: usize,
+        _opaque: bool,
+    ) -> Result<(), ProblemError> {
+        Ok(())
+    }
+}
 /// Cancellation and deadline checkpoints are shared by every callback adapter.
 #[derive(Clone, Debug)]
 pub struct Execution {
@@ -661,6 +689,8 @@ pub struct Execution {
     pub enclosing_scope: Option<pse_kernels::ExecutionScope>,
     /// Attempt-local abandonment, shared by this attempt's callback clones.
     pub abandonment: Arc<AttemptAbandonment>,
+    /// Optional task-owned admission hook; native callbacks and primitives consume it.
+    pub work_admission: Option<Arc<dyn WorkAdmission>>,
 }
 impl Execution {
     /// Construct at the admitted worker boundary.
@@ -673,6 +703,7 @@ impl Execution {
             memory: None,
             enclosing_scope: None,
             abandonment: Arc::default(),
+            work_admission: None,
         }
     }
     /// Admit a native attempt within the original task scope, capping its local

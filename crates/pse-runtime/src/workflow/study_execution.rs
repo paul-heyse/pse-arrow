@@ -354,7 +354,94 @@ impl ModelingPackage {
                                             "policy selected a missing admitted seed".into(),
                                         )
                                     })?;
-                                **target = target.as_ref().clone().with_start(previous)?;
+                                let predecessor_result = results[positions[predecessor]].as_deref();
+                                let predicted = if target
+                                    .solve
+                                    .composition_request()
+                                    .recovery
+                                    .contains(&pse_model::strategy::StartOrigin::Predicted)
+                                    && target.solve.numerical_strategy().start.policy
+                                        != pse_backend_native::solve::StartPolicy::NoPriorStart
+                                {
+                                    if let Some(RunReport::Modeling(points)) =
+                                        predecessor_result.and_then(|result| result.report().ok())
+                                        && let [point] = points.as_slice()
+                                    {
+                                        let deadline = std::time::Instant::now()
+                                            .checked_add(target.solve.time_limit())
+                                            .ok_or_else(|| {
+                                                super::contract("study target deadline extent")
+                                            })?;
+                                        let scope =
+                                            target.solve.task_scope().unwrap_or_else(|| {
+                                                pse_kernels::ExecutionScope::new(
+                                                    Arc::default(),
+                                                    Some(deadline),
+                                                )
+                                            });
+                                        let execution =
+                                            pse_backend_native::solve::Execution::within(
+                                                scope.cancellation().clone(),
+                                                &pse_backend_native::solve::Controls::default(),
+                                                scope.clone(),
+                                            )
+                                            .map_err(crate::math::MathRuntimeError::from)?;
+                                        let branch = target.solve.composition_request().branch;
+                                        target.solve = target
+                                            .solve
+                                            .clone()
+                                            .within_task(scope.clone())
+                                            .map_err(crate::math::MathRuntimeError::from)?;
+                                        match point.root_prediction(
+                                            &target.solve,
+                                            branch,
+                                            &execution,
+                                        ) {
+                                            Ok((proposal, _)) => {
+                                                let screened = self
+                                                    .runtime
+                                                    .native()
+                                                    .screen_start(
+                                                        target.solve.clone(),
+                                                        proposal,
+                                                        branch,
+                                                        scope,
+                                                        cancel,
+                                                    )
+                                                    .await?;
+                                                Some(
+                                                    target
+                                                        .solve
+                                                        .clone()
+                                                        .with_screened_start(&screened)
+                                                        .map_err(
+                                                            crate::math::MathRuntimeError::from,
+                                                        )?,
+                                                )
+                                            }
+                                            Err(error)
+                                                if matches!(
+                                                    error.boundary_diagnostic().class,
+                                                    BoundaryClass::Unsupported
+                                                        | BoundaryClass::Incompatible
+                                                        | BoundaryClass::Numerical
+                                                ) =>
+                                            {
+                                                None
+                                            }
+                                            Err(error) => return Err(error),
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+                                if let Some(solve) = predicted {
+                                    target.solve = solve;
+                                } else {
+                                    **target = target.as_ref().clone().with_start(previous)?;
+                                }
                             }
                             let result = if let Some(result) = batched.remove(&index) {
                                 result

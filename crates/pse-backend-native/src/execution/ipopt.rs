@@ -70,6 +70,16 @@ impl BackendExecution for Ipopt {
         controls: &Controls,
         snapshot: &super::Snapshot,
     ) -> Result<(), ProblemError> {
+        if matches!(
+            controls.hessian,
+            crate::solve::HessianMode::Auto
+                | crate::solve::HessianMode::Partitioned
+                | crate::solve::HessianMode::FiniteDifference
+        ) {
+            return Err(ProblemError::Unsupported(
+                "Ipopt does not implement this typed curvature mode".into(),
+            ));
+        }
         #[cfg(feature = "ipopt")]
         {
             let defaults = crate::ipopt::Settings::default();

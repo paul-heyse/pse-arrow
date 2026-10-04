@@ -34,7 +34,7 @@ pub(crate) struct NumericalRefinement<'a> {
 }
 
 /// One compiled alternative and its separately demanded eligibility/criterion programs.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RegimeFactoryBranch {
     /// Root problem of this alternative.
     pub residual: super::Factory,
@@ -46,7 +46,7 @@ pub struct RegimeFactoryBranch {
     pub isolation: Option<Arc<crate::factorable::RootIsolationProgram>>,
 }
 /// Attempt-bound alternative selection using the same injected native root capability.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RegimeFactory {
     /// Provider contract shared by every alternative.
     pub spec: pse_kernels::ProviderSpec,
@@ -172,6 +172,9 @@ impl RegimeFactory {
     }
 }
 impl pse_kernels::ProviderFactory for RegimeFactory {
+    fn source_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
     fn spec(&self) -> &pse_kernels::ProviderSpec {
         &self.spec
     }
@@ -1886,6 +1889,76 @@ impl RegimeSelection {
             super::RootActionEvidence::Enclosed { proof_cells, .. }
             | super::RootActionEvidence::Incomplete { proof_cells, .. }
             | super::RootActionEvidence::Interrupted { proof_cells } => *proof_cells,
+        };
+        self.observed_action_cells =
+            self.observed_action_cells
+                .checked_add(cells)
+                .ok_or(MathError::Limit(
+                    "selected action proof observation overflow",
+                ))?;
+        if cells > max_cells {
+            return Err(MathError::Contract(
+                "action verifier exceeded remaining proof allowance".into(),
+            ));
+        }
+        self.refinement_checkpoint(deadline, cancel)?;
+        Ok(result)
+    }
+    pub(super) fn enclose_neighborhood(
+        &mut self,
+        parameters: &[f64],
+        parameter_intervals: &[super::ProofInterval],
+        direction_intervals: Option<&[super::ProofInterval]>,
+        max_cells: u64,
+        deadline: Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<super::RootNeighborhoodEvidence, MathError> {
+        self.refinement_checkpoint(deadline, cancel)?;
+        let selected = self.numerical.as_ref().ok_or_else(|| {
+            MathError::Contract("bounded action requires a selected numerical product".into())
+        })?;
+        let chart = self.chart.as_ref().ok_or_else(|| {
+            MathError::Contract("bounded action requires original selected chart".into())
+        })?;
+        let verifier = self.verifier.as_ref().ok_or_else(|| {
+            MathError::Contract("bounded action requires admitted verifier".into())
+        })?;
+        let alternatives = self
+            .alternatives
+            .iter()
+            .map(|r| {
+                Ok(super::SelectionAlternative {
+                    id: r.problem.id,
+                    program: r.isolation.as_ref().ok_or_else(|| {
+                        MathError::Contract("bounded action original projection missing".into())
+                    })?,
+                    residual_identity: r.problem.identity,
+                    unknowns: &r.problem.unknowns,
+                })
+            })
+            .collect::<Result<Vec<_>, MathError>>()?;
+        let request = super::SelectionProofRequest {
+            selection: self.id,
+            alternatives: &alternatives,
+            winner: chart.winner,
+            parameters,
+            candidate: &selected.selected.values,
+            order: DerivativeOrder::First,
+            time_limit: deadline.saturating_duration_since(Instant::now()),
+            cancel,
+        };
+        chart.validate(&request, verifier.identity())?;
+        let result = verifier.enclose_neighborhood(
+            &request,
+            chart,
+            parameter_intervals,
+            direction_intervals,
+            max_cells,
+        )?;
+        let cells = match &result {
+            super::RootNeighborhoodEvidence::Enclosed { proof_cells, .. }
+            | super::RootNeighborhoodEvidence::Incomplete { proof_cells, .. }
+            | super::RootNeighborhoodEvidence::Interrupted { proof_cells } => *proof_cells,
         };
         self.observed_action_cells =
             self.observed_action_cells

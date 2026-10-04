@@ -258,6 +258,52 @@ pub struct SemanticProductKey {
     /// Accuracy/order/source demand actually consumed.
     pub accuracy: Option<ContentHash>,
 }
+/// A real produced numerical product with the exact source and point it covers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProductEvidence {
+    /// Source, binding, normalization, point and parameter dependencies actually consumed.
+    pub source: SemanticProductKey,
+    /// Actual derivative order; exact derivative provenance is separate from error class.
+    pub derivative_order: u8,
+    /// Selected branch meaning, validated by the producing owner.
+    pub branch: BranchPolicy,
+    /// Actual bound/estimate produced, never a preparation capability label.
+    pub accuracy: AccuracyEvidence,
+}
+/// The consumer's exact dependency contract. No field is inferred from capabilities.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProductDemand {
+    /// The immutable dependencies and actual point the consumer requires.
+    pub source: SemanticProductKey,
+    /// Required derivative order.
+    pub derivative_order: u8,
+    /// Required branch meaning.
+    pub branch: BranchPolicy,
+    /// Required product/error normalization and evidence class.
+    pub accuracy: AccuracyDemand,
+}
+impl ProductEvidence {
+    /// Exact dependency match followed by the owned accuracy check.
+    pub fn satisfies(&self, demand: &ProductDemand) -> bool {
+        self.source == demand.source
+            && self.derivative_order == demand.derivative_order
+            && self.branch == demand.branch
+            && self.branch.validate().is_ok()
+            && self.source.point.is_some()
+            && self.source.normalization == Some(self.accuracy.normalization)
+            && self.accuracy.satisfies(&demand.accuracy)
+    }
+}
+/// Input requirements are consumed before use; output contracts grant bounded production,
+/// never possession of the future output's certificate.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct OperationContract {
+    /// Actual prerequisites consumed by this particular operation.
+    pub inputs: Vec<ProductDemand>,
+    /// Products this operation may attempt to refine under the supplied demands.
+    pub outputs: Vec<AccuracyDemand>,
+}
+
 /// A native payload needs stronger compatibility than its semantic point.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -299,6 +345,41 @@ pub struct Mechanism {
     /// Declared transitions. Terminal stops remain obligatory, regardless of numerical history.
     pub transitions: Vec<Transition>,
 }
+/// Registry-owned requested numerical composition.
+pub use crate::generated::enums::NumericalCompositionPolicy as CompositionPolicy;
+/// Hard caller constraints retained by automatic and explicitly declared composition.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompositionRequest {
+    /// Automatic resolution or explicit declaration binding.
+    pub policy: CompositionPolicy,
+    /// Original root-selection contract.
+    pub branch: BranchPolicy,
+    /// Additional finite counters; absent retains the admitted caller controls.
+    pub limits: Option<WorkLimits>,
+    /// Permitted later start origins. Empty grants no replacement origin.
+    pub recovery: Vec<StartOrigin>,
+}
+impl Default for CompositionRequest {
+    fn default() -> Self {
+        Self {
+            policy: CompositionPolicy::Auto,
+            branch: BranchPolicy::any_qualified(),
+            limits: None,
+            recovery: Vec::new(),
+        }
+    }
+}
+impl CompositionRequest {
+    /// Validate immutable requested constraints before resolving capabilities.
+    pub fn validate(&self) -> Result<(), ModelError> {
+        self.branch.validate()?;
+        if let Some(limits) = self.limits {
+            limits.validate()?;
+        }
+        unique(&self.recovery, "duplicate composition recovery origin")
+    }
+}
 /// Immutable ordered declaration. Ordering affects composition and identity; no backend
 /// ranking or universal direct-first escalation is implied. With no request, the runtime
 /// constructs direct(start, limits) from its existing admitted controls and enclosing scope.
@@ -315,6 +396,25 @@ pub struct NumericalStrategy {
     pub limits: WorkLimits,
     /// Consumed accuracy contracts; original physical tolerances stay with their owner.
     pub accuracy: Vec<AccuracyDemand>,
+}
+/// Current strategy wire document. Historical bodies are not silently reinterpreted.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NumericalStrategyDocument {
+    /// Exact current document version, checked before decoding its body.
+    pub version: crate::document::Version<2>,
+    /// Validated finite operation declaration.
+    pub strategy: NumericalStrategy,
+}
+impl NumericalStrategyDocument {
+    /// Construct the current document only from a valid declaration.
+    pub fn new(strategy: NumericalStrategy) -> Result<Self, ModelError> {
+        strategy.validate()?;
+        Ok(Self {
+            version: crate::document::Version,
+            strategy,
+        })
+    }
 }
 impl NumericalStrategy {
     /// Complete minimal strategy: one original execution, no preparation or automatic recovery.
@@ -385,7 +485,7 @@ impl NumericalStrategy {
     /// Complete declaration identity; invalid declarations never receive an admitted key.
     pub fn key(&self) -> Result<ContentHash, ModelError> {
         self.validate()?;
-        pse_ids::document::of(pse_ids::Frame::NumericalStrategyV1, self)
+        pse_ids::document::of(pse_ids::Frame::NumericalStrategyV2, self)
             .map_err(|error| ModelError::Malformed(error.to_string()))
     }
 }

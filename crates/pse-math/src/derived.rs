@@ -420,7 +420,20 @@ impl ReconstructionContract {
             validity,
             support,
         } = producer;
-        validate_projection(&original, &retained, &eliminated)?;
+        if eliminated.is_empty()
+            || retained
+                .iter()
+                .any(|c| c.get() >= original.coordinates.len())
+            || eliminated
+                .iter()
+                .any(|r| r.get() >= original.constraints.len())
+            || retained.iter().collect::<BTreeSet<_>>().len() != retained.len()
+            || eliminated.iter().collect::<BTreeSet<_>>().len() != eliminated.len()
+        {
+            return Err(MathError::Contract(
+                "invalid reconstruction projection".into(),
+            ));
+        }
         if retained.len() >= original.coordinates.len()
             || eliminated.iter().any(|r| {
                 let c = &original.constraints[r.get()];
@@ -547,7 +560,10 @@ pub enum RefinementRefusal {
 }
 /// Explicit consumer allowance for one point or one realized action product.
 /// Proof cells are shared across its rounds; the original task clock is unchanged.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct RefinementLimits {
     /// Maximum complete enclosure/correction rounds for this consumed product.
     pub rounds: usize,
@@ -576,6 +592,15 @@ pub trait ReconstructionOracle: std::fmt::Debug {
     /// Consumed parameters/provider realization and selected root-sheet lineage.
     /// Numerical cache mutations alone must not change this mathematical identity.
     fn realization(&self) -> ContentHash;
+    /// Actual last consumed refinement refusal, for enclosing consumer rebinding.
+    /// Success clears this observation; it grants no capability or proof.
+    fn refinement_refusal(&self) -> Option<RefinementRefusal> {
+        None
+    }
+    /// Whether the supplier owns a uniform incoming-uncertainty operation.
+    fn supports_uncertainty(&self) -> bool {
+        false
+    }
     /// Establish the declared reconstruction conditions at this actual reduced point.
     /// Unknown regularity or an unavailable/disconnected selected sheet must refuse.
     fn admit(&mut self, x: &[f64]) -> Result<(), Self::Error>;
@@ -594,6 +619,62 @@ pub trait ReconstructionOracle: std::fmt::Debug {
         demand: &AccuracyDemand,
         refinement: RefinementLimits,
     ) -> Result<ReconstructionObservation, Self::Error>;
+    /// Consume predecessor uncertainty in the same normalized coordinate scales.
+    /// The default supplier has only an exact-input contract, so nonzero incoming
+    /// error requires a distinct uniform enclosure capability.
+    fn uncertain(
+        &mut self,
+        x: &[f64],
+        direction: Option<&[f64]>,
+        incoming: ReconstructionUncertainty<'_>,
+        demand: &AccuracyDemand,
+        refinement: RefinementLimits,
+    ) -> Result<ReconstructionObservation, Self::Error> {
+        if incoming.point.len() != x.len()
+            || incoming.action.is_some_and(|a| a.len() != x.len())
+            || incoming
+                .point
+                .iter()
+                .chain(incoming.action.into_iter().flatten())
+                .any(|e| !e.is_finite() || *e < 0.0)
+        {
+            return Err(MathError::Contract(
+                "incoming reconstruction uncertainty extent/value".into(),
+            )
+            .into());
+        }
+        if incoming
+            .point
+            .iter()
+            .chain(incoming.action.into_iter().flatten())
+            .any(|e| *e != 0.0)
+        {
+            return Err(MathError::Refinement {
+                product: demand.product,
+                source_key: self.contract().source(),
+                validity: self.contract().validity(),
+                reason: RefinementRefusal::Unavailable(
+                    crate::implicit::SelectionProofRefusal::Unsupported,
+                ),
+            }
+            .into());
+        }
+        match direction {
+            Some(v) => self.jacobian_product(x, v, demand, refinement),
+            None => self.point(x, demand, refinement),
+        }
+    }
+}
+/// Actual predecessor errors and their consumed evidence class, without upgrading
+/// an estimate to a uniform neighborhood certificate.
+#[derive(Clone, Copy, Debug)]
+pub struct ReconstructionUncertainty<'a> {
+    /// Per-input normalized point error.
+    pub point: &'a [f64],
+    /// Per-input normalized direction error when an action is consumed.
+    pub action: Option<&'a [f64]>,
+    /// Weakest evidence class of the actual predecessors.
+    pub class: AccuracyClass,
 }
 /// Inner observations consumed by an outer value/action. They retain their original
 /// products and numerical class; outer forward accuracy requires its own propagated
@@ -937,7 +1018,8 @@ impl DerivedFamily {
     /// incidence is the Boolean composition of the two actual support inventories;
     /// no numerical matching or current derivative establishes elimination.
     /// # Errors
-    /// Original contract mismatch or no retained original row to execute.
+    /// Original contract mismatch. A zero-row target retains original objective,
+    /// bounds and independent assessment obligations.
     pub fn reduced_space(
         original: Arc<OriginalContract>,
         reconstruction: Arc<ReconstructionContract>,
@@ -951,11 +1033,6 @@ impl DerivedFamily {
             .map(GlobalRow::new)
             .filter(|r| !reconstruction.eliminated.contains(r))
             .collect::<Vec<_>>();
-        if rows.is_empty() {
-            return Err(MathError::Contract(
-                "reduced family needs a retained original constraint row".into(),
-            ));
-        }
         let mut incidence = Vec::new();
         for edge in &original.incidence {
             if let Some(row) = rows.iter().position(|r| r == &edge.row) {
@@ -3740,6 +3817,58 @@ mod tests {
             )
             .unwrap(),
         )
+    }
+    #[test]
+    fn reduced_zero_row_objective_and_full_reconstruction_retain_original_obligations() {
+        let base = coupled_contract(DerivativeOrder::First);
+        let original = Arc::new(
+            OriginalContract::new(
+                base.identity(),
+                base.normalization(),
+                base.coordinates().to_vec(),
+                vec![base.constraints()[0].clone()],
+                vec![edge(0, 0), edge(0, 1)],
+                base.support(),
+                base.obligations(),
+            )
+            .unwrap(),
+        );
+        let map = Arc::new(
+            ReconstructionContract::new(
+                original.clone(),
+                hash(90),
+                hash(91),
+                vec![0.into()],
+                vec![0.into()],
+                vec![
+                    Entry::new(0.into(), 0.into()),
+                    Entry::new(1.into(), 0.into()),
+                ],
+                original.support(),
+            )
+            .unwrap(),
+        );
+        let family = DerivedFamily::reduced_space(original.clone(), map).unwrap();
+        assert_eq!(family.row_map().unwrap(), []);
+        assert_eq!(
+            family.original().obligations().objective,
+            original.obligations().objective
+        );
+        let complete = Arc::new(
+            ReconstructionContract::new(
+                original.clone(),
+                hash(90),
+                hash(91),
+                vec![],
+                vec![0.into()],
+                vec![],
+                original.support(),
+            )
+            .unwrap(),
+        );
+        let family = DerivedFamily::reduced_space(original.clone(), complete).unwrap();
+        assert_eq!(family.coordinate_map().unwrap(), []);
+        assert_eq!(family.original().coordinates(), original.coordinates());
     }
     #[derive(Debug)]
     struct SelectedReconstruction {

@@ -597,6 +597,13 @@ R-37).
 
 ### 20.5 Current contracts and schema evolution
 
+> Proposed amendment: [ADR-0155](../../adr/0155-numerical-derived-families.md), Plan 25n N10.
+
+Changed automatic interpretation receives new settings/strategy/study/job versions and request,
+preparation and durable frames. Version checks precede current-body decoding. Historical bytes and
+result readability stay intact; execution requires explicit current readmission or typed refusal.
+Native source/build identity names the immutable revision without invalidating unrelated evaluators.
+
 > Supplement: [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md) (proposed; authorized implementation) replaces normal reset recovery from ADR-0114. Fresh stores are created from generated declarations. Existing stores open read-only after exact support/readiness validation; `just db-migrate` explicitly transitions the supported predecessor while retaining records. Unknown source, conflicting immutable history, incompatible layout or active generations refuse before mutation. Namespace ownership spans separately recorded catalog/control and operations histories. Readiness precedes changed schema, each transition commits with its checksum history, and matching committed progress can resume. Runtime generations hold schema admission until their connections close; current statements are unavailable without verified readiness. Destructive reset is separate maintenance. Historical records retain their recorded contract and never infer new qualification facts from absent fields. Plan 25g implements the directional recorded-contract and retirement protocols below; their focused evidence is owned by that plan and integrated recovery qualification remains Plan 25k.
 
 **Recorded meaning and capabilities.** The portable `pse.semantic-contract.v2` witness

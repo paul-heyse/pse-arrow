@@ -246,6 +246,46 @@
       ],
       "type": "string"
     },
+    "NumericalStrategy": {
+      "additionalProperties": false,
+      "description": "Immutable ordered declaration. Ordering affects composition and identity; no backend\nranking or universal direct-first escalation is implied. With no request, the runtime\nconstructs direct(start, limits) from its existing admitted controls and enclosing scope.",
+      "properties": {
+        "accuracy": {
+          "description": "Consumed accuracy contracts; original physical tolerances stay with their owner.",
+          "items": {
+            "$ref": "#/$defs/AccuracyDemand"
+          },
+          "type": "array"
+        },
+        "branch": {
+          "$ref": "#/$defs/BranchPolicy",
+          "description": "Original root-selection contract."
+        },
+        "limits": {
+          "$ref": "#/$defs/WorkLimits",
+          "description": "Existing admitted task/occurrence finite limits, never refreshed at a new rung."
+        },
+        "mechanisms": {
+          "description": "Ordered composition. At least one execution operation is required.",
+          "items": {
+            "$ref": "#/$defs/Mechanism"
+          },
+          "type": "array"
+        },
+        "start": {
+          "$ref": "#/$defs/StartRules",
+          "description": "Entry intent and explicit later-start permissions."
+        }
+      },
+      "required": [
+        "start",
+        "branch",
+        "mechanisms",
+        "limits",
+        "accuracy"
+      ],
+      "type": "object"
+    },
     "NumericalTransition": {
       "enum": [
         "finish",
@@ -353,42 +393,23 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Immutable ordered declaration. Ordering affects composition and identity; no backend\nranking or universal direct-first escalation is implied. With no request, the runtime\nconstructs direct(start, limits) from its existing admitted controls and enclosing scope.",
+  "description": "Current strategy wire document. Historical bodies are not silently reinterpreted.",
   "properties": {
-    "accuracy": {
-      "description": "Consumed accuracy contracts; original physical tolerances stay with their owner.",
-      "items": {
-        "$ref": "#/$defs/AccuracyDemand"
-      },
-      "type": "array"
+    "strategy": {
+      "$ref": "#/$defs/NumericalStrategy",
+      "description": "Validated finite operation declaration."
     },
-    "branch": {
-      "$ref": "#/$defs/BranchPolicy",
-      "description": "Original root-selection contract."
-    },
-    "limits": {
-      "$ref": "#/$defs/WorkLimits",
-      "description": "Existing admitted task/occurrence finite limits, never refreshed at a new rung."
-    },
-    "mechanisms": {
-      "description": "Ordered composition. At least one execution operation is required.",
-      "items": {
-        "$ref": "#/$defs/Mechanism"
-      },
-      "type": "array"
-    },
-    "start": {
-      "$ref": "#/$defs/StartRules",
-      "description": "Entry intent and explicit later-start permissions."
+    "version": {
+      "const": 2,
+      "default": 2,
+      "description": "Exact current document version, checked before decoding its body.",
+      "type": "integer"
     }
   },
   "required": [
-    "start",
-    "branch",
-    "mechanisms",
-    "limits",
-    "accuracy"
+    "version",
+    "strategy"
   ],
-  "title": "NumericalStrategy",
+  "title": "NumericalStrategyDocument",
   "type": "object"
 }

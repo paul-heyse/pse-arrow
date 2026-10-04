@@ -91,10 +91,28 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
             damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
         };
         let result = package
-            .prepare_recycle(&analysis, selection, request, &cancel)
+            .prepare_recycle(&analysis, selection.clone(), request, &cancel)
             .await;
         if allowed {
             let admitted = result.unwrap();
+            let automatic = RecycleRequest::from_model(
+                admitted._source.model.compiled(),
+                admitted._source.case.compiled(),
+                &selection,
+                &admitted._source.case.compiled().quantities,
+                crate::math::settings::SolveSettings::default(),
+                None,
+            )
+            .unwrap();
+            assert_eq!(automatic.units.len(), 1);
+            assert!(matches!(
+                automatic.units[0].realization,
+                CausalUnitRealization::ExplicitMap
+            ));
+            assert_eq!(
+                automatic.tears,
+                selection.connections.keys().copied().collect()
+            );
             let assembly = &admitted.programs[0].program.assembly;
             assert_eq!(assembly.order(), DerivativeOrder::Value);
             assert!(
@@ -296,6 +314,7 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
         )
         .unwrap();
     let mut unit = UnitWorker {
+        last_values: None,
         input_ids: program.inputs.iter().map(|i| i.0).collect(),
         output_ids: program.outputs.iter().map(|o| o.0).collect(),
         program,
@@ -547,6 +566,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         )
         .unwrap();
     let mut unit = UnitWorker {
+        last_values: None,
         input_ids: program.inputs.iter().map(|i| i.0).collect(),
         output_ids: program.outputs.iter().map(|o| o.0).collect(),
         program,
@@ -929,6 +949,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         )
         .unwrap();
     let mut unit = UnitWorker {
+        last_values: None,
         input_ids: program.inputs.iter().map(|i| i.0).collect(),
         output_ids: program.outputs.iter().map(|o| o.0).collect(),
         program,

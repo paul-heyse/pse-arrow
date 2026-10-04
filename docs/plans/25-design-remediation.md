@@ -32,6 +32,15 @@ method integrations and consumer migration. The
 records the qualification dependency. Earlier functional and static evidence retains its
 scope; the new design and plan do not qualify the assembled pipeline.
 
+The 2026-10-04
+[automatic-pipeline review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md)
+adds [25n: Automatic simulation and solve pipeline](25n-automatic-simulation-solve-pipeline.md).
+It owns AF-01–AF-08 and the missing method/consumer corrections, with automatic composition as the
+normal `Auto` behavior and explicit constraints preserved. Its functional handoff precedes 25k
+resumption. The maintainer subsequently authorized 25n implementation and then requested a clean
+current-task closeout and pause for a separately instructed review. Its owning checkpoint records
+landed slices, focused verification and remaining work; the 25k functional handoff is incomplete.
+
 The [25c Outcome](25c-process-composition-and-conservation.md#outcome-recorded-after-implementation)
 owns its composite focused evidence, final compilation and limits.
 
@@ -83,6 +92,8 @@ This document owns the overall lifecycle, cross-plan decisions and **current fin
 for the original, follow-up and compilation/routing reviews. The distinct solver acceleration
 and integrated-pipeline review dispositions have their single owner in
 [25m](25m-integrated-solve-pipeline.md#finding-dispositions).
+The automatic-pipeline review's AF-01–AF-08 have their single proposed disposition owner in
+[25n](25n-automatic-simulation-solve-pipeline.md#finding-dispositions-and-verification).
 Each lettered plan owns its packet progress and eventual implementation evidence. Reviews remain
 historical evidence; packet completion and accepted ADRs do not by themselves resolve a finding.
 There is no separate backlog or duplicate status table for the same findings in child plans.
@@ -116,6 +127,7 @@ workflow engine, new solver mathematics, generic ontology or architecture-scorin
 | [25k: Integrated qualification and closure](25k-integrated-qualification-and-closure.md) | One evidence campaign for the complete target, followed by architecture and disposition closure |
 | [25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md) | Follow-up functional correction of semantic/output/support staging, contextual readiness and failure interpretation before qualification resumes |
 | [25m: Integrated solve pipeline](25m-integrated-solve-pipeline.md) | Combined solver-review implementation, shared numerical strategy and library-owned acceleration/globalization; owns its adopted findings and hands functional readiness to 25k |
+| [25n: Automatic simulation and solve pipeline](25n-automatic-simulation-solve-pipeline.md) | Partial implementation paused for maintainer-directed review; automatic composition, reconstruction, consumed evidence/work and native bindings; owns AF-01–AF-08 and corrected functional handoff to 25k |
 
 ### Grounding and boundary
 
@@ -238,7 +250,8 @@ independent packet can start once its own prerequisites and required decision ro
 | 13 | [J2](25j-generated-boundaries-and-library-consolidation.md#j2) | Completion of generated consumer migration |
 | 14 | [L0–L6](25l-flowsheet-compilation-and-solver-routing.md#decision-route-and-execution-packets) | Follow-up contracts, selective preparation, contextual routing and completion; L6 supplies readiness to resume the paused campaign |
 | 15 | [25m P0–P11](25m-integrated-solve-pipeline.md#decision-route-and-execution-packets) | Correct current numerical semantics, establish shared contracts, integrate applicable methods and migrate consumers before the next qualification campaign |
-| 16 | [K1](25k-integrated-qualification-and-closure.md#k1), [K2](25k-integrated-qualification-and-closure.md#k2), [K3](25k-integrated-qualification-and-closure.md#k3), [K4](25k-integrated-qualification-and-closure.md#k4), [K5](25k-integrated-qualification-and-closure.md#k5) | Preserve historical readiness/static scope; after the 25m functional handoff refresh affected static evidence, qualify the assembled target, measure and close |
+| 16 | [25n N0–N11](25n-automatic-simulation-solve-pipeline.md#execution-packets) | Establish corrected contracts, automatic composition, complete reconstruction and consumed native/product bindings before qualification resumes |
+| 17 | [K1](25k-integrated-qualification-and-closure.md#k1), [K2](25k-integrated-qualification-and-closure.md#k2), [K3](25k-integrated-qualification-and-closure.md#k3), [K4](25k-integrated-qualification-and-closure.md#k4), [K5](25k-integrated-qualification-and-closure.md#k5) | Preserve historical readiness/static scope; after the 25n functional handoff refresh affected static evidence, qualify the assembled target, measure and close |
 
 The important joins are E1 → D4 → E2, C5 → E3/E4, G3 → durable schema cutovers, and
 H/A/I ownership → wider reuse. D3 implements the shared demand operation before E2 migrates
@@ -375,7 +388,7 @@ not labelled Tested.
 
 The implementation is complete only when:
 
-- All functional companion packets, including 25l and 25m, have delivered their target
+- All functional companion packets, including 25l, 25m and 25n, have delivered their target
   consumers and deletion obligations.
 - Required decision routes and architecture corrections are complete.
 - K1–K5 have established their named evidence against the repository's zero target, with

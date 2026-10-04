@@ -882,7 +882,10 @@ class FitDerivatives(StrEnum):
 class HessianMode(StrEnum):
     """The declared HessianMode enumeration."""
 
+    AUTO = "auto"
     EXACT = "exact"
+    PARTITIONED = "partitioned"
+    FINITE_DIFFERENCE = "finite_difference"
     LIMITED_MEMORY = "limited_memory"
     GAUSS_NEWTON = "gauss_newton"
 
@@ -1926,6 +1929,13 @@ class NumericalBranchPolicy(StrEnum):
     CONNECTED = "connected"
 
 
+class NumericalCompositionPolicy(StrEnum):
+    """The declared NumericalCompositionPolicy enumeration."""
+
+    AUTO = "auto"
+    DECLARED = "declared"
+
+
 class NumericalCoordinates(StrEnum):
     """The declared NumericalCoordinates enumeration."""
 
@@ -1971,6 +1981,14 @@ class NumericalMechanism(StrEnum):
     MULTISTART = "multistart"
     SELECTED_EVALUATION = "selected_evaluation"
     LEAST_DEVIATION = "least_deviation"
+
+
+class NumericalOriginalConclusion(StrEnum):
+    """The declared NumericalOriginalConclusion enumeration."""
+
+    SATISFIED = "satisfied"
+    REFUSED = "refused"
+    UNAVAILABLE = "unavailable"
 
 
 class NumericalPathEventKind(StrEnum):
@@ -2172,12 +2190,40 @@ class PardisoOrdering(StrEnum):
     PARALLEL_METIS = "parallel_metis"
 
 
+class PounceFdColoring(StrEnum):
+    """The declared PounceFdColoring enumeration."""
+
+    CPR = "cpr"
+    STAR = "star"
+
+
+class PounceFdPattern(StrEnum):
+    """The declared PounceFdPattern enumeration."""
+
+    DECLARED = "declared"
+    JACOBIAN = "jacobian"
+
+
 class PounceMethod(StrEnum):
     """The declared PounceMethod enumeration."""
 
     INTERIOR_POINT = "interior_point"
     ACTIVE_SET_SQP = "active_set_sqp"
     L1_EXACT_PENALTY = "l1_exact_penalty"
+
+
+class PouncePartitionedElements(StrEnum):
+    """The declared PouncePartitionedElements enumeration."""
+
+    PER_CONSTRAINT = "per_constraint"
+    PRIMAL_BLOCK = "primal_block"
+
+
+class PouncePartitionedUpdate(StrEnum):
+    """The declared PouncePartitionedUpdate enumeration."""
+
+    BFGS = "bfgs"
+    SR1 = "sr1"
 
 
 class Preconditioner(StrEnum):

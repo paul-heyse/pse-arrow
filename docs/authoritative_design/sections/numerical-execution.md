@@ -600,6 +600,12 @@ staged-sequence primitive and retains original-specification acceptance
 
 ### 17.4 Flowsheet recycles and dynamic starts
 
+> Proposed amendment: [ADR-0155](../../adr/0155-numerical-derived-families.md), Plan 25n N1/N4.
+
+Control-sensitive schedules use execution dependencies without fictitious derivative incidence.
+The accepted final unit sweep retains all local unknowns, including non-port state, for complete
+original assembly/assessment. A connection-map root report alone remains a scoped map product.
+
 > Decision: ADR-0142 (proposed; maintainer-authorized implementation).
 
 A scheduled unit is admitted as an explicit map or a conditional equation problem with
@@ -1008,6 +1014,13 @@ regularization is derived from the requested gap
 
 ### 18.6 Truthful outcomes
 
+> Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md), Plan 25n N2/N3.
+
+Original assessment transports its scientific conclusion, typed cause, composed permission,
+independent artifact retention and disjoint work alongside native termination. Actual produced
+evidence enters the same state used by the next operation and trace. Original correction cannot
+recursively select the auxiliary family being corrected or manufacture an unavailable guarantee.
+
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — typed
 > adapter evidence (Plan 22 A1, implemented), which qualification reads by evidence type,
 > never by backend (Plan 22 A2, implemented); new assurances, each with stated conditions:
@@ -1136,6 +1149,15 @@ Path events carry actual localization and rank observations; a nondegeneracy con
 requires genuine compatible compiler Second support, separately from First preparation.
 
 ### 18.7 Capability, eligibility and selection
+
+> Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md),
+> [ADR-0158](../../adr/0158-observed-pounce-execution.md), Plan 25n N5/N6/N8.
+
+Current-version Auto will resolve one next preparation, execution or assessment decision from
+conditional adapter capabilities, actual products and observations. Explicit constraints and
+request-owned replacement-start permissions remain authoritative. Native second opinions and
+partitioned/finite-difference Hessians require acting typed configurations. Library-owned Schur
+receives semantic separators after actual classification and the same effective FERAL profile.
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
@@ -1308,6 +1330,22 @@ sequence ([§19.2](workflows-and-results.md#section-19-2)) and continues after a
 step only when the steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
+
+> Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md),
+> [ADR-0158](../../adr/0158-observed-pounce-execution.md), Plan 25n N2/N6.
+
+Hard counters require pre-operation admission or complete conservative reservation covering
+preparation, native final validation and independent assessment. Unknown measured work remains
+unknown; a complete unreconciled reservation retains its allowance. Native observation/control
+reports actual failed work and reserves complete simultaneously live storage through teardown.
+Resource/cancellation/contract abort is distinct from numerical fallback.
+
+The source-owned bounded FERAL profile covers complete linear storage for serial dense factors
+of dimension 1–7. Application heap storage remains opaque and deployment-owned; larger ordinary
+factors do not inherit this strict linear bound. Runtime admission and retained reservations must
+consume the hook through teardown before task-level strict-cap support can be claimed. The
+[25n checkpoint](../../plans/25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
+owns the partial integration and validation state.
 
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — SPRAL
 > (OpenMP) and oneMKL threads become admitted resources under this owner, with one

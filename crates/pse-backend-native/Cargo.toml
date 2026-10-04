@@ -96,6 +96,7 @@ scip-sys = { workspace = true, optional = true }
 pse-workspace-hack.workspace = true
 
 [build-dependencies]
+toml.workspace = true
 cc.workspace = true
 pkg-config.workspace = true
 

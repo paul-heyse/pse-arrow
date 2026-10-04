@@ -465,6 +465,13 @@ Clones and exported Arrow buffers share allocation ownership through the last re
 
 ### 19.3 Studies and reuse
 
+> Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md), Plan 25n N7–N10.
+
+Modeling, studies, fitting, shooting, horizons and applicable dynamic initialization supply their
+mathematical target and original assessor to one numerical binder. Sampling, statistical stopping,
+control application, scientific time/events and durable occurrence policy retain their owners.
+Preparation inspection may be conditional; execution traces contain actual decisions and products.
+
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 Completion keeps candidate presence, evaluated original-space quality, unavailable assessment and native termination distinct. Only evaluated violations justify an infeasibility refusal. One shared exhaustive projection retains detailed causes and native limit categories without weakening result/seed/incumbent policy; generated and recorded consumers preserve those meanings.

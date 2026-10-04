@@ -593,6 +593,7 @@ mod tests {
             report.record_validation_failure(failure);
             let outcome = Outcome::Native(Box::new(report));
             let point = super::super::modeling::assessment::AssessedPoint {
+                work: Vec::new(),
                 values: prepared.model.values.clone(),
                 checks: vec![],
                 reports: vec![],

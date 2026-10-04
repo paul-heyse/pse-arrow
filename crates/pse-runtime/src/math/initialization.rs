@@ -26,6 +26,8 @@ pub struct PreparedInitialization {
     targets: Vec<pse_math::numerics::TargetSpec>,
     requirements: Arc<Vec<pse_math::numerics::SourcedRequirement>>,
     blocks: Vec<ConditionalBlock>,
+    /// Complete original evaluator for transactional final block assessment.
+    original: Option<Arc<ExecutableCase>>,
     _owner: Arc<super::products::ProductOwner>,
 }
 /// One conditional block: its boundary, its value-independent view and its assembled
@@ -286,6 +288,8 @@ pub struct DeclaredRootReport {
     pub run_id: pse_model::generated::identities::RunId,
     /// Shared numerical execution and original candidate assessment events.
     pub strategy: Arc<super::strategy::Trace>,
+    /// Complete independently checked original candidate, including non-port local state.
+    pub original_candidate: Option<CaseValues>,
     decision: crate::workflow::numerics::CandidateDecision,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
@@ -756,6 +760,7 @@ impl MathService {
         tolerances: Tolerances,
         policy: pse_model::numerics::NumericalPolicy,
         profile: pse_ids::ContentHash,
+        original_candidate: Option<Arc<std::sync::Mutex<Option<CaseValues>>>>,
         factory: impl FnOnce(
             Execution,
             Arc<WorkerBudget>,
@@ -876,6 +881,17 @@ impl MathService {
                         report: result,
                         run_id,
                         strategy: trace,
+                        original_candidate: original_candidate
+                            .as_ref()
+                            .map(|candidate| {
+                                candidate.lock().map(|value| value.clone()).map_err(|_| {
+                                    MathRuntimeError::Infrastructure(
+                                        "original candidate lock poisoned".into(),
+                                    )
+                                })
+                            })
+                            .transpose()?
+                            .flatten(),
                         decision,
                         _owner: owner,
                     })
@@ -898,6 +914,7 @@ impl MathService {
         numerical: super::solves::NumericalInputs,
         driver: &crate::CancelSource,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
+        let original = self.assemble(case.clone()).await?;
         let quantities = case.compiled().quantities.clone();
         let mut targets = case
             .compiled()
@@ -931,8 +948,11 @@ impl MathService {
             });
         tokio::pin!(operation);
         let (products, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.own_initialization(products, lease, quantities, targets, numerical.declarations)
-            .await
+        let mut prepared = self
+            .own_initialization(products, lease, quantities, targets, numerical.declarations)
+            .await?;
+        prepared.original = Some(original);
+        Ok(prepared)
     }
     async fn own_initialization(
         self: &Arc<Self>,
@@ -976,6 +996,7 @@ impl MathService {
             targets,
             requirements: Arc::new(requirements),
             blocks,
+            original: None,
             _owner: owner,
         })
     }
@@ -1014,7 +1035,8 @@ impl MathService {
             .ok_or(MathRuntimeError::Limit(
                 "initialization task deadline extent",
             ))?;
-        let scope = pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline));
+        let control = FlightCancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
         let run_id = pse_operations::mint_id();
         let session = self.open_session()?;
         let service = self.clone();
@@ -1032,6 +1054,7 @@ impl MathService {
                 owner: &owner,
                 cancel: &cancel,
                 scope,
+                control,
                 run_id,
                 bound: vec![None; prepared.blocks.len()],
                 attempts: Vec::new(),
@@ -1055,6 +1078,7 @@ struct Blocks<'a> {
     owner: &'a Arc<pse_columnar::AllocationLease>,
     cancel: &'a crate::CancelSource,
     scope: pse_kernels::ExecutionScope,
+    control: FlightCancellation,
     run_id: pse_model::generated::identities::RunId,
     /// Each block's view as last bound; later stages rebind its values (A6).
     bound: Vec<Option<Preparation>>,
@@ -1127,6 +1151,54 @@ impl Blocks<'_> {
                     completed = false;
                     break;
                 }
+            }
+            if completed
+                && let Some(original_case) = &self.prepared.original
+            {
+                    let values = values.clone();
+                    let numerics = self.numerics.clone();
+                    let structure = original_case.assembly.structure().clone();
+                    self.scope.check().map_err(native::ProblemError::Provider)?;
+                    completed = self
+                        .service
+                        .with_owned_worker(
+                            original_case.clone(),
+                            self.providers.clone(),
+                            self.cancel,
+                            Some((self.scope.clone(), self.control.clone())),
+                            move |mut worker| {
+                                let rows = worker.constraints(&values)?;
+                                let row_ids: Vec<_> =
+                                    structure.rows().iter().map(|r| r.id).collect();
+                                let tolerances = Tolerances::from_policy(
+                                    &numerics,
+                                    &structure
+                                        .variables()
+                                        .iter()
+                                        .filter(|v| !v.fixed)
+                                        .map(|v| v.port.id)
+                                        .collect::<Vec<_>>(),
+                                    &row_ids,
+                                )?;
+                                let rows_ok =
+                                    rows.iter().zip(structure.rows()).zip(&tolerances.rows).all(
+                                        |((value, row), tolerance)| {
+                                            value.is_finite()
+                                                && *value >= row.lower - tolerance
+                                                && *value <= row.upper + tolerance
+                                        },
+                                    );
+                                let bounds_ok = structure.variables().iter().all(|variable| {
+                                    values.scalars.get(&variable.port.id).is_some_and(|value| {
+                                        value.is_finite()
+                                            && variable.lower.is_none_or(|lower| *value >= lower)
+                                            && variable.upper.is_none_or(|upper| *value <= upper)
+                                    })
+                                });
+                                Ok(rows_ok && bounds_ok)
+                            },
+                        )
+                        .await?;
             }
             if completed {
                 committed.scalars = values
@@ -1239,12 +1311,13 @@ impl Blocks<'_> {
                 self.owner.clone(),
                 self.cancel,
                 move |outcome, _, _| {
-                    (
+                    super::strategy::Assessed::native(
                         (),
                         super::StepRetention {
                             candidate: outcome.candidate_use(&numerical_policy),
                             session: super::SessionDisposition::RetainCompatible,
                         },
+                        outcome,
                     )
                 },
             )
@@ -1410,6 +1483,8 @@ mod tests {
             presolve: Default::default(),
             convexity: Default::default(),
             sensitivity: None,
+            composition: Default::default(),
+            reconstruction: None,
         };
         service
             .solve_declared_root(
@@ -1421,6 +1496,7 @@ mod tests {
                 tolerances,
                 policy,
                 super::super::solves::profile_key(&profile).unwrap().as_id(),
+                None,
                 move |_, _| {
                     called.store(true, std::sync::atomic::Ordering::Release);
                     Err(native::ProblemError::Internal(

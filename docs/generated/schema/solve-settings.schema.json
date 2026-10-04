@@ -183,9 +183,19 @@
               "const": "pounce",
               "type": "string"
             },
+            "finite_difference": {
+              "$ref": "#/$defs/FiniteDifferenceSettings",
+              "default": {
+                "coloring": "cpr",
+                "pattern": "declared",
+                "reuse_tolerance": 0.0
+              },
+              "description": "Library-owned finite-difference curvature settings."
+            },
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
+                "bounded_dense_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -207,6 +217,17 @@
               "$ref": "#/$defs/PounceMethod",
               "default": "interior_point",
               "description": "NLP method."
+            },
+            "partitioned": {
+              "$ref": "#/$defs/PartitionedSettings",
+              "default": {
+                "block_size": 64,
+                "curvature_cap": null,
+                "elements": "per_constraint",
+                "max_element": 64,
+                "update_type": null
+              },
+              "description": "Library-owned partitioned curvature settings."
             },
             "restart": {
               "$ref": "#/$defs/WarmRestart",
@@ -647,6 +668,7 @@
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
+                "bounded_dense_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -774,6 +796,31 @@
         }
       ]
     },
+    "BranchPolicy": {
+      "additionalProperties": false,
+      "description": "Root-selection meaning retained by every proposal and correction.",
+      "properties": {
+        "connected": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConnectedPath"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Required precisely for the connected policy."
+        },
+        "kind": {
+          "$ref": "#/$defs/NumericalBranchPolicy",
+          "description": "Any qualified root, or continuation on a declared connected sheet."
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
     "ClarabelDirect": {
       "enum": [
         "qdldl",
@@ -803,6 +850,77 @@
       ],
       "type": "string"
     },
+    "CompositionRequest": {
+      "additionalProperties": false,
+      "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
+      "properties": {
+        "branch": {
+          "$ref": "#/$defs/BranchPolicy",
+          "description": "Original root-selection contract."
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkLimits"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Additional finite counters; absent retains the admitted caller controls."
+        },
+        "policy": {
+          "$ref": "#/$defs/NumericalCompositionPolicy",
+          "description": "Automatic resolution or explicit declaration binding."
+        },
+        "recovery": {
+          "description": "Permitted later start origins. Empty grants no replacement origin.",
+          "items": {
+            "$ref": "#/$defs/NumericalStartOrigin"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "policy",
+        "branch",
+        "recovery"
+      ],
+      "type": "object"
+    },
+    "ConnectedPath": {
+      "additionalProperties": false,
+      "description": "Explicit originating path/sheet and the consumed transport/orientation witnesses.\nSupplying identities is not proof: the responsible path owner validates the products.",
+      "properties": {
+        "orientation": {
+          "description": "Path tangent/transport orientation evidence.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        },
+        "path": {
+          "description": "Original connected path identity.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        },
+        "sheet": {
+          "description": "Selected root sheet; a shared regime label alone is insufficient.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        },
+        "transport": {
+          "description": "Transport evidence between the source and target bindings.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sheet",
+        "transport",
+        "orientation"
+      ],
+      "type": "object"
+    },
     "FeralOrdering": {
       "enum": [
         "amd",
@@ -827,6 +945,15 @@
     "FeralSettings": {
       "additionalProperties": false,
       "properties": {
+        "bounded_dense_max_dimension": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "cascade_break": {
           "default": null,
           "type": [
@@ -914,6 +1041,29 @@
       "format": "double",
       "type": "number"
     },
+    "FiniteDifferenceSettings": {
+      "additionalProperties": false,
+      "description": "Typed finite-difference pattern, coloring and native reuse controls.",
+      "properties": {
+        "coloring": {
+          "$ref": "#/$defs/PounceFdColoring",
+          "default": "cpr",
+          "description": "Library coloring algorithm."
+        },
+        "pattern": {
+          "$ref": "#/$defs/PounceFdPattern",
+          "default": "declared",
+          "description": "Declared Hessian support, falling back to conservative Jacobian/objective support."
+        },
+        "reuse_tolerance": {
+          "default": 0.0,
+          "description": "Relative native iterate distance permitting Hessian reuse.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "Fraction": {
       "description": "A finite fraction in (0, 1]: a damping factor, a step fraction or a relative push.",
       "exclusiveMinimum": 0.0,
@@ -923,7 +1073,10 @@
     },
     "HessianMode": {
       "enum": [
+        "auto",
         "exact",
+        "partitioned",
+        "finite_difference",
         "limited_memory",
         "gauss_newton"
       ],
@@ -1445,6 +1598,28 @@
       ],
       "type": "string"
     },
+    "NumericalAccuracyClass": {
+      "enum": [
+        "certified",
+        "estimated",
+        "unresolved"
+      ],
+      "type": "string"
+    },
+    "NumericalBranchPolicy": {
+      "enum": [
+        "any_qualified",
+        "connected"
+      ],
+      "type": "string"
+    },
+    "NumericalCompositionPolicy": {
+      "enum": [
+        "auto",
+        "declared"
+      ],
+      "type": "string"
+    },
     "NumericalCoordinates": {
       "enum": [
         "physical",
@@ -1537,6 +1712,19 @@
       },
       "type": "object"
     },
+    "NumericalStartOrigin": {
+      "enum": [
+        "specification",
+        "explicit",
+        "accepted",
+        "predicted",
+        "auxiliary",
+        "partial",
+        "modified_specification",
+        "surrogate"
+      ],
+      "type": "string"
+    },
     "NumericalTarget": {
       "enum": [
         "variable",
@@ -1618,17 +1806,92 @@
       ],
       "type": "string"
     },
+    "PartitionedSettings": {
+      "additionalProperties": false,
+      "description": "Typed partitioned update controls. An absent formula preserves the library's\nmode-dependent default and its option set-ness.",
+      "properties": {
+        "block_size": {
+          "default": 64,
+          "description": "Width of primal blocks.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "curvature_cap": {
+          "default": null,
+          "description": "Finite positive curvature multiplier, absent for uncapped native updates.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "elements": {
+          "$ref": "#/$defs/PouncePartitionedElements",
+          "default": "per_constraint",
+          "description": "Element construction."
+        },
+        "max_element": {
+          "default": 64,
+          "description": "Wider elements degrade to the library diagonal approximation.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "update_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PouncePartitionedUpdate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit element update, or the library default."
+        }
+      },
+      "type": "object"
+    },
     "PositiveCount": {
       "description": "A strictly positive count: a dimension, a thread count or an iteration budget.",
       "format": "uint",
       "minimum": 1,
       "type": "integer"
     },
+    "PounceFdColoring": {
+      "enum": [
+        "cpr",
+        "star"
+      ],
+      "type": "string"
+    },
+    "PounceFdPattern": {
+      "enum": [
+        "declared",
+        "jacobian"
+      ],
+      "type": "string"
+    },
     "PounceMethod": {
       "enum": [
         "interior_point",
         "active_set_sqp",
         "l1_exact_penalty"
+      ],
+      "type": "string"
+    },
+    "PouncePartitionedElements": {
+      "enum": [
+        "per_constraint",
+        "primal_block"
+      ],
+      "type": "string"
+    },
+    "PouncePartitionedUpdate": {
+      "enum": [
+        "bfgs",
+        "sr1"
       ],
       "type": "string"
     },
@@ -1731,6 +1994,60 @@
           "type": "integer"
         }
       },
+      "type": "object"
+    },
+    "ReconstructionAccuracy": {
+      "additionalProperties": false,
+      "description": "Consumer-issued normalized allowances. Each actual point/action creates its own\nfully scoped demand; no default tolerance or default certificate is supplied.",
+      "properties": {
+        "action": {
+          "description": "Actual consumer allowance for each realized normalized action error.",
+          "format": "double",
+          "type": "number"
+        },
+        "class": {
+          "$ref": "#/$defs/NumericalAccuracyClass",
+          "description": "Required evidence class, independently supplied by the consumer."
+        },
+        "point": {
+          "description": "Actual consumer allowance for normalized reconstructed point error.",
+          "format": "double",
+          "type": "number"
+        },
+        "refinement": {
+          "$ref": "#/$defs/RefinementLimits",
+          "description": "Explicit bounded work for each consumed point/action refinement."
+        }
+      },
+      "required": [
+        "point",
+        "action",
+        "class",
+        "refinement"
+      ],
+      "type": "object"
+    },
+    "RefinementLimits": {
+      "additionalProperties": false,
+      "description": "Explicit consumer allowance for one point or one realized action product.\nProof cells are shared across its rounds; the original task clock is unchanged.",
+      "properties": {
+        "proof_cells": {
+          "description": "Maximum actual interval proof cells across all those rounds.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rounds": {
+          "description": "Maximum complete enclosure/correction rounds for this consumed product.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rounds",
+        "proof_cells"
+      ],
       "type": "object"
     },
     "RestartBarrier": {
@@ -1990,6 +2307,58 @@
         }
       },
       "type": "object"
+    },
+    "WorkLimits": {
+      "additionalProperties": false,
+      "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
+      "properties": {
+        "attempts": {
+          "description": "Maximum executions, including the first attempt. A task requires at least one.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "evaluations": {
+          "description": "Evaluations admitted by the charging owner, including rejected trials.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "factorizations": {
+          "description": "Numerical factor constructions, distinct from structural analysis/setup reuse.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "iterations": {
+          "description": "Native/library iterations, where the operation exposes them.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "proof_steps": {
+          "description": "Verification/proof operations accounted by their owning verifier.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "attempts"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -2008,10 +2377,23 @@
       "default": null,
       "description": "An explicitly selected eligible backend; absent is deterministic routing."
     },
+    "composition": {
+      "$ref": "#/$defs/CompositionRequest",
+      "default": {
+        "branch": {
+          "connected": null,
+          "kind": "any_qualified"
+        },
+        "limits": null,
+        "policy": "auto",
+        "recovery": []
+      },
+      "description": "Requested composition; omission chooses automatic resolution without replacement starts."
+    },
     "controls": {
       "$ref": "#/$defs/SolveControls",
       "default": {
-        "hessian": "exact",
+        "hessian": "auto",
         "history": 256,
         "iterations": 3000,
         "options": {},
@@ -2079,6 +2461,17 @@
       "description": "Native presolve options; an explicit policy only.",
       "type": "object"
     },
+    "reconstruction": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReconstructionAccuracy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Explicit reconstruction evidence class and finite refinement allowances."
+    },
     "required_passes": {
       "default": [],
       "description": "Passes that may not silently become unavailable; an explicit policy only.",
@@ -2112,8 +2505,8 @@
       "description": "Typed settings of one backend; absent is the routed backend's native defaults."
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Document version.",
       "type": "integer"
     }

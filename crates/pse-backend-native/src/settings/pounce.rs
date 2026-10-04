@@ -7,7 +7,10 @@
 //! registry vocabularies, and its defaults are FERAL's own.
 use crate::solve::WarmRestart;
 use feral::{scaling::ScalingStrategy, symbolic::OrderingMethod};
-use pse_model::generated::enums::{FeralOrdering, FeralScaling};
+use pse_model::generated::enums::{
+    FeralOrdering, FeralScaling, PounceFdColoring, PounceFdPattern, PouncePartitionedElements,
+    PouncePartitionedUpdate,
+};
 
 /// The native infinity threshold, shared by contextual admission and final execution.
 pub(crate) fn admit_bound(value: f64) -> Result<(), crate::ProblemError> {
@@ -44,6 +47,10 @@ pub struct Settings {
     pub linear: LinearSettings,
     /// Interior-point restart of a submitted primal-dual seed (L-N3).
     pub restart: WarmRestart,
+    /// Library-owned partitioned curvature settings.
+    pub partitioned: PartitionedSettings,
+    /// Library-owned finite-difference curvature settings.
+    pub finite_difference: FiniteDifferenceSettings,
 }
 impl Default for Settings {
     /// The interior-point method with FERAL's own defaults and the default restart.
@@ -52,7 +59,177 @@ impl Default for Settings {
             method: Method::InteriorPoint,
             linear: LinearSettings::default(),
             restart: WarmRestart::default(),
+            partitioned: PartitionedSettings::default(),
+            finite_difference: FiniteDifferenceSettings::default(),
         }
+    }
+}
+
+/// Typed partitioned update controls. An absent formula preserves the library's
+/// mode-dependent default and its option set-ness.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct PartitionedSettings {
+    /// Explicit element update, or the library default.
+    pub update_type: Option<PouncePartitionedUpdate>,
+    /// Wider elements degrade to the library diagonal approximation.
+    pub max_element: usize,
+    /// Element construction.
+    pub elements: PouncePartitionedElements,
+    /// Width of primal blocks.
+    pub block_size: usize,
+    /// Finite positive curvature multiplier, absent for uncapped native updates.
+    pub curvature_cap: Option<f64>,
+}
+impl Default for PartitionedSettings {
+    fn default() -> Self {
+        Self {
+            update_type: None,
+            max_element: 64,
+            elements: PouncePartitionedElements::PerConstraint,
+            block_size: 64,
+            curvature_cap: None,
+        }
+    }
+}
+/// Typed finite-difference pattern, coloring and native reuse controls.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct FiniteDifferenceSettings {
+    /// Declared Hessian support, falling back to conservative Jacobian/objective support.
+    pub pattern: PounceFdPattern,
+    /// Library coloring algorithm.
+    pub coloring: PounceFdColoring,
+    /// Relative native iterate distance permitting Hessian reuse.
+    pub reuse_tolerance: f64,
+}
+impl Default for FiniteDifferenceSettings {
+    fn default() -> Self {
+        Self {
+            pattern: PounceFdPattern::Declared,
+            coloring: PounceFdColoring::Cpr,
+            reuse_tolerance: 0.0,
+        }
+    }
+}
+impl Settings {
+    /// One typed lowering for the curvature controls; callers cannot override these
+    /// assignments with raw competing options.
+    pub(crate) fn curvature_options(
+        &self,
+        mode: crate::solve::HessianMode,
+    ) -> Result<crate::solve::Options, crate::ProblemError> {
+        use crate::{
+            ProblemError,
+            solve::{HessianMode, OptionValue, Options},
+        };
+        if self.partitioned.max_element == 0
+            || self.partitioned.max_element > i32::MAX as usize
+            || self.partitioned.block_size == 0
+            || self.partitioned.block_size > i32::MAX as usize
+            || self
+                .partitioned
+                .curvature_cap
+                .is_some_and(|v| !v.is_finite() || v <= 0.0)
+            || !self.finite_difference.reuse_tolerance.is_finite()
+            || self.finite_difference.reuse_tolerance < 0.0
+        {
+            return Err(ProblemError::Contract(
+                "invalid POUNCE curvature settings".into(),
+            ));
+        }
+        if self.method == Method::ActiveSetSqp
+            && matches!(
+                mode,
+                HessianMode::Partitioned | HessianMode::FiniteDifference
+            )
+        {
+            return Err(ProblemError::Unsupported("POUNCE active-set SQP does not consume partitioned or finite-difference IPM curvature".into()));
+        }
+        if let Some(maximum) = self.linear.bounded_dense_max_dimension
+            && (!(1..=7).contains(&maximum)
+                || !matches!(self.linear.ordering, OrderingMethod::Amd)
+                || self.linear.parallel == Some(true)
+                || !matches!(
+                    self.linear.scaling,
+                    ScalingStrategy::Auto | ScalingStrategy::InfNorm | ScalingStrategy::Identity
+                )
+                || self.method != Method::InteriorPoint
+                || mode == HessianMode::LimitedMemory)
+        {
+            return Err(ProblemError::Unsupported("bounded POUNCE linear storage requires IPM, assembled curvature, serial AMD, Auto/InfNorm/Identity scaling and maximum dimension 1..=7".into()));
+        }
+        let mut options = Options::new();
+        match mode {
+            HessianMode::Auto => {
+                return Err(ProblemError::Contract(
+                    "automatic curvature must resolve before POUNCE admission".into(),
+                ));
+            }
+            HessianMode::Partitioned => {
+                if let Some(update) = self.partitioned.update_type {
+                    options.insert(
+                        "partitioned_update_type".into(),
+                        OptionValue::Text(
+                            match update {
+                                PouncePartitionedUpdate::Bfgs => "bfgs",
+                                PouncePartitionedUpdate::Sr1 => "sr1",
+                            }
+                            .into(),
+                        ),
+                    );
+                }
+                options.insert(
+                    "partitioned_max_element".into(),
+                    OptionValue::Integer(self.partitioned.max_element as i32),
+                );
+                options.insert(
+                    "partitioned_elements".into(),
+                    OptionValue::Text(
+                        match self.partitioned.elements {
+                            PouncePartitionedElements::PerConstraint => "per-constraint",
+                            PouncePartitionedElements::PrimalBlock => "blocks",
+                        }
+                        .into(),
+                    ),
+                );
+                options.insert(
+                    "partitioned_block_size".into(),
+                    OptionValue::Integer(self.partitioned.block_size as i32),
+                );
+                if let Some(cap) = self.partitioned.curvature_cap {
+                    options.insert("partitioned_curvature_cap".into(), OptionValue::Real(cap));
+                }
+            }
+            HessianMode::FiniteDifference => {
+                options.insert(
+                    "fd_hessian_pattern".into(),
+                    OptionValue::Text(
+                        match self.finite_difference.pattern {
+                            PounceFdPattern::Declared => "declared",
+                            PounceFdPattern::Jacobian => "jacobian",
+                        }
+                        .into(),
+                    ),
+                );
+                options.insert(
+                    "fd_hessian_coloring".into(),
+                    OptionValue::Text(
+                        match self.finite_difference.coloring {
+                            PounceFdColoring::Cpr => "cpr",
+                            PounceFdColoring::Star => "star",
+                        }
+                        .into(),
+                    ),
+                );
+                options.insert(
+                    "fd_hessian_reuse_tol".into(),
+                    OptionValue::Real(self.finite_difference.reuse_tolerance),
+                );
+            }
+            HessianMode::Exact | HessianMode::GaussNewton | HessianMode::LimitedMemory => {}
+        }
+        Ok(options)
     }
 }
 
@@ -64,6 +241,7 @@ impl Default for Settings {
 )]
 #[schemars(rename = "FeralSettings")]
 pub(super) struct FeralIdentity {
+    bounded_dense_max_dimension: Option<usize>,
     cascade_break: Option<bool>,
     fma: bool,
     refine: bool,
@@ -179,6 +357,7 @@ pub(crate) fn record(config: &LinearSettings) -> Result<serde_json::Value, serde
 /// that the serde remote above does not frame.
 const _: fn(&LinearSettings) = |c| {
     let pounce_feral::FeralConfig {
+        bounded_dense_max_dimension: _,
         cascade_break: _,
         fma: _,
         refine: _,

@@ -36,6 +36,7 @@ from pse.contracts.enums import (
     NativeQualification,
     NativeSolveIntent,
     NativeTermination,
+    NumericalCompositionPolicy,
     NumericalEventKind,
     NumericalPosition,
     NumericalTransition,
@@ -271,9 +272,12 @@ def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_r
         ),
     )
     direct = prepared.numerical_strategy
-    limits = msgspec.structs.replace(direct.limits, attempts=2)
+    assert direct.version == 2
+    assert prepared.composition_request.policy == NumericalCompositionPolicy.AUTO
+    assert not prepared.composition_request.recovery
+    limits = msgspec.structs.replace(direct.strategy.limits, attempts=2)
     first = msgspec.structs.replace(
-        direct.mechanisms[0],
+        direct.strategy.mechanisms[0],
         profile=documents.ProfileRef(
             backend=NativeBackend.KINSOL, key=prepared.strategy_profile.to_prefixed()
         ),
@@ -285,7 +289,10 @@ def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_r
     )
     second = msgspec.structs.replace(first, position=NumericalPosition.RECOVERY)
     declaration = msgspec.structs.replace(
-        direct, limits=limits, mechanisms=(first, second)
+        direct,
+        strategy=msgspec.structs.replace(
+            direct.strategy, limits=limits, mechanisms=(first, second)
+        ),
     )
     composed = prepared.with_numerical_strategy(declaration, (prepared, prepared))
     assert composed.numerical_strategy == declaration
@@ -294,9 +301,18 @@ def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_r
     assert "runtime.solve_strategy_events" in result.tables()
     rows = pa.table(result.table("runtime.solve_strategy_events")).to_pylist()
     assert sum(row["kind"] == NumericalEventKind.STARTED for row in rows) == 1
-    finished = [row for row in rows if row["kind"] == NumericalEventKind.FINISHED]
+    finished = [
+        row
+        for row in rows
+        if row["kind"] == NumericalEventKind.FINISHED and row["transition"] is not None
+    ]
     assert len(finished) == 1
     assert finished[0]["transition"] == NumericalTransition.FINISH
+    assert finished[0]["original_conclusion"] == "satisfied"
+    charged = [
+        row["charging_owner"] for row in rows if row["charging_owner"] is not None
+    ]
+    assert len(charged) == len(set(charged))
 
 
 def revision(

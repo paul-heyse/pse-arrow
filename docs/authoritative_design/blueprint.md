@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 118
+revision: 119
 date: 2026-10-04
 ---
 
@@ -99,6 +99,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | 117 | 2026-10-04 | Reconcile heterogeneous selected-chart proposals (§7.5): derive coordinate-sensitive seeds through the pinned interval library, separate initial radii from the common inflation floor, and retain complete original certification and scalar fallbacks under one account. | Maintainer-authorized Plan 25m P4 repair within the existing verifier contract; `PSE_DESIGN_EDIT=1`; bounded independent review accepts the scope; Tested: 33 linked proof controls with explicit force-validation, including actual mixed-scale chart containment and pole refusal; original PR and full assembled qualification remain pending. |
 | 118 | 2026-10-04 | Reconcile selected-chart seed construction (§7.5): a library midpoint preconditioner and centered parameter residual reduce proposal dependency; full uniform Newton and competitive covering remain the certificate authority. | Maintainer-authorized Plan 25m P4 repair; `PSE_DESIGN_EDIT=1`; Tested: 33 linked proof controls with explicit force-validation; exact original PR request diagnostic passes local Newton at a useful neighborhood, while full scientific qualification remains pending. |
+
+| 119 | 2026-10-04 | Proposed Plan 25n automatic composition and consumed native binding amendments (§14.3, §17.4, §§18.6–18.8, §19.3, §20.5), governed by ADR-0154/0155/0158. | Maintainer-authorized implementation; `PSE_DESIGN_EDIT=1` used for the decision route; bounded decision review and targeted implementation remain in progress; no product qualification or ADR acceptance claimed. |
 
 ## Former anchors
 

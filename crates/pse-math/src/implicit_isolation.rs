@@ -369,8 +369,50 @@ pub enum RootPointEvidence {
         proof_cells: u64,
     },
 }
+/// Uniform point and optional action enclosure over an incoming parameter box
+/// inside an unchanged competitively certified selected chart.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RootNeighborhoodEvidence {
+    /// Original interval residual mathematics established both products.
+    Enclosed {
+        /// Original physical root intervals in unknown order for every incoming parameter.
+        points: Vec<ProofInterval>,
+        /// Original physical action intervals for every incoming point/direction pair.
+        actions: Option<Vec<ProofInterval>>,
+        /// Actual attempted interval root and inverse cells, including failed work.
+        proof_cells: u64,
+    },
+    /// No uniform product was established within the actual allowance.
+    Incomplete {
+        /// Why uniform incoming point/action accuracy remains unestablished.
+        reason: SelectionProofRefusal,
+        /// Actual attempted cells before this refusal.
+        proof_cells: u64,
+    },
+    /// Original caller interrupted actual proof work.
+    Interrupted {
+        /// Actual attempted cells before original cancellation.
+        proof_cells: u64,
+    },
+}
 /// Injected validated mathematics; a root solver continues to own numerical iteration.
 pub trait SelectionVerifier: std::fmt::Debug + Send + Sync {
+    /// Enclose the original selected solution and derivative for uncertain incoming
+    /// point/direction coordinates. Every parameter interval must remain inside the
+    /// unchanged chart; exact-point proofs cannot implement this by inference.
+    fn enclose_neighborhood(
+        &self,
+        _request: &SelectionProofRequest<'_>,
+        _chart: &SelectionChart,
+        _parameters: &[ProofInterval],
+        _directions: Option<&[ProofInterval]>,
+        _max_cells: u64,
+    ) -> Result<RootNeighborhoodEvidence, MathError> {
+        Ok(RootNeighborhoodEvidence::Incomplete {
+            reason: SelectionProofRefusal::Unsupported,
+            proof_cells: 0,
+        })
+    }
     /// Versioned library/adapter/rounding identity.
     fn identity(&self) -> ContentHash;
     /// Complete transient extent: all input transports and maximum sequential native work.

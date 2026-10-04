@@ -9,6 +9,7 @@ from pse.contracts.documents import (
     BoundaryDiagnostic,
     BuildInfo,
     CacheReport,
+    CompositionRequest,
     DiagnosticCauseDocument,
     DiagnosticContextDocument,
     EligibilityDocument,
@@ -511,6 +512,8 @@ class NativePreparedFlow:
 
 @final
 class NativePreparedOperation:
+    @property
+    def composition_request(self, /) -> CompositionRequest: ...
     @property
     def eligibility(self, /) -> list[EligibilityDocument]: ...
     @property

@@ -103,12 +103,20 @@ frames! {
         SettingsV1 => "pse:settings:v1",
         /// Declared numerical mechanisms, permissions, finite work and consumed accuracy.
         NumericalStrategyV1 => "pse:numerical-strategy:v1",
+        /// Current operation-bound composition declaration; historical V1 remains frozen.
+        NumericalStrategyV2 => "pse:numerical-strategy:v2",
+        /// One resolved next operation and its consumed products/constraints.
+        NumericalDecisionV1 => "pse:numerical-decision:v1",
         /// One actual numerical charging operation within a task's attempt/mechanism.
         NumericalWorkV1 => "pse:numerical-work:v1",
         /// Resolved strategy and all admitted original/derived prepared rungs.
         SolveStrategyPreparationV1 => "pse:solve-strategy-preparation:v1",
+        /// Current preparation bound to requested composition and actual products.
+        SolveStrategyPreparationV2 => "pse:solve-strategy-preparation:v2",
         /// Complete declared strategy request and admitted starts.
         SolveStrategyRequestV1 => "pse:solve-strategy-request:v1",
+        /// Current requested automatic/declared composition interpretation.
+        SolveStrategyRequestV2 => "pse:solve-strategy-request:v2",
         /// Frozen original equations, binding, bounds, objective and final numerical policy.
         OriginalSolveContractV1 => "pse:original-solve-contract:v1",
         /// Qualified Uno source, native inputs and project foreign bridge.
@@ -119,6 +127,8 @@ frames! {
         DerivedFamilyV1 => "pse:derived-family:v1",
         /// Numerical family values, anchors, mass and step binding.
         DerivedBindingV1 => "pse:derived-binding:v1",
+        /// Composite admitted reconstruction suppliers and their original-space binding.
+        DerivedBindingV2 => "pse:derived-binding:v2",
         /// Consumed numerical action/output accuracy, order, source and normalization.
         AccuracyProductV1 => "pse:accuracy-product:v1",
         /// Selected-root numerical proposals/jets with their consumed accuracy binding.
@@ -463,12 +473,18 @@ frames! {
         DurableJobRequestV2 => "pse.durable.job_request.v2",
         /// Canonical role-typed operational job request, with explicit nonfinite framing.
         DurableJobRequestV3 => "pse.durable.job_request.v3",
+        /// Operational job with current automatic composition interpretation.
+        DurableJobRequestV4 => "pse.durable.job_request.v4",
         /// A durable modeling request.
         DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
+        /// Modeling request with current automatic composition interpretation.
+        DurableModelingRequestV2 => "pse.durable.modeling_request.v2",
         /// A durable study's request: its definition (Plan 22 O7).
         DurableStudyRequestV1 => "pse.durable.study_request.v1",
         /// Canonical study request including unrestricted submitted numerical settings.
         DurableStudyRequestV2 => "pse.durable.study_request.v2",
+        /// Study request with current automatic composition interpretation.
+        DurableStudyRequestV3 => "pse.durable.study_request.v3",
         /// The value bindings of one durable study point (Plan 22 O7).
         DurableStudyPointBindingV1 => "pse.durable.study_point_binding.v1",
         /// A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its
@@ -532,10 +548,14 @@ frames! {
         SolvePreparationV1 => "pse.solve.preparation.v1",
         /// Retained solve preparation including contextual build/runtime observation.
         SolvePreparationV2 => "pse.solve.preparation.v2",
+        /// Automatic request preparation with separately frozen requested curvature.
+        SolvePreparationV3 => "pse.solve.preparation.v3",
         /// A complete selected solve request.
         SolveRequestV1 => "pse.solve.request.v1",
         /// Scientific solve request with canonical typed seed content.
         SolveRequestV2 => "pse.solve.request.v2",
+        /// Current requested composition and curvature interpretation.
+        SolveRequestV3 => "pse.solve.request.v3",
         /// The preparation a stored seed is keyed by.
         SolveSeedPreparationV1 => "pse.solve.seed_preparation.v1",
         /// Conic solver data.
@@ -556,6 +576,8 @@ frames! {
         SolverProfileV3 => "pse.solver.profile.v3",
         /// Canonical complete identity under ADR-0150.
         SolverProfileV4 => "pse.solver.profile.v4",
+        /// Requested composition plus the complete effective solve profile.
+        SolverProfileV5 => "pse.solver.profile.v5",
         /// A native solver session's compatibility.
         SolverSessionV1 => "pse.solver.session.v1",
         /// Native session controls with canonical document and numeric framing.

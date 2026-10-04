@@ -51,6 +51,8 @@ pub(crate) fn direct<T>(
         |_| strategy::Facts {
             support: BTreeSet::from([source.original, source.preparation]),
             accuracy: Vec::new(),
+            consumption: Vec::new(),
+            reservation: None,
             start: source.start,
             inherited: false,
             connected: false,
@@ -94,20 +96,23 @@ pub(crate) fn direct<T>(
             Ok(value) => {
                 let cause = original_failure(value)
                     .or_else(|| native(value).and_then(strategy::cause_native));
-                let observation = if strategy::permits_numerical_continuation(observed) {
-                    cause
-                        .as_ref()
-                        .map_or(observed, |cause| strategy::failure(cause))
-                } else {
-                    observed
+                let decision = permission(value);
+                let original = match original_failure(value) {
+                    Some(cause) => strategy::OriginalConclusion::Unavailable { cause },
+                    None if decision.permits_use() => strategy::OriginalConclusion::Satisfied,
+                    None => strategy::OriginalConclusion::Refused {
+                        cause: Arc::new(ProblemError::numerical(decision.reason())),
+                    },
                 };
                 strategy::Assessment {
                     auxiliary: false,
+                    original,
+                    work: Vec::new(),
                     retention: StepRetention {
-                        candidate: permission(value),
+                        candidate: decision,
                         session: SessionDisposition::Discard,
                     },
-                    observation,
+                    observation: observed,
                     cause,
                 }
             }
@@ -121,6 +126,12 @@ pub(crate) fn direct<T>(
                 };
                 strategy::Assessment {
                     auxiliary: false,
+                    original: strategy::OriginalConclusion::Unavailable {
+                        cause: Arc::new(ProblemError::Internal(
+                            "scientific operation did not complete".into(),
+                        )),
+                    },
+                    work: Vec::new(),
                     retention: StepRetention {
                         candidate: crate::workflow::numerics::refused(
                             pse_model::generated::enums::CandidateRefusal::NativeOutcome,
@@ -411,7 +422,11 @@ mod tests {
         .unwrap();
         let event = trace.events.last().unwrap();
         assert_eq!(event.transition, Some(Transition::Stop));
-        assert_eq!(event.observation, Some(Observation::OperationalFailure));
+        assert_eq!(event.observation, Some(Observation::Converged));
+        assert!(matches!(
+            event.original,
+            Some(strategy::OriginalConclusion::Unavailable { .. })
+        ));
         assert!(Arc::ptr_eq(event.cause.as_ref().unwrap(), &cause));
         assert_eq!(
             trace

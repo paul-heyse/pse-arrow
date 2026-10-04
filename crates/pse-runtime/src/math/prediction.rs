@@ -366,6 +366,129 @@ pub fn kkt(
     kkt::predict(advance, parameters)
 }
 
+/// One shared proposal producer selection. The caller supplies genuinely composed original
+/// permission and source dependencies; every produced endpoint still requires target screening.
+pub(crate) enum ProposalMechanism<'a> {
+    Root {
+        predictor: &'a pse_backend_native::square_response::SparsePredictor,
+        parameters: &'a [(SemanticId, f64)],
+    },
+    #[cfg(feature = "solver-diffsol")]
+    Kkt {
+        advance: &'a kkt::Advance,
+        parameters: &'a [(SemanticId, f64)],
+    },
+}
+pub(crate) struct SelectionRequest<'a> {
+    pub(crate) mechanism: ProposalMechanism<'a>,
+    pub(crate) permission: &'a crate::workflow::numerics::CandidateDecision,
+    pub(crate) source: SemanticProductKey,
+    pub(crate) target: ContentHash,
+    pub(crate) branch: BranchPolicy,
+}
+/// Actual source-owned Root action evidence or the current horizon KKT prediction.
+pub(crate) enum SelectedProposal {
+    Root {
+        proposal: Box<Proposal>,
+        work: pse_backend_native::square_response::ActionEvidence,
+    },
+    #[cfg(feature = "solver-diffsol")]
+    Kkt { prediction: kkt::Prediction },
+}
+pub(crate) enum SelectionFailure {
+    #[cfg(feature = "solver-diffsol")]
+    Kkt(kkt::Fallback),
+    Cause(std::sync::Arc<ProblemError>),
+}
+impl From<ProblemError> for SelectionFailure {
+    fn from(cause: ProblemError) -> Self {
+        Self::Cause(std::sync::Arc::new(cause))
+    }
+}
+impl From<std::sync::Arc<ProblemError>> for SelectionFailure {
+    fn from(cause: std::sync::Arc<ProblemError>) -> Self {
+        Self::Cause(cause)
+    }
+}
+impl SelectionFailure {
+    pub(crate) fn into_problem(self) -> ProblemError {
+        match self {
+            #[cfg(feature = "solver-diffsol")]
+            Self::Kkt(fallback) => ProblemError::numerical(fallback.to_string()),
+            Self::Cause(cause) => ProblemError::Math(pse_math::MathError::Typed {
+                retained: cause.retained_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+            }),
+        }
+    }
+}
+pub(crate) fn select(
+    request: SelectionRequest<'_>,
+    execution: &Execution,
+) -> Result<SelectedProposal, SelectionFailure> {
+    execution.check()?;
+    request
+        .branch
+        .validate()
+        .map_err(|error| ProblemError::Contract(error.to_string()))?;
+    if !request.permission.permits_use() || request.source.point.is_none() {
+        return Err(ProblemError::Contract(
+            "proposal selection requires composed original permission and exact source point"
+                .into(),
+        )
+        .into());
+    }
+    // These existing producers possess no connected transport/orientation verifier.
+    if request.branch.connected.is_some() {
+        return Err(ProblemError::Unsupported(
+            "selected proposal producer has no connected-sheet transport witness".into(),
+        )
+        .into());
+    }
+    #[cfg(feature = "solver-diffsol")]
+    let verify_point = |point: &[f64]| -> Result<(), ProblemError> {
+        if request.source.point != Some(pse_backend_native::square_response::point_key(point)) {
+            Err(ProblemError::Contract(
+                "proposal producer point differs from the permitted source".into(),
+            ))
+        } else {
+            Ok(())
+        }
+    };
+    let selected = match request.mechanism {
+        ProposalMechanism::Root {
+            predictor,
+            parameters,
+        } => {
+            if predictor.factor().key() != request.source {
+                return Err(ProblemError::Contract(
+                    "root predictor source dependencies differ from original permission".into(),
+                )
+                .into());
+            }
+            let (proposal, work) = parameter_root(
+                predictor,
+                parameters,
+                request.target,
+                request.branch,
+                execution,
+            )?;
+            SelectedProposal::Root { proposal: Box::new(proposal), work }
+        }
+        #[cfg(feature = "solver-diffsol")]
+        ProposalMechanism::Kkt {
+            advance,
+            parameters,
+        } => {
+            verify_point(advance.point())?;
+            let prediction = kkt(advance, parameters).map_err(SelectionFailure::Kkt)?;
+            SelectedProposal::Kkt { prediction }
+        }
+    };
+    execution.check()?;
+    Ok(selected)
+}
+
 /// Two original-permitted points in one scaled path coordinate. Source dependencies remain
 /// fixed while binding/point/parameter identities are allowed to change along that path.
 #[derive(Clone, Debug)]

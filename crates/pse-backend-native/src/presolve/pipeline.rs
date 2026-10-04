@@ -656,7 +656,32 @@ impl Pipeline {
         contract.rows = report.rows.iter().map(|i| contract.rows[i.get()]).collect();
         let (jac, nj) = jacobian(&outer, mr, nr, info.nnz_jac_g as usize, limit)?;
         let (hess, nh) = hessian(&outer, nr, info.nnz_h_lag as usize, limit)?;
+        let separator =
+            original
+                .borrow()
+                .oracle
+                .solve_separator()
+                .map(|separator| crate::SolveSeparator {
+                    variables: separator
+                        .variables
+                        .iter()
+                        .filter_map(|original| {
+                            report
+                                .columns
+                                .iter()
+                                .position(|column| column.get() == *original)
+                        })
+                        .collect(),
+                    rows: separator
+                        .rows
+                        .iter()
+                        .filter_map(|original| {
+                            report.rows.iter().position(|row| row.get() == *original)
+                        })
+                        .collect(),
+                });
         let transport = Transport {
+            separator,
             outer: outer.clone(),
             original: original.clone(),
             contract,
@@ -1079,6 +1104,7 @@ fn structure<R: From<usize>>(
 }
 /// Faer canonicalizes native COO output. This type never implements a reduction algorithm.
 pub struct Transport {
+    separator: Option<crate::SolveSeparator>,
     outer: Rc<RefCell<dyn TNLP>>,
     original: Rc<RefCell<Adapter>>,
     contract: OracleContract,
@@ -1096,6 +1122,9 @@ impl std::fmt::Debug for Transport {
     }
 }
 impl NlpOracle for Transport {
+    fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+        self.separator.as_ref()
+    }
     fn contract(&self) -> &OracleContract {
         &self.contract
     }

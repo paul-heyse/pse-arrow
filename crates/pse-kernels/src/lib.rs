@@ -610,6 +610,11 @@ impl ProviderSpec {
 }
 /// An executable provider factory, with worker-local state.
 pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
+    /// Optional immutable concrete source for compiler-bound mathematical consumers.
+    /// Type identity alone does not establish any numerical capability.
+    fn source_any(&self) -> Option<&dyn std::any::Any> {
+        None
+    }
     /// Immutable physical and numerical interpretation.
     fn spec(&self) -> &ProviderSpec;
     /// Immutable attempt configuration beyond the compiler-owned mathematical descriptor.
@@ -760,6 +765,10 @@ impl AdmittedProvider {
     }
 }
 impl Registration {
+    /// Inspect an actual retained immutable factory without constructing a worker.
+    pub fn source<T: 'static>(&self) -> Option<&T> {
+        self.factory.source_any()?.downcast_ref()
+    }
     /// Bind a previously admitted descriptor without constructing mutable native state.
     /// Every subsequent worker construction checks the factory product again.
     pub fn bind(

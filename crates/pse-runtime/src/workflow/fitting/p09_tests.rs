@@ -80,6 +80,8 @@ fn source_case(
             convexity: Default::default(),
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
+            composition: Default::default(),
+            reconstruction: None,
         },
         simulations: BTreeMap::from([(
             InstanceId::from(id(74)),
@@ -835,6 +837,8 @@ fn curved_source(
             convexity: Default::default(),
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
+            composition: Default::default(),
+            reconstruction: None,
         },
         simulations: BTreeMap::from([(
             InstanceId::from(id(84)),

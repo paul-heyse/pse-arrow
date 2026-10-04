@@ -295,16 +295,29 @@ impl ModelingResult {
         let parameters = target
             .root_target_parameters(&self.prepared.solve, predictor.parameters())
             .map_err(crate::math::MathRuntimeError::from)?;
-        let (proposal, work) = crate::math::prediction::parameter_root(
-            &predictor,
-            &parameters,
-            target
-                .original_identity()
-                .map_err(crate::math::MathRuntimeError::from)?,
-            branch,
+        let selected = crate::math::prediction::select(
+            crate::math::prediction::SelectionRequest {
+                mechanism: crate::math::prediction::ProposalMechanism::Root {
+                    predictor: &predictor,
+                    parameters: &parameters,
+                },
+                permission: &self.completion.decision,
+                source: predictor.factor().key(),
+                target: target
+                    .original_identity()
+                    .map_err(crate::math::MathRuntimeError::from)?,
+                branch,
+            },
             execution,
         )
-        .map_err(crate::math::MathRuntimeError::from)?;
+        .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
+        let (proposal, work) = match selected {
+            crate::math::prediction::SelectedProposal::Root { proposal, work } => (*proposal, work),
+            #[cfg(feature = "solver-diffsol")]
+            crate::math::prediction::SelectedProposal::Kkt { .. } => {
+                return Err(contract("root selector returned a different producer"));
+            }
+        };
         let owner = self.runtime.native().reserve(
             "modeling:root-proposal",
             proposal

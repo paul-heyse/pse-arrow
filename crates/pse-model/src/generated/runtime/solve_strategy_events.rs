@@ -1019,6 +1019,8 @@ pub struct RuntimeSolveStrategyEventsRow {
     pub r#event: i64,
     ///strategy_identity
     pub r#strategy_identity: pse_ids::ContentHash,
+    ///Identity of the actual bound automatic or declared execution decision.
+    pub r#decision_identity: Option<pse_ids::ContentHash>,
     ///mechanism
     pub r#mechanism: crate::generated::enums::NumericalMechanism,
     ///kind
@@ -1031,6 +1033,10 @@ pub struct RuntimeSolveStrategyEventsRow {
     pub r#charging_owner: Option<pse_ids::ContentHash>,
     ///original_identity
     pub r#original_identity: pse_ids::ContentHash,
+    ///Independent original-model assessment; native termination remains separate.
+    pub r#original_conclusion: Option<
+        crate::generated::enums::NumericalOriginalConclusion,
+    >,
     ///derived_identity
     pub r#derived_identity: Option<pse_ids::ContentHash>,
     ///profile_identity
@@ -1094,6 +1100,10 @@ impl crate::SemanticEq for RuntimeSolveStrategyEventsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#strategy_identity,
                 &other.r#strategy_identity,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#decision_identity,
+                &other.r#decision_identity,
             ) && crate::SemanticEq::semantic_eq(&self.r#mechanism, &other.r#mechanism)
             && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
             && crate::SemanticEq::semantic_eq(&self.r#phase, &other.r#phase)
@@ -1105,6 +1115,10 @@ impl crate::SemanticEq for RuntimeSolveStrategyEventsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#original_identity,
                 &other.r#original_identity,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#original_conclusion,
+                &other.r#original_conclusion,
             )
             && crate::SemanticEq::semantic_eq(
                 &self.r#derived_identity,
@@ -1928,6 +1942,8 @@ impl crate::SemanticFrame for RuntimeSolveStrategyEventsRow {
         crate::SemanticFrame::frame(&self.r#event, hash);
         hash.str(stringify!(r#strategy_identity));
         crate::SemanticFrame::frame(&self.r#strategy_identity, hash);
+        hash.str(stringify!(r#decision_identity));
+        crate::SemanticFrame::frame(&self.r#decision_identity, hash);
         hash.str(stringify!(r#mechanism));
         crate::SemanticFrame::frame(&self.r#mechanism, hash);
         hash.str(stringify!(r#kind));
@@ -1940,6 +1956,8 @@ impl crate::SemanticFrame for RuntimeSolveStrategyEventsRow {
         crate::SemanticFrame::frame(&self.r#charging_owner, hash);
         hash.str(stringify!(r#original_identity));
         crate::SemanticFrame::frame(&self.r#original_identity, hash);
+        hash.str(stringify!(r#original_conclusion));
+        crate::SemanticFrame::frame(&self.r#original_conclusion, hash);
         hash.str(stringify!(r#derived_identity));
         crate::SemanticFrame::frame(&self.r#derived_identity, hash);
         hash.str(stringify!(r#profile_identity));
@@ -2003,12 +2021,14 @@ impl crate::HeapUsage for RuntimeSolveStrategyEventsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#step))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#event))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#strategy_identity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#decision_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#mechanism))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#phase))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#charging_owner))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#original_identity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#original_conclusion))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derived_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#profile_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))

@@ -22,8 +22,35 @@ pub(in crate::workflow) struct AssessedPoint {
     pub complete: bool,
     pub required_closure: usize,
     pub owner: Arc<pse_columnar::AllocationLease>,
+    pub work: Vec<pse_model::strategy::WorkCharge>,
 }
 impl AssessedPoint {
+    /// Preserve the original scientific refusal instead of deriving it from native status.
+    pub(in crate::workflow) fn conclusion(
+        &self,
+        completion: &crate::workflow::numerics::Completed,
+    ) -> crate::math::strategy::OriginalConclusion {
+        use crate::math::strategy::OriginalConclusion;
+        if let Some(error) = &self.error {
+            OriginalConclusion::Unavailable {
+                cause: crate::math::opaque_strategy::assessment_failure(error),
+            }
+        } else if !self.complete {
+            OriginalConclusion::Unavailable {
+                cause: Arc::new(pse_backend_native::ProblemError::numerical(
+                    "native trajectory produced no assessable original candidate",
+                )),
+            }
+        } else if completion.permits_use() {
+            OriginalConclusion::Satisfied
+        } else {
+            OriginalConclusion::Refused {
+                cause: Arc::new(pse_backend_native::ProblemError::numerical(
+                    completion.decision.reason(),
+                )),
+            }
+        }
+    }
     /// Compose original checks with native permission through the shared completion owner.
     pub(in crate::workflow) fn completion(
         &self,
@@ -125,9 +152,15 @@ impl Assessment {
             complete: false,
             required_closure: self.required_closure,
             owner,
+            work: Vec::new(),
         };
         match outcome {
-            Outcome::Constant(_) => {}
+            Outcome::Constant(report) => {
+                point
+                    .values
+                    .scalars
+                    .extend(report.coordinates.iter().copied());
+            }
             Outcome::Native(native) => match &native.candidate {
                 Some(candidate) if candidate.primal.len() == native.variables.len() => {
                     point.values.scalars.extend(
@@ -154,6 +187,7 @@ impl Assessment {
         };
         point.complete = true;
         let certified = CertifiedBound::of(outcome);
+        let mut evaluations = 0_u64;
         match self.evaluate(
             prepared,
             run_id,
@@ -162,6 +196,7 @@ impl Assessment {
             certified,
             execution,
             budget,
+            &mut evaluations,
         ) {
             Ok((checks, reports)) => {
                 point.checks = checks;
@@ -169,6 +204,26 @@ impl Assessment {
             }
             Err(error) => point.error = Some(error.boundary_diagnostic()),
         }
+        let mut charging_owner = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
+        if let Ok(original) = prepared.solve.original_identity() {
+            charging_owner.hash(&original);
+        }
+        charging_owner
+            .str("original-model-assessment")
+            .str(&run_id.to_string())
+            .u64(attempt as u64);
+        point.work.push(pse_model::strategy::WorkCharge {
+            phase: pse_model::strategy::Phase::Assessment,
+            scope: pse_model::strategy::Scope::Task,
+            charging_owner: charging_owner.finish_hash(),
+            observed: pse_model::strategy::WorkObservation {
+                attempts: 0,
+                evaluations: Some(evaluations),
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: Some(0),
+            },
+        });
         point
     }
     #[expect(
@@ -184,6 +239,7 @@ impl Assessment {
         certified: Option<CertifiedBound>,
         execution: &pse_kernels::ExecutionScope,
         budget: &Arc<WorkerBudget>,
+        evaluations: &mut u64,
     ) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
         let checkpoint = || {
             execution.check().map_err(|error| {
@@ -201,6 +257,9 @@ impl Assessment {
                 execution.clone(),
                 budget,
             )?;
+            *evaluations = evaluations
+                .checked_add(1)
+                .ok_or_else(|| contract("original assessment work counter overflow"))?;
             let observed = evaluator
                 .worker()
                 .constraints(values)

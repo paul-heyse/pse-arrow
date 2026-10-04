@@ -95,7 +95,7 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
         points: vec![point(case, 7, vec![], StartPolicy::Fresh)],
     };
     let encoded = serde_json::to_value(request).unwrap();
-    assert_eq!(encoded["version"], 2);
+    assert_eq!(encoded["version"], 3);
     assert!(encoded["points"][0]["policy"].get("seed_need").is_none());
     let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
@@ -148,7 +148,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 4);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 5);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -177,7 +177,7 @@ fn study_definition_historical_readmission_codec_unit() {
         pse_diagnostics::DiagnosticRule::WorkflowOperations
     );
     assert_eq!(historical, retained);
-    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":4}"#] {
+    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":5}"#] {
         assert!(matches!(
             StudyDefinition::readmission(malformed),
             Err(WorkflowError::Input(_))

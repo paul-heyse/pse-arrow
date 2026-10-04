@@ -189,6 +189,14 @@ impl Sequence {
                     "NLP normalization must be transported before native execution",
                 ));
             }
+            if matches!(
+                controls.hessian,
+                HessianMode::Auto | HessianMode::Partitioned | HessianMode::FiniteDifference
+            ) {
+                return Err(ProblemError::Unsupported(
+                    "Ipopt does not implement this typed curvature mode".into(),
+                ));
+            }
             let supplied = controls.hessian != HessianMode::LimitedMemory;
             crate::validate_nlp(
                 oracle,

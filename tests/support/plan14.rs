@@ -161,6 +161,8 @@ pub(crate) fn compiler() -> pse_compiler::workspace::Profile {
 pub(crate) fn profile(backend: Backend, optimize: bool) -> SolverProfile {
     SolverProfile {
         presolve: Default::default(),
+        composition: Default::default(),
+        reconstruction: None,
         numerics: Default::default(),
         convexity: Default::default(),
         intent: if optimize {

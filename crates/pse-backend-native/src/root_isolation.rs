@@ -12,8 +12,9 @@ use pse_math::{
     guarded::Condition,
     implicit::{
         ChartChainCoverage, ChartChainEvidence, ChartChainProof, ChartChainRequest, ChartChainWork,
-        ProofInterval, RootActionEvidence, RootPointEvidence, SelectionChart, SelectionEvidence,
-        SelectionProofRefusal, SelectionProofRequest, SelectionScope, SelectionVerifier,
+        ProofInterval, RootActionEvidence, RootNeighborhoodEvidence, RootPointEvidence,
+        SelectionChart, SelectionEvidence, SelectionProofRefusal, SelectionProofRequest,
+        SelectionScope, SelectionVerifier,
     },
 };
 use std::{
@@ -138,6 +139,22 @@ unsafe extern "C" {
         uniqueness_lower: *const f64,
         uniqueness_upper: *const f64,
         direction: *const f64,
+        action_lower: *mut f64,
+        action_upper: *mut f64,
+    ) -> i32;
+    fn pse_ibex_enclose_neighborhood(
+        request: *const NativeRequest,
+        result: *mut NativeResult,
+        existence_lower: *const f64,
+        existence_upper: *const f64,
+        uniqueness_lower: *const f64,
+        uniqueness_upper: *const f64,
+        parameter_lower: *const f64,
+        parameter_upper: *const f64,
+        direction_lower: *const f64,
+        direction_upper: *const f64,
+        point_lower: *mut f64,
+        point_upper: *mut f64,
         action_lower: *mut f64,
         action_upper: *mut f64,
     ) -> i32;
@@ -1089,6 +1106,200 @@ impl SelectionVerifier for Ibex {
             proof_cells: result.cells,
         })
     }
+    fn enclose_neighborhood(
+        &self,
+        request: &SelectionProofRequest<'_>,
+        chart: &SelectionChart,
+        parameters: &[ProofInterval],
+        directions: Option<&[ProofInterval]>,
+        max_cells: u64,
+    ) -> Result<RootNeighborhoodEvidence, MathError> {
+        chart.validate(request, self.identity())?;
+        if request.order < DerivativeOrder::First
+            || parameters.len() != request.parameters.len()
+            || directions
+                .is_some_and(|v| v.len() != parameters.len() || v.iter().any(|i| !i.valid()))
+            || parameters
+                .iter()
+                .zip(&chart.parameters)
+                .zip(request.parameters)
+                .any(|((interval, certified), point)| {
+                    !interval.contains(*point)
+                        || interval.lower < certified.lower
+                        || interval.upper > certified.upper
+                })
+        {
+            return Ok(RootNeighborhoodEvidence::Incomplete {
+                reason: SelectionProofRefusal::Coverage,
+                proof_cells: 0,
+            });
+        }
+        let started = Instant::now();
+        let checkpoint = || {
+            if request.cancel.load(Ordering::Acquire) {
+                Err(MathError::Cancelled)
+            } else {
+                Ok(started.elapsed() < request.time_limit)
+            }
+        };
+        if max_cells == 0 || !checkpoint()? {
+            return Ok(RootNeighborhoodEvidence::Incomplete {
+                reason: SelectionProofRefusal::Resource,
+                proof_cells: 0,
+            });
+        }
+        let winner = &request.alternatives[request.winner];
+        let transport = match encode(winner.program, DerivativeOrder::First) {
+            Ok(t) => t,
+            Err(reason) => {
+                return Ok(RootNeighborhoodEvidence::Incomplete {
+                    reason,
+                    proof_cells: 0,
+                });
+            }
+        };
+        let lower = winner.unknowns.iter().map(|u| u.lower).collect::<Vec<_>>();
+        let upper = winner.unknowns.iter().map(|u| u.upper).collect::<Vec<_>>();
+        let el = chart.existence.iter().map(|i| i.lower).collect::<Vec<_>>();
+        let eu = chart.existence.iter().map(|i| i.upper).collect::<Vec<_>>();
+        let ul = chart.uniqueness.iter().map(|i| i.lower).collect::<Vec<_>>();
+        let uu = chart.uniqueness.iter().map(|i| i.upper).collect::<Vec<_>>();
+        let pl: Vec<_> = parameters.iter().map(|i| i.lower).collect();
+        let pu: Vec<_> = parameters.iter().map(|i| i.upper).collect();
+        let dl: Vec<_> = directions.into_iter().flatten().map(|i| i.lower).collect();
+        let du: Vec<_> = directions.into_iter().flatten().map(|i| i.upper).collect();
+        let mut point_lower = vec![0.0; el.len()];
+        let mut point_upper = vec![0.0; el.len()];
+        let mut action_lower = vec![0.0; el.len()];
+        let mut action_upper = vec![0.0; el.len()];
+        let library_guard = loop {
+            if !checkpoint()? {
+                return Ok(RootNeighborhoodEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    proof_cells: 0,
+                });
+            }
+            match IBEX.try_lock() {
+                Ok(g) => break g,
+                Err(TryLockError::Poisoned(_)) => {
+                    return Ok(RootNeighborhoodEvidence::Incomplete {
+                        reason: SelectionProofRefusal::Resource,
+                        proof_cells: 0,
+                    });
+                }
+                Err(TryLockError::WouldBlock) => {
+                    std::thread::sleep(std::time::Duration::from_millis(1))
+                }
+            }
+        };
+        let native = NativeRequest {
+            nodes: transport.nodes.as_ptr(),
+            node_count: transport.nodes.len() as u32,
+            edges: transport.edges.as_ptr(),
+            edge_count: transport.edges.len() as u32,
+            residuals: transport.residuals.as_ptr(),
+            unknown_count: winner.unknowns.len() as u32,
+            parameter_count: request.parameters.len() as u32,
+            score: winner.program.criterion[0] as u32,
+            tolerance: winner.program.criterion[1] as u32,
+            guards: transport.guards.as_ptr(),
+            guard_count: transport.guards.len() as u32,
+            lower: lower.as_ptr(),
+            upper: upper.as_ptr(),
+            parameters: request.parameters.as_ptr(),
+            candidate: request.candidate.as_ptr(),
+            max_cells: max_cells.min(MAX_CELLS),
+            seconds: request
+                .time_limit
+                .saturating_sub(started.elapsed())
+                .as_secs_f64(),
+            cancelled,
+            cancel_context: std::ptr::from_ref(request.cancel.as_ref()).cast(),
+        };
+        let mut result = NativeResult::default();
+        // SAFETY: scope validation establishes finite original coordinate extents;
+        // all input/output buffers live across the serialized synchronous caught ABI.
+        #[expect(
+            unsafe_code,
+            reason = "synchronous IBEX interval IFT action with validated borrowed buffers"
+        )]
+        // SAFETY: validated dimensions, owned buffers and cancellation Arc remain live
+        // through the serialized synchronous IBEX call.
+        let code = unsafe {
+            pse_ibex_enclose_neighborhood(
+                &native,
+                &mut result,
+                el.as_ptr(),
+                eu.as_ptr(),
+                ul.as_ptr(),
+                uu.as_ptr(),
+                pl.as_ptr(),
+                pu.as_ptr(),
+                if directions.is_some() {
+                    dl.as_ptr()
+                } else {
+                    std::ptr::null()
+                },
+                if directions.is_some() {
+                    du.as_ptr()
+                } else {
+                    std::ptr::null()
+                },
+                point_lower.as_mut_ptr(),
+                point_upper.as_mut_ptr(),
+                action_lower.as_mut_ptr(),
+                action_upper.as_mut_ptr(),
+            )
+        };
+        drop(library_guard);
+        if request.cancel.load(Ordering::Acquire) {
+            return Ok(RootNeighborhoodEvidence::Interrupted {
+                proof_cells: result.cells,
+            });
+        }
+        if !checkpoint()? {
+            return Ok(RootNeighborhoodEvidence::Incomplete {
+                reason: SelectionProofRefusal::Resource,
+                proof_cells: result.cells,
+            });
+        }
+        if code != 0 {
+            return Err(MathError::Contract("IBEX selected action transport".into()));
+        }
+        let points = point_lower
+            .into_iter()
+            .zip(point_upper)
+            .map(|(lower, upper)| ProofInterval { lower, upper })
+            .collect::<Vec<_>>();
+        let actions = action_lower
+            .into_iter()
+            .zip(action_upper)
+            .map(|(lower, upper)| ProofInterval { lower, upper })
+            .collect::<Vec<_>>();
+        if result.status == 0
+            && result.solution == 1
+            && result.cells > 0
+            && result.cells <= max_cells.min(MAX_CELLS)
+            && points.iter().all(|i| i.valid())
+            && (directions.is_none() || actions.iter().all(|i| i.valid()))
+        {
+            return Ok(RootNeighborhoodEvidence::Enclosed {
+                points,
+                actions: directions.map(|_| actions),
+                proof_cells: result.cells,
+            });
+        }
+        let reason = match result.status {
+            4 => SelectionProofRefusal::Resource,
+            5 => SelectionProofRefusal::Boundary,
+            6 => SelectionProofRefusal::Unsupported,
+            _ => SelectionProofRefusal::Chart,
+        };
+        Ok(RootNeighborhoodEvidence::Incomplete {
+            reason,
+            proof_cells: result.cells,
+        })
+    }
     fn connect_chain(
         &self,
         chain: &ChartChainRequest<'_>,
@@ -1812,6 +2023,60 @@ mod tests {
             inverse_norm_upper > 1.0,
             "inverse at the root alone cannot bound the entire approximate-root segment"
         );
+    }
+    #[test]
+    fn actual_ibex_incoming_neighborhood_encloses_point_and_uncertain_direction() {
+        let fixture = Fixture::new(projected(false, false, None), &[(0.01, 3.0)]);
+        let alternatives = [fixture.alternative(0)];
+        let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
+        let chart = unique(Ibex.certify(&request).unwrap());
+        let radius = (4.0 - chart.parameters[0].lower).min(chart.parameters[0].upper - 4.0) * 0.25;
+        assert!(radius > 0.0);
+        let parameters = [ProofInterval {
+            lower: 4.0 - radius,
+            upper: 4.0 + radius,
+        }];
+        let directions = [ProofInterval {
+            lower: 1.9,
+            upper: 2.1,
+        }];
+        let RootNeighborhoodEvidence::Enclosed {
+            points,
+            actions: Some(actions),
+            proof_cells,
+        } = Ibex
+            .enclose_neighborhood(&request, &chart, &parameters, Some(&directions), 4)
+            .unwrap()
+        else {
+            panic!("actual uniform incoming point/action enclosure required")
+        };
+        assert!(proof_cells > 0 && proof_cells <= 4);
+        for p in [parameters[0].lower, 4.0, parameters[0].upper] {
+            assert!(points[0].contains(p.sqrt()));
+            for direction in [1.9, 2.0, 2.1] {
+                assert!(actions[0].contains(direction / (2.0 * p.sqrt())));
+            }
+        }
+        let outside = [ProofInterval {
+            lower: chart.parameters[0].lower.next_down(),
+            upper: 4.0,
+        }];
+        assert!(matches!(
+            Ibex.enclose_neighborhood(&request, &chart, &outside, None, 4)
+                .unwrap(),
+            RootNeighborhoodEvidence::Incomplete {
+                reason: SelectionProofRefusal::Coverage,
+                proof_cells: 0
+            }
+        ));
+        assert!(matches!(
+            Ibex.enclose_neighborhood(&request, &chart, &parameters, None, 0)
+                .unwrap(),
+            RootNeighborhoodEvidence::Incomplete {
+                reason: SelectionProofRefusal::Resource,
+                proof_cells: 0
+            }
+        ));
     }
     #[test]
     fn actual_ibex_fixed_point_and_action_share_explicit_remaining_proof_limits() {

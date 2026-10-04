@@ -53,7 +53,7 @@ impl RecordedOperationalJobIdentity {
     pub fn current(value: OperationalJobHash) -> Self {
         Self {
             digest: value.as_id(),
-            frame: Some(crate::Frame::DurableJobRequestV3.as_str().to_owned()),
+            frame: Some(crate::Frame::DurableJobRequestV4.as_str().to_owned()),
         }
     }
     /// Read evidence without upgrading its original frame.
@@ -62,7 +62,7 @@ impl RecordedOperationalJobIdentity {
     }
     /// A current key only when recorded provenance establishes the required frame.
     pub fn current_key(&self) -> Option<OperationalJobHash> {
-        (self.frame.as_deref() == Some(crate::Frame::DurableJobRequestV3.as_str()))
+        (self.frame.as_deref() == Some(crate::Frame::DurableJobRequestV4.as_str()))
             .then(|| OperationalJobHash::from(self.digest))
     }
 }
@@ -75,7 +75,7 @@ mod tests {
         let unknown = RecordedOperationalJobIdentity::recorded(digest, None);
         let historical = RecordedOperationalJobIdentity::recorded(
             digest,
-            Some(crate::Frame::DurableJobRequestV2.as_str().into()),
+            Some(crate::Frame::DurableJobRequestV3.as_str().into()),
         );
         assert_eq!(unknown.digest, historical.digest);
         assert!(unknown.current_key().is_none());

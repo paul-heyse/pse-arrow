@@ -64,6 +64,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     fs::write(out.join("solver-manifest.txt"), manifest)?;
+    // The dependency source is declared once by the workspace. Embed the immutable
+    // requested revision rather than treating an unchanged crate version as provenance.
+    let workspace =
+        PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("CARGO_MANIFEST_DIR unset")?)
+            .join("../../Cargo.toml");
+    println!("cargo:rerun-if-changed={}", workspace.display());
+    let workspace_manifest = fs::read_to_string(workspace)?;
+    let workspace_manifest: toml::Value = toml::from_str(&workspace_manifest)?;
+    let source = &workspace_manifest["workspace"]["dependencies"]["pounce-rs"];
+    let git = source["git"]
+        .as_str()
+        .ok_or("missing immutable POUNCE source")?;
+    let revision = source["rev"]
+        .as_str()
+        .ok_or("missing immutable POUNCE revision")?;
+    fs::write(out.join("pounce-source.txt"), format!("{git}@{revision}"))?;
     Ok(())
 }
 

@@ -2461,6 +2461,22 @@ class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
         return (type(self), (v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.record_key)(self.solves),))
 
 
+class CompositionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Hard caller constraints retained by automatic and explicitly declared composition."""
+
+    #: Original root-selection contract.
+    branch: BranchPolicy
+    #: Additional finite counters; absent retains the admitted caller controls.
+    limits: WorkLimits | None = None
+    #: Automatic resolution or explicit declaration binding.
+    policy: enums.NumericalCompositionPolicy
+    #: Permitted later start origins. Empty grants no replacement origin.
+    recovery: tuple[enums.NumericalStartOrigin, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.branch), v.optional_key(v.record_key)(self.limits), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
+
+
 class Conclusion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared conclusion of the current facts, not a fabricated result table."""
 
@@ -2915,6 +2931,7 @@ class ExportReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `FeralSettings` document type."""
 
+    bounded_dense_max_dimension: Annotated[int, msgspec.Meta(ge=0)] | None = None
     cascade_break: bool | None = None
     fma: bool = False
     increase_quality: bool = True
@@ -2931,7 +2948,21 @@ class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     static_pivoting: bool | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.cascade_break), v.scalar_key(self.fma), v.scalar_key(self.increase_quality), v.optional_key(v.scalar_key)(self.inertia_pivot_floor), v.optional_key(v.scalar_key)(self.min_par_flops), v.scalar_key(self.ordering), v.optional_key(v.scalar_key)(self.parallel), v.scalar_key(self.pivtol), v.scalar_key(self.refine), v.scalar_key(self.refine_max_steps), v.scalar_key(self.refine_target), v.scalar_key(self.scaling), v.scalar_key(self.singular_pivot_floor), v.optional_key(v.scalar_key)(self.static_pivoting),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.bounded_dense_max_dimension), v.optional_key(v.scalar_key)(self.cascade_break), v.scalar_key(self.fma), v.scalar_key(self.increase_quality), v.optional_key(v.scalar_key)(self.inertia_pivot_floor), v.optional_key(v.scalar_key)(self.min_par_flops), v.scalar_key(self.ordering), v.optional_key(v.scalar_key)(self.parallel), v.scalar_key(self.pivtol), v.scalar_key(self.refine), v.scalar_key(self.refine_max_steps), v.scalar_key(self.refine_target), v.scalar_key(self.scaling), v.scalar_key(self.singular_pivot_floor), v.optional_key(v.scalar_key)(self.static_pivoting),))
+
+
+class FiniteDifferenceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed finite-difference pattern, coloring and native reuse controls."""
+
+    #: Library coloring algorithm.
+    coloring: enums.PounceFdColoring = enums.PounceFdColoring.CPR
+    #: Declared Hessian support, falling back to conservative Jacobian/objective support.
+    pattern: enums.PounceFdPattern = enums.PounceFdPattern.DECLARED
+    #: Relative native iterate distance permitting Hessian reuse.
+    reuse_tolerance: float = 0.0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.coloring), v.scalar_key(self.pattern), v.scalar_key(self.reuse_tolerance),))
 
 
 class FitDeclarations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3671,7 +3702,7 @@ class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     """
 
     #: Document version.
-    version: Literal[6] = 6
+    version: Literal[7] = 7
     #: The task.
     task: JobTask
 
@@ -4444,6 +4475,18 @@ class NumericalStrategy(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.sequence_key(v.record_key)(self.accuracy), v.record_key(self.branch), v.record_key(self.limits), v.sequence_key(v.record_key)(self.mechanisms), v.record_key(self.start),))
 
 
+class NumericalStrategyDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Current strategy wire document. Historical bodies are not silently reinterpreted."""
+
+    #: Exact current document version, checked before decoding its body.
+    version: Literal[2] = 2
+    #: Validated finite operation declaration.
+    strategy: NumericalStrategy
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.strategy),))
+
+
 class ObservationBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="boolean"):
     """A checked predicate."""
 
@@ -4599,6 +4642,26 @@ class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.sequence_key(v.scalar_key)(self.parameters), v.scalar_key(self.run_id), v.sequence_key(v.scalar_key)(self.values),))
 
 
+class PartitionedSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed partitioned update controls. An absent formula preserves the library's
+    mode-dependent default and its option set-ness.
+    """
+
+    #: Width of primal blocks.
+    block_size: Annotated[int, msgspec.Meta(ge=0)] = 64
+    #: Finite positive curvature multiplier, absent for uncapped native updates.
+    curvature_cap: float | None = None
+    #: Element construction.
+    elements: enums.PouncePartitionedElements = enums.PouncePartitionedElements.PER_CONSTRAINT
+    #: Wider elements degrade to the library diagonal approximation.
+    max_element: Annotated[int, msgspec.Meta(ge=0)] = 64
+    #: Explicit element update, or the library default.
+    update_type: enums.PouncePartitionedUpdate | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.block_size), v.optional_key(v.scalar_key)(self.curvature_cap), v.scalar_key(self.elements), v.scalar_key(self.max_element), v.optional_key(v.scalar_key)(self.update_type),))
+
+
 class PetscSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
     """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
 
@@ -4738,7 +4801,7 @@ class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     equilibrate: bool = True
     #: Native linear settings. A batch factors each instance serially: its parallelism is
     #: across instances.
-    linear: FeralSettings = msgspec.field(default_factory=lambda: msgspec.convert({"cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, type=FeralSettings))
+    linear: FeralSettings = msgspec.field(default_factory=lambda: msgspec.convert({"bounded_dense_max_dimension": None, "cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, type=FeralSettings))
     #: Solve through the homogeneous self-dual embedding, which detects primal and dual
     #: infeasibility from the iterates, instead of the direct infeasible-start method.
     self_dual: bool = True
@@ -4750,15 +4813,19 @@ class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce"):
     """POUNCE method and complete native FERAL configuration."""
 
+    #: Library-owned finite-difference curvature settings.
+    finite_difference: FiniteDifferenceSettings = msgspec.field(default_factory=lambda: msgspec.convert({"coloring": "cpr", "pattern": "declared", "reuse_tolerance": 0.0}, type=FiniteDifferenceSettings))
     #: Native linear settings.
-    linear: FeralSettings = msgspec.field(default_factory=lambda: msgspec.convert({"cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, type=FeralSettings))
+    linear: FeralSettings = msgspec.field(default_factory=lambda: msgspec.convert({"bounded_dense_max_dimension": None, "cascade_break": None, "fma": False, "increase_quality": True, "inertia_pivot_floor": None, "min_par_flops": None, "ordering": "auto", "parallel": None, "pivtol": 1e-8, "refine": True, "refine_max_steps": 10, "refine_target": 0.0, "scaling": "auto", "singular_pivot_floor": 1e-20, "static_pivoting": None}, type=FeralSettings))
     #: NLP method.
     method: enums.PounceMethod = enums.PounceMethod.INTERIOR_POINT
+    #: Library-owned partitioned curvature settings.
+    partitioned: PartitionedSettings = msgspec.field(default_factory=lambda: msgspec.convert({"block_size": 64, "curvature_cap": None, "elements": "per_constraint", "max_element": 64, "update_type": None}, type=PartitionedSettings))
     #: Interior-point restart of a submitted primal-dual seed (L-N3).
     restart: WarmRestart = msgspec.field(default_factory=lambda: msgspec.convert({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, type=WarmRestart))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.linear), v.scalar_key(self.method), v.record_key(self.restart),))
+        return (type(self), (v.record_key(self.finite_difference), v.record_key(self.linear), v.scalar_key(self.method), v.record_key(self.partitioned), v.record_key(self.restart),))
 
 
 class PreparationCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5177,6 +5244,24 @@ class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
+class ReconstructionAccuracy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Consumer-issued normalized allowances. Each actual point/action creates its own
+    fully scoped demand; no default tolerance or default certificate is supplied.
+    """
+
+    #: Actual consumer allowance for each realized normalized action error.
+    action: float
+    #: Required evidence class, independently supplied by the consumer.
+    class_: enums.NumericalAccuracyClass = msgspec.field(name="class")
+    #: Actual consumer allowance for normalized reconstructed point error.
+    point: float
+    #: Explicit bounded work for each consumed point/action refinement.
+    refinement: RefinementLimits
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.action), v.scalar_key(self.class_), v.scalar_key(self.point), v.record_key(self.refinement),))
+
+
 class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Concrete tear witness and causal directions; native KINSOL owns all recycle iteration."""
 
@@ -5194,6 +5279,20 @@ class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.tears)
+
+
+class RefinementLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit consumer allowance for one point or one realized action product.
+    Proof cells are shared across its rounds; the original task clock is unchanged.
+    """
+
+    #: Maximum actual interval proof cells across all those rounds.
+    proof_cells: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum complete enclosure/correction rounds for this consumed product.
+    rounds: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.proof_cells), v.scalar_key(self.rounds),))
 
 
 class ResourceConsumer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5641,11 +5740,13 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     """
 
     #: Document version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: An explicitly selected eligible backend; absent is deterministic routing.
     backend: enums.NativeBackend | None = None
+    #: Requested composition; omission chooses automatic resolution without replacement starts.
+    composition: CompositionRequest = msgspec.field(default_factory=lambda: msgspec.convert({"branch": {"connected": None, "kind": "any_qualified"}, "limits": None, "policy": "auto", "recovery": []}, type=CompositionRequest))
     #: Shared finite attempt controls.
-    controls: SolveControls = msgspec.field(default_factory=lambda: msgspec.convert({"hessian": "exact", "history": 256, "iterations": 3000, "options": {}, "reuse": "fresh", "start": "no_prior_start", "threads": 1, "time_limit": 300.0}, type=SolveControls))
+    controls: SolveControls = msgspec.field(default_factory=lambda: msgspec.convert({"hessian": "auto", "history": 256, "iterations": 3000, "options": {}, "reuse": "fresh", "start": "no_prior_start", "threads": 1, "time_limit": 300.0}, type=SolveControls))
     #: Absolute eigenvalue budget of a numerical convexity assessment; with the relative
     #: budget, it permits numerical assessment, and absent both, only exact certification.
     convexity_absolute: float | None = None
@@ -5659,6 +5760,8 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     presolve: enums.PresolvePolicyKind = enums.PresolvePolicyKind.AUTO
     #: Native presolve options; an explicit policy only.
     presolve_options: dict[str, OptionValue] = msgspec.field(default_factory=dict)
+    #: Explicit reconstruction evidence class and finite refinement allowances.
+    reconstruction: ReconstructionAccuracy | None = None
     #: Passes that may not silently become unavailable; an explicit policy only.
     required_passes: tuple[enums.PresolvePass, ...] = msgspec.field(default_factory=tuple)
     #: Physical parameter sensitivities at a regular square Root or optimizing candidate;
@@ -5669,7 +5772,7 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     settings: BackendSettings | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.backend), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.backend), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.required_passes)
@@ -5857,12 +5960,12 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 4 of a study's definition: the store's `definition` document and the content of
+    """Version 5 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
     #: Document version.
-    version: Literal[4] = 4
+    version: Literal[5] = 5
     #: The source bundles of the modeling package closure, in load order.
     modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
     #: The source bundle of the physical package.
@@ -5878,7 +5981,7 @@ class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     """Immutable request recorded by a study occurrence and replayed by either executor."""
 
     #: Interpretation of this operation descriptor.
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     #: Canonical physical assignments; required for every horizon descriptor.
     admitted_horizon: AdmittedHorizonValues | None = None
     #: Existing operation-owned input document.
@@ -5964,7 +6067,7 @@ class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     """Raw request admitted once into the immutable executable definition."""
 
     #: Document version.
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     #: Ordered occurrence requests.
     points: tuple[StudyPoint, ...]
 
@@ -6568,6 +6671,7 @@ __all__ = [
     "ClarabelSettings",
     "ClosedDuration",
     "Completion",
+    "CompositionRequest",
     "Conclusion",
     "Cone",
     "ConeExponential",
@@ -6607,6 +6711,7 @@ __all__ = [
     "ExportReceipt",
     "FeralSettings",
     "FiniteBound",
+    "FiniteDifferenceSettings",
     "FitDeclarations",
     "FitOperation",
     "FitOperationSettings",
@@ -6719,6 +6824,7 @@ __all__ = [
     "NumericObservationReal",
     "NumericalPolicy",
     "NumericalStrategy",
+    "NumericalStrategyDocument",
     "Observation",
     "ObservationBoolean",
     "ObservationContracts",
@@ -6739,6 +6845,7 @@ __all__ = [
     "Optimization",
     "OptionValue",
     "ParameterCovariance",
+    "PartitionedSettings",
     "PetscSettings",
     "PhysicalObservation",
     "PointAttemptOutcome",
@@ -6778,7 +6885,9 @@ __all__ = [
     "PublicationSettlementUnresolved",
     "Published",
     "PureConformanceControls",
+    "ReconstructionAccuracy",
     "RecycleRequest",
+    "RefinementLimits",
     "ResourceConsumer",
     "ResourceReport",
     "RestartBarrier",

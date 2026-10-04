@@ -22,7 +22,13 @@ use std::collections::BTreeSet;
 #[serde(deny_unknown_fields)]
 pub struct SolveSettings {
     /// Document version.
-    pub version: Version<1>,
+    pub version: Version<2>,
+    /// Requested composition; omission chooses automatic resolution without replacement starts.
+    #[serde(default)]
+    pub composition: pse_model::strategy::CompositionRequest,
+    /// Explicit reconstruction evidence class and finite refinement allowances.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reconstruction: Option<pse_backend_native::derived::ReconstructionAccuracy>,
     /// Mathematical purpose.
     #[serde(default = "defaults::intent")]
     pub intent: SolveIntent,
@@ -42,7 +48,7 @@ pub struct SolveSettings {
     #[serde(default)]
     pub required_passes: BTreeSet<Pass>,
     /// Shared finite attempt controls.
-    #[serde(default)]
+    #[serde(default = "defaults::controls")]
     pub controls: Controls,
     /// ID-keyed numerical requirements and acceptance budgets.
     #[serde(default)]
@@ -179,6 +185,9 @@ impl SensitivityRequest {
 mod defaults {
     use super::{PolicyKind, SolveIntent, SolverProfile};
 
+    pub(super) fn controls() -> super::Controls {
+        SolverProfile::default().controls
+    }
     pub(super) fn intent() -> SolveIntent {
         SolverProfile::default().intent
     }
@@ -192,13 +201,15 @@ impl Default for SolveSettings {
     fn default() -> Self {
         Self {
             version: Version,
+            composition: Default::default(),
+            reconstruction: None,
             intent: defaults::intent(),
             backend: None,
             settings: None,
             presolve: defaults::presolve(),
             presolve_options: Options::new(),
             required_passes: BTreeSet::new(),
-            controls: Controls::default(),
+            controls: defaults::controls(),
             numerics: NumericalPolicy::default(),
             convexity_absolute: None,
             convexity_relative: None,
@@ -218,6 +229,12 @@ impl SolveSettings {
     pub fn profile(self) -> Result<SolverProfile, MathRuntimeError> {
         let presolve = Policy::new(self.presolve, &self.presolve_options, self.required_passes)?;
         self.controls.validate()?;
+        if let Some(accuracy) = self.reconstruction {
+            accuracy.validate()?;
+        }
+        self.composition
+            .validate()
+            .map_err(|error| ProblemError::Contract(error.to_string()))?;
         self.numerics
             .validate()
             .map_err(|e| ProblemError::Contract(e.to_string()))?;
@@ -237,6 +254,8 @@ impl SolveSettings {
             controls: self.controls,
             backend: BackendSettings::from_document(self.settings),
             sensitivity: self.sensitivity,
+            composition: self.composition,
+            reconstruction: self.reconstruction,
         })
     }
 }
@@ -246,12 +265,43 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[test]
+    fn current_request_admits_version_before_body_and_preserves_start_grants() {
+        let old = br#"{"settings":{"backend":"retired"},"version":1}"#;
+        let error = pse_model::document::decode_versioned::<SolveSettings, 2>(old).unwrap_err();
+        assert!(error.to_string().contains("explicit readmission"));
+        let current =
+            pse_model::document::decode_versioned::<SolveSettings, 2>(br#"{"version":2}"#).unwrap();
+        assert_eq!(
+            current.composition.policy,
+            pse_model::strategy::CompositionPolicy::Auto
+        );
+        assert!(current.composition.recovery.is_empty());
+        assert!(current.reconstruction.is_none());
+        assert_eq!(
+            current.controls.hessian,
+            pse_backend_native::solve::HessianMode::Auto
+        );
+        let mut constrained = current.clone();
+        constrained.composition.limits = Some(pse_model::strategy::WorkLimits {
+            attempts: 1,
+            evaluations: Some(0),
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
+        });
+        assert_ne!(
+            super::super::solves::profile_key(&current.profile().unwrap()).unwrap(),
+            super::super::solves::profile_key(&constrained.profile().unwrap()).unwrap()
+        );
+    }
+
     /// Registry vocabularies are the document's enum types: every enumeration decodes from
     /// its registry spelling and a misspelled member is refused at decoding (Plan 22 B4, B5).
     #[test]
     fn solve_settings_enum_types() {
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 1,
+            "version": 2,
             "intent": "root",
             "backend": "kinsol",
             "presolve": "explicit",
@@ -265,11 +315,11 @@ mod tests {
         assert_eq!(settings.presolve, PolicyKind::Explicit);
         assert_eq!(settings.required_passes, BTreeSet::from([Pass::Fbbt]));
         for misspelled in [
-            json!({"version": 1, "intent": "rooot"}),
-            json!({"version": 1, "presolve": "magic"}),
-            json!({"version": 1, "controls": {"reuse": "sometimes"}}),
-            json!({"version": 1, "settings": {"backend": "gurobi"}}),
-            json!({"version": 2}),
+            json!({"version": 2, "intent": "rooot"}),
+            json!({"version": 2, "presolve": "magic"}),
+            json!({"version": 2, "controls": {"reuse": "sometimes"}}),
+            json!({"version": 2, "settings": {"backend": "gurobi"}}),
+            json!({"version": 1}),
             json!({"intent": "root"}),
         ] {
             assert!(
@@ -284,7 +334,7 @@ mod tests {
         assert_eq!(serde_json::to_string(&back).unwrap(), text);
         let profile = back.profile().unwrap();
         assert_eq!(profile.intent, SolverProfile::default().intent);
-        assert_eq!(profile.controls, Controls::default());
+        assert_eq!(profile.controls, SolverProfile::default().controls);
     }
 
     /// A sensitivity request is a typed field of the settings document (Plan 22 S1): it
@@ -298,7 +348,7 @@ mod tests {
             pse_ids::SemanticId::from_bytes([2; 16]),
         );
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 1,
+            "version": 2,
             "sensitivity": {"parameters": [a, b], "reduced_hessian": true},
         }))
         .unwrap();
@@ -316,21 +366,21 @@ mod tests {
             super::super::solves::profile_key(&plain).unwrap()
         );
         let root: SolveSettings = serde_json::from_value(
-            json!({"version":1,"intent":"root","sensitivity":{"parameters":[a]}}),
+            json!({"version":2,"intent":"root","sensitivity":{"parameters":[a]}}),
         )
         .unwrap();
         assert!(root.profile().is_ok());
         for refused in [
-            json!({"version": 1, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
-            json!({"version": 1, "sensitivity": {"parameters": [a, a]}}),
-            json!({"version": 1, "sensitivity": {"parameters": []}}),
+            json!({"version": 2, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
+            json!({"version": 2, "sensitivity": {"parameters": [a, a]}}),
+            json!({"version": 2, "sensitivity": {"parameters": []}}),
         ] {
             let settings: SolveSettings = serde_json::from_value(refused.clone()).unwrap();
             assert!(settings.profile().is_err(), "{refused}");
         }
         assert!(
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 1,
+                "version": 2,
                 "sensitivity": {"parameters": [a], "gradient": true},
             }))
             .is_err()
@@ -343,7 +393,7 @@ mod tests {
                            values: serde_json::Value,
                            outputs: serde_json::Value| {
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 1,
+                "version": 2,
                 "sensitivity": {"parameters": [a, b], "propagation": {
                     "covariance": {"run_id": run, "parameters": parameters, "values": values},
                     "outputs": outputs,
@@ -376,19 +426,19 @@ mod tests {
     fn invalid_tolerance_refused_at_decode() {
         for (document, cause) in [
             (
-                json!({"version": 1, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
+                json!({"version": 2, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
                 "Tolerance",
             ),
             (
-                json!({"version": 1, "settings": {"backend": "kinsol", "damping": 1.5}}),
+                json!({"version": 2, "settings": {"backend": "kinsol", "damping": 1.5}}),
                 "Fraction",
             ),
             (
-                json!({"version": 1, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
+                json!({"version": 2, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
                 "PositiveCount",
             ),
             (
-                json!({"version": 1, "controls": {"time_limit": -3.0}}),
+                json!({"version": 2, "controls": {"time_limit": -3.0}}),
                 "seconds",
             ),
         ] {
@@ -403,7 +453,7 @@ mod tests {
         );
         // Cross-field rules stay admission rules with typed reasons.
         let options = serde_json::from_value::<SolveSettings>(json!({
-            "version": 1,
+            "version": 2,
             "presolve_options": {"max_passes": 3},
         }))
         .unwrap();
@@ -412,7 +462,7 @@ mod tests {
             Err(MathRuntimeError::Solve(ProblemError::Contract(_)))
         ));
         let one_budget = serde_json::from_value::<SolveSettings>(json!({
-            "version": 1,
+            "version": 2,
             "convexity_absolute": 1e-9,
         }))
         .unwrap();

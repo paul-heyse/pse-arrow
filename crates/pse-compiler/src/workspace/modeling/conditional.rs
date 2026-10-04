@@ -12,6 +12,113 @@ pub struct ConditionalUnitInventory {
     /// Remaining free local symbols after direct boundary coordinates are supplied.
     pub unknowns: BTreeSet<SemanticId>,
 }
+/// Complete causal direction derived from authored connections and expression ports.
+#[derive(Clone, Debug)]
+pub struct AutomaticCausalUnit {
+    /// Original instance owner.
+    pub node: SemanticId,
+    /// Authored scalar input port identities.
+    pub inputs: BTreeSet<SemanticId>,
+    /// Authored scalar output port identities.
+    pub outputs: BTreeSet<SemanticId>,
+    /// Actual equality inventory; empty means an explicit authored function map.
+    pub local: ConditionalUnitInventory,
+}
+
+impl PreparedModeling {
+    /// Inventory existing authored selected suppliers without creating regimes or
+    /// inferring a regular sheet from equality matching. Descriptors that are already
+    /// provider projections, rather than free original coordinates, stay explicit refusals.
+    pub fn automatic_reduced_suppliers(
+        &self,
+        source: &PreparedCase,
+    ) -> Result<Vec<Alternative<pse_math::SharedAllocation<AdmittedImplicit>>>> {
+        let rows: BTreeSet<_> = source
+            .plan
+            .structure()
+            .rows()
+            .iter()
+            .map(|r| r.id)
+            .collect();
+        self.implicit_order()?.into_iter().map(|supplier| {
+            if matches!(supplier.selection.meaning, ImplicitMeaning::Relation)
+                || supplier.selection.neighborhood_evidence == SelectionNeighborhood::Unestablished {
+                Ok(Alternative::Unavailable("selected regular supplier correspondence is unestablished".into()))
+            } else if supplier.unknowns.iter().any(|id| !source.plan.columns().contains(id))
+                || supplier.residuals.iter().any(|r| r.rows.iter().any(|id| !rows.contains(id))) {
+                Ok(Alternative::Unavailable("authored implicit supplier is not a free-coordinate original equality region".into()))
+            } else {
+                Ok(Alternative::Available(supplier))
+            }
+        }).collect()
+    }
+    /// Derive candidate unit boundaries from authored directed connections and
+    /// expression ports. Unknown unconnected directions remain inputs; actual
+    /// conditional locality and capability admission still owns eligibility.
+    pub fn automatic_causal_units(
+        &self,
+        source: &PreparedCase,
+        nodes: &BTreeSet<InstanceId>,
+    ) -> Result<Vec<AutomaticCausalUnit>> {
+        let from: BTreeSet<_> = self
+            .model
+            .connections
+            .values()
+            .flat_map(|c| c.bindings.iter().map(|(from, _)| *from))
+            .collect();
+        let to: BTreeSet<_> = self
+            .model
+            .connections
+            .values()
+            .flat_map(|c| c.bindings.iter().map(|(_, to)| *to))
+            .collect();
+        let mut result = Vec::new();
+        for node in nodes {
+            if !self.model.instances.contains_key(node) {
+                return Err(CompileError::Missing("automatic causal node absent".into()));
+            }
+            let mut inputs = BTreeSet::new();
+            let mut outputs = BTreeSet::new();
+            let mut input_symbols = BTreeSet::new();
+            for port in self
+                .model
+                .ports
+                .values()
+                .filter(|p| p.lineage.instance == *node)
+            {
+                if from.contains(&port.id) && to.contains(&port.id) {
+                    return Err(CompileError::Missing(
+                        "automatic causal port has conflicting authored directions".into(),
+                    ));
+                }
+                let expression = self
+                    .model
+                    .symbols
+                    .get(&port.symbol)
+                    .is_some_and(|s| s.expression.is_some());
+                if from.contains(&port.id) || !to.contains(&port.id) && expression {
+                    outputs.insert(port.id);
+                } else {
+                    inputs.insert(port.id);
+                    input_symbols.insert(port.symbol);
+                }
+            }
+            let local = CompilerWorkspace::modeling_conditional_unit_inventory(
+                self,
+                source.plan.structure(),
+                node.as_id(),
+                &input_symbols,
+            )?;
+            result.push(AutomaticCausalUnit {
+                node: node.as_id(),
+                inputs,
+                outputs,
+                local,
+            });
+        }
+        Ok(result)
+    }
+}
 
 impl CompilerWorkspace {
     /// Discover the complete source inventory; admission still proves locality,
@@ -343,35 +450,36 @@ fn admit_boundary(
     }
     // Original support, including dependencies through demanded expression members,
     // is compiler-issued. Counting rows alone cannot establish this boundary.
-    let incidence = source.incidence(cancel)?;
-    for (index, instance) in source.structure().instances().iter().enumerate() {
-        for contribution in &instance.contributions {
-            let Target::Row(row) = contribution.target else {
-                continue;
-            };
-            for slot in incidence[index]
-                .first_for_output(contribution.output)
-                .ok_or_else(|| CompileError::Missing("conditional source incidence".into()))?
-                .iter()
-                .chain(&incidence[index].support().controls)
-            {
-                let symbol = instance.slots[*slot].source();
-                if rows.contains(&row)
-                    && source.columns().binary_search(&symbol).is_ok()
-                    && !unknowns.contains(&symbol)
-                    && !inputs.contains(&symbol)
+    for dependency in source.dependencies(cancel)? {
+        match dependency.target {
+            Target::Objective(_) => {
+                if dependency
+                    .execution
+                    .iter()
+                    .any(|symbol| unknowns.contains(symbol))
                 {
-                    return Err(refuse(&format!(
-                        "row {row} has undeclared external free dependency {symbol}"
-                    )));
+                    return Err(refuse("an original objective couples a local unknown"));
                 }
-                if !rows.contains(&row)
-                    && !connection_rows.contains(&row)
-                    && unknowns.contains(&symbol)
-                {
-                    return Err(refuse(&format!(
-                        "external row {row} couples local unknown {symbol}"
-                    )));
+            }
+            Target::Row(row) => {
+                for symbol in dependency.execution {
+                    if rows.contains(&row)
+                        && source.columns().binary_search(&symbol).is_ok()
+                        && !unknowns.contains(&symbol)
+                        && !inputs.contains(&symbol)
+                    {
+                        return Err(refuse(&format!(
+                            "row {row} has undeclared external free dependency {symbol}"
+                        )));
+                    }
+                    if !rows.contains(&row)
+                        && !connection_rows.contains(&row)
+                        && unknowns.contains(&symbol)
+                    {
+                        return Err(refuse(&format!(
+                            "external row {row} couples local unknown {symbol}"
+                        )));
+                    }
                 }
             }
         }
@@ -396,9 +504,15 @@ mod tests {
         } else {
             ""
         };
-        let declarations = crate::authored_transfer_tests::rows(&format!(
-            "package p {{ def Root {{ var x:Scalar; var p:Scalar; eq local:x*p==1; {connection} }} }}"
-        ));
+        source_text(
+            &format!(
+                "package p {{ def Root {{ var x:Scalar; var p:Scalar; eq local:x*p==1; {connection} }} }}"
+            ),
+            DerivativeOrder::First,
+        )
+    }
+    fn source_text(text: &str, order: DerivativeOrder) -> (PreparedCase, [SemanticId; 4]) {
+        let declarations = crate::authored_transfer_tests::rows(text);
         let root = declarations
             .iter()
             .find(|row| row.name == "Root")
@@ -452,12 +566,118 @@ mod tests {
                 &model,
                 bound.structure,
                 &values,
-                DerivativeOrder::First,
+                order,
                 Profile::default(),
                 &cancel,
             )
             .unwrap();
         (case, ids)
+    }
+    #[test]
+    fn conditional_source_branch_cycle_is_execution_coupling_without_numerical_rank() {
+        let (source, [x, p, local, external]) = source_text(
+            "package p { def Root { var x:Scalar; var p:Scalar; eq local:x==if p>0 then 1 else 2; eq external:p==x; } }",
+            DerivativeOrder::Value,
+        );
+        let cancel = Arc::new(AtomicBool::new(false));
+        let dependencies = source.plan.dependencies(&cancel).unwrap();
+        let branch = dependencies
+            .iter()
+            .find(|d| d.target == Target::Row(local))
+            .unwrap();
+        assert_eq!(branch.numerical, BTreeSet::from([x]));
+        assert_eq!(branch.execution, BTreeSet::from([x, p]));
+        assert_eq!(source.structure.blocks.len(), 2);
+        let edges: Vec<_> = dependencies
+            .into_iter()
+            .flat_map(|d| match d.target {
+                Target::Row(row) => d
+                    .execution
+                    .into_iter()
+                    .map(move |column| (row, column))
+                    .collect(),
+                _ => Vec::new(),
+            })
+            .collect();
+        let schedule = pse_structural::initialization::Plan::with_execution_dependencies(
+            &source.structure,
+            &edges,
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(schedule.blocks.len(), 1);
+        assert_eq!(
+            schedule.blocks[0]
+                .members
+                .rows
+                .iter()
+                .copied()
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from([local, external])
+        );
+        let alternatives = source.automatic_alternatives(&cancel).unwrap();
+        assert!(
+            matches!(alternatives.initialization, Alternative::Available(ref plan) if plan.blocks.len() == 1)
+        );
+        let Alternative::Available(blocks) = source.automatic_blocks(&cancel).unwrap() else {
+            panic!("the complete original equality schedule must remain preparable")
+        };
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(
+            blocks[0]
+                .plan
+                .columns()
+                .iter()
+                .copied()
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from([x, p])
+        );
+        // Existing conditional root blocks compile their actual First residual
+        // minimum independently of the source's value-only preparation.
+        assert_eq!(blocks[0].plan.order(), DerivativeOrder::First);
+        let separator = source.automatic_separator(&cancel).unwrap().unwrap();
+        assert!(separator.columns.contains(&p));
+        assert!(separator.rows.contains(&local));
+    }
+    #[test]
+    fn fixed_parameter_branch_is_retained_in_execution_projection() {
+        let (source, [x, p, local, _]) = source_text(
+            "package p { def Root { var x:Scalar; param p:Scalar=1; eq local:x==if p>0 then 1 else 2; } }",
+            DerivativeOrder::Value,
+        );
+        assert!(!source.plan.columns().contains(&p));
+        let dependencies = source
+            .plan
+            .dependencies(&Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        let branch = dependencies
+            .iter()
+            .find(|d| d.target == Target::Row(local))
+            .unwrap();
+        assert_eq!(branch.numerical, BTreeSet::from([x]));
+        assert_eq!(branch.execution, BTreeSet::from([x, p]));
+    }
+    #[test]
+    fn conditional_locality_refuses_objective_coupling() {
+        let (source, [x, p, local, _]) = source_text(
+            "package p { def Root { var x:Scalar; var p:Scalar; eq local:x*p==1; annotation objective x(minimize); } }",
+            DerivativeOrder::Value,
+        );
+        let error = admit_boundary(
+            &source.plan,
+            &BTreeSet::from([p]),
+            &BTreeSet::from([x]),
+            &BTreeSet::from([local]),
+            &BTreeSet::from([x]),
+            &BTreeSet::new(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("objective couples a local unknown")
+        );
     }
     #[test]
     fn conditional_unit_boundary_requires_declared_external_inputs() {

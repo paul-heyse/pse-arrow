@@ -42,12 +42,14 @@ pub use pse_model::generated::r#enums::{
     NativeRouteRefusal, NativeRouteSelection, NativeRunState, NativeSolveIntent,
     NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy, NativeTermination,
     NativeUnoMethod, NativeWarmCapability, NumericalAccuracyClass,
-    NumericalAttemptObservation, NumericalBranchPolicy, NumericalCoordinates,
-    NumericalEventKind, NumericalMechanism, NumericalPathEventKind, NumericalPhase,
+    NumericalAttemptObservation, NumericalBranchPolicy, NumericalCompositionPolicy,
+    NumericalCoordinates, NumericalEventKind, NumericalMechanism,
+    NumericalOriginalConclusion, NumericalPathEventKind, NumericalPhase,
     NumericalPosition, NumericalProvenanceField, NumericalScope, NumericalSource,
     NumericalStartOrigin, NumericalTarget, NumericalTransition, ObservationTimeBasis,
     Opcode, OperationEffect, OrphanDisposition, OrphanOwnership, PackageKind,
-    PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner, PresolvePass,
+    PardisoMatching, PardisoOrdering, PounceFdColoring, PounceFdPattern, PounceMethod,
+    PouncePartitionedElements, PouncePartitionedUpdate, Preconditioner, PresolvePass,
     PresolvePolicyKind, PublicationKind, PublicationMemberRole, QuantityAdditionKind,
     QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
     RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase,
@@ -4293,6 +4295,35 @@ impl crate::columnar::ArrowValue for NumericalBranchPolicy {
             })
     }
 }
+impl crate::columnar::ArrowValue for NumericalCompositionPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalCompositionPolicy).to_owned(),
+                enumeration: stringify!(NumericalCompositionPolicy).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NumericalCoordinates {
     fn append(
         &self,
@@ -4372,6 +4403,35 @@ impl crate::columnar::ArrowValue for NumericalMechanism {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(NumericalMechanism).to_owned(),
                 enumeration: stringify!(NumericalMechanism).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalOriginalConclusion {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalOriginalConclusion).to_owned(),
+                enumeration: stringify!(NumericalOriginalConclusion).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -4865,6 +4925,64 @@ impl crate::columnar::ArrowValue for PardisoOrdering {
             })
     }
 }
+impl crate::columnar::ArrowValue for PounceFdColoring {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(PounceFdColoring).to_owned(),
+                enumeration: stringify!(PounceFdColoring).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for PounceFdPattern {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(PounceFdPattern).to_owned(),
+                enumeration: stringify!(PounceFdPattern).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for PounceMethod {
     fn append(
         &self,
@@ -4886,6 +5004,64 @@ impl crate::columnar::ArrowValue for PounceMethod {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(PounceMethod).to_owned(),
                 enumeration: stringify!(PounceMethod).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for PouncePartitionedElements {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(PouncePartitionedElements).to_owned(),
+                enumeration: stringify!(PouncePartitionedElements).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for PouncePartitionedUpdate {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(PouncePartitionedUpdate).to_owned(),
+                enumeration: stringify!(PouncePartitionedUpdate).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

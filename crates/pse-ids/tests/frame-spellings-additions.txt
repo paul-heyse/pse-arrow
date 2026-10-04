@@ -93,3 +93,17 @@ pse:original-solve-contract:v1
 pse:selected-root-sheet:v1
 pse:solve-strategy-preparation:v1
 pse:solve-strategy-request:v1
+
+# Plan 25n: versioned composition, actual decisions, composite reconstruction and
+# current request/preparation/profile/durable bindings. Earlier spellings stay frozen.
+pse.durable.job_request.v4
+pse.durable.modeling_request.v2
+pse.durable.study_request.v3
+pse.solve.preparation.v3
+pse.solve.request.v3
+pse.solver.profile.v5
+pse:derived-binding:v2
+pse:numerical-decision:v1
+pse:numerical-strategy:v2
+pse:solve-strategy-preparation:v2
+pse:solve-strategy-request:v2

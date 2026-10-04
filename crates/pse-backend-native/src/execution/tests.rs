@@ -606,8 +606,8 @@ fn settings_documents_round_trip_every_variant() {
 
 /// Settings identity is the serde data model of the typed document: field names and the
 /// registry and serde spellings, never Rust type names (ADR-0116 Outcome 9). ADR-0150
-/// versions canonical float identity; the finite historical vectors remain controlled
-/// under their original frames alongside the current typed-document vectors.
+/// versions canonical float identity; historical vectors retain their original document
+/// shape and values, while the current vectors include current typed defaults.
 #[test]
 fn settings_identity_is_type_name_independent() {
     use serde_json::json;
@@ -650,6 +650,89 @@ fn settings_identity_is_type_name_independent() {
     #[derive(serde::Serialize)]
     #[serde(transparent)]
     struct RenamedSettings<'a>(Option<&'a BackendSettings>);
+    // Frozen pre-Plan-25n serde data model. JSON would erase option, enum and
+    // numeric-type distinctions, so serialize this test-only document directly.
+    // These literals reproduce the prior Settings/FeralIdentity declarations and
+    // their defaults; no current decoding, readmission or native defaults are used.
+    #[derive(serde::Serialize)]
+    #[serde(tag = "backend", rename_all = "snake_case")]
+    enum HistoricalBackend {
+        Pounce(HistoricalPounce),
+    }
+    #[derive(serde::Serialize)]
+    struct HistoricalPounce {
+        method: HistoricalMethod,
+        linear: HistoricalLinear,
+        restart: HistoricalRestart,
+    }
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "snake_case")]
+    enum HistoricalMethod {
+        L1ExactPenalty,
+    }
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "snake_case")]
+    enum HistoricalAuto {
+        Auto,
+    }
+    #[derive(serde::Serialize)]
+    struct HistoricalLinear {
+        cascade_break: Option<bool>,
+        fma: bool,
+        refine: bool,
+        increase_quality: bool,
+        refine_max_steps: usize,
+        refine_target: f64,
+        singular_pivot_floor: f64,
+        inertia_pivot_floor: Option<f64>,
+        pivtol: f64,
+        ordering: HistoricalAuto,
+        scaling: HistoricalAuto,
+        parallel: Option<bool>,
+        min_par_flops: Option<u64>,
+        static_pivoting: Option<bool>,
+    }
+    #[derive(serde::Serialize)]
+    #[serde(tag = "kind", rename_all = "snake_case")]
+    enum HistoricalBarrier {
+        Seed,
+    }
+    #[derive(serde::Serialize)]
+    struct HistoricalRestart {
+        barrier: HistoricalBarrier,
+        bound_push: f64,
+        bound_frac: f64,
+        slack_bound_push: f64,
+        slack_bound_frac: f64,
+        mult_bound_push: f64,
+    }
+    let historical_pounce = HistoricalBackend::Pounce(HistoricalPounce {
+        method: HistoricalMethod::L1ExactPenalty,
+        linear: HistoricalLinear {
+            cascade_break: None,
+            fma: false,
+            refine: true,
+            increase_quality: true,
+            refine_max_steps: 10,
+            refine_target: 0.0,
+            singular_pivot_floor: 1e-20,
+            inertia_pivot_floor: None,
+            pivtol: 1e-8,
+            ordering: HistoricalAuto::Auto,
+            scaling: HistoricalAuto::Auto,
+            parallel: None,
+            min_par_flops: None,
+            static_pivoting: None,
+        },
+        restart: HistoricalRestart {
+            barrier: HistoricalBarrier::Seed,
+            bound_push: 1e-9,
+            bound_frac: 1e-9,
+            slack_bound_push: 1e-9,
+            slack_bound_frac: 1e-9,
+            mult_bound_push: 1e-9,
+        },
+    });
     let mut historical = Vec::new();
     let mut observed = documents
         .into_iter()
@@ -665,11 +748,14 @@ fn settings_identity_is_type_name_independent() {
                 .unwrap(),
                 "Rust type names and transparent wrappers cannot change identity"
             );
-            // Every float in these fixtures is finite: canonical framing therefore has
-            // the exact historical encoding under the historical context.
+            let historical_identity = if label == "pounce" {
+                pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &Some(&historical_pounce))
+            } else {
+                pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &settings.document())
+            };
             historical.push((
                 label,
-                pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &settings.document())
+                historical_identity
                     .unwrap()
                     .to_prefixed(),
             ));
@@ -742,7 +828,6 @@ fn settings_identity_is_type_name_independent() {
     .into_iter()
     .map(|(label, identity)| (label, identity.to_owned()))
     .collect();
-    assert_eq!(historical, historical_expected);
     let expected = [
         (
             "scip",
@@ -762,7 +847,7 @@ fn settings_identity_is_type_name_independent() {
         ),
         (
             "pounce",
-            "blake3:2bc4cf6ba35399fc7e91699cedda712a57c4db25a2333f614a3a4d4253f56d81",
+            "blake3:cf49096ef6cc9bd5423a72ca8916ed0f3061744355448ef3a4c8db1ae0f0a3f9",
         ),
         (
             "kinsol",
@@ -784,7 +869,29 @@ fn settings_identity_is_type_name_independent() {
     .into_iter()
     .map(|(label, identity)| (label, identity.to_owned()))
     .collect::<Vec<_>>();
-    assert_eq!(observed, expected);
+    assert_eq!((historical, observed), (historical_expected, expected));
+    // Plan 25n's native controls are identity-bearing even when callers submit
+    // partial documents and the remaining settings take their typed defaults.
+    let pounce = serde_json::from_value::<BackendSettings>(json!({"backend": "pounce"}))
+        .unwrap()
+        .identity()
+        .unwrap();
+    for fields in [
+        json!({"partitioned": {"update_type": "bfgs"}}),
+        json!({"partitioned": {"max_element": 32}}),
+        json!({"partitioned": {"elements": "primal_block"}}),
+        json!({"partitioned": {"block_size": 32}}),
+        json!({"partitioned": {"curvature_cap": 2.0}}),
+        json!({"finite_difference": {"pattern": "jacobian"}}),
+        json!({"finite_difference": {"coloring": "star"}}),
+        json!({"finite_difference": {"reuse_tolerance": 0.001}}),
+        json!({"linear": {"bounded_dense_max_dimension": 7}}),
+    ] {
+        let mut document = fields;
+        document["backend"] = json!("pounce");
+        let changed = serde_json::from_value::<BackendSettings>(document.clone()).unwrap();
+        assert_ne!(pounce, changed.identity().unwrap(), "{document}");
+    }
     // The time limit of the controls document is its seconds.
     assert_eq!(
         serde_json::to_value(&controls).unwrap()["time_limit"],

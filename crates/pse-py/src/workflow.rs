@@ -1198,6 +1198,24 @@ impl NativePreparedOperation {
             .map(|key| key.to_prefixed())
             .map_err(|error| errors::diagnostic(py, &error))
     }
+    /// Requested automatic/declared composition and preserved constraints.
+    #[getter]
+    fn composition_request(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<documents::DocumentValue<pse_model::strategy::CompositionRequest>> {
+        let request = match &self.inner {
+            PreparedOperation::Modeling(p) => p.solve.composition_request(),
+            PreparedOperation::Fit(p) => p.composition_request(),
+            PreparedOperation::Simulation(_) => {
+                return Err(invalid(
+                    py,
+                    "integration owns its scientific controller; numerical composition is inspected on its algebraic targets",
+                ));
+            }
+        };
+        Ok(documents::DocumentValue(request.clone()))
+    }
     /// Mechanical document projection of the actual declared execution policy.
     #[getter]
     fn numerical_strategy(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
@@ -1207,7 +1225,10 @@ impl NativePreparedOperation {
                 "numerical strategy requires an algebraic solve",
             ));
         };
-        documents::encode(py, &p.solve.numerical_strategy())
+        let document =
+            pse_model::strategy::NumericalStrategyDocument::new(p.solve.numerical_strategy())
+                .map_err(|error| invalid(py, error.to_string()))?;
+        documents::encode(py, &document)
     }
     /// Bind prepared original-system profiles to the validated numerical declaration.
     fn with_numerical_strategy(
@@ -1222,12 +1243,13 @@ impl NativePreparedOperation {
                 "numerical composition requires an algebraic solve",
             ));
         };
-        let declaration: pse_model::strategy::NumericalStrategy = documents::decode(
-            py,
-            "numerical strategy",
-            declaration,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
+        let declaration =
+            documents::decode_versioned::<pse_model::strategy::NumericalStrategyDocument, 2>(
+                py,
+                "numerical strategy",
+                declaration,
+                self.owner.shared.budget().math.workspace_bytes,
+            )?;
         let rungs = rungs
             .iter()
             .map(|rung| {
@@ -1243,7 +1265,7 @@ impl NativePreparedOperation {
         let mut prepared = p.as_ref().clone();
         prepared.solve = prepared
             .solve
-            .with_strategy(declaration, rungs)
+            .with_strategy(declaration.strategy, rungs)
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(Self {
             owner: self.owner.clone(),

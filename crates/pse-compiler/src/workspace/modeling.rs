@@ -610,7 +610,7 @@ impl CompilerWorkspace {
 }
 
 mod conditional;
-pub use conditional::ConditionalUnitInventory;
+pub use conditional::{AutomaticCausalUnit, ConditionalUnitInventory};
 mod executable;
 mod flow;
 pub use executable::{

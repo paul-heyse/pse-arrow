@@ -88,7 +88,7 @@ pub struct StudyPoint {
 #[serde(deny_unknown_fields)]
 pub struct StudyRequest {
     /// Document version.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Ordered occurrence requests.
     pub points: Vec<StudyPoint>,
 }
@@ -106,9 +106,9 @@ pub struct StudyPlan {
     pub priority: i32,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 4;
+const STUDY_DEFINITION_VERSION: u32 = 5;
 
-/// Version 4 of a study's definition: the store's `definition` document and the content of
+/// Version 5 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -663,7 +663,7 @@ impl Runtime {
                 return Err(contract("immutable study seed need differs from owner"));
             }
         }
-        let request_identity = identity(pse_ids::Frame::DurableStudyRequestV2, &definition)?;
+        let request_identity = identity(pse_ids::Frame::DurableStudyRequestV3, &definition)?;
         let study_id: StudyId = pse_operations::mint_id();
         let attempt_id: AttemptId = pse_operations::mint_id();
         let run_id: RunId = pse_operations::mint_id();
@@ -705,7 +705,7 @@ impl Runtime {
                 },
                 operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
                     pse_ids::roles::OperationalJobHash::from(identity(
-                        pse_ids::Frame::DurableJobRequestV3,
+                        pse_ids::Frame::DurableJobRequestV4,
                         &operation_job,
                     )?),
                 ),
@@ -731,7 +731,7 @@ impl Runtime {
                 kind: AttemptKind::StudyFinalization,
                 operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
                     pse_ids::roles::OperationalJobHash::from(identity(
-                        pse_ids::Frame::DurableJobRequestV3,
+                        pse_ids::Frame::DurableJobRequestV4,
                         &(AttemptKind::StudyFinalization, request_identity, study_id),
                     )?),
                 ),
@@ -754,7 +754,7 @@ impl Runtime {
                     operational_job_identity:
                         pse_ids::roles::RecordedOperationalJobIdentity::current(
                             pse_ids::roles::OperationalJobHash::from(identity(
-                                pse_ids::Frame::DurableJobRequestV3,
+                                pse_ids::Frame::DurableJobRequestV4,
                                 &(AttemptKind::Study, request_identity, study_id),
                             )?),
                         ),

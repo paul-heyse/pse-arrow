@@ -60,7 +60,10 @@ pub fn factorable_resolve_order(
     })?;
     if exported.fidelity != Fidelity::Exact || exported.discrete() && exported.nonlinear() {
         Ok(Some(
-            if controls.hessian == crate::solve::HessianMode::LimitedMemory {
+            if !matches!(
+                controls.hessian,
+                crate::solve::HessianMode::Exact | crate::solve::HessianMode::GaussNewton
+            ) {
                 pse_kernels::DerivativeOrder::First
             } else {
                 pse_kernels::DerivativeOrder::Second

@@ -556,6 +556,11 @@ pub struct DerivativeFacts {
 }
 /// Nonlinear optimization shared only by compatible NLP adapters.
 pub trait NlpOracle: std::fmt::Debug {
+    /// An optional admitted original-coordinate solve separator.
+    fn solve_separator(&self) -> Option<&SolveSeparator> {
+        None
+    }
+
     /// Existing compiler matching witness for the original equation support.
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         None
@@ -600,6 +605,15 @@ pub trait NlpOracle: std::fmt::Debug {
         multipliers: &[f64],
         out: &mut [f64],
     ) -> Result<(), ProblemError>;
+}
+/// An admitted semantic separator in the original oracle's coordinate/row order.
+/// Classification into x/s/c/d is owned by the native library, never guessed here.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SolveSeparator {
+    /// Original variable ordinals retained in the separator.
+    pub variables: Vec<usize>,
+    /// Original row ordinals retained in the separator.
+    pub rows: Vec<usize>,
 }
 /// Validate all derivative dimensions and canonical row bounds before a native NLP upload.
 pub fn validate_nlp(oracle: &dyn NlpOracle, order: DerivativeOrder) -> Result<(), ProblemError> {

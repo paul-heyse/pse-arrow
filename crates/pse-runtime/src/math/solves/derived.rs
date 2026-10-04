@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Prepared mathematical families executed by the existing native strategy worker.
-//! Every result here is auxiliary. Original correction owns scientific completion.
+//! Auxiliary observations remain distinct from independent original completion.
 use super::*;
 use pse_backend_native::{
     NlpOracle, OracleContract, Variable,
@@ -10,8 +10,9 @@ use pse_backend_native::{
         ReducedRow, RootBridge,
     },
 };
-use pse_kernels::{DerivativeOrder, ExecutionScope};
+use pse_kernels::{DerivativeOrder, ExecutionScope, ProviderFactory};
 use pse_math::{
+    composite_reconstruction::CompositeReconstruction,
     derived::{
         self as math, DerivativeSupport, DerivedFamily, MassBinding, MassStructure,
         OriginalContract, OriginalObligations,
@@ -99,7 +100,7 @@ impl PreparedRung {
             Self::Surrogate(_) => None,
             Self::Multistart(p) => Some(p.backend()),
             Self::Original(p) => p.backend(),
-            Self::Derived(p) => Some(p.backend),
+            Self::Derived(p) => (!p.complete_reconstruction()).then_some(p.backend),
             Self::Path { .. } => Some(Backend::Ipopt),
             #[cfg(feature = "solver-petsc")]
             Self::Petsc(p) => Some(p.backend()),
@@ -195,17 +196,6 @@ impl PreparedRung {
             }
         }
     }
-    /// Point-specific evidence available at preparation; no estimates are invented.
-    pub fn accuracy_evidence(&self) -> Vec<AccuracyEvidence> {
-        match self {
-            Self::Surrogate(_) => Vec::new(),
-            Self::Multistart(_) => Vec::new(),
-            Self::Derived(p) => p.accuracy_evidence(),
-            Self::Original(_) | Self::Path { .. } => Vec::new(),
-            #[cfg(feature = "solver-petsc")]
-            Self::Petsc(_) => Vec::new(),
-        }
-    }
     /// Original caller task scope, when retained by an auxiliary preparation.
     pub fn task_scope(&self) -> Option<ExecutionScope> {
         match self {
@@ -287,21 +277,25 @@ pub enum DerivedRequest {
     },
     /// Selected implicit reconstruction composed with remaining original obligations.
     Reduced {
-        /// Actual admitted selected implicit source.
-        factory: Arc<RegimeFactory>,
-        /// Existing reservation retained for the actual source factory.
-        factory_owner: Arc<pse_columnar::AllocationLease>,
+        /// Actual admitted local suppliers; their named rows/unknowns derive coverage.
+        suppliers: Vec<ReducedSupplier>,
         /// Original coordinates exposed to the reduced native solver.
         retained: Vec<GlobalCol>,
-        /// Named original equality rows discharged by reconstruction.
-        eliminated: Vec<GlobalRow>,
-        /// Source-owned reconstruction validity interpretation.
-        validity: pse_ids::ContentHash,
         /// Explicit consumer point and derivative allowances.
         accuracy: ReconstructionAccuracy,
-        /// Actual producer realization of original nonzero equality RHS values.
-        realization: SelectedResidualRealization,
     },
+}
+/// One authored selected implicit supplier, retaining its source-owned admission.
+#[derive(Clone, Debug)]
+pub struct ReducedSupplier {
+    /// Actual admitted factory; structural matching never creates this declaration.
+    pub factory: Arc<RegimeFactory>,
+    /// Existing reservation retained for the actual factory.
+    pub factory_owner: Arc<pse_columnar::AllocationLease>,
+    /// Source-owned validity interpretation.
+    pub validity: pse_ids::ContentHash,
+    /// Actual compiler realization of authored RHS values.
+    pub realization: SelectedResidualRealization,
 }
 /// Actual mathematical product, retaining its distinct scientific correspondence.
 #[derive(Clone, Debug)]
@@ -388,7 +382,15 @@ impl PreparedFamily {
 #[derive(Clone, Debug)]
 struct ReducedPreparation {
     contract: Arc<math::ReconstructionContract>,
+    suppliers: Vec<ReducedSupplierPreparation>,
+}
+#[derive(Clone, Debug)]
+struct ReducedSupplierPreparation {
+    contract: Arc<math::ReconstructionContract>,
     binding: SelectedResidualBinding,
+    columns: Vec<GlobalCol>,
+    rows: Vec<GlobalRow>,
+    normalization: Normalization,
 }
 /// Actual immutable source/family/layout admission. No native session is built here.
 #[derive(Clone, Debug)]
@@ -425,6 +427,11 @@ impl std::ops::Deref for PreparedDerived {
     }
 }
 impl PreparedDerived {
+    /// All original coordinates are supplied by admitted reconstruction; the outer
+    /// operation is direct original evaluation and performs no native iteration.
+    pub(crate) fn complete_reconstruction(&self) -> bool {
+        matches!(&self.request, DerivedRequest::Reduced { retained, .. } if retained.is_empty())
+    }
     /// Consumed source, family and declared profile identity.
     pub fn key(&self) -> pse_ids::ContentHash {
         self.key
@@ -477,10 +484,6 @@ impl PreparedDerived {
             result.insert(r.contract.support().source);
         }
         result
-    }
-    /// Preparation has structural support, but no point-specific accuracy certificate.
-    pub fn accuracy_evidence(&self) -> Vec<AccuracyEvidence> {
-        Vec::new()
     }
     /// Admission of the explicit auxiliary native operation.
     pub fn route_decision(&self) -> &routing::Decision {
@@ -537,7 +540,9 @@ impl PreparedDerived {
         attempt: &DerivedAttempt,
         enclosing: &ExecutionScope,
     ) -> Option<super::super::strategy::EffectFailure> {
-        let report = &attempt.report;
+        let Outcome::Native(report) = &attempt.outcome else {
+            return None;
+        };
         let mut cause = None;
         let mut refinement = None;
         for recorded in [
@@ -750,7 +755,7 @@ impl DerivedFailure {
 #[derive(Debug)]
 pub struct DerivedAttempt {
     /// Complete native result with its retained allocation owner.
-    pub report: SolveReport,
+    pub outcome: Outcome,
     /// Original start proposal; scientific acceptance belongs to the original corrector.
     pub proposal: Option<OriginalProposal>,
     /// Typed original-screen failure, preserving its full source cause.
@@ -760,7 +765,11 @@ pub struct DerivedAttempt {
 impl DerivedAttempt {
     /// Observed native work, retaining unavailable totals as unknown.
     pub fn work(&self) -> WorkObservation {
-        let w = self.report.evidence.work;
+        let w = match &self.outcome {
+            Outcome::Native(report) => report.evidence.work,
+            Outcome::Constant(report) => report.work,
+            Outcome::Rejected(_) => WorkEvidence::default(),
+        };
         WorkObservation {
             attempts: 1,
             evaluations: w.evaluations,
@@ -778,11 +787,11 @@ pub(super) fn physical_contract(
     let plan = &source.prepared.prepared.plan;
     let identity = original.original_identity()?;
     let obligation = |purpose: &str| {
-        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
         h.str(purpose).hash(&identity);
         h.finish_hash()
     };
-    let mut derivative_source = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+    let mut derivative_source = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
     derivative_source
         .str("actual-frozen-compiled-derivative")
         .hash(&identity);
@@ -844,7 +853,7 @@ pub(super) fn zero_contract(
         )
         .into());
     }
-    let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+    let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
     h.str("explicit-authored-equality-residual-view")
         .hash(&original.identity());
     for row in original.constraints() {
@@ -968,10 +977,149 @@ fn layout(
             support.order.min(DerivativeOrder::First)
         },
     };
-    contract.validate(support.order)?;
+    if !contract.variables.is_empty() {
+        contract.validate(support.order)?;
+    }
     Ok((contract, bounds, edges, map))
 }
 impl MathService {
+    /// Discover only actual retained selected factories with complete named original
+    /// correspondence. Consumer accuracy/refinement is supplied explicitly, never
+    /// inferred from a successful structural matching or a concrete source type.
+    pub(crate) fn automatic_reduced_request(
+        &self,
+        original: &PreparedSolve,
+        accuracy: ReconstructionAccuracy,
+    ) -> Result<Option<DerivedRequest>, MathRuntimeError> {
+        accuracy.refinement.validate()?;
+        let Representation::Algebraic(source) = &original.representation else {
+            return Ok(None);
+        };
+        let normalized_point = original
+            .tolerances
+            .variables
+            .iter()
+            .zip(&original.normalization.variables)
+            .map(|(budget, scale)| budget / scale)
+            .fold(f64::INFINITY, f64::min);
+        if !accuracy.point.is_finite()
+            || accuracy.point <= 0.0
+            || accuracy.point > normalized_point
+            || !accuracy.action.is_finite()
+            || accuracy.action <= 0.0
+            || accuracy.action > original.numerics.policy.kkt.stationarity
+        {
+            return Err(ProblemError::Contract(
+                "automatic reconstruction allowance exceeds original consumer budget".into(),
+            )
+            .into());
+        }
+        let columns = source.prepared.prepared.plan.columns();
+        let row_ids: BTreeSet<_> = source
+            .prepared
+            .prepared
+            .plan
+            .structure()
+            .rows()
+            .iter()
+            .filter(|r| r.lower.is_finite() && r.lower == r.upper)
+            .map(|r| r.id)
+            .collect();
+        let mut pending = Vec::new();
+        for registration in source.providers.values() {
+            let factory = registration.source::<RegimeFactory>().or_else(|| {
+                match registration.source::<pse_math::implicit::ImplicitFactory>() {
+                    Some(pse_math::implicit::ImplicitFactory::Regimes(factory)) => Some(factory),
+                    _ => None,
+                }
+            });
+            let Some(factory) = factory else {
+                continue;
+            };
+            if factory
+                .spec
+                .inputs
+                .iter()
+                .chain(&factory.spec.outputs)
+                .any(|p| !columns.contains(&p.id))
+                || factory.alternatives.is_empty()
+                || factory
+                    .alternatives
+                    .iter()
+                    .any(|b| b.residual.rows.iter().any(|r| !row_ids.contains(r)))
+                || factory.verifier.is_none()
+            {
+                continue;
+            }
+            // Retained factories currently do not carry owner-issued subtraction
+            // metadata. At a zero RHS, authored-value and zero-residual realizations
+            // coincide; a concrete factory type cannot establish a nonzero offset.
+            let mut zero_offsets = true;
+            for id in &factory.alternatives[0].residual.rows {
+                let row = source
+                    .prepared
+                    .prepared
+                    .plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .find(|r| r.id == *id)
+                    .ok_or_else(|| {
+                        ProblemError::Contract("automatic supplier named equality absent".into())
+                    })?;
+                zero_offsets &= row.lower == 0.0;
+            }
+            if !zero_offsets {
+                continue;
+            }
+            let owner =
+                self.reserve("math:automatic-admitted-supplier", factory_bytes(factory)?)?;
+            pending.push(ReducedSupplier {
+                factory: Arc::new(factory.clone()),
+                factory_owner: owner,
+                validity: original.preparation_identity()?,
+                realization: SelectedResidualRealization::AuthoredValues,
+            });
+        }
+        if pending.is_empty() {
+            return Ok(None);
+        }
+        let outputs: BTreeSet<_> = pending
+            .iter()
+            .flat_map(|s| s.factory.spec.outputs.iter().map(|p| p.id))
+            .collect();
+        let retained: Vec<_> = columns
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| !outputs.contains(id))
+            .map(|(i, _)| GlobalCol::new(i))
+            .collect();
+        let mut available: BTreeSet<_> = retained.iter().map(|c| columns[c.get()]).collect();
+        let mut suppliers = Vec::new();
+        while !pending.is_empty() {
+            let Some(index) = pending.iter().position(|s| {
+                s.factory
+                    .spec
+                    .inputs
+                    .iter()
+                    .all(|p| available.contains(&p.id))
+            }) else {
+                return Ok(None);
+            };
+            let supplier = pending.remove(index);
+            for port in &supplier.factory.spec.outputs {
+                if !available.insert(port.id) {
+                    return Ok(None);
+                }
+            }
+            suppliers.push(supplier);
+        }
+        Ok(Some(DerivedRequest::Reduced {
+            suppliers,
+            retained,
+            accuracy,
+        }))
+    }
     /// Freeze an actual family over the original compiled source, using an explicit
     /// admitted profile and the caller's original task scope while waiting for capacity.
     pub async fn prepare_derived(
@@ -1017,10 +1165,13 @@ impl MathService {
             }
         };
         let plan = &source.prepared.prepared.plan;
+        let complete_reconstruction =
+            matches!(&request, DerivedRequest::Reduced { retained, .. } if retained.is_empty());
         if !plan.structure().native().is_empty() || !plan.structure().requirements().is_empty() {
             return Err(ProblemError::Unsupported("derived callbacks do not rebind authored native-handler or formulation requirements".into()).into());
         }
-        if plan.order() < DerivativeOrder::First
+        if !complete_reconstruction
+            && plan.order() < DerivativeOrder::First
             && (!matches!(
                 request,
                 DerivedRequest::AnchoredHomotopy { .. } | DerivedRequest::ShiftedPseudoTime { .. }
@@ -1033,8 +1184,9 @@ impl MathService {
             request,
             DerivedRequest::AnchoredHomotopy { .. } | DerivedRequest::ShiftedPseudoTime { .. }
         );
-        if roots && representation != execution::Representation::Roots
-            || !roots && representation != execution::Representation::Nlp
+        if !complete_reconstruction
+            && (roots && representation != execution::Representation::Roots
+                || !roots && representation != execution::Representation::Nlp)
         {
             return Err(ProblemError::Unsupported(
                 "derived family/profile native representation mismatch".into(),
@@ -1054,7 +1206,11 @@ impl MathService {
         if profile.intent != intent {
             return Err(ProblemError::Contract("derived intent must match its actual root, feasibility or reduced-objective operation".into()).into());
         }
-        if routing::derivative_demand(execution::adapter(backend).capability(), &profile.controls)
+        if !complete_reconstruction
+            && routing::derivative_demand(
+                execution::adapter(backend).capability(),
+                &profile.controls,
+            )
             .is_some_and(|order| {
                 order
                     > if matches!(request, DerivedRequest::LeastDeviation { .. }) {
@@ -1098,12 +1254,12 @@ impl MathService {
                 },
                 DerivedRequest::AnchoredHomotopy {anchor,parameter}=>{if anchor.len()!=physical.coordinates().len()||anchor.iter().zip(physical.coordinates()).any(|(v,c)|!v.is_finite()||*v<c.lower||*v>c.upper)||!parameter.is_finite()||!(0.0..=1.0).contains(parameter) {return Err(ProblemError::Contract("homotopy anchor/parameter outside declared domain".into()).into());}PreparedFamily::General(Arc::new(DerivedFamily::anchored_homotopy(zero_contract(&physical)?)?))},
                 DerivedRequest::ShiftedPseudoTime {anchor,step,sign,pairing,mass}=>{if anchor.len()!=physical.coordinates().len()||anchor.iter().zip(physical.coordinates()).any(|(v,c)|!v.is_finite()||*v<c.lower||*v>c.upper)||!step.is_finite()||*step<=0.0||mass.matrix().nrows()!=physical.coordinates().len()||mass.matrix().ncols()!=physical.coordinates().len()||mass.matrix().val().iter().any(|v|!v.is_finite()) {return Err(ProblemError::Contract("shifted pseudo-time actual anchor/step/mass domain".into()).into());}PreparedFamily::General(Arc::new(DerivedFamily::shifted_pseudo_time(zero_contract(&physical)?,pairing.clone(),*sign,MassStructure::Frozen{incidence:mass_edges(mass)})?))},
-                DerivedRequest::Reduced {factory,factory_owner,retained,eliminated,validity,accuracy,realization}=>{
+                DerivedRequest::Reduced {suppliers,retained,accuracy}=>{
                     accuracy.refinement.validate()?;if !accuracy.point.is_finite()||accuracy.point<=0.0||!accuracy.action.is_finite()||accuracy.action<=0.0 {return Err(ProblemError::Contract("explicit reconstruction consumer accuracy allowances".into()).into());}
-                    if factory_owner.size()<factory_bytes(factory)? {return Err(MathRuntimeError::Limit("selected factory actual retained owner"));}
-                    let binding=SelectedResidualBinding::for_source(factory,&physical,eliminated,realization.clone())?;
-                    let contract=SelectedImplicitReconstruction::<ProblemError>::prepare_contract_with_binding(factory,physical.clone(),retained.clone(),eliminated.clone(),*validity,worker_scope.cancellation(),&binding)?;
-                    let family=DerivedFamily::reduced_space(physical.clone(),contract.clone())?;reduced=Some(ReducedPreparation {contract,binding});PreparedFamily::General(Arc::new(family))
+                    let prepared = suppliers.iter().map(|supplier| prepare_reduced_supplier(supplier, &physical, &original.normalization, worker_scope.cancellation())).collect::<Result<Vec<_>, MathRuntimeError>>()?;
+                    let contracts = prepared.iter().map(|p| p.contract.clone()).collect::<Vec<_>>();
+                    let contract = CompositeReconstruction::<SelectedImplicitReconstruction<ProblemError>>::prepare_contract_normalized(physical.clone(), retained.clone(), &contracts, &original.normalization, &prepared.iter().map(|p| p.normalization.clone()).collect::<Vec<_>>())?;
+                    let family=DerivedFamily::reduced_space(physical.clone(),contract.clone())?;reduced=Some(ReducedPreparation {contract,suppliers:prepared});PreparedFamily::General(Arc::new(family))
                 },
             };
             let (mut contract,bounds,edges,row_map)=layout(&family,reduced.as_ref())?;
@@ -1113,12 +1269,12 @@ impl MathService {
             let structure=native::structural::oracle_structure_with_cancel(&contract,pattern.matrix().symbolic(),&bounds,intent==SolveIntent::Optimize||matches!(family,PreparedFamily::LeastDeviation(_)),worker_scope.cancellation())?;
             let normalization=Normalization {variables:family.coordinate_map().map_or_else(||original.normalization.variables.clone(),|cols|cols.iter().map(|c|original.normalization.variables[c.get()]).collect()),rows:row_map.iter().map(|r|match r {ReducedRow::Constraint(r)=>original.normalization.rows[r.get()],ReducedRow::CoordinateBound(c)=>original.normalization.variables[c.get()]}).collect(),objective:if matches!(family,PreparedFamily::LeastDeviation(_)) {1.0}else{original.normalization.objective}};
             let tolerances=Tolerances {variables:family.coordinate_map().map_or_else(||original.tolerances.variables.clone(),|cols|cols.iter().map(|c|original.tolerances.variables[c.get()]).collect()),rows:row_map.iter().map(|r|match r {ReducedRow::Constraint(r)=>original.tolerances.rows[r.get()],ReducedRow::CoordinateBound(c)=>original.tolerances.variables[c.get()]}).collect(),integrality:original.tolerances.integrality};
-            let accuracy=ResolvedAccuracy::resolve(&original.numerics.policy,&tolerances,&normalization)?;let snapshot=execution::Snapshot::observe(&execution::LINKED);admit_profile(&profile,Route::Native(backend),&snapshot)?;
+            let accuracy=ResolvedAccuracy::resolve(&original.numerics.policy,&tolerances,&normalization)?;let snapshot=execution::Snapshot::observe(&execution::LINKED);admit_profile(&profile,if contract.variables.is_empty() {Route::Constant}else{Route::Native(backend)},&snapshot)?;
             let mut facts=source.prepared.prepared.facts.clone();facts.variables=contract.variables.len();facts.rows=contract.rows.len();facts.objective=matches!(family,PreparedFamily::LeastDeviation(_))||intent==SolveIntent::Optimize&&physical.obligations().objective.is_some();facts.objectives=usize::from(facts.objective);facts.equalities=bounds.iter().all(|(l,u)|l.is_finite()&&l==u);facts.derivatives=contract.derivatives;facts.prepared_derivatives=contract.derivatives;
             let source_domains=plan_domains(&source);facts.domains=family.coordinate_map().map_or(source_domains.clone(),|cols|cols.iter().map(|c|source_domains[c.get()]).collect());facts.bounds=contract.variables.iter().map(|v|bound_shape(v.lower,v.upper)).collect();facts.class_status=pse_math::presolve::ClassStatus::Unassessed;facts.coefficients=false;facts.affine_rows=vec![false;facts.rows];facts.objective_degree=None;facts.quadratic=false;facts.convexity=pse_math::convexity::Convexity::not_assessed(family.key());facts.bound_assumptions=family.key();
             let prepared=[routing::ArtifactDemand::Representation(representation)];let refusals=BTreeMap::new();let guards=BTreeMap::new();
             let decision=routing::Requirements {table:&execution::LINKED,facts:&facts,intent,numerical_psd:false,least_squares:false,controls:&profile.controls,settings:&profile.backend,sensitivity:false,context:routing::Context {snapshot:snapshot.clone(),pending_classes:&[],refusals:&refusals,structure:Some(structure.clone()),oracle:Some(&contract),guards:&guards,budgets:Some(execution::Budgets {accuracy:&accuracy,tolerances:&tolerances,normalization:&normalization}),coefficients:None,certificate:None,cone:None,factorable:None,prepared:&prepared}}.decision(SolverSelection::Explicit(backend));decision.route()?;
-            let mut h=FramedHasher::new(pse_ids::Frame::DerivedBindingV1);h.hash(&original_identity).hash(&family.key()).hash(&profile_key(&profile)?.as_id()).hash(&snapshot.identity());frame_request(&request,&mut h);let key=h.finish_hash();let compatibility=Compatibility {layout:family.key(),profile:key,data:key,backend};
+            let mut h=FramedHasher::new(pse_ids::Frame::DerivedBindingV2);h.hash(&original_identity).hash(&family.key()).hash(&profile_key(&profile)?.as_id()).hash(&snapshot.identity());frame_request(&request,&mut h);let key=h.finish_hash();let compatibility=Compatibility {layout:family.key(),profile:key,data:key,backend};
             let bytes=metadata_bytes(&physical,&family,&request,&decision)?.checked_add(binding_metadata_bytes(&source,&profile)?).ok_or(MathRuntimeError::Limit("derived prepared binding extent"))?;
             worker_scope.check().map_err(ProblemError::from)?;
             let placeholder=service.reserve("math:derived-prepared-placeholder",0)?;
@@ -1191,30 +1347,32 @@ fn frame_request(request: &DerivedRequest, h: &mut FramedHasher) {
             }
         }
         DerivedRequest::Reduced {
-            factory,
-            validity,
+            suppliers,
+            retained,
             accuracy,
-            realization,
-            ..
         } => {
-            h.str("reduced")
-                .hash(&SelectedImplicitReconstruction::<ProblemError>::source(
-                    factory,
-                ))
-                .hash(validity)
+            h.str("composite-reduced")
+                .u64(suppliers.len() as u64)
                 .f64(accuracy.point)
                 .f64(accuracy.action)
                 .str(accuracy.class.as_str())
                 .u64(accuracy.refinement.rounds as u64)
                 .u64(accuracy.refinement.proof_cells);
-            match realization {
-                SelectedResidualRealization::AuthoredValues => {
-                    h.str("authored-values");
-                }
-                SelectedResidualRealization::ZeroResiduals { authored_offsets } => {
-                    h.str("zero-residuals");
-                    for (id, offset) in authored_offsets {
-                        h.id(id).f64(*offset);
+            for column in retained {
+                h.u64(column.get() as u64);
+            }
+            for supplier in suppliers {
+                h.hash(&supplier.factory.configuration_key())
+                    .hash(&supplier.validity);
+                match &supplier.realization {
+                    SelectedResidualRealization::AuthoredValues => {
+                        h.str("authored-values");
+                    }
+                    SelectedResidualRealization::ZeroResiduals { authored_offsets } => {
+                        h.str("zero-residuals");
+                        for (id, offset) in authored_offsets {
+                            h.id(id).f64(*offset);
+                        }
                     }
                 }
             }
@@ -1223,6 +1381,112 @@ fn frame_request(request: &DerivedRequest, h: &mut FramedHasher) {
 }
 fn factory_bytes(factory: &RegimeFactory) -> Result<usize, MathRuntimeError> {
     Ok(factory.retained_bytes()?)
+}
+fn prepare_reduced_supplier(
+    supplier: &ReducedSupplier,
+    original: &Arc<OriginalContract>,
+    normalization: &Normalization,
+    cancel: &Arc<std::sync::atomic::AtomicBool>,
+) -> Result<ReducedSupplierPreparation, MathRuntimeError> {
+    if supplier.factory_owner.size() < factory_bytes(&supplier.factory)? {
+        return Err(MathRuntimeError::Limit(
+            "selected factory actual retained owner",
+        ));
+    }
+    let factory = &supplier.factory;
+    let columns: Vec<_> = factory
+        .spec
+        .inputs
+        .iter()
+        .chain(&factory.spec.outputs)
+        .map(|p| {
+            original
+                .coordinates()
+                .iter()
+                .position(|c| c.id == p.id)
+                .map(GlobalCol::new)
+                .ok_or_else(|| {
+                    ProblemError::Contract("supplier coordinate absent from original".into())
+                })
+        })
+        .collect::<Result<_, _>>()?;
+    let branch = factory
+        .alternatives
+        .first()
+        .ok_or_else(|| ProblemError::Contract("supplier alternatives absent".into()))?;
+    let rows: Vec<_> = branch
+        .residual
+        .rows
+        .iter()
+        .map(|id| {
+            original
+                .constraints()
+                .iter()
+                .position(|r| r.id == *id)
+                .map(GlobalRow::new)
+                .ok_or_else(|| ProblemError::Contract("supplier row absent from original".into()))
+        })
+        .collect::<Result<_, _>>()?;
+    let incidence = original
+        .incidence()
+        .iter()
+        .filter_map(|edge| {
+            Some(Entry::new(
+                GlobalRow::new(rows.iter().position(|r| *r == edge.row)?),
+                GlobalCol::new(columns.iter().position(|c| *c == edge.col)?),
+            ))
+        })
+        .collect();
+    let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+    h.str("original-local-supplier-projection")
+        .hash(&original.identity())
+        .hash(&factory.configuration_key());
+    let normalization = Normalization {
+        variables: columns
+            .iter()
+            .map(|c| normalization.variables[c.get()])
+            .collect(),
+        rows: rows.iter().map(|r| normalization.rows[r.get()]).collect(),
+        objective: normalization.objective,
+    };
+    let local = Arc::new(OriginalContract::new(
+        h.finish_hash(),
+        normalization.key(),
+        columns
+            .iter()
+            .map(|c| original.coordinates()[c.get()].clone())
+            .collect(),
+        rows.iter()
+            .map(|r| original.constraints()[r.get()].clone())
+            .collect(),
+        incidence,
+        original.support(),
+        original.obligations(),
+    )?);
+    let eliminated: Vec<_> = (0..rows.len()).map(GlobalRow::new).collect();
+    let retained: Vec<_> = (0..factory.spec.inputs.len()).map(GlobalCol::new).collect();
+    let binding = SelectedResidualBinding::for_source(
+        factory,
+        &local,
+        &eliminated,
+        supplier.realization.clone(),
+    )?;
+    let contract = SelectedImplicitReconstruction::<ProblemError>::prepare_contract_with_binding(
+        factory,
+        local,
+        retained,
+        eliminated,
+        supplier.validity,
+        cancel,
+        &binding,
+    )?;
+    Ok(ReducedSupplierPreparation {
+        contract,
+        binding,
+        columns,
+        rows,
+        normalization,
+    })
 }
 fn metadata_bytes(
     physical: &OriginalContract,
@@ -1259,20 +1523,19 @@ fn metadata_bytes(
         }
         DerivedRequest::Reduced {
             retained,
-            eliminated,
-            realization,
+            suppliers,
             ..
         } => {
             retained.capacity() * size_of::<GlobalCol>()
-                + eliminated.capacity() * size_of::<GlobalRow>()
+                + suppliers.capacity() * size_of::<ReducedSupplier>()
                 + size_of::<ReducedPreparation>()
-                + eliminated.len() * size_of::<(GlobalRow, pse_ids::SemanticId, f64)>()
-                + match realization {
-                    SelectedResidualRealization::AuthoredValues => 0,
-                    SelectedResidualRealization::ZeroResiduals { authored_offsets } => {
-                        2 * authored_offsets.capacity() * size_of::<(pse_ids::SemanticId, f64)>()
-                    }
-                }
+                + suppliers
+                    .iter()
+                    .map(|s| {
+                        s.factory.spec.outputs.len()
+                            * (size_of::<GlobalCol>() + size_of::<GlobalRow>() + 128)
+                    })
+                    .sum::<usize>()
         }
     };
     (size_of::<PreparedDerivedData>() + size_of::<PreparedDerived>() + 2 * size_of::<usize>())
@@ -1376,7 +1639,8 @@ impl NlpOracle for OwnedNlp {
         self.oracle.hessian(x, w, l, o)
     }
 }
-type ConcreteReduced = ReducedOracle<NlpBridge, SelectedImplicitReconstruction<ProblemError>>;
+type ConcreteReduced =
+    ReducedOracle<NlpBridge, CompositeReconstruction<SelectedImplicitReconstruction<ProblemError>>>;
 /// Only one callback borrows the selected worker at a time. The original-proposal
 /// consumer retains the actual worker/lineage used by native iteration, not a replay.
 #[derive(Debug)]
@@ -1445,6 +1709,162 @@ fn step<'a>(p: &'a PreparedDerived, execution: Execution) -> execution::Step<'a>
     }
 }
 impl MathService {
+    /// Independently assess a complete original proposal without starting a correction
+    /// solve. Native termination/work remain observations of the auxiliary attempt;
+    /// only fresh original feasibility is transported to the scientific assessor.
+    pub(crate) fn derived_original_outcome(
+        &self,
+        p: &PreparedDerived,
+        attempt: &DerivedAttempt,
+        execution: &Execution,
+        budget: &Arc<WorkerBudget>,
+    ) -> Result<Outcome, MathRuntimeError> {
+        let proposal = attempt.proposal.as_ref().ok_or_else(|| {
+            ProblemError::Contract("derived completion has no complete original proposal".into())
+        })?;
+        if proposal.original != p.original_identity
+            || proposal.family != p.family.key()
+            || proposal.guards != p.physical.obligations().guards
+        {
+            return Err(ProblemError::Contract(
+                "derived completion original correspondence".into(),
+            )
+            .into());
+        }
+        execution.check()?;
+        let scope = execution.scope()?;
+        let owner = self.reserve(
+            "math:derived-original-assessment",
+            p.original.result_bytes()?,
+        )?;
+        let Outcome::Native(auxiliary) = &attempt.outcome else {
+            return match &attempt.outcome {
+                Outcome::Constant(report) => Ok(Outcome::Constant(report.clone())),
+                Outcome::Rejected(error) => Ok(Outcome::Rejected(error.clone())),
+                Outcome::Native(_) => {
+                    Err(ProblemError::internal("derived completion native shape").into())
+                }
+            };
+        };
+        let mut report = auxiliary.as_ref().clone();
+        report.variables = p.physical.coordinates().iter().map(|c| c.id).collect();
+        report.rows = p.physical.constraints().iter().map(|r| r.id).collect();
+        let kind = report
+            .candidate
+            .as_ref()
+            .ok_or_else(|| {
+                ProblemError::Contract("derived completion native candidate absent".into())
+            })?
+            .kind;
+        report.candidate = Some(Candidate {
+            kind,
+            primal: proposal.coordinates.clone(),
+            objective: None,
+            row_dual: None,
+            bound_dual: None,
+            reduced_costs: None,
+            slacks: None,
+            commitment: None,
+        });
+        report.certificate = None;
+        report.global = None;
+        report.warm_start = None;
+        report.start_receipt = None;
+        report.preprocessing = None;
+        report.least_infeasible = None;
+        report.evidence.kkt = None;
+        report.evidence.coefficient = None;
+        report.evidence.conic = None;
+        report.evidence.global = None;
+        report.evidence.original_bound = None;
+        report.evidence.contradiction = None;
+        report.evidence.local = None;
+        report.evidence.sensitivity = None;
+        report.evidence.root_response = None;
+        report.evidence.root_predictor = None;
+        report.evidence.inverse_reduced_hessian = None;
+        report.quality = None;
+        report.observation = None;
+        report.qualification = Qualification::Unqualified;
+        report.termination.assurance = Assurance::None;
+        let mut calls = 0u64;
+        let checked = (|| -> Result<_, ProblemError> {
+            screen_bounds(&p.physical, &proposal.coordinates)?;
+            let (mut oracle, _oracle_owner) = self
+                .derived_original_oracle(p, &scope, budget)
+                .map_err(MathRuntimeError::into_problem)?;
+            let eval = WorkEvidence {
+                evaluations: Some(1),
+                ..Default::default()
+            };
+            let mut rows = vec![0.0; p.physical.constraints().len()];
+            if let Some(admission) = &execution.work_admission {
+                admission.admit(eval)?;
+            }
+            calls += 1;
+            let result = oracle.constraints(&proposal.coordinates, &mut rows);
+            if let Some(admission) = &execution.work_admission {
+                admission.observe(eval)?;
+            }
+            result?;
+            execution.check()?;
+            if let Some(admission) = &execution.work_admission {
+                admission.admit(eval)?;
+            }
+            calls += 1;
+            let result = oracle.objective(&proposal.coordinates);
+            if let Some(admission) = &execution.work_admission {
+                admission.observe(eval)?;
+            }
+            let objective = result?;
+            let quality = quality::observed(
+                oracle.contract(),
+                oracle.constraint_bounds(),
+                &proposal.coordinates,
+                &rows,
+                &p.original.tolerances,
+            )?;
+            let sense = p
+                .source
+                .prepared
+                .prepared
+                .plan
+                .structure()
+                .objective()
+                .map(|o| o.sense);
+            let mut observation = quality::Observation::from_values(
+                sense.map(|sense| objective * sense.sign()),
+                rows,
+                oracle.constraint_bounds().to_vec(),
+            )?;
+            observation.sources = oracle.constraint_sources()?;
+            execution.check()?;
+            Ok((quality, observation))
+        })();
+        report.evidence.work.evaluations = report
+            .evidence
+            .work
+            .evaluations
+            .and_then(|n| n.checked_add(calls));
+        match checked {
+            Ok((quality, observation)) => {
+                if quality.feasible()
+                    && report.callback_failure().is_none()
+                    && report.validation_failure().is_none()
+                {
+                    report.qualification = Qualification::Feasible;
+                    report.termination.assurance = Assurance::Feasible;
+                }
+                if let Some(candidate) = report.candidate.as_mut() {
+                    candidate.objective = observation.objective;
+                }
+                report.quality = Some(quality);
+                report.observation = Some(observation);
+            }
+            Err(error) => report.record_validation_failure(error),
+        }
+        Ok(Outcome::Native(Box::new(report.with_owner(owner))))
+    }
     fn derived_original_oracle(
         &self,
         p: &PreparedDerived,
@@ -1517,15 +1937,150 @@ impl MathService {
             .and_then(|n| n.checked_add(binding_metadata_bytes(&p.source, &p.profile).ok()?))
             .and_then(|n| {
                 n.checked_add(match &p.request {
-                    DerivedRequest::Reduced { factory, .. } => factory_bytes(factory).ok()?,
+                    DerivedRequest::Reduced { suppliers, .. } => {
+                        suppliers.iter().try_fold(0usize, |n, s| {
+                            n.checked_add(factory_bytes(&s.factory).ok()?)
+                        })?
+                    }
                     _ => 0,
                 })
             })
             .ok_or(MathRuntimeError::Limit("derived worker extent"))?;
         let family_charge = Arc::new(budget.charge(bytes)?);
         let result_owner = self.reserve("math:derived-native-report", p.result_bytes()?)?;
-        let (oracle, source_owner) = self.derived_original_oracle(p, &scope, budget)?;
+        let (mut oracle, source_owner) = self.derived_original_oracle(p, &scope, budget)?;
         let owner: Box<dyn std::any::Any> = Box::new((source_owner, family_charge));
+        if let DerivedRequest::Reduced {
+            suppliers,
+            retained: columns,
+            accuracy,
+        } = &p.request
+            && columns.is_empty()
+        {
+            let prepared = p.reduced.as_ref().ok_or_else(|| {
+                ProblemError::Contract("full reconstruction preparation absent".into())
+            })?;
+            let workers = suppliers
+                .iter()
+                .zip(&prepared.suppliers)
+                .map(|(supplier, prepared)| {
+                    SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
+                        &supplier.factory,
+                        prepared.contract.clone(),
+                        prepared.normalization.clone(),
+                        scope.clone(),
+                        &prepared.binding,
+                    )
+                })
+                .collect::<Result<Vec<_>, pse_math::MathError>>()?;
+            let mut reconstruction = CompositeReconstruction::new_normalized(
+                prepared.contract.clone(),
+                workers,
+                &p.original.normalization,
+                &prepared
+                    .suppliers
+                    .iter()
+                    .map(|p| p.normalization.clone())
+                    .collect::<Vec<_>>(),
+            )?;
+            math::ReconstructionOracle::admit(&mut reconstruction, &[])?;
+            let mut product = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+            product
+                .str("complete-original-reconstruction")
+                .hash(&p.original_identity)
+                .hash(&p.family.key());
+            let demand = pse_model::strategy::AccuracyDemand {
+                product: product.finish_hash(),
+                normalization: p.physical.normalization(),
+                allowance: accuracy.point,
+                class: accuracy.class,
+            };
+            let point = math::ReconstructionOracle::point(
+                &mut reconstruction,
+                &[],
+                &demand,
+                accuracy.refinement,
+            )?;
+            screen_bounds(&p.physical, &point.values)?;
+            let eval = WorkEvidence {
+                evaluations: Some(1),
+                ..Default::default()
+            };
+            let mut rows = vec![0.0; m];
+            if let Some(admission) = &execution.work_admission {
+                admission.admit(eval)?;
+            }
+            let checked = oracle.constraints(&point.values, &mut rows);
+            if let Some(admission) = &execution.work_admission {
+                admission.observe(eval)?;
+            }
+            checked?;
+            execution.check()?;
+            if let Some(admission) = &execution.work_admission {
+                admission.admit(eval)?;
+            }
+            let checked = oracle.objective(&point.values);
+            if let Some(admission) = &execution.work_admission {
+                admission.observe(eval)?;
+            }
+            let objective = checked?;
+            let quality = quality::observed(
+                oracle.contract(),
+                oracle.constraint_bounds(),
+                &point.values,
+                &rows,
+                &p.original.tolerances,
+            )?;
+            let objective = p
+                .source
+                .prepared
+                .prepared
+                .plan
+                .structure()
+                .objective()
+                .map(|o| objective * o.sense.sign());
+            let mut observation = quality::Observation::from_values(
+                objective,
+                rows,
+                oracle.constraint_bounds().to_vec(),
+            )?;
+            observation.sources = oracle.constraint_sources()?;
+            execution.check()?;
+            let proposal_owner = self.reserve(
+                "math:complete-reconstruction-proposal",
+                size_of::<OriginalProposal>() + point.values.capacity() * size_of::<f64>(),
+            )?;
+            let proposal = OriginalProposal::from_original(
+                p.original_identity,
+                p.family.key(),
+                point.values,
+                &p.physical,
+                Some(point.accuracy),
+                proposal_owner,
+            )?;
+            let coordinates = p
+                .physical
+                .coordinates()
+                .iter()
+                .map(|c| c.id)
+                .zip(proposal.coordinates.iter().copied())
+                .collect();
+            drop(owner);
+            return Ok(DerivedAttempt {
+                outcome: Outcome::Constant(Box::new(ConstantReport {
+                    owner: Some(result_owner),
+                    objective,
+                    observation,
+                    quality,
+                    coordinates,
+                    // Actual nested root/proof totals remain unavailable, not invented zero.
+                    work: WorkEvidence::default(),
+                })),
+                proposal: Some(proposal),
+                screening_failure: None,
+                refinement_product: None,
+            });
+        }
         let mut selected: Option<Rc<RefCell<ConcreteReduced>>> = None;
         let mut initial = p.family.coordinate_map().map_or_else(
             || original_start.to_vec(),
@@ -1662,20 +2217,50 @@ impl MathService {
                     )?
                 }
                 DerivedRequest::Reduced {
-                    factory, accuracy, ..
+                    suppliers,
+                    accuracy,
+                    ..
                 } => {
                     let prepared = p.reduced.as_ref().ok_or_else(|| {
                         ProblemError::Contract("missing selected reconstruction preparation".into())
                     })?;
                     let bridge = NlpBridge::new(Box::new(oracle), p.physical.clone())?;
-                    let reconstruction =
-                        SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
-                            factory,
-                            prepared.contract.clone(),
-                            p.original.normalization.clone(),
-                            scope.clone(),
-                            &prepared.binding,
-                        )?;
+                    let workers = suppliers
+                        .iter()
+                        .zip(&prepared.suppliers)
+                        .map(|(supplier, prepared)| {
+                            let normalization = Normalization {
+                                variables: prepared
+                                    .columns
+                                    .iter()
+                                    .map(|c| p.original.normalization.variables[c.get()])
+                                    .collect(),
+                                rows: prepared
+                                    .rows
+                                    .iter()
+                                    .map(|r| p.original.normalization.rows[r.get()])
+                                    .collect(),
+                                objective: p.original.normalization.objective,
+                            };
+                            SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
+                                &supplier.factory,
+                                prepared.contract.clone(),
+                                normalization,
+                                scope.clone(),
+                                &prepared.binding,
+                            )
+                        })
+                        .collect::<Result<Vec<_>, pse_math::MathError>>()?;
+                    let reconstruction = CompositeReconstruction::new_normalized(
+                        prepared.contract.clone(),
+                        workers,
+                        &p.original.normalization,
+                        &prepared
+                            .suppliers
+                            .iter()
+                            .map(|p| p.normalization.clone())
+                            .collect::<Vec<_>>(),
+                    )?;
                     let bound = p.family.general()?.bind_reduced(
                         bridge,
                         reconstruction,
@@ -1832,7 +2417,7 @@ impl MathService {
         let refinement_product =
             recorded.and_then(|cause| issued_refinement(p, cause, selected.as_ref()));
         Ok(DerivedAttempt {
-            report,
+            outcome: Outcome::Native(Box::new(report)),
             proposal,
             screening_failure,
             refinement_product,
@@ -2003,7 +2588,11 @@ fn preparation_bytes(
         })
         .and_then(|bytes| {
             bytes.checked_add(match request {
-                DerivedRequest::Reduced { factory, .. } => factory_bytes(factory).ok()?,
+                DerivedRequest::Reduced { suppliers, .. } => {
+                    suppliers.iter().try_fold(0usize, |n, s| {
+                        n.checked_add(factory_bytes(&s.factory).ok()?)
+                    })?
+                }
                 _ => 0,
             })
         })

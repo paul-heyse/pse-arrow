@@ -150,6 +150,9 @@ impl Pinned {
     }
 }
 impl NlpOracle for Pinned {
+    fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+        self.inner.solve_separator()
+    }
     fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
         self.inner.normalization()
     }
@@ -218,6 +221,9 @@ impl Unconstrained {
     }
 }
 impl NlpOracle for Unconstrained {
+    fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+        self.inner.solve_separator()
+    }
     fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
         self.inner.normalization()
     }

@@ -195,6 +195,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
             )
             .unwrap();
         let mut unit = UnitWorker {
+            last_values: None,
             input_ids: program.inputs.iter().map(|i| i.0).collect(),
             output_ids: program.outputs.iter().map(|o| o.0).collect(),
             program,

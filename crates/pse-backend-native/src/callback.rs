@@ -157,10 +157,58 @@ impl CallbackState {
             self.terminal = Some((stop, "execution checkpoint".into()));
             return None;
         }
+        let unit = crate::solve::WorkEvidence {
+            evaluations: Some(1),
+            iterations: Some(0),
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        if let Some(admission) = &self.execution.work_admission {
+            match catch_unwind(AssertUnwindSafe(|| admission.admit(unit))) {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    self.terminal = Some((
+                        match classify(&error) {
+                            Failure::Stopped(stop) => stop,
+                            _ => Termination::Evaluation,
+                        },
+                        error.to_string(),
+                    ));
+                    self.last_failure = Some(error);
+                    return None;
+                }
+                Err(_) => {
+                    self.terminal = Some((Termination::Panic, "panic in work admission".into()));
+                    return None;
+                }
+            }
+        }
         let start = std::time::Instant::now();
         let result = catch_unwind(AssertUnwindSafe(work));
+        if let Some(admission) = &self.execution.work_admission {
+            match catch_unwind(AssertUnwindSafe(|| admission.observe(unit))) {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    self.terminal = Some((
+                        match classify(&error) {
+                            Failure::Stopped(stop) => stop,
+                            _ => Termination::Evaluation,
+                        },
+                        error.to_string(),
+                    ));
+                    self.last_failure = Some(error);
+                }
+                Err(_) => {
+                    self.terminal = Some((Termination::Panic, "panic in work observation".into()));
+                }
+            }
+        }
         *self.counts.entry(demand.into()).or_default() += 1;
         *self.seconds.entry(demand.into()).or_default() += start.elapsed().as_secs_f64();
+        if self.terminal.is_some() {
+            self.rejected_evaluations = self.rejected_evaluations.saturating_add(1);
+            return None;
+        }
         let (failure, message) = match result {
             Ok(Ok(value)) => {
                 self.last_failure = None;

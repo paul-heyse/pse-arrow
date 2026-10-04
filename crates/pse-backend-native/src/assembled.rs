@@ -23,8 +23,31 @@ pub struct AlgebraicOracle {
     presolve: Option<pse_math::SharedAllocation<pse_math::presolve::Facts>>,
     structure: Option<pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>>,
     root_pattern: Option<faer::sparse::SymbolicSparseColMat<usize>>,
+    separator: Option<crate::SolveSeparator>,
 }
 impl AlgebraicOracle {
+    /// Attach an owner-issued original-coordinate separator. Native classification
+    /// performs the final fixed-variable/slack/equality map before constructing Schur.
+    pub fn with_solve_separator(
+        mut self,
+        separator: crate::SolveSeparator,
+    ) -> Result<Self, ProblemError> {
+        if separator
+            .variables
+            .iter()
+            .any(|index| *index >= self.contract.variables.len())
+            || separator
+                .rows
+                .iter()
+                .any(|index| *index >= self.contract.rows.len())
+        {
+            return Err(ProblemError::Contract(
+                "original solve separator inventory".into(),
+            ));
+        }
+        self.separator = Some(separator);
+        Ok(self)
+    }
     /// Admit continuous NLP/NLE variables. All-fixed cases stay on constant evaluation.
     pub fn new(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
         if worker
@@ -95,6 +118,7 @@ impl AlgebraicOracle {
             presolve: None,
             structure: None,
             root_pattern: None,
+            separator: None,
         })
     }
     /// Attach a compiler analysis. Native admission checks its complete matching
@@ -255,6 +279,9 @@ fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
     Ok(())
 }
 impl NlpOracle for AlgebraicOracle {
+    fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+        self.separator.as_ref()
+    }
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         self.structure.as_deref()
     }
@@ -504,6 +531,9 @@ impl CoefficientProblem {
 #[derive(Debug)]
 pub struct FeasibilityOracle(pub Box<dyn NlpOracle>);
 impl NlpOracle for FeasibilityOracle {
+    fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+        self.0.solve_separator()
+    }
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         self.0.structural_analysis()
     }

@@ -25,7 +25,16 @@ pub trait CausalUnit: std::fmt::Debug {
         inputs: &BTreeMap<SemanticId, f64>,
         execution: &Execution,
     ) -> Result<BTreeMap<SemanticId, f64>, ProblemError>;
+    /// Complete solved original local state after a successful unit evaluation,
+    /// including non-port unknowns. Opaque explicit maps may have no local state.
+    fn original_values(&self) -> pse_math::binding::CaseValues {
+        pse_math::binding::CaseValues {
+            scalars: BTreeMap::new(),
+        }
+    }
 }
+type OriginalObserver =
+    Box<dyn FnMut(&pse_math::binding::CaseValues, &Execution) -> Result<(), ProblemError>>;
 /// Complete declared causal map in selected tear destination coordinates.
 #[derive(Debug)]
 pub struct CausalMap {
@@ -37,8 +46,21 @@ pub struct CausalMap {
     fixed: BTreeMap<SemanticId, f64>,
     execution: Execution,
     _graph: Arc<FlowGraph>,
+    original_observer: Option<OriginalObserverWrapper>,
 }
+impl std::fmt::Debug for OriginalObserverWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("OriginalObserver")
+    }
+}
+struct OriginalObserverWrapper(OriginalObserver);
 impl CausalMap {
+    /// Assess complete original reconstruction only at independent final tear
+    /// validation. An unsuccessful sweep never publishes a partial local state.
+    pub fn with_original_observer(mut self, observer: OriginalObserver) -> Self {
+        self.original_observer = Some(OriginalObserverWrapper(observer));
+        self
+    }
     /// Admit exact unit inventory, physical bindings, tear coordinates and the
     /// independently checked residual DAG. The declared row order is the original
     /// connection-residual order corresponding to these tear destination variables.
@@ -200,13 +222,20 @@ impl CausalMap {
             fixed,
             execution,
             _graph: graph,
+            original_observer: None,
         })
     }
-    fn sweep(&mut self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
+    fn sweep(
+        &mut self,
+        x: &[f64],
+    ) -> Result<(Vec<f64>, pse_math::binding::CaseValues), ProblemError> {
         if x.len() != self.tears.len() || x.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("invalid causal trial"));
         }
         let mut values = self.fixed.clone();
+        let mut original = pse_math::binding::CaseValues {
+            scalars: BTreeMap::new(),
+        };
         values.extend(self.tears.iter().zip(x).map(|(b, v)| (b.target, *v)));
         for unit in &mut self.units {
             if self.execution.stopped().is_some() {
@@ -226,6 +255,18 @@ impl CausalMap {
                 )));
             }
             values.extend(outputs);
+            for (id, value) in unit.original_values().scalars {
+                if !value.is_finite()
+                    || original
+                        .scalars
+                        .insert(id, value)
+                        .is_some_and(|previous| previous != value)
+                {
+                    return Err(ProblemError::Contract(
+                        "conflicting or nonfinite original unit reconstruction".into(),
+                    ));
+                }
+            }
             for b in self.propagate.get(&unit.id()).into_iter().flatten() {
                 let v = values[&b.source] * b.conversion.scale + b.conversion.offset;
                 if !v.is_finite() {
@@ -234,7 +275,8 @@ impl CausalMap {
                 values.insert(b.target, v);
             }
         }
-        self.tears
+        let predicted = self
+            .tears
             .iter()
             .map(|b| {
                 let v = values[&b.source] * b.conversion.scale + b.conversion.offset;
@@ -244,7 +286,8 @@ impl CausalMap {
                     Err(ProblemError::numerical("nonfinite tear conversion"))
                 }
             })
-            .collect()
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((predicted, original))
     }
 }
 impl FixedPointOracle for CausalMap {
@@ -258,7 +301,7 @@ impl FixedPointOracle for CausalMap {
         if out.len() != x.len() {
             return Err(ProblemError::Internal("causal output dimensions".into()));
         }
-        let values = self.sweep(x)?;
+        let (values, _) = self.sweep(x)?;
         out.copy_from_slice(&values);
         Ok(())
     }
@@ -268,7 +311,10 @@ impl FixedPointOracle for CausalMap {
                 "connection residual dimensions".into(),
             ));
         }
-        let predicted = self.sweep(x)?;
+        let (predicted, original) = self.sweep(x)?;
+        if let Some(observer) = &mut self.original_observer {
+            (observer.0)(&original, &self.execution)?;
+        }
         for ((out, p), x) in out.iter_mut().zip(predicted).zip(x) {
             *out = p - x;
         }
@@ -284,6 +330,7 @@ mod tests {
     struct Unit {
         inputs: [SemanticId; 1],
         outputs: [SemanticId; 1],
+        hidden: f64,
     }
     impl CausalUnit for Unit {
         fn id(&self) -> SemanticId {
@@ -300,7 +347,13 @@ mod tests {
             v: &BTreeMap<SemanticId, f64>,
             _: &Execution,
         ) -> Result<BTreeMap<SemanticId, f64>, ProblemError> {
+            self.hidden = v[&id(1)] * 3.0;
             Ok(BTreeMap::from([(id(2), 0.5 * v[&id(1)] + 1.0)]))
+        }
+        fn original_values(&self) -> pse_math::binding::CaseValues {
+            pse_math::binding::CaseValues {
+                scalars: BTreeMap::from([(id(99), self.hidden)]),
+            }
         }
     }
     #[test]
@@ -350,8 +403,11 @@ mod tests {
         let unit: Box<dyn CausalUnit> = Box::new(Unit {
             inputs: [id(1)],
             outputs: [id(2)],
+            hidden: 0.0,
         });
         let units = BTreeMap::from([(id(10), unit)]);
+        let observed = std::rc::Rc::new(std::cell::RefCell::new(None));
+        let final_state = observed.clone();
         let mut map = CausalMap::new(
             graph,
             BTreeSet::from([id(30)]),
@@ -360,13 +416,20 @@ mod tests {
             BTreeMap::new(),
             execution(),
         )
-        .unwrap();
+        .unwrap()
+        .with_original_observer(Box::new(move |state, _| {
+            *final_state.borrow_mut() = Some(state.clone());
+            Ok(())
+        }));
         let mut out = [0.0];
         map.map(&[0.0], &mut out).unwrap();
         assert_eq!(out, [1.0]);
+        assert!(observed.borrow().is_none());
         map.original_residual(&[2.0], &mut out).unwrap();
         assert_eq!(out, [0.0]);
+        assert_eq!(observed.borrow().as_ref().unwrap().scalars[&id(99)], 6.0);
         map.map(&[0.0], &mut out).unwrap();
         assert_eq!(out, [1.0]);
+        assert_eq!(observed.borrow().as_ref().unwrap().scalars[&id(99)], 6.0);
     }
 }

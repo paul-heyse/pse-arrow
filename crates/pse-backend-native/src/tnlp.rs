@@ -75,6 +75,28 @@ fn point(x: Option<&[f64]>) -> Result<&[f64], ProblemError> {
     x.ok_or_else(|| ProblemError::Internal("missing POUNCE trial".into()))
 }
 impl TNLP for Adapter {
+    fn get_objective_variables_linearity(
+        &mut self,
+        types: &mut [pounce_nlp::tnlp::Linearity],
+    ) -> bool {
+        if types.len() != self.oracle.contract().variables.len() {
+            return false;
+        }
+        // Structural proof only: a zero objective gradient at a stationary start must
+        // never remove a coordinate from a partitioned or finite-difference element.
+        let proof = self
+            .oracle
+            .presolve_facts()
+            .map(|facts| &facts.objective_linear);
+        for (column, kind) in types.iter_mut().enumerate() {
+            *kind = if proof.is_some_and(|linear| linear.get(column) == Some(&true)) {
+                pounce_nlp::tnlp::Linearity::Linear
+            } else {
+                pounce_nlp::tnlp::Linearity::NonLinear
+            };
+        }
+        true
+    }
     fn get_variables_linearity(&mut self, types: &mut [pounce_nlp::tnlp::Linearity]) -> bool {
         let Some(f) = self.oracle.presolve_facts() else {
             return false;

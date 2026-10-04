@@ -118,6 +118,8 @@ pub(crate) fn profile() -> SolverProfile {
         controls: Controls::default(),
         backend: BackendSettings::Default,
         sensitivity: None,
+        composition: Default::default(),
+        reconstruction: None,
     }
 }
 pub(crate) fn compiler_profile() -> pse_compiler::workspace::Profile {

@@ -193,6 +193,7 @@ pub struct SelectedImplicitReconstruction<E = MathError> {
     normalization: Normalization,
     cancel: Arc<AtomicBool>,
     marker: PhantomData<fn() -> E>,
+    last_refusal: Option<crate::derived::RefinementRefusal>,
 }
 impl<E> SelectedImplicitReconstruction<E> {
     /// Source identity of the actual factory's compiled interpretation/configuration.
@@ -486,6 +487,7 @@ impl<E> SelectedImplicitReconstruction<E> {
             normalization,
             cancel,
             marker: PhantomData,
+            last_refusal: None,
         })
     }
     /// Additional retained wrapper extent. Original contracts/factory programs and
@@ -856,6 +858,12 @@ impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle
     fn contract(&self) -> &ReconstructionContract {
         &self.contract
     }
+    fn supports_uncertainty(&self) -> bool {
+        true
+    }
+    fn refinement_refusal(&self) -> Option<crate::derived::RefinementRefusal> {
+        self.last_refusal
+    }
     fn realization(&self) -> ContentHash {
         let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
         h.str("actual-selected-reconstruction")
@@ -888,7 +896,12 @@ impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle
         demand: &AccuracyDemand,
         refinement: crate::derived::RefinementLimits,
     ) -> Result<ReconstructionObservation, E> {
-        self.refined(x, None, demand, refinement).map_err(E::from)
+        let result = self.refined(x, None, demand, refinement);
+        self.last_refusal = match &result {
+            Err(MathError::Refinement { reason, .. }) => Some(*reason),
+            _ => None,
+        };
+        result.map_err(E::from)
     }
     fn jacobian_product(
         &mut self,
@@ -897,8 +910,155 @@ impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle
         demand: &AccuracyDemand,
         refinement: crate::derived::RefinementLimits,
     ) -> Result<ReconstructionObservation, E> {
-        self.refined(x, Some(direction), demand, refinement)
-            .map_err(E::from)
+        let result = self.refined(x, Some(direction), demand, refinement);
+        self.last_refusal = match &result {
+            Err(MathError::Refinement { reason, .. }) => Some(*reason),
+            _ => None,
+        };
+        result.map_err(E::from)
+    }
+    fn uncertain(
+        &mut self,
+        x: &[f64],
+        direction: Option<&[f64]>,
+        incoming: crate::derived::ReconstructionUncertainty<'_>,
+        demand: &AccuracyDemand,
+        limits: crate::derived::RefinementLimits,
+    ) -> Result<ReconstructionObservation, E> {
+        let result = (|| -> Result<_, MathError> {
+            if incoming.point.len() != x.len()
+                || incoming.action.is_some_and(|v| v.len() != x.len())
+                || incoming
+                    .point
+                    .iter()
+                    .chain(incoming.action.into_iter().flatten())
+                    .any(|e| !e.is_finite() || *e < 0.0)
+                || direction.is_some() != incoming.action.is_some()
+            {
+                return Err(MathError::Contract(
+                    "selected incoming uncertainty extent/value".into(),
+                ));
+            }
+            if incoming
+                .point
+                .iter()
+                .chain(incoming.action.into_iter().flatten())
+                .all(|e| *e == 0.0)
+            {
+                return self.refined(x, direction, demand, limits);
+            }
+            if incoming.class != AccuracyClass::Certified
+                && demand.class == AccuracyClass::Certified
+            {
+                return Err(self.refusal(
+                    demand,
+                    crate::derived::RefinementRefusal::Unavailable(SelectionProofRefusal::Coverage),
+                ));
+            }
+            limits.validate()?;
+            let deadline = self.selection.refinement_deadline()?;
+            let before = self
+                .selection
+                .observed_point_cells()
+                .checked_add(self.selection.observed_action_cells())
+                .ok_or(MathError::Limit("incoming uncertainty proof observation"))?;
+            let exact = self.refined(x, direction, demand, limits)?;
+            let after = self
+                .selection
+                .observed_point_cells()
+                .checked_add(self.selection.observed_action_cells())
+                .ok_or(MathError::Limit("incoming uncertainty proof observation"))?;
+            let remaining = limits
+                .proof_cells
+                .checked_sub(after.saturating_sub(before))
+                .ok_or(MathError::Limit("incoming uncertainty proof allowance"))?;
+            if remaining == 0 {
+                return Err(self.refusal(demand, crate::derived::RefinementRefusal::ProofCells));
+            }
+            let interval = |value: f64,
+                            error: f64,
+                            column: &GlobalCol|
+             -> Result<super::ProofInterval, MathError> {
+                let radius = (error * self.normalization.variables[column.get()]).next_up();
+                let interval = super::ProofInterval {
+                    lower: (value - radius).next_down(),
+                    upper: (value + radius).next_up(),
+                };
+                if !interval.valid() {
+                    return Err(MathError::Contract(
+                        "incoming physical uncertainty interval".into(),
+                    ));
+                }
+                Ok(interval)
+            };
+            let parameters = x
+                .iter()
+                .zip(incoming.point)
+                .zip(self.contract.retained())
+                .map(|((x, error), c)| interval(*x, *error, c))
+                .collect::<Result<Vec<_>, _>>()?;
+            let directions = direction
+                .zip(incoming.action)
+                .map(|(v, errors)| {
+                    v.iter()
+                        .zip(errors)
+                        .zip(self.contract.retained())
+                        .map(|((v, error), c)| interval(*v, *error, c))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?;
+            let (points, actions) = match self.selection.enclose_neighborhood(
+                x,
+                &parameters,
+                directions.as_deref(),
+                remaining,
+                deadline,
+                &self.cancel,
+            )? {
+                super::RootNeighborhoodEvidence::Enclosed {
+                    points, actions, ..
+                } => (points, actions),
+                super::RootNeighborhoodEvidence::Incomplete { reason, .. } => {
+                    return Err(self.refusal(
+                        demand,
+                        crate::derived::RefinementRefusal::Unavailable(reason),
+                    ));
+                }
+                super::RootNeighborhoodEvidence::Interrupted { .. } => {
+                    return Err(MathError::Cancelled);
+                }
+            };
+            let intervals = if direction.is_some() {
+                actions
+                    .as_deref()
+                    .ok_or_else(|| MathError::Contract("uniform incoming action absent".into()))?
+            } else {
+                &points
+            };
+            let unknowns: Vec<_> = self
+                .unknown_columns
+                .iter()
+                .map(|c| exact.values[c.get()])
+                .collect();
+            let mut evidence = self.accuracy(&unknowns, intervals, demand)?;
+            if incoming.class != AccuracyClass::Certified {
+                evidence.class = AccuracyClass::Estimated;
+            }
+            if !evidence.satisfies(demand) {
+                return Err(self.refusal(demand, crate::derived::RefinementRefusal::Precision));
+            }
+            self.selection
+                .refinement_checkpoint(deadline, &self.cancel)?;
+            Ok(ReconstructionObservation {
+                values: exact.values,
+                accuracy: evidence,
+            })
+        })();
+        self.last_refusal = match &result {
+            Err(MathError::Refinement { reason, .. }) => Some(*reason),
+            _ => None,
+        };
+        result.map_err(E::from)
     }
 }
 fn maps(
@@ -907,8 +1067,7 @@ fn maps(
     retained: &[GlobalCol],
     eliminated: &[GlobalRow],
 ) -> Result<Vec<GlobalCol>, MathError> {
-    if retained.is_empty()
-        || factory.alternatives.is_empty()
+    if factory.alternatives.is_empty()
         || factory.spec.inputs.len() != retained.len()
         || retained
             .iter()

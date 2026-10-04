@@ -130,6 +130,8 @@ pub(in crate::workflow) fn profile(
             },
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
+            composition: Default::default(),
+            reconstruction: None,
         },
         simulations: BTreeMap::new(),
         rank_tolerance: 1e-8,

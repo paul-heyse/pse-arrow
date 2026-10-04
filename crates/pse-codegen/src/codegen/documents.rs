@@ -1061,6 +1061,15 @@ mod tests {
     #[test]
     fn python_documents_are_closed_typed_structs() {
         let registry = crate::registry().unwrap();
+        // This probe tests the closed document mapping, not a second declaration
+        // of the native solver's curvature vocabulary.
+        let hessian_modes = registry
+            .enum_spec("HessianMode")
+            .unwrap()
+            .members
+            .iter()
+            .map(|member| member.name)
+            .collect::<Vec<_>>();
         let schema = serde_json::json!({
             "title": "Probe",
             "type": "object",
@@ -1075,7 +1084,7 @@ mod tests {
                 "pair": {"type": ["array", "null"], "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "default": null},
             },
             "$defs": {
-                "HessianMode": {"type": "string", "enum": ["exact", "limited_memory", "gauss_newton"]},
+                "HessianMode": {"type": "string", "enum": hessian_modes},
                 "Budget": {"type": "number", "exclusiveMinimum": 0.0},
                 "Choice": {"oneOf": [
                     {"type": "object", "additionalProperties": false, "required": ["kind"],

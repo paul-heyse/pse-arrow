@@ -532,6 +532,15 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Proposed amendment: [ADR-0155](../../adr/0155-numerical-derived-families.md),
+> [Plan 25n](../../plans/25n-automatic-simulation-solve-pipeline.md).
+
+Automatic preparation derives separate numerical incidence, execution/validity dependencies and
+objective/inequality coupling from the authored case. Value demand precedes actual conditional
+derivative demand. Composite admitted reconstruction suppliers carry complete original state,
+actions, selected-sheet meaning and operation-bound accuracy; structural matching alone does not
+establish their regularity. Complete original reconstruction is independently assessed.
+
 > Decision: [ADR-0155](../../adr/0155-numerical-derived-families.md) (proposed;
 > independently reviewed target, implementation owned by Plan 25m).
 

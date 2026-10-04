@@ -606,11 +606,17 @@ async fn assert_root_response(backend: Backend, boundary: bool) -> TestResult<()
     } else {
         pse_relations::generated::enums::NativeQualification::Feasible
     };
-    let crate::workflow::RunReport::Modeling(steps) = result.report().unwrap() else {
-        panic!("modeling report expected");
+    let crate::workflow::RunReport::Modeling(steps) = result
+        .report()
+        .map_err(|error| std::io::Error::other(error.to_string()))?
+    else {
+        return Err(std::io::Error::other("modeling report expected").into());
     };
-    let crate::math::solves::Outcome::Native(native) = &steps[0].outcome else {
-        panic!("native root report expected");
+    let step = steps
+        .first()
+        .ok_or_else(|| std::io::Error::other("root solve step expected"))?;
+    let crate::math::solves::Outcome::Native(native) = &step.outcome else {
+        return Err(std::io::Error::other("native root report expected").into());
     };
     assert!(
         native
@@ -619,7 +625,11 @@ async fn assert_root_response(backend: Backend, boundary: bool) -> TestResult<()
             .is_some_and(|quality| quality.feasible())
     );
     if matches!(backend, Backend::Ipopt | Backend::Pounce) {
-        let kkt = native.evidence.kkt.as_ref().unwrap();
+        let kkt = native
+            .evidence
+            .kkt
+            .as_ref()
+            .ok_or_else(|| std::io::Error::other("stationary solver KKT evidence expected"))?;
         assert_eq!(kkt.stationarity, Some(true));
         assert_eq!(kkt.complementarity, Some(true));
         assert_eq!(

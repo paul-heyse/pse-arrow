@@ -22,9 +22,10 @@ from pse._build import (
 from pse._inspection import TableStream
 from pse.contracts.documents import (
     Completion,
+    CompositionRequest,
     EligibilityDocument,
     FitProfileDocument,
-    NumericalStrategy,
+    NumericalStrategyDocument,
     PointStatus,
     ProgressEventDocument,
     Published,
@@ -72,12 +73,21 @@ class PreparedOperation:
         return ContentHash.from_prefixed(self._handle.strategy_profile)
 
     @property
-    def numerical_strategy(self) -> NumericalStrategy:
+    def composition_request(self) -> CompositionRequest:
+        """Requested composition with preserved branch, start and work constraints."""
+        return self._handle.composition_request
+
+    @property
+    def numerical_strategy(self) -> NumericalStrategyDocument:
         """Actual finite execution declaration, projected by Rust."""
-        return codec.decode_json(self._handle.numerical_strategy, NumericalStrategy)
+        return codec.decode_json(
+            self._handle.numerical_strategy, NumericalStrategyDocument
+        )
 
     def with_numerical_strategy(
-        self, declaration: NumericalStrategy, rungs: Sequence["PreparedOperation"]
+        self,
+        declaration: NumericalStrategyDocument,
+        rungs: Sequence["PreparedOperation"],
     ) -> "PreparedOperation":
         """Bind admitted original-system profiles to one declared numerical task."""
         return PreparedOperation(

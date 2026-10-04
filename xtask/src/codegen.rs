@@ -112,6 +112,12 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
 /// Validate the actual candidate Python bytes before comparison or publication.
 fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>) -> Result<()> {
     let candidate = tempfile::tempdir().context("creating Python contract candidate")?;
+    if mode == Some("--documents") {
+        // Document enums must come from the same registry generation, even before
+        // publication or when only document schemas are being regenerated.
+        let contracts = pse_codegen::codegen::generate(pse_schema::registry()?, Language::Python)?;
+        write_tree(candidate.path(), &contracts)?;
+    }
     write_tree(candidate.path(), tree)?;
     let python = root.join(if cfg!(windows) {
         ".venv/Scripts/python.exe"

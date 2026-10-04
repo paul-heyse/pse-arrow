@@ -44,6 +44,22 @@ pub(crate) fn decode<T: serde::de::DeserializeOwned>(
     serde_json::from_slice(bytes)
         .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
 }
+/// Admit interpretation before decoding nested current document fields.
+pub(crate) fn decode_versioned<T: serde::de::DeserializeOwned, const N: u32>(
+    py: Python<'_>,
+    operation: &str,
+    bytes: &[u8],
+    allowance: usize,
+) -> PyResult<T> {
+    if bytes.len() > allowance {
+        return Err(crate::workflow::invalid(
+            py,
+            format!("{operation} document extent"),
+        ));
+    }
+    pse_model::document::decode_versioned::<T, N>(bytes)
+        .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
+}
 /// Project an owned result document; no adapter-owned JSON shape is introduced.
 pub(crate) fn encode<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Vec<u8>> {
     serde_json::to_vec(value).map_err(|error| crate::workflow::invalid(py, error.to_string()))
@@ -129,6 +145,9 @@ impl<'py, T: serde::Serialize + DocumentType> IntoPyObject<'py> for DocumentValu
 
 /// A generated Python input document decoded into its actual Rust owner.
 pub(crate) struct DocumentInput<T>(pub(crate) T);
+impl DocumentType for pse_model::strategy::CompositionRequest {
+    const NAME: &'static str = "CompositionRequest";
+}
 impl DocumentType for pse_model::numerics::NumericalPolicy {
     const NAME: &'static str = "NumericalPolicy";
 }

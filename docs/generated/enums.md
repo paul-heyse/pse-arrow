@@ -883,7 +883,10 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `auto` | `` | false |
 | `exact` | `` | false |
+| `partitioned` | `` | false |
+| `finite_difference` | `` | false |
 | `limited_memory` | `` | false |
 | `gauss_newton` | `` | false |
 
@@ -1926,6 +1929,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `any_qualified` | `` | false |
 | `connected` | `` | false |
 
+## `NumericalCompositionPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `auto` | `` | false |
+| `declared` | `` | false |
+
 ## `NumericalCoordinates`
 
 | Member | IDAES name | Deprecated |
@@ -1972,6 +1982,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `multistart` | `` | false |
 | `selected_evaluation` | `` | false |
 | `least_deviation` | `` | false |
+
+## `NumericalOriginalConclusion`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `satisfied` | `` | false |
+| `refused` | `` | false |
+| `unavailable` | `` | false |
 
 ## `NumericalPathEventKind`
 
@@ -2172,6 +2190,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `metis` | `` | false |
 | `parallel_metis` | `` | false |
 
+## `PounceFdColoring`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `cpr` | `` | false |
+| `star` | `` | false |
+
+## `PounceFdPattern`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `declared` | `` | false |
+| `jacobian` | `` | false |
+
 ## `PounceMethod`
 
 | Member | IDAES name | Deprecated |
@@ -2179,6 +2211,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `interior_point` | `` | false |
 | `active_set_sqp` | `` | false |
 | `l1_exact_penalty` | `` | false |
+
+## `PouncePartitionedElements`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `per_constraint` | `` | false |
+| `primal_block` | `` | false |
+
+## `PouncePartitionedUpdate`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `bfgs` | `` | false |
+| `sr1` | `` | false |
 
 ## `Preconditioner`
 

@@ -353,6 +353,9 @@ pub(crate) fn retain_nlp(
     Box::new(NlpWitness { inner, witness })
 }
 impl crate::NlpOracle for NlpWitness {
+    fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+        self.inner.solve_separator()
+    }
     fn structural_analysis(&self) -> Option<&StructuralAnalysis> {
         Some(&self.witness)
     }

@@ -309,8 +309,8 @@ fn weighted_jacobian_difference(
         for (row, value) in lower.row_idx_of_col(column).zip(lower.val_of_col(column)) {
             differences[row] -= value;
         }
-        for (group, weights) in weights.iter().enumerate() {
-            result[group][column] = weights
+        for (output, weights) in result.iter_mut().zip(weights) {
+            output[column] = weights
                 .iter()
                 .zip(&differences)
                 .map(|(weight, difference)| weight * difference)

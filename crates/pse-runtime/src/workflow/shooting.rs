@@ -244,14 +244,20 @@ impl super::ModelingSimulation {
 impl ShootingProblem {
     fn new(
         simulation: &super::ModelingSimulation,
-        request: ShootingProfile,
+        mut request: ShootingProfile,
         cancel: &AtomicBool,
     ) -> Result<Self, WorkflowError> {
         let profile = simulation.profile();
         let c = simulation.contract();
-        if request.solver.controls.hessian != HessianMode::LimitedMemory {
+        if request.solver.controls.hessian == HessianMode::Auto {
+            request.solver.controls.hessian = HessianMode::LimitedMemory;
+        }
+        if !matches!(
+            request.solver.controls.hessian,
+            HessianMode::LimitedMemory | HessianMode::Partitioned | HessianMode::FiniteDifference
+        ) {
             return Err(contract(
-                "shooting supplies first derivatives; request the limited-memory Hessian",
+                "shooting supplies first derivatives and requires native approximation of curvature",
             ));
         }
         request

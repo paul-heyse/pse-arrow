@@ -16,6 +16,8 @@ pub(super) fn profile(intent: SolveIntent) -> SolverProfile {
         numerics: Default::default(),
         convexity: Default::default(),
         sensitivity: None,
+        composition: Default::default(),
+        reconstruction: None,
     }
 }
 #[tokio::test]
@@ -59,7 +61,7 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
     let limits = WorkLimits {
         attempts: 2,
         evaluations: None,
-        iterations: Some(1000),
+        iterations: None,
         factorizations: None,
         proof_steps: None,
     };
@@ -80,6 +82,46 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
         key: final_profile.solve().strategy_profile().unwrap(),
     });
     strategy.mechanisms.push(second);
+
+    // Native profile controls bound each solver's iterations. A strict task counter
+    // additionally requires pre-operation admission or a complete inclusive bound.
+    let mut strict = strategy.clone();
+    strict.limits.iterations = Some(1000);
+    let refused = first
+        .solve()
+        .clone()
+        .with_strategy(
+            strict,
+            vec![
+                first.solve().clone().into(),
+                final_profile.solve().clone().into(),
+            ],
+        )
+        .unwrap();
+    let refused = runtime
+        .native()
+        .solve(refused)
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    assert!(matches!(refused.outcome, Outcome::Rejected(_)));
+    let refusal = refused
+        .strategy
+        .events
+        .iter()
+        .find(|event| event.kind == NumericalEventKind::Refused)
+        .unwrap();
+    assert_eq!(refusal.transition, Some(Transition::Stop));
+    assert!(matches!(
+        refusal.cause.as_deref(),
+        Some(native::ProblemError::Unsupported(_))
+    ));
+    assert!(refused.strategy.events.iter().all(|event| {
+        event.kind != NumericalEventKind::Started && event.work.is_none()
+    }));
+    assert_eq!(refused.strategy.original, original);
+
     let composed = first
         .solve()
         .clone()
@@ -117,7 +159,7 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
         .unwrap();
     let finished: Vec<_> = rows
         .iter()
-        .filter(|row| row.kind == NumericalEventKind::Finished)
+        .filter(|row| row.kind == NumericalEventKind::Finished && row.transition.is_some())
         .collect();
     assert_eq!(finished.len(), 2, "{rows:?}");
     assert_eq!(

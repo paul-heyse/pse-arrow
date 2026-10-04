@@ -736,7 +736,10 @@ pub fn derivative_demand(
 ) -> Option<DerivativeOrder> {
     match capability.derivatives {
         DerivativeCapability::ExactHessianOrLimitedMemory
-            if controls.hessian != HessianMode::LimitedMemory =>
+            if matches!(
+                controls.hessian,
+                HessianMode::Exact | HessianMode::GaussNewton
+            ) =>
         {
             Some(DerivativeOrder::Second)
         }

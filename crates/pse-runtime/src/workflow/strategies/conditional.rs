@@ -69,6 +69,7 @@ struct UnitWorker {
     service: Arc<crate::math::MathService>,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     budget: Arc<crate::math::WorkerBudget>,
+    last_values: Option<CaseValues>,
 }
 impl CausalUnit for UnitWorker {
     fn id(&self) -> SemanticId {
@@ -85,6 +86,7 @@ impl CausalUnit for UnitWorker {
         inputs: &BTreeMap<SemanticId, f64>,
         execution: &Execution,
     ) -> Result<BTreeMap<SemanticId, f64>, native::ProblemError> {
+        self.last_values = None;
         if let Some(stop) = execution.stopped() {
             return Err(native::ProblemError::stopped(
                 stop,
@@ -125,7 +127,28 @@ impl CausalUnit for UnitWorker {
         if outputs.values().any(|v| !v.is_finite()) {
             return Err(native::ProblemError::numerical("nonfinite causal output"));
         }
+        let mut original = CaseValues {
+            scalars: BTreeMap::new(),
+        };
+        for (_, symbol, _) in &self.program.inputs {
+            if let Some(value) = trial.scalars.get(symbol) {
+                original.scalars.insert(*symbol, *value);
+            }
+        }
+        if let Some(conditional) = &self.program.conditional {
+            for column in &conditional.view.boundary.members.columns {
+                if let Some(value) = trial.scalars.get(column) {
+                    original.scalars.insert(*column, *value);
+                }
+            }
+        }
+        self.last_values = Some(original);
         Ok(outputs)
+    }
+    fn original_values(&self) -> CaseValues {
+        self.last_values.clone().unwrap_or_else(|| CaseValues {
+            scalars: BTreeMap::new(),
+        })
     }
 }
 /// Compiled immutable causal functions and the independently checked selected tear graph.
@@ -134,6 +157,7 @@ pub struct PreparedRecycle {
     runtime: Runtime,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     _source: crate::math::modeling::ModelingCasePreparation,
+    original: Arc<ExecutableCase>,
     request: RecycleRequest,
     graph: Arc<pse_structural::flowsheet::FlowGraph>,
     programs: Vec<UnitProgram>,
@@ -189,6 +213,8 @@ impl PreparedRecycle {
     /// Execute only the explicitly requested map strategy; no automatic fallback follows failure.
     pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
         let prepared = self.clone();
+        let candidate = Arc::new(std::sync::Mutex::new(None));
+        let observed = candidate.clone();
         Ok(self.runtime.native().solve_declared_root(
             self.contract.clone(),
             self.initial.clone(),
@@ -198,6 +224,7 @@ impl PreparedRecycle {
             self.tolerances.clone(),
             self.numerics.policy.clone(),
             self.profile_key,
+            Some(candidate),
             move |execution, budget| {
                 let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
                 for program in prepared.programs {
@@ -222,17 +249,99 @@ impl PreparedRecycle {
                         service: prepared.runtime.native().clone(),
                         providers: prepared.providers.clone(),
                         budget: budget.clone(),
+                        last_values: None,
                     };
                     units.insert(unit.id(), Box::new(unit));
                 }
-                Ok(kinsol::Function::FixedPoint(Box::new(CausalMap::new(
+                let mut original_worker = prepared
+                    .runtime
+                    .native()
+                    .worker(
+                        prepared.original.clone(),
+                        &prepared.providers,
+                        execution.scope()?,
+                        &budget,
+                    )
+                    .map_err(MathRuntimeError::into_problem)?;
+                let original = prepared._source.values.clone();
+                let structure = prepared.original.assembly.structure().clone();
+                let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
+                let original_tolerances = Tolerances::from_policy(
+                    &prepared.numerics,
+                    prepared._source.case.compiled().plan.columns(),
+                    &row_ids,
+                )?;
+                let map = CausalMap::new(
                     prepared.graph,
                     prepared.request.tears,
                     prepared.contract,
                     units,
                     prepared.fixed,
                     execution,
-                )?)))
+                )?
+                .with_original_observer(Box::new(move |overlay, execution| {
+                    let mut candidate = original.clone();
+                    candidate
+                        .scalars
+                        .extend(overlay.scalars.iter().map(|(id, value)| (*id, *value)));
+                    execution.check()?;
+                    let evaluation = WorkEvidence {
+                        evaluations: Some(1),
+                        ..Default::default()
+                    };
+                    if let Some(admission) = &execution.work_admission {
+                        admission.admit(evaluation)?;
+                    }
+                    let result = original_worker.worker().constraints(&candidate);
+                    if let Some(admission) = &execution.work_admission {
+                        admission.observe(evaluation)?;
+                    }
+                    let rows = result?;
+                    execution.check()?;
+                    if let Some(admission) = &execution.work_admission {
+                        admission.admit(evaluation)?;
+                    }
+                    let result = original_worker.worker().objective(&candidate);
+                    if let Some(admission) = &execution.work_admission {
+                        admission.observe(evaluation)?;
+                    }
+                    if !result?.is_finite() {
+                        return Err(native::ProblemError::numerical(
+                            "nonfinite original recycle objective",
+                        ));
+                    }
+                    if rows
+                        .iter()
+                        .zip(structure.rows())
+                        .zip(&original_tolerances.rows)
+                        .any(|((value, row), tolerance)| {
+                            !value.is_finite()
+                                || *value < row.lower - tolerance
+                                || *value > row.upper + tolerance
+                        })
+                    {
+                        return Err(native::ProblemError::Contract(
+                            "full original recycle equations refuse candidate".into(),
+                        ));
+                    }
+                    if structure.variables().iter().any(|v| {
+                        candidate.scalars.get(&v.port.id).is_none_or(|value| {
+                            !value.is_finite()
+                                || v.lower.is_some_and(|lower| *value < lower)
+                                || v.upper.is_some_and(|upper| *value > upper)
+                        })
+                    }) {
+                        return Err(native::ProblemError::Contract(
+                            "full original recycle bounds refuse candidate".into(),
+                        ));
+                    }
+                    execution.check()?;
+                    *observed.lock().map_err(|_| {
+                        native::ProblemError::Internal("recycle candidate lock poisoned".into())
+                    })? = Some(candidate);
+                    Ok(())
+                }));
+                Ok(kinsol::Function::FixedPoint(Box::new(map)))
             },
         )?)
     }
@@ -276,7 +385,7 @@ impl ModelingPackage {
                 analysis.bindings.clone(),
                 analysis.limits,
                 analysis.case.clone(),
-                DerivativeOrder::First,
+                DerivativeOrder::Value,
                 compiler,
                 profile.clone(),
                 analysis.numerical.clone(),
@@ -738,10 +847,16 @@ impl ModelingPackage {
         let profile_key = crate::math::solves::profile_key(&effective_profile)
             .map_err(MathRuntimeError::from)?
             .as_id();
+        let original = self
+            .runtime
+            .native()
+            .assemble(resolved.model.case.clone())
+            .await?;
         Ok(PreparedRecycle {
             runtime: self.runtime.clone(),
             providers: resolved.providers,
             _source: resolved.model,
+            original,
             request,
             graph,
             programs,

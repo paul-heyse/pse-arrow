@@ -1239,7 +1239,22 @@ impl Loop {
         let predicted = match self.background.take() {
             None => None,
             Some(from) => {
-                let usable = self.results[from].accepted;
+                let permission = self.results[from].completion.decision.clone();
+                let source = match &self.results[from].outcome {
+                    crate::math::solves::Outcome::Native(report) => report
+                        .candidate
+                        .as_ref()
+                        .map(|candidate| {
+                            self.results[from]
+                                .prepared
+                                .solve
+                                .semantic_point_key(&candidate.primal)
+                        })
+                        .transpose()
+                        .map_err(MathRuntimeError::from)?,
+                    _ => None,
+                };
+                let time_limit = admitted.plant.time_limit;
                 let parameters = advanced
                     .parameters
                     .iter()
@@ -1247,10 +1262,51 @@ impl Loop {
                     .collect::<Vec<_>>();
                 let outcome = self
                     .staged
-                    .native(admitted.threads, &self.cancel, move |retained, _, _| {
-                        let outcome = match retained.advance() {
-                            Some(advance) if usable => {
-                                crate::math::prediction::kkt(advance, &parameters)
+                    .native(admitted.threads, &self.cancel, move |retained, flag, _| {
+                        let outcome = match (retained.advance(), source) {
+                            (Some(advance), Some(source)) if permission.permits_use() => {
+                                let mut binding =
+                                    FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+                                binding
+                                    .str("horizon-control-proposal")
+                                    .hash(&source.binding);
+                                for (id, value) in &parameters {
+                                    binding.id(id).f64(*value);
+                                }
+                                let mut execution = native::solve::Execution::new(
+                                    flag.clone(),
+                                    &native::solve::Controls::default(),
+                                );
+                                execution.time_limit = time_limit;
+                                match crate::math::prediction::select(
+                                    crate::math::prediction::SelectionRequest {
+                                        mechanism:
+                                            crate::math::prediction::ProposalMechanism::Kkt {
+                                                advance,
+                                                parameters: &parameters,
+                                            },
+                                        permission: &permission,
+                                        source,
+                                        target: binding.finish_hash(),
+                                        branch: pse_model::strategy::BranchPolicy::any_qualified(),
+                                    },
+                                    &execution,
+                                ) {
+                                    Ok(crate::math::prediction::SelectedProposal::Kkt {
+                                        prediction,
+                                        ..
+                                    }) => Ok(prediction),
+                                    Ok(_) => {
+                                        return Err(ProblemError::internal(
+                                            "horizon selector returned another producer",
+                                        )
+                                        .into());
+                                    }
+                                    Err(crate::math::prediction::SelectionFailure::Kkt(
+                                        fallback,
+                                    )) => Err(fallback),
+                                    Err(error) => return Err(error.into_problem().into()),
+                                }
                             }
                             _ => Err(Fallback::NotRetained),
                         };

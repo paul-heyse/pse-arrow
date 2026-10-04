@@ -19,10 +19,261 @@ use std::{collections::BTreeSet, sync::Arc};
 
 pub(crate) mod path_control;
 
+/// Cheap owner-issued applicability facts beside one immutable operation binding.
+#[derive(Clone, Debug)]
+pub(crate) struct AutoCandidate {
+    /// Exact immutable original/profile/reconstruction binding supplied by its owner.
+    pub(crate) identity: ContentHash,
+    pub(crate) kind: pse_model::strategy::MechanismKind,
+    pub(crate) start: StartOrigin,
+    pub(crate) replacement: bool,
+    pub(crate) support: BTreeSet<ContentHash>,
+    pub(crate) reservation: Option<WorkObservation>,
+}
+
+/// One pure next decision. Candidate bindings remain with the effect owner until selected.
+#[derive(Clone, Debug)]
+pub(crate) enum AutoDecision {
+    Dispatch { candidate: usize },
+    Finish,
+    Stop { cause: Option<Arc<ProblemError>> },
+}
+pub(crate) struct AutoObservation {
+    pub(crate) native: Observation,
+    pub(crate) original: Option<OriginalConclusion>,
+    pub(crate) permission: Option<pse_model::generated::enums::CandidateUse>,
+}
+pub(crate) fn next_automatic(
+    request: &pse_model::strategy::CompositionRequest,
+    start: &pse_model::strategy::StartRules,
+    candidates: &[AutoCandidate],
+    attempted: &BTreeSet<usize>,
+    last: Option<&AutoObservation>,
+    work: WorkObservation,
+    inherited: bool,
+) -> AutoDecision {
+    if let Err(error) = request.validate() {
+        return AutoDecision::Stop {
+            cause: Some(Arc::new(ProblemError::Contract(error.to_string()))),
+        };
+    }
+    if let Some(last) = last {
+        if last
+            .original
+            .as_ref()
+            .is_some_and(OriginalConclusion::satisfied)
+            && last.permission.is_some_and(|permission| {
+                matches!(
+                    permission,
+                    pse_model::generated::enums::CandidateUse::Usable
+                        | pse_model::generated::enums::CandidateUse::QualifiedUnclosed
+                )
+            })
+        {
+            return AutoDecision::Finish;
+        }
+        if !permits_numerical_continuation(last.native)
+            || last
+                .original
+                .as_ref()
+                .and_then(OriginalConclusion::cause)
+                .as_deref()
+                .is_some_and(|cause| !permits_numerical_continuation(failure(cause)))
+        {
+            return AutoDecision::Stop {
+                cause: last.original.as_ref().and_then(OriginalConclusion::cause),
+            };
+        }
+    }
+    let limits = request.limits.unwrap_or(WorkLimits {
+        attempts: 1,
+        evaluations: None,
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    });
+    if work.attempts >= limits.attempts {
+        return AutoDecision::Stop {
+            cause: Some(Arc::new(limit("automatic task execution allowance"))),
+        };
+    }
+    for (index, candidate) in candidates.iter().enumerate() {
+        if attempted.contains(&index) {
+            continue;
+        }
+        if candidate.replacement {
+            if !request.recovery.contains(&candidate.start)
+                || !start.permits_recovery(candidate.start, inherited)
+            {
+                continue;
+            }
+        } else if !start.permits_entry(candidate.start, inherited) {
+            continue;
+        }
+        return AutoDecision::Dispatch { candidate: index };
+    }
+    AutoDecision::Stop {
+        cause: last
+            .and_then(|last| last.original.as_ref())
+            .and_then(OriginalConclusion::cause),
+    }
+}
+
+pub(crate) fn automatic_decision_key(
+    request: &pse_model::strategy::CompositionRequest,
+    candidates: &[AutoCandidate],
+    decision: &AutoDecision,
+    last: Option<&AutoObservation>,
+    work: WorkObservation,
+) -> Result<ContentHash, ProblemError> {
+    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV1);
+    h.part(
+        &serde_json::to_vec(request).map_err(|error| ProblemError::Contract(error.to_string()))?,
+    );
+    for candidate in candidates {
+        h.hash(&candidate.identity)
+            .str(candidate.kind.as_str())
+            .str(candidate.start.as_str())
+            .bool(candidate.replacement);
+        for key in &candidate.support {
+            h.hash(key);
+        }
+        h.part(
+            &serde_json::to_vec(&candidate.reservation)
+                .map_err(|error| ProblemError::Contract(error.to_string()))?,
+        );
+    }
+    match decision {
+        AutoDecision::Dispatch { candidate } => {
+            h.str("dispatch").u64(*candidate as u64);
+        }
+        AutoDecision::Finish => {
+            h.str("finish");
+        }
+        AutoDecision::Stop { cause } => {
+            h.str("stop");
+            if let Some(cause) = cause {
+                h.str(&cause.to_string());
+            }
+        }
+    }
+    if let Some(last) = last {
+        h.str(last.native.as_str());
+        if let Some(original) = &last.original {
+            h.str(match original {
+                OriginalConclusion::Satisfied => "satisfied",
+                OriginalConclusion::Refused { .. } => "refused",
+                OriginalConclusion::Unavailable { .. } => "unavailable",
+            });
+        }
+        if let Some(permission) = last.permission {
+            h.str(permission.as_str());
+        }
+    }
+    h.part(&serde_json::to_vec(&work).map_err(|error| ProblemError::Contract(error.to_string()))?);
+    Ok(h.finish_hash())
+}
+
+/// One task-owned state of actual producer observations. Consumers and trace use the
+/// same entries; structural support is never inserted here as evidence.
+#[derive(Default)]
+pub(crate) struct ProductState {
+    actual: Vec<pse_model::strategy::ProductEvidence>,
+    _owner: Option<Arc<dyn pse_math::AllocationOwner>>,
+    capacity: Option<usize>,
+}
+impl ProductState {
+    pub(crate) fn extent(capacity: usize) -> Result<usize, ProblemError> {
+        size_of::<Self>()
+            .checked_add(
+                capacity
+                    .checked_mul(size_of::<pse_model::strategy::ProductEvidence>())
+                    .ok_or_else(|| limit("product state extent"))?,
+            )
+            .ok_or_else(|| limit("product state extent"))
+    }
+    pub(crate) fn owned(capacity: usize, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        Self {
+            actual: Vec::with_capacity(capacity),
+            _owner: Some(owner),
+            capacity: Some(capacity),
+        }
+    }
+    pub(crate) fn publish(
+        &mut self,
+        evidence: pse_model::strategy::ProductEvidence,
+    ) -> Result<(), ProblemError> {
+        if evidence.source.point.is_none()
+            || evidence.source.normalization != Some(evidence.accuracy.normalization)
+            || evidence.branch.validate().is_err()
+        {
+            return Err(ProblemError::Contract(
+                "produced accuracy lacks exact point/normalization/branch ownership".into(),
+            ));
+        }
+        let demand = pse_model::strategy::AccuracyDemand {
+            product: evidence.accuracy.product,
+            normalization: evidence.accuracy.normalization,
+            allowance: evidence.accuracy.error.unwrap_or(f64::NAN),
+            class: evidence.accuracy.class,
+        };
+        if !evidence.accuracy.satisfies(&demand) {
+            return Err(ProblemError::Contract(
+                "unestablished produced accuracy cannot enter product state".into(),
+            ));
+        }
+        if self
+            .capacity
+            .is_some_and(|capacity| self.actual.len() >= capacity)
+        {
+            return Err(limit("owned producer state capacity"));
+        }
+        self.actual.push(evidence);
+        Ok(())
+    }
+    pub(crate) fn consume(
+        &self,
+        contract: &pse_model::strategy::OperationContract,
+    ) -> Result<Vec<pse_model::strategy::AccuracyEvidence>, ProblemError> {
+        contract.inputs.iter().map(|demand| self.actual.iter().find(|actual|actual.satisfies(demand)).map(|actual|actual.accuracy)
+            .ok_or_else(||ProblemError::Unsupported("operation input accuracy is not established at the required source/point/order/branch".into()))).collect()
+    }
+    /// Bind request demands to the actual original point about to be consumed.
+    pub(crate) fn bind_inputs(
+        &self,
+        demands: &[pse_model::strategy::AccuracyDemand],
+        binding: ContentHash,
+        point: ContentHash,
+        branch: pse_model::strategy::BranchPolicy,
+        derivative_order: u8,
+    ) -> Result<pse_model::strategy::OperationContract, ProblemError> {
+        let inputs=demands.iter().map(|demand| {
+            let evidence=self.actual.iter().find(|actual| actual.source.binding==binding && actual.source.point==Some(point) && actual.derivative_order==derivative_order && actual.branch==branch && actual.accuracy.satisfies(demand))
+                .ok_or_else(||ProblemError::Unsupported("requested accuracy is unavailable for the actual source/point/order/branch".into()))?;
+            Ok(pse_model::strategy::ProductDemand { source:evidence.source,derivative_order,branch,accuracy:*demand })
+        }).collect::<Result<Vec<_>,ProblemError>>()?;
+        Ok(pse_model::strategy::OperationContract {
+            inputs,
+            outputs: Vec::new(),
+        })
+    }
+}
+
+pub(crate) type SharedProducts = Arc<std::sync::Mutex<ProductState>>;
+pub(crate) fn products(
+    state: &std::sync::Mutex<ProductState>,
+) -> Result<std::sync::MutexGuard<'_, ProductState>, ProblemError> {
+    state
+        .lock()
+        .map_err(|_| ProblemError::Internal("numerical product state owner panicked".into()))
+}
 /// Facts supplied by the prepared mathematical/native owners, never inferred from history.
 pub(crate) struct Facts {
     pub(crate) support: BTreeSet<ContentHash>,
     pub(crate) accuracy: Vec<pse_model::strategy::AccuracyEvidence>,
+    pub(crate) consumption: Vec<pse_model::strategy::AccuracyDemand>,
+    /// Complete inclusive bound, supplied by the operation owner before dispatch.
+    pub(crate) reservation: Option<WorkObservation>,
     pub(crate) start: StartOrigin,
     pub(crate) inherited: bool,
     pub(crate) connected: bool,
@@ -61,7 +312,7 @@ pub(crate) fn admit(
             Some(Arc::new(ProblemError::Unsupported(
                 "required mathematical operation is unavailable".into(),
             )))
-        } else if strategy.accuracy.iter().any(|demand| {
+        } else if facts.consumption.iter().any(|demand| {
             !facts
                 .accuracy
                 .iter()
@@ -92,10 +343,60 @@ pub(crate) fn admit(
     }
 }
 
+/// Scientific conclusion supplied by the original owner, independent of native termination.
+#[derive(Clone, Debug)]
+pub(crate) enum OriginalConclusion {
+    Satisfied,
+    Refused { cause: Arc<ProblemError> },
+    Unavailable { cause: Arc<ProblemError> },
+}
+impl OriginalConclusion {
+    pub(crate) fn cause(&self) -> Option<Arc<ProblemError>> {
+        match self {
+            Self::Satisfied => None,
+            Self::Refused { cause } | Self::Unavailable { cause } => Some(cause.clone()),
+        }
+    }
+    pub(crate) const fn satisfied(&self) -> bool {
+        matches!(self, Self::Satisfied)
+    }
+}
+/// Common scientific transport. Work contains only disjoint independently owned assessment
+/// operations; native inclusive work must never be repeated here.
+pub(crate) struct Assessed<T> {
+    pub(crate) product: T,
+    pub(crate) original: OriginalConclusion,
+    pub(crate) retention: StepRetention,
+    pub(crate) work: Vec<WorkCharge>,
+}
+impl<T> Assessed<T> {
+    /// Native-only consumer: original validation belongs to the native report owner.
+    pub(crate) fn native(
+        product: T,
+        retention: StepRetention,
+        outcome: &super::solves::Outcome,
+    ) -> Self {
+        let original = match cause(outcome) {
+            Some(cause) => OriginalConclusion::Unavailable { cause },
+            None if retention.candidate.permits_use() => OriginalConclusion::Satisfied,
+            None => OriginalConclusion::Refused {
+                cause: Arc::new(ProblemError::numerical(retention.candidate.reason())),
+            },
+        };
+        Self {
+            product,
+            original,
+            retention,
+            work: Vec::new(),
+        }
+    }
+}
 /// Independent assessment; a successful auxiliary solve never grants original permission.
 pub(crate) struct Assessment {
     pub(crate) auxiliary: bool,
     pub(crate) retention: StepRetention,
+    pub(crate) original: OriginalConclusion,
+    pub(crate) work: Vec<WorkCharge>,
     pub(crate) observation: Observation,
     pub(crate) cause: Option<Arc<ProblemError>>,
 }
@@ -113,8 +414,20 @@ pub(crate) fn transition(mechanism: &Mechanism, assessment: &Assessment) -> Tran
     ) {
         return Transition::Stop;
     }
-    if assessment.retention.candidate.permits_use() && !assessment.auxiliary {
+    if assessment.retention.candidate.permits_use()
+        && assessment.original.satisfied()
+        && !assessment.auxiliary
+    {
         return Transition::Finish;
+    }
+    if !assessment.auxiliary && !assessment.original.satisfied() {
+        let original = assessment.original.cause();
+        if original
+            .as_deref()
+            .is_some_and(|cause| !permits_numerical_continuation(failure(cause)))
+        {
+            return Transition::Stop;
+        }
     }
     let preferred = match assessment.observation {
         O::Auxiliary if assessment.auxiliary => Transition::Continue,
@@ -144,12 +457,22 @@ pub(crate) struct Ledger {
     limits: WorkLimits,
     charged: BTreeSet<ContentHash>,
     total: WorkObservation,
+    reserved: WorkObservation,
+    has_reservation: bool,
 }
 impl Ledger {
     pub(crate) fn new(limits: WorkLimits) -> Self {
         Self {
             limits,
             charged: BTreeSet::new(),
+            has_reservation: false,
+            reserved: WorkObservation {
+                attempts: 0,
+                evaluations: Some(0),
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: Some(0),
+            },
             total: WorkObservation {
                 attempts: 0,
                 evaluations: Some(0),
@@ -168,6 +491,36 @@ impl Ledger {
         } else {
             Ok(())
         }
+    }
+    /// Reserve the complete inclusive bound before any effect. Unknown actual work retains
+    /// this full reservation; it never turns an allowance into a measured observation.
+    pub(crate) fn reserve(
+        &mut self,
+        local: WorkLimits,
+        bound: Option<WorkObservation>,
+    ) -> Result<(), ProblemError> {
+        let strict = [
+            self.limits.evaluations,
+            self.limits.iterations,
+            self.limits.factorizations,
+            self.limits.proof_steps,
+            local.evaluations,
+            local.iterations,
+            local.factorizations,
+            local.proof_steps,
+        ]
+        .iter()
+        .any(Option::is_some);
+        if !strict {
+            return Ok(());
+        }
+        let bound = bound.ok_or_else(|| ProblemError::Unsupported("strict work allowance requires a complete inclusive operation bound before dispatch".into()))?;
+        check_limits(local, bound)?;
+        let sum = add_work(self.reserved, bound)?;
+        check_limits(self.limits, sum)?;
+        self.reserved = sum;
+        self.has_reservation = true;
+        Ok(())
     }
     pub(crate) fn charge(&mut self, charge: WorkCharge) -> Result<(), ProblemError> {
         if !self.charged.insert(charge.charging_owner) {
@@ -193,8 +546,41 @@ impl Ledger {
         self.total.iterations = add(self.total.iterations, charge.observed.iterations)?;
         self.total.factorizations = add(self.total.factorizations, charge.observed.factorizations)?;
         self.total.proof_steps = add(self.total.proof_steps, charge.observed.proof_steps)?;
-        check_limits(self.limits, self.total)
+        // A source-backed pre-operation reservation enforces a strict unknown counter;
+        // post-operation measurements remain unknown and do not release its allowance.
+        if !self.has_reservation {
+            return check_limits(self.limits, self.total);
+        }
+        let effective = WorkObservation {
+            attempts: self.total.attempts,
+            evaluations: self.total.evaluations.or(self.reserved.evaluations),
+            iterations: self.total.iterations.or(self.reserved.iterations),
+            factorizations: self.total.factorizations.or(self.reserved.factorizations),
+            proof_steps: self.total.proof_steps.or(self.reserved.proof_steps),
+        };
+        check_limits(self.limits, effective)
     }
+}
+fn add_work(a: WorkObservation, b: WorkObservation) -> Result<WorkObservation, ProblemError> {
+    fn add(a: Option<u64>, b: Option<u64>) -> Result<Option<u64>, ProblemError> {
+        match (a, b) {
+            (Some(a), Some(b)) => a
+                .checked_add(b)
+                .map(Some)
+                .ok_or_else(|| limit("work counter overflow")),
+            _ => Ok(None),
+        }
+    }
+    Ok(WorkObservation {
+        attempts: a
+            .attempts
+            .checked_add(b.attempts)
+            .ok_or_else(|| limit("work counter overflow"))?,
+        evaluations: add(a.evaluations, b.evaluations)?,
+        iterations: add(a.iterations, b.iterations)?,
+        factorizations: add(a.factorizations, b.factorizations)?,
+        proof_steps: add(a.proof_steps, b.proof_steps)?,
+    })
 }
 fn check_limits(limits: WorkLimits, actual: WorkObservation) -> Result<(), ProblemError> {
     if actual.attempts > limits.attempts {
@@ -235,6 +621,8 @@ pub(crate) struct Event {
     pub(crate) mechanism: usize,
     pub(crate) kind: EventKind,
     pub(crate) phase: Phase,
+    pub(crate) original: Option<OriginalConclusion>,
+    pub(crate) decision: Option<ContentHash>,
     pub(crate) observation: Option<Observation>,
     pub(crate) transition: Option<Transition>,
     pub(crate) permission: Option<pse_model::generated::enums::CandidateUse>,
@@ -355,6 +743,7 @@ pub(crate) struct RungProducts {
     pub(crate) start: Option<ContentHash>,
     pub(crate) transport: Option<ContentHash>,
     pub(crate) accuracy: Option<pse_model::strategy::AccuracyEvidence>,
+    pub(crate) evidence: Option<pse_model::strategy::ProductEvidence>,
     pub(crate) path_events:
         Option<pse_math::SharedAllocation<Vec<pse_backend_native::kkt::path::arclength::Event>>>,
 }
@@ -443,6 +832,8 @@ impl Trace {
                     scope: work.map_or(pse_model::strategy::Scope::Task, |w| w.scope),
                     charging_owner: work.map(|w| w.charging_owner),
                     original_identity: self.original,
+                    decision_identity:event.decision,
+                    original_conclusion:event.original.as_ref().map(|conclusion|match conclusion {OriginalConclusion::Satisfied=>pse_model::generated::enums::NumericalOriginalConclusion::Satisfied,OriginalConclusion::Refused{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Refused,OriginalConclusion::Unavailable{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Unavailable}),
                     derived_identity: product.and_then(|p| p.derived),
                     profile_identity: actual.then_some(match product.and_then(|p| p.provider) {
                         Some(ProviderEvidence::Library(key)) => key,
@@ -649,6 +1040,8 @@ fn run_inner<T>(
             mechanism: index,
             kind: EventKind::Planned,
             phase,
+            original: None,
+            decision: None,
             observation: None,
             transition: None,
             permission: None,
@@ -667,6 +1060,8 @@ fn run_inner<T>(
                 mechanism: index,
                 kind: EventKind::Refused,
                 phase,
+                original: None,
+                decision: None,
                 observation: Some(observation),
                 transition: Some(Transition::Stop),
                 permission: None,
@@ -676,13 +1071,24 @@ fn run_inner<T>(
             result.terminal = Some(cause);
             break;
         }
-        match admit(strategy, index, !dispatched, &facts(index)) {
+        let actual_facts = facts(index);
+        let admission = match admit(strategy, index, !dispatched, &actual_facts) {
+            Admission::Ready => match ledger.reserve(mechanism.limits, actual_facts.reservation) {
+                Ok(()) => Admission::Ready,
+                Err(cause) if mechanism.required => Admission::RequiredRefusal(Arc::new(cause)),
+                Err(cause) => Admission::OptionalRefusal(Arc::new(cause)),
+            },
+            refused => refused,
+        };
+        match admission {
             Admission::Ready => {}
             Admission::OptionalRefusal(cause) | Admission::RequiredRefusal(cause) => {
                 result.events.push(Event {
                     mechanism: index,
                     kind: EventKind::Refused,
                     phase,
+                    original: None,
+                    decision: None,
                     observation: Some(Observation::CapabilityRefusal),
                     transition: Some(if mechanism.required {
                         Transition::Stop
@@ -705,6 +1111,8 @@ fn run_inner<T>(
             mechanism: index,
             kind: EventKind::Started,
             phase,
+            original: None,
+            decision: None,
             observation: None,
             transition: None,
             permission: None,
@@ -747,6 +1155,8 @@ fn run_inner<T>(
                         EventKind::Finished
                     },
                     phase,
+                    original: None,
+                    decision: None,
                     observation: Some(failure(&cause)),
                     transition: Some(if can_continue {
                         Transition::Continue
@@ -763,6 +1173,8 @@ fn run_inner<T>(
                         mechanism: index,
                         kind: EventKind::Abandoned,
                         phase,
+                        original: None,
+                        decision: None,
                         observation: Some(failure(&refusal)),
                         transition: Some(Transition::Stop),
                         permission: None,
@@ -791,6 +1203,8 @@ fn run_inner<T>(
                 mechanism: index,
                 kind: EventKind::Abandoned,
                 phase,
+                original: None,
+                decision: None,
                 observation: Some(failure(&cause)),
                 transition: Some(Transition::Stop),
                 permission: None,
@@ -800,12 +1214,27 @@ fn run_inner<T>(
             result.terminal = Some(cause);
             break;
         }
-        if let Err(cause) = check_limits(mechanism.limits, attempt.work.observed) {
+        let local_actual = actual_facts
+            .reservation
+            .map_or(attempt.work.observed, |bound| WorkObservation {
+                attempts: attempt.work.observed.attempts,
+                evaluations: attempt.work.observed.evaluations.or(bound.evaluations),
+                iterations: attempt.work.observed.iterations.or(bound.iterations),
+                factorizations: attempt
+                    .work
+                    .observed
+                    .factorizations
+                    .or(bound.factorizations),
+                proof_steps: attempt.work.observed.proof_steps.or(bound.proof_steps),
+            });
+        if let Err(cause) = check_limits(mechanism.limits, local_actual) {
             let cause = Arc::new(cause);
             result.events.push(Event {
                 mechanism: index,
                 kind: EventKind::Abandoned,
                 phase,
+                original: None,
+                decision: None,
                 observation: Some(Observation::ResourceExhausted),
                 transition: Some(if mechanism.required {
                     Transition::Stop
@@ -823,12 +1252,37 @@ fn run_inner<T>(
             continue;
         }
         let assessment = assess(&attempt.value, attempt.observation);
+        let assessment_accounting = assessment.work.iter().try_for_each(|charge| {
+            let accounting = ledger.charge(*charge);
+            result.events.push(Event {
+                mechanism: index,
+                kind: EventKind::Finished,
+                phase: charge.phase,
+                original: None,
+                decision: None,
+                observation: None,
+                transition: None,
+                permission: None,
+                work: Some(*charge),
+                cause: accounting
+                    .as_ref()
+                    .err()
+                    .map(|cause| Arc::new(ProblemError::Internal(cause.to_string()))),
+            });
+            accounting
+        });
+        if let Err(cause) = assessment_accounting {
+            result.terminal = Some(Arc::new(cause));
+            break;
+        }
         if let Err(cause) = scope.check() {
             let cause = Arc::new(ProblemError::Provider(cause));
             result.events.push(Event {
                 mechanism: index,
                 kind: EventKind::Abandoned,
                 phase: Phase::Assessment,
+                original: None,
+                decision: None,
                 observation: Some(failure(&cause)),
                 transition: Some(Transition::Stop),
                 permission: None,
@@ -843,11 +1297,16 @@ fn run_inner<T>(
             mechanism: index,
             kind: EventKind::Finished,
             phase: Phase::Assessment,
+            original: Some(assessment.original.clone()),
+            decision: None,
             observation: Some(assessment.observation),
             transition: Some(next),
             permission: Some(assessment.retention.candidate.usability),
             work: Some(attempt.work),
-            cause: assessment.cause.clone(),
+            cause: assessment
+                .original
+                .cause()
+                .or_else(|| assessment.cause.clone()),
         });
         result.value = Some(attempt.value);
         result.assessment = Some(assessment);
@@ -932,12 +1391,12 @@ pub(crate) fn cause(outcome: &super::solves::Outcome) -> Option<Arc<ProblemError
 pub(crate) fn work(outcome: &super::solves::Outcome) -> WorkObservation {
     match outcome {
         super::solves::Outcome::Native(report) => work_native(report),
-        super::solves::Outcome::Constant(_) => WorkObservation {
+        super::solves::Outcome::Constant(report) => WorkObservation {
             attempts: 1,
-            evaluations: Some(1),
-            iterations: Some(0),
-            factorizations: Some(0),
-            proof_steps: Some(0),
+            evaluations: report.work.evaluations,
+            iterations: report.work.iterations,
+            factorizations: report.work.factorizations,
+            proof_steps: report.work.proof_steps,
         },
         super::solves::Outcome::Rejected(_) => WorkObservation {
             attempts: 1,

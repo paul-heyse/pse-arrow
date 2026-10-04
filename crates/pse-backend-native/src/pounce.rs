@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Native POUNCE TNLP adapter sharing the exact NLP oracle and callback failure policy.
 mod equalities;
+mod observed;
+mod profiles;
 mod records;
+pub use profiles::{SecondOpinionProfile, second_opinion_profiles};
 mod retained;
 pub use crate::settings::pounce::{LinearSettings, Method, Settings};
 use crate::tnlp::{Adapter, finite};
@@ -148,6 +151,9 @@ pub struct Session {
     stamp: Option<Compatibility>,
     factors: Option<Rc<RefCell<retained::Pool>>>,
     foreign_allowance: Option<usize>,
+    // Dropped after the app and factor pool; prior attempt reservations stay
+    // retained while any compatible source-owned factor can remain live.
+    storage_admissions: Vec<Arc<dyn WorkAdmission>>,
 }
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -201,12 +207,17 @@ impl Session {
         if oracle.normalization().is_some() {
             return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
         }
+        let separator = oracle.solve_separator().cloned();
         let n = oracle.contract().variables.len();
         let m = oracle.contract().rows.len();
         tolerances.validate(n, m)?;
         // Every mode but the library's quasi-Newton approximation supplies the Hessian:
         // the exact Lagrangian or the oracle's Gauss–Newton Gram.
-        let supplied = controls.hessian != HessianMode::LimitedMemory;
+        let curvature_options = settings.curvature_options(controls.hessian)?;
+        let supplied = matches!(
+            controls.hessian,
+            HessianMode::Exact | HessianMode::GaussNewton
+        );
         crate::validate_nlp(
             oracle.as_ref(),
             if supplied {
@@ -234,7 +245,10 @@ impl Session {
             crate::settings::pounce::admit_bound(v)?;
         }
         let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
-        let hess = if supplied {
+        let hess = if supplied
+            || controls.hessian == HessianMode::FiniteDifference
+                && oracle.hessian_pattern().is_some()
+        {
             Pattern::new(
                 oracle.hessian_pattern().ok_or_else(|| {
                     ProblemError::Unsupported("POUNCE exact Hessian unavailable".into())
@@ -357,7 +371,17 @@ impl Session {
                 "linear solver settings use the explicit FERAL profile".into(),
             ));
         }
+        if controls.options.keys().any(|key| {
+            key.rsplit('.').next().is_some_and(|key| {
+                key.starts_with("partitioned_") || key.starts_with("fd_hessian_")
+            })
+        }) {
+            return Err(ProblemError::Contract(
+                "curvature settings use the typed POUNCE profile".into(),
+            ));
+        }
         let mut options = controls.options.clone();
+        options.extend(curvature_options);
         options.extend(accuracy.pounce_options());
         options.extend([
             (
@@ -372,7 +396,20 @@ impl Session {
             ),
             (
                 "hessian_approximation".into(),
-                OptionValue::Text(if supplied { "exact" } else { "limited-memory" }.into()),
+                OptionValue::Text(
+                    match controls.hessian {
+                        HessianMode::Exact | HessianMode::GaussNewton => "exact",
+                        HessianMode::LimitedMemory => "limited-memory",
+                        HessianMode::Partitioned => "partitioned",
+                        HessianMode::FiniteDifference => "finite-difference",
+                        HessianMode::Auto => {
+                            return Err(ProblemError::Contract(
+                                "unresolved automatic curvature".into(),
+                            ));
+                        }
+                    }
+                    .into(),
+                ),
             ),
             (
                 "max_iter".into(),
@@ -463,6 +500,8 @@ impl Session {
             IpoptApplication::new()
         };
         app.set_convex_routing_available(false);
+        app.set_effective_feral_config(feral.clone());
+        app.clear_kkt_schur_block();
         for (k, v) in &options {
             let o = app.options_mut();
             let set = match v {
@@ -528,6 +567,15 @@ impl Session {
         } else {
             adapter.clone()
         };
+        if let Some(admission) = &execution.work_admission {
+            self.storage_admissions.push(admission.clone());
+        }
+        let observation = Rc::new(observed::Observation::new(
+            execution.clone(),
+            separator,
+            controls.foreign_bytes.or(execution.memory),
+        ));
+        let observation_scope = pounce_common::observed::Scope::enter(observation.clone());
         let status = app.optimize_tnlp_without_presolve(native);
         let mut a = adapter.borrow_mut();
         let mut report = SolveReport::new(
@@ -700,24 +748,31 @@ impl Session {
         report
             .provenance
             .insert("feral.effective".into(), effective.to_string());
-        a.state.finish(&mut report);
+        observation.record(&mut report);
         if let Some(mut candidate) = a.solution.take()
             && candidate.primal.iter().all(|v| v.is_finite())
             && candidate.objective.is_some_and(f64::is_finite)
         {
             candidate.objective = candidate.objective.map(|v| v * sense.sign());
-            match quality::contained(|| {
-                quality::nlp(a.oracle.as_mut(), &candidate.primal, tolerances)
+            let Adapter { state, oracle, .. } = &mut *a;
+            match state.evaluate("native.validation.constraints", || {
+                quality::nlp(oracle.as_mut(), &candidate.primal, tolerances)
             }) {
-                Ok(q) => {
+                Some(q) => {
                     if !q.feasible() {
-                        report.termination.assurance = Assurance::None
+                        report.termination.assurance = Assurance::None;
                     }
-                    report.quality = Some(q)
+                    report.quality = Some(q);
                 }
-                Err(e) => {
-                    report.record_validation_failure(e);
-                    report.termination.assurance = Assurance::None
+                None => {
+                    let error = state
+                        .terminal_error()
+                        .or_else(|| state.last_failure.take())
+                        .unwrap_or_else(|| {
+                            ProblemError::Internal("native validation callback failed".into())
+                        });
+                    report.record_validation_failure(error);
+                    report.termination.assurance = Assurance::None;
                 }
             }
             // The active-set working set is keyed by this attempt's native coordinates;
@@ -747,6 +802,36 @@ impl Session {
         if report.candidate.is_none() {
             report.termination.assurance = Assurance::None
         }
+        a.state.finish(&mut report);
+        let source_abort = observation_scope.abort();
+        let source_error = observation.take_error().or_else(|| {
+            source_abort.as_ref().map(|abort| match abort {
+                pounce_common::observed::Abort::Cancelled => ProblemError::Cancelled,
+                pounce_common::observed::Abort::Resource(detail) => {
+                    ProblemError::memory(detail.clone())
+                }
+                pounce_common::observed::Abort::Contract(detail) => {
+                    ProblemError::Contract(detail.clone())
+                }
+                pounce_common::observed::Abort::Panic => {
+                    ProblemError::Internal("panic in native operation observer".into())
+                }
+            })
+        });
+        if let Some(error) = source_error {
+            report.termination.category =
+                if matches!(source_abort, Some(pounce_common::observed::Abort::Panic)) {
+                    Termination::Panic
+                } else {
+                    match crate::callback::classify(&error) {
+                        crate::callback::Failure::Stopped(stop) => stop,
+                        _ => Termination::Invalid,
+                    }
+                };
+            report.record_validation_failure(error);
+            report.termination.assurance = Assurance::None;
+        }
+        drop(observation_scope);
         drop(a);
         if !matches!(
             report.termination.category,
@@ -844,6 +929,222 @@ mod tests {
             SparsityRequest::Values { values: &mut out }
         ));
         assert_eq!(out, [44.0]);
+    }
+    #[test]
+    fn objective_support_remains_conservative_at_stationary_start() {
+        let mut a = adapter();
+        let mut gradient = [1.0];
+        assert!(a.eval_grad_f(&[0.0], true, &mut gradient));
+        assert_eq!(gradient, [0.0]);
+        let mut linearity = [pounce_nlp::tnlp::Linearity::Linear];
+        assert!(a.get_objective_variables_linearity(&mut linearity));
+        assert_eq!(linearity, [pounce_nlp::tnlp::Linearity::NonLinear]);
+    }
+    #[test]
+    fn typed_curvature_settings_preserve_default_setness_and_refuse_unresolved_auto() {
+        let mut settings = Settings::default();
+        let options = settings
+            .curvature_options(HessianMode::Partitioned)
+            .unwrap();
+        assert!(!options.contains_key("partitioned_update_type"));
+        settings.partitioned.update_type =
+            Some(pse_model::generated::enums::PouncePartitionedUpdate::Sr1);
+        assert_eq!(
+            settings
+                .curvature_options(HessianMode::Partitioned)
+                .unwrap()["partitioned_update_type"],
+            OptionValue::Text("sr1".into())
+        );
+        assert!(settings.curvature_options(HessianMode::Auto).is_err());
+        settings.finite_difference.reuse_tolerance = f64::NAN;
+        assert!(
+            settings
+                .curvature_options(HessianMode::FiniteDifference)
+                .is_err()
+        );
+    }
+    #[derive(Debug)]
+    struct FirstOnly {
+        contract: crate::OracleContract,
+        jac: faer::sparse::SparseColMat<usize, f64>,
+        gradients: Arc<std::sync::atomic::AtomicUsize>,
+        separator: Option<crate::SolveSeparator>,
+    }
+    impl FirstOnly {
+        fn new(gradients: Arc<std::sync::atomic::AtomicUsize>, separated: bool) -> Self {
+            Self {
+                contract: crate::OracleContract {
+                    identity: pse_ids::ContentHash::from_bytes([19; 32]),
+                    variables: (0..4)
+                        .map(|i| crate::Variable {
+                            id: crate::solver_tests::id(i + 1),
+                            lower: -1.0,
+                            upper: 1.0,
+                        })
+                        .collect(),
+                    rows: vec![crate::solver_tests::id(5)],
+                    derivatives: pse_kernels::DerivativeOrder::First,
+                    smoothness: pse_kernels::DerivativeOrder::Second,
+                },
+                jac: faer::sparse::SparseColMat::try_new_from_triplets(
+                    1,
+                    4,
+                    &(0..4)
+                        .map(|j| faer::sparse::Triplet::new(0, j, 1.0))
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+                gradients,
+                separator: separated.then(|| crate::SolveSeparator {
+                    variables: vec![],
+                    rows: vec![0],
+                }),
+            }
+        }
+    }
+    impl NlpOracle for FirstOnly {
+        fn contract(&self) -> &crate::OracleContract {
+            &self.contract
+        }
+        fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+            self.separator.as_ref()
+        }
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.jac.symbolic()
+        }
+        fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+            None
+        }
+        fn constraint_bounds(&self) -> &[(f64, f64)] {
+            &[(1.0, 1.0)]
+        }
+        fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
+            Ok(x.iter().map(|v| v * v * 0.5).sum())
+        }
+        fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.gradients
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            out.copy_from_slice(x);
+            Ok(())
+        }
+        fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out[0] = x.iter().sum();
+            Ok(())
+        }
+        fn jacobian(&mut self, _: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out.fill(1.0);
+            Ok(())
+        }
+        fn hessian(
+            &mut self,
+            _: &[f64],
+            _: f64,
+            _: &[f64],
+            _: &mut [f64],
+        ) -> Result<(), ProblemError> {
+            panic!("First oracle Hessian must never be called")
+        }
+    }
+    fn first_run(
+        mode: HessianMode,
+        separated: bool,
+        settings: &Settings,
+        execution: Execution,
+    ) -> SolveReport {
+        let gradients = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let report = Session::new()
+            .solve(
+                Box::new(FirstOnly::new(gradients.clone(), separated)),
+                &[0.0; 4],
+                ObjectiveSense::Minimize,
+                &Controls {
+                    hessian: mode,
+                    foreign_bytes: Some(64 << 20),
+                    ..Default::default()
+                },
+                &ResolvedAccuracy::nominal(),
+                settings,
+                execution,
+                &Tolerances {
+                    variables: vec![1e-8; 4],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                None,
+                crate::solver_tests::stamp(Backend::Pounce),
+            )
+            .unwrap();
+        assert_eq!(
+            report.metrics["callback.gradient.calls"],
+            Metric::Integer(gradients.load(std::sync::atomic::Ordering::Relaxed) as i64)
+        );
+        report
+    }
+    #[test]
+    fn curvature_modes_act_on_first_only_oracle_and_count_fd_probes() {
+        for mode in [
+            HessianMode::LimitedMemory,
+            HessianMode::Partitioned,
+            HessianMode::FiniteDifference,
+        ] {
+            let report = first_run(
+                mode,
+                false,
+                &Settings::default(),
+                crate::solver_tests::execution(),
+            );
+            assert_eq!(
+                report.termination.category,
+                Termination::Success,
+                "{mode:?}"
+            );
+            let stats = report.pounce_statistics.as_ref().unwrap();
+            match mode {
+                HessianMode::Partitioned => {
+                    assert!(stats.partitioned_elements > 0);
+                    assert!(stats.partitioned_stored_reals > 0);
+                }
+                HessianMode::FiniteDifference => {
+                    assert_eq!(stats.fd_hessian_n, 4);
+                    assert_eq!(stats.fd_hessian_groups, 4);
+                    assert!(
+                        counted(&report, "callback.gradient.calls")
+                            >= i64::from(stats.num_obj_grad_evals)
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+    #[test]
+    fn bounded_schur_consumer_reports_complete_linear_reservation_and_unknown_heap() {
+        let mut settings = Settings::default();
+        settings.linear.bounded_dense_max_dimension = Some(7);
+        settings.linear.ordering = feral::symbolic::OrderingMethod::Amd;
+        let report = first_run(
+            HessianMode::FiniteDifference,
+            true,
+            &settings,
+            crate::solver_tests::execution(),
+        );
+        assert_eq!(report.termination.category, Termination::Success);
+        assert_eq!(
+            report.metrics["linear.schur.actual_use"],
+            Metric::Bool(true)
+        );
+        assert_eq!(
+            report.metrics["linear.storage.complete_extent"],
+            Metric::Bool(true)
+        );
+        assert_eq!(
+            report.metrics["linear.storage.actual_total"],
+            Metric::Text("unknown".into())
+        );
+        assert!(counted(&report, "linear.storage.reservation_bound") > 0);
+        assert_eq!(
+            report.metrics["native.application.storage.opaque"],
+            Metric::Bool(true)
+        );
     }
     #[test]
     fn settings_identity_frames_float_bits_and_refuses_external_ordering() {
@@ -1099,6 +1400,56 @@ mod tests {
         assert_eq!(report.options["max_iter"], OptionValue::Integer(3000));
         assert!(report.options.len() > 100);
         assert!(report.options.len() >= report.native_defaults.len());
+    }
+    #[test]
+    fn library_rungs_act_on_typed_factories_without_accumulating_options() {
+        let mut report = run(&mut Session::new(), Options::new(), 1).unwrap();
+        report.termination.code =
+            i64::from(ApplicationReturnStatus::InfeasibleProblemDetected.as_int());
+        let baseline = Controls::default();
+        let settings = Settings::default();
+        let rungs = second_opinion_profiles(&baseline, &settings, &report, true).unwrap();
+        let mc64 = rungs
+            .iter()
+            .find(|rung| rung.label == "feral_scaling=mc64")
+            .unwrap();
+        assert!(matches!(
+            mc64.settings.linear.scaling,
+            feral::scaling::ScalingStrategy::Mc64Symmetric
+        ));
+        assert!(!mc64.controls.options.contains_key("mu_strategy"));
+        let adaptive = rungs
+            .iter()
+            .find(|rung| rung.label == "mu_strategy=adaptive")
+            .unwrap();
+        assert!(matches!(
+            adaptive.settings.linear.scaling,
+            feral::scaling::ScalingStrategy::Auto
+        ));
+        let perturbed = rungs.iter().find(|rung| rung.replaces_start).unwrap();
+        assert!(!perturbed.controls.options.contains_key("mu_strategy"));
+        assert!(
+            second_opinion_profiles(&baseline, &settings, &report, false)
+                .unwrap()
+                .iter()
+                .all(|rung| !rung.replaces_start)
+        );
+        let acting = reuse_run(
+            &mut Session::new(),
+            &mc64.settings,
+            ReusePolicy::Fresh,
+            crate::solver_tests::stamp(Backend::Pounce),
+        )
+        .unwrap();
+        let effective: serde_json::Value =
+            serde_json::from_str(&acting.provenance["feral.effective"]).unwrap();
+        assert_eq!(effective["scaling"], serde_json::json!("mc64_symmetric"));
+        report.evidence.callback.terminal_failure = true;
+        assert!(
+            second_opinion_profiles(&baseline, &settings, &report, true)
+                .unwrap()
+                .is_empty()
+        );
     }
     #[test]
     fn local_pool_admission_does_not_accept_the_global_pool() {

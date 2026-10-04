@@ -154,10 +154,15 @@ semver = { version = "1" }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
 serde_json = { version = "1", features = ["alloc"] }
+serde_spanned = { version = "1", default-features = false, features = ["alloc", "serde"] }
 smallvec = { version = "1", default-features = false, features = ["const_generics"] }
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "full", "visit", "visit-mut"] }
 syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 tinystr = { version = "0.8", default-features = false, features = ["zerovec"] }
+toml = { version = "1", default-features = false, features = ["display", "parse", "serde"] }
+toml_datetime = { version = "1", default-features = false, features = ["alloc", "serde"] }
+toml_parser = { version = "1", default-features = false, features = ["alloc"] }
+toml_writer = { version = "1", default-features = false, features = ["alloc"] }
 typenum = { version = "1", default-features = false, features = ["const-generics"] }
 url = { version = "2" }
 yoke = { version = "0.8", default-features = false, features = ["derive"] }

@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+serde_json.workspace = true
 strum.workspace = true
 pse-quantity.workspace = true
 pse-ids.workspace = true
@@ -47,4 +48,3 @@ postgres = [
 ]
 
 [dev-dependencies]
-serde_json.workspace = true
