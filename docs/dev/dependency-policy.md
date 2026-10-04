@@ -1,7 +1,8 @@
 # Dependency and licence policy
 
 > **Decision: [ADR-0066](../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)**
-> · Blueprint §3.1, §3.3.2 · Register row R-31
+> (admission) · [ADR-0159](../adr/0159-dependencies-float-exact-pins-need-a-reason.md)
+> (versions float; pins need a reason) · Blueprint §3.1, §3.3.2 · Register row R-31
 
 ## The short version
 
@@ -9,6 +10,18 @@
 licence is grounds to refuse one. Adding a crate or a Python package needs no ADR, no
 design review, and no revision row in the architecture. Nothing in CI blocks a merge because of what
 you depended on or what licence it carries.
+
+**Versions float; the lockfiles pin.** Use the tool's default specifier — the `cargo add`
+caret, declared in `[workspace.dependencies]`, or `uv add` (a `>=` floor). `Cargo.lock` and `uv.lock`
+record what resolved, and `just upgrade` (or `just upgrade <package> …`) moves them to the
+latest the manifests allow, at your discretion; then run the tests the move affects. An
+exact version, upper cap, git revision or hold-back needs an overt reason specific to that
+dependency — a named breakage, a type-sharing family, a fork or vendored source, golden or
+byte-stable generated output, an unstable-API use, a parity or reference oracle — recorded
+beside it: an entry in `[workspace.metadata.pse.pins]` in `Cargo.toml` (family members are
+covered by `[workspace.metadata.pse.families]`), or a comment beside the `==` pin in
+`pyproject.toml`. Reproducibility, "already in the lock" and a version entering a key or
+digest are not reasons.
 
 **This is not a constraint to design or execute around.** If a library gets the platform
 working, take it. The goal right now is a functional codebase — an ambitious one — and a
@@ -28,14 +41,14 @@ for a phase-0 platform still establishing what it is.
 
 ## What is still enforced, and why
 
-Relaxing admission did not relax reproducibility. These remain project invariants,
-checked when the corresponding command is run manually:
+Relaxing admission and floating versions did not relax reproducibility. These remain
+project invariants, checked when the corresponding command is run manually:
 
 | Gate | What it protects |
 |---|---|
 | `just family-check` (`rust / family-check` when manually dispatched) | **One type universe.** Exactly one resolved `arrow`, `parquet`, `object_store`, `datafusion` and `pyo3`. Two majors make `downcast_ref` return `None` with no compile error — a silent failure that reads like a logic bug. This is the invariant `deny.toml`'s `multiple-versions` used to stand in for, and it states it far more precisely. |
-| `tests/governance/tests/dependency_pins.rs` | **Exact declarations.** External workspace dependencies have an exact version or commit in Cargo; blueprint tables are not a second pin authority. |
-| `=` and `==` pins, committed `Cargo.lock` and `uv.lock`, every gate `--locked` | Reproducibility. Moving a pin is still `cargo update -p <name> --precise <ver>` or `uv lock --upgrade-package <name>`, never a bare `cargo update` / `uv lock`. |
+| `tests/governance/tests/dependency_pins.rs` | **Reasoned pins.** An exact `=` requirement or git revision in `[workspace.dependencies]` is a declared family member or has a reason in `[workspace.metadata.pse.pins]`; a git source names a full commit. Blueprint tables are not a second pin authority. |
+| Committed `Cargo.lock` and `uv.lock`, every gate `--locked` | Reproducibility. Versions move only through the lockfiles, with `just upgrade`; a run never resolves anew. |
 | ADR for **majoring** one of the four pinned families | A family major changes the API surface the capability maps were extracted against. |
 | ADR for adding or removing a **workspace** (`pse-*`) crate | A crate boundary is architecture, not a dependency. |
 | `reuse lint` | SPDX headers on **our own** files. Unrelated to third-party licences. |

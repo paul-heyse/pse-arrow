@@ -85,8 +85,9 @@ Out of scope:
 
 ## How we handle dependencies
 
-Every dependency is version-pinned (`=` for Rust, `==` for Python), the lockfiles are
-committed, and every gate runs `--locked`. `cargo deny check` (advisories, licences, bans,
+Every dependency resolves through the committed lockfiles (`Cargo.lock`, `uv.lock`) and
+every gate runs `--locked`; manifests carry carets and floors, and an exact pin carries a
+recorded reason (ADR-0159). `cargo deny check` (advisories, licences, bans,
 sources) and `cargo audit` run on every pull request as `rust / deny`, and `just policy`
 runs them strictly on demand.
 

@@ -1033,10 +1033,34 @@ labels-sync:
 gh-setup *args:
     ./scripts/gh-setup.sh {{ args }}
 
+# Move the lockfiles to the latest versions the manifests allow, at the agent's discretion;
+# then run the tests the move affects (ADR-0159). Upgrade-specific checks join this recipe
+# when a need emerges. No argument moves uv.lock and Cargo.lock; package names move only
+# those packages, in whichever lockfile holds them. A family moves as a unit
+# (`just family-check`), and an exact pin moves only by editing its manifest entry.
 [group('mutating')]
-[doc('Move one Python pin deliberately: just lock-upgrade <package>')]
-lock-upgrade pkg:
-    uv lock --upgrade-package {{ pkg }}
+[doc('Move lockfiles to the latest allowed versions: just upgrade [package ...]')]
+upgrade *packages:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "{{ packages }}" ]; then
+        uv lock --upgrade
+        cargo update
+        exit 0
+    fi
+    for p in {{ packages }}; do
+        moved=0
+        if grep -qiE "^name = \"${p//_/[-_]}\"$" uv.lock; then
+            uv lock --upgrade-package "$p"; moved=1
+        fi
+        if grep -qE "^name = \"$p\"$" Cargo.lock; then
+            cargo update -p "$p"; moved=1
+        fi
+        if [ "$moved" = 0 ]; then
+            echo "upgrade: $p is in neither uv.lock nor Cargo.lock" >&2
+            exit 1
+        fi
+    done
 
 [group('mutating')]
 [doc('Materialize shared skill aliases; native agent adapters are maintained separately')]

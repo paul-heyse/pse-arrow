@@ -1,6 +1,6 @@
 ---
 name: adr
-description: Write, lint, index or supersede an architecture decision record for pse-arrow. Use when a change alters a D1-D14 decision, adds or removes a crate, moves a dependency family or pin, changes the hashing, Python-boundary, metadata or commit contract, deviates from a SHOULD, moves the IDAES parity pin, fires a deferred trigger from the register, or touches governance - and whenever someone says "ADR", "decision record", "needs-adr", "why was this decided", "supersede ADR-NNNN", "just adr-new", or asks whether a change needs a decision record or a design review.
+description: Write, lint, index or supersede an architecture decision record for pse-arrow. Use when a change alters a D1-D14 decision, adds or removes a crate, moves a dependency family, changes the hashing, Python-boundary, metadata or commit contract, deviates from a SHOULD, moves the IDAES parity pin, fires a deferred trigger from the register, or touches governance - and whenever someone says "ADR", "decision record", "needs-adr", "why was this decided", "supersede ADR-NNNN", "just adr-new", or asks whether a change needs a decision record or a design review.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 user-invocable: true
 model-baseline: claude-5 (2026-08)
@@ -23,7 +23,7 @@ index has gaps. To understand the current system, read the owning section first.
 |---|---|
 | Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, the metadata conventions or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** — label the PR `needs-review`; the review's verdict must be Accept or Accept-scoped before the record's status becomes `accepted` |
 | New relation family, pass, kernel contract or backend binding **within** an accepted decision; a small local SHOULD deviation; moving the IDAES parity pin; a deferred trigger in `docs/adr/register.md` fires | **ADR (short)**; review at maintainer discretion |
-| Bug fixes; refactors inside existing contracts; tests; documentation wording; a patch bump inside a pinned family; tooling | **Neither** — an ordinary PR with the Evidence field of the PR template filled |
+| Bug fixes; refactors inside existing contracts; tests; documentation wording; a patch bump inside a pinned family; adding, removing, upgrading or (with a recorded reason) pinning a third-party dependency; tooling | **Neither** — an ordinary PR with the Evidence field of the PR template filled |
 
 If you are unsure, look at what the change touches: a change that makes a
 previously-recorded decision untrue needs an ADR that supersedes it, not an edit.

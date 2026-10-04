@@ -347,7 +347,7 @@ Then remove `blueprint_crates()`, the layout amendment reader and its TOML after
 last consumer moves. No new workspace registry, generated manifest or document parser.
 
 The pin-table parser and its exemption inventory were already removed in P17. Preserve
-`dependency_pins.rs` and `family-check`; remove redundant prose pin tables without adding
+`family-check`; the dependency-pins test checks that exact pins carry a reason; remove redundant prose pin tables without adding
 replacement checks. Use the existing shared section resolver for all moved identities.
 Keep published owners for surviving numbered sections: excluding an owner while leaving
 it in the derived directory would create a broken link. Publish necessary compatibility

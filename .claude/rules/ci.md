@@ -30,8 +30,9 @@ When reviewing workflow edits, `just lint-repo` runs `actionlint` and `zizmor` o
   pass review.
 - `permissions: contents: read` at the top of every workflow, widened per job only where
   a job actually needs it.
-- Tool versions are env vars at workflow level and come from the same pins as local
-  development. Never `pip install ruff` or `cargo install` an unpinned tool in a job.
+- Tools come from the same locked environment as local development (`uv.lock`, the
+  pinned toolchain); a version a workflow must name is an env var at workflow level. Never
+  `pip install ruff` or `cargo install` a tool outside the locked environment in a job.
 - `concurrency` per ref for manually dispatched checks.
 - No `RUSTFLAGS` in CI, and `sccache` stays off there — both change what is being
   verified relative to a local `just ci-fast`.

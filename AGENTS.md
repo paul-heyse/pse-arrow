@@ -130,8 +130,9 @@ start or require CI.
    `crates/pse-workspace-hack/Cargo.toml` and each member's `pse-workspace-hack` line
    (`.config/hakari.toml` is their source). `just codegen-check`
    is available to check this manually; a hand edit there is a red diff, not a fix.
-3. **One authoritative declaration per meaning.** Version pins live once in `Cargo.toml`
-   (`[workspace.dependencies]`) and once in `pyproject.toml`. A schema is declared in the
+3. **One authoritative declaration per meaning.** A dependency is declared once, in
+   `Cargo.toml` (`[workspace.dependencies]`) or `pyproject.toml`, and a pin's reason once
+   beside it (`[workspace.metadata.pse.pins]`). A schema is declared in the
    registry, never inferred. If you find yourself writing a fact down twice, one of the
    two is wrong and nothing will tell you which.
 4. **Label every claim with the evidence vocabulary** (design principles §D): *Proposed*,
@@ -167,8 +168,8 @@ dependencies beyond initial pointers.
 
 The architecture sections own contracts; ADRs own rationale; reviews supply evidence.
 Cite stable section IDs (for example blueprint §14.3), never line numbers. The repository
-map and authority references are in [docs/README.md](docs/README.md). Pins remain declared
-in Cargo.toml and pyproject.toml; the layered review standard is selected by
+map and authority references are in [docs/README.md](docs/README.md). Dependencies and their
+pin reasons are declared in Cargo.toml and pyproject.toml; the layered review standard is selected by
 `docs/design_review/design_principles/standard.toml`. Do not restate their authority.
 
 ## Invariants
@@ -193,12 +194,32 @@ in Cargo.toml and pyproject.toml; the layered review standard is selected by
   blueprint §23.2 code. No `anyhow` in `crates/*`.
 - **`typing.Any` is banned in Python.** `from __future__ import annotations` is allowed:
   `pse.governance` and the codec resolve postponed annotations before inspecting them.
-- **No library or licence is refused** through phases 0–1. Admission is advisory; pinning,
-  the one type universe and the import boundaries are not (§3.3.2, ADR-0066).
+- **No library or licence is refused** through phases 0–1. Admission is advisory; the one
+  type universe, locked resolution, reasoned pins and the import boundaries are not
+  (§3.3.2, ADR-0066, ADR-0159).
 - **Exactly one of `unit`/`component`/`integration`/`performance`** per Python test;
   `conftest.py` hard-fails at collection otherwise.
 - **The parity suite fails, it never skips.** A missing solver or a wrong IDAES version
   is a failure, not a skip.
+
+## Dependencies
+
+- **Add freely.** Add any library the work warrants without asking: no ADR and no pin
+  entry. Use the tool's default specifier — `uv add` (a `>=` floor), and for Rust the
+  `cargo add` caret, declared in `[workspace.dependencies]` and inherited with
+  `.workspace = true`.
+- **Latest by default.** The resolver picks versions; the committed lockfiles record them and
+  the `--locked` gates keep runs reproducible. Move to the latest at your discretion with
+  `just upgrade` (or `just upgrade <package> …`), then run the tests the move affects. A
+  family moves as a unit and `just family-check` must stay green; a family major needs an ADR.
+- **Pin only for a reason.** An exact version, upper cap, git rev or hold-back needs an overt
+  reason specific to that dependency — a named breakage, a type-sharing family that must
+  resolve to one version, a fork or vendored source, golden or byte-stable output, a parity
+  oracle, wheel availability — recorded beside it: a `[workspace.metadata.pse.pins]` entry in
+  `Cargo.toml` (family members are covered by `[workspace.metadata.pse.families]`), or a
+  comment beside the `==` pin in `pyproject.toml`. The `dependency_pins` governance test
+  checks that every exact Rust pin has one (ADR-0159). Reproducibility, "already in the
+  lock" and a version entering a key or digest are not reasons.
 
 ## Gotchas that have already cost time here
 
@@ -277,7 +298,7 @@ implementation acceptance. See `.claude/rules/decisions.md` and blueprint §24.4
 |---|---|
 | Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions or the commit contract; any SHOULD deviation; governance changes | ADR **and** a design review (`needs-review`; verdict Accept or Accept-scoped before `status: accepted`) |
 | New relation family, pass, kernel contract or backend binding *within* an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | ADR (short); review at maintainer discretion |
-| Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, adding, removing or upgrading a third-party dependency, tooling | Neither. An ordinary PR with the evidence field filled |
+| Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, adding, removing, upgrading or (with a recorded reason) pinning a third-party dependency, tooling | Neither. An ordinary PR with the evidence field filled |
 
 An ADR enters or changes status only in a PR labeled `adr` and titled `adr: ADR-NNNN
 <title>`; the same PR (or a named follow-up `design:` PR) amends the architecture sections

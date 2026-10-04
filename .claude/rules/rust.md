@@ -13,8 +13,12 @@ paths:
 
 No third-party crate is refused and no licence is grounds to refuse one through phases
 0–1. `deny.toml` bans nothing, `cargo deny` reports without gating, and blueprint §3.1 is
-a pin list, not an admission list. Adding a dependency needs no ADR and no design review —
-add it, `=`-pin it in `[workspace.dependencies]`, commit `Cargo.lock`. Read
+about version authority, not admission. Adding a dependency needs no ADR and no design
+review — declare it in `[workspace.dependencies]` with a caret (the `cargo add` default),
+inherit it with `.workspace = true`, commit `Cargo.lock`.
+Versions float under the lock; `just upgrade` moves them. An exact `=` or git revision needs
+a family membership or a reason in `[workspace.metadata.pse.pins]` (`dependency_pins`,
+ADR-0159). Read
 [`docs/dev/dependency-policy.md`](../../docs/dev/dependency-policy.md) before assuming
 something is off-limits; it also says what *is* still enforced, starting with the next
 section.
@@ -84,7 +88,7 @@ reports (ADR-0143). Once all functional scope in the plan is
 implemented (or when the maintainer requests comprehensive qualification), `just ci-fast` covers fmt,
 `cargo check`, clippy `-D warnings`, nextest and doctests — **nextest does not run
 doctests**, which is why `just doctest` is a separate step. `just governance` covers
-pins, crate registration, the nightly pin against the `rust-version` floor, dependency
+pin reasons, crate registration, the nightly pin against the `rust-version` floor, dependency
 floors, unsafe allowlist and error taxonomy.
 Select integration and performance checks for the implemented scope. These aggregates
 are not commit, push or merge gates.

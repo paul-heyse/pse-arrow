@@ -29,8 +29,9 @@ materializes skill aliases when symlinks are unavailable; it never regenerates n
 `just lint-agents` checks references, aliases and shared contracts; `just setup-test` checks behavior.
 
 Use planning for architecture, pinned-family-major, generation and Python-boundary
-changes. Adding a third-party dependency is not one of them: no library and no licence is
-refused during phases 0-1 (`docs/dev/dependency-policy.md`, ADR-0066). Apply the ADR
+changes. Adding or upgrading a third-party dependency is not one of them: no library and no
+licence is refused during phases 0-1, and versions float under the lockfiles
+(`docs/dev/dependency-policy.md`, ADR-0066, ADR-0159). Apply the ADR
 criteria in AGENTS.md: touching those files alone does not make every bug fix an
 architecture decision. Use the `adr` and `design-review` skills when
 required. Plans belong in `docs/plans/`, never in a runtime's private home directory.

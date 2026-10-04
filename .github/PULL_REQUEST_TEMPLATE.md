@@ -49,9 +49,9 @@ is. Say what you did NOT verify too.
 - [ ] An ADR is referenced above, **or** I have stated why no ADR is needed.
 - [ ] Generated sources were regenerated with `just codegen` and committed
       (`rust / codegen-diff` is green), or this PR touches no generator input.
-- [ ] Lockfiles (`Cargo.lock`, `uv.lock`) changed only deliberately, by a targeted
-      `cargo update -p … --precise …` / `uv lock --upgrade-package …`, and the reason is
-      in the summary — no bare `cargo update` / `uv lock`.
+- [ ] Lockfiles (`Cargo.lock`, `uv.lock`) moved through `just upgrade` (or a dependency
+      add), the affected tests ran, and any new exact pin, cap or git revision has its
+      reason recorded beside it (ADR-0159).
 - [ ] If one of the four pinned families was **majored** (arrow, datafusion, pyo3,
       object_store): the ADR exists, the capability map under `docs/capability-maps/` was
       regenerated, and `just family-check` passes. *Adding a dependency needs none of

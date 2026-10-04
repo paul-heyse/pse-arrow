@@ -70,7 +70,7 @@ scripts/               stdlib helpers: doctor, bootstrap, adr, register, generat
 | What the system is and how it is structured | [Architecture entrypoint](docs/authoritative_design/README.md), routing to the numbered section owners |
 | Why a decision was made | `docs/adr/` (index: `docs/adr/README.md`) |
 | What is deferred, and what re-opens it | `docs/adr/register.md` |
-| What versions are pinned | `Cargo.toml`, `Cargo.lock`, `pyproject.toml`, `uv.lock` |
+| What versions are in use, and which are pinned and why | `Cargo.lock` and `uv.lock`; pin reasons in `Cargo.toml` (`[workspace.metadata.pse.pins]`) and `pyproject.toml` |
 | What a library can actually do | `docs/capability-maps/` and its `evidence/` |
 | How work is sequenced | [Current work](docs/plans/README.md) |
 | How to contribute, and when an ADR is required | `CONTRIBUTING.md`, `GOVERNANCE.md` |

@@ -92,7 +92,7 @@ An ADR whose `level` is `must-gap` **narrows scope**; it never claims compliance
 |---|---|
 | Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions, or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** (label `needs-review`; verdict Accept or Accept-scoped before `status: accepted`) |
 | A new relation family, pass, kernel contract, or backend binding within an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | **ADR (short)**; review at maintainer discretion |
-| Bug fixes, refactors within contracts, tests, documentation wording, patch bumps inside a pinned family, tooling | **Neither**; an ordinary pull request with the evidence field filled |
+| Bug fixes, refactors within contracts, tests, documentation wording, patch bumps inside a pinned family, adding, removing, upgrading or (with a recorded reason) pinning a third-party dependency, tooling | **Neither**; an ordinary pull request with the evidence field filled |
 
 Anyone may propose a decision by opening a `design-decision` issue. The maintainer labels
 it `needs-adr` when it clears that bar; the `needs-adr` label on an open issue or PR is
@@ -176,19 +176,24 @@ that had to change — each tolerance change called out individually in the PR b
 A parity run can be requested to review the pinned interpreters. The pin is never moved
 in the same PR as a behavioural change on our side.
 
-**Adding a dependency.** Nothing. No library is refused and no licence is grounds to
-refuse one through phases 0–1: add it, pin it exactly, commit the lockfile. No ADR, no
-design review, no blueprint row. See [dependency policy](docs/dev/dependency-policy.md)
-and ADR-0066 for the reasoning, what is still enforced, and register row R-31 — the dated
+**Adding or upgrading a dependency.** Nothing. No library is refused and no licence is
+grounds to refuse one through phases 0–1: add it with the default specifier (a caret, or a
+`>=` floor in Python), commit the lockfile. No ADR, no design review, no blueprint row.
+Versions float under the committed lockfiles; `just upgrade` moves them to the latest at the
+contributor's discretion. An exact pin, cap or git revision needs a reason specific to that
+dependency, recorded beside it (`[workspace.metadata.pse.pins]` in `Cargo.toml`, a comment
+in `pyproject.toml`; ADR-0159). See [dependency policy](docs/dev/dependency-policy.md) and
+ADR-0066 for the reasoning, what is still enforced, and register row R-31 — the dated
 obligation to answer the licensing question before anything is published.
 
 **Dependency families (arrow, datafusion, pyo3, object_store).** A family is pinned with
-`=` once in `[workspace.dependencies]` and moves as a unit. A **major** move follows all
-six steps below; a patch bump inside the pinned family needs none of them:
+`=` once in `[workspace.dependencies]`, declared in `[workspace.metadata.pse.families]`, and
+moves as a unit. A **major** move follows all six steps below; a patch bump inside the
+pinned family needs none of them:
 
 1. An ADR records the move, the reason, and what was re-checked.
-2. `cargo update -p <crate> --precise <version>` for each member — never a bare
-   `cargo update`; `Cargo.lock` is committed.
+2. Every member's `=` requirement and the `families` entry move together, then
+   `just upgrade <crate> …` (`cargo update -p`) resolves them; `Cargo.lock` is committed.
 3. `cargo xtask family-check` must pass: exactly one resolved version per family, and
    packages shared with the evidence lockfiles must match. `cargo tree -d` cannot detect
    a mixed family; this check can.
@@ -202,7 +207,7 @@ six steps below; a patch bump inside the pinned family needs none of them:
 
 Dependabot proposes these as grouped PRs (`arrow-family`, `datafusion-family`,
 `pyo3-family`, `codegen`, `numerics`) so the unit is preserved; a PR that moves part of a
-group is closed, not merged. Python pins move with `uv lock --upgrade-package <name>`;
+group is closed, not merged. Python dependencies move with `just upgrade [package]`;
 `idaes-pse` is explicitly ignored by Dependabot because it is the parity pin.
 
 **The Rust toolchain and MSRV.** `rust-toolchain.toml` pins one dated nightly, the only
