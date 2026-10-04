@@ -718,6 +718,33 @@ Transition-bearing completion events remain separate from assessment charges. Cl
 owned indirection for retained proposal/binding payloads, preserve move and lease ownership, and
 simplify conditions and test helpers without lint suppressions or a second execution path.
 
+**Implemented:** an adjacent selected-supplier control exposed a genuine producer bug:
+composite admission checked extents without establishing its selected sheets, so the first
+evaluation changed realization identity after consumer demand capture. Reconstruction admission
+now returns a typed, unqualified actual point. Composite admission transports these points in
+dependency order and establishes every supplier before capture. The actual selected-supplier
+readout owns this transport. Certified evaluation and the strict consumed-parameter/sheet guard
+remain required; the admission point supplies no accuracy certificate.
+
+**Tested:** `just native-test` with the focused selection and `--test-threads 4` passed 27/27 against a
+zero-failure baseline with native solver features, explicit force-validation and the memory cap.
+The selection includes all six reported failures; actual reconstruction/refinement and original
+correction; disjoint/chained admission and uncertainty controls; initialization; Root/KKT prediction;
+Ipopt/POUNCE/SCIP root responses; strict declared-rung admission; and the weighted Jacobian control.
+`just unit-package pse-math 'test(derived::tests)'` separately passed 19/19 with force-validation:
+retained identity, consumed-product accuracy, missing-action refusal, ill-conditioning, zero-row
+reconstruction and terminal original obligations. This is composite focused evidence after the
+adjacent producer failure was repaired, not a full-suite rerun. The two reported publication
+timeouts remain outside this task. The maintainer requested closeout followed by a stop; remaining
+25n implementation and the proposed review remain paused.
+
+**Interface-checked:** final `just clippy` completed both workspace/all-target modes (default and
+no-default-features), and `just lint-solver-contracts` completed the linked native/all-target graph,
+including conformance and benchmark consumers with force-validation. All use keep-going and
+`-D warnings`; final results are zero errors and warnings against the zero baseline. Earlier
+blocked consumers were rechecked after their prerequisite repairs. No comprehensive hygiene or
+full scientific/durable qualification is claimed by this bounded closeout.
+
 ### Remaining implementation and validation
 
 Resume only after the maintainer’s review instructions. Resolve the outstanding packet obligations

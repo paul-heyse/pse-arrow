@@ -536,6 +536,14 @@ impl ReconstructionContract {
         self.support
     }
 }
+/// Actual full local point used to establish reconstruction conditions and selected
+/// sheet lineage. This admission readout is unqualified: it supplies no forward
+/// accuracy evidence, certificate or consumer refinement guarantee.
+#[derive(Clone, Debug)]
+pub struct ReconstructionAdmission {
+    /// Admitted point in the supplier's full original coordinate order.
+    pub values: Vec<f64>,
+}
 /// A realized reconstructed point or direction with evidence for the exact consumed
 /// product. A small eliminated residual is not this forward error evidence.
 #[derive(Clone, Debug)]
@@ -603,7 +611,10 @@ pub trait ReconstructionOracle: std::fmt::Debug {
     }
     /// Establish the declared reconstruction conditions at this actual reduced point.
     /// Unknown regularity or an unavailable/disconnected selected sheet must refuse.
-    fn admit(&mut self, x: &[f64]) -> Result<(), Self::Error>;
+    /// Return the actual local point so dependent suppliers can establish their
+    /// conditions before consumed-product identity is captured. This point is not
+    /// qualified accuracy evidence and cannot satisfy a consumer demand.
+    fn admit(&mut self, x: &[f64]) -> Result<ReconstructionAdmission, Self::Error>;
     /// Reconstruct a full original point using actual consumed forward accuracy.
     fn point(
         &mut self,
@@ -1790,7 +1801,8 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
     /// supplier's certified transport rather than changing a demand during evaluation.
     pub fn prepare_reconstruction(&mut self, x: &[f64]) -> Result<(), O::Error> {
         self.input(x)?;
-        self.reconstruction.admit(x)
+        self.reconstruction.admit(x)?;
+        Ok(())
     }
     /// Exact scope of the reconstructed-point product. The caller supplies its actual
     /// consumer allowance/class using this identity, never a universal inner tolerance.
@@ -3890,9 +3902,11 @@ mod tests {
         fn realization(&self) -> ContentHash {
             self.realization
         }
-        fn admit(&mut self, _x: &[f64]) -> Result<(), MathError> {
+        fn admit(&mut self, x: &[f64]) -> Result<ReconstructionAdmission, MathError> {
             if self.admitted {
-                Ok(())
+                Ok(ReconstructionAdmission {
+                    values: vec![x[0], 1.0 - x[0] * x[0]],
+                })
             } else {
                 Err(MathError::Domain {
                     source_id: id(10),

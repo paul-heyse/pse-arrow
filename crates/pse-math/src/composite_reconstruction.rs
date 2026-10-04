@@ -4,8 +4,8 @@
 use crate::{
     MathError,
     derived::{
-        DerivativeSupport, OriginalContract, ReconstructionContract, ReconstructionObservation,
-        ReconstructionOracle, RefinementLimits,
+        DerivativeSupport, OriginalContract, ReconstructionAdmission, ReconstructionContract,
+        ReconstructionObservation, ReconstructionOracle, RefinementLimits,
     },
     index::{Entry, GlobalCol, GlobalRow},
 };
@@ -472,12 +472,46 @@ impl<R: ReconstructionOracle> ReconstructionOracle for CompositeReconstruction<R
         }
         h.finish_hash()
     }
-    fn admit(&mut self, x: &[f64]) -> Result<(), Self::Error> {
+    fn admit(&mut self, x: &[f64]) -> Result<ReconstructionAdmission, Self::Error> {
         if x.len() != self.contract.retained().len() || x.iter().any(|v| !v.is_finite()) {
             return Err(MathError::Contract("composite input admission".into()).into());
         }
-        // Each actual local point is admitted immediately before consuming its supplier.
-        Ok(())
+        let mut values = vec![0.0; self.contract.original().coordinates().len()];
+        for (column, value) in self.contract.retained().iter().zip(x) {
+            values[column.get()] = *value;
+        }
+        // Establish every actual selected sheet before the enclosing consumer captures
+        // its product identity. Children use their predecessors' evaluated points,
+        // without treating these admission readouts as accuracy evidence.
+        for (supplier, columns) in self.suppliers.iter_mut().zip(&self.columns) {
+            let local_x: Vec<_> = supplier
+                .contract()
+                .retained()
+                .iter()
+                .map(|c| values[columns[c.get()]])
+                .collect();
+            let admitted = supplier.admit(&local_x)?;
+            if admitted.values.len() != columns.len()
+                || admitted.values.iter().any(|v| !v.is_finite())
+            {
+                return Err(MathError::Contract(
+                    "composite admitted point extent/value refusal".into(),
+                )
+                .into());
+            }
+            for (column, value) in supplier.contract().retained().iter().zip(&local_x) {
+                if admitted.values[column.get()] != *value {
+                    return Err(MathError::Contract(
+                        "composite admitted retained identity refusal".into(),
+                    )
+                    .into());
+                }
+            }
+            for (local, global) in columns.iter().enumerate() {
+                values[*global] = admitted.values[local];
+            }
+        }
+        Ok(ReconstructionAdmission { values })
     }
     fn point(
         &mut self,
@@ -540,7 +574,8 @@ fn consumed<R: ReconstructionOracle>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::derived::{Constraint, Coordinate, OriginalObligations};
+    use crate::derived::{Constraint, Coordinate, DerivedFamily, Oracle, OriginalObligations};
+    use std::{cell::Cell, rc::Rc};
     fn hash(n: u8) -> ContentHash {
         ContentHash::from_bytes([n; 32])
     }
@@ -585,6 +620,7 @@ mod tests {
     struct Linear {
         contract: Arc<ReconstructionContract>,
         error: f64,
+        admitted: Rc<Cell<Option<f64>>>,
     }
     impl ReconstructionOracle for Linear {
         type Error = MathError;
@@ -592,10 +628,25 @@ mod tests {
             &self.contract
         }
         fn realization(&self) -> ContentHash {
-            hash(9)
+            let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+            h.hash(&hash(9));
+            match self.admitted.get() {
+                Some(anchor) => {
+                    h.bool(true).f64(anchor);
+                }
+                None => {
+                    h.bool(false);
+                }
+            }
+            h.finish_hash()
         }
-        fn admit(&mut self, _: &[f64]) -> Result<(), MathError> {
-            Ok(())
+        fn admit(&mut self, x: &[f64]) -> Result<ReconstructionAdmission, MathError> {
+            if self.admitted.get().is_none() {
+                self.admitted.set(Some(x[0]));
+            }
+            Ok(ReconstructionAdmission {
+                values: vec![x[0], 2.0 * x[0]],
+            })
         }
         fn point(
             &mut self,
@@ -636,7 +687,7 @@ mod tests {
         fn supports_uncertainty(&self) -> bool {
             true
         }
-        fn admit(&mut self, x: &[f64]) -> Result<(), MathError> {
+        fn admit(&mut self, x: &[f64]) -> Result<ReconstructionAdmission, MathError> {
             self.0.admit(x)
         }
         fn point(
@@ -712,7 +763,100 @@ mod tests {
             )
             .unwrap(),
         );
-        Linear { contract, error }
+        Linear {
+            contract,
+            error,
+            admitted: Rc::new(Cell::new(None)),
+        }
+    }
+    #[derive(Debug)]
+    struct LinearOriginal {
+        contract: Arc<OriginalContract>,
+        chain: bool,
+    }
+    impl Oracle for LinearOriginal {
+        type Error = MathError;
+        fn contract(&self) -> &OriginalContract {
+            &self.contract
+        }
+        fn values(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), MathError> {
+            out[0] = x[1] - 2.0 * x[0];
+            out[1] = x[2] - 2.0 * x[usize::from(self.chain)];
+            Ok(())
+        }
+        fn jacobian_product(
+            &mut self,
+            _: &[f64],
+            v: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), MathError> {
+            self.values(v, out)
+        }
+    }
+    #[test]
+    fn composite_admission_binds_actual_child_sheets_before_consumed_demand() {
+        for chain in [false, true] {
+            let original = original();
+            let workers = vec![
+                supplier(&original, 0, 1, 0, 0.0),
+                supplier(&original, usize::from(chain), 2, 1, 0.0),
+            ];
+            let admissions: Vec<_> = workers.iter().map(|w| w.admitted.clone()).collect();
+            let contract = CompositeReconstruction::<Linear>::prepare_contract(
+                original.clone(),
+                vec![0.into()],
+                &workers
+                    .iter()
+                    .map(|s| s.contract.clone())
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+            let family =
+                Arc::new(DerivedFamily::reduced_space(original.clone(), contract.clone()).unwrap());
+            let composite = CompositeReconstruction::new(contract, workers).unwrap();
+            let mut bound = family
+                .bind_reduced(
+                    LinearOriginal {
+                        contract: original.clone(),
+                        chain,
+                    },
+                    composite,
+                    hash(40),
+                )
+                .unwrap();
+            let unbound = bound.key();
+            bound.prepare_reconstruction(&[3.0]).unwrap();
+            assert_eq!(admissions[0].get(), Some(3.0));
+            // The dependent child must bind at the actual reconstructed predecessor,
+            // rather than a zero placeholder or the outer retained point.
+            assert_eq!(admissions[1].get(), Some(if chain { 6.0 } else { 3.0 }));
+            assert_ne!(bound.key(), unbound);
+            let admitted = bound.key();
+            let point_demand = AccuracyDemand {
+                product: bound.point_product(&[3.0]).unwrap().key().unwrap(),
+                normalization: original.normalization(),
+                allowance: 1e-9,
+                class: AccuracyClass::Certified,
+            };
+            let action_demand = AccuracyDemand {
+                product: bound.action_product(&[3.0], &[1.0]).unwrap().key().unwrap(),
+                ..point_demand
+            };
+            let limits = RefinementLimits {
+                rounds: 4,
+                proof_cells: 64,
+            };
+            let point = bound.reconstruct(&[3.0], &point_demand, limits).unwrap();
+            assert_eq!(point.values, [3.0, 6.0, if chain { 12.0 } else { 6.0 }]);
+            let (rows, action, accuracy) = bound
+                .original_composition_product(&[3.0], &[1.0], &point_demand, &action_demand, limits)
+                .unwrap();
+            assert_eq!(rows, [0.0, 0.0]);
+            assert_eq!(action.values, [1.0, 2.0, if chain { 4.0 } else { 2.0 }]);
+            assert!(accuracy.point.satisfies(&point_demand));
+            assert!(accuracy.action.unwrap().satisfies(&action_demand));
+            assert_eq!(bound.key(), admitted);
+        }
     }
     #[test]
     fn composite_disjoint_and_exact_chain_actions_consume_actual_accuracy() {

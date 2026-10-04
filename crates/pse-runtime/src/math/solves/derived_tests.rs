@@ -1712,7 +1712,11 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .await
         .unwrap();
     let anchor = result.prediction_anchor(0.0);
-    assert!(anchor.is_ok(), "{anchor:?}; diagnostic={:?}", result.diagnostic());
+    assert!(
+        anchor.is_ok(),
+        "{anchor:?}; diagnostic={:?}",
+        result.diagnostic()
+    );
     let Outcome::Native(report) = &result.outcome else {
         panic!("actual original corrector")
     };
@@ -1729,7 +1733,10 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         trace
             .events
             .iter()
-            .filter(|e| e.kind == pse_model::generated::enums::NumericalEventKind::Finished)
+            .filter(|e| {
+                e.kind == pse_model::generated::enums::NumericalEventKind::Finished
+                    && e.transition.is_some()
+            })
             .count(),
         2
     );

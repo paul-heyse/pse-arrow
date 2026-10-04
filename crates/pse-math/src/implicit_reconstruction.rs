@@ -4,8 +4,9 @@
 use crate::{
     MathError,
     derived::{
-        Coordinate, DerivativeSupport, OriginalContract, ReconstructionContract,
-        ReconstructionObservation, ReconstructionOracle, ReconstructionProducer,
+        Coordinate, DerivativeSupport, OriginalContract, ReconstructionAdmission,
+        ReconstructionContract, ReconstructionObservation, ReconstructionOracle,
+        ReconstructionProducer,
     },
     implicit::{RegimeFactory, RegimeSelection, RootActionEvidence, SelectionProofRefusal},
     index::{Entry, GlobalCol, GlobalRow},
@@ -878,9 +879,10 @@ impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle
         }
         h.finish_hash()
     }
-    fn admit(&mut self, x: &[f64]) -> Result<(), E> {
+    fn admit(&mut self, x: &[f64]) -> Result<ReconstructionAdmission, E> {
         self.check_input(x)?;
-        self.selection
+        let selected = self
+            .selection
             .evaluate(x, DerivativeOrder::First, &self.cancel)?;
         if self.selection.sheet_identity().is_none() || self.selection.selected_chart().is_none() {
             return Err(MathError::Contract(
@@ -888,7 +890,9 @@ impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle
             )
             .into());
         }
-        Ok(())
+        Ok(ReconstructionAdmission {
+            values: self.full(x, &selected.values)?,
+        })
     }
     fn point(
         &mut self,

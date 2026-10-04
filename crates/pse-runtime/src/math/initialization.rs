@@ -1152,53 +1152,50 @@ impl Blocks<'_> {
                     break;
                 }
             }
-            if completed
-                && let Some(original_case) = &self.prepared.original
-            {
-                    let values = values.clone();
-                    let numerics = self.numerics.clone();
-                    let structure = original_case.assembly.structure().clone();
-                    self.scope.check().map_err(native::ProblemError::Provider)?;
-                    completed = self
-                        .service
-                        .with_owned_worker(
-                            original_case.clone(),
-                            self.providers.clone(),
-                            self.cancel,
-                            Some((self.scope.clone(), self.control.clone())),
-                            move |mut worker| {
-                                let rows = worker.constraints(&values)?;
-                                let row_ids: Vec<_> =
-                                    structure.rows().iter().map(|r| r.id).collect();
-                                let tolerances = Tolerances::from_policy(
-                                    &numerics,
-                                    &structure
-                                        .variables()
-                                        .iter()
-                                        .filter(|v| !v.fixed)
-                                        .map(|v| v.port.id)
-                                        .collect::<Vec<_>>(),
-                                    &row_ids,
-                                )?;
-                                let rows_ok =
-                                    rows.iter().zip(structure.rows()).zip(&tolerances.rows).all(
-                                        |((value, row), tolerance)| {
-                                            value.is_finite()
-                                                && *value >= row.lower - tolerance
-                                                && *value <= row.upper + tolerance
-                                        },
-                                    );
-                                let bounds_ok = structure.variables().iter().all(|variable| {
-                                    values.scalars.get(&variable.port.id).is_some_and(|value| {
+            if completed && let Some(original_case) = &self.prepared.original {
+                let values = values.clone();
+                let numerics = self.numerics.clone();
+                let structure = original_case.assembly.structure().clone();
+                self.scope.check().map_err(native::ProblemError::Provider)?;
+                completed = self
+                    .service
+                    .with_owned_worker(
+                        original_case.clone(),
+                        self.providers.clone(),
+                        self.cancel,
+                        Some((self.scope.clone(), self.control.clone())),
+                        move |mut worker| {
+                            let rows = worker.constraints(&values)?;
+                            let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
+                            let tolerances = Tolerances::from_policy(
+                                &numerics,
+                                &structure
+                                    .variables()
+                                    .iter()
+                                    .filter(|v| !v.fixed)
+                                    .map(|v| v.port.id)
+                                    .collect::<Vec<_>>(),
+                                &row_ids,
+                            )?;
+                            let rows_ok =
+                                rows.iter().zip(structure.rows()).zip(&tolerances.rows).all(
+                                    |((value, row), tolerance)| {
                                         value.is_finite()
-                                            && variable.lower.is_none_or(|lower| *value >= lower)
-                                            && variable.upper.is_none_or(|upper| *value <= upper)
-                                    })
-                                });
-                                Ok(rows_ok && bounds_ok)
-                            },
-                        )
-                        .await?;
+                                            && *value >= row.lower - tolerance
+                                            && *value <= row.upper + tolerance
+                                    },
+                                );
+                            let bounds_ok = structure.variables().iter().all(|variable| {
+                                values.scalars.get(&variable.port.id).is_some_and(|value| {
+                                    value.is_finite()
+                                        && variable.lower.is_none_or(|lower| *value >= lower)
+                                        && variable.upper.is_none_or(|upper| *value <= upper)
+                                })
+                            });
+                            Ok(rows_ok && bounds_ok)
+                        },
+                    )
+                    .await?;
             }
             if completed {
                 committed.scalars = values

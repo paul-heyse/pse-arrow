@@ -117,9 +117,13 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
         refusal.cause.as_deref(),
         Some(native::ProblemError::Unsupported(_))
     ));
-    assert!(refused.strategy.events.iter().all(|event| {
-        event.kind != NumericalEventKind::Started && event.work.is_none()
-    }));
+    assert!(
+        refused
+            .strategy
+            .events
+            .iter()
+            .all(|event| { event.kind != NumericalEventKind::Started && event.work.is_none() })
+    );
     assert_eq!(refused.strategy.original, original);
 
     let composed = first

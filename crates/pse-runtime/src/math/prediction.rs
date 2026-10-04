@@ -473,7 +473,10 @@ pub(crate) fn select(
                 request.branch,
                 execution,
             )?;
-            SelectedProposal::Root { proposal: Box::new(proposal), work }
+            SelectedProposal::Root {
+                proposal: Box::new(proposal),
+                work,
+            }
         }
         #[cfg(feature = "solver-diffsol")]
         ProposalMechanism::Kkt {

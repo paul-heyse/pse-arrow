@@ -753,12 +753,7 @@ fn settings_identity_is_type_name_independent() {
             } else {
                 pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &settings.document())
             };
-            historical.push((
-                label,
-                historical_identity
-                    .unwrap()
-                    .to_prefixed(),
-            ));
+            historical.push((label, historical_identity.unwrap().to_prefixed()));
             (label, current.to_prefixed())
         })
         .collect::<Vec<_>>();
