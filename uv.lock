@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -1699,12 +1699,12 @@ thermo-reference = [
 
 [package.metadata]
 requires-dist = [
-    { name = "attrs", specifier = "==26.1.0" },
-    { name = "cattrs", specifier = "==26.2.0" },
-    { name = "msgspec", specifier = "==0.21.1" },
-    { name = "numpy", marker = "python_full_version >= '3.12' and extra == 'array'", specifier = "==2.5.3" },
-    { name = "numpy", marker = "python_full_version < '3.12' and extra == 'array'", specifier = "==2.4.6" },
-    { name = "pyarrow", specifier = "==25.0.1" },
+    { name = "attrs", specifier = ">=26.1.0" },
+    { name = "cattrs", specifier = ">=26.2.0" },
+    { name = "msgspec", specifier = ">=0.21.1" },
+    { name = "numpy", marker = "python_full_version >= '3.12' and extra == 'array'", specifier = ">=2.5.3" },
+    { name = "numpy", marker = "python_full_version < '3.12' and extra == 'array'", specifier = ">=2.4.6" },
+    { name = "pyarrow", specifier = ">=25.0.1" },
 ]
 provides-extras = ["array"]
 

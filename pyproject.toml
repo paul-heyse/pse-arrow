@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The one Python project of pse-arrow (import name `pse`; blueprint §21). Every library is
-# pinned `==` (blueprint §3.1) -- a reproducibility rule, not an admission rule: no package
-# and no licence is refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
+# The one Python project of pse-arrow (import name `pse`; blueprint §21). Dependencies
+# float (blueprint §3.1, ADR-0159): libraries carry `>=` floors (the `uv add` default),
+# uv.lock records what resolved, and `just upgrade` moves it. An `==` pin needs a reason
+# specific to that dependency, written beside it here. No package and no licence is
+# refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
 # docs/dev/dependency-policy.md). Two interpreter ranges: the platform package targets
 # CPython >= 3.11; the parity environment (idaes-pse 2.13.0) is 3.11-3.14, expressed as a
 # dependency group with a marker rather than a second project, so one uv.lock covers both.
@@ -44,21 +46,20 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Mathematics",
   "Typing :: Typed",
 ]
-# Blueprint §3.1: every library pinned ==. Exact pins in wheel metadata are a deliberate
-# reproducibility-over-composability choice, revisited by ADR at the first PyPI release.
-# Adding a dependency here needs no ADR; pinning it does need to be exact.
+# Floors at the locked versions (ADR-0159); uv.lock holds the resolved ones. Adding a
+# dependency here needs no ADR and no pin.
 dependencies = [
-  "pyarrow==25.0.1",
-  "attrs==26.1.0",
-  "cattrs==26.2.0",
-  "msgspec==0.21.1",
+  "pyarrow>=25.0.1",
+  "attrs>=26.1.0",
+  "cattrs>=26.2.0",
+  "msgspec>=0.21.1",
 ]
 
 [project.optional-dependencies]
 # NumPy is used only by the explicit array boundary, not mathematical execution.
 array = [
-  "numpy==2.5.3; python_full_version >= '3.12'",
-  "numpy==2.4.6; python_full_version < '3.12'",
+  "numpy>=2.5.3; python_full_version >= '3.12'",
+  "numpy>=2.4.6; python_full_version < '3.12'",
 ]
 
 [project.urls]
@@ -67,19 +68,18 @@ Documentation = "https://paul-heyse.github.io/pse-arrow/"
 Repository = "https://github.com/paul-heyse/pse-arrow"
 Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 
-# PEP 735. Exact pins for tools: a formatter or type checker that drifts produces phantom
-# diffs. Bumping is a deliberate commit (`just lock-upgrade <pkg>`).
+# PEP 735. Tools carry floors like the libraries; `just upgrade` moves the lock. The `==`
+# pins below are oracles, each with its reason.
 [dependency-groups]
-# Independent frozen thermodynamic references; never a production dependency.
+# Independent frozen thermodynamic references; never a production dependency. Pinned: a
+# reference oracle must not move under the comparisons that cite it.
 thermo-reference = [
   { include-group = "test" },
   "teqp==0.23.1; python_version == '3.12'",
 ]
 # Tools that only execute (formatters, linters, type checkers, test runners) carry
-# floors, not exact pins: uv.lock records what resolved, `uv lock --upgrade` moves them,
-# and nothing in CI or `just doctor` asserts a particular release. Runtime libraries
-# above stay `==`-pinned because the type universe and the parity reference depend on
-# exact versions (blueprint §3.1).
+# floors: uv.lock records what resolved, `just upgrade` moves them, and nothing in CI or
+# `just doctor` asserts a particular release.
 quality = [
   "ruff>=0.16.7",
   "pyrefly>=1.3.0",
@@ -96,13 +96,17 @@ test = [
   "pytest-xdist>=3.8.0",
   "unittest-xml-reporting>=4.0.0",
   # Test-time oracles only (blueprint §24.1); import-linter keeps them out of pse proper.
+  # Pinned: the oracle values the tests compare against are qualified at these releases.
   # Split by interpreter for the same reason as the `array` extra above.
   "numpy==2.5.3; python_full_version >= '3.12'",
   "numpy==2.4.6; python_full_version < '3.12'",
   "scipy==1.18.1; python_full_version >= '3.12'",
   "scipy==1.17.1; python_full_version < '3.12'",
 ]
-# The parity environment (blueprint §3.1, §24). IDAES 2.13.0 classifies 3.10-3.14 and the
+# The parity environment (blueprint §3.1, §24). Pinned: idaes-pse==2.13.0 is the parity
+# reference (ADR-0097), and pyomo and pint are pinned with it as the environment that
+# reference was qualified in; the group moves only by the parity-pin ADR (GOVERNANCE.md §5).
+# IDAES 2.13.0 classifies 3.10-3.14 and the
 # platform floor is 3.11, so parity runs on 3.11-3.14. The marker makes
 # `uv sync --group parity` on 3.15 install nothing IDAES-related, and the --parity
 # conftest then FAILS (never skips).
