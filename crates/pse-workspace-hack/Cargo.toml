@@ -26,9 +26,9 @@ workspace = true
 [dependencies]
 ahash = { version = "0.8" }
 aho-corasick = { version = "1" }
-arrow-array = { version = "59", default-features = false, features = ["chrono-tz", "ffi"] }
-arrow-cast = { version = "59", default-features = false, features = ["prettyprint"] }
-arrow-schema = { version = "59", default-features = false, features = ["canonical_extension_types", "ffi", "serde"] }
+arrow-array = { version = "60", default-features = false, features = ["chrono-tz", "ffi"] }
+arrow-cast = { version = "60", default-features = false, features = ["prettyprint"] }
+arrow-schema = { version = "60", default-features = false, features = ["canonical_extension_types", "ffi", "serde"] }
 base64 = { version = "0.23" }
 bitflags = { version = "2", default-features = false, features = ["serde"] }
 blake3 = { version = "1", features = ["rayon"] }
