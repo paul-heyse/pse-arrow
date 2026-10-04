@@ -1034,33 +1034,64 @@ gh-setup *args:
     ./scripts/gh-setup.sh {{ args }}
 
 # Move the lockfiles to the latest versions the manifests allow, at the agent's discretion;
-# then run the tests the move affects (ADR-0159). Upgrade-specific checks join this recipe
-# when a need emerges. No argument moves uv.lock and Cargo.lock; package names move only
-# those packages, in whichever lockfile holds them. A family moves as a unit
-# (`just family-check`), and an exact pin moves only by editing its manifest entry.
+# then run the tests the move affects (ADR-0159). Upgrade-specific checks join this recipe:
+# the cargo-hakari workspace-hack is regenerated from the moved graph (as `just codegen`
+# does) and `just family-check` must pass, so a split family fails here rather than as a
+# misleading `downcast_ref` miss in the next test. No argument moves uv.lock and Cargo.lock;
+# package names move only those packages, in whichever lockfile holds them (`name@version`
+# selects one of several resolved majors, as `cargo update -p` suggests). Carets never cross
+# a major: crossing one is an explicit requirement bump in the manifest. A family moves as
+# a unit, and an exact pin moves only by editing its manifest entry.
 [group('mutating')]
-[doc('Move lockfiles to the latest allowed versions: just upgrade [package ...]')]
+[doc('Move lockfiles to the latest compatible versions, regenerate hakari, check families: just upgrade [package ...]')]
 upgrade *packages:
     #!/usr/bin/env bash
     set -euo pipefail
+    before="$(mktemp -d)"
+    trap 'rm -rf "$before"' EXIT
+    cp Cargo.lock uv.lock "$before/"
     if [ -z "{{ packages }}" ]; then
         uv lock --upgrade
         cargo update
-        exit 0
+    else
+        for p in {{ packages }}; do
+            name="${p%%@*}"
+            moved=0
+            if grep -qiE "^name = \"${name//[-_]/[-_]}\"$" uv.lock; then
+                uv lock --upgrade-package "$name"; moved=1
+            fi
+            if grep -qE "^name = \"$name\"$" Cargo.lock; then
+                cargo update -p "$p"; moved=1
+            fi
+            if [ "$moved" = 0 ]; then
+                echo "upgrade: $name is in neither uv.lock nor Cargo.lock" >&2
+                exit 1
+            fi
+        done
     fi
-    for p in {{ packages }}; do
-        moved=0
-        if grep -qiE "^name = \"${p//_/[-_]}\"$" uv.lock; then
-            uv lock --upgrade-package "$p"; moved=1
-        fi
-        if grep -qE "^name = \"$p\"$" Cargo.lock; then
-            cargo update -p "$p"; moved=1
-        fi
-        if [ "$moved" = 0 ]; then
-            echo "upgrade: $p is in neither uv.lock nor Cargo.lock" >&2
-            exit 1
-        fi
-    done
+    cargo hakari generate
+    cargo hakari manage-deps --yes
+    python3 - "$before" <<'PY'
+    import sys, tomllib
+    from pathlib import Path
+    def versions(path):
+        out = {}
+        for pkg in tomllib.loads(Path(path).read_text()).get("package", []):
+            out.setdefault(pkg["name"], set()).add(pkg.get("version", "(dynamic)"))
+        return out
+    for lock in ("Cargo.lock", "uv.lock"):
+        old, new = versions(Path(sys.argv[1]) / lock), versions(lock)
+        moved = [
+            f"  {name}: {', '.join(sorted(old.get(name, set()) - new.get(name, set()))) or '(new)'}"
+            f" -> {', '.join(sorted(new.get(name, set()) - old.get(name, set()))) or '(removed)'}"
+            for name in sorted(old.keys() | new.keys())
+            if old.get(name) != new.get(name)
+        ]
+        print(f"upgrade: {lock}: {len(moved)} package(s) moved")
+        if moved:
+            print("\n".join(moved))
+    PY
+    just family-check
 
 [group('mutating')]
 [doc('Materialize shared skill aliases; native agent adapters are maintained separately')]

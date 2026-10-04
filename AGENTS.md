@@ -208,18 +208,19 @@ pin reasons are declared in Cargo.toml and pyproject.toml; the layered review st
   entry. Use the tool's default specifier — `uv add` (a `>=` floor), and for Rust the
   `cargo add` caret, declared in `[workspace.dependencies]` and inherited with
   `.workspace = true`.
-- **Latest by default.** The resolver picks versions; the committed lockfiles record them and
-  the `--locked` gates keep runs reproducible. Move to the latest at your discretion with
-  `just upgrade` (or `just upgrade <package> …`), then run the tests the move affects. A
-  family moves as a unit and `just family-check` must stay green; a family major needs an ADR.
+- **Latest compatible by default.** The resolver picks versions; the committed lockfiles
+  record them and the `--locked` gates keep runs reproducible. Move to the latest compatible
+  versions at your discretion with `just upgrade` (or `just upgrade <package> …`), which also
+  regenerates the workspace-hack and runs `just family-check`; then run the tests the move
+  affects. Crossing a major is an explicit requirement bump in the manifest. A family moves
+  as a unit; a family major needs an ADR.
 - **Pin only for a reason.** An exact version, upper cap, git rev or hold-back needs an overt
-  reason specific to that dependency — a named breakage, a type-sharing family that must
-  resolve to one version, a fork or vendored source, golden or byte-stable output, a parity
-  oracle, wheel availability — recorded beside it: a `[workspace.metadata.pse.pins]` entry in
-  `Cargo.toml` (family members are covered by `[workspace.metadata.pse.families]`), or a
-  comment beside the `==` pin in `pyproject.toml`. The `dependency_pins` governance test
-  checks that every exact Rust pin has one (ADR-0159). Reproducibility, "already in the
-  lock" and a version entering a key or digest are not reasons.
+  reason specific to that dependency, from the one list of acceptable reasons in
+  [the dependency policy](docs/dev/dependency-policy.md#pin-reasons), recorded beside it: a
+  `[workspace.metadata.pse.pins]` entry in `Cargo.toml` (family members are covered by
+  `[workspace.metadata.pse.families]` and must be exact at the family version), or a comment
+  beside the `==` pin in `pyproject.toml`. The `dependency_pins` governance test checks the
+  Rust side; Python reasons are instruction-only (ADR-0159).
 
 ## Gotchas that have already cost time here
 

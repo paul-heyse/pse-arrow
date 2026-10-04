@@ -11,7 +11,7 @@
 # dependency group with a marker rather than a second project, so one uv.lock covers both.
 
 [build-system]
-requires = ["maturin>=1.15,<2"]
+requires = ["maturin>=1.15"]
 build-backend = "maturin"
 
 [project]
@@ -97,6 +97,8 @@ test = [
   "unittest-xml-reporting>=4.0.0",
   # Test-time oracles only (blueprint §24.1); import-linter keeps them out of pse proper.
   # Pinned: the oracle values the tests compare against are qualified at these releases.
+  # One universal uv.lock resolves groups and extras together, so this numpy pin also fixes
+  # the numpy the runtime `array` extra resolves to in development environments.
   # Split by interpreter for the same reason as the `array` extra above.
   "numpy==2.5.3; python_full_version >= '3.12'",
   "numpy==2.4.6; python_full_version < '3.12'",

@@ -3,11 +3,14 @@
 #
 # Dependabot configuration. Two rules shape all of it:
 #
-#  1. A dependency *family* moves as a unit. arrow, datafusion, pyo3 and the codegen
-#     crates are `=`-pinned once in [workspace.dependencies], and a partial move produces
-#     a mixed family that `cargo tree -d` cannot see. The groups below exist so that
-#     `cargo xtask family-check` either passes for the whole group or fails loudly. A
-#     pull request that moves part of a group is closed, not merged (GOVERNANCE.md §5).
+#  1. A dependency *family* moves as a unit. Dependencies float under carets and the
+#     committed Cargo.lock (ADR-0159); the arrow, datafusion, object_store and pyo3
+#     families and the codegen generators (syn, prettyplease) stay `=`-pinned in
+#     [workspace.dependencies], and a partial move produces a mixed family that
+#     `cargo tree -d` cannot see. The groups below exist so that `cargo xtask family-check`
+#     either passes for the whole group or fails loudly. A pull request that moves part of a
+#     group is closed, not merged (GOVERNANCE.md §5). Dependabot and `just upgrade` propose
+#     the same lock moves; either route is fine.
 #
 #  2. `commit-message.prefix: deps` makes every Dependabot title a Conventional Commit,
 #     so git-cliff files it under "Dependencies" (`deps` is a type in cliff.toml).
@@ -26,8 +29,10 @@ updates:
       time: "06:00"
       timezone: Etc/UTC
     # Cargo supports `auto` and `lockfile-only`; `increase` is rejected by GitHub.
-    # Every proposed update still has to pass the exact-pin and family gates.
-    versioning-strategy: auto
+    # `lockfile-only`: requirements are carets, so updates move Cargo.lock, never the
+    # manifest (ADR-0159). Every proposed update still has to pass the reasoned-pin
+    # (`dependency_pins`) and family (`family-check`) gates.
+    versioning-strategy: lockfile-only
     open-pull-requests-limit: 8
     labels:
       - dependencies

@@ -231,8 +231,8 @@ faer = { version = "0.24.4", default-features = false, features = [
   "std",
   "sparse-linalg",
 ] }
-feos = { version = "0.10.1", default-features = false, features = ["pcsaft"] }
-feos-core = { version = "0.10.1", default-features = false }
+feos = { version = "=0.10.1", default-features = false, features = ["pcsaft"] }
+feos-core = { version = "=0.10.1", default-features = false }
 num-dual = { version = "=0.14.2", default-features = false }
 nalgebra = { version = "0.35.0", default-features = false, features = ["std"] }
 highs = "2.4.0"
@@ -243,7 +243,7 @@ scip-sys = "0.1.28"
 clarabel = { version = "0.11.1", default-features = false, features = [
   "serde",
 ] }
-quantity = { version = "0.14.0", default-features = false }
+quantity = { version = "=0.14.0", default-features = false }
 sundials-sys = { version = "0.6.2", default-features = false, features = [
   "kinsol",
   "klu",
@@ -305,7 +305,9 @@ petgraph = { version = "0.8.3", default-features = false, features = [
   "graphmap",
 ] }
 # pse-ids is the only crate allowed to depend on blake3 (tests/governance/blake3_owner).
-blake3 = { version = "=1.8.7", features = ["rayon"] }
+# A caret: the identity digests are frozen by crates/pse-ids/tests/golden_vectors.rs, which
+# would name a release that changed them (ADR-0159).
+blake3 = { version = "1.8.7", features = ["rayon"] }
 # `explicit`-policy entity IDs, minted by `pse authoring assign-ids` only; P1 never
 # mints one (blueprint §5.1).
 uuid = { version = "1.26.1", features = ["v7"] }
@@ -584,7 +586,7 @@ pyo3 = { version = "0.29", match = "minor", crates = [
 # entry when the reason lapses.
 [workspace.metadata.pse.pins]
 deltalake = "Vendored delta-rs core (vendor/delta-rs) at delta-source-revision; its API must match the arrow/datafusion families (blueprint §20.1)"
-validator = "scripts/vendor-delta.py copies this exact requirement into the provenance-hashed vendored Delta manifest"
+validator = "Vendored-source coupling: scripts/vendor-delta.py copies this exact requirement into the provenance-checked vendored Delta manifest"
 pounce-presolve = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"
 pounce-nlp = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"
 pounce-common = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"
@@ -599,9 +601,11 @@ prettyplease = "Formats committed generated Rust and bindgen output byte for byt
 bindgen = "Emits the committed pse-ipopt-sys bindings; a bump is a regeneration commit"
 cornucopia = "Generates the committed pse-operations-queries crate (ADR-0114); a bump is a regeneration commit"
 schemars = "Derives the committed JSON Schemas and msgspec types of the boundary documents (ADR-0116); a bump is a regeneration commit"
-num-dual = "Trait universe shared with FeOS: pse code and feos must resolve the same num-dual 0.14"
-blake3 = "Semantic identity hash owned by pse-ids (blueprint §5.3); the identity contract is qualified against this implementation"
-salsa = "Uses the `salsa_unstable` API, which carries no compatibility guarantee within a release line"
+feos = "FeOS reference oracle: `just feos-reference` generates the committed package pse.data.oracles.feos-0.10.1 and tests/conformance compares against FeOS live, both qualified at this release (with feos-core, quantity and num-dual)"
+feos-core = "FeOS reference oracle closure (see feos)"
+quantity = "FeOS reference oracle closure (see feos)"
+num-dual = "FeOS reference oracle closure (see feos); also the dual-number trait universe pse code shares with FeOS"
+salsa = "pse-compiler calls `<dyn salsa::Database>::memory_usage` (src/workspace.rs), gated by `salsa_unstable`, which carries no compatibility guarantee within 0.28.x; the build fails without the feature (checked 2026-10-04)"
 
 # Resolved normal-dependency closures, checked by family-check (blueprint §3.1).
 [workspace.metadata.pse.dependency-ceilings.semantic]

@@ -35,11 +35,11 @@ numerical algorithms, relational execution and storage.
 > supply-chain checks stand. The dependency ceilings do not follow the
 > feature-only edge to `pse-workspace-hack`. Implemented.
 >
-> Decision: [ADR-0159](../../adr/0159-dependencies-float-exact-pins-need-a-reason.md) (proposed),
-> superseding ADR-0122's exact-pin clause, amends the authority rule below: dependencies
-> float under the committed lockfiles, and an exact pin needs a family or a recorded reason.
-> The toolchain, feature-unification, lockfile and supply-chain decisions above stand.
-> Implemented.
+> Decision: [ADR-0159](../../adr/0159-dependencies-float-exact-pins-need-a-reason.md),
+> amending ADR-0122's exact-pin clause (its Outcome item 6), amends the authority rule below:
+> dependencies float under the committed lockfiles, and an exact pin, cap or git revision
+> needs a family membership or a recorded reason. ADR-0122 still owns the toolchain,
+> feature-unification, lockfile and supply-chain decisions above. Implemented.
 
 **Authority.** Every third-party Rust dependency is declared once, in
 `[workspace.dependencies]` of the root `Cargo.toml`. Members inherit it with
@@ -48,19 +48,21 @@ libraries and tools carry `>=` floors in `pyproject.toml`. `Cargo.lock` and `uv.
 committed and record what resolved, and every recipe runs `--locked`, so a run never
 resolves anew; `just upgrade` moves the lockfiles to the latest the manifests allow. An
 exact `=` or `==` version, an upper cap or a git revision is allowed only with a reason
-specific to that dependency: membership of a family (below), or an entry in
-`[workspace.metadata.pse.pins]` (for Python, a comment beside the pin). Reproducibility is
-not such a reason, because the lockfiles provide it. `rust-toolchain.toml` pins one dated
+specific to that dependency, from the [dependency policy's list](../../dev/dependency-policy.md#pin-reasons):
+membership of a family (below), or an entry in `[workspace.metadata.pse.pins]` (for Python,
+an instruction-only comment beside the pin). Reproducibility is not such a reason, because
+the lockfiles provide it. A caret never crosses a major; crossing one is an explicit
+requirement bump. `rust-toolchain.toml` pins one dated
 nightly, and `rust-version` is the stable language floor at or below it
 ([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md); governance test
 `toolchain_matches_msrv`). No build runs on stable Rust: the pin moves to a recent nightly
 when the project needs one, and a breakage is fixed when it appears (maintainer decision,
 2026-09-29; build-review F07). The manifests contain no `[patch]` or `[replace]` tables.
-The `dependency_pins` governance test checks that each exact declaration or git revision is
-a family member or has a recorded reason. No prose table in this collection is a second pin
-authority. Read the manifest for a
-version, and read the [capability maps](../../capability-maps/README.md) for what that
-version exposes.
+The `dependency_pins` governance test checks that each upper-bounding declaration or git
+revision is a family member or has a recorded reason, and that family members are exact at
+the family version. No prose table in this collection is a second pin authority. Read a
+version from the lockfile (`Cargo.lock`, `uv.lock`), and read the
+[capability maps](../../capability-maps/README.md) for what their extraction version exposes.
 
 **One type universe.** Arrow, Parquet, `object_store`, DataFusion and PyO3 must each
 resolve to exactly one version. If two Arrow majors coexist, `downcast_ref` returns `None`
@@ -308,7 +310,7 @@ workstation, not language limits ([§23](operations-and-validation.md#section-23
 
 > Decision: [ADR-0066](../../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)
 > (admission); [ADR-0159](../../adr/0159-dependencies-float-exact-pins-need-a-reason.md)
-> (proposed; versions float, pins need a reason)
+> (versions float, pins need a reason)
 
 No third-party library is refused, and no licence is grounds to refuse one. Adding a
 crate or Python package needs no ADR, no design review and no documentation row. Declare

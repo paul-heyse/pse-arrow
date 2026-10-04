@@ -147,3 +147,6 @@ still installed and runnable.
   constraints while keeping the infrastructure for a manual check.
 - 2026-09-26 — accepted by the maintainer as implemented (review verdict Accept-scoped);
   the pin check now lives in `dependency_pins.rs`.
+- 2026-10-04 — the clause keeping `=`/`==` pinning unchanged (Scope, Compensating controls)
+  amended by ADR-0159: versions float under the committed lockfiles and an exact pin needs a
+  family membership or a recorded reason; admission stays as decided here.
