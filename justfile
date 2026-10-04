@@ -543,6 +543,61 @@ native-isolation-prepare:
     "{{ py }}" scripts/native_cache.py isolation
 
 [group('local')]
+[doc('Prepare pinned Uno or PETSc scoped foreign inputs against the existing native provider')]
+native-pipeline-prepare kind:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/build-env.sh
+    source scripts/native-solver-env.sh
+    "{{ py }}" -m scripts.native_pipeline_cache {{ quote(kind) }}
+
+[group('local')]
+[doc('Bounded unit controls for a pinned scoped Uno or PETSc project ABI')]
+[positional-arguments]
+unit-pipeline-binding kind *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    shift
+    case {{ quote(kind) }} in
+      uno) UNO_DIR="$("{{ py }}" -m scripts.native_pipeline_cache uno)"; export UNO_DIR; pse_pipeline_prefix="$UNO_DIR" ;;
+      petsc) PETSC_DIR="$("{{ py }}" -m scripts.native_pipeline_cache petsc)"; export PETSC_DIR; pse_pipeline_prefix="$PETSC_DIR" ;;
+      *) exit 2 ;;
+    esac
+    export LD_LIBRARY_PATH="$pse_pipeline_prefix/lib:${LD_LIBRARY_PATH:-}"
+    bash scripts/memory-cap.sh cargo nextest run --no-fail-fast -p "pse-{{ kind }}-sys" -p pse-relations --lib --locked --features "pse-{{ kind }}-sys/link,pse-relations/force-validate" -E 'package(pse-{{ kind }}-sys)' "$@"
+
+[group('local')]
+[doc('Compile a scoped native pipeline adapter with its qualified foreign prefix')]
+check-pipeline-native kind:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    case {{ quote(kind) }} in
+      uno) UNO_DIR="$("{{ py }}" -m scripts.native_pipeline_cache uno)"; export UNO_DIR; pse_pipeline_prefix="$UNO_DIR" ;;
+      petsc) PETSC_DIR="$("{{ py }}" -m scripts.native_pipeline_cache petsc)"; export PETSC_DIR; pse_pipeline_prefix="$PETSC_DIR" ;;
+      *) exit 2 ;;
+    esac
+    export LD_LIBRARY_PATH="$pse_pipeline_prefix/lib:${LD_LIBRARY_PATH:-}"
+    cargo check --keep-going -p pse-backend-native -p pse-runtime -p pse-relations --all-targets --locked --features 'pse-backend-native/{{ kind }},pse-relations/force-validate'
+
+[group('local')]
+[doc('Targeted safe native pipeline adapter controls with a qualified foreign prefix')]
+[positional-arguments]
+unit-pipeline-native kind filter *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    shift 2
+    case {{ quote(kind) }} in
+      uno) UNO_DIR="$("{{ py }}" -m scripts.native_pipeline_cache uno)"; export UNO_DIR; pse_pipeline_prefix="$UNO_DIR" ;;
+      petsc) PETSC_DIR="$("{{ py }}" -m scripts.native_pipeline_cache petsc)"; export PETSC_DIR; pse_pipeline_prefix="$PETSC_DIR" ;;
+      *) exit 2 ;;
+    esac
+    export LD_LIBRARY_PATH="$pse_pipeline_prefix/lib:${LD_LIBRARY_PATH:-}"
+    bash scripts/memory-cap.sh cargo nextest run --no-fail-fast -p pse-backend-native -p pse-relations --lib --locked --features 'pse-backend-native/{{ kind }},pse-relations/force-validate' -E {{ quote(filter) }} "$@"
+
+[group('local')]
 [doc('Compile native solver adapters and unit contracts; no solver journeys')]
 check-solver-contracts:
     #!/usr/bin/env bash
@@ -1241,6 +1296,11 @@ unit-native-selected filter *args:
     set -euo pipefail
     source scripts/native-execution-env.sh
     bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} --workspace --lib --locked --features pse-py/native-solvers,pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+
+[group('local')]
+[doc('Compile the native process measurement target with pinned native environment and force validation')]
+check-native-process-bench:
+    bash scripts/native_exec.sh cargo check -p pse-benches --bench native_process --locked --features pse-benches/native-process,pse-relations/force-validate
 
 [group('local')]
 [doc('Targeted native package units with explicitly selected adapter features')]

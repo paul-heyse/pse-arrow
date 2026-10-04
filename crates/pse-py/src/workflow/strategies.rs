@@ -45,6 +45,7 @@ impl NativePreparedFlow {
         )?;
         Ok(NativeStrategyResult {
             inner: Arc::new(StrategyResult::Tears(Box::new(result))),
+            registry: self.owner.registry.clone(),
         })
     }
 }
@@ -121,6 +122,7 @@ impl NativePreparedStrategy {
         };
         Ok(NativeStrategyResult {
             inner: Arc::new(result),
+            registry: self.owner.registry.clone(),
         })
     }
 }
@@ -138,9 +140,73 @@ enum StrategyResult {
 #[derive(Clone, Debug)]
 pub(crate) struct NativeStrategyResult {
     inner: Arc<StrategyResult>,
+    registry: Arc<pse_schema::Registry>,
 }
 #[pymethods]
 impl NativeStrategyResult {
+    /// Identity of the actual submitted numerical operation; structural tears have none.
+    #[getter]
+    fn run_id(&self) -> Option<String> {
+        match self.inner.as_ref() {
+            StrategyResult::Tears(_) => None,
+            StrategyResult::Cone(report) => Some(report.run_id.as_id().to_hex()),
+            #[cfg(feature = "native-solvers")]
+            StrategyResult::Recycle(report) => Some(report.run_id.as_id().to_hex()),
+            #[cfg(feature = "native-solvers")]
+            StrategyResult::Initialization(report) => Some(report.run_id.as_id().to_hex()),
+        }
+    }
+    /// Generated observations from retained traces, with their original operation identity.
+    fn strategy_events(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        let mut rows = Vec::new();
+        match self.inner.as_ref() {
+            StrategyResult::Tears(_) => {}
+            StrategyResult::Cone(report) => rows.extend(
+                report
+                    .strategy
+                    .rows(report.run_id, 0)
+                    .map_err(|e| errors::diagnostic(py, &e))?,
+            ),
+            #[cfg(feature = "native-solvers")]
+            StrategyResult::Recycle(report) => rows.extend(
+                report
+                    .strategy
+                    .rows(report.run_id, 0)
+                    .map_err(|e| errors::diagnostic(py, &e))?,
+            ),
+            #[cfg(feature = "native-solvers")]
+            StrategyResult::Initialization(report) => {
+                for (index, attempt) in report.attempts.iter().enumerate() {
+                    if let Some(trace) = &attempt.trace {
+                        rows.extend(
+                            trace
+                                .rows(report.run_id, index)
+                                .map_err(|e| errors::diagnostic(py, &e))?,
+                        );
+                    }
+                }
+            }
+        }
+        let relation = |error: pse_relations::RelationError| {
+            errors::diagnostic(py, &native::WorkflowError::Engine(error.into()))
+        };
+        let validation =
+            pse_relations::validate::ValidationContext::local(&self.registry).map_err(relation)?;
+        let mut builder =
+            pse_relations::generated::runtime::solve_strategy_events::Builder::with_registry(
+                &self.registry,
+                rows.len(),
+                &validation,
+            )
+            .map_err(relation)?;
+        for row in rows {
+            builder.push(row).map_err(relation)?;
+        }
+        builder
+            .finish()
+            .map(inspection::TableStream::from_batch)
+            .map_err(relation)
+    }
     /// Every attempt in execution order, one typed row each: its native report, or the
     /// typed failure that preceded one, so indices are shared by reports and failures.
     fn attempts(&self) -> Vec<NativeStrategyAttempt> {

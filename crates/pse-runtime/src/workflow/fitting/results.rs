@@ -375,6 +375,31 @@ impl RunResult {
             modeling_reports::RELATION_ID,
             reports.finish().map_err(relation)?,
         );
+        let trace = report
+            .and_then(|r| r.strategy.as_ref())
+            .or_else(|| match &self.report {
+                Err(error) => match error.as_ref() {
+                    WorkflowError::Math(error) => error.strategy_trace(),
+                    _ => None,
+                },
+                _ => None,
+            });
+        use pse_relations::generated::runtime::solve_strategy_events;
+        let mut strategy_events =
+            solve_strategy_events::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                .map_err(relation)?;
+        if let Some(trace) = trace {
+            for row in trace
+                .rows(self.run_id, 0)
+                .map_err(crate::math::MathRuntimeError::from)?
+            {
+                strategy_events.push(row).map_err(relation)?;
+            }
+        }
+        batches.insert(
+            solve_strategy_events::RELATION_ID,
+            strategy_events.finish().map_err(relation)?,
+        );
         self.retain_sources(&mut batches)?;
         batches.extend(source.source_tables()?);
         Ok(batches)
@@ -567,6 +592,17 @@ fn uncertainty(
                         value: point.value,
                         seed: point.seed.map(ordinal).transpose()?,
                         qualification: point.qualification,
+                        termination: point.termination,
+                        callback_terminal_failure: Some(point.callback_terminal_failure),
+                        failures: point
+                            .failures
+                            .iter()
+                            .map(|failure| {
+                                crate::workflow::diagnostic_rows::profile_failure(
+                                    &failure.diagnostic(),
+                                )
+                            })
+                            .collect(),
                         objective: point.objective,
                         statistic: point.statistic,
                         accepted: point.accepted,

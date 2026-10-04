@@ -283,7 +283,8 @@ pub(crate) fn shape_facts(
         facts.class_status = ClassStatus::Pending(pending);
         return Ok(facts);
     }
-    let (formals, expressions) = aggregate_expressions(plan, values, &mut allowance, cancel)?;
+    let (formals, expressions) =
+        aggregate_expressions(plan, values, Aggregation::All, &mut allowance, cancel)?;
     allowance.charge(plan.structure().rows().len())?;
     facts.affine = vec![None; plan.structure().rows().len()];
     let mut row_witness = None;
@@ -412,7 +413,15 @@ pub(crate) fn aggregate_objectives(
     cancel: &Arc<AtomicBool>,
 ) -> Result<(Vec<Atom>, Vec<Atom>, usize), MathError> {
     let mut allowance = Allowance { remaining: limit };
-    let (formals, expressions) = aggregate_expressions(plan, values, &mut allowance, cancel)?;
+    // Original rows have already been proved and retained as affine coefficients.
+    // Rebuilding them here would spend the shared allowance on discarded products.
+    let (formals, expressions) = aggregate_expressions(
+        plan,
+        values,
+        Aggregation::Objectives,
+        &mut allowance,
+        cancel,
+    )?;
     allowance.charge(plan.structure().objectives().len())?;
     for level in 0..plan.structure().objectives().len() {
         allowance.charge(
@@ -431,9 +440,15 @@ pub(crate) fn aggregate_objectives(
         .collect();
     Ok((formals, objectives, allowance.remaining))
 }
+#[derive(Clone, Copy)]
+enum Aggregation {
+    All,
+    Objectives,
+}
 fn aggregate_expressions(
     plan: &CasePlan,
     values: &CaseValues,
+    selected: Aggregation,
     allowance: &mut Allowance,
     cancel: &Arc<AtomicBool>,
 ) -> Result<(Vec<Atom>, BTreeMap<Target, Atom>), MathError> {
@@ -459,6 +474,11 @@ fn aggregate_expressions(
         for contribution in &binding.contributions {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
+            }
+            if matches!(selected, Aggregation::Objectives)
+                && !matches!(contribution.target, Target::Objective(_))
+            {
+                continue;
             }
             let original = plan.bodies()[&binding.body]
                 .expression(contribution.output)

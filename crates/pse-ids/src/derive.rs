@@ -101,6 +101,30 @@ frames! {
         RegistryV1 => "pse:registry:v1",
         /// An engine settings or profile digest (blueprint §14.3, §23.2).
         SettingsV1 => "pse:settings:v1",
+        /// Declared numerical mechanisms, permissions, finite work and consumed accuracy.
+        NumericalStrategyV1 => "pse:numerical-strategy:v1",
+        /// One actual numerical charging operation within a task's attempt/mechanism.
+        NumericalWorkV1 => "pse:numerical-work:v1",
+        /// Resolved strategy and all admitted original/derived prepared rungs.
+        SolveStrategyPreparationV1 => "pse:solve-strategy-preparation:v1",
+        /// Complete declared strategy request and admitted starts.
+        SolveStrategyRequestV1 => "pse:solve-strategy-request:v1",
+        /// Frozen original equations, binding, bounds, objective and final numerical policy.
+        OriginalSolveContractV1 => "pse:original-solve-contract:v1",
+        /// Qualified Uno source, native inputs and project foreign bridge.
+        NativeUnoBuildV1 => "pse:native-uno-build:v1",
+        /// Qualified PETSc source, native inputs and project foreign bridge.
+        NativePetscBuildV1 => "pse:native-petsc-build:v1",
+        /// Immutable numerical family structure and reconstruction contract.
+        DerivedFamilyV1 => "pse:derived-family:v1",
+        /// Numerical family values, anchors, mass and step binding.
+        DerivedBindingV1 => "pse:derived-binding:v1",
+        /// Consumed numerical action/output accuracy, order, source and normalization.
+        AccuracyProductV1 => "pse:accuracy-product:v1",
+        /// Selected-root numerical proposals/jets with their consumed accuracy binding.
+        ImplicitNumericalProductV1 => "pse:implicit-numerical-product:v1",
+        /// Verified selected-root sheet lineage, distinct from a regime identifier.
+        SelectedRootSheetV1 => "pse:selected-root-sheet:v1",
         /// The digest of the build inputs recorded as build provenance.
         BuildInputsV1 => "pse:build-inputs:v1",
         /// A stored artifact descriptor's identity.
@@ -261,6 +285,8 @@ frames! {
         CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
         /// Mathematical view and compiler profile, with revision attribution bound separately.
         CompilerModelingViewV3 => "pse.compiler.modeling-view.v3",
+        /// Complete compiler view policy, including assembly limits and class-proof work.
+        CompilerModelingViewV4 => "pse.compiler.modeling-view.v4",
         /// The parametric projection of a prepared modeling view over requested parameters.
         CompilerModelingParametricV1 => "pse.compiler.modeling-parametric.v1",
         /// A grouped consumer body, its expressions and validity ranges in canonical spelling
@@ -385,6 +411,12 @@ frames! {
         NativeContextSnapshotV1 => "pse.native.context-snapshot.v1",
         /// Selected mathematical support and evaluator policy under ADR-0152.
         MathArtifactV5 => "pse.math.artifact.v5",
+        /// Demanded directional evaluator with runtime seed coordinates.
+        MathDirectionalArtifactV1 => "pse.math.directional-artifact.v1",
+        /// Complete retained surrogate task correspondence, fidelity and finite controls.
+        MathSurrogateTaskV1 => "pse.math.surrogate-task.v1",
+        /// Declared physical least-deviation center, metric, held coordinates and original contract.
+        InitializationDeviationV1 => "pse.math.initialization-deviation.v1",
         /// Original aggregate coefficient assumptions under ADR-0152.
         MathCoefficientAssumptionsV2 => "pse.math.coefficient-assumptions.v2",
         /// Domain projection and demand-owned class-proof policy under ADR-0152.
@@ -395,6 +427,8 @@ frames! {
         NativeControlsV3 => "pse.native.controls.v3",
         /// The linked Ipopt build.
         NativeIpoptBuildV1 => "pse.native.ipopt.build.v1",
+        /// Persistent TNLP/application bridge plus actual linked numerical providers.
+        NativeIpoptSequenceBuildV1 => "pse.native.ipopt-sequence.build.v1",
         /// A seed's content, without its execution origin.
         NativeSeedV2 => "pse.native.seed.v2",
         /// Canonical complete identity under ADR-0150.

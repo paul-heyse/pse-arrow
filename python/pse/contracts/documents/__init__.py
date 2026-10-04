@@ -29,6 +29,24 @@ PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
 Tolerance = Annotated[float, msgspec.Meta(gt=0.0)]
 
 
+class AccuracyDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Consumed accuracy of one operation. Its product identity is declared by the math owner
+    and includes the actual output/action, derivative order/source and coordinate meaning.
+    """
+
+    #: Finite nonnegative error allowance; zero demands exact evidence.
+    allowance: float
+    #: Evidence class required by this operation, separate from original physical tolerances.
+    class_: enums.NumericalAccuracyClass = msgspec.field(name="class")
+    #: Coordinate/error normalization in which the allowance is stated.
+    normalization: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact operation/product demanded; no capability table is inferred from this hash.
+    product: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.allowance), v.scalar_key(self.class_), v.scalar_key(self.normalization), v.scalar_key(self.product),))
+
+
 class ActiveSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Native activity vectors in source order."""
 
@@ -229,6 +247,20 @@ class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.initial), v.scalar_key(self.next), v.scalar_key(self.prior),))
+
+
+class AssemblyLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Per-case bounds, distinct from a local derivative artifact's resource budget."""
+
+    #: Maximum original derivative contributions before duplicate accumulation.
+    contributions: Annotated[int, msgspec.Meta(ge=0)]
+    #: Largest dimension/index/entry count representable by the selected native ABI.
+    native_index: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete attempt storage budget: shared evaluator scratch, clones and occurrence caches.
+    worker_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.contributions), v.scalar_key(self.native_index), v.scalar_key(self.worker_bytes),))
 
 
 class AuthoredFitCasesFieldExperimentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -2201,6 +2233,18 @@ class BoundaryDiagnostic(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes), v.scalar_key(self.class_), v.scalar_key(self.code), v.sequence_key(v.record_key)(self.locations), v.mapping_key(v.scalar_key, v.record_key)(self.observations), v.scalar_key(self.rule), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
 
 
+class BranchPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Root-selection meaning retained by every proposal and correction."""
+
+    #: Required precisely for the connected policy.
+    connected: ConnectedPath | None = None
+    #: Any qualified root, or continuation on a declared connected sheet.
+    kind: enums.NumericalBranchPolicy
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.connected), v.scalar_key(self.kind),))
+
+
 class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Build provenance of the compiled product, projected without recomputing its identity."""
 
@@ -2550,6 +2594,24 @@ class ConicRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
         return (type(self), (v.sequence_key(v.record_key)(self.cones), v.record_key(self.constraints), v.sequence_key(v.scalar_key)(self.objective), v.scalar_key(self.objective_constant), v.record_key(self.objective_port), v.record_key(self.quadratic), v.sequence_key(v.scalar_key)(self.rhs), v.sequence_key(v.record_key)(self.rows), v.sequence_key(v.record_key)(self.variables),))
 
 
+class ConnectedPath(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit originating path/sheet and the consumed transport/orientation witnesses.
+    Supplying identities is not proof: the responsible path owner validates the products.
+    """
+
+    #: Path tangent/transport orientation evidence.
+    orientation: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Original connected path identity.
+    path: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Selected root sheet; a shared regime label alone is insufficient.
+    sheet: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Transport evidence between the source and target bindings.
+    transport: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.orientation), v.scalar_key(self.path), v.scalar_key(self.sheet), v.scalar_key(self.transport),))
+
+
 class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Serializable controller inputs; package/prepared analysis handles are reconstructed."""
 
@@ -2686,6 +2748,43 @@ class DiagnosticSpanDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.end_column), v.scalar_key(self.end_line), v.scalar_key(self.start_column), v.scalar_key(self.start_line),))
+
+
+class DiffsolInitialConditionOptions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `DiffsolInitialConditionOptions` document type."""
+
+    armijo_constant: float
+    max_linear_solver_setups: Annotated[int, msgspec.Meta(ge=0)]
+    max_linesearch_iterations: Annotated[int, msgspec.Meta(ge=0)]
+    max_newton_iterations: Annotated[int, msgspec.Meta(ge=0)]
+    step_reduction_factor: float
+    use_linesearch: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.armijo_constant), v.scalar_key(self.max_linear_solver_setups), v.scalar_key(self.max_linesearch_iterations), v.scalar_key(self.max_newton_iterations), v.scalar_key(self.step_reduction_factor), v.scalar_key(self.use_linesearch),))
+
+
+class DiffsolOdeSolverOptions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The `DiffsolOdeSolverOptions` document type."""
+
+    max_error_test_failures: Annotated[int, msgspec.Meta(ge=0)]
+    max_nonlinear_solver_failures: Annotated[int, msgspec.Meta(ge=0)]
+    max_nonlinear_solver_iterations: Annotated[int, msgspec.Meta(ge=0)]
+    max_timestep_growth: float | None = None
+    max_timestep_shrink: float | None = None
+    min_timestep: float
+    min_timestep_growth: float | None = None
+    min_timestep_shrink: float | None = None
+    nonlinear_solver_tolerance: float
+    pi_control_integral: float
+    pi_control_proportional: float
+    threshold_to_update_jacobian: float
+    threshold_to_update_rhs_jacobian: float
+    update_jacobian_after_steps: Annotated[int, msgspec.Meta(ge=0)]
+    update_rhs_jacobian_after_steps: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.max_error_test_failures), v.scalar_key(self.max_nonlinear_solver_failures), v.scalar_key(self.max_nonlinear_solver_iterations), v.optional_key(v.scalar_key)(self.max_timestep_growth), v.optional_key(v.scalar_key)(self.max_timestep_shrink), v.scalar_key(self.min_timestep), v.optional_key(v.scalar_key)(self.min_timestep_growth), v.optional_key(v.scalar_key)(self.min_timestep_shrink), v.scalar_key(self.nonlinear_solver_tolerance), v.scalar_key(self.pi_control_integral), v.scalar_key(self.pi_control_proportional), v.scalar_key(self.threshold_to_update_jacobian), v.scalar_key(self.threshold_to_update_rhs_jacobian), v.scalar_key(self.update_jacobian_after_steps), v.scalar_key(self.update_rhs_jacobian_after_steps),))
 
 
 class DiffsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3191,6 +3290,28 @@ class HorizonSignalDocumentTrajectory(msgspec.Struct, frozen=True, forbid_unknow
         return (type(self), (v.sequence_key(v.record_key)(self.value),))
 
 
+class IdasInitialConditions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact IDAS consistent-initialization controls; no physical time stepping is requested."""
+
+    #: Explicit maximum backtracks per Newton step, when line search is enabled.
+    backtracks: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Positive IDASetNonlinConvCoefIC coefficient.
+    convergence_coefficient: float = 0.0033
+    #: Maximum Jacobian setup attempts at each artificial scale.
+    jacobian_attempts: Annotated[int, msgspec.Meta(ge=0)] = 4
+    #: Enable IDAS's IC line search.
+    line_search: bool = True
+    #: Maximum Newton iterations at each setup attempt.
+    newton_iterations: Annotated[int, msgspec.Meta(ge=0)] = 10
+    #: Positive scaled Newton-step floor for constraints and the enabled line search.
+    step_tolerance: float | None = None
+    #: Maximum attempted artificial step scales; applies only to AlgebraicAndRates.
+    step_trials: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backtracks), v.scalar_key(self.convergence_coefficient), v.scalar_key(self.jacobian_attempts), v.scalar_key(self.line_search), v.scalar_key(self.newton_iterations), v.optional_key(v.scalar_key)(self.step_tolerance), v.optional_key(v.scalar_key)(self.step_trials),))
+
+
 class IdasLinearKlu(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="klu"):
     """SuiteSparse KLU over the compiled analytic Jacobian."""
 
@@ -3231,6 +3352,8 @@ class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 
     #: Document version.
     version: Literal[2] = 2
+    #: Public IDACalcIC phase controls, also applied to scheduled consistent restarts.
+    initial_conditions: IdasInitialConditions = msgspec.field(default_factory=lambda: msgspec.convert({"backtracks": None, "convergence_coefficient": 0.0033, "jacobian_attempts": 4, "line_search": True, "newton_iterations": 10, "step_tolerance": None, "step_trials": None}, type=IdasInitialConditions))
     #: Consistent initialization at the start of the horizon; scheduled changes and resets
     #: always keep their differential states.
     initialization: enums.IdasInitialization = enums.IdasInitialization.ALGEBRAIC_AND_RATES
@@ -3240,7 +3363,7 @@ class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     sensitivity: enums.SensitivityCorrector = enums.SensitivityCorrector.SIMULTANEOUS
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.initialization), v.record_key(self.linear), v.scalar_key(self.sensitivity),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.initial_conditions), v.scalar_key(self.initialization), v.record_key(self.linear), v.scalar_key(self.sensitivity),))
 
 
 class IncumbentDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3543,12 +3666,12 @@ class JacobianDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fie
 
 
 class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 5 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+    """Version 6 of a durable job's payload: the one task a job runs. Unknown fields, tasks
     and versions are refused.
     """
 
     #: Document version.
-    version: Literal[5] = 5
+    version: Literal[6] = 6
     #: The task.
     task: JobTask
 
@@ -3716,18 +3839,18 @@ class KinsolLinearSptfqmr(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 class KinsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="kinsol"):
     """KINSOL method controls; scales and the step tolerance derive from policy."""
 
-    #: Native Anderson history; zero disables acceleration.
+    #: Native Anderson history for Picard/fixed point; zero disables acceleration.
     anderson: Annotated[int, msgspec.Meta(ge=0)] = 0
     #: Iterations before Anderson acceleration starts (`KINSetDelayAA`); Anderson only.
     anderson_delay: Annotated[int, msgspec.Meta(ge=0)] = 0
-    #: Damping in (0,1].
+    #: Picard/fixed-point damping in (0,1]; Newton and line search require one.
     damping: Fraction = 1.0
     #: Inexact-Newton forcing term; Krylov routes only.
     eta: KinsolEta = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "choice1"}, type=KinsolEta))
-    #: Native linear solver for equation profiles.
+    #: Native linear solver for equation/Picard profiles; fixed point requires the default.
     linear: KinsolLinear = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "klu"}, type=KinsolLinear))
     #: Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit
-    #: because KINSOL raises a smaller cap to one; `None` keeps KINSOL's
+    #: because KINSOL raises a smaller cap to one; Newton/line search only. `None` keeps KINSOL's
     #: `1000 * ||D_u u_0||`.
     max_newton_step: float | None = None
     #: Anderson QR orthogonalization; Anderson acceleration only.
@@ -3735,7 +3858,7 @@ class KinsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Krylov preconditioner from the analytic Jacobian (`KINSetPreconditioner`);
     #: KINSOL preconditions on the right.
     preconditioner: enums.Preconditioner = enums.Preconditioner.NONE
-    #: Maximum nonlinear iterations between linear setups.
+    #: Maximum nonlinear iterations between linear setups; fixed point requires the default.
     setup_interval: Annotated[int, msgspec.Meta(ge=0)] = 10
     #: Nonlinear strategy.
     strategy: enums.KinsolStrategy = enums.KinsolStrategy.LINE_SEARCH
@@ -3840,6 +3963,32 @@ class MatrixPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.dense_entries), v.scalar_key(self.findings), v.scalar_key(self.parallel_tolerance), v.scalar_key(self.rank_absolute), v.scalar_key(self.rank_relative), v.scalar_key(self.singular_vector),))
+
+
+class Mechanism(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One operation description. Applicability, supplied derivatives and method mathematics
+    remain with its support producers; this declaration owns bounded composition only.
+    """
+
+    #: Declared numerical operation, from the shared registry vocabulary.
+    kind: enums.NumericalMechanism
+    #: Additional local finite allowances under the enclosing task scope.
+    limits: WorkLimits
+    #: Preparation, execution or a later recovery rung.
+    position: enums.NumericalPosition
+    #: Explicit effective native profile; absent lets the contextual route resolve the base.
+    profile: ProfileRef | None = None
+    #: Failure of required admission ends this task; optional absence can preserve its base.
+    required: bool
+    #: Permitted proposal origins for this mechanism; entry rules still take precedence.
+    starts: tuple[enums.NumericalStartOrigin, ...]
+    #: Exact producer-owned support contracts required by this operation.
+    support: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: Declared transitions. Terminal stops remain obligatory, regardless of numerical history.
+    transitions: tuple[enums.NumericalTransition, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.record_key(self.limits), v.scalar_key(self.position), v.optional_key(v.record_key)(self.profile), v.scalar_key(self.required), v.sequence_key(v.scalar_key)(self.starts), v.sequence_key(v.scalar_key)(self.support), v.sequence_key(v.scalar_key)(self.transitions),))
 
 
 class ModelingCell(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4274,6 +4423,27 @@ class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.optional_key(v.record_key)(self.acceptable), v.scalar_key(self.closure), v.scalar_key(self.gap_absolute), v.scalar_key(self.gap_relative), v.scalar_key(self.incumbent), v.scalar_key(self.integrality), v.record_key(self.kkt), v.scalar_key(self.mip_absolute_gap), v.scalar_key(self.mip_relative_gap), v.scalar_key(self.native_scaling), v.sequence_key(v.record_key)(self.requirements), v.scalar_key(self.strict_nominals),))
 
 
+class NumericalStrategy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable ordered declaration. Ordering affects composition and identity; no backend
+    ranking or universal direct-first escalation is implied. With no request, the runtime
+    constructs direct(start, limits) from its existing admitted controls and enclosing scope.
+    """
+
+    #: Consumed accuracy contracts; original physical tolerances stay with their owner.
+    accuracy: tuple[AccuracyDemand, ...]
+    #: Original root-selection contract.
+    branch: BranchPolicy
+    #: Existing admitted task/occurrence finite limits, never refreshed at a new rung.
+    limits: WorkLimits
+    #: Ordered composition. At least one execution operation is required.
+    mechanisms: tuple[Mechanism, ...]
+    #: Entry intent and explicit later-start permissions.
+    start: StartRules
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.accuracy), v.record_key(self.branch), v.record_key(self.limits), v.sequence_key(v.record_key)(self.mechanisms), v.record_key(self.start),))
+
+
 class ObservationBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="boolean"):
     """A checked predicate."""
 
@@ -4427,6 +4597,26 @@ class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.scalar_key)(self.parameters), v.scalar_key(self.run_id), v.sequence_key(v.scalar_key)(self.values),))
+
+
+class PetscSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
+    """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
+
+    #: Selected native KSP method.
+    linear: enums.NativePetscLinear = enums.NativePetscLinear.GMRES
+    #: Selected native nonlinear method.
+    method: enums.NativePetscMethod = enums.NativePetscMethod.NEWTON_TRUST_REGION
+    #: Selected native PC method.
+    preconditioner: enums.NativePetscPreconditioner = enums.NativePetscPreconditioner.ILU
+    #: Required precisely for the pseudo-transient profile.
+    pseudo: PseudoTime | None = None
+    #: Required precisely for nonlinear additive Schwarz.
+    schwarz: Schwarz | None = None
+    #: Inner trust-region profile used by SNES and TSPSEUDO correction.
+    trust: TrustRegion = msgspec.field(default_factory=lambda: msgspec.convert({"initial": 1.0, "maximum": 100000000.0, "minimum": 1e-12}, type=TrustRegion))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
 
 
 class PhysicalObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4616,9 +4806,11 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     #: Declared completion event; omitted means the full fixed horizon.
     endpoint: EndpointRequirement = msgspec.field(default_factory=lambda: msgspec.convert({"event": None, "kind": "fixed_horizon"}, type=EndpointRequirement))
     #: Typed IDAS linear solver, sensitivity corrector and start.
-    idas: IdasSettings = msgspec.field(default_factory=lambda: msgspec.convert({"initialization": "algebraic_and_rates", "linear": {"kind": "klu"}, "sensitivity": "simultaneous", "version": 2}, type=IdasSettings))
+    idas: IdasSettings = msgspec.field(default_factory=lambda: msgspec.convert({"initial_conditions": {"backtracks": None, "convergence_coefficient": 0.0033, "jacobian_attempts": 4, "line_search": True, "newton_iterations": 10, "step_tolerance": None, "step_trials": None}, "initialization": "algebraic_and_rates", "linear": {"kind": "klu"}, "sensitivity": "simultaneous", "version": 2}, type=IdasSettings))
     #: Initial step in seconds.
     initial_step: float
+    #: Library-owned initialization controls, transported in every profile.
+    initialization: DiffsolInitialConditionOptions
     #: Maximum retained scalar cells, including sensitivities and event states.
     max_cells: Annotated[int, msgspec.Meta(ge=0)]
     #: Maximum retained event records.
@@ -4627,6 +4819,8 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     max_steps: Annotated[int, msgspec.Meta(ge=0)]
     #: Native method selected from the required trial semantics; automatic when absent.
     method: enums.DynamicsMethod = enums.DynamicsMethod.AUTO
+    #: Native BDF/nonlinear/error-control settings.
+    native: DiffsolOdeSolverOptions
     #: Physical acceptance and ID-keyed nominal requests, distinct from integration error controls.
     numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "gap_absolute": 1e-8, "gap_relative": 1e-8, "incumbent": "refuse", "integrality": 1e-8, "kkt": {"complementarity": 1e-8, "stationarity": 1e-8}, "mip_absolute_gap": 1e-6, "mip_relative_gap": 0.0001, "native_scaling": True, "requirements": [], "strict_nominals": False}, type=NumericalPolicy))
     #: Absolute integrated-flux tolerances in canonical conserved quantities.
@@ -4655,7 +4849,7 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     trial_failures: enums.TrialPolicy = enums.TrialPolicy.TERMINAL
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.adjoint), v.sequence_key(v.scalar_key)(self.atol), v.record_key(self.diffsol), v.scalar_key(self.end), v.record_key(self.endpoint), v.record_key(self.idas), v.scalar_key(self.initial_step), v.scalar_key(self.max_cells), v.scalar_key(self.max_events), v.scalar_key(self.max_steps), v.scalar_key(self.method), v.record_key(self.numerics), v.sequence_key(v.scalar_key)(self.out_atol), v.optional_key(v.scalar_key)(self.out_rtol), v.sequence_key(v.scalar_key)(self.parameter_scales), v.scalar_key(self.rtol), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedule), v.scalar_key(self.sensitivity), v.scalar_key(self.start), v.record_key(self.time_limit), v.scalar_key(self.trial_failures),))
+        return (type(self), (v.record_key(self.adjoint), v.sequence_key(v.scalar_key)(self.atol), v.record_key(self.diffsol), v.scalar_key(self.end), v.record_key(self.endpoint), v.record_key(self.idas), v.scalar_key(self.initial_step), v.record_key(self.initialization), v.scalar_key(self.max_cells), v.scalar_key(self.max_events), v.scalar_key(self.max_steps), v.scalar_key(self.method), v.record_key(self.native), v.record_key(self.numerics), v.sequence_key(v.scalar_key)(self.out_atol), v.optional_key(v.scalar_key)(self.out_rtol), v.sequence_key(v.scalar_key)(self.parameter_scales), v.scalar_key(self.rtol), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedule), v.scalar_key(self.sensitivity), v.scalar_key(self.start), v.record_key(self.time_limit), v.scalar_key(self.trial_failures),))
 
 
 class ProfileChain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4699,13 +4893,47 @@ class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.scalar_key(self.points), v.scalar_key(self.tolerance), v.optional_key(v.scalar_key)(self.workers),))
 
 
+class ProfileFailure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A retained source failure. Clones share the same typed witness; presentation is derived."""
+
+    #: Complete scientific evidence on demanded paths, including refused claims.
+    applicability: tuple[ApplicabilityObservation, ...] = msgspec.field(default_factory=tuple)
+    #: Ordered retained cause envelopes, preserving repeated aggregate occurrences.
+    causes: tuple[BoundaryDiagnostic, ...] = msgspec.field(default_factory=tuple)
+    #: Machine-readable disposition; callers never parse the message.
+    class_: enums.NativeBoundaryClass = msgspec.field(name="class")
+    #: Detailed semantic identity, authoritative over every coarse projection.
+    code: enums.DiagnosticCode
+    #: Available source locations. Empty means unattributed, not a guessed source.
+    locations: tuple[SourceLocation, ...] = msgspec.field(default_factory=tuple)
+    #: Values observed while checking the contract.
+    observations: dict[str, Observation]
+    #: The violated named contract, not a replacement for source identities.
+    rule: enums.DiagnosticRule
+    #: Error, warning or information; a warning never makes a model invalid.
+    severity: enums.DiagnosticSeverity = enums.DiagnosticSeverity.ERROR
+    #: All affected authored identities, in deterministic order.
+    sources: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Operation boundary, such as selected admission or provider registration.
+    stage: enums.DiagnosticStage
+    #: The lineage of a rejected authored validity predicate; absent on every other finding.
+    validity: ValidityLineage | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes), v.scalar_key(self.class_), v.scalar_key(self.code), v.sequence_key(v.record_key)(self.locations), v.mapping_key(v.scalar_key, v.record_key)(self.observations), v.scalar_key(self.rule), v.scalar_key(self.severity), v.sequence_key(v.scalar_key)(self.sources), v.scalar_key(self.stage), v.optional_key(v.record_key)(self.validity),))
+
+
 class ProfilePoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One pinned fit of a profile chain."""
 
     #: Qualified stationary or better and feasible, and used by the chain.
     accepted: bool
+    #: The native callback owner latched a terminal failure, even for a trial-class cause.
+    callback_terminal_failure: bool
     #: Why the pinned fit failed or was not used.
     detail: str | None = None
+    #: Original typed cause; serialized through its owner's boundary diagnostic.
+    failures: tuple[ProfileFailure, ...]
     #: The pinned fit's objective, half the weighted residual sum of squares.
     objective: float | None = None
     #: The pinned fit's qualification, when the runner returned a report.
@@ -4714,11 +4942,34 @@ class ProfilePoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     seed: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: `√(2·max(f - f*, 0))`.
     statistic: float | None = None
+    #: Actual native termination, when the runner returned a report.
+    termination: enums.NativeTermination | None = None
     #: The pinned parameter value, in the parameter's unit.
     value: float
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.detail), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.statistic), v.scalar_key(self.value),))
+        return (type(self), (v.scalar_key(self.accepted), v.scalar_key(self.callback_terminal_failure), v.optional_key(v.scalar_key)(self.detail), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.statistic), v.optional_key(v.scalar_key)(self.termination), v.scalar_key(self.value),))
+
+
+class ProfileRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Effective admitted native settings, interpreted by their existing native owner."""
+
+    #: Explicit implementation; changing it requires another declared reference.
+    backend: enums.NativeBackend
+    #: Complete effective method/settings identity, including set versus unset options.
+    key: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.key),))
+
+
+class ProfileWorkerFailureEnvironment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="environment"):
+    """Entering the worker's native environment failed with an original typed cause."""
+
+    detail: ProfileFailure
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail),))
 
 
 class ProfileWorkerFailurePanic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="panic"):
@@ -4833,6 +5084,28 @@ class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.covariance), v.sequence_key(v.scalar_key)(self.outputs),))
+
+
+class PseudoTime(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite step growth and rejection controls for artificial pseudo-time."""
+
+    #: Failed-stage shrink strictly between zero and one.
+    failed_scale: float = 0.5
+    #: Successful-step growth greater than one.
+    growth: float = 1.1
+    #: Positive artificial initial time step.
+    initial: float = 0.01
+    #: Finite maximum time step.
+    maximum: float = 1000000.0
+    #: Explicit rejection floor; a step below this ends the attempt.
+    minimum: float = 1e-12
+    #: Finite allowed nonlinear failures.
+    nonlinear_failures: Annotated[int, msgspec.Meta(ge=0)] = 20
+    #: Finite allowed rejected steps.
+    rejections: Annotated[int, msgspec.Meta(ge=0)] = 20
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.failed_scale), v.scalar_key(self.growth), v.scalar_key(self.initial), v.scalar_key(self.maximum), v.scalar_key(self.minimum), v.scalar_key(self.nonlinear_failures), v.scalar_key(self.rejections),))
 
 
 class PublicationSettlementCommitted(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="committed"):
@@ -5230,6 +5503,18 @@ class ScheduledInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.scalar_key(self.parameter), v.sequence_key(v.scalar_key)(self.times),))
 
 
+class Schwarz(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit correction damping and overlap extension for nonlinear Schwarz."""
+
+    #: Native nonlinear correction damping in (0,1].
+    damping: float = 1.0
+    #: Restrict the extension to each block's declared interior.
+    restricted: bool = True
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.damping), v.scalar_key(self.restricted),))
+
+
 class ScientificFacts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """E supplies aggregate decisions; the study never counts result tables to infer these."""
 
@@ -5529,6 +5814,18 @@ class StartProvenanceNotNeeded(msgspec.Struct, frozen=True, forbid_unknown_field
         return (type(self), ())
 
 
+class StartRules(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Entry intent and separately declared permissions for later starts in this task."""
+
+    #: Existing request's entry policy; a strategy cannot reinterpret its precedence.
+    policy: enums.NativeStartPolicy
+    #: Permitted later origins, after entry. Empty grants no replacement start.
+    recovery: tuple[enums.NumericalStartOrigin, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
+
+
 class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """What cancelling a study did."""
 
@@ -5548,20 +5845,24 @@ class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `StudyCompilerProfile` document type."""
 
+    #: Per-case sparse assembly and complete numerical-worker admission limits.
+    assembly: AssemblyLimits
+    #: Conservative shared domain/class construction work, not measured operations.
+    class_proof_work: Annotated[int, msgspec.Meta(ge=0)]
     evaluation: EvaluationLimits
     optimization: Optimization
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.evaluation), v.record_key(self.optimization),))
+        return (type(self), (v.record_key(self.assembly), v.scalar_key(self.class_proof_work), v.record_key(self.evaluation), v.record_key(self.optimization),))
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 3 of a study's definition: the store's `definition` document and the content of
+    """Version 4 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
     #: Document version.
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     #: The source bundles of the modeling package closure, in load order.
     modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
     #: The source bundle of the physical package.
@@ -5577,7 +5878,7 @@ class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     """Immutable request recorded by a study occurrence and replayed by either executor."""
 
     #: Interpretation of this operation descriptor.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Canonical physical assignments; required for every horizon descriptor.
     admitted_horizon: AdmittedHorizonValues | None = None
     #: Existing operation-owned input document.
@@ -5663,7 +5964,7 @@ class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     """Raw request admitted once into the immutable executable definition."""
 
     #: Document version.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Ordered occurrence requests.
     points: tuple[StudyPoint, ...]
 
@@ -5838,6 +6139,34 @@ class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.version), v.record_key(self.cause), v.scalar_key(self.effect), v.optional_key(v.record_key)(self.point), v.optional_key(v.scalar_key)(self.retry_failure),))
 
 
+class TrustRegion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Normalized radius bounds consumed by the native trust-region method."""
+
+    #: Initial radius in normalized coordinates.
+    initial: float = 1.0
+    #: Positive finite maximum radius.
+    maximum: float = 100000000.0
+    #: Positive lower radius; reaching it stops the native trajectory.
+    minimum: float = 1e-12
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.initial), v.scalar_key(self.maximum), v.scalar_key(self.minimum),))
+
+
+class UnoSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="uno"):
+    """First-order Uno filter trust-region SQP or SLP."""
+
+    #: Positive L-BFGS history for SQP; exactly zero for SLP.
+    limited_memory: Annotated[int, msgspec.Meta(ge=0)] = 6
+    #: SQP uses an L-BFGS Hessian; SLP consumes no Hessian history.
+    method: enums.NativeUnoMethod = enums.NativeUnoMethod.SQP
+    #: Initial native trust radius, in normalized coordinates.
+    trust_radius: float = 10.0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limited_memory), v.scalar_key(self.method), v.scalar_key(self.trust_radius),))
+
+
 class ValidityLineage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """What a rejected authored validity predicate guards (ADR-0123 Outcome 4, Plan 23 H5): its
     layer and the declaration stating it; for the form and data layers the form it belongs
@@ -5990,6 +6319,27 @@ class WindowInputPeriods(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.sequence_key(v.scalar_key)(self.value),))
 
 
+class WorkLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Additional finite work allowances. None imposes no additional counter cap under the
+    enclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.
+    Every supplied counter is finite; Some(0) expressly prohibits that operation.
+    """
+
+    #: Maximum executions, including the first attempt. A task requires at least one.
+    attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Evaluations admitted by the charging owner, including rejected trials.
+    evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Numerical factor constructions, distinct from structural analysis/setup reuse.
+    factorizations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native/library iterations, where the operation exposes them.
+    iterations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Verification/proof operations accounted by their owning verifier.
+    proof_steps: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempts), v.optional_key(v.scalar_key)(self.evaluations), v.optional_key(v.scalar_key)(self.factorizations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.proof_steps),))
+
+
 class WorkingSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed active set with the transformation under which its indices are meaningful."""
 
@@ -6018,7 +6368,7 @@ class Workspace(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
         return (type(self), (v.scalar_key(self.name), v.scalar_key(self.root_uri), v.scalar_key(self.workspace_id),))
 
 
-BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings
+BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings | UnoSettings | PetscSettings
 
 BindingTarget = BindingTargetPath | BindingTargetMember
 
@@ -6052,7 +6402,7 @@ Observation = ObservationMissing | ObservationReal | ObservationNonfinite | Obse
 
 OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | OperationRequestFit | OperationRequestHorizon
 
-ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling
+ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling | ProfileWorkerFailureEnvironment
 
 ProgressMetricDocument = ProgressMetricDocumentInteger | ProgressMetricDocumentReal | ProgressMetricDocumentText | ProgressMetricDocumentBoolean | ProgressMetricDocumentUnavailable
 
@@ -6071,6 +6421,7 @@ WarmPayloadSnapshot = WarmPayloadSnapshotRoot | WarmPayloadSnapshotNlp | WarmPay
 WindowInput = WindowInputConstant | WindowInputPeriods
 
 __all__ = [
+    "AccuracyDemand",
     "ActiveSetSnapshot",
     "AdjointSettings",
     "AdmittedBinding",
@@ -6082,6 +6433,7 @@ __all__ = [
     "ApplicabilityObservation",
     "ApplicabilityPermission",
     "ArrivalDocument",
+    "AssemblyLimits",
     "AuthoredFitCasesFieldExperimentsItem",
     "AuthoredFitCasesFieldExperimentsItemBindingsItem",
     "AuthoredFitCasesFieldObservationsItem",
@@ -6205,6 +6557,7 @@ __all__ = [
     "BindingTargetMember",
     "BindingTargetPath",
     "BoundaryDiagnostic",
+    "BranchPolicy",
     "BuildInfo",
     "CacheReport",
     "CaseOperation",
@@ -6226,6 +6579,7 @@ __all__ = [
     "ConeZero",
     "ConformanceControls",
     "ConicRequest",
+    "ConnectedPath",
     "ControllerOperation",
     "DeclarationEdit",
     "DeclarationInventory",
@@ -6238,6 +6592,8 @@ __all__ = [
     "DiagnosticNoteDocument",
     "DiagnosticSamplesControls",
     "DiagnosticSpanDocument",
+    "DiffsolInitialConditionOptions",
+    "DiffsolOdeSolverOptions",
     "DiffsolSettings",
     "DiscreteInitialization",
     "DiscreteInitializationFixAt",
@@ -6279,6 +6635,7 @@ __all__ = [
     "HorizonSignalDocumentEstimated",
     "HorizonSignalDocumentMeasured",
     "HorizonSignalDocumentTrajectory",
+    "IdasInitialConditions",
     "IdasLinear",
     "IdasLinearKlu",
     "IdasLinearSpfgmr",
@@ -6330,6 +6687,7 @@ __all__ = [
     "Limits",
     "LinearDiagnosticControls",
     "MatrixPolicy",
+    "Mechanism",
     "ModelingCell",
     "ModelingCellUncertainty",
     "ModelingCellValue",
@@ -6360,6 +6718,7 @@ __all__ = [
     "NumericObservationNonfinite",
     "NumericObservationReal",
     "NumericalPolicy",
+    "NumericalStrategy",
     "Observation",
     "ObservationBoolean",
     "ObservationContracts",
@@ -6380,6 +6739,7 @@ __all__ = [
     "Optimization",
     "OptionValue",
     "ParameterCovariance",
+    "PetscSettings",
     "PhysicalObservation",
     "PointAttemptOutcome",
     "PointOutcome",
@@ -6394,8 +6754,11 @@ __all__ = [
     "Profile",
     "ProfileChain",
     "ProfileControls",
+    "ProfileFailure",
     "ProfilePoint",
+    "ProfileRef",
     "ProfileWorkerFailure",
+    "ProfileWorkerFailureEnvironment",
     "ProfileWorkerFailurePanic",
     "ProfileWorkerFailureScheduling",
     "ProgressControls",
@@ -6407,6 +6770,7 @@ __all__ = [
     "ProgressMetricDocumentText",
     "ProgressMetricDocumentUnavailable",
     "Propagation",
+    "PseudoTime",
     "PublicationSettlement",
     "PublicationSettlementCommitted",
     "PublicationSettlementConflict",
@@ -6428,6 +6792,7 @@ __all__ = [
     "RuntimeSolveRunsFieldCommitmentItem",
     "RuntimeSolveRunsRow",
     "ScheduledInput",
+    "Schwarz",
     "ScientificFacts",
     "ScipSettings",
     "SeedOrigin",
@@ -6448,6 +6813,7 @@ __all__ = [
     "StartProvenanceFresh",
     "StartProvenanceFreshFallback",
     "StartProvenanceNotNeeded",
+    "StartRules",
     "StudyCancel",
     "StudyCompilerProfile",
     "StudyDefinition",
@@ -6470,6 +6836,8 @@ __all__ = [
     "TerminationCauseInfrastructure",
     "TerminationDetail",
     "Tolerance",
+    "TrustRegion",
+    "UnoSettings",
     "ValidityLineage",
     "VersionRequirement",
     "WarmPayloadSnapshot",
@@ -6481,6 +6849,7 @@ __all__ = [
     "WindowInput",
     "WindowInputConstant",
     "WindowInputPeriods",
+    "WorkLimits",
     "WorkingSetSnapshot",
     "Workspace",
 ]

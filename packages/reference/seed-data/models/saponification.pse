@@ -68,6 +68,7 @@
 }
 @id("dfa256484e8c4aa885ade4bfdae36927") test reaction_binding oracle references.idaes_saponification_reactions fixture {dof 0; route steady; procedure check; fix root.T=303.15{K}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.concentration[chem.sodium_acetate]=0{mol/m^3}; fix root.concentration[chem.ethanol]=0{mol/m^3}; fix root.concentration[chem.water]=55388{mol/m^3};} {
 @id("157f7e64fd34502cab85bc7d486572cd") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
+@id("01a1068872ca7366a5228b93399f1c91") child law:SaponificationReactions=SaponificationReactions;
 @id("42714e7e77954abd973055ee40fbab5b") child root:reactions.Projection=reactions.Projection(material=SaponificationReactions.components,selected=SaponificationReactions.records,selection=SaponificationReactions.admitted);
 @id("3ba63ee235b04ab8a40593223c948073") expect root.rate[hydrolysis]==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)};
 @id("f3536f006edc4d9a8954938a50d6eb99") expect root.heat[hydrolysis]==-49000{J/mol} tolerance 1e-8{J/mol};

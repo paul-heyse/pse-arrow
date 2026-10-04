@@ -246,12 +246,15 @@ runtime.runs()          # durable attempts, newest first (runtime.operational_at
 
 ## Jobs and `pse-worker`
 
-A job names its current try's attempt and a typed payload (`JobPayload` version 3, JSON
+A job names its current try's attempt and a typed payload (`JobPayload` version 6, JSON
 Schema `docs/generated/schema/job-payload.schema.json`): a `ModelingJob` (the physical and
-modeling source bundles by package content hash, the case, route, typed `SolveSettings`, a
-`JobStart` of `fresh`, `resume_from_parent` or `stored_solution`, and for a study point its
-`StudyPointBinding`) or a study finalization. A worker refuses a version it does not know
-(`UnknownPayloadVersion`). `Operations::put_sources` stores a package's documents as a
+modeling source bundles by package content hash, the case, route, typed `SolveSettings`, and a
+`JobStart` of `fresh`, `resume_from_parent` or `stored_solution`), a `StudyOperationJob`
+(source bundles and the immutable `StudyPointBinding`, including its admitted operation
+and occurrence policy), or a study finalization. A worker refuses a version it does not know
+before decoding nested current inputs (`UnknownPayloadVersion`), preserving stored bytes.
+Current public study requests and operation descriptors use version 2; stored study
+definitions use version 4. `Operations::put_sources` stores a package's documents as a
 content-addressed source bundle; `Operations::enqueue(job, idempotency_key, retry,
 priority)` frames the request identity from the typed job and creates the job with its
 first attempt, and the same idempotency key returns the existing job. The retry policy is a
@@ -263,13 +266,16 @@ policy.
 
 ```bash
 just pse-worker --until-idle                 # serve the queue until it is empty
-just pse-worker --jobs 10 --memory-mib 8192  # stop after ten jobs; SCIP needs the larger budget
+just pse-worker --jobs 10 --memory-mib 8192  # stop after ten jobs with the default budget
 ```
 
 `pse-worker` options: `--url`, `--name` (default `pse-worker:<host>:<pid>`),
 `--lease-seconds` (30), `--heartbeat-ms` (10000), `--poll-ms` (500), `--jobs`,
-`--until-idle`, `--memory-mib` (4096) and `--threads`. The recipe sources the native
-execution environment and builds with `native-solvers`. The worker sets the process-level
+`--until-idle`, `--memory-mib` (8192) and `--threads`. The worker assigns one sixteenth
+of its memory budget to numeric worker capacity; this default admits the Rust compiler's
+default scratch allowance. Explicit smaller deployments retain their finite capacity and
+can refuse compilation with an `artifact profile` resource limit. The recipe sources the
+native execution environment and builds with `native-solvers`. The worker sets the process-level
 OpenMP environment SPRAL needs (`OMP_CANCELLATION`, `OMP_PROC_BIND`, `OMP_PLACES`,
 `HWLOC_COMPONENTS`) before any thread starts, re-executing itself when they are missing;
 an operator's explicit values stand. It sweeps expired leases at start-up and
@@ -390,8 +396,9 @@ and the in-memory object store; remote object stores (S3-compatible) are not qua
 
 ## Studies across workers
 
-A durable study (Plan 22 O7, architecture S15) is many authored-case solves run by any
-number of workers and published once. `Runtime::start_study` (Python
+A durable study is an admitted set of operation occurrences run by workers and published
+once. [Blueprint §19.3](../authoritative_design/sections/workflows-and-results.md#section-19-3)
+owns the operation, dependency, start and effect policy. `Runtime::start_study` (Python
 `ModelingPackage.study(..., runtime=, workspace=)`) stores the package's sources and a
 typed `StudyDefinition`, then creates in one transaction (`pse_operations::studies`):
 
@@ -402,26 +409,29 @@ typed `StudyDefinition`, then creates in one transaction (`pse_operations::studi
   stale, and its publication can always commit once it has ended;
 - the study's one publication intent for that attempt, registered before any point
   writes a member under its prefix (X9);
-- one job per point with payload v3 (`JobTask::Modeling` with a `StudyPointBinding`:
-  study, point index, binding hash, typed overlay, predecessor). A point without a
-  predecessor is queued; a point with one waits (job `waiting`, attempt `planned`);
+- one job per point with payload v6 (`JobTask::StudyOperation` with source bundles
+  and an immutable `StudyPointBinding`: study, occurrence index, binding identity,
+  physically admitted assignments, occurrence policy and operation). Ready points
+  are queued; points awaiting their declared dependencies wait (job `waiting`,
+  attempt `planned`);
 - a waiting finalization job (attempt kind `study_finalization`).
 
 A point follows its job in the transaction that moves the job — claimed (`assigned`),
-requeued after a lost lease (`pending`), finished or cancelled. A completed point
-releases the points that name it as their predecessor, which then start from its stored
-solution (`StartSource::Stored`; the `job.start` event records `predecessor` and the
-solution, or why the point started fresh). A point that fails or is cancelled cancels
-its dependents transitively as `unattempted`, each job recording which predecessor did
-not complete. A completed try writes its result tables under
+requeued after a lost lease (`pending`), finished or cancelled. Each transition invokes
+the shared occurrence policy: dependency facts, scientific permission, compatible seed
+availability and the declared fallback determine readiness, refusal or cancellation.
+The `job.start` event records the actual predecessor/solution or specification fallback;
+operational completion alone does not confer seed or result permission. A try that
+produces attributable result members writes those tables under
 `{prefix}points/{index}/{attempt}/` (catalog `point_{index}`, receipts naming the
 point's attempt) and records them in `study_point_members` with the completion. When the
 last point is terminal the finalization is released: it writes `runtime.study_outcomes`
 (one row per point) under `{prefix}summary/` and commits one publication of the study's
-attempt with the summary and every completed point's members; failed points contribute
-none. Point transitions of one study serialize on the study row. Cancelling a study
+attempt with the summary and every actually recorded point member, including members
+available after partial failure or cancellation. Their presence does not make a failed
+point scientifically usable. Point transitions of one study serialize on the study row. Cancelling a study
 (`StudyHandle::cancel`, or `request_cancel` of its attempt) cancels the points that have
-not started, asks running tries to stop, and still publishes what completed. A package
+not started, asks running tries to stop, and still publishes the recorded members. A package
 changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) cannot be run as a
 durable study, because workers load its authored documents.
 

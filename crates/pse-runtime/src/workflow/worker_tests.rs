@@ -186,13 +186,13 @@ async fn unknown_payload_version_refused() {
     let database = TestDatabase::create().await.unwrap();
     let runtime = job_durable(&database, "worker-a", quick()).await;
     let operations = operations(&runtime);
-    // A payload from a newer build: an unknown column version, and a known column version
-    // whose document states another version. Both are written past the typed enqueue, as
-    // another build would.
+    // Unknown column and document versions are written past typed enqueue, as another
+    // build would. Neither historical scientific inputs nor malformed current inputs
+    // are reinterpreted.
     let job = authored_job(&runtime, SQUARE, ipopt()).await;
     let mut restated =
         serde_json::to_value(JobPayload::new(JobTask::Modeling(Box::new(job.clone())))).unwrap();
-    restated["version"] = serde_json::json!(4);
+    restated["version"] = serde_json::json!(5);
     // Version 2 described one modeling job at the top level; it is not interpreted.
     let mut former = serde_json::to_value(&job).unwrap();
     former["version"] = serde_json::json!(2);
@@ -204,35 +204,46 @@ async fn unknown_payload_version_refused() {
             serde_json::json!({ "from": "a newer build" }),
         ),
         ("former-column", 2, former),
-        ("future-document", JOB_PAYLOAD_VERSION, restated),
+        ("historical-column", 5, restated.clone()),
+        ("historical-document", JOB_PAYLOAD_VERSION, restated),
+        (
+            "malformed-document",
+            JOB_PAYLOAD_VERSION,
+            serde_json::json!({}),
+        ),
     ] {
-        enqueued.push(
-            operations
-                .store()
-                .jobs()
-                .enqueue(&pse_operations::jobs::NewJob {
-                    attempt: pse_operations::attempts::NewAttempt {
-                        attempt_id: pse_operations::mint_id(),
-                        run_id: pse_operations::mint_id(),
-                        kind: pse_operations::attempts::AttemptKind::Modeling,
-                        operational_job_identity:
-                            pse_ids::roles::RecordedOperationalJobIdentity::current(
-                                job.operational_job_identity(key).unwrap(),
-                            ),
-                        preparation_identity: None,
-                        parent_attempt: None,
-                    },
-                    idempotency_key: key.to_owned(),
-                    payload_version: version,
-                    payload,
-                    priority: 0,
-                    retry: retry(),
-                })
-                .await
-                .unwrap(),
-        );
+        let queued = operations
+            .store()
+            .jobs()
+            .enqueue(&pse_operations::jobs::NewJob {
+                attempt: pse_operations::attempts::NewAttempt {
+                    attempt_id: pse_operations::mint_id(),
+                    run_id: pse_operations::mint_id(),
+                    kind: pse_operations::attempts::AttemptKind::Modeling,
+                    operational_job_identity:
+                        pse_ids::roles::RecordedOperationalJobIdentity::current(
+                            job.operational_job_identity(key).unwrap(),
+                        ),
+                    preparation_identity: None,
+                    parent_attempt: None,
+                },
+                idempotency_key: key.to_owned(),
+                payload_version: version,
+                payload,
+                priority: 0,
+                retry: retry(),
+            })
+            .await
+            .unwrap();
+        let retained = operations
+            .store()
+            .jobs()
+            .get(queued.job_id())
+            .await
+            .unwrap();
+        enqueued.push((queued, retained.payload_version, retained.payload));
     }
-    for (index, enqueued) in enqueued.into_iter().enumerate() {
+    for (index, (enqueued, version, payload)) in enqueued.into_iter().enumerate() {
         let processed = runtime.work_once().await.unwrap();
         let Processed::Ran { record, .. } = &processed else {
             panic!("{processed:?}")
@@ -246,7 +257,7 @@ async fn unknown_payload_version_refused() {
         let TerminationCause::Error { diagnostic } = detail.cause else {
             panic!("{detail:?}")
         };
-        if index < 2 {
+        if index < 4 {
             // The typed diagnostic code, with the violated named contract (X4).
             assert_eq!(
                 pse_operations::attempts::TerminationCode::of(attempt).unwrap(),
@@ -274,6 +285,8 @@ async fn unknown_payload_version_refused() {
             .unwrap();
         assert_eq!(job.state, JobState::Failed);
         assert_eq!(job.attempt_id, enqueued.attempt_id());
+        assert_eq!(job.payload_version, version);
+        assert_eq!(job.payload, payload);
     }
     assert!(matches!(
         runtime.work_once().await.unwrap(),
@@ -343,7 +356,7 @@ fn job_request_identity_independent_of_key_order() {
 }
 
 #[test]
-fn study_job_v5_codec_unit_retains_binding_policy_and_operation() {
+fn study_job_v6_codec_unit_retains_binding_policy_and_operation() {
     use pse_model::study::*;
     let hash = pse_ids::ContentHash::from_bytes([1; 32]);
     let binding = AdmittedBinding {
@@ -385,14 +398,15 @@ fn study_job_v5_codec_unit_retains_binding_policy_and_operation() {
         point,
     })));
     let encoded = serde_json::to_value(payload).unwrap();
-    assert_eq!(encoded["version"], 5);
+    assert_eq!(encoded["version"], 6);
+    assert_eq!(encoded["task"]["point"]["operation"]["version"], 2);
     assert_eq!(encoded["task"]["kind"], "study_operation");
     let decoded: JobPayload = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
     for broken in [
         {
             let mut value = encoded.clone();
-            value["version"] = serde_json::json!(4);
+            value["version"] = serde_json::json!(5);
             value
         },
         {

@@ -16,9 +16,12 @@ Plans 25a–25j implement the target directly, use compilation and focused behav
 and delete replaced mechanisms as their callers move. They do not repeat this campaign at
 section or document boundaries. This plan starts after all their functional packets are complete.
 The later [25l functional follow-up](25l-flowsheet-compilation-and-solver-routing.md) supplies
-the corrections required at the current review boundary before K3 resumes.
+the corrections required at the full-case review boundary. The subsequent
+[25m pipeline follow-up](25m-integrated-solve-pipeline.md) supplies the combined solver-review
+functional handoff before K3 next resumes.
 
-The coordinator owns finding dispositions. This document owns the assembled system's eventual
+The coordinator owns its original finding dispositions; 25m owns its distinct adopted
+solver-review findings. This document owns the assembled system's eventual
 qualification evidence. A passed packet, an accepted ADR and a historical Plan 23 result are
 different evidence from a qualified Plan 25 implementation. The execution checkpoints below
 record current readiness; the Outcome will record the completed campaign and its limits.
@@ -63,7 +66,7 @@ and fixture inputs authored alongside the implementation that supplies the behav
 |---|---|---|---|
 | <a id="k1"></a>K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | done |
 | <a id="k2"></a>K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | done |
-| <a id="k3"></a>K3 Behavioral and scientific qualification | K2; at the current review boundary, 25l L6 and refreshed static evidence for its changed source | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress |
+| <a id="k3"></a>K3 Behavioral and scientific qualification | K2; 25l L6 and 25m P11 functional handoffs, with refreshed static evidence for affected source | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress |
 | <a id="k4"></a>K4 Reuse and performance measurement | K3 | Measure cold/warm preparation, one-body edits, in-process/durable value studies, retention after eviction and worker admission; report counts, timing distributions, memory and all refusals/failures | planned |
 | <a id="k5"></a>K5 Architectural assessment and closure | K3/K4 | Conduct one bounded target-design review of the assembled change, reconcile every finding with its evidence, update enduring owners and close only demonstrated scope | planned |
 
@@ -259,6 +262,54 @@ registered tests and completed packet outcomes. No missing aligned work was iden
 changes are integrated or superseded, and merge debris has no product value. Remove those
 worktrees after qualification passes, without retaining differences merely because they exist.
 
+### Review boundary — integrated solve pipeline
+
+Checkpoint, 2026-10-03: the maintainer paused further same-scope solve probes to assess the
+integrated numerical pipeline. The
+[solver acceleration review](../design_review/reviews/design_review_solver-acceleration-and-globalization_2026-10-03.md)
+and [current-tree refinement](../design_review/reviews/design_review_integrated-solve-pipeline_2026-10-03.md)
+retain the full applicable method target and specify corrected contracts. Neither design
+review qualifies the original nested PR case or completes K5.
+
+[25m](25m-integrated-solve-pipeline.md) now owns implementation of those findings and the
+functional prerequisite. Its P11 handoff supplies migrated consumers, deletion obligations
+and registered fixtures. K3 remains incomplete and paused pending that handoff; historical
+K1/K2 evidence retains its scope. At functional completion, refresh the affected static
+scope and run one composite qualification campaign here. Do not resume larger-limit or
+alternate-profile probes as a substitute for the planned pipeline changes.
+
+Extend the existing K3 journeys with actual declared strategy execution, same-backend
+profile recovery, derived-to-original assessment, sheet continuity, accuracy propagation,
+report-less/terminal failures and generated/direct/Python trace projection. Keep original
+PR/CSTR fixtures, bounds and independent expectations. Extend K4's existing dev-profile
+workloads with actual proof/evaluation/setup/factor reuse and strategy work/resource
+accounting; method inclusion requires no exhaustive combinations or benchmark ranking.
+K5 assesses the assembled corrected target and adopted decisions. Worktree cleanup remains
+the already recorded post-qualification action.
+
+Functional handoff, 2026-10-04: Plan 25m P0–P11 is implemented, with migrated consumers,
+generated public trace projection and the bounded assembled architecture review. K3 resumes
+with formatting and static repair, then one assembled functional/scientific campaign against
+the original scientific criteria. The PR liquid tangent-plane fixture now has a distinct
+local-reference identity and explicit Ipopt intent: its original laws, bounds, checks and
+TPD oracle are unchanged, while the old backend-defect-dependent failure expectation is
+retired. Dedicated SCIP reproducer and contradiction tests remain; global PR certification
+is still unqualified under R-52. K4 follows the complete functional receipt in the current
+dev profile. K5 consumes that evidence before closure and obsolete-worktree removal.
+
+Execution pause, 2026-10-04, requested by the maintainer: Plan 25m's active agent repairs
+are integrated in the existing main working tree; the 44 affected targeted native tests
+pass against zero. Its [execution checkpoint](25m-integrated-solve-pipeline.md#execution-checkpoint)
+owns their current state and targeted verification. The superseded assembled campaign
+completed 37 initial checks, doctests and the inspection fixture successfully; default Rust
+reported 2,629 passes, two failures and one timeout, and native Rust reported 3,119 passes
+and eight failures, all against a zero-failure target. Its linked Python run and the refreshed
+original PR campaign were stopped before completion. Source changed during repair, so this
+is partial historical evidence and cannot support K4. The frozen complete qualification,
+full seed/domain scope, required dev measurements and final closure remain pending. No
+obsolete worktree has been removed; their already authorized assessment/removal remains
+a post-qualification obligation, not indefinite retention.
+
 ### K2/K3 — Recipe selection and reporting
 
 Execution checkpoint, 2026-10-02: static repairs are complete. Registry-owned enum defaults,
@@ -283,7 +334,8 @@ closure through validity/evidence, datum-point subtraction before reference tran
 and the admitted physical types of static conditional branches. Block binding now retains
 existing shared parents while charging its new products. Recorded contracts select exact
 versions and provenance; fault-proxy shutdown awaits owned relays and backend completion.
-The local operational store has completed its preserving V1–V7 transition without reset.
+The local operational store has completed its preserving V1–V8 transition without reset, including append-only Uno/PETSc
+native-backend enumeration values.
 Targeted checks precede the repaired integrated campaign. The default Rust and doctest scopes
 will inherit the existing native execution environment explicitly, including the Symbolica
 licence, rather than relying on an interactive shell's direnv activation. K4 and the final
@@ -359,6 +411,16 @@ that any current command has run or passed.
 
 ### K4 — Measurements that distinguish the design
 
+Execution refinement, 2026-10-04: untimed controls show that medium structural
+preparation alone takes several minutes, while the 32-block warm-up has exceeded
+fifteen minutes before its first observation. Measure the required mechanisms with
+cold/warm small cases at one and four executor threads, the medium structural-edit
+and specialization-edit controls, the two eight-point study controls, all five scalar
+preparation/retention/worker-lifetime controls and document admission. This selected
+dev-profile campaign covers reuse, invalidation, occurrence execution and ownership;
+the broader size-by-thread grid remains outside its measured scope. Report this limit
+explicitly and make no general scaling or production-release performance claim.
+
 Count actual body admissions and prepared products: an unchanged body with a retained warm entry
 and unchanged complete admission context must reuse its admitted product; changing one equation
 invalidates its dependency closure; a span-only edit changes attribution without unnecessary
@@ -390,7 +452,11 @@ No commit, push or publication is implied by this campaign description.
 
 ### What was built
 
-Not executed. Record actual qualification scope and evidence labels at closure.
+**Implemented, scoped Tested:** composition fixtures and qualification repairs are present,
+and targeted original scientific cases and solver/resource controls have executed. These
+results do not establish the final assembled campaign. The current frozen complete gate,
+full authored campaign, required dev-profile measurements, bounded closure and obsolete
+worktree retirement remain incomplete. Record their actual scope and conditions at closure.
 
 ### A mistake made and corrected
 

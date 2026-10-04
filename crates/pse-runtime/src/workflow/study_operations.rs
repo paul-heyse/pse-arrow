@@ -80,6 +80,10 @@ struct ProfileWire {
     #[serde(with = "EvaluationWire")]
     #[schemars(with = "EvaluationWire")]
     evaluation: pse_math::jets::EvaluationLimits,
+    /// Per-case sparse assembly and complete numerical-worker admission limits.
+    assembly: pse_math::assembly::AssemblyLimits,
+    /// Conservative shared domain/class construction work, not measured operations.
+    class_proof_work: usize,
 }
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(remote = "pse_math::library::Optimization", deny_unknown_fields)]
@@ -319,7 +323,7 @@ pub struct AdmittedHorizonValues {
 #[serde(deny_unknown_fields)]
 pub struct StudyOperation {
     /// Interpretation of this operation descriptor.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Exact source/context reconstruction precondition.
     pub source: OperationSource,
     /// Complete preparation controls using existing owners' remote projections.
@@ -965,6 +969,12 @@ mod study_operation_unit {
                     scratch_bytes: 19,
                     provider_calls: 23,
                 },
+                assembly: pse_math::assembly::AssemblyLimits {
+                    contributions: 101,
+                    native_index: 103,
+                    worker_bytes: 107,
+                },
+                class_proof_work: 83,
             },
             limits: Limits {
                 depth: 17,
@@ -978,6 +988,15 @@ mod study_operation_unit {
         let decoded: PreparationSettings = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(decoded.compiler, settings.compiler);
         assert_eq!(decoded.limits, settings.limits);
+        let mut incomplete: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        incomplete["compiler"]
+            .as_object_mut()
+            .unwrap()
+            .remove("assembly");
+        assert!(
+            serde_json::from_value::<PreparationSettings>(incomplete).is_err(),
+            "complete compiler policy has no serialized assembly default"
+        );
     }
 
     #[test]
@@ -1003,10 +1022,15 @@ mod study_operation_unit {
         for request in requests {
             let original = operation(request);
             let value = serde_json::to_value(&original).unwrap();
+            assert_eq!(value["version"], 2);
             let decoded: StudyOperation = serde_json::from_value(value.clone()).unwrap();
             assert_eq!(decoded.source, original.source);
             assert_eq!(decoded.output_roles(), original.output_roles());
             assert_eq!(serde_json::to_value(decoded).unwrap(), value);
+            let mut historical = value;
+            historical["version"] = serde_json::json!(1);
+            let error = serde_json::from_value::<StudyOperation>(historical).unwrap_err();
+            assert!(error.to_string().contains("unknown document version 1"));
         }
     }
 

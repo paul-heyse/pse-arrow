@@ -697,6 +697,8 @@ pub const ENUMS: &[(&str, &[&str])] = &[
             "idas",
             "scip",
             "pounce_convex",
+            "uno",
+            "petsc",
         ],
     ),
     ("native_metric_kind", &["real", "integer", "boolean", "text", "unavailable"]),

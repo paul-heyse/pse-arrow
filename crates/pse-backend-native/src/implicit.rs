@@ -22,6 +22,73 @@ use std::{
 /// Native root capability injected into generic implicit evaluation.
 #[derive(Debug)]
 pub struct Kinsol;
+
+/// Lower cooperative native time stops before the generic provider error boundary.
+fn native_failure(error: ProblemError, source_id: pse_ids::SemanticId) -> MathError {
+    if crate::callback::classify(&error)
+        == crate::callback::Failure::Stopped(Termination::TimeLimit)
+    {
+        return MathError::Scope(pse_kernels::ProviderError::Deadline);
+    }
+    match error {
+        ProblemError::Math(error) => error,
+        ProblemError::Cancelled => MathError::Cancelled,
+        other => MathError::Native {
+            source_id,
+            retained: other.retained_bytes(),
+            cause: pse_model::diagnostic::DiagnosticCause::new(other),
+        },
+    }
+}
+/// Preserve evaluation witnesses before translating an unqualified numerical exit.
+fn report_failure(report: &SolveReport, source_id: pse_ids::SemanticId) -> Option<MathError> {
+    if let Some(cause) = report
+        .shared_callback_failure()
+        .or_else(|| report.shared_validation_failure())
+    {
+        if crate::callback::classify(cause.as_ref())
+            == crate::callback::Failure::Stopped(Termination::TimeLimit)
+        {
+            return Some(MathError::Scope(pse_kernels::ProviderError::Deadline));
+        }
+        // The cause owner accounts the payload; MathError accounts shared-allocation overhead.
+        let retained = cause.retained_bytes();
+        return Some(MathError::Native {
+            source_id,
+            retained,
+            cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+        });
+    }
+    match report.termination.category {
+        Termination::Cancelled => Some(MathError::Cancelled),
+        Termination::TimeLimit => Some(MathError::Scope(pse_kernels::ProviderError::Deadline)),
+        Termination::Success | Termination::Acceptable => None,
+        Termination::Panic | Termination::Invalid | Termination::ResourceExhausted => {
+            let cause = ProblemError::native(
+                crate::NativeStatus {
+                    backend: report.backend,
+                    code: report.termination.code,
+                    name: report.termination.name.clone(),
+                },
+                report.termination.category,
+                report
+                    .termination
+                    .message
+                    .clone()
+                    .unwrap_or_else(|| "native inner solve failed".into()),
+            );
+            Some(MathError::Native {
+                source_id,
+                retained: cause.retained_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::new(cause),
+            })
+        }
+        _ => Some(MathError::Domain {
+            source_id,
+            requirement: "native inner solve did not converge",
+        }),
+    }
+}
 /// Budget this worker thread's KINSOL session cache at `bytes`, the amount its job or
 /// session lease reserves for it (Plan 22 I14). Retained sessions beyond the budget are
 /// released, least recently used first. A thread that never received a budget retains
@@ -234,15 +301,7 @@ impl InnerSolver for Kinsol {
     ) -> Result<Vec<f64>, MathError> {
         problem.validate_options(options)?;
         // Typed native causes, including structural rows and columns, stay attributable.
-        let map = |e: ProblemError| match e {
-            ProblemError::Math(e) => e,
-            ProblemError::Cancelled => MathError::Cancelled,
-            other => MathError::Native {
-                source_id: problem.id,
-                retained: other.retained_bytes(),
-                cause: pse_model::diagnostic::DiagnosticCause::new(other),
-            },
-        };
+        let map = |error| native_failure(error, problem.id);
         let controls = Controls {
             iterations: options.iterations,
             time_limit: options.time_limit,
@@ -352,16 +411,8 @@ impl InnerSolver for Kinsol {
         sessions::give(problem.identity, session);
         drop(loan);
         let report = report.map_err(map)?;
-        match report.termination.category {
-            Termination::Cancelled => return Err(MathError::Cancelled),
-            Termination::TimeLimit => return Err(MathError::Limit("implicit solve time")),
-            Termination::Success | Termination::Acceptable => {}
-            _ => {
-                return Err(MathError::Domain {
-                    source_id: problem.id,
-                    requirement: "native inner solve did not converge",
-                });
-            }
+        if let Some(error) = report_failure(&report, problem.id) {
+            return Err(error);
         }
         let point = report
             .candidate
@@ -378,6 +429,574 @@ impl InnerSolver for Kinsol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn observed(category: Termination) -> SolveReport {
+        let mut termination = kinsol::termination(sundials_sys::KIN_SYSFUNC_FAIL);
+        termination.category = category;
+        SolveReport::new(
+            Backend::Kinsol,
+            &crate::solver_tests::contract(),
+            termination,
+            &crate::solver_tests::execution(),
+        )
+    }
+    #[test]
+    fn inner_report_keeps_shared_terminal_callback_and_validation_causes() {
+        use pse_model::diagnostic::DiagnosticProjection;
+        for validation in [false, true] {
+            let original = Arc::new(ProblemError::Contract("nested terminal witness".into()));
+            let mut report = observed(if validation {
+                Termination::Success
+            } else {
+                Termination::Evaluation
+            });
+            if validation {
+                report.record_validation_failure(ProblemError::Contract(
+                    "nested terminal witness".into(),
+                ));
+            } else {
+                report.callback_failure = Some(original.clone());
+                report.evidence.callback.terminal_failure = true;
+            }
+            let original = if validation {
+                report.shared_validation_failure().unwrap()
+            } else {
+                original
+            };
+            let failure = report_failure(&report, pse_ids::SemanticId::NIL).unwrap();
+            let MathError::Native {
+                cause, retained, ..
+            } = &failure
+            else {
+                panic!("typed nested cause lost")
+            };
+            let underlying = cause.as_error().downcast_ref::<ProblemError>().unwrap();
+            assert!(std::ptr::eq(underlying, original.as_ref()));
+            assert_eq!(*retained, original.retained_bytes());
+            assert_eq!(cause.allocation_overhead(), 2 * size_of::<usize>());
+            assert_eq!(
+                failure.retained_bytes(),
+                size_of::<MathError>() + original.retained_bytes() + cause.allocation_overhead()
+            );
+            let stage = pse_diagnostics::DiagnosticStage::Evaluation;
+            assert_eq!(
+                serde_json::to_value(cause.boundary_diagnostic(stage)).unwrap(),
+                serde_json::to_value(original.boundary_diagnostic(stage)).unwrap()
+            );
+            drop(report);
+            assert_eq!(Arc::strong_count(&original), 2);
+            assert_eq!(
+                crate::callback::classify(&ProblemError::Math(failure)),
+                crate::callback::Failure::Fatal
+            );
+        }
+    }
+    #[test]
+    fn inner_report_preserves_numerical_trials_and_terminal_native_exits() {
+        for category in [
+            Termination::Numerical,
+            Termination::IterationLimit,
+            Termination::Limit,
+        ] {
+            let failure = report_failure(&observed(category), pse_ids::SemanticId::NIL).unwrap();
+            assert_eq!(
+                crate::callback::classify(&ProblemError::Math(failure)),
+                crate::callback::Failure::Trial
+            );
+        }
+        for category in [
+            Termination::Panic,
+            Termination::Invalid,
+            Termination::ResourceExhausted,
+        ] {
+            let failure = report_failure(&observed(category), pse_ids::SemanticId::NIL).unwrap();
+            assert_eq!(
+                crate::callback::classify(&ProblemError::Math(failure)),
+                crate::callback::Failure::Fatal
+            );
+        }
+        assert!(
+            report_failure(&observed(Termination::Success), pse_ids::SemanticId::NIL).is_none()
+        );
+        assert!(matches!(
+            report_failure(&observed(Termination::Cancelled), pse_ids::SemanticId::NIL),
+            Some(MathError::Cancelled)
+        ));
+        assert!(matches!(
+            report_failure(&observed(Termination::TimeLimit), pse_ids::SemanticId::NIL),
+            Some(MathError::Scope(pse_kernels::ProviderError::Deadline))
+        ));
+        let mut report = observed(Termination::Evaluation);
+        report.callback_failure = Some(Arc::new(
+            MathError::Domain {
+                source_id: pse_ids::SemanticId::NIL,
+                requirement: "recoverable inner trial",
+            }
+            .into(),
+        ));
+        let failure = report_failure(&report, pse_ids::SemanticId::NIL).unwrap();
+        assert_eq!(
+            crate::callback::classify(&ProblemError::Math(failure)),
+            crate::callback::Failure::Trial
+        );
+    }
+    #[test]
+    fn implicit_native_deadline_lowering_keeps_allocation_and_contract_causes_terminal() {
+        use pse_kernels::ProviderError;
+        for original in [
+            ProblemError::Provider(ProviderError::Deadline),
+            ProblemError::Math(MathError::Scope(ProviderError::Deadline)),
+        ] {
+            let mut report = observed(Termination::TimeLimit);
+            report.callback_failure = Some(Arc::new(original));
+            let error = report_failure(&report, crate::solver_tests::id(96)).unwrap();
+            assert!(matches!(error, MathError::Scope(ProviderError::Deadline)));
+            assert_eq!(
+                crate::callback::classify(&ProblemError::Math(error)),
+                crate::callback::Failure::Stopped(Termination::TimeLimit)
+            );
+        }
+        for original in [
+            ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                detail: "actual allocation refusal".into(),
+            },
+            ProblemError::Contract("original contract refusal".into()),
+        ] {
+            let original = Arc::new(original);
+            let mut report = observed(Termination::TimeLimit);
+            report.callback_failure = Some(original.clone());
+            let error = report_failure(&report, crate::solver_tests::id(96)).unwrap();
+            let MathError::Native { cause, .. } = &error else {
+                panic!("terminal cause was replaced by deadline")
+            };
+            assert!(std::ptr::eq(
+                cause.as_error().downcast_ref::<ProblemError>().unwrap(),
+                original.as_ref()
+            ));
+            assert_eq!(
+                crate::callback::classify(&ProblemError::Math(error)),
+                crate::callback::Failure::Fatal
+            );
+        }
+        let controls = Controls {
+            time_limit: std::time::Duration::from_millis(1),
+            ..Default::default()
+        };
+        let cancel = Arc::new(AtomicBool::new(false));
+        let execution = Execution::new(cancel.clone(), &controls);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let error = native_failure(execution.check().unwrap_err(), crate::solver_tests::id(96));
+        assert!(matches!(error, MathError::Scope(ProviderError::Deadline)));
+        assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+    }
+    #[derive(Debug)]
+    struct LateOriginalOracle {
+        original: Oracle,
+        calls: Arc<std::sync::atomic::AtomicUsize>,
+        fault: Option<Arc<ProblemError>>,
+    }
+    impl NleOracle for LateOriginalOracle {
+        fn contract(&self) -> &OracleContract {
+            self.original.contract()
+        }
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.original.jacobian_pattern()
+        }
+        fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.calls
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if let Some(fault) = &self.fault {
+                return Err(ProblemError::Math(MathError::Native {
+                    source_id: self.original.problem()?.id,
+                    retained: fault.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(fault.clone()),
+                }));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(120));
+            self.original.residual(x, out)
+        }
+        fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.original.jacobian(x, out)
+        }
+        fn jacobian_product(
+            &mut self,
+            x: &[f64],
+            direction: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), ProblemError> {
+            self.original.jacobian_product(x, direction, out)
+        }
+    }
+    #[derive(Debug)]
+    struct LateNativeRoot {
+        calls: Arc<std::sync::atomic::AtomicUsize>,
+        fault: Option<Arc<ProblemError>>,
+        causes: Arc<std::sync::Mutex<Vec<bool>>>,
+    }
+    impl InnerSolver for LateNativeRoot {
+        fn minimum_order(&self) -> DerivativeOrder {
+            Kinsol.minimum_order()
+        }
+        fn identity(&self) -> pse_ids::ContentHash {
+            Kinsol.identity()
+        }
+        fn solve(
+            &self,
+            problem: Arc<Problem>,
+            parameters: &[f64],
+            options: &Options,
+            cancel: &Arc<AtomicBool>,
+        ) -> Result<Vec<f64>, MathError> {
+            let contract = OracleContract {
+                identity: problem.identity,
+                variables: problem
+                    .unknowns
+                    .iter()
+                    .map(|u| Variable {
+                        id: u.id,
+                        lower: u.lower,
+                        upper: u.upper,
+                    })
+                    .collect(),
+                rows: problem.rows.clone(),
+                derivatives: problem.compiled_order,
+                smoothness: problem.requirements.output_smoothness,
+            };
+            let loan = Loan(Rc::new(RefCell::new(Some(problem.clone()))));
+            let oracle = LateOriginalOracle {
+                original: Oracle {
+                    problem: loan.0.clone(),
+                    pattern: problem.pattern().to_owned().unwrap(),
+                    inputs: problem.inputs,
+                    parameters: parameters.to_vec(),
+                    contract,
+                    cancel: cancel.clone(),
+                },
+                calls: self.calls.clone(),
+                fault: self.fault.clone(),
+            };
+            let controls = Controls {
+                time_limit: std::time::Duration::from_millis(80),
+                ..Default::default()
+            };
+            let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap();
+            let tolerances = Tolerances {
+                variables: options.variable_tolerance.clone(),
+                rows: options.residual_tolerance.clone(),
+                integrality: f64::EPSILON,
+            };
+            let settings = kinsol::Settings::from_policy(
+                kinsol::Method::default(),
+                &tolerances,
+                &pse_math::normalization::Normalization::identity(
+                    problem.unknowns.len(),
+                    problem.rows.len(),
+                ),
+                accuracy.feasibility,
+            );
+            let compatibility = Compatibility {
+                layout: problem.identity,
+                profile: problem.identity,
+                data: problem.identity,
+                backend: Backend::Kinsol,
+            };
+            let mut session = kinsol::Session::new(
+                kinsol::Function::Equations(Box::new(oracle)),
+                settings,
+                Execution::new(cancel.clone(), &Controls::default()),
+                compatibility,
+            )
+            .unwrap();
+            let execution = Execution::new(cancel.clone(), &controls);
+            let report = session
+                .solve(
+                    &options.start,
+                    &controls,
+                    &accuracy,
+                    execution,
+                    &tolerances,
+                    None,
+                )
+                .unwrap();
+            assert_eq!(
+                report.termination.category,
+                if self.fault.is_some() {
+                    Termination::Evaluation
+                } else {
+                    Termination::TimeLimit
+                }
+            );
+            assert_eq!(self.calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+            let cause = report.shared_callback_failure();
+            self.causes.lock().unwrap().push(cause.is_some());
+            if let Some(cause) = cause {
+                assert_eq!(
+                    crate::callback::classify(cause.as_ref()),
+                    if self.fault.is_some() {
+                        crate::callback::Failure::Fatal
+                    } else {
+                        crate::callback::Failure::Stopped(Termination::TimeLimit)
+                    }
+                );
+            } else {
+                assert!(self.fault.is_none());
+            }
+            assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+            Err(report_failure(&report, problem.id).unwrap())
+        }
+    }
+    fn native_failure_factory(
+        fault: Option<Arc<ProblemError>>,
+    ) -> (
+        pse_math::implicit::Factory,
+        Arc<std::sync::atomic::AtomicUsize>,
+        Arc<std::sync::Mutex<Vec<bool>>>,
+    ) {
+        use pse_math::implicit::{Configuration, Factory, Selection, Unknown};
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let q = registry.neutral_dimensionless().unwrap();
+        let unit = registry.quantity_type(q).unwrap().canonical_unit;
+        let id = pse_ids::named_id(pse_ids::SemanticId::NIL, "implicit-native-deadline");
+        let unknown = pse_ids::named_id(id, "unknown");
+        let parameter = pse_ids::named_id(id, "parameter");
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = pse_math::typed::BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            2,
+            Default::default(),
+        )
+        .unwrap();
+        let y = builder.input(0, q, Default::default(), unknown).unwrap();
+        let p = builder.input(1, q, Default::default(), parameter).unwrap();
+        let residual = builder
+            .binary(pse_math::typed::Binary::Sub, y, p, None, id)
+            .unwrap();
+        let revision = builder.admission_identity();
+        let body = Arc::new(
+            builder
+                .finish(
+                    &[residual],
+                    DerivativeOrder::First,
+                    Default::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        );
+        let unknowns = vec![Unknown {
+            id: unknown,
+            lower: f64::NEG_INFINITY,
+            upper: f64::INFINITY,
+        }];
+        let options = Options {
+            start: vec![1.],
+            variable_nominals: vec![1.],
+            variable_tolerance: vec![1e-8],
+            residual_tolerance: vec![1e-8],
+            iterations: 10,
+            time_limit: std::time::Duration::from_secs(2),
+            derivative_tolerance: 1e-10,
+        };
+        let configuration = Configuration::Fixed(unknowns.clone(), options);
+        let causes = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let port = |id| pse_kernels::Port {
+            id,
+            quantity: q,
+            unit,
+        };
+        let factory = Factory {
+            selection: Selection::default(),
+            requirements: pse_kernels::DerivativeRequirements::new(
+                DerivativeOrder::First,
+                DerivativeOrder::First,
+                DerivativeOrder::First,
+                DerivativeOrder::First,
+                DerivativeOrder::Value,
+            )
+            .unwrap(),
+            spec: pse_kernels::ProviderSpec {
+                id,
+                revision,
+                data: configuration.identity(),
+                inputs: vec![port(parameter)],
+                outputs: vec![port(unknown)],
+                derivatives: DerivativeOrder::Value,
+                smoothness: DerivativeOrder::Value,
+                shapes: Default::default(),
+                derivative_source: pse_kernels::DerivativeSource::Analytic,
+            },
+            body,
+            unknowns: unknowns.clone(),
+            rows: vec![pse_ids::named_id(id, "residual")],
+            configuration,
+            hints: None,
+            terms: None,
+            solver: Arc::new(LateNativeRoot {
+                calls: calls.clone(),
+                fault,
+                causes: causes.clone(),
+            }),
+            cancel: cancel.clone(),
+            max_entries: 100,
+            providers: Default::default(),
+        };
+        (factory, calls, causes)
+    }
+    #[test]
+    fn implicit_actual_native_deadline_survives_provider_and_outer_callback_boundary() {
+        use pse_kernels::{ProviderError, ProviderFactory};
+        let (factory, calls, causes) = native_failure_factory(None);
+        let cancel = &factory.cancel;
+        for allowance in [
+            std::time::Duration::from_millis(100),
+            std::time::Duration::from_secs(2),
+        ] {
+            calls.store(0, std::sync::atomic::Ordering::Relaxed);
+            let scope = pse_kernels::ExecutionScope::new(
+                cancel.clone(),
+                Some(std::time::Instant::now() + allowance),
+            );
+            let mut provider = factory.create_scoped(scope).unwrap();
+            let error = provider
+                .evaluate(
+                    &[3.],
+                    &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+                    &pse_kernels::EvaluationContext {
+                        cancelled: cancel.as_ref(),
+                        max_result_bytes: 1024,
+                    },
+                )
+                .unwrap_err();
+            assert!(matches!(error, ProviderError::Deadline));
+            assert_eq!(
+                crate::callback::classify(&ProblemError::Provider(error)),
+                crate::callback::Failure::Stopped(Termination::TimeLimit)
+            );
+            assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+            assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
+        }
+        assert_eq!(
+            causes.lock().unwrap().as_slice(),
+            &[true, false],
+            "actual source deadline and report-only native deadline both exercised"
+        );
+    }
+    #[test]
+    fn implicit_actual_native_terminal_witnesses_survive_provider_boundary() {
+        use pse_kernels::{ProviderError, ProviderFactory};
+        use pse_model::diagnostic::DiagnosticProjection;
+        for original in [
+            ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                detail: "callback allocation refusal".into(),
+            },
+            ProblemError::Contract("callback original contract refusal".into()),
+        ] {
+            let original = Arc::new(original);
+            let (factory, calls, _) = native_failure_factory(Some(original.clone()));
+            let mut provider = factory.create().unwrap();
+            let error = provider
+                .evaluate(
+                    &[3.],
+                    &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+                    &pse_kernels::EvaluationContext {
+                        cancelled: factory.cancel.as_ref(),
+                        max_result_bytes: 1024,
+                    },
+                )
+                .unwrap_err();
+            let ProviderError::Nested { cause, .. } = &error else {
+                panic!("original terminal cause was erased: {error:?}")
+            };
+            let MathError::Native { cause, .. } =
+                cause.as_error().downcast_ref::<MathError>().unwrap()
+            else {
+                panic!("implicit native report witness was erased")
+            };
+            let ProblemError::Math(MathError::Native { cause, .. }) =
+                cause.as_error().downcast_ref::<ProblemError>().unwrap()
+            else {
+                panic!("native callback witness was erased")
+            };
+            assert!(std::ptr::eq(
+                cause.as_error().downcast_ref::<ProblemError>().unwrap(),
+                original.as_ref()
+            ));
+            let stage = pse_diagnostics::DiagnosticStage::Evaluation;
+            let projected = error.boundary_diagnostic(stage);
+            let expected = original.boundary_diagnostic(stage);
+            assert_eq!(projected.code, expected.code);
+            assert_eq!(projected.class, expected.class);
+            assert!(!error.recoverable());
+            assert_eq!(
+                crate::callback::classify(&ProblemError::Provider(error)),
+                crate::callback::Failure::Fatal
+            );
+            assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+            assert!(!factory.cancel.load(std::sync::atomic::Ordering::Acquire));
+        }
+    }
+    #[derive(Debug)]
+    struct DomainRefusal;
+    impl InnerSolver for DomainRefusal {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
+        fn identity(&self) -> pse_ids::ContentHash {
+            pse_math::implicit::solver_identity("test.authored-domain-refusal.v1")
+        }
+        fn solve(
+            &self,
+            problem: Arc<Problem>,
+            _: &[f64],
+            _: &Options,
+            _: &Arc<AtomicBool>,
+        ) -> Result<Vec<f64>, MathError> {
+            Err(MathError::Domain {
+                source_id: problem.id,
+                requirement: "original domain obligation",
+            })
+        }
+    }
+    #[test]
+    fn implicit_provider_keeps_original_domain_source_and_trial_recovery() {
+        use pse_kernels::{ProviderError, ProviderFactory};
+        use pse_model::diagnostic::DiagnosticProjection;
+        let (mut factory, calls, _) = native_failure_factory(None);
+        factory.solver = Arc::new(DomainRefusal);
+        let mut provider = factory.create().unwrap();
+        let error = provider
+            .evaluate(
+                &[3.],
+                &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+                &pse_kernels::EvaluationContext {
+                    cancelled: factory.cancel.as_ref(),
+                    max_result_bytes: 1024,
+                },
+            )
+            .unwrap_err();
+        let ProviderError::Nested { cause, .. } = &error else {
+            panic!("original domain source was erased")
+        };
+        assert!(
+            matches!(cause.as_error().downcast_ref::<MathError>(),Some(MathError::Domain{source_id,..}) if *source_id==factory.spec.id)
+        );
+        assert!(
+            error
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
+                .sources
+                .contains(&factory.spec.id)
+        );
+        assert!(error.recoverable());
+        assert_eq!(
+            crate::callback::classify(&ProblemError::Provider(error)),
+            crate::callback::Failure::Trial
+        );
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0);
+        assert!(!factory.cancel.load(std::sync::atomic::Ordering::Acquire));
+    }
     fn problem(deficient: bool) -> Result<Problem, MathError> {
         problem_with(96, deficient)
     }

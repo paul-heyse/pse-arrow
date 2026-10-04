@@ -4,25 +4,2115 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#runtime::r#profile_points::{
-    RuntimeProfilePointsRow, Row,
+    RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem,
+    RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem,
+    RuntimeProfilePointsFieldFailuresItemObservationsItem,
+    RuntimeProfilePointsFieldFailuresItemLocationsItem,
+    RuntimeProfilePointsFieldFailuresItemValidity,
+    RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim,
+    RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem,
+    RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem,
+    RuntimeProfilePointsFieldFailuresItemApplicabilityItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItemValidity,
+    RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim,
+    RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem,
+    RuntimeProfilePointsFieldFailuresItemCausesItem,
+    RuntimeProfilePointsFieldFailuresItem, RuntimeProfilePointsRow, Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    114u8, 6u8, 16u8, 161u8, 161u8, 104u8, 128u8, 88u8, 217u8, 165u8, 66u8, 89u8, 143u8,
-    73u8, 168u8, 63u8,
+    146u8, 164u8, 245u8, 85u8, 12u8, 195u8, 39u8, 56u8, 60u8, 70u8, 97u8, 109u8, 95u8,
+    122u8, 149u8, 49u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "profile_points";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    0u8, 51u8, 136u8, 117u8, 37u8, 16u8, 200u8, 163u8, 233u8, 191u8, 109u8, 169u8, 44u8,
-    29u8, 52u8, 206u8, 109u8, 202u8, 134u8, 190u8, 184u8, 192u8, 246u8, 89u8, 149u8,
-    107u8, 185u8, 79u8, 163u8, 230u8, 182u8, 184u8,
+    93u8, 198u8, 128u8, 114u8, 191u8, 7u8, 176u8, 140u8, 13u8, 62u8, 73u8, 159u8, 81u8,
+    240u8, 99u8, 167u8, 130u8, 46u8, 87u8, 211u8, 13u8, 12u8, 159u8, 93u8, 4u8, 230u8,
+    159u8, 92u8, 109u8, 71u8, 103u8, 213u8,
 ]);
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#bound_index,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#bound_index: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#kind: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#indices, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#quantity: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#indices: <Vec<
+                RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemObservationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#real, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#integer, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#boolean, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#text, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#unit, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#context, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#contracts,
+            children[10usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            crate::generated::enums::ModelingRealValueKind,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#kind: <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <Option<
+                crate::generated::enums::ModelingRealValueKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#integer: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#boolean: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#text: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#quantity: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#unit: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#context: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#contracts: <Vec<
+                RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for RuntimeProfilePointsFieldFailuresItemLocationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#end, children[5usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#revision: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#path: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#start: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#end: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for RuntimeProfilePointsFieldFailuresItemValidity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#layer, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form_id, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#set_ids, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#variables,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#member_ids,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#form_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#set_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#variables: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#member_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#coverage,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#owner, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#owner_lineage,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#call, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#records, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dependencies,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#layer, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#basis, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#reason, children[11usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[9usize].as_mut(),
+        )?;
+        <Option<
+            crate::generated::enums::ModelingApplicabilityBasis,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#coverage: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#owner: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#owner_lineage: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#evidence: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#form: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#call: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#records: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#dependencies: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#basis: <Option<
+                crate::generated::enums::ModelingApplicabilityBasis,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#reason: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity_type,
+            children[3usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#value: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#quantity_type: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#scope, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#target_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#targets, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_unknown,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_extrapolation,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#scope: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#target_kind: <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#targets: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#allow_unknown: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#allow_extrapolation: <bool as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemApplicabilityItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#claim, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#instance,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permissions,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unknown_allowed,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#extrapolation_allowed,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#admitted,
+            children[8usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#claim: <RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#instance: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#inputs: <Vec<
+                RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#outcome: <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#required: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#permissions: <Vec<
+                RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#unknown_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#extrapolation_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#admitted: <bool as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#bound_index,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#bound_index: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#kind: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#indices, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#quantity: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#indices: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#real, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#integer, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#boolean, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#text, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#unit, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#context, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#contracts,
+            children[10usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            crate::generated::enums::ModelingRealValueKind,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#kind: <crate::generated::enums::DiagnosticObservationKind as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <Option<
+                crate::generated::enums::ModelingRealValueKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#integer: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#boolean: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#text: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#quantity: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#unit: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#context: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#contracts: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#end, children[5usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#revision: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#path: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#start: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#end: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemValidity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#layer, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form_id, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#set_ids, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#variables,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#member_ids,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#form_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#set_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#variables: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#member_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#coverage,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#owner, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#owner_lineage,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#form, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#call, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#records, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dependencies,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#layer, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#basis, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#reason, children[11usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::append_null(
+            children[9usize].as_mut(),
+        )?;
+        <Option<
+            crate::generated::enums::ModelingApplicabilityBasis,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#coverage: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#owner: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#owner_lineage: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#evidence: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#form: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#call: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#records: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#dependencies: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#layer: <crate::generated::enums::ModelingValidityLayer as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#basis: <Option<
+                crate::generated::enums::ModelingApplicabilityBasis,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#reason: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#real_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity_type,
+            children[3usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#value: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#real_kind: <crate::generated::enums::ModelingRealValueKind as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#quantity_type: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#scope, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#target_kind,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#targets, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_unknown,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#allow_extrapolation,
+            children[5usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#scope: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#target_kind: <crate::generated::enums::ModelingPermissionTarget as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#targets: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#allow_unknown: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#allow_extrapolation: <bool as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#claim, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#instance,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#permissions,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unknown_allowed,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#extrapolation_allowed,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#admitted,
+            children[8usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#claim: <RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#instance: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#inputs: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#outcome: <crate::generated::enums::ModelingApplicabilityOutcome as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#required: <bool as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#permissions: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#unknown_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#extrapolation_allowed: <bool as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#admitted: <bool as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for RuntimeProfilePointsFieldFailuresItemCausesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#tree_path,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#code, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#class, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#severity,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#stage, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#rule, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#sources, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#observations,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#locations,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validity,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability,
+            children[10usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            RuntimeProfilePointsFieldFailuresItemCausesItemValidity,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#tree_path: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#code: <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#class: <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#severity: <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#stage: <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#rule: <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#sources: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#observations: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#locations: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#validity: <Option<
+                RuntimeProfilePointsFieldFailuresItemCausesItemValidity,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#applicability: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for RuntimeProfilePointsFieldFailuresItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#code, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#class, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#severity,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#stage, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#rule, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#sources, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#observations,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#locations,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validity,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#applicability,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#causes, children[10usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemObservationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemLocationsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            RuntimeProfilePointsFieldFailuresItemValidity,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemApplicabilityItem,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItemCausesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#code: <crate::generated::enums::DiagnosticCode as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#class: <crate::generated::enums::NativeBoundaryClass as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#severity: <crate::generated::enums::DiagnosticSeverity as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#stage: <crate::generated::enums::DiagnosticStage as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#rule: <crate::generated::enums::DiagnosticRule as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#sources: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#observations: <Vec<
+                RuntimeProfilePointsFieldFailuresItemObservationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#locations: <Vec<
+                RuntimeProfilePointsFieldFailuresItemLocationsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#validity: <Option<
+                RuntimeProfilePointsFieldFailuresItemValidity,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#applicability: <Vec<
+                RuntimeProfilePointsFieldFailuresItemApplicabilityItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#causes: <Vec<
+                RuntimeProfilePointsFieldFailuresItemCausesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for RuntimeProfilePointsRow {
     fn append(
         &self,
@@ -46,18 +2136,30 @@ impl crate::columnar::ArrowValue for RuntimeProfilePointsRow {
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective,
+            &self.r#termination,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#statistic,
+            &self.r#callback_terminal_failure,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#accepted,
+            &self.r#failures,
             children[9usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#detail, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#objective,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#statistic,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#accepted,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#detail, children[13usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -86,15 +2188,24 @@ impl crate::columnar::ArrowValue for RuntimeProfilePointsRow {
             crate::generated::enums::NativeQualification,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            f64,
+            crate::generated::enums::NativeTermination,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
-            f64,
+            bool,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            RuntimeProfilePointsFieldFailuresItem,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -137,26 +2248,44 @@ impl crate::columnar::ArrowValue for RuntimeProfilePointsRow {
                 input.column(6usize).as_ref(),
                 index,
             )?,
+            r#termination: <Option<
+                crate::generated::enums::NativeTermination,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#callback_terminal_failure: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#failures: <Vec<
+                RuntimeProfilePointsFieldFailuresItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
             r#objective: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#statistic: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#accepted: <bool as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#detail: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
         })
@@ -229,15 +2358,27 @@ impl crate::columnar::RelationRow for RuntimeProfilePointsRow {
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective,
+            &self.r#termination,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#statistic,
+            &self.r#callback_terminal_failure,
             columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#accepted, columns[9usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#detail, columns[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#failures, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#objective,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#statistic,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#accepted,
+            columns[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#detail, columns[13usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -273,10 +2414,10 @@ impl crate::columnar::RelationRow for RuntimeProfilePointsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        24_576_usize + size_of::<Self::Builder>()
+        396_288_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        192usize
+        3096usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -321,6 +2462,1276 @@ impl crate::columnar::RelationRow for RuntimeProfilePointsRow {
             } else {
                 Ok::<usize, crate::RelationError>(1)
             }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#termination).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#callback_terminal_failure).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#failures)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        {
+                            let mut bytes = 1usize;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#code).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#class).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#severity).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#stage).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#rule).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#sources)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, _| crate::columnar::allocation_add(
+                                            bytes,
+                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#observations)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((item).r#kind).as_str().len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#real).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((item).r#real_kind).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#integer).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#boolean).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((item).r#text).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            crate::columnar::allocation_add(8, (value).len())?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#quantity).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#unit).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#context).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(32usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#contracts)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((item).r#indices)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, _| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    {
+                                                                                        let mut bytes = 1usize;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        )?;
+                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                    }?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#locations)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#revision).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(32usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(8, ((item).r#path).len())?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((item).r#name).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            crate::columnar::allocation_add(8, (value).len())?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#start).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#end).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                if let Some(value) = ((item).r#validity).as_ref() {
+                                    crate::columnar::allocation_add(
+                                        1,
+                                        {
+                                            let mut bytes = 1usize;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                crate::columnar::allocation_add(
+                                                    8,
+                                                    ((value).r#layer).as_str().len(),
+                                                )?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                if ((value).r#form_id).is_some() {
+                                                    crate::columnar::allocation_add(
+                                                        1,
+                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                    )
+                                                } else {
+                                                    Ok::<usize, crate::RelationError>(1)
+                                                }?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                ((value).r#set_ids)
+                                                    .iter()
+                                                    .try_fold(
+                                                        8usize,
+                                                        |bytes, _| crate::columnar::allocation_add(
+                                                            bytes,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        ),
+                                                    )?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                ((value).r#variables)
+                                                    .iter()
+                                                    .try_fold(
+                                                        8usize,
+                                                        |bytes, _| crate::columnar::allocation_add(
+                                                            bytes,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        ),
+                                                    )?,
+                                            )?;
+                                            bytes = crate::columnar::allocation_add(
+                                                bytes,
+                                                ((value).r#member_ids)
+                                                    .iter()
+                                                    .try_fold(
+                                                        8usize,
+                                                        |bytes, _| crate::columnar::allocation_add(
+                                                            bytes,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        ),
+                                                    )?,
+                                            )?;
+                                            Ok::<usize, crate::RelationError>(bytes)
+                                        }?,
+                                    )
+                                } else {
+                                    Ok::<usize, crate::RelationError>(1)
+                                }?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#applicability)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    {
+                                                        let mut bytes = 1usize;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            if (((item).r#claim).r#id).is_some() {
+                                                                crate::columnar::allocation_add(
+                                                                    1,
+                                                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                                                )
+                                                            } else {
+                                                                Ok::<usize, crate::RelationError>(1)
+                                                            }?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            if (((item).r#claim).r#coverage).is_some() {
+                                                                crate::columnar::allocation_add(
+                                                                    1,
+                                                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                                                )
+                                                            } else {
+                                                                Ok::<usize, crate::RelationError>(1)
+                                                            }?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            (((item).r#claim).r#owner_lineage)
+                                                                .iter()
+                                                                .try_fold(
+                                                                    8usize,
+                                                                    |bytes, _| crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    ),
+                                                                )?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            if (((item).r#claim).r#evidence).is_some() {
+                                                                crate::columnar::allocation_add(
+                                                                    1,
+                                                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                                                )
+                                                            } else {
+                                                                Ok::<usize, crate::RelationError>(1)
+                                                            }?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            (((item).r#claim).r#records)
+                                                                .iter()
+                                                                .try_fold(
+                                                                    8usize,
+                                                                    |bytes, _| crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    ),
+                                                                )?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            (((item).r#claim).r#dependencies)
+                                                                .iter()
+                                                                .try_fold(
+                                                                    8usize,
+                                                                    |bytes, _| crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    ),
+                                                                )?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            crate::columnar::allocation_add(
+                                                                8,
+                                                                (((item).r#claim).r#layer).as_str().len(),
+                                                            )?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            if let Some(value) = (((item).r#claim).r#basis).as_ref() {
+                                                                crate::columnar::allocation_add(
+                                                                    1,
+                                                                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                                )
+                                                            } else {
+                                                                Ok::<usize, crate::RelationError>(1)
+                                                            }?,
+                                                        )?;
+                                                        bytes = crate::columnar::allocation_add(
+                                                            bytes,
+                                                            if let Some(value) = (((item).r#claim).r#reason).as_ref() {
+                                                                crate::columnar::allocation_add(
+                                                                    1,
+                                                                    crate::columnar::allocation_add(8, (value).len())?,
+                                                                )
+                                                            } else {
+                                                                Ok::<usize, crate::RelationError>(1)
+                                                            }?,
+                                                        )?;
+                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#instance).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#inputs)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#value).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(
+                                                                            8,
+                                                                            ((item).r#real_kind).as_str().len(),
+                                                                        )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((item).r#outcome).as_str().len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#permissions)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(
+                                                                            8,
+                                                                            ((item).r#target_kind).as_str().len(),
+                                                                        )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((item).r#targets)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, _| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#causes)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#tree_path)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, _| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((item).r#code).as_str().len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((item).r#class).as_str().len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((item).r#severity).as_str().len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((item).r#stage).as_str().len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((item).r#rule).as_str().len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#sources)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, _| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#observations)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(
+                                                                            8,
+                                                                            ((item).r#kind).as_str().len(),
+                                                                        )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#real).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if let Some(value) = ((item).r#real_kind).as_ref() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#integer).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#boolean).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if let Some(value) = ((item).r#text).as_ref() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                crate::columnar::allocation_add(8, (value).len())?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#quantity).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#unit).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#context).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(32usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((item).r#contracts)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    {
+                                                                                        let mut bytes = 1usize;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            ((item).r#indices)
+                                                                                                .iter()
+                                                                                                .try_fold(
+                                                                                                    8usize,
+                                                                                                    |bytes, _| crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        {
+                                                                                                            let mut bytes = 1usize;
+                                                                                                            bytes = crate::columnar::allocation_add(
+                                                                                                                bytes,
+                                                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                                            )?;
+                                                                                                            bytes = crate::columnar::allocation_add(
+                                                                                                                bytes,
+                                                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                                            )?;
+                                                                                                            bytes = crate::columnar::allocation_add(
+                                                                                                                bytes,
+                                                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                                            )?;
+                                                                                                            Ok::<usize, crate::RelationError>(bytes)
+                                                                                                        }?,
+                                                                                                    ),
+                                                                                                )?,
+                                                                                        )?;
+                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                    }?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#locations)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#revision).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(32usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(8, ((item).r#path).len())?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if let Some(value) = ((item).r#name).as_ref() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                crate::columnar::allocation_add(8, (value).len())?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#start).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#end).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if let Some(value) = ((item).r#validity).as_ref() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            {
+                                                                let mut bytes = 1usize;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    crate::columnar::allocation_add(
+                                                                        8,
+                                                                        ((value).r#layer).as_str().len(),
+                                                                    )?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    if ((value).r#form_id).is_some() {
+                                                                        crate::columnar::allocation_add(
+                                                                            1,
+                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                        )
+                                                                    } else {
+                                                                        Ok::<usize, crate::RelationError>(1)
+                                                                    }?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    ((value).r#set_ids)
+                                                                        .iter()
+                                                                        .try_fold(
+                                                                            8usize,
+                                                                            |bytes, _| crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            ),
+                                                                        )?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    ((value).r#variables)
+                                                                        .iter()
+                                                                        .try_fold(
+                                                                            8usize,
+                                                                            |bytes, _| crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                Ok::<usize, crate::RelationError>(8usize)?,
+                                                                            ),
+                                                                        )?,
+                                                                )?;
+                                                                bytes = crate::columnar::allocation_add(
+                                                                    bytes,
+                                                                    ((value).r#member_ids)
+                                                                        .iter()
+                                                                        .try_fold(
+                                                                            8usize,
+                                                                            |bytes, _| crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            ),
+                                                                        )?,
+                                                                )?;
+                                                                Ok::<usize, crate::RelationError>(bytes)
+                                                            }?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    ((item).r#applicability)
+                                                        .iter()
+                                                        .try_fold(
+                                                            8usize,
+                                                            |bytes, item| crate::columnar::allocation_add(
+                                                                bytes,
+                                                                {
+                                                                    let mut bytes = 1usize;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        {
+                                                                            let mut bytes = 1usize;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                if (((item).r#claim).r#id).is_some() {
+                                                                                    crate::columnar::allocation_add(
+                                                                                        1,
+                                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                    )
+                                                                                } else {
+                                                                                    Ok::<usize, crate::RelationError>(1)
+                                                                                }?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                if (((item).r#claim).r#coverage).is_some() {
+                                                                                    crate::columnar::allocation_add(
+                                                                                        1,
+                                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                    )
+                                                                                } else {
+                                                                                    Ok::<usize, crate::RelationError>(1)
+                                                                                }?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                (((item).r#claim).r#owner_lineage)
+                                                                                    .iter()
+                                                                                    .try_fold(
+                                                                                        8usize,
+                                                                                        |bytes, _| crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        ),
+                                                                                    )?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                if (((item).r#claim).r#evidence).is_some() {
+                                                                                    crate::columnar::allocation_add(
+                                                                                        1,
+                                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                    )
+                                                                                } else {
+                                                                                    Ok::<usize, crate::RelationError>(1)
+                                                                                }?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                (((item).r#claim).r#records)
+                                                                                    .iter()
+                                                                                    .try_fold(
+                                                                                        8usize,
+                                                                                        |bytes, _| crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        ),
+                                                                                    )?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                (((item).r#claim).r#dependencies)
+                                                                                    .iter()
+                                                                                    .try_fold(
+                                                                                        8usize,
+                                                                                        |bytes, _| crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        ),
+                                                                                    )?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                crate::columnar::allocation_add(
+                                                                                    8,
+                                                                                    (((item).r#claim).r#layer).as_str().len(),
+                                                                                )?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                if let Some(value) = (((item).r#claim).r#basis).as_ref() {
+                                                                                    crate::columnar::allocation_add(
+                                                                                        1,
+                                                                                        crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                                                                    )
+                                                                                } else {
+                                                                                    Ok::<usize, crate::RelationError>(1)
+                                                                                }?,
+                                                                            )?;
+                                                                            bytes = crate::columnar::allocation_add(
+                                                                                bytes,
+                                                                                if let Some(value) = (((item).r#claim).r#reason).as_ref() {
+                                                                                    crate::columnar::allocation_add(
+                                                                                        1,
+                                                                                        crate::columnar::allocation_add(8, (value).len())?,
+                                                                                    )
+                                                                                } else {
+                                                                                    Ok::<usize, crate::RelationError>(1)
+                                                                                }?,
+                                                                            )?;
+                                                                            Ok::<usize, crate::RelationError>(bytes)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        if ((item).r#instance).is_some() {
+                                                                            crate::columnar::allocation_add(
+                                                                                1,
+                                                                                Ok::<usize, crate::RelationError>(16usize)?,
+                                                                            )
+                                                                        } else {
+                                                                            Ok::<usize, crate::RelationError>(1)
+                                                                        }?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((item).r#inputs)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    {
+                                                                                        let mut bytes = 1usize;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            if ((item).r#value).is_some() {
+                                                                                                crate::columnar::allocation_add(
+                                                                                                    1,
+                                                                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                                )
+                                                                                            } else {
+                                                                                                Ok::<usize, crate::RelationError>(1)
+                                                                                            }?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            crate::columnar::allocation_add(
+                                                                                                8,
+                                                                                                ((item).r#real_kind).as_str().len(),
+                                                                                            )?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        )?;
+                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                    }?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        crate::columnar::allocation_add(
+                                                                            8,
+                                                                            ((item).r#outcome).as_str().len(),
+                                                                        )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        ((item).r#permissions)
+                                                                            .iter()
+                                                                            .try_fold(
+                                                                                8usize,
+                                                                                |bytes, item| crate::columnar::allocation_add(
+                                                                                    bytes,
+                                                                                    {
+                                                                                        let mut bytes = 1usize;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            crate::columnar::allocation_add(
+                                                                                                8,
+                                                                                                ((item).r#target_kind).as_str().len(),
+                                                                                            )?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            ((item).r#targets)
+                                                                                                .iter()
+                                                                                                .try_fold(
+                                                                                                    8usize,
+                                                                                                    |bytes, _| crate::columnar::allocation_add(
+                                                                                                        bytes,
+                                                                                                        Ok::<usize, crate::RelationError>(16usize)?,
+                                                                                                    ),
+                                                                                                )?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                        )?;
+                                                                                        bytes = crate::columnar::allocation_add(
+                                                                                            bytes,
+                                                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                                                        )?;
+                                                                                        Ok::<usize, crate::RelationError>(bytes)
+                                                                                    }?,
+                                                                                ),
+                                                                            )?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                    )?;
+                                                                    bytes = crate::columnar::allocation_add(
+                                                                        bytes,
+                                                                        Ok::<usize, crate::RelationError>(8usize)?,
+                                                                    )?;
+                                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                                }?,
+                                                            ),
+                                                        )?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        ),
+                                    )?,
+                            )?;
+                            Ok::<usize, crate::RelationError>(bytes)
+                        }?,
+                    ),
+                )?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -369,7 +3780,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -407,23 +3818,38 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "objective",
+        name: "termination",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "statistic",
+        name: "callback_terminal_failure",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "accepted",
+        name: "failures",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "detail",
+        name: "objective",
         position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "statistic",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "accepted",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "detail",
+        position: 13usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -442,14 +3868,20 @@ pub mod columns {
     pub const SEED: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///qualification
     pub const QUALIFICATION: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///termination
+    pub const TERMINATION: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///callback_terminal_failure
+    pub const CALLBACK_TERMINAL_FAILURE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///failures
+    pub const FAILURES: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///objective
-    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///statistic
-    pub const STATISTIC: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const STATISTIC: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///accepted
-    pub const ACCEPTED: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const ACCEPTED: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///detail
-    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[13usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -463,6 +3895,9 @@ pub struct RuntimeProfilePointsView<'a> {
     value_column: &'a arrow_array::Float64Array,
     seed_column: &'a arrow_array::Int64Array,
     qualification_column: &'a arrow_array::StringArray,
+    termination_column: &'a arrow_array::StringArray,
+    callback_terminal_failure_column: &'a arrow_array::BooleanArray,
+    failures_column: &'a arrow_array::ListArray,
     objective_column: &'a arrow_array::Float64Array,
     statistic_column: &'a arrow_array::Float64Array,
     accepted_column: &'a arrow_array::BooleanArray,
@@ -529,18 +3964,27 @@ impl<'a> RuntimeProfilePointsView<'a> {
             qualification_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(6usize).as_ref())?,
+            termination_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
+            callback_terminal_failure_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(8usize).as_ref())?,
+            failures_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(9usize).as_ref())?,
             objective_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             statistic_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             accepted_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             detail_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -641,6 +4085,48 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "termination",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn termination_column(&self) -> &'a arrow_array::StringArray {
+        self.termination_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "termination", "`.")]
+    pub fn termination_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "callback_terminal_failure",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn callback_terminal_failure_column(
+        &self,
+    ) -> &'a arrow_array::BooleanArray {
+        self.callback_terminal_failure_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "callback_terminal_failure",
+        "`.",
+    )]
+    pub fn callback_terminal_failure_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "failures",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn failures_column(&self) -> &'a arrow_array::ListArray {
+        self.failures_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "failures", "`.")]
+    pub fn failures_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "objective",
         "`, including its offsets and validity bitmap.",
     )]
@@ -649,7 +4135,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "objective", "`.")]
     pub fn objective_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -661,7 +4147,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "statistic", "`.")]
     pub fn statistic_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -673,7 +4159,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "accepted", "`.")]
     pub fn accepted_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -685,7 +4171,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "detail", "`.")]
     pub fn detail_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -712,6 +4198,15 @@ impl<'a> RuntimeProfilePointsView<'a> {
                 self.qualification_column,
                 index,
             )?,
+            r#termination: crate::columnar::ArrowValue::read(
+                self.termination_column,
+                index,
+            )?,
+            r#callback_terminal_failure: crate::columnar::ArrowValue::read(
+                self.callback_terminal_failure_column,
+                index,
+            )?,
+            r#failures: crate::columnar::ArrowValue::read(self.failures_column, index)?,
             r#objective: crate::columnar::ArrowValue::read(
                 self.objective_column,
                 index,

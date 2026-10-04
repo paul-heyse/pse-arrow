@@ -375,7 +375,23 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        let route_decision = resolved.route_decision()?;
+        let mut route_decision = resolved.route_decision()?;
+        if route_decision.structure.is_none() {
+            // Diagnostics retain the requested candidate's original witness even
+            // when it cannot admit a solve. Other candidates may interpret that
+            // same witness differently, so no unnamed alternative is substituted.
+            let backend = match route_decision.selection {
+                pse_backend_native::solve::SolverSelection::Explicit(backend) => Some(backend),
+                pse_backend_native::solve::SolverSelection::Auto => route_decision.pending_backend,
+            };
+            route_decision.structure = backend.and_then(|backend| {
+                route_decision
+                    .eligibility
+                    .iter()
+                    .find(|candidate| candidate.backend == backend)
+                    .and_then(|candidate| candidate.structure.clone())
+            });
+        }
         let admission_identity = resolved.admission_identity(&route_decision)?;
         let physical = &resolved.model.case.compiled().quantities;
         let mut targets = resolved
@@ -1064,6 +1080,105 @@ mod tests {
     use pse_compiler::workspace::ModelingCaseBindings;
     use pse_kernels::DerivativeOrder;
     #[tokio::test]
+    async fn kernel_diagnostics_retain_requested_structure_without_objective_or_solve_admission() {
+        use pse_backend_native::{
+            routing::{AssessmentState, Ineligible},
+            solve::{Backend, SolveIntent, SolverSelection},
+        };
+        let rt = super::super::super::tests::runtime();
+        let declarations = pse_authoring::language::parse(
+            "package p { def D {var x:Scalar; eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100; annotation start x(1.5);} }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|declaration| declaration.name == "D")
+            .unwrap()
+            .declaration_id;
+        let package = rt
+            .modeling_package(declarations, super::super::super::tests::physical())
+            .unwrap();
+        let analysis = ModelingAnalysis {
+            root,
+            instance: pse_modeling::specialize::root_instance(root),
+            bindings: Bindings::default(),
+            limits: Limits::default(),
+            case: Default::default(),
+            order: DerivativeOrder::First,
+            compiler: super::super::super::tests::compiler_profile(),
+            solver: crate::math::solves::SolverProfile {
+                intent: SolveIntent::Optimize,
+                selection: SolverSelection::Explicit(Backend::Ipopt),
+                ..super::super::super::tests::profile()
+            },
+            numerical: Default::default(),
+        };
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .prepare_diagnostics(&analysis, &cancel)
+            .await
+            .unwrap();
+        let decision = &prepared.route_decision;
+        assert_eq!(decision.state, AssessmentState::Refused);
+        assert!(decision.selected.is_none());
+        assert!(decision.refusal.is_some());
+        let candidate = decision
+            .eligibility
+            .iter()
+            .find(|candidate| candidate.backend == Backend::Ipopt)
+            .unwrap();
+        assert!(candidate.reasons.contains(&Ineligible::NoObjective));
+        let assessment = decision.structure.as_ref().unwrap();
+        assert_eq!(
+            assessment.row(decision.snapshot, 0),
+            candidate
+                .structure
+                .as_ref()
+                .unwrap()
+                .row(decision.snapshot, 0)
+        );
+        assert_eq!(assessment.variables.len(), 1);
+        assert_eq!(assessment.equations.len(), 3);
+        assert_eq!(
+            assessment.witness.matching,
+            prepared.model.case.structure().matching
+        );
+        assert_eq!(
+            assessment.witness.allocation_identity(),
+            prepared
+                .model
+                .case
+                .structural_witness()
+                .allocation_identity()
+        );
+        assert!(prepared.model.case.compiled().coefficients.is_none());
+        let values = prepared.model.values.clone();
+        let policy = serde_json::from_str(include_str!(
+            "../../../../../packages/reference/diagnostics/idaes-2.13.json"
+        ))
+        .unwrap();
+        let report = package
+            .diagnose_case(prepared, values, policy, analysis.compiler, &cancel)
+            .await
+            .unwrap();
+        assert!(report.complete, "{:?}", report.findings);
+        assert_eq!(report.statistics["free_variables"], 1);
+        assert_eq!(report.statistics["equalities"], 0);
+        assert_eq!(report.statistics["inequalities"], 3);
+        assert_eq!(report.route_decision.state, AssessmentState::Refused);
+        assert!(report.route_decision.selected.is_none());
+        assert!(
+            package
+                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
     async fn kernel_diagnostics_missing_starts_remain_missing_and_solves_stay_strict() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
@@ -1438,6 +1553,16 @@ impl ModelingPackage {
         controls: pse_backend_native::solve::Controls,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingJacobianOptimization, WorkflowError> {
+        controls
+            .validate()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let deadline = std::time::Instant::now()
+            .checked_add(controls.time_limit)
+            .ok_or(crate::math::MathRuntimeError::Limit(
+                "Jacobian diagnostic deadline extent",
+            ))?;
+        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
         prepared.validate_point(&values)?;
         let ModelingDiagnosticPreparation {
             model: prepared,
@@ -1456,9 +1581,6 @@ impl ModelingPackage {
         let normalization =
             pse_math::normalization::Normalization::from_policy(&numerics, plan.columns(), &rows)
                 .map_err(crate::math::MathRuntimeError::from)?;
-        controls
-            .validate()
-            .map_err(crate::math::MathRuntimeError::from)?;
         let source_identity = plan.structure().key();
         let numerical_identity = numerics.key;
         let allowance = controls
@@ -1483,27 +1605,40 @@ impl ModelingPackage {
             .zip(normalization.variables.iter().copied())
             .collect();
         let retained = owner.clone();
-        let assembly = service.assemble(prepared.case).await?;
+        let assembly =
+            crate::math::MathService::within_task(&scope, cancel, service.assemble(prepared.case))
+                .await?;
         let (evidence, owner) = service
-            .with_worker(assembly, providers, cancel, move |worker| {
-                let flag = worker.cancellation().clone();
-                let original = worker.jacobian(&values)?;
-                let mut normalized = original.clone();
-                for j in 0..normalized.ncols() {
-                    let indices = normalized.row_idx_of_col(j).collect::<Vec<_>>();
-                    for (i, v) in indices.into_iter().zip(normalized.val_of_col_mut(j)) {
-                        *v = *v * normalization.variables[j] / normalization.rows[i];
+            .with_owned_worker(
+                assembly,
+                providers,
+                cancel,
+                Some((scope.clone(), control)),
+                move |mut worker| {
+                    let execution = pse_backend_native::solve::Execution::within(
+                        worker.cancellation().clone(),
+                        &controls,
+                        scope,
+                    )?;
+                    let original = worker.jacobian(&values)?;
+                    execution.check()?;
+                    let mut normalized = original.clone();
+                    for j in 0..normalized.ncols() {
+                        let indices = normalized.row_idx_of_col(j).collect::<Vec<_>>();
+                        for (i, v) in indices.into_iter().zip(normalized.val_of_col_mut(j)) {
+                            *v = *v * normalization.variables[j] / normalization.rows[i];
+                        }
                     }
-                }
-                let evidence = pse_backend_native::jacobian_diagnostics::analyze(
-                    normalized.as_ref(),
-                    &rows,
-                    policy,
-                    &controls,
-                    pse_backend_native::solve::Execution::new(flag, &controls),
-                )?;
-                Ok((evidence, retained))
-            })
+                    let evidence = pse_backend_native::jacobian_diagnostics::analyze(
+                        normalized.as_ref(),
+                        &rows,
+                        policy,
+                        &controls,
+                        execution,
+                    )?;
+                    Ok((evidence, retained))
+                },
+            )
             .await?;
         Ok(ModelingJacobianOptimization {
             run_id: pse_operations::mint_id(),

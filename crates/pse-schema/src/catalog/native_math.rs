@@ -539,7 +539,29 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "idas",
             "scip",
             "pounce_convex",
+            "uno",
+            "petsc",
         ],
+    );
+    enumeration(b, "NativeUnoMethod", ["sqp", "slp"]);
+    enumeration(
+        b,
+        "NativePetscMethod",
+        [
+            "newton_trust_region",
+            "nonlinear_additive_schwarz",
+            "pseudo_transient",
+        ],
+    );
+    enumeration(
+        b,
+        "NativePetscLinear",
+        ["gmres", "fgmres", "bicgstab", "preonly"],
+    );
+    enumeration(
+        b,
+        "NativePetscPreconditioner",
+        ["none", "jacobi", "ilu", "lu"],
     );
     enumeration(
         b,
@@ -773,7 +795,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "factorable",
         ],
     );
-    enumeration(b, "NativeArtifactDemand", ["derivatives", "representation"]);
+    enumeration(
+        b,
+        "NativeArtifactDemand",
+        ["derivatives", "jacobian_product", "representation"],
+    );
     // Constraint handlers a native realization leaves to the backend (ADR-0104).
     enumeration(
         b,
@@ -1678,10 +1704,11 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
         ],
         "Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f - f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "profile_points",
+        2,
         S::Derived,
         &["run_id", "parameter_id", "end", "point"],
         vec![
@@ -1705,6 +1732,9 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
             )
             .optional(),
             column("qualification", T::enumeration("NativeQualification")).optional(),
+            column("termination", T::enumeration("NativeTermination")).optional(),
+            documented("callback_terminal_failure", flag(), "An actual terminal callback latch, absent in historical records that did not observe it.").optional(),
+            column("failures", T::list(T::structure(super::modeling_analysis::diagnostic_fields_with_causes()))),
             documented(
                 "objective",
                 real(),

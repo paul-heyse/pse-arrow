@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+name = "pse-petsc-sys"
+description = "Scoped serial real-double PETSc solver C ABI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+links = "petsc"
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+link = []
+
+[build-dependencies]
+cc.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
+
+[dependencies]
+pse-workspace-hack.workspace = true

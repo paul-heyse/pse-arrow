@@ -260,7 +260,11 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             .problem
             .execute(
                 prepared.route(),
-                Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                pse_kernels::ExecutionScope::new(
+                    Arc::default(),
+                    std::time::Instant::now()
+                        .checked_add(prepared.problem.profile.solver.controls.time_limit),
+                ),
                 progress,
                 workers,
             )

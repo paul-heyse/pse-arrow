@@ -13,7 +13,8 @@ use native::{
     solve::{Compatibility, Execution},
 };
 use pse_math::{assembly::CaseWorker, sparse::AssemblyMatrix};
-use std::{sync::atomic::AtomicBool, time::Instant};
+#[cfg(test)]
+use std::sync::atomic::AtomicBool;
 #[derive(Debug)]
 struct Point {
     x: Vec<f64>,
@@ -639,7 +640,7 @@ impl FitProblem {
     pub(crate) fn execute(
         self: &Arc<Self>,
         route: native::routing::Route,
-        flag: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
@@ -651,30 +652,29 @@ impl FitProblem {
             &adapters,
             self.profile.solver.controls.threads,
             self.runtime.native().stack_bytes(),
-            || self.execute_inner(route, flag, progress, workers),
+            || self.execute_inner(route, scope, progress, workers),
         )
     }
     fn execute_inner(
         self: &Arc<Self>,
         route: native::routing::Route,
-        flag: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        let execution = Execution {
-            cancel: flag,
-            started: Instant::now(),
-            time_limit: self.profile.solver.controls.time_limit,
-            progress,
-            // Adjoint checkpoints are foreign allocations charged to the fit's allowance.
-            memory: Some(
-                self.runtime
-                    .shared
-                    .budget()
-                    .math
-                    .foreign_allowance(&self.profile.solver.controls),
-            ),
-        };
+        let mut execution = Execution::within(
+            scope.cancellation().clone(),
+            &self.profile.solver.controls,
+            scope,
+        )?;
+        execution.progress = progress;
+        execution.memory = Some(
+            self.runtime
+                .shared
+                .budget()
+                .math
+                .foreign_allowance(&self.profile.solver.controls),
+        );
         let mut oracle = FitOracle::new(self.clone(), execution.clone())?;
         let (solve, candidate) = if self.initial.is_empty() {
             oracle.objective(&[])?;
@@ -726,6 +726,7 @@ impl FitProblem {
             (Some(report), candidate)
         };
         let mut report = FitReport {
+            strategy: None,
             checks: vec![],
             reports: vec![],
             checks_complete: false,
@@ -1508,16 +1509,24 @@ mod tests {
     }
     #[tokio::test]
     async fn all_fixed_fit_uses_joined_direct_evaluation_and_retained_sources() {
+        let mut requested = profile(true);
+        requested.solver.selection = native::solve::SolverSelection::Auto;
         let p = source(true)
             .prepare_fit(
                 id(32).into(),
-                profile(true),
+                requested,
                 compiler_profile(),
                 Default::default(),
                 &crate::CancelSource::new(),
             )
             .await
             .unwrap();
+        assert_eq!(p.problem.profile.solver.intent, SolveIntent::Optimize);
+        assert_eq!(
+            p.problem.profile.solver.selection,
+            native::solve::SolverSelection::Auto
+        );
+        assert!(p.problem.contract.variables.is_empty());
         assert_eq!(p.route(), native::routing::Route::Constant);
         let handle = p.start().unwrap();
         let a = handle.wait().await.unwrap();
@@ -1527,6 +1536,14 @@ mod tests {
             panic!()
         };
         assert!(r.solve.is_none());
+        let trace = r.strategy.as_ref().unwrap();
+        assert_eq!(
+            trace.events.last().unwrap().transition,
+            Some(pse_model::strategy::Transition::Finish)
+        );
+        let events = a.table("runtime.solve_strategy_events").unwrap();
+        assert_eq!(events.batch().num_rows(), trace.events.len());
+        assert!(trace.owner.is_some());
         assert_eq!(r.predictions, vec![Some(4.0)]);
         let table = a.table("runtime.fit_observations").unwrap();
         assert_eq!(table.batch().num_rows(), 1);
@@ -1558,6 +1575,41 @@ mod tests {
         );
     }
     #[cfg(not(feature = "solver-ipopt"))]
+    fn assert_unlinked_ipopt(error: &WorkflowError) {
+        let WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::RouteRefused(
+            decision,
+        ))) = error
+        else {
+            panic!("expected a typed routing refusal, got {error:?}");
+        };
+        assert_eq!(
+            decision.selection,
+            native::solve::SolverSelection::Explicit(Backend::Ipopt)
+        );
+        assert!(decision.selected.is_none());
+        assert!(matches!(
+            decision.refusal.as_ref(),
+            Some(native::routing::Refusal::Unavailable(Backend::Ipopt))
+        ));
+        let eligibility = decision
+            .eligibility
+            .iter()
+            .find(|entry| entry.backend == Backend::Ipopt)
+            .unwrap();
+        assert!(
+            eligibility
+                .reasons
+                .contains(&native::routing::Ineligible::NotLinked)
+        );
+        assert!(eligibility.causes.iter().any(|cause| matches!(
+            cause.as_ref(),
+            ProblemError::Unavailable {
+                backend: Backend::Ipopt,
+                ..
+            }
+        )));
+    }
+    #[cfg(not(feature = "solver-ipopt"))]
     #[tokio::test]
     async fn variable_fit_requires_a_linked_adapter() {
         let error = source(false)
@@ -1570,18 +1622,7 @@ mod tests {
             )
             .await
             .unwrap_err();
-        assert!(
-            matches!(
-                error,
-                WorkflowError::Math(crate::math::MathRuntimeError::Solve(
-                    ProblemError::Unavailable {
-                        backend: Backend::Ipopt,
-                        ..
-                    }
-                ))
-            ),
-            "{error:?}"
-        );
+        assert_unlinked_ipopt(&error);
     }
     #[tokio::test]
     async fn invalid_uncertainty_and_unbound_observations_fail_admission() {
@@ -1655,18 +1696,7 @@ mod tests {
                 )
                 .await
                 .unwrap_err();
-            assert!(
-                matches!(
-                    error,
-                    WorkflowError::Math(crate::math::MathRuntimeError::Solve(
-                        ProblemError::Unavailable {
-                            backend: Backend::Ipopt,
-                            ..
-                        }
-                    ))
-                ),
-                "{error:?}"
-            );
+            assert_unlinked_ipopt(&error);
         }
         let p = b
             .prepare_fit_problem(
@@ -1790,6 +1820,17 @@ mod tests {
         assert!(report.checks_complete);
         assert!(report.checks.iter().any(|c| !c.satisfied));
         assert!(!result.usable());
+        let trace = report.strategy.as_ref().unwrap();
+        let final_event = trace.events.last().unwrap();
+        assert_eq!(
+            final_event.transition,
+            Some(pse_model::strategy::Transition::Stop)
+        );
+        assert_eq!(final_event.phase, pse_model::strategy::Phase::Assessment);
+        assert_eq!(
+            final_event.permission,
+            Some(pse_model::generated::enums::CandidateUse::Unusable)
+        );
         assert!(!report.estimate_qualified());
         assert!(result.export_fit_parameters().is_err());
         assert_eq!(

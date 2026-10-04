@@ -21,6 +21,12 @@ gmp-mpfr-sys.workspace = true
 pse-model.workspace = true
 symbolica.workspace = true
 faer.workspace = true
+egobox-ego.workspace = true
+egobox-moe.workspace = true
+egobox-gp.workspace = true
+argmin.workspace = true
+ndarray.workspace = true
+rayon.workspace = true
 pounce-nlp.workspace = true
 pounce-presolve.workspace = true
 pse-ids.workspace = true
@@ -36,5 +42,6 @@ tracing.workspace = true
 pse-workspace-hack.workspace = true
 
 [dev-dependencies]
+egobox-doe.workspace = true
 serde_json.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }

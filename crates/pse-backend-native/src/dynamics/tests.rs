@@ -235,6 +235,7 @@ fn unsupported_recovery_and_invalid_native_controls_are_refused() {
 fn unsupported_hybrid_sensitivity_profiles_fail_before_native_entry() {
     let mut t = Toy::new(false, true);
     let mut p = profile(false);
+    p.method = Method::Diffsol;
     p.sensitivity = DynamicSensitivity::Forward;
     t.c.events[0][0].terminal = true;
     assert!(
@@ -401,8 +402,13 @@ fn dynamics_identity_covers_every_option_field() {
     }
     // Every top-level field produced at least one decodable perturbation.
     assert_eq!(covered, classified);
-    // The resolved method is recorded alongside the encoded controls.
-    assert_eq!(json["resolved_method"], serde_json::json!("diffsol"));
+    // Auto remains unresolved until whole-contract assessment supplies a method.
+    assert_eq!(json["resolved_method"], serde_json::Value::Null);
+    base.method = Method::Diffsol;
+    assert_eq!(
+        profile_json(&base)["resolved_method"],
+        serde_json::json!("diffsol")
+    );
 }
 #[test]
 fn algebraic_initial_sensitivities_follow_native_consistency() {

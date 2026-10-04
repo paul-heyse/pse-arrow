@@ -21,7 +21,7 @@ impl DiagnosticProjection for super::WorkflowError {
             | Self::ModelingAdmission { diagnostic, cause } => {
                 let mut d = diagnostic.as_ref().clone();
                 if d.causes.is_empty() {
-                    d.causes.push(cause.boundary_diagnostic(stage));
+                    d.causes.push(cause.as_ref().boundary_diagnostic(stage));
                 }
                 d
             }

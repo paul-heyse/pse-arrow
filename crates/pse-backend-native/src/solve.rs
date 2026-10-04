@@ -11,7 +11,7 @@ use std::{
     collections::BTreeMap,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU8, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -90,10 +90,37 @@ pub struct ResolvedAccuracy {
     pub native_scaling: bool,
 }
 impl ResolvedAccuracy {
-    /// Shared Ipopt-compatible stopping and original-bound contract for both NLP adapters.
-    pub fn nlp_options(&self) -> BTreeMap<String, OptionValue> {
+    /// Ipopt independently enforces all three unscaled component budgets. Its overall
+    /// scaled error must not impose the tightest component on the other components.
+    #[cfg(any(feature = "ipopt", test))]
+    pub(crate) fn ipopt_options(&self) -> BTreeMap<String, OptionValue> {
+        self.nlp_options(
+            self.feasibility
+                .max(self.stationarity)
+                .max(self.complementarity),
+            self.acceptable
+                .map(|k| self.feasibility.max(k.stationarity).max(k.complementarity)),
+        )
+    }
+    /// POUNCE uses its overall tolerance in its scaled dual-error floor, so retain
+    /// the conservative projection required by that distinct convergence contract.
+    #[cfg(any(feature = "pounce", test))]
+    pub(crate) fn pounce_options(&self) -> BTreeMap<String, OptionValue> {
+        self.nlp_options(
+            self.pounce_tolerance(),
+            self.acceptable
+                .map(|k| k.stationarity.min(k.complementarity)),
+        )
+    }
+    /// One option-table owner for the independent budgets and original bounds.
+    #[cfg(any(feature = "ipopt", feature = "pounce", test))]
+    fn nlp_options(
+        &self,
+        overall: f64,
+        acceptable_overall: Option<f64>,
+    ) -> BTreeMap<String, OptionValue> {
         BTreeMap::from([
-            ("tol".into(), OptionValue::Real(self.nlp_tolerance())),
+            ("tol".into(), OptionValue::Real(overall)),
             (
                 "constr_viol_tol".into(),
                 OptionValue::Real(self.feasibility),
@@ -111,9 +138,7 @@ impl ResolvedAccuracy {
             ),
             (
                 "acceptable_tol".into(),
-                OptionValue::Real(self.acceptable.map_or(self.nlp_tolerance(), |k| {
-                    k.stationarity.min(k.complementarity)
-                })),
+                OptionValue::Real(acceptable_overall.unwrap_or(overall)),
             ),
             (
                 "acceptable_constr_viol_tol".into(),
@@ -228,8 +253,9 @@ impl ResolvedAccuracy {
                     && k.complementarity >= self.complementarity
             })
     }
-    /// Combined native NLP error budget; separate unscaled criteria remain explicit.
-    pub fn nlp_tolerance(&self) -> f64 {
+    /// POUNCE's conservative combined budget also limits its scaled dual-error floor.
+    #[cfg(any(feature = "pounce", test))]
+    fn pounce_tolerance(&self) -> f64 {
         self.feasibility
             .min(self.stationarity)
             .min(self.complementarity)
@@ -578,6 +604,45 @@ impl Progress {
         self.events.lock().map(|s| s.clone()).unwrap_or_default()
     }
 }
+/// A local attempt stop, independent of the enclosing task's cancellation owner.
+#[derive(Debug, Default)]
+pub struct AttemptAbandonment {
+    reason: AtomicU8,
+}
+impl AttemptAbandonment {
+    /// Record the first numerical abandonment reason. Operational failures cannot be
+    /// turned into numerical abandonment.
+    pub fn abandon(
+        &self,
+        reason: pse_model::generated::enums::NumericalAttemptObservation,
+    ) -> Result<bool, ProblemError> {
+        use pse_model::generated::enums::NumericalAttemptObservation as O;
+        let code = match reason {
+            O::Stalled => 1,
+            O::Limited => 2,
+            O::NumericalFailure => 3,
+            _ => {
+                return Err(ProblemError::Contract(
+                    "non-numerical attempt abandonment".into(),
+                ));
+            }
+        };
+        Ok(self
+            .reason
+            .compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok())
+    }
+    /// Exact recorded reason; absence means the attempt was not abandoned.
+    pub fn observation(&self) -> Option<pse_model::generated::enums::NumericalAttemptObservation> {
+        use pse_model::generated::enums::NumericalAttemptObservation as O;
+        match self.reason.load(Ordering::Acquire) {
+            1 => Some(O::Stalled),
+            2 => Some(O::Limited),
+            3 => Some(O::NumericalFailure),
+            _ => None,
+        }
+    }
+}
 /// Cancellation and deadline checkpoints are shared by every callback adapter.
 #[derive(Clone, Debug)]
 pub struct Execution {
@@ -592,6 +657,10 @@ pub struct Execution {
     /// Foreign-library allocation allowance the worker admitted for this attempt, for
     /// adapters whose library enforces its own memory limit; absent when none was admitted.
     pub memory: Option<usize>,
+    /// Original task scope, whose absolute deadline is never renewed by an attempt.
+    pub enclosing_scope: Option<pse_kernels::ExecutionScope>,
+    /// Attempt-local abandonment, shared by this attempt's callback clones.
+    pub abandonment: Arc<AttemptAbandonment>,
 }
 impl Execution {
     /// Construct at the admitted worker boundary.
@@ -602,14 +671,67 @@ impl Execution {
             time_limit: controls.time_limit,
             progress: Arc::new(Progress::new(controls.history)),
             memory: None,
+            enclosing_scope: None,
+            abandonment: Arc::default(),
+        }
+    }
+    /// Admit a native attempt within the original task scope, capping its local
+    /// allowance without starting another task clock.
+    pub fn within(
+        cancel: Arc<AtomicBool>,
+        controls: &Controls,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<Self, ProblemError> {
+        controls.validate()?;
+        if !Arc::ptr_eq(&cancel, scope.cancellation()) {
+            return Err(ProblemError::Contract(
+                "execution cancellation owner differs from task scope".into(),
+            ));
+        }
+        scope.check().map_err(|error| match error {
+            pse_kernels::ProviderError::Cancelled => ProblemError::Cancelled,
+            _ => ProblemError::stopped(Termination::TimeLimit, "enclosing execution deadline"),
+        })?;
+        let mut execution = Self::new(cancel, controls);
+        if let Some(deadline) = scope.deadline() {
+            execution.time_limit = execution
+                .time_limit
+                .min(deadline.saturating_duration_since(execution.started));
+        }
+        execution.enclosing_scope = Some(scope);
+        execution.check()?;
+        Ok(execution)
+    }
+    /// Abandon only this numerical attempt; never cancel the task or its siblings.
+    pub fn abandon(
+        &self,
+        reason: pse_model::generated::enums::NumericalAttemptObservation,
+    ) -> Result<bool, ProblemError> {
+        self.abandonment.abandon(reason)
+    }
+    /// Check before and after indivisible native work so late results cannot escape.
+    pub fn check(&self) -> Result<(), ProblemError> {
+        match self.stopped() {
+            Some(Termination::Limit) => Err(ProblemError::Limit {
+                kind: crate::LimitKind::Work,
+                detail: "numerical attempt abandoned".into(),
+            }),
+            Some(stop) => Err(ProblemError::stopped(stop, "execution checkpoint")),
+            None => Ok(()),
         }
     }
     /// Propagate this execution's original absolute deadline into nested evaluation.
     pub fn scope(&self) -> Result<pse_kernels::ExecutionScope, ProblemError> {
+        self.check()?;
         let deadline = self
             .started
             .checked_add(self.time_limit)
             .ok_or_else(|| ProblemError::Contract("execution deadline extent".into()))?;
+        let deadline = self
+            .enclosing_scope
+            .as_ref()
+            .and_then(pse_kernels::ExecutionScope::deadline)
+            .map_or(deadline, |enclosing| deadline.min(enclosing));
         Ok(pse_kernels::ExecutionScope::new(
             self.cancel.clone(),
             Some(deadline),
@@ -619,8 +741,16 @@ impl Execution {
     pub fn stopped(&self) -> Option<Termination> {
         if self.cancel.load(Ordering::Acquire) {
             Some(Termination::Cancelled)
-        } else if self.started.elapsed() >= self.time_limit {
+        } else if self.started.elapsed() >= self.time_limit
+            || self
+                .enclosing_scope
+                .as_ref()
+                .and_then(pse_kernels::ExecutionScope::deadline)
+                .is_some_and(|deadline| Instant::now() >= deadline)
+        {
             Some(Termination::TimeLimit)
+        } else if self.abandonment.observation().is_some() {
+            Some(Termination::Limit)
         } else {
             None
         }
@@ -1596,10 +1726,26 @@ pub struct OriginalObjectiveBound {
     /// Existing dimensionless relative bound-gap budget.
     pub relative_tolerance: f64,
 }
+/// Work observed by its executing owner; unavailable counters remain absent.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WorkEvidence {
+    /// Actual callback evaluations, including rejected trials; absent when unobserved.
+    pub evaluations: Option<u64>,
+    /// Actual native completed iterations; absent when the native API supplies none.
+    pub iterations: Option<u64>,
+    /// Actual completed factorizations; absent when unobserved.
+    pub factorizations: Option<u64>,
+    /// Actual proof steps; absent when unobserved.
+    pub proof_steps: Option<u64>,
+}
 /// Typed adapter evidence. Qualification, retry and start receipts read only this;
 /// metrics remain observations and are never an input to a decision.
 #[derive(Clone, Debug, Default)]
 pub struct Evidence {
+    /// Actual observed work, with unknown counters kept absent rather than zero.
+    pub work: WorkEvidence,
+    /// Exact numerical abandonment reason, independent of task cancellation.
+    pub abandoned: Option<pse_model::generated::enums::NumericalAttemptObservation>,
     /// Callback trial history.
     pub callback: CallbackEvidence,
     /// A start was submitted through the native API.
@@ -1628,6 +1774,10 @@ pub struct Evidence {
     /// Qualified square response, separate from optimizing KKT quantities.
     pub root_response:
         Option<Result<crate::square_response::Response, crate::square_response::Withheld>>,
+    /// Fresh retained sparse state factor and original parameter partials. This product
+    /// supplies start actions and carries no rank or nonlinear forward-error certificate.
+    pub root_predictor:
+        Option<Result<crate::square_response::SparsePredictor, crate::square_response::Withheld>>,
     /// The inverse reduced Hessian a request named over the solve's own columns (Plan 22
     /// S3), or why it is withheld; `None` when none was requested or the step ended before
     /// its analysis.
@@ -1736,10 +1886,18 @@ impl SolveReport {
     pub fn callback_failure(&self) -> Option<&ProblemError> {
         self.callback_failure.as_deref()
     }
+    /// Retain the original callback cause when a consumer extracts its failed trial.
+    pub fn shared_callback_failure(&self) -> Option<Arc<ProblemError>> {
+        self.callback_failure.clone()
+    }
     /// Typed failure from independent original-model observation after native exit.
     /// It is the only record of that failure; messages are derived from it.
     pub fn validation_failure(&self) -> Option<&ProblemError> {
         self.validation_failure.as_deref()
+    }
+    /// Retain independent original-model validation failure without reconstructing it.
+    pub fn shared_validation_failure(&self) -> Option<Arc<ProblemError>> {
+        self.validation_failure.clone()
     }
     /// Record why independent validation failed. Original-space observations and
     /// qualification are withdrawn; the candidate and native evidence are preserved.
@@ -1756,17 +1914,29 @@ impl SolveReport {
     }
     /// Variable retained failure extent, including shared-pointer allocation overhead.
     pub fn failure_bytes(&self) -> usize {
-        [self.callback_failure(), self.validation_failure()]
-            .into_iter()
-            .flatten()
-            .fold(0usize, |bytes, e| {
-                bytes.saturating_add(e.retained_bytes()).saturating_add(128)
-            })
+        let predictor_cause = match &self.evidence.root_predictor {
+            Some(Err(crate::square_response::Withheld::Cause(cause))) => Some(cause.as_ref()),
+            _ => None,
+        };
+        [
+            self.callback_failure(),
+            self.validation_failure(),
+            predictor_cause,
+        ]
+        .into_iter()
+        .flatten()
+        .fold(0usize, |bytes, e| {
+            bytes.saturating_add(e.retained_bytes()).saturating_add(128)
+        })
     }
     /// Attach the runtime reservation to every clone of this owned report.
     pub fn with_failure_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        self.failure_owner = Some(owner);
+        self.retain_failure_owner(owner);
         self
+    }
+    /// Retain newly observed validation failure storage without copying native evidence.
+    pub fn retain_failure_owner(&mut self, owner: Arc<dyn pse_math::AllocationOwner>) {
+        self.failure_owner = Some(owner);
     }
     /// Attach the outer runtime's retained-result admission to this owned envelope.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
@@ -1784,7 +1954,10 @@ impl SolveReport {
         Self {
             callback_failure: None,
             validation_failure: None,
-            evidence: Evidence::default(),
+            evidence: Evidence {
+                abandoned: execution.abandonment.observation(),
+                ..Evidence::default()
+            },
             failure_owner: None,
             owner: None,
             observation: None,
@@ -1876,6 +2049,87 @@ pub(crate) fn insert_native_metrics(
 
 #[cfg(test)]
 mod numerical_tests {
+    #[test]
+    fn attempt_abandonment_is_local_typed_and_first_write() {
+        use pse_model::generated::enums::NumericalAttemptObservation as O;
+        let cancel = Arc::new(AtomicBool::new(false));
+        let execution = Execution::new(cancel.clone(), &Controls::default());
+        let sibling = Execution::new(cancel.clone(), &Controls::default());
+        assert!(execution.clone().abandon(O::Stalled).unwrap());
+        assert!(!execution.abandon(O::NumericalFailure).unwrap());
+        assert_eq!(execution.abandonment.observation(), Some(O::Stalled));
+        assert_eq!(execution.stopped(), Some(Termination::Limit));
+        assert!(matches!(
+            execution.check(),
+            Err(ProblemError::Limit {
+                kind: crate::LimitKind::Work,
+                ..
+            })
+        ));
+        assert!(!cancel.load(Ordering::Acquire));
+        assert_eq!(sibling.stopped(), None);
+        assert!(sibling.abandon(O::ContractFailure).is_err());
+        assert_eq!(sibling.abandonment.observation(), None);
+        cancel.store(true, Ordering::Release);
+        assert_eq!(execution.stopped(), Some(Termination::Cancelled));
+    }
+
+    #[test]
+    fn within_caps_original_deadline_and_rejects_late_exit() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let original_deadline = Instant::now() + Duration::from_millis(100);
+        let original = pse_kernels::ExecutionScope::new(cancel.clone(), Some(original_deadline));
+        let execution =
+            Execution::within(cancel.clone(), &Controls::default(), original.clone()).unwrap();
+        assert_eq!(
+            execution.scope().unwrap().deadline(),
+            Some(original_deadline)
+        );
+        assert!(Arc::ptr_eq(
+            execution.scope().unwrap().cancellation(),
+            &cancel
+        ));
+        assert!(execution.time_limit <= Duration::from_millis(100));
+        assert_eq!(
+            execution.enclosing_scope.as_ref().unwrap().deadline(),
+            original.deadline()
+        );
+        std::thread::sleep(
+            original_deadline.saturating_duration_since(Instant::now()) + Duration::from_millis(1),
+        );
+        assert!(original.check().is_err());
+        assert_eq!(execution.stopped(), Some(Termination::TimeLimit));
+        assert!(matches!(
+            execution.check(),
+            Err(ProblemError::Limit {
+                kind: crate::LimitKind::Time,
+                ..
+            })
+        ));
+        assert!(Execution::within(cancel.clone(), &Controls::default(), original).is_err());
+        assert!(!cancel.load(Ordering::Acquire));
+        let foreign = pse_kernels::ExecutionScope::new(Arc::default(), None);
+        assert!(matches!(
+            Execution::within(cancel, &Controls::default(), foreign),
+            Err(ProblemError::Contract(_))
+        ));
+    }
+
+    #[test]
+    fn work_evidence_unknown_counters_are_not_zero() {
+        assert_eq!(
+            WorkEvidence::default(),
+            WorkEvidence {
+                evaluations: None,
+                iterations: None,
+                factorizations: None,
+                proof_steps: None,
+            }
+        );
+        assert_eq!(Evidence::default().work, WorkEvidence::default());
+        assert_eq!(Evidence::default().abandoned, None);
+    }
+
     #[test]
     fn seed_content_identity_canonicalizes_nan_and_excludes_output_origin() {
         let seed = |value| WarmStart {
@@ -2068,6 +2322,47 @@ mod numerical_tests {
         }
     }
     #[test]
+    fn ipopt_component_budgets_do_not_tighten_unrelated_kkt_errors() {
+        for (feasibility, stationarity, complementarity) in [
+            (1e-12, 2e-8, 3e-9),
+            (2e-8, 1e-12, 3e-9),
+            (2e-8, 3e-9, 1e-12),
+        ] {
+            let mut accuracy = ResolvedAccuracy {
+                feasibility,
+                stationarity,
+                complementarity,
+                ..ResolvedAccuracy::nominal()
+            };
+            let ipopt = accuracy.ipopt_options();
+            let pounce = accuracy.pounce_options();
+            assert_eq!(ipopt["tol"], OptionValue::Real(2e-8));
+            assert_eq!(pounce["tol"], OptionValue::Real(1e-12));
+            assert_eq!(ipopt["constr_viol_tol"], OptionValue::Real(feasibility));
+            assert_eq!(ipopt["dual_inf_tol"], OptionValue::Real(stationarity));
+            assert_eq!(ipopt["compl_inf_tol"], OptionValue::Real(complementarity));
+            for (name, value) in &ipopt {
+                if !matches!(name.as_str(), "tol" | "acceptable_tol") {
+                    assert_eq!(Some(value), pounce.get(name));
+                }
+            }
+            accuracy.acceptable = Some(pse_model::numerics::KktTolerances {
+                stationarity: 1e-5,
+                complementarity: 1e-6,
+            });
+            let ipopt = accuracy.ipopt_options();
+            let pounce = accuracy.pounce_options();
+            assert_eq!(ipopt["acceptable_tol"], OptionValue::Real(1e-5));
+            assert_eq!(pounce["acceptable_tol"], OptionValue::Real(1e-6));
+            assert_eq!(
+                ipopt["acceptable_constr_viol_tol"],
+                OptionValue::Real(feasibility)
+            );
+            assert_eq!(ipopt["acceptable_dual_inf_tol"], OptionValue::Real(1e-5));
+            assert_eq!(ipopt["acceptable_compl_inf_tol"], OptionValue::Real(1e-6));
+        }
+    }
+    #[test]
     fn numerical_options_keep_feasibility_kkt_and_acceptable_independent() {
         let mut accuracy = ResolvedAccuracy {
             feasibility: 1e-7,
@@ -2075,7 +2370,7 @@ mod numerical_tests {
             complementarity: 3e-9,
             ..ResolvedAccuracy::nominal()
         };
-        let options = accuracy.nlp_options();
+        let options = accuracy.pounce_options();
         assert!(matches!(options["constr_viol_tol"],OptionValue::Real(v) if v==1e-7));
         assert!(matches!(options["dual_inf_tol"],OptionValue::Real(v) if v==2e-8));
         assert!(matches!(options["compl_inf_tol"],OptionValue::Real(v) if v==3e-9));
@@ -2098,11 +2393,11 @@ mod numerical_tests {
         });
         assert_ne!(key, accuracy.key().unwrap());
         assert!(matches!(
-            accuracy.nlp_options()["acceptable_iter"],
+            accuracy.pounce_options()["acceptable_iter"],
             OptionValue::Integer(15)
         ));
         assert!(
-            matches!(accuracy.nlp_options()["acceptable_constr_viol_tol"],OptionValue::Real(v) if v==1e-7)
+            matches!(accuracy.pounce_options()["acceptable_constr_viol_tol"],OptionValue::Real(v) if v==1e-7)
         );
         let scales = pse_math::normalization::Normalization {
             variables: vec![1e6, 1e-3],

@@ -31,6 +31,8 @@ link = []
 
 [build-dependencies]
 pkg-config.workspace = true
+cc.workspace = true
+sha2.workspace = true
 
 [dependencies]
 pse-workspace-hack.workspace = true

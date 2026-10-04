@@ -4,6 +4,7 @@
 pub(super) mod cases;
 mod conformance;
 pub(super) mod declared;
+mod path_pipeline;
 pub use declared::{DeclaredExecution, DeclaredProcedure, InitializationOverrides};
 mod knowledge;
 mod pure;
@@ -14,6 +15,8 @@ pub use conformance::{
 pub use knowledge::ModelingKnowledge;
 pub use pure::conform_pure_documents;
 pub(super) mod dynamics;
+#[cfg(feature = "solver-idas")]
+pub use dynamics::consistent::ConsistentInitializationResult;
 pub use dynamics::{ModelingSimulation, ModelingTrajectory};
 #[cfg(test)]
 mod certificate_tests;
@@ -58,6 +61,8 @@ pub use diagnostics::{
 #[cfg(feature = "solver-highs")]
 pub use diagnostics::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 mod engines;
+#[cfg(feature = "solver-petsc")]
+mod petsc_pipeline;
 pub use engines::{
     DiscreteInitialization, ModelingAnalysis, ModelingInitialization,
     ModelingInitializationAttempt, ModelingInitializationReport, ModelingInitializationStep,
@@ -80,31 +85,120 @@ use pse_ids::SemanticId;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits, PhysicalScope};
 use pse_relations::columnar::RelationRow;
 pub use results::{ModelingCheck, ModelingReport, ModelingResult};
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex, Weak},
+};
+
+#[derive(Debug)]
+struct SourceBatchIdentity {
+    rows: usize,
+    schema: Weak<datafusion::arrow::datatypes::Schema>,
+    columns: Vec<Weak<dyn datafusion::arrow::array::Array>>,
+}
+impl SourceBatchIdentity {
+    fn new(batch: &pse_relations::columnar::FieldCheckedBatch) -> Self {
+        let batch = batch.batch();
+        Self {
+            rows: batch.num_rows(),
+            schema: Arc::downgrade(batch.schema_ref()),
+            columns: batch.columns().iter().map(Arc::downgrade).collect(),
+        }
+    }
+    fn matches(&self, batch: &pse_relations::columnar::FieldCheckedBatch) -> bool {
+        let batch = batch.batch();
+        self.rows == batch.num_rows()
+            && Weak::ptr_eq(&self.schema, &Arc::downgrade(batch.schema_ref()))
+            && self.columns.len() == batch.num_columns()
+            && self
+                .columns
+                .iter()
+                .zip(batch.columns())
+                .all(|(a, b)| Weak::ptr_eq(a, &Arc::downgrade(b)))
+    }
+}
+#[derive(Debug)]
+struct SourceExport {
+    revision: pse_ids::roles::SourceRevisionHash,
+    documents: Weak<crate::authoring_driver::document::Batches>,
+    physical: pse_ids::ContentHash,
+    physical_sources: BTreeMap<pse_schema::model::RelationKey, SourceBatchIdentity>,
+    registry: Weak<pse_schema::Registry>,
+    validation: Weak<pse_engine::session::EngineFactory>,
+    pool: Weak<dyn pse_columnar::MemoryPool>,
+    tables: BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>,
+    _metadata: Arc<pse_columnar::AllocationLease>,
+}
+impl SourceExport {
+    fn export_tables(
+        &self,
+        runtime: &Runtime,
+    ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
+    {
+        let owner = runtime.shared.math().reserve(
+            "modeling:source-export-map",
+            source_map_extent(self.tables.len())?,
+        )?;
+        let mut tables = self.tables.clone();
+        for table in tables.values_mut() {
+            *table = table.clone().with_export_owner(owner.clone());
+        }
+        Ok(tables)
+    }
+    fn matches(&self, package: &ModelingPackage) -> bool {
+        self.revision == package.revision.identity()
+            && Weak::ptr_eq(&self.documents, &Arc::downgrade(&package.document_sources))
+            && self.physical == package.physical.key
+            && Weak::ptr_eq(&self.registry, &Arc::downgrade(&package.runtime.registry))
+            && Weak::ptr_eq(&self.validation, &Arc::downgrade(&package.runtime.sessions))
+            && Weak::ptr_eq(&self.pool, &Arc::downgrade(&package.runtime.shared.pool()))
+            && self.physical_sources.len() == package.physical.sources.len()
+            && self.physical_sources.iter().all(|(key, cached)| {
+                package
+                    .physical
+                    .sources
+                    .get(key)
+                    .is_some_and(|current| cached.matches(current))
+            })
+    }
+}
+pub(in crate::workflow) fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
+    tables
+        .checked_mul(
+            size_of::<pse_relations::columnar::FieldCheckedBatch>() + size_of::<SemanticId>() + 128,
+        )
+        .and_then(|n| {
+            n.checked_add(
+                size_of::<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>() + 128,
+            )
+        })
+        .ok_or_else(|| contract("source export map extent"))
+}
 /// Immutable source revision sharing one deployment-owned compiler workspace.
 #[derive(Clone, Debug)]
 pub struct ModelingPackage {
     pub(in crate::workflow) runtime: Runtime,
     pub(in crate::workflow) workspace: Workspace,
     pub(in crate::workflow) revision: ModelingRevision,
-    document_sources: std::sync::Arc<crate::authoring_driver::document::Batches>,
-    pub(in crate::workflow) fit_declarations: std::sync::Arc<super::fitting::FitDeclarations>,
-    accelerators: std::sync::Arc<pse_math::implicit::accelerators::Accelerators>,
-    providers: std::sync::Arc<BTreeMap<String, pse_kernels::Registration>>,
+    document_sources: Arc<crate::authoring_driver::document::Batches>,
+    source_export: Arc<Mutex<Option<SourceExport>>>,
+    pub(in crate::workflow) fit_declarations: Arc<super::fitting::FitDeclarations>,
+    accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
+    providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
     pub(in crate::workflow) physical: PhysicalContext,
-    pub(in crate::workflow) quantities: std::sync::Arc<pse_quantity::QuantityRegistry>,
+    pub(in crate::workflow) quantities: Arc<pse_quantity::QuantityRegistry>,
 }
 /// Immutable admitted package payload; excludes runtime services and mutable workspaces.
 #[derive(Clone, Debug)]
 pub(crate) struct PackageAdmission {
     revision: ModelingRevision,
-    sources: std::sync::Arc<crate::authoring_driver::document::Batches>,
-    fits: std::sync::Arc<super::fitting::FitDeclarations>,
-    accelerators: std::sync::Arc<pse_math::implicit::accelerators::Accelerators>,
-    providers: std::sync::Arc<BTreeMap<String, pse_kernels::Registration>>,
-    _lease: std::sync::Arc<pse_columnar::AllocationLease>,
-    _validation_owner: std::sync::Arc<pse_engine::session::EngineFactory>,
-    _registry_owner: std::sync::Arc<pse_schema::Registry>,
+    sources: Arc<crate::authoring_driver::document::Batches>,
+    fits: Arc<super::fitting::FitDeclarations>,
+    accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
+    providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
+    _lease: Arc<pse_columnar::AllocationLease>,
+    _validation_owner: Arc<pse_engine::session::EngineFactory>,
+    _registry_owner: Arc<pse_schema::Registry>,
 }
 impl PackageAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
@@ -160,6 +254,7 @@ impl Runtime {
             workspace,
             revision: admitted.revision,
             document_sources: admitted.sources,
+            source_export: Default::default(),
             fit_declarations: admitted.fits,
             accelerators: admitted.accelerators,
             providers: admitted.providers,
@@ -197,7 +292,7 @@ type DocumentCompilerContext = (
     PhysicalScope,
     super::FitDeclarations,
     crate::authoring_driver::document::Batches,
-    std::sync::Arc<pse_modeling::document::DocumentInventory>,
+    Arc<pse_modeling::document::DocumentInventory>,
 );
 /// The package data documents of a closure and the package of each text document, which a
 /// dataset's document path resolves in (ADR-0125).
@@ -222,9 +317,7 @@ fn data_documents(
 
             match document.data() {
                 Some(data) => {
-                    inventory
-                        .documents
-                        .insert(document.id, std::sync::Arc::clone(data));
+                    inventory.documents.insert(document.id, Arc::clone(data));
                 }
                 None => {
                     inventory
@@ -284,7 +377,7 @@ fn document_inputs(
         scope,
         super::FitDeclarations::from_batches(&batches)?,
         context,
-        std::sync::Arc::new(data_documents(documents)),
+        Arc::new(data_documents(documents)),
     ))
 }
 impl Runtime {
@@ -311,7 +404,7 @@ impl Runtime {
             .with_fit_declarations(data)?;
         let pool = self.shared.pool();
         let cancel = pse_columnar::CancellationToken::new();
-        package.document_sources = std::sync::Arc::new(
+        package.document_sources = Arc::new(
             sources
                 .into_iter()
                 .map(|(id, b)| {
@@ -350,7 +443,7 @@ impl Runtime {
         rows: Vec<Declaration>,
         physical: PhysicalContext,
         scope: PhysicalScope,
-        documents: std::sync::Arc<pse_modeling::document::DocumentInventory>,
+        documents: Arc<pse_modeling::document::DocumentInventory>,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let service = self.shared.math();
@@ -363,11 +456,10 @@ impl Runtime {
             workspace,
             revision,
             document_sources: Default::default(),
-            fit_declarations: std::sync::Arc::new(super::fitting::FitDeclarations::default()),
-            accelerators: std::sync::Arc::new(
-                pse_math::implicit::accelerators::Accelerators::standard(),
-            ),
-            providers: std::sync::Arc::new(providers),
+            source_export: Default::default(),
+            fit_declarations: Arc::new(super::fitting::FitDeclarations::default()),
+            accelerators: Arc::new(pse_math::implicit::accelerators::Accelerators::standard()),
+            providers: Arc::new(providers),
             physical: physical.clone(),
             quantities: physical.quantities,
         })
@@ -466,7 +558,7 @@ impl ModelingPackage {
         mut self,
         accelerators: pse_math::implicit::accelerators::Accelerators,
     ) -> Self {
-        self.accelerators = std::sync::Arc::new(accelerators);
+        self.accelerators = Arc::new(accelerators);
         self
     }
 
@@ -478,6 +570,72 @@ impl ModelingPackage {
     /// Physical entity kinds share the modeling relation; an empty physical selection
     /// must never replace the model, and conflicting declarations cannot be published.
     pub(in crate::workflow) fn source_tables(
+        &self,
+    ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
+    {
+        let mut cache = self
+            .source_export
+            .lock()
+            .map_err(|_| WorkflowError::Internal("modeling source export cache poisoned".into()))?;
+        if let Some(export) = cache.as_ref().filter(|export| export.matches(self)) {
+            return export.export_tables(&self.runtime);
+        }
+        // A changed input cannot reuse this product. Release its cache-only claims
+        // before constructing the replacement; escaped tables retain their own owners.
+        *cache = None;
+        let mut tables = self.encode_source_tables()?;
+        let pool = self.runtime.shared.pool();
+        let cancel = pse_columnar::CancellationToken::new();
+        for table in tables.values_mut() {
+            *table = table.retained(&pool, &cancel).map_err(relation)?;
+        }
+        // Checked storage accounts its own shared column vectors. This grant covers
+        // only the cache map and its exact-input identity inventory.
+        let metadata = source_map_extent(tables.len())?
+            .checked_add(size_of::<SourceExport>() + 256)
+            .and_then(|n| {
+                self.physical.sources.values().try_fold(n, |n, table| {
+                    table
+                        .batch()
+                        .num_columns()
+                        .checked_mul(size_of::<Weak<dyn datafusion::arrow::array::Array>>())
+                        .and_then(|columns| n.checked_add(columns))
+                        .and_then(|n| {
+                            n.checked_add(
+                                size_of::<SourceBatchIdentity>()
+                                    + size_of::<pse_schema::model::RelationKey>()
+                                    + 128,
+                            )
+                        })
+                })
+            })
+            .ok_or_else(|| contract("source export cache extent"))?;
+        let metadata = self
+            .runtime
+            .shared
+            .math()
+            .reserve("modeling:source-export-cache", metadata)?;
+        let export = SourceExport {
+            revision: self.revision.identity(),
+            documents: Arc::downgrade(&self.document_sources),
+            physical: self.physical.key,
+            physical_sources: self
+                .physical
+                .sources
+                .iter()
+                .map(|(key, batch)| (*key, SourceBatchIdentity::new(batch)))
+                .collect(),
+            registry: Arc::downgrade(&self.runtime.registry),
+            validation: Arc::downgrade(&self.runtime.sessions),
+            pool: Arc::downgrade(&pool),
+            _metadata: metadata,
+            tables,
+        };
+        let tables = export.export_tables(&self.runtime)?;
+        *cache = Some(export);
+        Ok(tables)
+    }
+    fn encode_source_tables(
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
@@ -680,6 +838,7 @@ impl ModelingPackage {
             // Direct IR edits provide no replacement document bytes. Preserve no
             // stale source text as the declaration of the new revision.
             document_sources: Default::default(),
+            source_export: Default::default(),
             runtime: self.runtime.clone(),
             workspace: self.workspace.clone(),
             revision,
@@ -722,6 +881,202 @@ mod reuse_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_export_clones_reuse_owned_buffers_and_changed_inputs_rebuild() {
+        use pse_relations::generated::authored::modeling_declarations as wire;
+        let runtime = super::super::tests::runtime();
+        let parse = |text| {
+            pse_authoring::language::parse(
+                text,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                Default::default(),
+            )
+            .unwrap()
+        };
+        let package = runtime
+            .modeling_package(
+                parse("package application {}"),
+                super::super::tests::physical(),
+            )
+            .unwrap();
+        let pool = runtime.shared.pool();
+        let first = package.source_tables().unwrap();
+        let retained = pool.reserved();
+        let cloned = package.clone();
+        let second = cloned.source_tables().unwrap();
+        assert_eq!(
+            pool.reserved() - retained,
+            source_map_extent(second.len()).unwrap(),
+            "only the new escaping map is charged; storage and buffers remain shared"
+        );
+        assert!(Arc::ptr_eq(
+            &first[&wire::RELATION_ID].batch().columns()[0],
+            &second[&wire::RELATION_ID].batch().columns()[0],
+        ));
+        let replacement = package
+            .with_declarations(parse("package replacement {}"))
+            .unwrap();
+        let changed = replacement.source_tables().unwrap();
+        let rows = wire::Row::rows(&changed[&wire::RELATION_ID]).unwrap();
+        assert!(rows.iter().any(|row| row.name == "replacement"));
+        assert!(!rows.iter().any(|row| row.name == "application"));
+
+        // Another validation factory/pool cannot inherit this export's admission.
+        let mut relocated = cloned;
+        relocated.runtime = super::super::tests::runtime();
+        let other = relocated.source_tables().unwrap();
+        assert!(!Arc::ptr_eq(
+            &first[&wire::RELATION_ID].batch().columns()[0],
+            &other[&wire::RELATION_ID].batch().columns()[0],
+        ));
+        drop((package, replacement, relocated, second, changed, other));
+        assert!(
+            wire::Row::rows(&first[&wire::RELATION_ID])
+                .unwrap()
+                .iter()
+                .any(|row| row.name == "application")
+        );
+    }
+
+    #[test]
+    fn checked_source_export_keeps_storage_and_map_charges_after_packages_drop() {
+        use pse_relations::generated::authored::modeling_declarations as wire;
+        let runtime = super::super::tests::runtime();
+        let pool = runtime.shared.pool();
+        let rows = pse_authoring::language::parse(
+            "package escaped {}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let package = runtime
+            .modeling_package(rows, super::super::tests::physical())
+            .unwrap();
+        let tables = package.source_tables().unwrap();
+        let escaped = tables[&wire::RELATION_ID].clone();
+        let map_bytes = source_map_extent(tables.len()).unwrap();
+        drop(tables);
+        drop(package);
+        drop(runtime);
+        assert!(
+            pool.reserved() > map_bytes,
+            "escaped checked table retains map, storage and buffer charges"
+        );
+        let retained = pool.reserved();
+        let clone = escaped.clone();
+        assert_eq!(
+            pool.reserved(),
+            retained,
+            "checked clones allocate no new column vectors"
+        );
+        drop(escaped);
+        assert_eq!(pool.reserved(), retained);
+        assert!(
+            wire::Row::rows(&clone)
+                .unwrap()
+                .iter()
+                .any(|row| row.name == "escaped")
+        );
+        drop(clone);
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "last checked export releases all surviving source claims"
+        );
+    }
+
+    #[tokio::test]
+    async fn checked_source_table_outlives_joined_result_with_accounted_metadata() {
+        use pse_relations::generated::authored::modeling_declarations as wire;
+        let runtime = super::super::tests::runtime();
+        let pool = runtime.shared.pool();
+        let rows = pse_authoring::language::parse(
+            "package escaped { def Root { param x:Scalar=2; eq fixed:x*x==4; } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, super::super::tests::physical())
+            .unwrap();
+        let mut compiler = super::super::tests::compiler_profile();
+        compiler.assembly.worker_bytes = 2 << 20;
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                pse_kernels::DerivativeOrder::Value,
+                compiler,
+                super::super::tests::profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        assert!(result.usable());
+        let escaped = result.table("authored.modeling_declarations").unwrap();
+        drop(result);
+        drop(prepared);
+        drop(package);
+        drop(runtime);
+        assert!(pool.reserved() > source_map_extent(1).unwrap());
+        assert!(
+            wire::Row::rows(&escaped)
+                .unwrap()
+                .iter()
+                .any(|row| row.name == "Root")
+        );
+        drop(escaped);
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "checked source export was the last retained run owner"
+        );
+    }
+
+    #[test]
+    fn source_export_resource_failure_can_retry_without_poisoning_clones() {
+        let runtime = super::super::tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package retry {}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let package = runtime
+            .modeling_package(rows, super::super::tests::physical())
+            .unwrap();
+        let pool = runtime.shared.pool();
+        let available = runtime.shared.budget().memory_limit_bytes.get() - pool.reserved();
+        let held = runtime
+            .shared
+            .math()
+            .reserve("source-export-test:occupied", available)
+            .unwrap();
+        assert!(package.source_tables().is_err());
+        drop(held);
+        let first = package.clone().source_tables().unwrap();
+        let second = package.source_tables().unwrap();
+        assert!(!first.is_empty());
+        assert_eq!(
+            first.keys().collect::<Vec<_>>(),
+            second.keys().collect::<Vec<_>>()
+        );
+    }
 
     #[test]
     fn source_export_merges_physical_modeling_rows_and_rejects_conflicts() {

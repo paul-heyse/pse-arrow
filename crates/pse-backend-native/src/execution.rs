@@ -33,13 +33,16 @@ pub(crate) mod factorable;
 mod highs;
 mod ipopt;
 mod kinsol;
+mod petsc;
 mod pounce;
 mod pounce_convex;
 mod runner;
 mod scip;
 pub mod sos;
+mod uno;
 pub use factorable::{
     Factorable, Refusal, RelaxedOracle, Resolve, ResolveSensitivity, admit_program, factorable,
+    factorable_resolve_order,
 };
 pub use runner::{
     Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Recognized, Roots, Step, coefficients,
@@ -282,6 +285,14 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     ) -> Option<pse_kernels::DerivativeOrder> {
         crate::routing::derivative_demand(self.capability(), requirements.controls)
     }
+    /// Exact executable operation product for the admitted method.
+    fn required_artifact(
+        &self,
+        requirements: &Requirements<'_>,
+    ) -> Option<crate::routing::ArtifactDemand> {
+        self.required_order(requirements)
+            .map(crate::routing::ArtifactDemand::Derivatives)
+    }
     /// Compose static class/intent rules with existing contextual owners. This operation
     /// reads no ambient environment and starts no native service or worker.
     fn assess(&self, requirements: &Requirements<'_>) -> crate::routing::Eligibility {
@@ -412,6 +423,8 @@ pub const fn adapter(backend: Backend) -> &'static dyn BackendExecution {
         Backend::Idas => &dynamics::IDAS,
         Backend::Scip => &scip::ADAPTER,
         Backend::PounceConvex => &pounce_convex::ADAPTER,
+        Backend::Uno => &uno::ADAPTER,
+        Backend::Petsc => &petsc::ADAPTER,
     }
 }
 static ADAPTERS: [&dyn BackendExecution; Backend::ALL.len()] = {
@@ -504,6 +517,12 @@ pub enum BackendSettings {
     /// The POUNCE-convex interior-point method's choices and FERAL configuration.
     #[schemars(title = "PounceConvexSettings")]
     PounceConvex(crate::settings::pounce_convex::Settings),
+    /// First-order Uno filter trust-region SQP or SLP.
+    #[schemars(title = "UnoSettings")]
+    Uno(crate::settings::uno::Settings),
+    /// Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile.
+    #[schemars(title = "PetscSettings")]
+    Petsc(crate::settings::petsc::Settings),
 }
 impl BackendSettings {
     /// The backend these settings belong to; `None` for native defaults.
@@ -517,6 +536,8 @@ impl BackendSettings {
             Self::Clarabel(_) => Some(Backend::Clarabel),
             Self::Scip(_) => Some(Backend::Scip),
             Self::PounceConvex(_) => Some(Backend::PounceConvex),
+            Self::Uno(_) => Some(Backend::Uno),
+            Self::Petsc(_) => Some(Backend::Petsc),
         }
     }
     /// The document form of these settings: `None` for native defaults.
@@ -612,6 +633,7 @@ impl BackendSettings {
 #[derive(Default)]
 pub struct Retained {
     session: Option<(Backend, Box<dyn Any>)>,
+    session_charge: Option<Box<dyn Any + Send>>,
     advance: Option<(crate::kkt::Advance, Option<Box<dyn Any + Send>>)>,
 }
 impl std::fmt::Debug for Retained {
@@ -632,6 +654,14 @@ impl Retained {
     /// Drop the retained adapter session now. A kept advanced-step factor stays.
     pub fn clear(&mut self) {
         self.session = None;
+        self.session_charge = None;
+    }
+    /// Keep the admitted opaque-library allowance until native session destruction.
+    /// The runtime supplies this lease; native allocation observations are not exact extents.
+    pub fn charge_session(&mut self, charge: Box<dyn Any + Send>) {
+        if self.session.is_some() {
+            self.session_charge = Some(charge);
+        }
     }
     /// Keep an advanced-step factor, uncharged, replacing any earlier one with its charge.
     pub fn keep(&mut self, advance: crate::kkt::Advance) {
@@ -694,7 +724,7 @@ impl Retained {
                 return Err(ProblemError::Reuse { backend, refusal });
             }
             // Native teardown precedes construction of the replacement.
-            self.session = None;
+            self.clear();
             self.session = Some((backend, Box::new(build()?)));
         }
         let session = self
@@ -761,7 +791,9 @@ fn foreign(backend: Backend) -> ProblemError {
     feature = "pounce",
     feature = "kinsol",
     feature = "highs",
-    feature = "scip"
+    feature = "scip",
+    feature = "uno",
+    feature = "petsc"
 )))]
 fn unlinked(backend: Backend) -> ProblemError {
     ProblemError::Unavailable {
@@ -787,6 +819,18 @@ pub(crate) fn assess_representation<A: BackendExecution + ?Sized>(
 ) {
     use crate::routing::{ArtifactDemand, EvidenceDemand};
     let context = &requirements.context;
+    if matches!(
+        adapter.representation(),
+        Representation::Factorable | Representation::Nlp | Representation::Roots
+    ) {
+        // Coefficient classification belongs to a different representation's proof.
+        // Preserve its original dependencies while this owner independently admits
+        // the actual guarded program or callback contract. Ordered selection still
+        // retains any admissible higher-priority coefficient candidate's demand.
+        assessment
+            .evidence
+            .retain(|demand| !matches!(demand, EvidenceDemand::Class(_)));
+    }
     if matches!(
         adapter.representation(),
         Representation::Coefficients | Representation::Cone
@@ -820,24 +864,6 @@ pub(crate) fn assess_representation<A: BackendExecution + ?Sized>(
                 .reasons
                 .push(crate::routing::Ineligible::Contextual);
             return;
-        }
-        if !dependencies.is_empty()
-            && dependencies.iter().all(|dependency| {
-                matches!(
-                    dependency,
-                    pse_math::presolve::ClassDependency::MissingSymbolicExpression { .. }
-                )
-            })
-            && matches!(
-                adapter.representation(),
-                Representation::Nlp | Representation::Roots
-            )
-        {
-            // Callback admission has independent numeric contracts. Only the
-            // performed coefficient-export restriction permits lower-class choice.
-            assessment
-                .evidence
-                .retain(|demand| !matches!(demand, EvidenceDemand::Class(_)));
         }
     }
 

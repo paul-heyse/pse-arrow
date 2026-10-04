@@ -8,19 +8,45 @@
 
 [settings]
 memory_limit_bytes = 137438953472 # 128 GiB pool
+math_worker_bytes = 17179869184 # 16 GiB aggregate case worker capacity
 threads = 1
 time_limit_seconds = 600
 intent = "root"
 presolve = "auto"
 maximum_fixtures = 1024
 maximum_checks = 100000
-expansion_items = 1000000
-body_occurrences = 65536
 derivative_cells = 1000000
 derivative_step = 1e-6
 derivative_tolerance = 1e-4
 # Numerical diagnostic thresholds for fixtures that expect diagnostic findings.
 diagnostics = "diagnostics/idaes-2.13.json"
+
+# Complete campaign preparation policy; work units do not enlarge byte reservations.
+[settings.preparation.compiler]
+class_proof_work = 100000000
+
+[settings.preparation.compiler.optimization]
+cores = 1
+horner_iterations = 10
+cpe_iterations = 10
+
+[settings.preparation.compiler.assembly]
+contributions = 1000000
+native_index = 2147483647
+worker_bytes = 17179869184
+
+[settings.preparation.compiler.evaluation]
+derivative_components = 1000000
+operations = 100000000
+scratch_bytes = 4294967296
+provider_calls = 1000000
+
+[settings.preparation.limits]
+depth = 64
+items = 1000000
+members = 1000000
+body_occurrences = 16777216
+body_slots = 65536
 
 # campaign depends on seed-data, process, thermodynamics, methods, domain and physical, so
 # one native run discovers every campaign, seed and physical fixture exactly once.

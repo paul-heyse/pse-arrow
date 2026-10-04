@@ -1868,26 +1868,44 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<(bool, bool, String), WorkflowError> {
         let service = self.runtime.shared.math();
+        let controls = resolution.solver.controls.clone();
+        controls.validate().map_err(MathRuntimeError::from)?;
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let deadline = std::time::Instant::now()
+            .checked_add(controls.time_limit)
+            .ok_or(MathRuntimeError::Limit(
+                "derivative diagnostic deadline extent",
+            ))?;
+        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
         let owner = service.reserve(
             "modeling:derivative-sample",
             policy.allowance().map_err(MathRuntimeError::from)?,
         )?;
-        let control = pse_columnar::flight::FlightCancellation::default();
-        let operation = service.prepare_order(
-            resolution.model.case.clone(),
-            DerivativeOrder::First,
-            control.clone(),
-        );
-        tokio::pin!(operation);
-        let prepared = tokio::select! {
-            result = &mut operation => result?,
-            () = cancel.cancelled() => {
-                control.cancel();
-                let _ = operation.await;
-                return Err(MathRuntimeError::Cancelled.into());
-            }
-        };
+        let prepared = service
+            .prepare_order_within_task(
+                resolution.model.case.clone(),
+                DerivativeOrder::First,
+                &scope,
+                cancel,
+            )
+            .await?;
         let plan = &prepared.compiled().plan;
+        let providers = crate::math::MathService::within_task(
+            &scope,
+            cancel,
+            self.inner_registrations(
+                resolution.model.model.clone(),
+                &resolution.case_bindings,
+                &resolution.numerical,
+                &resolution.solver.numerics,
+                &resolution.solver.controls,
+                DerivativeOrder::First,
+                resolution.compiler,
+                cancel,
+                implicit::ProviderDemand::Case(plan),
+            ),
+        )
+        .await?;
         let mut targets = plan
             .numerical_targets(&self.quantities)
             .map_err(MathRuntimeError::from)?;
@@ -1910,18 +1928,21 @@ impl ModelingPackage {
                 .map_err(MathRuntimeError::from)?;
         let values = resolution.model.values.clone();
         let initial = plan.columns().iter().map(|id| values.scalars[id]).collect();
-        let controls = resolution.solver.controls.clone();
-        let assembly = service.assemble(prepared).await?;
+        let assembly =
+            crate::math::MathService::within_task(&scope, cancel, service.assemble(prepared))
+                .await?;
         Ok(service
             .with_owned_worker(
                 assembly,
-                resolution.providers.clone(),
+                providers,
                 cancel,
+                Some((scope.clone(), control)),
                 move |worker| {
-                    let execution = pse_backend_native::solve::Execution::new(
+                    let execution = pse_backend_native::solve::Execution::within(
                         worker.cancellation().clone(),
                         &controls,
-                    );
+                        scope,
+                    )?;
                     let oracle =
                         pse_backend_native::assembled::AlgebraicOracle::new(worker, values)?;
                     let result = pse_backend_native::derivative_diagnostics::analyze(
@@ -2032,6 +2053,8 @@ fn range_rejected(error: &WorkflowError, source: SemanticId) -> bool {
             MathRuntimeError::Solve(pse_backend_native::ProblemError::Math(e)) => math(e, s),
             MathRuntimeError::Compile(pse_compiler::workspace::CompileError::Math(e)) => math(e, s),
             MathRuntimeError::Shared(e) => runtime(e, s),
+            MathRuntimeError::Strategy { cause, .. }
+            | MathRuntimeError::StrategyTraceUnavailable { cause, .. } => runtime(cause, s),
             _ => false,
         }
     }
@@ -2045,6 +2068,275 @@ fn range_rejected(error: &WorkflowError, source: SemanticId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "solver-kinsol")]
+    #[derive(Debug)]
+    struct ObservedNestedFactory {
+        original: pse_kernels::Registration,
+        scopes: Arc<Mutex<Vec<pse_kernels::ExecutionScope>>>,
+        delay: std::time::Duration,
+    }
+    #[cfg(feature = "solver-kinsol")]
+    impl pse_kernels::ProviderFactory for ObservedNestedFactory {
+        fn spec(&self) -> &pse_kernels::ProviderSpec {
+            self.original.spec()
+        }
+        fn configuration_key(&self) -> pse_ids::ContentHash {
+            self.original.configuration_key()
+        }
+        fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+            self.original.worker()
+        }
+        fn create_scoped(
+            &self,
+            scope: pse_kernels::ExecutionScope,
+        ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+            self.scopes.lock().unwrap().push(scope.clone());
+            let provider = self.original.worker_scoped(scope.clone())?;
+            std::thread::sleep(self.delay);
+            scope.check()?;
+            Ok(provider)
+        }
+        fn envelope(&self) -> Option<Vec<(f64, f64)>> {
+            self.original.envelope().map(<[_]>::to_vec)
+        }
+    }
+    #[cfg(feature = "solver-kinsol")]
+    async fn nested_scope_fixture() -> (ModelingPackage, ModelingCaseResolution) {
+        use super::super::super::tests as fixture;
+        let runtime = fixture::runtime_with(128 << 20, 16 << 20, 1 << 30);
+        let rows = pse_authoring::language::parse(
+            "package p { def Root {param p:Scalar=4; var x:Scalar; annotation start x(2); implicit root select operational(y=1) settings(\"native.kinsol.v1\") {var y:Scalar; eq e:y*y==p; annotation start y(1); annotation bounds y(0.1,10);} realize policy on root using nested; eq e:x==root.y;} }",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+        let resolution = package
+            .resolve_case(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::Value,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                cases::CaseOverrides::default(),
+                false,
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resolution.providers.len(), 1);
+        (package, resolution)
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn derivative_worker_keeps_submitted_scope_in_actual_nested_factory_and_late_exit() {
+        use crate::math::MathService;
+        use pse_backend_native::solve::{Controls, Execution};
+        let (package, resolution) = nested_scope_fixture().await;
+        let service = package.runtime.shared.math();
+        let cancel = crate::CancelSource::new();
+        let prepared = service
+            .prepare_order(
+                resolution.model.case.clone(),
+                DerivativeOrder::First,
+                Default::default(),
+            )
+            .await
+            .unwrap();
+        let assembly = service.assemble(prepared).await.unwrap();
+        let scopes = Arc::new(Mutex::new(Vec::new()));
+        let providers = |delay| {
+            resolution
+                .providers
+                .iter()
+                .map(|(&key, registration)| {
+                    let factory = Arc::new(ObservedNestedFactory {
+                        original: registration.clone(),
+                        scopes: scopes.clone(),
+                        delay,
+                    });
+                    (
+                        key,
+                        pse_kernels::Registration::bind(registration.descriptor(), factory)
+                            .unwrap(),
+                    )
+                })
+                .collect()
+        };
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+        let expected = scope.clone();
+        let values = resolution.model.values.clone();
+        let result = service
+            .with_owned_worker(
+                assembly.clone(),
+                providers(std::time::Duration::ZERO),
+                &cancel,
+                Some((scope.clone(), control)),
+                move |mut worker| {
+                    let execution = Execution::within(
+                        worker.cancellation().clone(),
+                        &Controls::default(),
+                        scope,
+                    )?;
+                    assert_eq!(execution.scope()?.deadline(), Some(deadline));
+                    assert!(Arc::ptr_eq(&execution.cancel, worker.cancellation()));
+                    let rows = worker.constraints(&values)?;
+                    execution.check()?;
+                    Ok(rows)
+                },
+            )
+            .await
+            .unwrap();
+        assert!(result.iter().all(|value| value.abs() < 1e-8));
+        let observed = scopes.lock().unwrap()[0].clone();
+        assert_eq!(observed.deadline(), expected.deadline());
+        assert!(Arc::ptr_eq(
+            observed.cancellation(),
+            expected.cancellation()
+        ));
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(
+            control.flag(),
+            Some(std::time::Instant::now() + std::time::Duration::from_millis(100)),
+        );
+        let called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let observed_call = called.clone();
+        let result = service
+            .with_owned_worker(
+                assembly.clone(),
+                providers(std::time::Duration::from_millis(150)),
+                &cancel,
+                Some((scope.clone(), control.clone())),
+                move |_| {
+                    observed_call.store(true, std::sync::atomic::Ordering::Release);
+                    Ok(())
+                },
+            )
+            .await;
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+            ))
+        ));
+        assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+        assert!(
+            !scope
+                .cancellation()
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert_eq!(scopes.lock().unwrap()[1].deadline(), scope.deadline());
+        // Already-expired prepared work does not construct another provider.
+        let result = service
+            .with_owned_worker(
+                assembly,
+                providers(std::time::Duration::ZERO),
+                &cancel,
+                Some((scope.clone(), control)),
+                |_| Ok(()),
+            )
+            .await;
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+            ))
+        ));
+        let result = MathService::within_task(
+            &scope,
+            &cancel,
+            service.assemble(resolution.model.case.clone()),
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+            ))
+        ));
+        assert_eq!(scopes.lock().unwrap().len(), 2);
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn derivative_submission_deadline_expires_during_first_preparation_queue() {
+        let (package, mut resolution) = nested_scope_fixture().await;
+        let service = package.runtime.shared.math();
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+        let e = entered.clone();
+        let g = gate.clone();
+        let admitted = service.clone();
+        let job = tokio::spawn(async move {
+            admitted
+                .job(2, 0, Default::default(), move |_| {
+                    e.notify_one();
+                    let mut released = g.0.lock().unwrap();
+                    while !*released {
+                        released = g.1.wait(released).unwrap();
+                    }
+                    Ok(())
+                })
+                .await
+        });
+        entered.notified().await;
+        assert_eq!(
+            resolution.model.case.compiled().plan.order(),
+            DerivativeOrder::Value
+        );
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(
+            control.flag(),
+            Some(std::time::Instant::now() + std::time::Duration::from_millis(25)),
+        );
+        let driver = crate::CancelSource::new();
+        let result = service
+            .prepare_order_within_task(
+                resolution.model.case.clone(),
+                DerivativeOrder::First,
+                &scope,
+                &driver,
+            )
+            .await;
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+            ))
+        ));
+        assert!(
+            !scope
+                .cancellation()
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert!(!driver.token().is_cancelled());
+        resolution.solver.controls.time_limit = std::time::Duration::from_millis(25);
+        let result = package
+            .conformance_derivatives(
+                &resolution,
+                policy().derivatives,
+                &crate::CancelSource::new(),
+            )
+            .await;
+        *gate.0.lock().unwrap() = true;
+        gate.1.notify_one();
+        job.await.unwrap().unwrap();
+        assert!(matches!(
+            result,
+            Err(WorkflowError::Math(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+            )))
+        ));
+    }
     #[test]
     fn kernel_conformance_retains_inventory_and_accounts_variable_payloads() {
         use pse_columnar::MemoryPool;
@@ -2588,7 +2880,7 @@ mod tests {
             panic!("attributed typed admission refusal expected");
         };
         assert!(
-            matches!(cause, MathRuntimeError::Solve(pse_backend_native::ProblemError::RouteRefused(ref decision))
+            matches!(cause.as_ref(), MathRuntimeError::Solve(pse_backend_native::ProblemError::RouteRefused(decision))
             if decision.structure.as_ref().is_some_and(|assessment| assessment.refusal.is_some()))
         );
         assert_eq!(

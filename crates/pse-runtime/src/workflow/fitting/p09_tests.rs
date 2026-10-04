@@ -8,6 +8,23 @@ use native::{
     solve::{Backend, Execution},
 };
 use std::sync::atomic::AtomicBool;
+fn assert_diffsol_exact_hessian_refused(error: WorkflowError) {
+    let WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+        ProblemError::DynamicRouteRefused(decision),
+    )) = &error
+    else {
+        panic!("expected the typed dynamic route refusal: {error:?}")
+    };
+    assert_eq!(decision.requested, native::dynamics::Method::Diffsol);
+    assert_eq!(decision.selected, None);
+    assert_eq!(decision.candidates.len(), 1);
+    let candidate = &decision.candidates[0];
+    assert_eq!(candidate.method, native::dynamics::Method::Diffsol);
+    assert!(candidate.causes.iter().any(|cause| matches!(
+        cause.as_ref(),
+        ProblemError::Unsupported(reason) if reason.contains("exact transient Hessians need IDAS")
+    )), "{decision:?}");
+}
 fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitProfile) {
     source_case(mixed, expected, "Dynamic")
 }
@@ -95,17 +112,20 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
     let cancel = crate::CancelSource::new();
     let mut exact = profile.clone();
     exact.solver.controls.hessian = HessianMode::Exact;
-    assert!(
+    for simulation in exact.simulations.values_mut() {
+        simulation.method = native::dynamics::Method::Diffsol;
+    }
+    assert_diffsol_exact_hessian_refused(
         package
             .prepare_fit_problem(
                 FitId::from(id(73)),
                 exact,
                 compiler_profile(),
                 Default::default(),
-                &cancel
+                &cancel,
             )
             .await
-            .is_err()
+            .unwrap_err(),
     );
     let (problem, _) = package
         .prepare_fit_problem(
@@ -866,15 +886,7 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
         )
         .await
         .unwrap_err();
-    assert!(
-        matches!(
-            refused,
-            WorkflowError::Math(crate::math::MathRuntimeError::Solve(
-                ProblemError::Unsupported(_)
-            ))
-        ),
-        "{refused:?}"
-    );
+    assert_diffsol_exact_hessian_refused(refused);
     let (package, profile) = curved_source(native::dynamics::Method::Idas);
     let (problem, _) = package
         .prepare_fit_problem(

@@ -755,11 +755,21 @@ mod tests {
 
 /// Sized owned adapter preserves a source diagnostic across library/error trait boundaries.
 #[derive(Debug)]
-pub struct DiagnosticCause(Box<dyn DiagnosticProjection + Send + Sync>);
+pub struct DiagnosticCause(std::sync::Arc<dyn DiagnosticProjection + Send + Sync>);
 impl DiagnosticCause {
     /// Retain the original typed error, never its rendered string as authority.
     pub fn new(error: impl DiagnosticProjection + Send + Sync + 'static) -> Self {
-        Self(Box::new(error))
+        Self(std::sync::Arc::new(error))
+    }
+    /// Retain an existing allocation without wrapping or replacing the original error.
+    pub fn from_shared<T: DiagnosticProjection + Send + Sync + 'static>(
+        error: std::sync::Arc<T>,
+    ) -> Self {
+        Self(error)
+    }
+    /// Shared-allocation counters and padding, excluding the producer-owned cause payload.
+    pub fn allocation_overhead(&self) -> usize {
+        (2 * size_of::<usize>()).next_multiple_of(align_of_val(self.0.as_ref()))
     }
     /// Borrow the original error for library tooling, without replacing typed projection.
     pub fn as_error(&self) -> &(dyn std::error::Error + 'static) {

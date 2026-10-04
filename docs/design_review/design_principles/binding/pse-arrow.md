@@ -33,6 +33,12 @@ concrete question being assessed.
   on it. Once findings are dispositioned and enduring rationale has its owner, it retires to Git
   history; retained ADRs cite it as `git:<commit>:<path>` (ADR-0096).
 
+ADR-0156 supplies the reviewed ProcessSimulator 1.4 PS-09 clarification: native libraries
+own fitting numerical iteration, globalization, factors and model management; domain owners
+supply explicit scientific families and bounded composition only where no fitting library
+supplies the complete consumed contract. The proposal review used profile 1.3 to assess the
+clarification, not an exception to a MUST. Implementation status belongs to Plan 25m.
+
 ## Architecture scenarios
 
 These are reusable scenario seeds, not new product requirements or a demand to implement every

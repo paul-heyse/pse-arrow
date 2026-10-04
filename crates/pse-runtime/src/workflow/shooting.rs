@@ -31,7 +31,6 @@ use pse_model::generated::{enums::NumericalTarget, identities::RunId};
 use std::{
     collections::BTreeMap,
     sync::{Arc, atomic::AtomicBool},
-    time::Instant,
 };
 
 /// Registry vocabulary of the shooting routes (ADR-0110 Outcome 5).
@@ -133,6 +132,8 @@ pub struct ShootingProblem {
 /// The outcome of a shooting solve.
 #[derive(Debug)]
 pub struct ShootingReport {
+    /// Actual shared numerical-driver events after original trajectory assessment.
+    pub strategy: Option<Arc<crate::math::strategy::Trace>>,
     /// Single or multiple shooting.
     pub method: ShootingMethod,
     /// The NLP runner's report; absent when there is no variable to solve for.
@@ -1143,43 +1144,80 @@ impl ShootingProblem {
     pub(crate) fn solve(
         self: &Arc<Self>,
         run_id: RunId,
-        flag: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         initial: Option<&[f64]>,
+        solver: &SolverProfile,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
+        let operation_profile = crate::math::solves::profile_key(solver)?;
         let adapters: Vec<&dyn native::execution::BackendExecution> = match self.route {
             native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
             native::routing::Route::Constant => vec![],
         };
         native::execution::scoped(
             &adapters,
-            self.solver.controls.threads,
+            solver.controls.threads,
             self.runtime.native().stack_bytes(),
-            || self.solve_inner(run_id, flag, progress, initial),
+            || {
+                let backend = match self.route {
+                    native::routing::Route::Native(backend) => Some(backend),
+                    native::routing::Route::Constant => None,
+                };
+                let (mut report, trace) = crate::math::opaque_strategy::direct(
+                    self.runtime.shared.math(),
+                    crate::math::opaque_strategy::Source {
+                        original: self.contract.identity,
+                        preparation: self.contract.identity,
+                        profile: operation_profile.as_id(),
+                        backend,
+                        controls: &solver.controls,
+                        start: if initial.is_some() {
+                            pse_model::strategy::StartOrigin::Explicit
+                        } else {
+                            pse_model::strategy::StartOrigin::Specification
+                        },
+                        start_identity: initial.map(|point| {
+                            crate::math::opaque_strategy::point_identity(
+                                self.contract.identity,
+                                point,
+                            )
+                        }),
+                    },
+                    &scope,
+                    || self.solve_inner(run_id, scope.clone(), progress, initial, solver),
+                    |report| report.solve.as_ref(),
+                    |report| report.completion.decision.clone(),
+                    |report| {
+                        report
+                            .validation_error
+                            .as_ref()
+                            .map(crate::math::opaque_strategy::assessment_failure)
+                    },
+                )?;
+                report.strategy = Some(trace);
+                Ok(report)
+            },
         )
     }
     fn solve_inner(
         self: &Arc<Self>,
         run_id: RunId,
-        flag: Arc<AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         initial: Option<&[f64]>,
+        solver: &SolverProfile,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
-        let started = Instant::now();
-        let execution = Execution {
-            cancel: flag.clone(),
-            started,
-            time_limit: self.solver.controls.time_limit,
-            progress,
-            // Adjoint checkpoints are foreign allocations charged to the solve's allowance.
-            memory: Some(
-                self.runtime
-                    .shared
-                    .budget()
-                    .math
-                    .foreign_allowance(&self.solver.controls),
-            ),
-        };
+        let operation_profile = crate::math::solves::profile_key(solver)?;
+        let mut execution =
+            Execution::within(scope.cancellation().clone(), &solver.controls, scope)?;
+        execution.progress = progress;
+        execution.memory = Some(
+            self.runtime
+                .shared
+                .budget()
+                .math
+                .foreign_allowance(&solver.controls),
+        );
         let initial = match initial {
             Some(x) => x.to_vec(),
             None => self.initial_point(&execution)?,
@@ -1205,15 +1243,15 @@ impl ShootingProblem {
                     adapter: native::execution::adapter(backend),
                     snapshot: &self.snapshot,
                     structure: self.structural_assessment.as_ref(),
-                    settings: &self.solver.backend,
-                    controls: &self.solver.controls,
+                    settings: &solver.backend,
+                    controls: &solver.controls,
                     accuracy: &self.accuracy,
                     execution: execution.clone(),
                     tolerances: &self.tolerances,
                     normalization: &self.normalization,
                     compatibility: Compatibility {
                         layout: self.contract.identity,
-                        profile: self.profile_key.as_id(),
+                        profile: operation_profile.as_id(),
                         data: h.finish_hash(),
                         backend,
                     },
@@ -1227,17 +1265,18 @@ impl ShootingProblem {
                         point: None,
                     }),
                     initial: &initial,
-                    presolve: &self.solver.presolve,
-                    intent: self.solver.intent,
+                    presolve: &solver.presolve,
+                    intent: solver.intent,
                     sense: pse_math::binding::ObjectiveSense::Minimize,
                     limit: self.experiment.profile.max_cells,
-                    analysis: native::execution::Analysis::for_intent(self.solver.intent),
+                    analysis: native::execution::Analysis::for_intent(solver.intent),
                 },
             )?;
             let candidate = report.candidate.as_ref().map(|c| c.primal.clone());
             (Some(report), candidate)
         };
         let mut report = ShootingReport {
+            strategy: None,
             method: self.method,
             solve,
             candidate,

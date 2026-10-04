@@ -36,6 +36,7 @@ from pse import (
     SolveSettings,
     codec,
 )
+from pse.contracts.documents import PreparationSettings
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
@@ -54,6 +55,8 @@ class RunSettings(
     """
 
     memory_limit_bytes: int
+    #: Forwarded engine capacity; absence retains the Rust deployment default.
+    math_worker_bytes: int | None = None
     threads: int = 1
     time_limit_seconds: float = 600
     intent: NativeSolveIntent = NativeSolveIntent.ROOT
@@ -61,6 +64,9 @@ class RunSettings(
     presolve: Literal["auto", "off"] = "auto"
     maximum_fixtures: int = 1024
     maximum_checks: int = 16384
+    #: Complete compiler and expansion policy. When provided, its limits replace
+    #: the standalone expansion fields below; authored fixture policy still applies.
+    preparation: PreparationSettings | None = None
     expansion_items: int | None = None
     expansion_members: int | None = None
     expansion_depth: int | None = None
@@ -207,16 +213,21 @@ def run_once(
 
     Dependencies participate in package coverage.
     """
-    limits = ModelingLimits(
-        items=settings.expansion_items,
-        members=settings.expansion_members,
-        depth=settings.expansion_depth,
-        body_occurrences=settings.body_occurrences,
-        body_slots=settings.body_slots,
+    limits = (
+        ModelingLimits(
+            items=settings.expansion_items,
+            members=settings.expansion_members,
+            depth=settings.expansion_depth,
+            body_occurrences=settings.body_occurrences,
+            body_slots=settings.body_slots,
+        )
+        if settings.preparation is None
+        else None
     )
     with TemporaryDirectory(prefix="pse-conformance-") as spill:
         engine = EngineSettings(
             memory_limit_bytes=settings.memory_limit_bytes,
+            math_worker_bytes=settings.math_worker_bytes,
             threads=settings.threads,
             spill_dir=spill,
             max_spill_bytes=1 << 30,
@@ -237,12 +248,15 @@ def run_once(
                     else tuple(fixture.to_hex() for fixture in fixtures),
                 ),
                 limits=limits,
+                preparation=settings.preparation,
             )
         else:
             runtime = Runtime(engine)
             modeling = runtime.modeling_from_documents(
                 documents, runtime.physical_from_documents(physical_documents)
-            ).with_limits(limits)
+            )
+            if limits is not None:
+                modeling = modeling.with_limits(limits)
             result = modeling.conform(
                 SolveSettings(
                     intent=settings.intent,
@@ -270,6 +284,7 @@ def run_once(
                         )
                     ),
                 ),
+                preparation=settings.preparation,
             )
         if report is not None:
             _write(report, result)

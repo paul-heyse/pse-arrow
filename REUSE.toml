@@ -18,6 +18,24 @@ SPDX-FileCopyrightText = [
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+path = ["docker/solvers/uno-pse.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Uno contributors",
+  "2026 Paul Heyse (native integration additions)",
+]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["docker/solvers/petsc-pse.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "1991-2025 UChicago Argonne, LLC and the PETSc Developers and Contributors",
+  "2026 Paul Heyse (native integration additions)",
+]
+SPDX-License-Identifier = "BSD-2-Clause"
+
+[[annotations]]
 path = [
   "**/*.md",
   "**/*.lock",

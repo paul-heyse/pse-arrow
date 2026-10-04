@@ -1259,8 +1259,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            114u8, 6u8, 16u8, 161u8, 161u8, 104u8, 128u8, 88u8, 217u8, 165u8, 66u8, 89u8,
-            143u8, 73u8, 168u8, 63u8,
+            146u8, 164u8, 245u8, 85u8, 12u8, 195u8, 39u8, 56u8, 60u8, 70u8, 97u8, 109u8,
+            95u8, 122u8, 149u8, 49u8,
         ])
     {
         return Ok(
@@ -1446,6 +1446,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeSolveRuns(
                 super::r#runtime::r#solve_runs::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            166u8, 206u8, 114u8, 227u8, 88u8, 226u8, 235u8, 30u8, 113u8, 209u8, 246u8,
+            17u8, 202u8, 126u8, 33u8, 66u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeSolveStrategyEvents(
+                super::r#runtime::r#solve_strategy_events::Row::rows(batch)?,
             ),
         );
     }
@@ -1894,6 +1906,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveRuns(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeSolveStrategyEvents(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveVariables(rows) => {

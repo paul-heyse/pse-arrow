@@ -259,6 +259,10 @@ fn declare_controls(builder: &mut RegistryBuilder) {
                 "jacobi",
                 "Diagonal (Jacobi) scaling by the compiled Newton-matrix diagonal; a zero diagonal entry leaves its row unscaled.",
             ),
+            (
+                "block_factor",
+                "KINSOL right preconditioning by library sparse LU factors of the complete original equality BTF diagonal blocks; requires an assembled analytic Jacobian and finite admitted storage.",
+            ),
         ],
     );
 }

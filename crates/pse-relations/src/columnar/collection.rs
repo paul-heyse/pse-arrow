@@ -179,7 +179,7 @@ impl<'a> Collection<'a> {
                 key,
                 finish,
             } = columns;
-            let mut checked = finish(builder)?;
+            let checked = finish(builder)?;
             let spec = self
                 .registry
                 .relation_by_id(checked.relation_id())
@@ -188,12 +188,19 @@ impl<'a> Collection<'a> {
                 return Err(mismatch("the declared generated builder result"));
             }
             checked.check_declaration(self.registry, spec)?;
+            let relation_id = checked.relation_id;
+            let contract = checked.contract.clone();
             let owned = pse_columnar::owned_buffer::OwnedRecordBatch::from_reserved(
-                checked.batch,
+                checked.into_batch(),
                 reservation,
             )?;
-            checked.batch = owned.batch().clone();
-            checked.owned = Some(owned);
+            let checked = FieldCheckedBatch::from_parts(
+                relation_id,
+                contract,
+                owned.batch().clone(),
+                Some(owned),
+            )
+            .retained(self.pool, self.cancel)?;
             match result.entry(key) {
                 Entry::Vacant(entry) => {
                     entry.insert(checked);

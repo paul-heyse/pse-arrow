@@ -163,6 +163,70 @@ mod attempt {
     }
 }
 
+mod profile {
+    use super::*;
+    use pse_model::generated::runtime::profile_points::{
+        RuntimeProfilePointsFieldFailuresItem as Envelope,
+        RuntimeProfilePointsFieldFailuresItemApplicabilityItem as ApplicabilityRow,
+        RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim as ClaimRow,
+        RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem as InputRow,
+        RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem as PermissionRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItem as Cause,
+        RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem as CauseApplicabilityRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim as CauseClaimRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem as CauseInputRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem as CausePermissionRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem as CauseLocationRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem as CauseObservationRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem as CauseContractRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem as CauseAxisRow,
+        RuntimeProfilePointsFieldFailuresItemCausesItemValidity as CauseValidityRow,
+        RuntimeProfilePointsFieldFailuresItemLocationsItem as LocationRow,
+        RuntimeProfilePointsFieldFailuresItemObservationsItem as ObservationRow,
+        RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem as ContractRow,
+        RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem as AxisRow,
+        RuntimeProfilePointsFieldFailuresItemValidity as ValidityRow,
+    };
+    pub(super) fn project(f: &BoundaryDiagnostic) -> Envelope {
+        let mut flattened = Vec::new();
+        flatten(&f.causes, &mut Vec::new(), &mut flattened);
+        let causes = flattened.into_iter().map(|(tree_path, cause)| envelope!(cause, Cause, CauseObservationRow, CauseContractRow, CauseAxisRow, CauseLocationRow, CauseValidityRow, CauseApplicabilityRow, CauseClaimRow, CauseInputRow, CausePermissionRow; tree_path: tree_path)).collect();
+        envelope!(f, Envelope, ObservationRow, ContractRow, AxisRow, LocationRow, ValidityRow, ApplicabilityRow, ClaimRow, InputRow, PermissionRow;  causes: causes)
+    }
+}
+
+mod strategy {
+    use super::*;
+    use pse_model::generated::runtime::solve_strategy_events::{
+        RuntimeSolveStrategyEventsFieldFailuresItem as Envelope,
+        RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItem as ApplicabilityRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemClaim as ClaimRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemInputsItem as InputRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemPermissionsItem as PermissionRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItem as Cause,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItem as CauseApplicabilityRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemClaim as CauseClaimRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemInputsItem as CauseInputRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem as CausePermissionRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem as CauseLocationRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItem as CauseObservationRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItem as CauseContractRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem as CauseAxisRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemCausesItemValidity as CauseValidityRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem as LocationRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemObservationsItem as ObservationRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItem as ContractRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItemIndicesItem as AxisRow,
+        RuntimeSolveStrategyEventsFieldFailuresItemValidity as ValidityRow,
+    };
+    pub(super) fn project(f: &BoundaryDiagnostic) -> Envelope {
+        let mut flattened = Vec::new();
+        flatten(&f.causes, &mut Vec::new(), &mut flattened);
+        let causes = flattened.into_iter().map(|(tree_path, cause)| envelope!(cause, Cause, CauseObservationRow, CauseContractRow, CauseAxisRow, CauseLocationRow, CauseValidityRow, CauseApplicabilityRow, CauseClaimRow, CauseInputRow, CausePermissionRow; tree_path: tree_path)).collect();
+        envelope!(f, Envelope, ObservationRow, ContractRow, AxisRow, LocationRow, ValidityRow, ApplicabilityRow, ClaimRow, InputRow, PermissionRow;  causes: causes)
+    }
+}
+
 pub(super) fn project_finding(
     run_id: pse_model::generated::identities::RunId,
     ordinal: i64,
@@ -182,6 +246,21 @@ pub(super) fn project_study_attempt_diagnostic(
 ) -> pse_model::generated::runtime::study_outcomes::RuntimeStudyOutcomesFieldAttemptsItemDiagnostic
 {
     attempt::project(diagnostic)
+}
+
+/// Profile-chain typed failures projected through the registry-owned diagnostic envelope.
+pub(crate) fn profile_failure(
+    diagnostic: &BoundaryDiagnostic,
+) -> pse_model::generated::runtime::profile_points::RuntimeProfilePointsFieldFailuresItem {
+    profile::project(diagnostic)
+}
+
+/// Strategy failures use the same semantic envelope and ordered cause-tree projection.
+pub(crate) fn strategy_failure(
+    diagnostic: &BoundaryDiagnostic,
+) -> pse_model::generated::runtime::solve_strategy_events::RuntimeSolveStrategyEventsFieldFailuresItem
+{
+    strategy::project(diagnostic)
 }
 
 #[cfg(test)]
@@ -247,9 +326,13 @@ mod tests {
         let finding = project_finding(RunId::from(source), 0, &diagnostic);
         let study = project_study_diagnostic(&diagnostic);
         let attempt = project_study_attempt_diagnostic(&diagnostic);
+        let profile = profile_failure(&diagnostic);
+        let strategy = strategy_failure(&diagnostic);
         assert_eq!(finding.code, diagnostic.code);
         assert_eq!(study.code, finding.code);
         assert_eq!(attempt.code, finding.code);
+        assert_eq!(profile.code, finding.code);
+        assert_eq!(strategy.code, finding.code);
         assert_eq!(study.locations[0].revision, Some(revision));
         assert_eq!(attempt.validity.as_ref().unwrap().variables, vec![2]);
         for observation in &study.observations {
@@ -291,5 +374,82 @@ mod tests {
             paths
         );
         assert_eq!(attempt.causes[1].locations[0].revision, Some(revision));
+        assert_eq!(profile.causes[1].locations[0].revision, Some(revision));
+        assert_eq!(
+            strategy.causes[1].validity.as_ref().unwrap().variables,
+            vec![2]
+        );
+        for actual in [
+            profile
+                .causes
+                .iter()
+                .map(|cause| cause.tree_path.clone())
+                .collect::<Vec<_>>(),
+            strategy
+                .causes
+                .iter()
+                .map(|cause| cause.tree_path.clone())
+                .collect::<Vec<_>>(),
+        ] {
+            assert_eq!(actual, paths);
+        }
+    }
+
+    #[test]
+    fn profile_failure_roundtrip_preserves_two_level_causes_and_actual_terminal_flag() {
+        use pse_model::generated::enums::{IntervalEnd, NativeTermination};
+        use pse_relations::{columnar::RelationRow, generated::runtime::profile_points};
+        let source = SemanticId::from_bytes([1; 16]);
+        let mut diagnostic = BoundaryDiagnostic::new(
+            BoundaryClass::InvalidModel,
+            DiagnosticStage::Evaluation,
+            [source],
+            DiagnosticRule::MathContract,
+        );
+        let mut child = diagnostic.clone();
+        child.sources = vec![SemanticId::from_bytes([2; 16])];
+        let mut leaf = diagnostic.clone();
+        leaf.sources = vec![SemanticId::from_bytes([3; 16])];
+        leaf.observations
+            .insert("attempts".into(), Observation::Integer(4));
+        child.causes = vec![leaf];
+        diagnostic.causes = vec![child];
+        let row = profile_points::Row {
+            run_id: RunId::from(source),
+            parameter_id: source,
+            end: IntervalEnd::Lower,
+            point: 1,
+            value: 2.0,
+            seed: Some(0),
+            qualification: None,
+            termination: Some(NativeTermination::Evaluation),
+            callback_terminal_failure: Some(true),
+            failures: vec![profile_failure(&diagnostic)],
+            objective: None,
+            statistic: None,
+            accepted: false,
+            detail: Some("terminal callback".into()),
+        };
+        let registry = pse_schema::registry().unwrap();
+        let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
+        let mut builder = profile_points::Row::builder(registry, 1, &validation).unwrap();
+        profile_points::Row::push(&mut builder, row.clone()).unwrap();
+        let rows =
+            profile_points::Row::rows(&profile_points::Row::finish(builder).unwrap()).unwrap();
+        assert_eq!(rows, vec![row]);
+        let actual = &rows[0].failures[0];
+        assert_eq!(
+            actual
+                .causes
+                .iter()
+                .map(|cause| cause.tree_path.clone())
+                .collect::<Vec<_>>(),
+            vec![vec![0], vec![0, 0]]
+        );
+        assert_eq!(
+            actual.causes[1].sources,
+            vec![SemanticId::from_bytes([3; 16])]
+        );
+        assert_eq!(actual.causes[1].observations[0].integer, Some(4));
     }
 }

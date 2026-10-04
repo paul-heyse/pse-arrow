@@ -665,12 +665,38 @@ fn projection(
     }
     // Numerical observation is a demand, not an automatic consequence of retaining
     // a source declaration. Original rows, checks and objective terms remain mandatory.
+    let instance_path = &model.instances[request.instance(db)].path;
     let mut observed = request
         .bindings(db)
         .demand
         .iter()
-        .filter_map(|path| model.paths.get(path).copied())
+        .filter_map(|path| {
+            model.paths.get(path).copied().or_else(|| {
+                // Specialization may inline a computed member to a finite call rather
+                // than a symbol reference. Its exact authored instance path still
+                // identifies the explicitly demanded member; suffix matching would
+                // accidentally admit unrelated child consumers.
+                let full_path = format!("{instance_path}.{path}");
+                model
+                    .symbols
+                    .values()
+                    .find_map(|symbol| (symbol.lineage.path == full_path).then_some(symbol.id))
+            })
+        })
         .collect::<BTreeSet<_>>();
+    // The enclosure of each derived Big-M is an actual preparation consumer, even
+    // when the caller has not requested its source member as a report observation.
+    observed.extend(
+        model
+            .derived
+            .values()
+            .filter_map(|parameter| match parameter.rule {
+                pse_modeling::specialize::DerivedRule::Extremum { expression, .. } => {
+                    Some(expression)
+                }
+                pse_modeling::specialize::DerivedRule::Bound { .. } => None,
+            }),
+    );
     observed.extend(
         model
             .objectives
@@ -686,6 +712,22 @@ fn projection(
     }));
     // Conditional boundary factories consume physical port coordinates explicitly.
     observed.extend(model.ports.values().map(|port| port.symbol));
+    // Declared hybrid events consume their zero-crossing guards and physical reset
+    // values. Retaining only the declaration leaves no callable trial function.
+    for event in model
+        .fixtures
+        .values()
+        .flat_map(|fixture| &fixture.modes)
+        .flat_map(|mode| &mode.events)
+    {
+        observed.insert(event.guard);
+        observed.extend(
+            event
+                .reset
+                .iter()
+                .flat_map(|(target, value)| [*target, *value]),
+        );
+    }
     if !model.integrated.is_empty() {
         // Integration consumes original trial coordinates and quadrature integrands
         // whether or not a report/start annotation observes them. Generated coordinates
@@ -1419,7 +1461,7 @@ impl CompilerWorkspace {
         let source = admitted.plan(
             &self.inputs.quantities,
             DerivativeOrder::Value,
-            AssemblyLimits::default(),
+            profile.assembly,
             cancel,
         )?;
         let plan = Arc::new(

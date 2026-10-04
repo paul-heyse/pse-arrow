@@ -230,7 +230,7 @@ impl CompilerWorkspace {
                 bodies,
                 &self.inputs.quantities,
                 DerivativeOrder::First,
-                AssemblyLimits::default(),
+                profile.assembly,
                 cancel,
             )?;
         }
@@ -292,6 +292,7 @@ impl CompilerWorkspace {
         let structure = structural_plan(node, &plan, cancel)?;
         let artifacts = artifact_requests(&plan, profile, self.inventory.environment(&self.db));
         Ok(PreparedBlock {
+            class_proof_work: profile.class_proof_work,
             boundary: pse_structural::initialization::Block {
                 id: pse_structural::incidence::BlockId(plan.structure().key()),
                 members: pse_structural::incidence::Part {

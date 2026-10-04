@@ -35,9 +35,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ipopt = env::var_os("CARGO_FEATURE_IPOPT").is_some();
     let sdp = env::var_os("CARGO_FEATURE_SDP").is_some();
     let pardiso = env::var_os("CARGO_FEATURE_CLARABEL_PARDISO").is_some();
+    let pipeline =
+        env::var_os("CARGO_FEATURE_UNO").is_some() || env::var_os("CARGO_FEATURE_PETSC").is_some();
     let prefix = env::var_os("IPOPT_DIR").map(PathBuf::from);
     let mut manifest = String::new();
-    if ipopt || sdp || pardiso {
+    if ipopt || sdp || pardiso || pipeline {
         match &prefix {
             Some(prefix) => {
                 let pc = prefix.join("lib/pkgconfig").join(format!("{MKL}.pc"));

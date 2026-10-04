@@ -26,7 +26,7 @@ impl ModelingPackage {
     /// affine coefficient snapshot. Nonlinear models and undisclosed domains refuse.
     pub async fn diagnose_linear(
         &self,
-        prepared: ModelingDiagnosticPreparation,
+        mut prepared: ModelingDiagnosticPreparation,
         request: highs::diagnostics::Request,
         controls: Controls,
         maximum_entries: usize,
@@ -35,6 +35,20 @@ impl ModelingPackage {
         controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
+        let service = self.runtime.shared.math();
+        // Coefficients belong to this diagnostic consumer; general diagnostic
+        // preparation leaves optional class evidence unassessed.
+        prepared.model.case = service
+            .discover_class(
+                prepared.model.case,
+                prepared.model.values.clone(),
+                &crate::math::solves::SolverProfile {
+                    intent: SolveIntent::FeasiblePoint,
+                    selection: SolverSelection::Explicit(Backend::Highs),
+                    ..Default::default()
+                },
+            )
+            .await?;
         let product = prepared.model.case.compiled();
         let coefficients = product.coefficients.clone().ok_or_else(|| contract("linear diagnostics require an admitted affine coefficient representation and discharged domains"))?;
         if coefficients.hessian.val().iter().any(|v| *v != 0.) {
@@ -82,7 +96,6 @@ impl ModelingPackage {
             .checked_mul(512)
             .and_then(|n| n.checked_add(controls.report_allowance().ok()?))
             .ok_or_else(|| contract("linear diagnostic storage extent"))?;
-        let service = self.runtime.shared.math();
         let owner = service.reserve("modeling:linear-diagnostics", allowance)?;
         let retained = owner.clone();
         let assembly = service.assemble(prepared.model.case).await?;

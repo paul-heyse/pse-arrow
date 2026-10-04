@@ -19,6 +19,7 @@ from pse.contracts.documents import Profile
 from pse.contracts.enums import (
     AttemptKind,
     AttemptState,
+    DynamicsMethod,
     HessianMode,
     NativeBackend,
     NativeSolveIntent,
@@ -67,6 +68,9 @@ def test_public_native_process_and_exact_results(
             )
         ],
         physical,
+    )
+    package = package.with_limits(
+        pse.ModelingLimits(body_occurrences=262144, body_slots=65536)
     )
     case = DeclarationId(SemanticId.from_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015"))
     settings = pse.SolveSettings(
@@ -157,6 +161,11 @@ def test_public_dynamic_and_transient_fit(
           annotation report observed("measurement");
           annotation check total(total[i]>=2{s});
         }
+        test experiment_integrated fixture {
+          dof 0; route integrated; procedure integrate;
+          integrate samples(0{s},0.5{s},1{s}) relative(1e-9)
+            normalized_absolute(1e-10) step(1e-4{s});
+        } { child root:Experiment=Experiment(); }
         entity kind origin provenance {attribute title:Text;}
         entity origin experiment {title="analytic total(t)=2 s+3*t"}
         enum role {measured facets(measured)}
@@ -170,9 +179,12 @@ def test_public_dynamic_and_transient_fit(
         physical,
     )
     case = next(
-        d.declaration_id for d in package.declarations() if d.name == "Experiment"
+        d.declaration_id
+        for d in package.declarations()
+        if d.name == "experiment_integrated"
     )
     settings = pse.SimulationSettings(
+        method=DynamicsMethod.DIFFSOL,
         start=0.0,
         end=1.0,
         samples=[0.0, 0.5, 1.0],
@@ -244,7 +256,7 @@ def test_public_dynamic_and_transient_fit(
                     "experiment_id": identity(103),
                     "case_id": case,
                     "route": "integrated",
-                    "bindings": [{"parameter_id": identity(102), "path": "rate"}],
+                    "bindings": [{"parameter_id": identity(102), "path": "root.rate"}],
                 }
             ],
             "observations": [
@@ -253,7 +265,7 @@ def test_public_dynamic_and_transient_fit(
                     "value_attribute": "value",
                     "standard_deviation_attribute": "sigma",
                     "experiment_id": identity(103),
-                    "output_path": "observed[0{s}]",
+                    "output_path": "root.observed[0{s}]",
                     "time": 1.0,
                     "time_basis": None,
                     "time_unit_id": None,
@@ -265,6 +277,7 @@ def test_public_dynamic_and_transient_fit(
         authored.AuthoredFitCasesRow,
     )
     package = package.with_fit_declarations((fit,))
+    simulation_profile = codec.decode_json(settings.to_json(), Profile)
     result = (
         package.prepare_fit(
             fit.fit_id,
@@ -276,9 +289,7 @@ def test_public_dynamic_and_transient_fit(
                     controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY),
                 ),
                 simulations={
-                    fit.experiments[0].experiment_id.to_hex(): codec.decode_json(
-                        settings.to_json(), Profile
-                    )
+                    fit.experiments[0].experiment_id.to_hex(): simulation_profile
                 },
             ),
         )
@@ -297,9 +308,10 @@ def test_public_dynamic_and_transient_fit(
     assert len(exported) == 1
     assert exported[0]["value"] == pytest.approx(3.0, abs=1e-5)
     assert exported[0]["run_id"] == bytes(result.run_id)
-    assert result.completion.computation == converter.structure(
-        run[0], runtime_contracts.RuntimeComputationRunsRow
-    )
+    assert result.completion.computation is not None
+    assert codec.document_rows(
+        (result.completion.computation,), runtime_contracts.RuntimeComputationRunsRow
+    ) == (converter.structure(run[0], runtime_contracts.RuntimeComputationRunsRow),)
     assert result.usable
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
     assert checks

@@ -12,16 +12,13 @@ pub use pse_model::generated::enums::NativeStructuralMode as Mode;
 
 /// Structural policy is declared once in the registry.
 pub use pse_model::generated::enums::NativeStructuralPolicy as Policy;
-/// Root intent dominates the selected native representation.
+/// Explicit root intent dominates; initialization uses its represented mathematical class.
 pub fn mode(
     policy: Policy,
     facts: &pse_math::facts::ProblemFacts,
     intent: crate::solve::SolveIntent,
 ) -> Mode {
-    if matches!(
-        intent,
-        crate::solve::SolveIntent::Root | crate::solve::SolveIntent::Initialize
-    ) {
+    if crate::routing::root_intent(facts, intent) {
         return Mode::Roots;
     }
     match policy {
@@ -417,6 +414,9 @@ pub(crate) fn retain_roots(
     Box::new(RootsWitness { inner, witness })
 }
 impl crate::NleOracle for RootsWitness {
+    fn operations(&self) -> crate::RootOperations {
+        self.inner.operations()
+    }
     fn structural_analysis(&self) -> Option<&StructuralAnalysis> {
         Some(&self.witness)
     }

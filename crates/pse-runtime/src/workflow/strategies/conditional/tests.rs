@@ -325,6 +325,16 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
         )
         .is_err()
     );
+    let mut expired = execution.clone();
+    expired.time_limit = std::time::Duration::ZERO;
+    let error = unit
+        .evaluate(&BTreeMap::from([(inlet, 4.0), (auxiliary, 2.0)]), &expired)
+        .unwrap_err();
+    assert_eq!(
+        native::callback::classify(&error),
+        native::callback::Failure::Stopped(Termination::TimeLimit)
+    );
+    assert!(!execution.cancel.load(std::sync::atomic::Ordering::Acquire));
     execution
         .cancel
         .store(true, std::sync::atomic::Ordering::Release);

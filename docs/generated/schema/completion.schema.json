@@ -894,7 +894,9 @@
         "diffsol",
         "idas",
         "scip",
-        "pounce_convex"
+        "pounce_convex",
+        "uno",
+        "petsc"
       ],
       "type": "string"
     },

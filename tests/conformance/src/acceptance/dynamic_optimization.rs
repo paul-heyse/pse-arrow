@@ -292,7 +292,14 @@ async fn simultaneous_dynamic_optimization_with_discrete_decision() {
         .unwrap()
         .commitment
         .as_ref()
-        .expect("a mixed-integer candidate states its commitment");
+        .unwrap_or_else(|| {
+            let resolve = native
+                .metrics
+                .iter()
+                .filter(|(key, _)| key.starts_with("resolve."))
+                .collect::<Vec<_>>();
+            panic!("a mixed-integer candidate states its commitment; re-solve: {resolve:?}")
+        });
     assert_eq!(commitment.columns.len(), 8);
     assert!(
         commitment

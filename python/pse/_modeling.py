@@ -53,6 +53,7 @@ from pse.contracts.documents import (
     ModelingNonlinearPolicy,
     PointOutcome,
     PreparationCounts,
+    PreparationSettings,
     PureConformanceControls,
     RecycleRequest,
     SolveSettings,
@@ -210,8 +211,9 @@ class ModelingConformance:
         *,
         controls: PureConformanceControls | None = None,
         limits: ModelingLimits | None = None,
+        preparation: PreparationSettings | None = None,
     ) -> "ModelingConformance":
-        """Run native pure conformance with source-owned limits and selection."""
+        """Run native pure conformance; an explicit preparation replaces ``limits``."""
         return cls(
             _NativeModelingConformance.pure(
                 [dict(bundle) for bundle in documents],
@@ -219,6 +221,9 @@ class ModelingConformance:
                 settings,
                 controls=None if controls is None else codec.encode_json(controls),
                 limits=limits,
+                preparation=None
+                if preparation is None
+                else codec.encode_json(preparation),
             )
         )
 
@@ -765,23 +770,40 @@ class ModelingPackage:
         self,
         case_id: DeclarationId,
         settings: SolveSettings,
+        *,
+        preparation: PreparationSettings | None = None,
     ) -> PreparedOperation:
-        """Prepare an authored algebraic case for owned execution and publication."""
+        """Prepare an authored solve with optional compiler and expansion policy."""
         return PreparedOperation(
-            self._handle.prepare_solve(case_id.to_hex(), codec.encode_json(settings))
+            self._handle.prepare_solve(
+                case_id.to_hex(),
+                codec.encode_json(settings),
+                preparation=None
+                if preparation is None
+                else codec.encode_json(preparation),
+            )
         )
 
     def solve_case(
         self,
         case_id: DeclarationId,
         settings: SolveSettings,
+        *,
+        preparation: PreparationSettings | None = None,
     ) -> ModelingResult:
         """Solve a case through the native solver pipeline.
 
-        The case uses its source fixture specifications and model starts.
+        The case uses its source fixture specifications and model starts. An explicit
+        preparation replaces this package's compiler and expansion defaults.
         """
         return ModelingResult(
-            self._handle.solve_case(case_id.to_hex(), codec.encode_json(settings))
+            self._handle.solve_case(
+                case_id.to_hex(),
+                codec.encode_json(settings),
+                preparation=None
+                if preparation is None
+                else codec.encode_json(preparation),
+            )
         )
 
     def initialize(
@@ -859,12 +881,19 @@ class ModelingPackage:
         )
 
     def conform(
-        self, settings: SolveSettings, *, controls: ConformanceControls | None = None
+        self,
+        settings: SolveSettings,
+        *,
+        controls: ConformanceControls | None = None,
+        preparation: PreparationSettings | None = None,
     ) -> ModelingConformance:
-        """Run bounded native shared checks and selected fixtures."""
+        """Run bounded checks with optional complete compiler and expansion policy."""
         return ModelingConformance(
             self._handle.conform(
                 codec.encode_json(settings),
                 controls=None if controls is None else codec.encode_json(controls),
+                preparation=None
+                if preparation is None
+                else codec.encode_json(preparation),
             )
         )

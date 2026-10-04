@@ -70,18 +70,18 @@ no silent fallback, approximate substitute or compatibility route.
   untested formulations.
 - The IDAES parity harness covers the pinned environment and explicitly exercised
   compatibility names. It does not establish numerical equivalence with IDAES.
-- With automatic presolve, pinned bound tightening can return a multiplier that fails
-  complementarity against the original bound; the candidate remains feasible and is
-  reported as not stationary, and disabling presolve qualifies it. HiGHS's QP
+- Native NLP presolve excludes pinned bound tightening without original multiplier
+  provenance; interval source-infeasibility analysis and supported affine recovery retain
+  their separate contracts ([§18.5](numerical-execution.md#section-18-5)). HiGHS's QP
   regularization is derived from the requested absolute gap and is reserved
   ([§18.10](numerical-execution.md#section-18-10)).
 - SCIP's concurrent mode is exercised by two-thread solves, including its incumbent stream
   and cancellation ([§18.8](numerical-execution.md#section-18-8)).
 - The KKT-point analysis serves the NLP routes: a quadratic program's sensitivity request
   routes to one automatically, and an explicit coefficient or cone adapter withholds the
-  quantities ([§15.5.1](numerical-execution.md#section-15-5-1)). When pounce-presolve's postsolve loses
-  a removed row's multiplier, the candidate qualifies only `Feasible` and its sensitivities
-  are withheld rather than recovered by switching presolve off. The first-order prediction
+  quantities ([§15.5.1](numerical-execution.md#section-15-5-1)). A candidate lacking correct
+  original multipliers qualifies only `Feasible` and its sensitivities are withheld. The
+  supported affine reduction preserves the original singleton-row response. The first-order prediction
   agrees with Ipopt's sIPOPT within 1e-6 on a nondegenerate program, compared on this machine
   (`just parity`).
 - Covariances and intervals assume the declared standard deviations are exact; no residual

@@ -165,6 +165,7 @@ pub fn nlp(
         run.initial,
         &policy,
         step.tolerances,
+        step.accuracy,
         step.execution.clone(),
         step.warm,
         step.compatibility,

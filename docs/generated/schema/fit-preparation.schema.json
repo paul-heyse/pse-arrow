@@ -261,7 +261,7 @@
           "properties": {
             "anderson": {
               "default": 0,
-              "description": "Native Anderson history; zero disables acceleration.",
+              "description": "Native Anderson history for Picard/fixed point; zero disables acceleration.",
               "format": "uint",
               "minimum": 0,
               "type": "integer"
@@ -280,7 +280,7 @@
             "damping": {
               "$ref": "#/$defs/Fraction",
               "default": 1.0,
-              "description": "Damping in (0,1]."
+              "description": "Picard/fixed-point damping in (0,1]; Newton and line search require one."
             },
             "eta": {
               "$ref": "#/$defs/KinsolEta",
@@ -294,11 +294,11 @@
               "default": {
                 "kind": "klu"
               },
-              "description": "Native linear solver for equation profiles."
+              "description": "Native linear solver for equation/Picard profiles; fixed point requires the default."
             },
             "max_newton_step": {
               "default": null,
-              "description": "Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit\nbecause KINSOL raises a smaller cap to one; `None` keeps KINSOL's\n`1000 * ||D_u u_0||`.",
+              "description": "Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit\nbecause KINSOL raises a smaller cap to one; Newton/line search only. `None` keeps KINSOL's\n`1000 * ||D_u u_0||`.",
               "format": "double",
               "type": [
                 "number",
@@ -317,7 +317,7 @@
             },
             "setup_interval": {
               "default": 10,
-              "description": "Maximum nonlinear iterations between linear setups.",
+              "description": "Maximum nonlinear iterations between linear setups; fixed point requires the default.",
               "format": "uint32",
               "minimum": 0,
               "type": "integer"
@@ -701,6 +701,102 @@
           ],
           "title": "PounceConvexSettings",
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "First-order Uno filter trust-region SQP or SLP.",
+          "properties": {
+            "backend": {
+              "const": "uno",
+              "type": "string"
+            },
+            "limited_memory": {
+              "default": 6,
+              "description": "Positive L-BFGS history for SQP; exactly zero for SLP.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "method": {
+              "$ref": "#/$defs/NativeUnoMethod",
+              "default": "sqp",
+              "description": "SQP uses an L-BFGS Hessian; SLP consumes no Hessian history."
+            },
+            "trust_radius": {
+              "default": 10.0,
+              "description": "Initial native trust radius, in normalized coordinates.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "backend"
+          ],
+          "title": "UnoSettings",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile.",
+          "properties": {
+            "backend": {
+              "const": "petsc",
+              "type": "string"
+            },
+            "linear": {
+              "$ref": "#/$defs/NativePetscLinear",
+              "default": "gmres",
+              "description": "Selected native KSP method."
+            },
+            "method": {
+              "$ref": "#/$defs/NativePetscMethod",
+              "default": "newton_trust_region",
+              "description": "Selected native nonlinear method."
+            },
+            "preconditioner": {
+              "$ref": "#/$defs/NativePetscPreconditioner",
+              "default": "ilu",
+              "description": "Selected native PC method."
+            },
+            "pseudo": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PseudoTime"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Required precisely for the pseudo-transient profile."
+            },
+            "schwarz": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Schwarz"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Required precisely for nonlinear additive Schwarz."
+            },
+            "trust": {
+              "$ref": "#/$defs/TrustRegion",
+              "default": {
+                "initial": 1.0,
+                "maximum": 100000000.0,
+                "minimum": 1e-12
+              },
+              "description": "Inner trust-region profile used by SNES and TSPSEUDO correction."
+            }
+          },
+          "required": [
+            "backend"
+          ],
+          "title": "PetscSettings",
+          "type": "object"
         }
       ]
     },
@@ -753,6 +849,46 @@
       ],
       "type": "string"
     },
+    "DiffsolInitialConditionOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "armijo_constant": {
+          "format": "double",
+          "type": "number"
+        },
+        "max_linear_solver_setups": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_linesearch_iterations": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_newton_iterations": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step_reduction_factor": {
+          "format": "double",
+          "type": "number"
+        },
+        "use_linesearch": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "use_linesearch",
+        "max_linesearch_iterations",
+        "max_newton_iterations",
+        "max_linear_solver_setups",
+        "step_reduction_factor",
+        "armijo_constant"
+      ],
+      "type": "object"
+    },
     "DiffsolLinear": {
       "enum": [
         "faer_lu",
@@ -768,6 +904,102 @@
         "tsit45"
       ],
       "type": "string"
+    },
+    "DiffsolOdeSolverOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "max_error_test_failures": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_nonlinear_solver_failures": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_nonlinear_solver_iterations": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_timestep_growth": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_timestep_shrink": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min_timestep": {
+          "format": "double",
+          "type": "number"
+        },
+        "min_timestep_growth": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min_timestep_shrink": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "nonlinear_solver_tolerance": {
+          "format": "double",
+          "type": "number"
+        },
+        "pi_control_integral": {
+          "format": "double",
+          "type": "number"
+        },
+        "pi_control_proportional": {
+          "format": "double",
+          "type": "number"
+        },
+        "threshold_to_update_jacobian": {
+          "format": "double",
+          "type": "number"
+        },
+        "threshold_to_update_rhs_jacobian": {
+          "format": "double",
+          "type": "number"
+        },
+        "update_jacobian_after_steps": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "update_rhs_jacobian_after_steps": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_nonlinear_solver_iterations",
+        "max_error_test_failures",
+        "max_nonlinear_solver_failures",
+        "nonlinear_solver_tolerance",
+        "min_timestep",
+        "update_jacobian_after_steps",
+        "update_rhs_jacobian_after_steps",
+        "threshold_to_update_jacobian",
+        "threshold_to_update_rhs_jacobian",
+        "pi_control_proportional",
+        "pi_control_integral"
+      ],
+      "type": "object"
     },
     "DiffsolSettings": {
       "additionalProperties": false,
@@ -1126,6 +1358,67 @@
       ],
       "type": "object"
     },
+    "IdasInitialConditions": {
+      "additionalProperties": false,
+      "description": "Exact IDAS consistent-initialization controls; no physical time stepping is requested.",
+      "properties": {
+        "backtracks": {
+          "default": null,
+          "description": "Explicit maximum backtracks per Newton step, when line search is enabled.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "convergence_coefficient": {
+          "default": 0.0033,
+          "description": "Positive IDASetNonlinConvCoefIC coefficient.",
+          "format": "double",
+          "type": "number"
+        },
+        "jacobian_attempts": {
+          "default": 4,
+          "description": "Maximum Jacobian setup attempts at each artificial scale.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "line_search": {
+          "default": true,
+          "description": "Enable IDAS's IC line search.",
+          "type": "boolean"
+        },
+        "newton_iterations": {
+          "default": 10,
+          "description": "Maximum Newton iterations at each setup attempt.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step_tolerance": {
+          "default": null,
+          "description": "Positive scaled Newton-step floor for constraints and the enabled line search.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "step_trials": {
+          "default": null,
+          "description": "Maximum attempted artificial step scales; applies only to AlgebraicAndRates.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "IdasInitialization": {
       "enum": [
         "algebraic_and_rates",
@@ -1204,6 +1497,19 @@
       "additionalProperties": false,
       "description": "Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document\n(ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.\nVersion 2 removes the per-state sign constraints: they derive from the authored bounds\n([`Contract::signs`], ADR-0119 Outcome 4).",
       "properties": {
+        "initial_conditions": {
+          "$ref": "#/$defs/IdasInitialConditions",
+          "default": {
+            "backtracks": null,
+            "convergence_coefficient": 0.0033,
+            "jacobian_attempts": 4,
+            "line_search": true,
+            "newton_iterations": 10,
+            "step_tolerance": null,
+            "step_trials": null
+          },
+          "description": "Public IDACalcIC phase controls, also applied to scheduled consistent restarts."
+        },
         "initialization": {
           "$ref": "#/$defs/IdasInitialization",
           "default": "algebraic_and_rates",
@@ -1569,7 +1875,35 @@
         "diffsol",
         "idas",
         "scip",
-        "pounce_convex"
+        "pounce_convex",
+        "uno",
+        "petsc"
+      ],
+      "type": "string"
+    },
+    "NativePetscLinear": {
+      "enum": [
+        "gmres",
+        "fgmres",
+        "bicgstab",
+        "preonly"
+      ],
+      "type": "string"
+    },
+    "NativePetscMethod": {
+      "enum": [
+        "newton_trust_region",
+        "nonlinear_additive_schwarz",
+        "pseudo_transient"
+      ],
+      "type": "string"
+    },
+    "NativePetscPreconditioner": {
+      "enum": [
+        "none",
+        "jacobi",
+        "ilu",
+        "lu"
       ],
       "type": "string"
     },
@@ -1588,6 +1922,13 @@
         "no_prior_start",
         "previous_accepted",
         "explicit"
+      ],
+      "type": "string"
+    },
+    "NativeUnoMethod": {
+      "enum": [
+        "sqp",
+        "slp"
       ],
       "type": "string"
     },
@@ -1781,7 +2122,8 @@
     "Preconditioner": {
       "enum": [
         "none",
-        "jacobi"
+        "jacobi",
+        "block_factor"
       ],
       "type": "string"
     },
@@ -1850,6 +2192,15 @@
         "idas": {
           "$ref": "#/$defs/IdasSettings",
           "default": {
+            "initial_conditions": {
+              "backtracks": null,
+              "convergence_coefficient": 0.0033,
+              "jacobian_attempts": 4,
+              "line_search": true,
+              "newton_iterations": 10,
+              "step_tolerance": null,
+              "step_trials": null
+            },
             "initialization": "algebraic_and_rates",
             "linear": {
               "kind": "klu"
@@ -1863,6 +2214,10 @@
           "description": "Initial step in seconds.",
           "format": "double",
           "type": "number"
+        },
+        "initialization": {
+          "$ref": "#/$defs/DiffsolInitialConditionOptions",
+          "description": "Library-owned initialization controls, transported in every profile."
         },
         "max_cells": {
           "description": "Maximum retained scalar cells, including sensitivities and event states.",
@@ -1886,6 +2241,10 @@
           "$ref": "#/$defs/DynamicsMethod",
           "default": "auto",
           "description": "Native method selected from the required trial semantics; automatic when absent."
+        },
+        "native": {
+          "$ref": "#/$defs/DiffsolOdeSolverOptions",
+          "description": "Native BDF/nonlinear/error-control settings."
         },
         "numerics": {
           "$ref": "#/$defs/NumericalPolicy",
@@ -1985,7 +2344,9 @@
         "max_events",
         "time_limit",
         "max_cells",
-        "parameter_scales"
+        "parameter_scales",
+        "initialization",
+        "native"
       ],
       "type": "object"
     },
@@ -2038,6 +2399,57 @@
         "covariance",
         "outputs"
       ],
+      "type": "object"
+    },
+    "PseudoTime": {
+      "additionalProperties": false,
+      "description": "Finite step growth and rejection controls for artificial pseudo-time.",
+      "properties": {
+        "failed_scale": {
+          "default": 0.5,
+          "description": "Failed-stage shrink strictly between zero and one.",
+          "format": "double",
+          "type": "number"
+        },
+        "growth": {
+          "default": 1.1,
+          "description": "Successful-step growth greater than one.",
+          "format": "double",
+          "type": "number"
+        },
+        "initial": {
+          "default": 0.01,
+          "description": "Positive artificial initial time step.",
+          "format": "double",
+          "type": "number"
+        },
+        "maximum": {
+          "default": 1000000.0,
+          "description": "Finite maximum time step.",
+          "format": "double",
+          "type": "number"
+        },
+        "minimum": {
+          "default": 1e-12,
+          "description": "Explicit rejection floor; a step below this ends the attempt.",
+          "format": "double",
+          "type": "number"
+        },
+        "nonlinear_failures": {
+          "default": 20,
+          "description": "Finite allowed nonlinear failures.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rejections": {
+          "default": 20,
+          "description": "Finite allowed rejected steps.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
       "type": "object"
     },
     "RestartBarrier": {
@@ -2109,6 +2521,24 @@
         "parameter",
         "times"
       ],
+      "type": "object"
+    },
+    "Schwarz": {
+      "additionalProperties": false,
+      "description": "Explicit correction damping and overlap extension for nonlinear Schwarz.",
+      "properties": {
+        "damping": {
+          "default": 1.0,
+          "description": "Native nonlinear correction damping in (0,1].",
+          "format": "double",
+          "type": "number"
+        },
+        "restricted": {
+          "default": true,
+          "description": "Restrict the extension to each block's declared interior.",
+          "type": "boolean"
+        }
+      },
       "type": "object"
     },
     "SensitivityCorrector": {
@@ -2385,6 +2815,31 @@
         "recoverable"
       ],
       "type": "string"
+    },
+    "TrustRegion": {
+      "additionalProperties": false,
+      "description": "Normalized radius bounds consumed by the native trust-region method.",
+      "properties": {
+        "initial": {
+          "default": 1.0,
+          "description": "Initial radius in normalized coordinates.",
+          "format": "double",
+          "type": "number"
+        },
+        "maximum": {
+          "default": 100000000.0,
+          "description": "Positive finite maximum radius.",
+          "format": "double",
+          "type": "number"
+        },
+        "minimum": {
+          "default": 1e-12,
+          "description": "Positive lower radius; reaching it stops the native trajectory.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "type": "object"
     },
     "WarmRestart": {
       "additionalProperties": false,

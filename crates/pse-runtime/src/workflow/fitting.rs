@@ -10,7 +10,7 @@ mod preparation;
 mod profile;
 pub use covariance::{Covariance, FitWithheld, Interval, IntervalBound};
 pub use modeling::FitDeclarations;
-pub use profile::{ProfileChain, ProfilePoint, ProfileWorkerFailure};
+pub use profile::{ProfileChain, ProfileFailure, ProfilePoint, ProfileWorkerFailure};
 #[cfg(test)]
 pub(in crate::workflow) mod regression;
 mod results;
@@ -240,6 +240,8 @@ pub struct PreparedFit {
 /// Joined native fit plus independently re-evaluated physical predictions.
 #[derive(Debug)]
 pub struct FitReport {
+    /// Actual shared numerical-driver events, owned independently of result copies.
+    pub strategy: Option<Arc<crate::math::strategy::Trace>>,
     /// Original authored checks evaluated at the final physical candidate.
     pub checks: Vec<super::ModelingCheck>,
     /// Original authored reports, including completed terminal integrals.
@@ -471,6 +473,19 @@ fn measured_rows(
 }
 
 impl PreparedFit {
+    /// The original scientific permission used by the numerical driver and run completion.
+    pub(crate) fn assess_completion(&self, report: &FitReport) -> super::numerics::Completed {
+        let policy = &self.problem.numerics.policy;
+        super::numerics::complete(
+            report.candidate_use(policy),
+            super::numerics::CompletionEvidence::point(
+                &report.checks,
+                report.checks_complete && report.validation_error.is_none(),
+                self.required_closure_checks(),
+            ),
+            policy,
+        )
+    }
     pub(crate) fn required_closure_checks(&self) -> usize {
         self.assessments
             .iter()

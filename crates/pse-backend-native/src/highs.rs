@@ -15,7 +15,7 @@ use std::{
     marker::PhantomData,
     rc::Rc,
     sync::{
-        RwLock, RwLockReadGuard,
+        RwLockReadGuard,
         atomic::{AtomicBool, Ordering},
     },
 };
@@ -35,8 +35,6 @@ macro_rules! native {
 pub mod diagnostics;
 #[cfg(test)]
 mod mip_tests;
-static LIFECYCLE: RwLock<()> = RwLock::new(());
-thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
 pub use crate::settings::highs::{Method, Settings};
 
@@ -66,13 +64,7 @@ impl Drop for Session {
         drop(self.gate.take());
         // Header contract: reset is unsafe concurrently with ANY use of HiGHS.
         // CPU admission is held by the owning runtime until this blocking join ends.
-        let _exclusive = LIFECYCLE
-            .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // SAFETY: the write lock waits out every session's read gate, and this session's
-        // model is gone, so no HiGHS object is in use on any thread during the reset.
-        unsafe { ffi::Highs_resetGlobalScheduler(1) };
-        ACTIVE.with(|a| a.set(false));
+        crate::highs_lifecycle::released();
     }
 }
 fn check(code: i32, operation: &str) -> Result<(), ProblemError> {
@@ -501,14 +493,7 @@ impl Session {
         compatibility: Compatibility,
     ) -> Result<Self, ProblemError> {
         admit(p, certificate)?;
-        if ACTIVE.with(|a| a.replace(true)) {
-            return Err(ProblemError::Internal(
-                "nested HiGHS session would deadlock scheduler teardown".into(),
-            ));
-        }
-        let gate = LIFECYCLE
-            .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let gate = crate::highs_lifecycle::read()?;
         let mut session = Self {
             model: None,
             gate: Some(gate),

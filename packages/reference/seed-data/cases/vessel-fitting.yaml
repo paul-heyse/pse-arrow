@@ -31,7 +31,7 @@
         {
           "observation_id": "cc754cdf034d5f3eaf87909ed6dbf09c",
           "experiment_id": "a4b09ef6b5fb57408e81cb15b794e660",
-          "output_path": "heat",
+          "output_path": "heat_rate",
           "time": null,
           "time_basis": null,
           "time_unit_id": null,
@@ -122,7 +122,7 @@
         {
           "observation_id": "48f3414cc55e532a87d829ad6e469fa2",
           "experiment_id": "d05d75e1faf8534d93d49385c016759d",
-          "output_path": "heat",
+          "output_path": "heat_rate",
           "time": null,
           "time_basis": null,
           "time_unit_id": null,

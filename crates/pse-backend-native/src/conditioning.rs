@@ -197,12 +197,83 @@ pub(crate) fn factor_into(
 }
 
 pub(crate) fn native(error: feral::FeralError) -> ProblemError {
-    ProblemError::numerical(format!("FERAL: {error}"))
+    use crate::LinearFailureKind as K;
+    let kind = match &error {
+        feral::FeralError::InvalidInput(_) | feral::FeralError::DimensionMismatch { .. } => {
+            K::Contract
+        }
+        feral::FeralError::IoError(_) | feral::FeralError::NoFactor => K::Internal,
+        feral::FeralError::DelayBudgetExceeded { .. } => K::Memory,
+        feral::FeralError::NumericallyRankDeficient
+        | feral::FeralError::SingularBasis { .. }
+        | feral::FeralError::SqdContractViolated { .. }
+        | feral::FeralError::NeedsRefactor => K::Numerical,
+    };
+    ProblemError::Linear {
+        kind,
+        cause: Box::new(error),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn feral_failure_mapping_retains_original_typed_cause_and_true_disposition() {
+        use crate::LinearFailureKind as K;
+        let cases = [
+            (
+                feral::FeralError::InvalidInput("diagnostic containing numerical words".into()),
+                K::Contract,
+            ),
+            (
+                feral::FeralError::DimensionMismatch {
+                    expected: 3,
+                    got: 2,
+                },
+                K::Contract,
+            ),
+            (
+                feral::FeralError::IoError("diagnostic containing singular words".into()),
+                K::Internal,
+            ),
+            (feral::FeralError::NoFactor, K::Internal),
+            (
+                feral::FeralError::DelayBudgetExceeded {
+                    supernode: 2,
+                    required: 7,
+                    capacity: 3,
+                },
+                K::Memory,
+            ),
+            (feral::FeralError::NumericallyRankDeficient, K::Numerical),
+            (feral::FeralError::SingularBasis { column: 4 }, K::Numerical),
+            (
+                feral::FeralError::SqdContractViolated {
+                    column: 5,
+                    pivot: 0.25,
+                },
+                K::Numerical,
+            ),
+            (feral::FeralError::NeedsRefactor, K::Numerical),
+        ];
+        for (cause, expected) in cases {
+            let original = std::mem::discriminant(&cause);
+            let ProblemError::Linear { kind, cause } = native(cause) else {
+                panic!("typed FERAL cause flattened");
+            };
+            assert_eq!(kind, expected);
+            assert_eq!(std::mem::discriminant(cause.as_ref()), original);
+            if let feral::FeralError::DelayBudgetExceeded {
+                supernode,
+                required,
+                capacity,
+            } = *cause
+            {
+                assert_eq!((supernode, required, capacity), (2, 7, 3));
+            }
+        }
+    }
     use faer::{
         linalg::solvers::DenseSolveCore,
         sparse::{SparseColMat, Triplet},

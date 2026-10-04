@@ -10,6 +10,7 @@ import pse
 from pse import codec
 from pse.contracts.documents import StudyPoint, StudyRequest
 from pse.contracts.identities import DeclarationId
+from pse.contracts.reference import ReferenceQuantityTypesRow
 
 
 def assignment(
@@ -37,8 +38,16 @@ def physical_ids(path: Path, quantity: str, unit: str) -> tuple[str, str]:
         document["quantity_types"], type=list[dict[str, object]]
     )
     units = msgspec.convert(document["units"], type=list[dict[str, object]])
+    # Physical documents may omit a quantity type's optional public name. The
+    # relational row represents that unnamed semantic type with a null name.
+    typed_quantities = codec.structure_rows(
+        [{**row, "name": row.get("name")} for row in quantities],
+        ReferenceQuantityTypesRow,
+    )
     quantity_id = next(
-        row["quantity_type_id"] for row in quantities if row["name"] == quantity
+        row.quantity_type_id.to_hex()
+        for row in typed_quantities
+        if row.name == quantity
     )
     unit_id = next(row["unit_id"] for row in units if row["symbol"] == unit)
     assert isinstance(quantity_id, str)
@@ -80,6 +89,12 @@ def point(
                 },
                 "preparation": {
                     "compiler": {
+                        "class_proof_work": 1_000_000,
+                        "assembly": {
+                            "contributions": 100_000,
+                            "native_index": 100_000,
+                            "worker_bytes": 64 * 1024 * 1024,
+                        },
                         "optimization": {
                             "cores": 1,
                             "horner_iterations": 2,
@@ -116,4 +131,4 @@ def point(
 
 
 def request(*points: StudyPoint) -> StudyRequest:
-    return StudyRequest(version=1, points=points)
+    return StudyRequest(version=2, points=points)

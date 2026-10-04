@@ -520,7 +520,11 @@ thread admission and fallback to individual execution.
 
 `StudyReport.preparations` projects the mathematical service's task-local `PreparationCounts`:
 views, observation programs, value-dependent rebuilds and shares. Counting includes preparation
-and execution and stays local to concurrent studies. Equal structures reuse compiler/library
+performed within study execution and stays local to concurrent studies. Definition admission
+prepares the bound operation to freeze its actual seed needs before execution; any view cached
+there is outside these execution-local counters. An execution that consumes that admitted view
+records a value rebind for its first point as well as subsequent points, without another view.
+Equal structures reuse compiler/library
 products while admitted values remain explicit inputs. Historic measurements retain their
 original scope; the owning [Plan 25f](../../plans/25f-studies-diagnostics-and-continuation.md)
 records replacement-control evidence and [25k](../../plans/25k-integrated-qualification-and-closure.md)
@@ -899,6 +903,16 @@ takes the dynamic sensitivity (`DynamicSensitivity`) and the adjoint checkpoint 
 `python/pse/_modeling.py`, `_runs.py` and `_strategies.py`.
 The removed model builders have no compatibility facade.
 
+`prepare_solve`, `solve_case`, native conformance and pure conformance accept the
+existing generated `PreparationSettings` document: one complete compiler profile and
+expansion policy. A provided policy reaches the existing Rust preparation owner unchanged,
+including its finite conserved class-proof allowance; it replaces standalone expansion
+limits for that operation. An omitted policy retains the Rust compiler default and the
+selected package or explicit pure-expansion limits. Python declares no compiler defaults.
+Conformance manifests forward the same document in both execution modes. Missing required
+fields refuse rather than silently defaulting, and byte admission remains independent of
+conservative symbolic work (§14.3.2).
+
 `RunHandle.wait()` releases the interpreter while waiting and checks signals; an
 interrupt requests cancellation and joins the native supervisor before the signal
 propagates. `wait_async()` uses `pyo3-async-runtimes` on the process Tokio executor;
@@ -934,7 +948,10 @@ does not prove the consumer registered the extension types.
 > generated msgspec types; validated scalar settings (Plan 22 B5, implemented). As built, the
 > job payload carries the typed `SolveSettings` document and a `JobStart` policy; the
 > `JobProfile` that ADR-0116 Outcome 6 names was deleted with payload version 1, and the
-> payload is at version 5 (`JobPayload`, including admitted study operations and finalization).
+> payload is at version 6 (`JobPayload`, including admitted study operations and finalization).
+> Complete nested preparation contracts use study operation/request version 2 and stored
+> study definition version 4. Durable readers check envelope versions before nested decoding;
+> unsupported historical readmission preserves the recorded bytes and refuses explicitly.
 > [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration crossing the boundary is a registry enum with one Rust type
 > (Plan 22 B4, implemented).
 

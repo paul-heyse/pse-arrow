@@ -8,8 +8,8 @@ use crate::{
     nlp_pattern::Pattern,
     quality::{self, Tolerances},
     solve::{
-        Assurance, Candidate, Compatibility, Execution, Metric, NativeTermination, SolveReport,
-        Termination, WarmPayload, WarmStart, WorkingSetTransfer,
+        Assurance, Candidate, Compatibility, Execution, Metric, NativeTermination,
+        ResolvedAccuracy, SolveReport, Termination, WarmPayload, WarmStart, WorkingSetTransfer,
     },
     tnlp::Adapter,
 };
@@ -28,13 +28,10 @@ use pse_math::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-/// Why automatic presolve declined interval propagation for a problem.
-const PROPAGATION_DECLINED: &str =
-    "propagation fixed every variable of a retained row; transformed equality matching failed";
-
 /// Attempt-owned wrapper stack and original worker. Never stored in Salsa or sent across workers.
 pub struct Pipeline {
     original: Rc<RefCell<Adapter>>,
+    declared_normalization: pse_math::normalization::Normalization,
     outer: Rc<RefCell<dyn TNLP>>,
     report: Report,
     compatibility: Compatibility,
@@ -125,68 +122,64 @@ impl Pipeline {
         initial: &[f64],
         policy: &Policy,
         tolerance: &Tolerances,
+        accuracy: &ResolvedAccuracy,
         execution: Execution,
         warm: Option<&WarmStart>,
         compatibility: Compatibility,
         limit: usize,
-    ) -> Result<Self, ProblemError> {
-        Self::build(
-            oracle,
-            initial,
-            policy,
-            tolerance,
-            execution,
-            warm,
-            compatibility,
-            limit,
-            false,
-        )
-    }
-    /// [`Pipeline::new`], with interval propagation declined when `decline_propagation`.
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "Presolve admission needs the independent solver, warm-start, and resource contracts"
-    )]
-    fn build(
-        oracle: Box<dyn NlpOracle>,
-        initial: &[f64],
-        policy: &Policy,
-        tolerance: &Tolerances,
-        execution: Execution,
-        warm: Option<&WarmStart>,
-        compatibility: Compatibility,
-        limit: usize,
-        decline_propagation: bool,
     ) -> Result<Self, ProblemError> {
         let source_warm = warm;
-        let normalization = oracle.normalization().cloned().unwrap_or_else(|| {
-            pse_math::normalization::Normalization::identity(
-                oracle.contract().variables.len(),
-                oracle.contract().rows.len(),
-            )
-        });
-        normalization.validate(
-            oracle.contract().variables.len(),
-            oracle.contract().rows.len(),
-        )?;
-        let mut report = policy.qualify(oracle.as_ref(), tolerance)?;
-        if decline_propagation
-            && let Some(decision) = report.passes.get_mut(&super::Pass::Fbbt)
-            && decision.applied
+        execution.check()?;
+        let columns = oracle.contract().variables.len();
+        let rows = oracle.contract().rows.len();
+        if columns > limit
+            || rows > limit
+            || initial.len() != columns
+            || initial.iter().any(|v| !v.is_finite())
         {
-            decision.applied = false;
-            decision.reason = Some(PROPAGATION_DECLINED.into());
-            report.effective.fbbt = false;
-        }
-        let (n, m) = (
-            report.dimensions.original_columns,
-            report.dimensions.original_rows,
-        );
-        if n > limit || m > limit || initial.len() != n || initial.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::Contract(
                 "presolve dimensions/start/cap".into(),
             ));
         }
+        // Both maps are attempt-owned: the declared map remains the KKT authority,
+        // while the adapter consumes the derived row coordinates. Their payload is
+        // part of the existing admitted attempt allowance, not a retained cache.
+        let map_bytes = columns
+            .checked_add(rows)
+            .and_then(|entries| entries.checked_mul(2 * size_of::<f64>()))
+            .and_then(|bytes| {
+                bytes.checked_add(2 * size_of::<pse_math::normalization::Normalization>())
+            })
+            .ok_or_else(|| ProblemError::memory("native normalization extent overflow"))?;
+        if execution.memory.is_some_and(|bytes| map_bytes > bytes) {
+            return Err(ProblemError::memory(
+                "native normalization exceeds admitted attempt storage",
+            ));
+        }
+        let declared_normalization = oracle
+            .normalization()
+            .cloned()
+            .unwrap_or_else(|| pse_math::normalization::Normalization::identity(columns, rows));
+        declared_normalization.validate(columns, rows)?;
+        tolerance.validate(columns, rows)?;
+        accuracy.validate()?;
+        let normalization =
+            declared_normalization.with_row_budgets(&tolerance.rows, accuracy.feasibility)?;
+        let mut report = policy.qualify(oracle.as_ref(), tolerance, &normalization)?;
+        report.diagnostics.insert(
+            "normalization.native".into(),
+            serde_json::json!({
+                "kind": "physical-row-budget",
+                "feasibility": accuracy.feasibility,
+                "declared": declared_normalization.key().to_string(),
+                "native": normalization.key().to_string(),
+            })
+            .to_string(),
+        );
+        let (n, m) = (
+            report.dimensions.original_columns,
+            report.dimensions.original_rows,
+        );
         let mut start = initial.to_vec();
         let mut duals = None;
         let mut barrier = None;
@@ -233,6 +226,114 @@ impl Pipeline {
             solution: None,
             normalize_affine: report.effective.enabled,
         }));
+        // Interval propagation can still establish a source infeasibility. This
+        // analysis wrapper confirms emptiness at the acceptance-padded authored box,
+        // shares the original callback/scope, and is dropped before native transformations.
+        // None of its tightened bounds, removed rows, or multipliers escape.
+        let requested = policy.options();
+        let admission_proof = if requested.enabled
+            && requested.fbbt
+            && original.borrow().oracle.presolve_facts().is_some_and(|f| {
+                !f.has_guards
+                    && (f.complete.iter().any(|v| *v) || f.affine.iter().any(Option::is_some))
+            }) {
+            let analysis_options = pounce_presolve::PresolveOptions {
+                bound_tightening: false,
+                redundant_constraint_removal: false,
+                linear_eq_reduction: false,
+                auxiliary: false,
+                licq_check: false,
+                warm_z_bounds: false,
+                ..requested
+            };
+            let raw = analyze_bounds(&original, analysis_options, None)?;
+            report
+                .diagnostics
+                .insert("admission.fbbt".into(), raw.diagnostic);
+            if raw.detected {
+                let budgets = tolerance.normalized(&original.borrow().normalization)?;
+                let confirmed = analyze_bounds(&original, analysis_options, Some(budgets))?;
+                report
+                    .diagnostics
+                    .insert("admission.fbbt.confirmation".into(), confirmed.diagnostic);
+                if let Some(proof) = confirmed.proof {
+                    Some(proof)
+                } else {
+                    if matches!(policy, Policy::Explicit { required, .. } if !required.is_empty()) {
+                        return Err(ProblemError::Unsupported("required presolve reduction lacks a tolerance-compatible infeasibility proof".into()));
+                    }
+                    let adapter = Rc::try_unwrap(original)
+                        .map_err(|_| {
+                            ProblemError::Internal(
+                                "source admission retained callback owner".into(),
+                            )
+                        })?
+                        .into_inner();
+                    let (oracle, execution) = fallback_source(adapter, declared_normalization);
+                    let mut fallback = Self::new(
+                        oracle,
+                        initial,
+                        &Policy::Off,
+                        tolerance,
+                        accuracy,
+                        execution,
+                        source_warm,
+                        compatibility,
+                        limit,
+                    )?;
+                    fallback.report.requested = policy.clone();
+                    for decision in report.passes.values_mut().filter(|p| p.applied) {
+                        decision.applied = false;
+                        decision.reason = Some("source infeasibility was not established at acceptance budgets; original problem retained".into());
+                    }
+                    fallback.report.passes = report.passes;
+                    fallback.report.diagnostics.extend(report.diagnostics);
+                    fallback.report.diagnostics.insert("infeasibility.confirmation".into(),
+                        "not established after per-bound acceptance expansion; unreduced normalized problem retained".into());
+                    return Ok(fallback);
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(native_proof) = admission_proof {
+            let budgets = tolerance.normalized(&original.borrow().normalization)?;
+            report.proof = Some(source_proof(&original.borrow(), native_proof, budgets));
+            for decision in report.passes.values_mut().filter(|p| p.applied) {
+                decision.applied = false;
+                decision.reason =
+                    Some("source infeasibility established before native transformations".into());
+            }
+            report.effective.enabled = false;
+            let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::PresolveTransformationV3);
+            h.hash(&compatibility.layout)
+                .hash(&policy.key())
+                .hash(&original.borrow().normalization.key());
+            if let Some(facts) = original.borrow().oracle.presolve_facts() {
+                h.hash(&facts.key);
+            }
+            let proof = report
+                .proof
+                .as_ref()
+                .ok_or_else(|| ProblemError::Internal("source admission proof missing".into()))?;
+            for budget in proof.budgets.variables.iter().chain(&proof.budgets.rows) {
+                h.u64(budget.to_bits());
+            }
+            report.transformation = h.finish_hash();
+            return Ok(Self {
+                outer: original.clone(),
+                original,
+                declared_normalization,
+                report,
+                native: compatibility.clone(),
+                compatibility,
+                initial: initial.to_vec(),
+                warm: None,
+                transport: None,
+            });
+        }
         let mut outer: Rc<RefCell<dyn TNLP>> = original.clone();
         let row_wrapper = if report.effective.enabled {
             let provider: Rc<RefCell<dyn ExpressionProvider>> = original.clone();
@@ -306,33 +407,7 @@ impl Pipeline {
                 None
             };
             if let Some(native) = proof {
-                let witness_row = match native {
-                    pounce_nlp::tnlp::InfeasibilityProof::IntervalArithmetic { witness } => {
-                        source_contract.rows.get(witness).copied()
-                    }
-                    pounce_nlp::tnlp::InfeasibilityProof::BoundPropagation => None,
-                };
-                report.proof = Some(super::PresolveProof {
-                    contributions: original
-                        .borrow()
-                        .oracle
-                        .presolve_facts()
-                        .map(|f| {
-                            source_contract
-                                .rows
-                                .iter()
-                                .zip(&f.row_sources)
-                                .flat_map(|(r, s)| s.iter().map(move |(i, o)| (*r, *i, *o)))
-                                .collect()
-                        })
-                        .unwrap_or_default(),
-                    native,
-                    witness_row,
-                    rows: source_contract.rows.clone(),
-                    columns: source_contract.variables.iter().map(|v| v.id).collect(),
-                    normalization: original.borrow().normalization.key(),
-                    budgets,
-                });
+                report.proof = Some(source_proof(&original.borrow(), native, budgets));
             } else {
                 if matches!(policy, Policy::Explicit { required, .. } if !required.is_empty()) {
                     return Err(ProblemError::Unsupported("required presolve reduction lacks a tolerance-compatible infeasibility proof".into()));
@@ -347,12 +422,13 @@ impl Pipeline {
                         )
                     })?
                     .into_inner();
-                let execution = adapter.state.execution.clone();
+                let (oracle, execution) = fallback_source(adapter, declared_normalization);
                 let mut fallback = Self::new(
-                    adapter.oracle,
+                    oracle,
                     initial,
                     &Policy::Off,
                     tolerance,
+                    accuracy,
                     execution,
                     warm,
                     compatibility,
@@ -592,8 +668,7 @@ impl Pipeline {
         };
         // Interval propagation may fix a nonlinear row's last variable while retaining
         // that row. Such a projection can be valid but is not admissible to an
-        // equality-matched native NLP. Auto is optional: it first declines propagation
-        // and keeps the other qualified passes, then keeps the original problem rather
+        // equality-matched native NLP. Auto is optional and keeps the original problem rather
         // than uploading an overdetermined transformed oracle.
         if nr > 0 && report.proof.is_none() {
             let admission = crate::structural::oracle(
@@ -620,33 +695,15 @@ impl Pipeline {
                         )
                     })?
                     .into_inner();
-                let execution = adapter.state.execution.clone();
+                let (oracle, execution) = fallback_source(adapter, declared_normalization);
                 // The original start and supplied original-space warm start remain
                 // the authorities; the declined wrapper's projected start is discarded.
-                if report.passes[&super::Pass::Fbbt].applied {
-                    let mut retained = Self::build(
-                        adapter.oracle,
-                        initial,
-                        policy,
-                        tolerance,
-                        execution,
-                        source_warm,
-                        compatibility,
-                        limit,
-                        true,
-                    )?;
-                    retained
-                        .report
-                        .diagnostics
-                        .entry("propagation.declined".into())
-                        .or_insert(reason);
-                    return Ok(retained);
-                }
                 let mut fallback = Self::new(
-                    adapter.oracle,
+                    oracle,
                     initial,
                     &Policy::Off,
                     tolerance,
+                    accuracy,
                     execution,
                     source_warm,
                     compatibility,
@@ -672,6 +729,7 @@ impl Pipeline {
         }
         Ok(Self {
             original,
+            declared_normalization,
             outer,
             report,
             compatibility,
@@ -815,7 +873,7 @@ impl Pipeline {
                     factor = crate::kkt::attach(
                         &mut report,
                         original.oracle.as_mut(),
-                        &original.normalization,
+                        &self.declared_normalization,
                         tolerance,
                         analysis,
                         budget,
@@ -862,6 +920,92 @@ impl Pipeline {
         self.report.diagnostics.insert("recovery".into(),"library finalize traversal; independently observed original model; duals use minimization convention".into());
         report.preprocessing = Some(self.report);
         (report, factor)
+    }
+}
+/// A dropped, non-executable library analysis; only its proof/diagnostic escape.
+struct BoundAnalysis {
+    proof: Option<pounce_nlp::tnlp::InfeasibilityProof>,
+    detected: bool,
+    diagnostic: String,
+}
+fn analyze_bounds(
+    original: &Rc<RefCell<Adapter>>,
+    options: pounce_presolve::PresolveOptions,
+    budgets: Option<Tolerances>,
+) -> Result<BoundAnalysis, ProblemError> {
+    original.borrow_mut().certification_budget = budgets;
+    let mut analysis =
+        PresolveTnlp::with_expression_provider(original.clone(), original.clone(), options);
+    let initialized = analysis.get_nlp_info().is_some();
+    let proof = initialized
+        .then(|| analysis.certified_infeasible())
+        .flatten();
+    let detected = proof.is_some()
+        || analysis
+            .fbbt_report()
+            .is_some_and(|r| r.infeasibility_witness.is_some());
+    let diagnostic = records::fbbt(analysis.fbbt_report().as_ref());
+    drop(analysis);
+    original.borrow_mut().certification_budget = None;
+    if !initialized {
+        return Err(failure(original));
+    }
+    Ok(BoundAnalysis {
+        proof,
+        detected,
+        diagnostic,
+    })
+}
+// Finish destruction of the abandoned adapter before recursive construction can
+// allocate its two maps. Move the same oracle and execution; neither work ownership
+// nor the original cancellation/deadline is replaced by a fresh attempt.
+fn fallback_source(
+    adapter: Adapter,
+    declared_normalization: pse_math::normalization::Normalization,
+) -> (Box<dyn NlpOracle>, Execution) {
+    let Adapter {
+        oracle,
+        state,
+        normalization,
+        ..
+    } = adapter;
+    drop(normalization);
+    drop(declared_normalization);
+    (oracle, state.execution)
+}
+
+/// Retain only source proof/budget provenance, never the analysis wrapper's domain.
+fn source_proof(
+    original: &Adapter,
+    native: pounce_nlp::tnlp::InfeasibilityProof,
+    budgets: Tolerances,
+) -> super::PresolveProof {
+    let contract = original.oracle.contract();
+    let witness_row = match native {
+        pounce_nlp::tnlp::InfeasibilityProof::IntervalArithmetic { witness } => {
+            contract.rows.get(witness).copied()
+        }
+        pounce_nlp::tnlp::InfeasibilityProof::BoundPropagation => None,
+    };
+    super::PresolveProof {
+        contributions: original
+            .oracle
+            .presolve_facts()
+            .map(|f| {
+                contract
+                    .rows
+                    .iter()
+                    .zip(&f.row_sources)
+                    .flat_map(|(r, s)| s.iter().map(move |(i, o)| (*r, *i, *o)))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        native,
+        witness_row,
+        rows: contract.rows.clone(),
+        columns: contract.variables.iter().map(|v| v.id).collect(),
+        normalization: original.normalization.key(),
+        budgets,
     }
 }
 fn failure(original: &Rc<RefCell<Adapter>>) -> ProblemError {

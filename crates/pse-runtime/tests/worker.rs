@@ -5,6 +5,8 @@
 //! attempt, and another process reuses the seed the worker stored. A worker killed in a
 //! long SCIP solve is resumed from its stored incumbent, and a cancellation from another
 //! process stops SCIP. Run with `just worker-test`.
+// Match the library's depth for the shared runtime's nested async `Send` proof.
+#![recursion_limit = "256"]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -106,7 +108,12 @@ fn runtime() -> (Arc<SharedRuntime>, Runtime) {
         execution: Default::default(),
         cache: pse_runtime::DeltaCacheBudget::disabled(1024),
         math: pse_runtime::math::MathPolicy {
-            worker_bytes: 128 << 20,
+            // Default compilation reserves its declared scratch allowance; the positive
+            // deployment also admits the original evaluator and result buffers.
+            worker_bytes: pse_compiler::workspace::Profile::default()
+                .evaluation
+                .scratch_bytes
+                + (64 << 20),
             workspace_bytes: 128 << 20,
             foreign_bytes: 1 << 20,
             ..Default::default()
@@ -216,7 +223,7 @@ async fn worker_runs_authored_case_end_to_end() {
                 "--heartbeat-ms",
                 "200",
                 "--memory-mib",
-                "4096",
+                "8192",
                 "--threads",
                 "2",
             ])
@@ -356,7 +363,7 @@ async fn durable_job_round_trips_a_package_with_a_data_document() {
                 "--heartbeat-ms",
                 "200",
                 "--memory-mib",
-                "4096",
+                "8192",
                 "--threads",
                 "2",
             ])
@@ -650,7 +657,9 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
         &local,
         &operations,
         JobStart::ResumeFromParent,
-        std::time::Duration::from_secs(8),
+        // Original seed preparation and qualification share the finite task allowance
+        // with SCIP. Leave room for both while retaining the complete lifecycle bound.
+        std::time::Duration::from_secs(30),
     )
     .await;
     let enqueued = operations

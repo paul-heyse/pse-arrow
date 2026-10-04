@@ -14,6 +14,8 @@ mod extended;
 mod fixture;
 #[path = "k4/studies.rs"]
 mod k4_studies;
+#[path = "native_process/observations.rs"]
+mod observations;
 #[path = "native_process/phases.rs"]
 mod phases;
 use criterion::{Criterion, criterion_group, criterion_main};
@@ -37,7 +39,9 @@ fn mark(phases: &mut BTreeMap<String, f64>, name: &str, started: Instant) {
 /// Vary instance count by composing the authored unit, without restating its equations.
 fn heater_blocks(package: &ModelingPackage, blocks: usize) -> (ModelingPackage, DeclarationId) {
     let mut fixture = String::new();
-    let mut children = String::new();
+    let mut children = String::from(
+        "permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;",
+    );
     for i in 0..blocks {
         fixture.push_str(&format!("fix block{i}.duty=16204.445642740735{{W}};"));
         children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance 0.00001{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance 0.000001{{mol/s}};"));
@@ -125,7 +129,11 @@ fn process(c: &mut Criterion) {
                 &CancelSource::new(),
             ))
             .unwrap();
-        authored_success(&executor.block_on(prepared.start().unwrap().wait()).unwrap());
+        authored_success(
+            &executor
+                .block_on(async { prepared.start().unwrap().wait().await })
+                .unwrap(),
+        );
         Some((owner, source, package, case))
     };
     let mut phases = BTreeMap::new();
@@ -137,6 +145,7 @@ fn process(c: &mut Criterion) {
     let mut retained_bytes = 0;
     let mut after_teardown_bytes = 0;
     let mut iterations = 0_u64;
+    let mut observations = observations::Observations::default();
     let mut group = c.benchmark_group("process");
     group
         .sample_size(10)
@@ -148,6 +157,7 @@ fn process(c: &mut Criterion) {
         let begin=Instant::now();
         let local=if retained.is_none() {Some(WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap())} else {None};
         let owner=match &retained {Some((owner,_,_,_))=>owner,None=>local.as_ref().unwrap()};
+        let preparations_before=owner.runtime.math().preparations();
         owner.runtime.reset_observation_peak();
         mark(&mut phases,"runtime_admission",begin);
         let begin=Instant::now();
@@ -192,12 +202,15 @@ fn process(c: &mut Criterion) {
             mark(&mut phases,"cancellation_to_join",stop);
             let RunReport::Modeling(report)=result.report().unwrap() else {panic!("wrong report")};
             assert!(matches!(&report[0].outcome,pse_runtime::math::solves::Outcome::Native(r) if r.termination.category==Termination::Cancelled),"{report:?}");
+            for (step,report) in report.iter().enumerate() {observations.modeling(report,step);}
             drop(result);
         } else {
             let result=executor.block_on(handle.wait()).unwrap();
             mark(&mut phases,"native_join",begin);
             let begin=Instant::now();
             let report=authored_success(&result);
+            let RunReport::Modeling(reports)=result.report().unwrap() else {panic!("wrong report")};
+            for (step,report) in reports.iter().enumerate() {observations.modeling(report,step);}
             if let pse_runtime::math::solves::Outcome::Native(report)=&report.outcome {
                 for (name,value) in &report.metrics {
                     if (name.ends_with(".seconds") || name.starts_with("timing.")) && let Metric::Real(value)=value {
@@ -234,6 +247,7 @@ fn process(c: &mut Criterion) {
             drop(result);
         }
         let begin=Instant::now();
+        observations.preparations(preparations_before,owner.runtime.math().preparations());
         drop(handle);
         drop(prepared);
         drop(package);
@@ -272,6 +286,7 @@ fn process(c: &mut Criterion) {
         "workload":spec,"variables_observed":variables,"threads":threads,"native_threads":1,
         "phase_seconds":phases,"native_seconds":native_seconds,
         "compiler_phases":compiler_phases.report(iterations),
+        "numerical_observations":observations.json(),
         "phase_scope":"inclusive synchronous compiler spans; cache hits do not execute spans; absent phases performed no work",
         "unavailable_submetrics":["JIT is not enabled", "native conversion and property-state construction are included in preparation/native execution, without separate clocks"],
         "scope":"case source admission, preparation/rebuild, joined native execution, validation/results, optional publication and teardown; application compilation excluded",

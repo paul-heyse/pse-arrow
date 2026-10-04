@@ -139,6 +139,11 @@ pub(crate) fn run(
     let n = oracle.contract.variables.len();
     let controls = Controls {
         reuse: ReusePolicy::Fresh,
+        start: if warm.is_some() {
+            StartPolicy::Explicit
+        } else {
+            StartPolicy::NoPriorStart
+        },
         ..Controls::default()
     };
     let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-9).unwrap();

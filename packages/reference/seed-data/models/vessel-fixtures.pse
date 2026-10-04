@@ -57,9 +57,12 @@
 @id("df817872a38d4c8b8bdce7647b65f588") annotation check root.outflow(abs(root.outflow[i])<1e-12{mol/s} and abs(root.cell[i].amount-root.initial_amount)<1e-7{mol} and abs(root.cell[i].energy-root.initial_energy)<1e-5{J});
 }
 @id("f1b94720fef75b3bab2e29090ef0c315") test heat_meter oracle references.synthetic_heat_meter fixture {dof 0; route steady; procedure solve;} {
-@id("dba1af88e4b2546785b44967429aeeb4") param heat:Power=10{W};
+@id("dba1af88e4b2546785b44967429aeeb4") param heat:EnergyTransferRate=10{W};
+@id("7591c5a1535f43ba98ffbb6612542b28") boundary heat_boundary;
+@id("8a830bf9c42043debdf9e7d34d429973") accumulate heat_rate:Power boundary heat_boundary accounting tolerance 1e-5{W};
+@id("797813b063604cc780956325299e1b25") contribute heat_rate role directed=transfer(heat,heat_boundary,Into);
 @id("25eb3b5efbda5544b6c3486daec3e433") annotation check heat(heat>=0{W});
-@id("1e6857693c1b53a7a1717dbe2386f17c") expect heat==10{W} tolerance 1e-5{W};
+@id("1e6857693c1b53a7a1717dbe2386f17c") expect heat_rate==10{W} tolerance 1e-5{W};
 }
 @id("835f4127313f4b8bbd10772802b32e70") set binding_packages:Set<properties.property_package>={vessel_light_hydrocarbons};
 @id("03688bf32b79481dbbbceaa147506e27") entity properties.selection_context vessel_light_hydrocarbons_admitted {roots={correlations.dippr100[chem.methane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit],correlations.dippr100[chem.ethane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit],correlations.dippr100[chem.propane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit]},subjects={chem.methane,chem.ethane,chem.propane},models={properties.heat_capacity},rules={}}

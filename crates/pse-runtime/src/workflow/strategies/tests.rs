@@ -19,6 +19,121 @@ pub(super) fn profile(intent: SolveIntent) -> SolverProfile {
     }
 }
 #[tokio::test]
+async fn declared_native_profiles_execute_actual_rungs_under_one_original_contract() {
+    use pse_model::generated::enums::{NumericalAttemptObservation, NumericalEventKind};
+    use pse_model::strategy::{
+        MechanismKind, NumericalStrategy, Position, ProfileRef, StartOrigin, Transition, WorkLimits,
+    };
+    let runtime = runtime();
+    let physical = physical();
+    let q = physical.quantities.neutral_dimensionless().unwrap();
+    let unit = physical.quantities.quantity_type(q).unwrap().canonical_unit;
+    let port = |symbol_id| AnalysisPort {
+        symbol_id,
+        quantity_id: q.as_id(),
+        unit_id: unit.as_id(),
+    };
+    let request = ConicRequest {
+        variables: vec![port(id(1))],
+        rows: vec![port(id(2))],
+        objective_port: port(SemanticId::NIL),
+        quadratic: native::conic::SparseMatrix::zeros(1, 1),
+        objective: vec![1.0],
+        constraints: native::conic::SparseMatrix::new(1, 1, vec![0, 1], vec![0], vec![-1.0]),
+        rhs: vec![-2.0],
+        cones: vec![native::conic::Cone::Nonnegative { dimension: 1 }],
+        objective_constant: 3.0,
+    };
+    let mut short = profile(SolveIntent::Optimize);
+    short.controls.iterations = 1;
+    let first = runtime
+        .prepare_conic(request.clone(), &physical, short)
+        .await
+        .unwrap();
+    let final_profile = runtime
+        .prepare_conic(request, &physical, profile(SolveIntent::Optimize))
+        .await
+        .unwrap();
+    let original = first.solve().original_identity().unwrap();
+    assert_eq!(original, final_profile.solve().original_identity().unwrap());
+    let limits = WorkLimits {
+        attempts: 2,
+        evaluations: None,
+        iterations: Some(1000),
+        factorizations: None,
+        proof_steps: None,
+    };
+    let mut strategy = NumericalStrategy::direct(StartPolicy::NoPriorStart, limits);
+    strategy.start.recovery.push(StartOrigin::Specification);
+    strategy.mechanisms[0].profile = Some(ProfileRef {
+        backend: Backend::Clarabel,
+        key: first.solve().strategy_profile().unwrap(),
+    });
+    strategy.mechanisms[0]
+        .transitions
+        .push(Transition::Continue);
+    let mut second = strategy.mechanisms[0].clone();
+    second.kind = MechanismKind::NativeGlobalization;
+    second.position = Position::Recovery;
+    second.profile = Some(ProfileRef {
+        backend: Backend::Clarabel,
+        key: final_profile.solve().strategy_profile().unwrap(),
+    });
+    strategy.mechanisms.push(second);
+    let composed = first
+        .solve()
+        .clone()
+        .with_strategy(
+            strategy,
+            vec![
+                first.solve().clone().into(),
+                final_profile.solve().clone().into(),
+            ],
+        )
+        .unwrap();
+    assert_eq!(composed.original_identity().unwrap(), original);
+    assert_ne!(
+        composed.request_identity().unwrap(),
+        first.solve().request_identity().unwrap()
+    );
+    let report = runtime
+        .native()
+        .solve(composed)
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    let Outcome::Native(native) = &report.outcome else {
+        panic!("{:?}", report.outcome)
+    };
+    assert_eq!(native.qualification, Qualification::OptimalWithinTolerance);
+    assert!((native.candidate.as_ref().unwrap().primal[0] - 2.0).abs() < 1e-6);
+    let rows = report
+        .strategy
+        .rows(
+            pse_model::generated::identities::RunId::from_bytes([44; 16]),
+            0,
+        )
+        .unwrap();
+    let finished: Vec<_> = rows
+        .iter()
+        .filter(|row| row.kind == NumericalEventKind::Finished)
+        .collect();
+    assert_eq!(finished.len(), 2, "{rows:?}");
+    assert_eq!(
+        finished[0].observation,
+        Some(NumericalAttemptObservation::Limited)
+    );
+    assert_eq!(finished[0].transition, Some(Transition::Continue));
+    assert_eq!(finished[1].transition, Some(Transition::Finish));
+    assert!(
+        finished
+            .iter()
+            .all(|row| row.original_identity == original && row.iterations.is_some())
+    );
+    assert_ne!(finished[0].profile_identity, finished[1].profile_identity);
+}
+#[tokio::test]
 async fn explicit_cone_request_runs_without_an_algebraic_compiler_flag() {
     let physical = physical();
     let q = physical.quantities.neutral_dimensionless().unwrap();
@@ -135,6 +250,22 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
     assert!(!report.original_bindings_restored);
     assert_eq!(package.revision.identity(), original);
     assert!((report.values.scalars[&y] - 4.0).abs() < 1e-6);
+    assert_ne!(report.run_id.as_id(), SemanticId::NIL);
+    for (ordinal, attempt) in report.attempts.iter().enumerate() {
+        let trace = attempt
+            .trace
+            .as_ref()
+            .expect("actual native block must retain its shared driver events");
+        let rows = trace.rows(report.run_id, ordinal).unwrap();
+        assert!(
+            rows.iter()
+                .all(|row| row.run_id == report.run_id && row.step == ordinal as i64)
+        );
+        assert!(
+            rows.iter()
+                .any(|row| row.kind == pse_model::generated::enums::NumericalEventKind::Started)
+        );
+    }
 }
 
 #[cfg(feature = "solver-kinsol")]
@@ -263,6 +394,27 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
             .metrics
             .contains_key("KINGetNumNonlinSolvIters")
     );
+    assert_eq!(
+        report.candidate_use(),
+        pse_model::generated::enums::CandidateUse::Usable
+    );
+    let trace_rows = report.strategy.rows(report.run_id, 0).unwrap();
+    let finished = trace_rows
+        .iter()
+        .find(|row| row.kind == pse_model::generated::enums::NumericalEventKind::Finished)
+        .unwrap();
+    assert_eq!(finished.attempts, Some(1));
+    assert_eq!(
+        finished.evaluations, None,
+        "composed unit and original assessment counts are not inferred from KINSOL"
+    );
+    assert_eq!(
+        finished.transition,
+        Some(pse_model::strategy::Transition::Finish)
+    );
+    assert_eq!(finished.profile_identity, Some(report.strategy.profile));
+    assert_ne!(report.run_id.as_id(), SemanticId::NIL);
+    assert!(trace_rows.iter().all(|row| row.run_id == report.run_id));
     let original = package.revision.identity();
     let mut rows = package.declarations().to_vec();
     rows.iter_mut()

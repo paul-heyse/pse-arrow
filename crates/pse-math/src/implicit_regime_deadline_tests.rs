@@ -46,7 +46,7 @@ fn implicit_regimes_outer_deadline_rejects_late_positive_proof_without_cache_or_
     ));
     assert!(matches!(
         selected.evaluate(&[-2.], DerivativeOrder::Second, &cancel),
-        Err(MathError::Limit(_))
+        Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
     assert!(selected.chart.is_none());
@@ -54,7 +54,7 @@ fn implicit_regimes_outer_deadline_rejects_late_positive_proof_without_cache_or_
     assert!(!cancel.load(Ordering::Acquire));
     assert!(matches!(
         selected.evaluate(&[-2.], DerivativeOrder::Second, &cancel),
-        Err(MathError::Limit(_))
+        Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
 }

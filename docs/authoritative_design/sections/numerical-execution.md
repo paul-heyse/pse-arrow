@@ -259,16 +259,18 @@ no data rows. The duals of a step whose sensitivities are certified are
 `evaluated_kkt_not_sensitivity_certified`. Ipopt, POUNCE and the SCIP re-solve give the same
 quantities.
 
-One limit is a withholding, not a repair: pounce-presolve's postsolve can return zero for a
-removed row's multiplier, the candidate then fails original stationarity and qualifies only
-`Feasible`, and its sensitivities are withheld as `not_stationary`. *Tested* by
+Missing or incorrect recovered multipliers withhold sensitivity under the original KKT
+criteria. Native presolve admits only transformations with supported multiplier transport
+([§18.5](#section-18-5)); supported affine elimination recovers the singleton row's
+multiplier and agrees with the unreduced analytic response. *Tested* by
 `sensitivity_matches_analytic_nlp` (Ipopt and POUNCE, including the first-order prediction
 of a re-solve at a perturbed parameter), `reduced_hessian_sign_pinned`,
 `sensitivity_withheld_when_sosc_fails`, `sensitivity_withheld_when_weakly_active`,
 `sensitivity_withheld_when_licq_fails`,
 `sensitivity_withheld_when_multiplier_fails_complementarity`,
 `sensitivity_backend_independent`, `sensitivity_survives_presolve` and
-`presolve_lost_multiplier_withholds_sensitivity` (native backend units), and
+`automatic_presolve_preserves_original_multiplier_and_sensitivity` (linked native backend
+units, explicit force-validation, 2026-10-04), and
 `sensitivities_published_with_local_validity` and
 `sensitivity_withheld_without_local_analysis` (runtime units). The comparison against
 Ipopt's sIPOPT that ADR-0118 names agrees within 1e-6 on a nondegenerate program with an
@@ -346,6 +348,22 @@ both directions; it is not a unit conversion and not a new evaluator. Native
 algorithmic scaling (for example Ipopt's gradient-based scaling) is a separate,
 explicitly permitted step after normalization. Nonpolyhedral cone blocks share one
 positive row scale. Hard guards are never relaxed by scaling.
+
+For native NLP execution, one resolved feasibility budget τ is transported into
+per-row coordinates `Srᵢ = εᵢ / τ`, where εᵢ is the original physical row budget.
+Thus the native test `|violationᵢ / Srᵢ| ≤ τ` enforces that row's own budget instead
+of imposing the tightest budget on every row. The map carries residuals, row bounds,
+Jacobians, weighted Hessians and row multipliers together; variable and objective
+coordinates retain their declared scales. Original KKT and sensitivity analysis use
+the declared normalization after recovery. The consumed native map enters the
+presolve/native layout identity, so a changed budget cannot reuse incompatible native
+state. Both maps belong to the admitted attempt and are released before an Auto
+fallback rebuilds them. *Tested* by
+`heterogeneous_row_budgets_transport_callbacks_bounds_and_original_duals`,
+`changed_row_budget_invalidates_native_layout_without_changing_declared_nominals`,
+`native_row_maps_refuse_an_insufficient_admitted_attempt_allowance` and
+`native_pressure_like_root_stops_with_heterogeneous_original_row_budgets`
+(native backend controls, all native features and explicit force-validation, 2026-10-04).
 
 ### 16.2 Sources and precedence
 
@@ -440,6 +458,12 @@ budgets (`ResolvedAccuracy::from_policy`). Derived library options:
 | HiGHS | Feasibility, integrality and MIP gap controls |
 | Clarabel | Primal/dual residual and gap controls, with cone-block adjustments retained in provenance |
 
+Ipopt separately enforces the three component thresholds; its overall scaled
+`tol` uses their maximum so it does not impose the tightest component on unrelated
+errors. POUNCE retains its conservative minimum because its scaled dual-error floor
+uses the overall tolerance. Acceptable-stop components remain separately declared,
+and original qualification applies after either native result.
+
 Options that encode these semantic controls are reserved; a caller-supplied native
 option that conflicts with them is refused before the library sees it.
 
@@ -516,7 +540,7 @@ columns and explicit predecessor inputs. Deficient, partial or non-square struct
 refused before any factorization. `pse-runtime::math::initialization::PreparedInitialization`
 compiles each block as an ordinary library artifact (unselected variables bound as
 fixed) and resolves every block's route before worker acquisition
-([§18.7](#section-18-7)); a failed attempt does not trigger a fallback route. Typed backend
+([§18.7](#section-18-7)); a failed attempt does not silently change its selected route; declared numerical recovery follows §18.6. Typed backend
 settings must belong to every block's route. Each block runs through the shared runner of
 its route's representation, the same runners a solve uses: `execution::roots` for KINSOL,
 with scales derived per block by `kinsol::Settings::from_policy`
@@ -533,7 +557,7 @@ thread, at least one stage and at most 4096 stage-block steps. A stage overlay m
 only declared, finite fixed or parameter inputs, never a solved column, and every block
 boundary value must be present. Admission returns every block's route and the resolved
 numerical policy. Each block attempt keeps its stage, route, boundary, result or typed
-failure, and whether it committed; the Python boundary exposes the routes and the ordered
+failure, its shared numerical trace, and whether it committed; the Python boundary exposes the routes and the ordered
 attempts as typed values (`NativeStrategyAttempt`, exactly one of a native report and a
 typed failure; [§18.7](#section-18-7)). *Tested* by `initialization_admission_in_rust`
 (runtime units) and `test_route_and_eligibility_are_typed` (Python unit test).
@@ -550,8 +574,10 @@ Execution is transactional over immutable case bindings:
   the authoritative specification.
 
 Initialization accuracy comes from the numerical policy, and the schedule is finite and
-bounded. `MathService::initialize` admits the whole schedule once, then runs it as one
-staged sequence on one native session ([§18.8](#section-18-8)): each stage composes its
+bounded. `MathService::initialize` admits the whole schedule once and stamps one absolute
+task deadline before queueing. Binding, rebinding, derivative/support preparation and all
+block attempts consume that scope; neither a preparation wait nor a later block renews it.
+The schedule runs as one staged sequence on one native session ([§18.8](#section-18-8)): each stage composes its
 overlay over the immutable original values, and each block is an ordinary solve step
 (`MathService::prepare_conditional`, run by the shared step executor
 `MathService::execute`) bound to those values. Each block's view is bound once
@@ -707,24 +733,28 @@ form is owned by [§20.3](identity-and-publication.md#section-20-3). Mutable nat
 never crosses a worker boundary. Fitting starts are refused; declared parameter guesses
 are its input.
 
-**Starts in staged sequences.** Where a staged step starts is typed
-(`workflow::staged::Start`), never inferred from a label: `Specification`, the
-specification's own values and start annotations; `Accepted(k)`, the solved values of an
-earlier step whose candidate is a result (stage chains and homotopy advance); or `Seed(k)`,
-an explicit dependency on an earlier step whose candidate is a result or `seed_only` (study
-points). The candidate-use decision ([§16.6](#section-16-6)) decides; a start it does not
-permit refuses the step, which is recorded and seeds nothing. Seeded values enter case
-resolution as `StartSource::Predecessor` for every variable the case leaves free
-([§17.4](#section-17-4)).
+**Starts in staged sequences.** Where an initialization or homotopy step starts is
+`workflow::staged::Start`: `Specification`, the specification's own values and start
+annotations; or `Accepted(k)`, the solved values of an earlier step whose composed
+candidate decision permits use. A missing or unpermitted predecessor refuses the step.
+Seeded physical values enter case resolution as `StartSource::Predecessor` for every
+variable the case leaves free ([§17.4](#section-17-4)).
 
-Such a value start is independent of the native warm start. Every step, a single solve
-included, runs through `MathService::execute`, which applies the step's policies: `Fresh`
-reuse drops retained native state first; `NoPriorStart` submits nothing; `Explicit` submits
-the step's own seed; and `PreviousAccepted` submits the output seed of the sequence's
-previous step, offered only when that step's candidate is a result (`Staged::predecessor`),
-with that attempt recorded in the receipt. A seed that does not fit the step's coordinates
-rejects the step and drops the retained state. Authored sequences offer each step its
-predecessor's seed; stage, homotopy and study steps seed values only.
+The numerical strategy admits an entry start separately from recovery proposals and
+native allocation reuse. `NoPriorStart` excludes inherited proposals; `Explicit` consumes
+the declared seed without silently substituting a predecessor; `PreviousAccepted` consumes
+only a predecessor whose original completion permits use. Prediction, auxiliary and
+surrogate proposals retain their own provenance, physical coordinate binding and branch
+policy, and must pass original-model screening before use. Screening a start grants no
+result permission ([§18.6](#section-18-6)).
+
+Studies use the study policy's explicit seed edge and operation-owned seed role
+([§19.3](workflows-and-results.md#section-19-3)). A declared-case continuation submits the
+compatible predecessor's complete typed `WarmStart`, including any native dual or basis
+payload, through the prepared operation's start admission. It does not merely copy values
+or use a staged `Seed(k)` variant. Availability, scientific permission and allowed fallback
+remain decisions of the study policy. Compatibility and transformation receipts describe
+what the native step actually received; mutable foreign state stays on its owning worker.
 
 Initialization distinguishes a start from a seed. A block starts from its staged values,
 and that initial point is not a warm start. Only under `PreviousAccepted`, from the second
@@ -741,7 +771,7 @@ records no seed and nothing submitted.
 
 Each mathematical class has its own representation and native adapter under one
 runtime lifecycle. There is no universal problem object, no solver-neutral file format
-and no fallback engine. [ADR-0083](../../adr/0083-class-specific-native-execution.md)
+and no hidden fallback engine. Declared bounded composition follows ADR-0154/0156, with library-owned fitting iteration and original permission. [ADR-0083](../../adr/0083-class-specific-native-execution.md)
 owns the rationale; [ADR-0082](../../adr/0082-library-owned-process-mathematics.md) owns
 library ownership of the mathematics.
 
@@ -881,6 +911,19 @@ must qualify. The library owns reductions, derivative transport and recovery; th
 records effects and inverse source attribution, not a second transformation IR. Auxiliary
 reduction is never automatic.
 
+The pinned binding cannot recover general original-bound multipliers from `LinearBounds`
+or `Fbbt` tightening. Both passes are therefore ineligible for executable NLP transformation:
+`Auto` records the reason and required explicit passes refuse before dispatch. Native
+execution retains the authored bounds and required rows; affine elimination retains its
+separate library-owned source-bound recovery. Bound warm-start hints from untracked
+tightening are disabled. A separate library-owned interval analysis can establish source
+infeasibility only after confirmation against the acceptance-padded original bounds and
+rows, under the same execution scope. Its geometry, row removals and dual hints are
+discarded before native construction. *Tested* by `presolve::tests::bounds` and
+`presolve_certificate_respects_each_bound_budget` (linked native backend units, explicit
+force-validation, 2026-10-04). Transformation identity uses the bounds and recovery maps
+actually consumed by execution.
+
 **Warm restarts.** A complete primal-dual seed restarts under a typed profile
 (`solve::WarmRestart`, part of both adapters' settings), because with the cold-start pushes
 a seeded interior point is pushed back towards the analytic centre and loses most of its
@@ -925,16 +968,21 @@ infinities, native scaling, the linear solver and its parameters, the barrier up
 pushes, and the warm-restart options; a caller-supplied value for one of them is refused.
 A retained session never carries an earlier step's option into a later one, and the two
 libraries reach that differently. POUNCE can clear its option table, so a reused
-application starts from an empty table. Ipopt's C interface cannot unset an option, so a
-retained C problem is reused only when its coordinate and profile stamps
-([§17.6](#section-17-6)), sparsity and bounds match and the new step's options include
-every key ever set on the problem; every solve re-applies all of its own option values,
-and the retained key set becomes the step's. A step that adds keys, such as a primal-dual
-restart after a cold start, therefore reuses the problem, and a step that drops one
-rebuilds it, or under `RequireReuse` is refused with `ReuseRefusal::DroppedOptions` naming
-the keys ([§18.7](#section-18-7)). *Tested* by `reused_session_does_not_inherit_options` for
-both adapters, and by `reused_problem_reapplies_changed_values` and
-`required_reuse_names_its_refusal` for Ipopt (native backend units). POUNCE's hidden second
+application starts from an empty table. Ipopt retains the actual C++ application and
+TNLP and uses `ReOptimizeTNLP` only under the complete immutable effective-option,
+coordinate, objective-sense, profile, sparsity and bound signature. Changed structural
+options rebuild that state, or under `RequireReuse` return `ReuseRefusal::Structure`; an
+option subset cannot establish same-structure reuse. Seed barrier and restart pushes are
+per-attempt data: the adapter clears them before applying the current seed, including
+warm-to-cold reuse. They cannot force a structural rebuild or survive into an unseeded
+attempt. Ipopt owns adjustment of a finite supplied start into its native bounds, including
+bounds transferred by qualified affine elimination; final qualification still checks the
+original problem. The borrowed numeric oracle is rebound for each solve and remains
+valid until native execution and cleanup finish. The adapter, rather than a caller option,
+owns same-structure admission. *Tested* by
+`persistent_tnlp_reuses_real_application_with_fresh_borrowed_numeric_oracle` and
+`persistent_profile_change_refuses_required_reuse_and_discards_native_state`
+(native backend units, explicit force-validation). POUNCE's hidden second
 solves, `mu_strategy_fallback` and
 `dual_divergence_retry`, are pinned off, as is its automatic ℓ1 retry after restoration
 failure (`l1_fallback_on_restoration_failure`); the exact-penalty switch
@@ -953,9 +1001,9 @@ coordinates: `objective.normalized`, `stationarity.normalized` and
 readbacks undo only its own scaling), while `primal.native` and `dual.native` are the
 infeasibilities exactly as Ipopt reports them. None of them is a physical value.
 
-One tested limit is a qualification distinction, not a retry: with automatic presolve a
-recovered bound multiplier can fail original complementarity, so the candidate stays
-feasible, not stationary. HiGHS's QP regularization is derived from the requested gap
+Original complementarity remains mandatory independently of native success or presolve
+admission; a failing recovered multiplier grants feasibility at most. HiGHS's QP
+regularization is derived from the requested gap
 ([§18.10](#section-18-10)).
 
 ### 18.6 Truthful outcomes
@@ -1056,11 +1104,42 @@ derivatives remain candidate data distinct from estimator qualification. The sha
 Arrow and Python ([ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)); candidate
 use (§16.6) combines these facts with physical closure.
 
+> Decision: [ADR-0154](../../adr/0154-declared-numerical-strategy.md) and
+> [ADR-0156](../../adr/0156-library-owned-numerical-composition.md) (proposed;
+> independently reviewed target, implementation owned by Plan 25m).
+
+Declared numerical strategy composes preparation, prediction, native profiles and bounded
+recovery through existing math/runtime owners. Pure planning consumes explicit problem,
+capability and retained-product facts; execution and original assessment are injected effects.
+One enclosing scope covers all work; mechanism/attempt caps do not renew its deadline.
+Capability refusals differ from failed trajectories. Task exhaustion, cancellation,
+required contract failure, infrastructure failure and panic are terminal. A lawful numerical
+failure may take a declared applicable recovery, including another profile on the same
+backend. A backend change requires named selected alternatives. Optional refusal may leave
+the permitted base route available. Original result, auxiliary-use and artifact retention
+permissions are separate; trace transport derives from the registry. Scientific statistical,
+control, integrator and durable-effect policies retain their owners.
+
+Prepared public operations expose the registry-derived numerical declaration and delegate
+composition and validation to Rust. Direct and public run projections retain the same
+actual strategy events with their run occurrence and step. Standalone cone and authored
+recycle reports retain their submitted numerical run identity; conditional initialization
+retains one schedule identity and each block trace with its attempt ordinal. Structural
+tear selection retains its structural result without manufacturing numerical strategy events.
+Typed nested causes preserve original source attribution, cancellation, deadline expiry,
+resource refusal and domain trial meaning across provider/native wrappers. PETSc native
+errors retain their original status and header-defined resource, contract, infrastructure
+or numerical category before any scientific post-solve callback; a callback terminal cause
+takes precedence over its native wrapper status. Work counters identify their charging owner;
+unknown observations remain absent and inclusive native/probe counts are not added twice.
+Path events carry actual localization and rank observations; a nondegeneracy conclusion
+requires genuine compatible compiler Second support, separately from First preparation.
+
 ### 18.7 Capability, eligibility and selection
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
-Contextual candidate assessment composes shared class/intent/rank policy with adapter-owned settings, representation and structural requirements, consuming an explicit immutable build/runtime snapshot. Scientific or representation evidence still needed, supported mathematics with artifacts not yet prepared, final readiness and runtime absence remain distinct. Obtain relevant pending class evidence before falling through to a lower-preference class. Automatic reconsideration is limited to newly established scientific/representation incompatibility; resource, cancellation, infrastructure and native failures never trigger a backend fallback.
+Contextual candidate assessment composes shared class/intent/rank policy with adapter-owned settings, representation and structural requirements, consuming an explicit immutable build/runtime snapshot. Scientific or representation evidence still needed, supported mathematics with artifacts not yet prepared, final readiness and runtime absence remain distinct. Obtain relevant pending class evidence before falling through to a lower-preference class. Capability reconsideration is limited to newly established scientific/representation incompatibility. Numerical trajectory recovery follows the declared strategy above; task resource exhaustion, cancellation, required contract and infrastructure failures remain terminal. An explicit selection is never silently replaced.
 
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md),
 > [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — the
@@ -1123,14 +1202,15 @@ Native state retained between the finite steps of a sequence is an opaque, worke
 profile stamps match (`Compatibility::same_session`) and `ReusePolicy` allows, and
 otherwise tears it down before building a replacement. `RequireReuse` refuses instead, with
 a typed `ReuseRefusal`: `Foreign` when another backend holds the retained state,
-`Structure` when coordinates, profile, sparsity, bounds or settings differ, and
-`DroppedOptions` naming the options a retained Ipopt problem holds that the step does not
-set ([§18.3](#section-18-3)); the boundary rule is `native.reuse`, class `incompatible`
+`Structure` when coordinates, profile, sparsity, bounds or the complete settings/options
+signature differ ([§18.3](#section-18-3)); the boundary rule is `native.reuse`, class `incompatible`
 ([§23.2](operations-and-validation.md#section-23-2)). A reused session never inherits an
 earlier step's native options ([§18.3](#section-18-3)). *Tested* by
 `stub_backend_routes_through_adapter_table` (native backend units).
 The retained state lives on the native session of a staged sequence
-([§18.8](#section-18-8)), and a step whose candidate is not a result drops it.
+([§18.8](#section-18-8)). Retention requires both composed original candidate permission
+and independent admission of the compatible session artifact; either refusal drops the
+session. Separately admitted response products retain their own validity and owner.
 
 **Shared runners.** Workflows choose a runner by representation and the adapter by table
 lookup; neither step names a backend. The runners `execution::nlp`, `execution::roots`,
@@ -1446,9 +1526,23 @@ SPBCGS or SPTFQMR over the analytic Jacobian-vector product with a Krylov dimens
 Anderson history, damping and setup interval; an optional Newton-step cap
 (`KINSetMaxNewtonStep`, at least one scaled unit); for the Krylov routes, the inexact-Newton
 forcing term (`KINSetEtaForm`: Eisenstat–Walker choice 1 by default, choice 2 with its
-safeguard and power, or a constant) and an optional right Jacobi preconditioner built from
-the analytic Jacobian diagonal; and, with Anderson acceleration, its orthogonalization and
-delay. A control that does not apply to the chosen route is refused, not ignored. Scales and
+safeguard and power, or a constant), optional right Jacobi preconditioning from the
+analytic Jacobian diagonal, or library block-factor preconditioning from complete original
+equality BTF diagonal blocks. Block factors require an assembled analytic Jacobian and
+finite admitted storage; FERAL owns each sparse LU factor and solve. The full-system Krylov
+action retains every off-block coupling through the actual demanded JVP. Factors refresh
+under KINSOL setup control and compatible source/pattern ownership; they do not establish
+fresh response factors. The adapter reports actual block setup, factor and solve counts
+separately from unknown native-internal factorization work. The unpreconditioned route can
+consume directional-only support without assembling a Jacobian. Every Krylov route admits
+its complete basis, Hessenberg and native header storage before allocation, including routes
+without preconditioning or Anderson acceleration. Anderson admits its peak vectors, QR,
+pointer/scalar arrays and headers under the same finite foreign allowance; combining it with
+Krylov or block factors admits their combined peak rather than independent subtotals.
+Retained ownership supplements queried native workspace words with storage those queries
+omit. Conditional initialization reserves that foreign allowance together with worker
+storage under the original task scope. With Anderson acceleration, callers may also select
+its orthogonalization and delay. A control that does not apply to the chosen route is refused, not ignored. Scales and
 the step tolerance come from `Settings::from_policy` ([§16.6](#section-16-6)).
 
 KINSOL represents one-sided bounds exactly as sign constraints on shifted coordinates: it
@@ -1851,6 +1945,14 @@ units) and `certified_infeasibility_beside_local_explanation` (runtime units).
 and `global.domain` (the identity of the declared box), beside `export.fidelity`,
 `scip.threads`, `scip.exact` and `scip.reoptimized`.
 
+**Auxiliary callbacks.** Factorable preparation retains Value support for the primary SCIP
+program. When its admitted export requires a fixed-assignment re-solve, the compiler prepares
+a separate genuine callback product: Second for the requested exact local Hessian or First
+for limited memory. Provider preparation consumes that actual order. Compiler-issued artifact
+keys and order enter preparation identity, and the product retains its allocation owners.
+Unavailable source support remains a local refusal; it never upgrades the primary program's
+capability or converts an unpriced incumbent into an original result.
+
 **The factorable runner and the candidate rule.** `execution::factorable` re-observes the
 candidate against the original compiled model with fresh values, the declared boxes and
 integrality ([§15.4](#section-15-4)), then decides where the candidate comes from (ADR-0105
@@ -1864,8 +1966,9 @@ integrality ([§15.4](#section-15-4)), then decides where the candidate comes fr
   incumbent value; a semi column on its zero branch is fixed at zero, a semicontinuous one
   on its active branch keeps its declared `[l, u]`, and a semiinteger one is fixed at its
   rounded value within it. The continuous problem is re-solved through the one NLP runner by
-  the automatic NLP route, seeded at the incumbent, with its adapter's default settings and a
-  coordinate and profile stamp of its own that frames both ends of every committed box
+  the automatic NLP route, seeded explicitly at the incumbent, with its adapter's default
+  settings and a coordinate and profile stamp of its own that frames both ends of every
+  committed box
   (`pse.factorable.fixed-assignment.v1`). An original-feasible re-solve candidate is adopted
   (`PrimalSource::FixedAssignment`) with its KKT evidence and its local analysis and any
   requested sensitivities ([§15.5.1](#section-15-5-1)), all conditional on the assignment,
@@ -1943,6 +2046,14 @@ acceptance conformance covers four cases:
   `pse_modeling::Limits::body_slots` unset,
   [§7.1](mathematics-and-compilation.md#section-7-1)); an allowance of 4,096 refuses it
   with `MathError::SlotLimit`, and it solves locally with Ipopt.
+
+The campaign's `bt_pr_liquid_tpd_reference` is a separate local liquid reference at
+368 K and 101,325 Pa. It retains the authored Helmholtz model, original domains and
+TPD = 0 oracle within 10⁻⁶, and explicitly uses Ipopt with original feasibility,
+stationarity and complementarity. It replaces the historical campaign failure expectation
+whose success depended on SCIP's upstream convex-handler defect. The saved CIP reproducer
+and dedicated contradiction controls retain that defect under R-52; local reference
+agreement establishes no global stability bound.
 
 Certification is established for the ideal feed only. SCIP does not close the gap of the
 Peng–Robinson instability case in bounded time (after 10 minutes and 42,413 nodes its dual

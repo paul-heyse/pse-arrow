@@ -8,6 +8,20 @@ root="$(git rev-parse --show-toplevel)"
 cd "$root"
 image="$(python3 scripts/solver-images.py runtime dev)"
 mounts=(-v "$root:$root:ro")
+# Scoped pipeline libraries live in the same content-addressed host cache as the
+# extracted solver prefix. Preserve their actual runtime paths in the isolated runner.
+pipeline_env=()
+for pse_prefix_name in IPOPT_DIR UNO_DIR PETSC_DIR; do
+  pse_prefix="${!pse_prefix_name:-}"
+  if [[ -n "$pse_prefix" && -d "$pse_prefix" ]]; then
+    case "$pse_prefix/" in
+      "$root/"*) ;;
+      *) mounts+=(-v "$pse_prefix:$pse_prefix:ro") ;;
+    esac
+    pipeline_env+=(-e "$pse_prefix_name=$pse_prefix")
+  fi
+done
+pipeline_env+=(-e "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}")
 target="${CARGO_TARGET_DIR:-$root/target}"
 target="$(realpath "$target")"
 case "$target/" in
@@ -23,5 +37,5 @@ if [[ -d /var/run/postgresql ]]; then
     -e "PGUSER=${PGUSER:-$(id -un)}")
 fi
 exec docker run --rm --network none --user "$(id -u):$(id -g)" \
-  -e PSE_SOLVER_MEASURE -e SYMBOLICA_LICENSE "${store[@]}" \
+  -e PSE_SOLVER_MEASURE -e SYMBOLICA_LICENSE "${store[@]}" "${pipeline_env[@]}" \
   "${mounts[@]}" -w "$root" "$image" "$@"

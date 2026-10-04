@@ -3,6 +3,7 @@
 # Typed mathematical/admission/study inputs and canonical identities (ADR-0150).
 pse.backend.settings.v5
 pse.compiler.modeling-view.v3
+pse.compiler.modeling-view.v4
 pse.cone.layout.v4
 pse.durable.job_request.v3
 pse.durable.study_request.v2
@@ -63,3 +64,32 @@ pse.study.binding.v1
 pse:artifact-descriptor:v3
 pse:artifact-migration:v1
 pse:reset-manifest:v1
+
+# Integrated preparation, accuracy, strategy and native profile identities (ADR-0152, ADR-0154–0157).
+pse.dynamic.profile.v9
+pse.implicit.regime-configuration.v2
+pse.math.artifact.v5
+pse.math.bound-facts.v3
+pse.math.coefficient-assumptions.v2
+pse.math.directional-artifact.v1
+pse.math.initialization-deviation.v1
+pse.math.surrogate-task.v1
+pse.modeling.admission.v2
+pse.modeling.dynamic.v3
+pse.native.context-snapshot.v1
+pse.native.ipopt-sequence.build.v1
+pse.solve.preparation.v2
+pse.solver.conic-session.v3
+pse.solver.session.v3
+pse:accuracy-product:v1
+pse:derived-binding:v1
+pse:derived-family:v1
+pse:implicit-numerical-product:v1
+pse:native-petsc-build:v1
+pse:native-uno-build:v1
+pse:numerical-strategy:v1
+pse:numerical-work:v1
+pse:original-solve-contract:v1
+pse:selected-root-sheet:v1
+pse:solve-strategy-preparation:v1
+pse:solve-strategy-request:v1

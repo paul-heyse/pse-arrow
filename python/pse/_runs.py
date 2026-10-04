@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Source-independent joined computation and publication handles."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from types import TracebackType
 from typing import Self, TypeAlias
 
@@ -24,6 +24,7 @@ from pse.contracts.documents import (
     Completion,
     EligibilityDocument,
     FitProfileDocument,
+    NumericalStrategy,
     PointStatus,
     ProgressEventDocument,
     Published,
@@ -64,6 +65,27 @@ class PreparedOperation:
     def eligibility(self) -> tuple[EligibilityDocument, ...]:
         """Typed eligibility of every assessed backend, with registry reason codes."""
         return tuple(self._handle.eligibility)
+
+    @property
+    def strategy_profile(self) -> ContentHash:
+        """Exact effective native profile identity for numerical declarations."""
+        return ContentHash.from_prefixed(self._handle.strategy_profile)
+
+    @property
+    def numerical_strategy(self) -> NumericalStrategy:
+        """Actual finite execution declaration, projected by Rust."""
+        return codec.decode_json(self._handle.numerical_strategy, NumericalStrategy)
+
+    def with_numerical_strategy(
+        self, declaration: NumericalStrategy, rungs: Sequence["PreparedOperation"]
+    ) -> "PreparedOperation":
+        """Bind admitted original-system profiles to one declared numerical task."""
+        return PreparedOperation(
+            self._handle.with_numerical_strategy(
+                codec.encode_json(declaration),
+                [rung._handle for rung in rungs],  # noqa: SLF001 - same native boundary
+            )
+        )
 
     def with_start(self, seed: _NativeStart) -> "PreparedOperation":
         """Select a compatible owned numerical seed for an algebraic solve."""

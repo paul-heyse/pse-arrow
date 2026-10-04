@@ -805,6 +805,15 @@ fn settings_identity_is_type_name_independent() {
         "linear": {"kind": "spgmr", "dimension": 5, "preconditioner": "jacobi"},
         "sensitivity": "staggered",
         "initialization": "steady_states",
+        "initial_conditions": {
+            "step_trials": null,
+            "jacobian_attempts": 4,
+            "newton_iterations": 10,
+            "convergence_coefficient": 0.0033,
+            "line_search": true,
+            "backtracks": null,
+            "step_tolerance": null,
+        },
     });
     assert_eq!(
         serde_json::to_value(
@@ -812,6 +821,24 @@ fn settings_identity_is_type_name_independent() {
         )
         .unwrap(),
         idas
+    );
+    let mut omitted = idas.clone();
+    omitted
+        .as_object_mut()
+        .unwrap()
+        .remove("initial_conditions");
+    let effective = serde_json::from_value::<crate::dynamics::IdasSettings>(omitted).unwrap();
+    assert_eq!(serde_json::to_value(&effective).unwrap(), idas);
+    let mut profile = crate::dynamics::Profile {
+        method: crate::dynamics::Method::Idas,
+        idas: effective,
+        ..Default::default()
+    };
+    let identity = pse_ids::document::of(pse_ids::Frame::DynamicProfileV9, &profile).unwrap();
+    profile.idas.initial_conditions.newton_iterations += 1;
+    assert_ne!(
+        identity,
+        pse_ids::document::of(pse_ids::Frame::DynamicProfileV9, &profile).unwrap()
     );
     // Version 2 has no sign constraints: they derive from the authored bounds
     // (ADR-0119 Outcome 4), so a version 1 document or a constraint field is refused.
@@ -851,7 +878,9 @@ fn backend_settings_schema_generated() {
             "highs",
             "clarabel",
             "scip",
-            "pounce_convex"
+            "pounce_convex",
+            "uno",
+            "petsc"
         ]
     );
     let titles = alternatives
@@ -867,7 +896,9 @@ fn backend_settings_schema_generated() {
             "HighsSettings",
             "ClarabelSettings",
             "ScipSettings",
-            "PounceConvexSettings"
+            "PounceConvexSettings",
+            "UnoSettings",
+            "PetscSettings"
         ]
     );
     let definitions = schema["$defs"].as_object().unwrap();

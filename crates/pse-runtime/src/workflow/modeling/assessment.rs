@@ -24,9 +24,21 @@ pub(in crate::workflow) struct AssessedPoint {
     pub owner: Arc<pse_columnar::AllocationLease>,
 }
 impl AssessedPoint {
-    /// Every required original-model check was evaluated and holds.
-    pub(in crate::workflow) fn accepted(&self) -> bool {
-        self.complete && self.error.is_none() && self.checks.iter().all(|c| c.satisfied)
+    /// Compose original checks with native permission through the shared completion owner.
+    pub(in crate::workflow) fn completion(
+        &self,
+        outcome: &Outcome,
+        policy: &pse_model::numerics::NumericalPolicy,
+    ) -> crate::workflow::numerics::Completed {
+        crate::workflow::numerics::complete(
+            outcome.candidate_use(policy),
+            crate::workflow::numerics::CompletionEvidence::point(
+                &self.checks,
+                self.complete && self.error.is_none(),
+                self.required_closure,
+            ),
+            policy,
+        )
     }
 }
 /// Which original-model obligations a step answers to.

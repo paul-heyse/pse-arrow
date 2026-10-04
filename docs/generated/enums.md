@@ -1503,6 +1503,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `derivatives` | `` | false |
+| `jacobian_product` | `` | false |
 | `representation` | `` | false |
 
 ## `NativeAssessmentState`
@@ -1541,6 +1542,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `idas` | `` | false |
 | `scip` | `` | false |
 | `pounce_convex` | `` | false |
+| `uno` | `` | false |
+| `petsc` | `` | false |
 
 ## `NativeBoundaryClass`
 
@@ -1705,6 +1708,32 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `minimize` | `` | false |
 | `maximize` | `` | false |
 
+## `NativePetscLinear`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `gmres` | `` | false |
+| `fgmres` | `` | false |
+| `bicgstab` | `` | false |
+| `preonly` | `` | false |
+
+## `NativePetscMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `newton_trust_region` | `` | false |
+| `nonlinear_additive_schwarz` | `` | false |
+| `pseudo_transient` | `` | false |
+
+## `NativePetscPreconditioner`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `jacobi` | `` | false |
+| `ilu` | `` | false |
+| `lu` | `` | false |
+
 ## `NativeProblemClass`
 
 | Member | IDAES name | Deprecated |
@@ -1848,6 +1877,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `panic` | `` | false |
 | `invalid` | `` | false |
 
+## `NativeUnoMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `sqp` | `` | false |
+| `slp` | `` | false |
+
 ## `NativeWarmCapability`
 
 | Member | IDAES name | Deprecated |
@@ -1858,12 +1894,111 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `primal_dual_and_working_set` | `` | false |
 | `primal_dual_and_basis` | `` | false |
 
+## `NumericalAccuracyClass`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `certified` | `` | false |
+| `estimated` | `` | false |
+| `unresolved` | `` | false |
+
+## `NumericalAttemptObservation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `converged` | `` | false |
+| `stalled` | `` | false |
+| `limited` | `` | false |
+| `numerical_failure` | `` | false |
+| `capability_refusal` | `` | false |
+| `contract_failure` | `` | false |
+| `resource_exhausted` | `` | false |
+| `cancelled` | `` | false |
+| `panic` | `` | false |
+| `operational_failure` | `` | false |
+| `auxiliary` | `` | false |
+| `infeasible` | `` | false |
+
+## `NumericalBranchPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `any_qualified` | `` | false |
+| `connected` | `` | false |
+
 ## `NumericalCoordinates`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `physical` | `` | false |
 | `normalized` | `` | false |
+
+## `NumericalEventKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `planned` | `` | false |
+| `started` | `` | false |
+| `finished` | `` | false |
+| `refused` | `` | false |
+| `abandoned` | `` | false |
+
+## `NumericalMechanism`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `direct` | `` | false |
+| `kkt_predictor` | `` | false |
+| `activity_path` | `` | false |
+| `limited_corrector` | `` | false |
+| `root_response` | `` | false |
+| `secant_predictor` | `` | false |
+| `newton_krylov` | `` | false |
+| `setup_reuse` | `` | false |
+| `maps_anderson` | `` | false |
+| `bounded_feasibility` | `` | false |
+| `native_globalization` | `` | false |
+| `continuation` | `` | false |
+| `homotopy` | `` | false |
+| `pseudo_transient` | `` | false |
+| `consistent_initialization` | `` | false |
+| `block` | `` | false |
+| `reduced_space` | `` | false |
+| `nonlinear_preconditioner` | `` | false |
+| `surrogate` | `` | false |
+| `multifidelity` | `` | false |
+| `schur` | `` | false |
+| `batch` | `` | false |
+| `multistart` | `` | false |
+| `selected_evaluation` | `` | false |
+| `least_deviation` | `` | false |
+
+## `NumericalPathEventKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `regular` | `` | false |
+| `simple_fold` | `` | false |
+| `unresolved` | `` | false |
+
+## `NumericalPhase`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `preparation` | `` | false |
+| `prediction` | `` | false |
+| `screening` | `` | false |
+| `native` | `` | false |
+| `verification` | `` | false |
+| `assessment` | `` | false |
+
+## `NumericalPosition`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `preparation` | `` | false |
+| `execution` | `` | false |
+| `recovery` | `` | false |
 
 ## `NumericalProvenanceField`
 
@@ -1873,6 +2008,15 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `absolute_tolerance` | `` | false |
 | `relative_tolerance` | `` | false |
 | `coordinate_scale` | `` | false |
+
+## `NumericalScope`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `task` | `` | false |
+| `occurrence` | `` | false |
+| `mechanism` | `` | false |
+| `attempt` | `` | false |
 
 ## `NumericalSource`
 
@@ -1887,6 +2031,19 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `quantity_nominal` | `` | false |
 | `canonical_fallback` | `` | false |
 
+## `NumericalStartOrigin`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `specification` | `` | false |
+| `explicit` | `` | false |
+| `accepted` | `` | false |
+| `predicted` | `` | false |
+| `auxiliary` | `` | false |
+| `partial` | `` | false |
+| `modified_specification` | `` | false |
+| `surrogate` | `` | false |
+
 ## `NumericalTarget`
 
 | Member | IDAES name | Deprecated |
@@ -1896,6 +2053,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `objective` | `` | false |
 | `observable` | `` | false |
 | `closure` | `` | false |
+
+## `NumericalTransition`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `finish` | `` | false |
+| `continue` | `` | false |
+| `subdivide` | `` | false |
+| `recover` | `` | false |
+| `stop` | `` | false |
 
 ## `ObservationTimeBasis`
 
@@ -2019,6 +2186,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `none` | `` | false |
 | `jacobi` | `` | false |
+| `block_factor` | `` | false |
 
 ## `PresolvePass`
 

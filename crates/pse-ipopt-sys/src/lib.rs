@@ -3,7 +3,7 @@
 
 #![allow(
     unsafe_code,
-    reason = "FFI bindings to the Ipopt C API (blueprint §18.3)"
+    reason = "FFI bindings to the Ipopt C API and shielded TNLP sequence extension (blueprint §18.3)"
 )]
 #![allow(
     missing_docs,
@@ -12,12 +12,13 @@
     non_upper_case_globals,
     clippy::all,
     clippy::pedantic,
-    reason = "generated bindings"
+    reason = "generated vendor bindings and project-owned raw foreign ABI declarations"
 )]
 
 //! Raw FFI bindings to the Ipopt C API (blueprint §3.1, §18.3).
 //!
-//! Nothing here is written by hand. `src/bindings.rs` is produced by
+//! The vendor C API below is generated; `sequence` declares the project-owned
+//! exception-shielded C++ extension. `src/bindings.rs` is produced by
 //! `just codegen --only bindgen` from the actual `IpStdCInterface.h` headers.
 //! `IPOPT_DIR` selects an installed prefix; otherwise the generator extracts headers
 //! from the digest-pinned solver image. The C interface and dependent types are
@@ -25,6 +26,9 @@
 //! Plan 14 M11 supplies the safe native driver; the former driver has been removed.
 
 include!("bindings.rs");
+
+/// Exception-shielded persistent C++ TNLP sequence extension.
+pub mod sequence;
 
 #[cfg(all(test, feature = "link"))]
 mod abi_tests {

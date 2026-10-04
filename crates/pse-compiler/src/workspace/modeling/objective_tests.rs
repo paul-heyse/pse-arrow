@@ -142,6 +142,26 @@ fn objective_bounds_rows_generated_per_level() {
         ]
     );
     assert_eq!(case.objectives()[2].quantity, power());
+    // Structural support includes every level even though the value program
+    // evaluates only the primary objective. Later coefficient-only objectives
+    // must not depend on the existence of a primary numerical demand group.
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = all
+        .admitted
+        .plan(
+            &workspace.inputs.quantities,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+    let incidence = plan.incidence(&cancel).unwrap();
+    assert_eq!(incidence.len(), case.instances().len());
+    for (binding, support) in case.instances().iter().zip(incidence) {
+        for contribution in &binding.contributions {
+            assert!(support.first_for_output(contribution.output).is_some());
+        }
+    }
     assert_eq!(
         case.degradations(),
         [

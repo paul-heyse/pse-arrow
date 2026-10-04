@@ -36,6 +36,9 @@ from pse.contracts.enums import (
     NativeQualification,
     NativeSolveIntent,
     NativeTermination,
+    NumericalEventKind,
+    NumericalPosition,
+    NumericalTransition,
     PresolvePolicyKind,
 )
 from pse.contracts.identities import (
@@ -106,6 +109,20 @@ def test_explicit_cone_strategy_preserves_native_qualification(
     assert [route.backend for route in prepared.routes] == ["clarabel"]
     result = prepared.run()
     assert not result.failures()
+    events = codec.structure_rows(
+        pa.table(result.strategy_events()).to_pylist(),
+        result_contracts.RuntimeSolveStrategyEventsRow,
+    )
+    assert events
+    assert result.run_id is not None
+    assert {event.run_id for event in events} == {result.run_id}
+    assert (
+        codec.structure_rows(
+            pa.table(result.strategy_events()).to_pylist(),
+            result_contracts.RuntimeSolveStrategyEventsRow,
+        )
+        == events
+    )
     (row,) = result.attempts()
     attempt = row.report
     assert attempt is not None
@@ -175,6 +192,20 @@ def test_explicit_primal_seed_and_transactional_initialization(
     assert stage.completed_stages == 1
     assert stage.original[x.to_hex()] == -1.0
     assert stage.solved_unknowns[x.to_hex()] == pytest.approx(-2.0, abs=1e-6)
+    events = codec.structure_rows(
+        pa.table(result.strategy_events()).to_pylist(),
+        result_contracts.RuntimeSolveStrategyEventsRow,
+    )
+    assert events
+    assert result.run_id is not None
+    assert {event.run_id for event in events} == {result.run_id}
+    assert (
+        codec.structure_rows(
+            pa.table(result.strategy_events()).to_pylist(),
+            result_contracts.RuntimeSolveStrategyEventsRow,
+        )
+        == events
+    )
 
 
 @pytest.fixture(scope="module")
@@ -212,6 +243,60 @@ def package_documents(source: str) -> dict[str, str]:
     )
     manifest = manifest.replace("dependencies = []", PRIMITIVES)
     return {"package.toml": manifest, "models/fixed.pse": source}
+
+
+@pytest.mark.unit
+def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_rung(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    """The public document controls actual execution without inventing Python policy."""
+    package = runtime.modeling_from_documents(
+        [
+            package_documents(
+                "package strategy {def Root {var x:Scalar; eq row:x==3; "
+                "annotation start x(0);}}"
+            )
+        ],
+        physical,
+    )
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
+    prepared = package.prepare_solve(
+        case,
+        pse.SolveSettings(
+            intent=NativeSolveIntent.ROOT,
+            backend=NativeBackend.KINSOL,
+            presolve=PresolvePolicyKind.OFF,
+        ),
+    )
+    direct = prepared.numerical_strategy
+    limits = msgspec.structs.replace(direct.limits, attempts=2)
+    first = msgspec.structs.replace(
+        direct.mechanisms[0],
+        profile=documents.ProfileRef(
+            backend=NativeBackend.KINSOL, key=prepared.strategy_profile.to_prefixed()
+        ),
+        transitions=(
+            NumericalTransition.FINISH,
+            NumericalTransition.RECOVER,
+            NumericalTransition.STOP,
+        ),
+    )
+    second = msgspec.structs.replace(first, position=NumericalPosition.RECOVERY)
+    declaration = msgspec.structs.replace(
+        direct, limits=limits, mechanisms=(first, second)
+    )
+    composed = prepared.with_numerical_strategy(declaration, (prepared, prepared))
+    assert composed.numerical_strategy == declaration
+    result = composed.start().wait()
+    assert result.usable
+    assert "runtime.solve_strategy_events" in result.tables()
+    rows = pa.table(result.table("runtime.solve_strategy_events")).to_pylist()
+    assert sum(row["kind"] == NumericalEventKind.STARTED for row in rows) == 1
+    finished = [row for row in rows if row["kind"] == NumericalEventKind.FINISHED]
+    assert len(finished) == 1
+    assert finished[0]["transition"] == NumericalTransition.FINISH
 
 
 def revision(
@@ -553,7 +638,9 @@ def test_completion_projection_and_pre_effect_publication_ticket(
         .read_all()
         .to_pylist()
     )
-    assert completion.solves == tuple(
+    assert codec.document_rows(
+        completion.solves, result_contracts.RuntimeSolveRunsRow
+    ) == tuple(
         converter.structure(row, result_contracts.RuntimeSolveRunsRow) for row in solves
     )
     lineage = (
@@ -561,7 +648,9 @@ def test_completion_projection_and_pre_effect_publication_ticket(
         .read_all()
         .to_pylist()
     )
-    assert completion.lineage == tuple(
+    assert codec.document_rows(
+        completion.lineage, result_contracts.RuntimeRunLineageRow
+    ) == tuple(
         converter.structure(row, result_contracts.RuntimeRunLineageRow)
         for row in lineage
     )
@@ -675,7 +764,11 @@ def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
     (solve,) = result.completion.solves
     assert solve.backend == NativeBackend.SCIP
     assert solve.termination == NativeTermination.SOLUTION_LIMIT
-    assert solve.candidate_kind == NativeCandidateKind.FEASIBLE_POINT
+    # The limited SCIP search retains the actual fixed-assignment Ipopt iterate;
+    # original feasibility and incumbent permission are assessed separately below.
+    assert solve.candidate_kind == NativeCandidateKind.FINAL_ITERATE
+    assert solve.commitment is not None
+    assert solve.commitment
     assert solve.feasible is True
     assert solve.qualification == NativeQualification.FEASIBLE
     assert solve.assurance != NativeAssurance.GLOBAL_BOUND

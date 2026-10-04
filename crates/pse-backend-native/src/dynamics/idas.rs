@@ -44,6 +44,8 @@ struct Context<'a> {
     mode: usize,
     trial_policy: TrialPolicy,
     callback: CallbackState,
+    /// Actual first residual outcome of the current IDACalcIC phase, not a later trial.
+    initial_ic_residual: Option<bool>,
     /// CSC pattern of the Newton matrix: the state columns of every mode's support plus
     /// the diagonal, sorted by row within each column.
     columns: Vec<ffi::sunindextype>,
@@ -479,7 +481,9 @@ unsafe extern "C" fn residual(
         let n = c.contract.states.len();
         // SAFETY: IDAS passes live serial vectors of the `n` states for the callback.
         let x = unsafe { read(y, n) };
-        let Some(e) = c.evaluate(Function::Rhs, t, &x, false) else {
+        let evaluation = c.evaluate(Function::Rhs, t, &x, false);
+        c.initial_ic_residual.get_or_insert(evaluation.is_some());
+        let Some(e) = evaluation else {
             return c.failure();
         };
         // SAFETY: as above.
@@ -1282,6 +1286,17 @@ fn initialization_option(start: IdasInitialization) -> i32 {
         IdasInitialization::SteadyStates => ffi::IDA_Y_INIT,
     }
 }
+struct StatePreparation<'a> {
+    time: f64,
+    parameters: Vec<f64>,
+    map: Vec<usize>,
+    trial_failures: TrialPolicy,
+    rtol: f64,
+    atol: &'a [f64],
+    initial_step: Option<f64>,
+    linear: IdasLinear,
+    forward: bool,
+}
 impl<'a> Session<'a> {
     fn vector(&mut self, values: &[f64]) -> Result<ffi::N_Vector, ProblemError> {
         // SAFETY: the session's live context; the vector is freed with the session.
@@ -1296,19 +1311,16 @@ impl<'a> Session<'a> {
         }
         Ok(v)
     }
-    /// A session of the profile's route; nonempty `directions` select the second-order
-    /// route, whose forward pass also integrates the state sensitivities.
-    fn new(
+    /// Common native state/role/sign/analytic-linear preparation, before any IC phase.
+    fn prepare(
         oracle: &'a mut dyn Oracle,
         integration: &[f64],
-        p: &Profile,
-        directions: &[usize],
+        config: StatePreparation<'_>,
         execution: Execution,
-    ) -> Result<Self, ProblemError> {
-        let forward = p.forward() || !directions.is_empty();
+    ) -> Result<(Self, Evaluation), ProblemError> {
         let c = oracle.contract().clone();
         let n = c.states.len();
-        let map = p.columns_at(c.parameters.len(), p.start);
+        let map = config.map;
         let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
         for mode in 0..c.events.len() {
             pattern.extend(
@@ -1335,7 +1347,7 @@ impl<'a> Session<'a> {
             dy: std::ptr::null_mut(),
             quad: std::ptr::null_mut(),
             vectors: vec![],
-            forward,
+            forward: config.forward,
             sens: vec![],
             dsens: vec![],
             totals: vec![0.0; c.quadratures.len()],
@@ -1344,12 +1356,13 @@ impl<'a> Session<'a> {
             callback: Box::new(Context {
                 oracle,
                 contract: c,
-                parameters: p.parameters_at(integration, p.start),
+                parameters: config.parameters,
                 integration: integration.to_vec(),
                 map,
                 mode: 0,
-                trial_policy: p.trial_failures,
+                trial_policy: config.trial_failures,
                 callback: CallbackState::new(execution),
+                initial_ic_residual: None,
                 columns,
                 rows,
                 columns_b,
@@ -1362,10 +1375,12 @@ impl<'a> Session<'a> {
             _local: PhantomData,
         };
         native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
-        let Some(initial) = s
-            .callback
-            .evaluate(Function::Initial, p.start, &vec![0.0; n], forward)
-        else {
+        let Some(initial) = s.callback.evaluate(
+            Function::Initial,
+            config.time,
+            &vec![0.0; n],
+            config.forward,
+        ) else {
             return Err(s.callback.failed("initial function"));
         };
         s.y = s.vector(&initial.values)?;
@@ -1378,14 +1393,14 @@ impl<'a> Session<'a> {
             .map(|v| f64::from(*v))
             .collect();
         let id = s.vector(&ids)?;
-        let atol = s.vector(&p.atol)?;
+        let atol = s.vector(config.atol)?;
         // SAFETY: the session's live context; `Drop` frees the memory.
         s.mem = unsafe { ffi::IDACreate(s.ctx) };
         if s.mem.is_null() {
             return Err(ProblemError::memory("IDAS memory allocation"));
         }
         native!(
-            ffi::IDAInit(s.mem, Some(residual), p.start, s.y, s.dy),
+            ffi::IDAInit(s.mem, Some(residual), config.time, s.y, s.dy),
             "initialization",
         )?;
         // The boxed context has a stable address for the session's lifetime.
@@ -1395,11 +1410,13 @@ impl<'a> Session<'a> {
         )?;
         native!(ffi::IDASetId(s.mem, id), "differential identities")?;
         native!(
-            ffi::IDASVtolerances(s.mem, p.rtol, atol),
+            ffi::IDASVtolerances(s.mem, config.rtol, atol),
             "state tolerances",
         )?;
-        native!(ffi::IDASetInitStep(s.mem, p.initial_step), "initial step")?;
-        s.linear_solver(p.idas.linear)?;
+        if let Some(step) = config.initial_step {
+            native!(ffi::IDASetInitStep(s.mem, step), "initial step")?;
+        }
+        s.linear_solver(config.linear)?;
         // The authored bounds' signs keep the steps in the domain (ADR-0119 Outcome 4).
         if s.callback
             .contract
@@ -1420,6 +1437,34 @@ impl<'a> Session<'a> {
                 "sign constraints",
             )?;
         }
+        Ok((s, initial))
+    }
+    fn new(
+        oracle: &'a mut dyn Oracle,
+        integration: &[f64],
+        p: &Profile,
+        directions: &[usize],
+        execution: Execution,
+    ) -> Result<Self, ProblemError> {
+        let forward = p.forward() || !directions.is_empty();
+        let map = p.columns_at(oracle.contract().parameters.len(), p.start);
+        let (mut s, initial) = Self::prepare(
+            oracle,
+            integration,
+            StatePreparation {
+                time: p.start,
+                parameters: p.parameters_at(integration, p.start),
+                map,
+                trial_failures: p.trial_failures,
+                rtol: p.rtol,
+                atol: &p.atol,
+                initial_step: Some(p.initial_step),
+                linear: p.idas.linear,
+                forward,
+            },
+            execution,
+        )?;
+        let n = s.callback.contract.states.len();
         if forward {
             let j = initial
                 .jacobian
@@ -1607,6 +1652,11 @@ impl<'a> Session<'a> {
                 let side = match preconditioner {
                     Preconditioner::None => ffi::SUN_PREC_NONE,
                     Preconditioner::Jacobi => ffi::SUN_PREC_LEFT,
+                    Preconditioner::BlockFactor => {
+                        return Err(ProblemError::Unsupported(
+                            "IDAS block factor preconditioning is not supplied".into(),
+                        ));
+                    }
                 } as i32;
                 self.linear = if matches!(linear, IdasLinear::Spgmr { .. }) {
                     // SAFETY: the session's live state vector and context; `Drop` frees
@@ -1672,9 +1722,12 @@ impl<'a> Session<'a> {
         } else {
             t + p.initial_step
         };
-        // SAFETY: the session's live IDAS memory on its owning thread; the callbacks it
-        // runs reach the context only through their user data.
-        let flag = unsafe { ffi::IDACalcIC(self.mem, option, toward) };
+        let mode = if option == ffi::IDA_YA_YDP_INIT {
+            IdasInitialization::AlgebraicAndRates
+        } else {
+            IdasInitialization::SteadyStates
+        };
+        let flag = self.calculate_consistent(toward, mode, &p.idas.initial_conditions)?;
         if flag < 0 {
             return Err(self
                 .callback
@@ -1695,6 +1748,60 @@ impl<'a> Session<'a> {
             )?;
         }
         Ok(())
+    }
+    /// Configure the native IC phase before calling it, preserving the actual return.
+    fn calculate_consistent(
+        &mut self,
+        toward: f64,
+        mode: IdasInitialization,
+        controls: &IdasInitialConditions,
+    ) -> Result<i32, ProblemError> {
+        controls.validate_for(
+            mode,
+            self.callback
+                .contract
+                .signs
+                .iter()
+                .any(|sign| *sign != StateSign::Free),
+        )?;
+        self.callback.callback.execution.check()?;
+        native!(
+            ffi::IDASetMaxNumJacsIC(self.mem, controls.jacobian_attempts as i32),
+            "IC Jacobian attempts"
+        )?;
+        native!(
+            ffi::IDASetMaxNumItersIC(self.mem, controls.newton_iterations as i32),
+            "IC Newton iterations"
+        )?;
+        native!(
+            ffi::IDASetNonlinConvCoefIC(self.mem, controls.convergence_coefficient),
+            "IC convergence coefficient"
+        )?;
+        native!(
+            ffi::IDASetLineSearchOffIC(self.mem, i32::from(!controls.line_search)),
+            "IC line search"
+        )?;
+        if let Some(value) = controls.step_trials {
+            native!(
+                ffi::IDASetMaxNumStepsIC(self.mem, value as i32),
+                "IC artificial step trials"
+            )?;
+        }
+        if let Some(value) = controls.backtracks {
+            native!(
+                ffi::IDASetMaxBacksIC(self.mem, value as i32),
+                "IC backtracks"
+            )?;
+        }
+        if let Some(value) = controls.step_tolerance {
+            native!(
+                ffi::IDASetStepToleranceIC(self.mem, value),
+                "IC step tolerance"
+            )?;
+        }
+        self.callback.initial_ic_residual = None;
+        // SAFETY: live IDAS memory and contained callbacks on this session's thread.
+        Ok(unsafe { ffi::IDACalcIC(self.mem, initialization_option(mode), toward) })
     }
     /// Restart the same native memory at a scheduled change or an event reset: the
     /// differential states (and their sensitivities) carry over, `IDACalcIC` recomputes
@@ -2994,6 +3101,281 @@ pub(super) fn integrate_with_progress(
     let (report, _, _) = attempt(oracle, p, integration, &[], cancel, progress, |_, _| Ok(()));
     Ok(report)
 }
+/// One IDACalcIC call, with no physical step, sensitivity, quadrature or event setup.
+pub(super) fn initialize_consistent(
+    oracle: &mut dyn Oracle,
+    parameters: &[f64],
+    request: &ConsistentInitialization,
+    execution: Execution,
+) -> Result<ConsistentStateReport, ProblemError> {
+    oracle.contract().validate()?;
+    request.controls.validate_for(
+        request.mode,
+        oracle
+            .contract()
+            .signs
+            .iter()
+            .any(|sign| *sign != StateSign::Free),
+    )?;
+    let n = oracle.contract().states.len();
+    if !request.time.is_finite()
+        || !request.toward.is_finite()
+        || request.time == request.toward
+        || !(request.toward - request.time).is_finite()
+        || !positive(request.rtol)
+        || request.atol.len() != n
+        || request.residual_tolerances.len() != n
+        || request
+            .atol
+            .iter()
+            .chain(&request.residual_tolerances)
+            .any(|x| !positive(*x))
+        || parameters.len() != oracle.contract().parameters.len()
+        || parameters.iter().any(|x| !x.is_finite())
+    {
+        return Err(contract(
+            "invalid consistent-state request or original parameter extent",
+        ));
+    }
+    let dimension = match request.linear {
+        IdasLinear::Klu => None,
+        IdasLinear::Spgmr { dimension, .. } | IdasLinear::Spfgmr { dimension, .. } => {
+            Some(dimension.into_inner())
+        }
+    };
+    if dimension.is_some_and(|value| i32::try_from(value).is_err()) {
+        return Err(contract("invalid IDAS initialization Krylov dimension"));
+    }
+    execution.check()?;
+    let allowance = execution.memory.ok_or_else(|| {
+        contract("consistent initialization requires a finite foreign memory allowance")
+    })?;
+    // Native KLU fill can be dense. Bound the planned shape before allocating foreign
+    // vectors/matrices; deployment owns enforcement of opaque native allocations.
+    let vectors = dimension
+        .unwrap_or(0)
+        .checked_mul(2)
+        .and_then(|v| v.checked_add(12));
+    let bytes = n
+        .checked_mul(n)
+        .and_then(|v| v.checked_mul(32))
+        .and_then(|v| {
+            n.checked_mul(vectors?)
+                .and_then(|w| w.checked_mul(8))
+                .and_then(|w| v.checked_add(w))
+        })
+        .ok_or_else(|| {
+            ProblemError::memory("consistent initialization workspace shape overflow")
+        })?;
+    if bytes > allowance {
+        return Err(ProblemError::memory(
+            "consistent initialization workspace exceeds foreign allowance",
+        ));
+    }
+    let final_execution = execution.clone();
+    let (mut session, initial) = Session::prepare(
+        oracle,
+        parameters,
+        StatePreparation {
+            time: request.time,
+            parameters: parameters.to_vec(),
+            map: (0..parameters.len()).collect(),
+            trial_failures: request.trial_failures,
+            rtol: request.rtol,
+            atol: &request.atol,
+            initial_step: None,
+            linear: request.linear,
+            forward: false,
+        },
+        execution,
+    )?;
+    let flag = session.calculate_consistent(request.toward, request.mode, &request.controls)?;
+    let initial_residual = session.callback.initial_ic_residual;
+    if flag == ffi::IDA_FIRST_RES_FAIL
+        && initial_residual == Some(false)
+        && session.callback.callback.terminal.is_none()
+    {
+        // Tagged IDAS cannot repair a failed first residual. This is current-start
+        // evaluation evidence, not a globally established model contract failure.
+        session.callback.callback.trial_rejections =
+            session.callback.callback.trial_rejections.saturating_sub(1);
+        session.callback.callback.terminal = Some((
+            crate::solve::Termination::Evaluation,
+            "invalid initial original residual".into(),
+        ));
+    }
+    let mut native = termination(flag);
+    let mut error = if flag < 0 {
+        Some(
+            session
+                .callback
+                .native_failure(flag, "consistent initial conditions"),
+        )
+    } else {
+        None
+    };
+    let callback = &mut session.callback.callback;
+    if callback.terminal.is_none()
+        && let Some(stop) = callback.execution.stopped()
+    {
+        callback.last_failure = callback.execution.check().err();
+        callback.terminal = Some((
+            stop,
+            "execution checkpoint after consistent initialization".into(),
+        ));
+    }
+    // SAFETY: only a query/copy of live vectors before any physical step. The pinned
+    // API allows retrieval after failed IDACalcIC, so these remain diagnostic candidates.
+    let retrieval = unsafe { ffi::IDAGetConsistentIC(session.mem, session.y, session.dy) };
+    let candidate = if retrieval == ffi::IDA_SUCCESS {
+        // SAFETY: both serial vectors have the authored state extent.
+        let state = unsafe { read(session.y, n) };
+        // SAFETY: the owned rate serial vector has the same authored state extent.
+        let rates = unsafe { read(session.dy, n) };
+        if state.iter().chain(&rates).all(|x| x.is_finite()) {
+            Some(ConsistentState { state, rates })
+        } else {
+            None
+        }
+    } else {
+        if error.is_none() {
+            error = Some(
+                session
+                    .callback
+                    .native_failure(retrieval, "consistent state retrieval"),
+            );
+        }
+        None
+    };
+    let iterations = ic_counter(session.mem, ffi::IDAGetNumNonlinSolvIters);
+    let backtracks = ic_counter(session.mem, ffi::IDAGetNumBacktrackOps);
+    let mut assessment = None;
+    let mut validation_error = None;
+    if session.callback.callback.terminal.is_none()
+        && let Some(candidate) = &candidate
+    {
+        if let Some(rhs) =
+            session
+                .callback
+                .evaluate(Function::Rhs, request.time, &candidate.state, false)
+        {
+            let residual: Vec<_> = rhs
+                .values
+                .iter()
+                .enumerate()
+                .map(|(i, f)| {
+                    if session.callback.contract.differential[i] {
+                        candidate.rates[i] - f
+                    } else {
+                        -f
+                    }
+                })
+                .collect();
+            let roles_preserved = match request.mode {
+                IdasInitialization::AlgebraicAndRates => session
+                    .callback
+                    .contract
+                    .differential
+                    .iter()
+                    .enumerate()
+                    .all(|(i, d)| !*d || candidate.state[i] == initial.values[i]),
+                IdasInitialization::SteadyStates => candidate.rates.iter().all(|v| *v == 0.0),
+            };
+            let signs_satisfied = session
+                .callback
+                .contract
+                .signs
+                .iter()
+                .zip(&candidate.state)
+                .all(|(sign, x)| match sign {
+                    StateSign::Free => true,
+                    StateSign::NonNegative => *x >= 0.0,
+                    StateSign::Positive => *x > 0.0,
+                    StateSign::NonPositive => *x <= 0.0,
+                    StateSign::Negative => *x < 0.0,
+                });
+            let residual_satisfied = residual
+                .iter()
+                .zip(&request.residual_tolerances)
+                .all(|(v, t)| v.is_finite() && v.abs() <= *t);
+            assessment = Some(ConsistentStateAssessment {
+                residual,
+                residual_satisfied,
+                roles_preserved,
+                signs_satisfied,
+            });
+        } else {
+            validation_error = Some(
+                session
+                    .callback
+                    .failed("consistent-state original assessment"),
+            );
+        }
+    }
+    let callback = &mut session.callback.callback;
+    if let Some((category, _)) = &callback.terminal {
+        native.category = *category;
+        if error.is_none() {
+            error = callback.terminal_error();
+        }
+    }
+    let mut evidence = crate::solve::Evidence {
+        work: crate::solve::WorkEvidence {
+            evaluations: callback.counts.values().try_fold(0_u64, |sum, count| {
+                sum.checked_add(u64::try_from(*count).ok()?)
+            }),
+            iterations,
+            ..Default::default()
+        },
+        abandoned: callback.execution.abandonment.observation(),
+        callback: crate::solve::CallbackEvidence {
+            trial_rejections: callback.trial_rejections,
+            regime_crossings: callback.regime_crossings,
+            terminal_failure: callback.terminal.is_some(),
+        },
+        start_submitted: true,
+        ..Default::default()
+    };
+    let identity = session.callback.contract.identity;
+    drop(session); // Native destruction stays inside the original task deadline.
+    if !evidence.callback.terminal_failure
+        && let Some(stop) = final_execution.stopped()
+    {
+        native.category = stop;
+        evidence.callback.terminal_failure = true;
+        evidence.abandoned = final_execution.abandonment.observation();
+        if error.is_none() {
+            error = final_execution.check().err();
+        }
+        assessment = None;
+    }
+    Ok(ConsistentStateReport {
+        identity,
+        time: request.time,
+        mode: request.mode,
+        initial_residual,
+        termination: native,
+        requested: initial.values,
+        candidate,
+        assessment,
+        evidence,
+        backtracks,
+        error,
+        validation_error,
+    })
+}
+fn ic_counter(
+    mem: *mut c_void,
+    get: unsafe extern "C" fn(*mut c_void, *mut c_long) -> i32,
+) -> Option<u64> {
+    let mut count = 0;
+    // SAFETY: counter query on the caller's live IDAS memory, into a correctly typed local.
+    if unsafe { get(mem, &raw mut count) } == ffi::IDA_SUCCESS {
+        u64::try_from(count).ok()
+    } else {
+        None
+    }
+}
 /// The gradient of the cotangent's functional over the integration parameters, on the
 /// IDAS adjoint (ADR-0110 item 3). The caller validated the profile and charged the
 /// checkpoint estimate.
@@ -3103,6 +3485,8 @@ fn attempt<T>(
         time_limit: p.time_limit,
         progress,
         memory: None,
+        enclosing_scope: None,
+        abandonment: Arc::default(),
     };
     let mut r = Report::new(p.start);
     let n = oracle.contract().states.len();
@@ -3169,4 +3553,292 @@ fn attempt<T>(
 )]
 fn long_counter(value: c_long) -> i64 {
     i64::from(value)
+}
+
+#[cfg(test)]
+mod initialization_tests {
+    use super::*;
+    #[derive(Debug)]
+    struct IcOracle {
+        contract: Contract,
+        residual_calls: usize,
+        fail: bool,
+        nonlinear: bool,
+    }
+    impl IcOracle {
+        fn new() -> Self {
+            let id = |n: u8| SemanticId::from_bytes([n; 16]);
+            Self {
+                contract: Contract {
+                    identity: ContentHash::from_bytes([91; 32]),
+                    states: vec![id(1), id(2)],
+                    differential: vec![true, false],
+                    parameters: vec![],
+                    outputs: vec![id(3)],
+                    events: vec![vec![]],
+                    signs: vec![],
+                    derivatives: pse_kernels::DerivativeOrder::First,
+                    quadratures: vec![],
+                    balances: vec![],
+                },
+                residual_calls: 0,
+                fail: false,
+                nonlinear: false,
+            }
+        }
+    }
+    impl Oracle for IcOracle {
+        fn contract(&self) -> &Contract {
+            &self.contract
+        }
+        fn support(&self, _: usize, function: Function) -> Vec<SupportEntry> {
+            if function == Function::Rhs {
+                [(0, 0), (1, 0), (1, 1)]
+                    .map(|(r, c)| SupportEntry::new(OriginalRow::new(r), OriginalCol::new(c)))
+                    .to_vec()
+            } else {
+                vec![]
+            }
+        }
+        fn evaluate(
+            &mut self,
+            _: usize,
+            function: Function,
+            _: f64,
+            x: &[f64],
+            _: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
+            if function == Function::Initial {
+                return Ok(Evaluation {
+                    values: vec![2.0, if self.nonlinear { 1.0 } else { 0.0 }],
+                    jacobian: None,
+                });
+            }
+            assert_eq!(
+                function,
+                Function::Rhs,
+                "IC-only call does not evaluate outputs, events or quadratures"
+            );
+            self.residual_calls += 1;
+            if self.fail {
+                return Err(pse_math::MathError::Domain {
+                    source_id: SemanticId::from_bytes([92; 16]),
+                    requirement: "IC original-domain witness",
+                }
+                .into());
+            }
+            let rhs = if self.nonlinear {
+                x[0] * x[0] - x[1] * x[1]
+            } else {
+                2.0 * x[0] - x[1]
+            };
+            let jacobian = if derivatives {
+                Some(
+                    faer::sparse::SparseColMat::try_new_from_triplets(
+                        2,
+                        2,
+                        &[
+                            faer::sparse::Triplet::new(0, 0, -1.0),
+                            faer::sparse::Triplet::new(
+                                1,
+                                0,
+                                if self.nonlinear { 2.0 * x[0] } else { 2.0 },
+                            ),
+                            faer::sparse::Triplet::new(
+                                1,
+                                1,
+                                if self.nonlinear { -2.0 * x[1] } else { -1.0 },
+                            ),
+                        ],
+                    )
+                    .unwrap(),
+                )
+            } else {
+                None
+            };
+            Ok(Evaluation {
+                values: vec![-x[0], rhs],
+                jacobian,
+            })
+        }
+    }
+    fn request() -> ConsistentInitialization {
+        ConsistentInitialization {
+            time: 0.0,
+            toward: 0.1,
+            rtol: 1e-9,
+            atol: vec![1e-11; 2],
+            residual_tolerances: vec![1e-8; 2],
+            mode: IdasInitialization::AlgebraicAndRates,
+            linear: IdasLinear::Klu,
+            controls: Default::default(),
+            trial_failures: TrialPolicy::Terminal,
+        }
+    }
+    fn execution() -> Execution {
+        let mut e = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        e.memory = Some(1 << 20);
+        e
+    }
+    #[test]
+    fn public_ic_preserves_original_roles_and_has_no_physical_trajectory() {
+        let mut oracle = IcOracle::new();
+        let report = initialize_consistent(&mut oracle, &[], &request(), execution()).unwrap();
+        assert_eq!(report.termination.name, "IDA_SUCCESS");
+        assert!(report.error.is_none());
+        let point = report.candidate.unwrap();
+        assert_eq!(point.state[0], 2.0);
+        assert!((point.state[1] - 4.0).abs() < 1e-8);
+        assert!((point.rates[0] + 2.0).abs() < 1e-8);
+        let assessment = report.assessment.unwrap();
+        assert!(
+            assessment.roles_preserved
+                && assessment.residual_satisfied
+                && assessment.signs_satisfied
+        );
+        assert!(report.evidence.work.iterations.is_some_and(|n| n > 0));
+        assert!(report.evidence.work.evaluations.is_some_and(|n| n > 0));
+        assert_eq!(report.evidence.work.factorizations, None);
+        assert_eq!(report.evidence.work.proof_steps, None);
+        assert!(report.backtracks.is_some());
+        let mut all_states = request();
+        all_states.mode = IdasInitialization::SteadyStates;
+        let report =
+            initialize_consistent(&mut IcOracle::new(), &[], &all_states, execution()).unwrap();
+        assert_eq!(report.termination.name, "IDA_SUCCESS");
+        let point = report.candidate.unwrap();
+        assert!(point.state.iter().all(|v| v.abs() < 1e-8));
+        assert!(point.rates.iter().all(|v| *v == 0.0));
+        assert!(report.assessment.unwrap().roles_preserved);
+    }
+    #[test]
+    fn public_ic_native_cap_keeps_failed_status_counters_and_original_assessment() {
+        let mut oracle = IcOracle {
+            nonlinear: true,
+            ..IcOracle::new()
+        };
+        let mut request = request();
+        request.controls.newton_iterations = 1;
+        request.controls.jacobian_attempts = 1;
+        request.controls.step_trials = Some(1);
+        let report = initialize_consistent(&mut oracle, &[], &request, execution()).unwrap();
+        assert_eq!(report.termination.name, "IDA_CONV_FAIL");
+        assert!(report.error.is_some());
+        assert!(!report.evidence.callback.terminal_failure);
+        assert!(
+            report
+                .evidence
+                .work
+                .iterations
+                .is_some_and(|n| n > 0 && n <= 2)
+        );
+        assert!(report.assessment.is_some());
+        assert!(report.backtracks.is_some());
+    }
+    #[test]
+    fn public_ic_terminal_domain_preserves_typed_cause_and_prevents_fresh_assessment() {
+        let mut oracle = IcOracle {
+            fail: true,
+            ..IcOracle::new()
+        };
+        let report = initialize_consistent(&mut oracle, &[], &request(), execution()).unwrap();
+        assert_eq!(report.termination.name, "IDA_RES_FAIL");
+        assert_eq!(
+            report.termination.category,
+            crate::solve::Termination::Evaluation
+        );
+        assert!(report.evidence.callback.terminal_failure);
+        assert_eq!(oracle.residual_calls, 1);
+        assert!(report.assessment.is_none());
+        assert!(matches!(
+            report.error,
+            Some(ProblemError::Math(pse_math::MathError::Domain {
+                requirement: "IC original-domain witness",
+                ..
+            }))
+        ));
+        assert_eq!(report.evidence.work.iterations, Some(0));
+        let mut oracle = IcOracle {
+            fail: true,
+            ..IcOracle::new()
+        };
+        let mut r = request();
+        r.trial_failures = TrialPolicy::Recoverable;
+        let report = initialize_consistent(&mut oracle, &[], &r, execution()).unwrap();
+        assert_eq!(report.termination.name, "IDA_FIRST_RES_FAIL");
+        assert_eq!(report.initial_residual, Some(false));
+        assert!(report.evidence.callback.terminal_failure);
+        assert_eq!(
+            report.evidence.callback.trial_rejections, 0,
+            "failed first residual is not a later Newton trial rejection"
+        );
+        assert_eq!(oracle.residual_calls, 1);
+        assert!(report.assessment.is_none());
+        assert!(matches!(
+            report.error,
+            Some(ProblemError::Math(pse_math::MathError::Domain {
+                requirement: "IC original-domain witness",
+                ..
+            }))
+        ));
+    }
+    #[test]
+    fn public_ic_rejects_inert_and_nonfinite_controls_before_callbacks() {
+        let mut oracle = IcOracle::new();
+        let mut r = request();
+        r.mode = IdasInitialization::SteadyStates;
+        r.controls.step_trials = Some(3);
+        assert!(matches!(
+            initialize_consistent(&mut oracle, &[], &r, execution()),
+            Err(ProblemError::Contract(_))
+        ));
+        r = request();
+        r.controls.line_search = false;
+        r.controls.backtracks = Some(3);
+        assert!(matches!(
+            initialize_consistent(&mut oracle, &[], &r, execution()),
+            Err(ProblemError::Contract(_))
+        ));
+        r = request();
+        r.controls.line_search = false;
+        r.controls.step_tolerance = Some(1e-12);
+        assert!(matches!(
+            initialize_consistent(&mut oracle, &[], &r, execution()),
+            Err(ProblemError::Contract(_))
+        ));
+        r = request();
+        r.toward = r.time;
+        assert!(matches!(
+            initialize_consistent(&mut oracle, &[], &r, execution()),
+            Err(ProblemError::Contract(_))
+        ));
+        let mut e = execution();
+        e.memory = Some(1);
+        assert!(matches!(
+            initialize_consistent(&mut oracle, &[], &request(), e),
+            Err(ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                ..
+            })
+        ));
+        assert_eq!(oracle.residual_calls, 0);
+        let mut constrained = IcOracle::new();
+        constrained.contract.signs = vec![StateSign::NonNegative; 2];
+        r = request();
+        r.controls.line_search = false;
+        r.controls.step_tolerance = Some(1e-12);
+        let report = initialize_consistent(&mut constrained, &[], &r, execution()).unwrap();
+        assert_eq!(
+            report.termination.name, "IDA_SUCCESS",
+            "an explicit constraint step floor still acts without line search"
+        );
+        let e = execution();
+        e.cancel.store(true, std::sync::atomic::Ordering::Release);
+        assert!(matches!(
+            initialize_consistent(&mut oracle, &[], &request(), e),
+            Err(ProblemError::Cancelled)
+        ));
+        assert_eq!(oracle.residual_calls, 0);
+    }
 }

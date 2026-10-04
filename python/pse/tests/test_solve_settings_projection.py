@@ -13,6 +13,8 @@ from pse import codec
 from pse.contracts import documents
 from pse.contracts.enums import (
     ClarabelMode,
+    DiagnosticCode,
+    DiagnosticRule,
     DiffsolMethod,
     DynamicSensitivity,
     HessianMode,
@@ -435,7 +437,7 @@ def test_route_and_eligibility_are_typed(
     # Initialization admission is native: no Python check precedes it.
     with pytest.raises(pse.InspectionError, match="root or initialize intent"):
         package.prepare_block_initialization(ids["Root"], pse.SolveSettings(), [{}])
-    with pytest.raises(pse.InspectionError, match="settings do not match"):
+    with pytest.raises(pse.InspectionError) as refused:
         package.prepare_block_initialization(
             ids["Root"],
             pse.SolveSettings(
@@ -443,6 +445,28 @@ def test_route_and_eligibility_are_typed(
             ),
             [{}],
         )
+    diagnostic = refused.value.report.envelope
+    assert isinstance(diagnostic, documents.BoundaryDiagnostic)
+    assert diagnostic.code == DiagnosticCode.NATIVE_ROUTE_REFUSED
+    assert diagnostic.rule == DiagnosticRule.NATIVE_ROUTE_REFUSED
+    assert any(
+        cause.code == DiagnosticCode.NATIVE_CONTRACT
+        and cause.rule == DiagnosticRule.NATIVE_CONTRACT
+        and isinstance(
+            detail := cause.observations.get("detail"), documents.ObservationText
+        )
+        and detail.value
+        in {
+            "invalid native problem: backend settings do not match selected route",
+            "invalid native problem: wrong kinsol settings",
+            "invalid native problem: wrong ipopt settings",
+            "invalid native problem: wrong pounce settings",
+        }
+        for cause in diagnostic.causes
+    ), [
+        (cause.code, cause.rule, cause.observations.get("detail"))
+        for cause in diagnostic.causes
+    ]
 
     # Result observations carry registry names, never Rust Debug text.
     limited = package.solve_case(

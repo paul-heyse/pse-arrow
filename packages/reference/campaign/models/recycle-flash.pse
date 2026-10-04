@@ -12,14 +12,24 @@
 @id("01a0f042b660738c8ffef710a3aa2e90") use flashing @"1.0.0";
 @id("01a0f042b660738c8ffef711ad128262") use separation @"1.0.0";
 @id("01a0f042b660738c8ffef71205396dff") use bt_ideal @"1.0.0";
+@id("a75beef701444cadb7c13faa15473570") use ideal_caloric_state @"1.0.0";
 @id("01a0f04b2146776f9e058f9a0693abc9") use compatibility @"1.0.0";
 @id("01a0f042b660738c8ffef713d7acc942") entity kinds.port_set fresh {}
 @id("01a0f042b660738c8ffef7146ce50fa3") entity kinds.port_set recycled {}
 @id("01a0f042b660738c8ffef71512501cdc") entity kinds.port_set purged {}
 @id("01a0f042b660738c8ffef71697e2af80") set mixer_inlets:Set<kinds.port_set>={fresh,recycled};
 @id("01a0f042b660738c8ffef717a4ad6bb4") set liquid_outlets:Set<kinds.port_set>={recycled,purged};
+@id("80c24da5bd3242fe9cace3c5100df935") def PhaseAwareMixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType):mixing.MixerModel {
+@id("0b36ad7ee6da4b6e822cb2bca18eac28") param recycle_pkg:equilibrium.ThermoPackage=bt_ideal.BTLiquid(defined_state=true);
+@id("94e4540d35444229b3477e367f93f6e0") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
+@id("1e5774de2eef41f595068d7582553605") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
+@id("b674f0e6b849457da81c4df6a7da878f") override param inlet_membership:Set<kinds.port_set>=inlets;
+@id("6d997907f4c4430aa9ffc003e3f987a5") override param momentum_policy:compatibility.MomentumMixingType=momentum_mixing;
+@id("91003809120d4e37a52d0bb420bcde00") override child inlet[i in inlet_membership]:equilibrium.ThermoPackage=if i==recycled then recycle_pkg else inlet_package;
+@id("486260b3ece44d31acda1fb23d161961") override let in_phase_component[i in inlet_boundaries,p in phases,j in components]:ComponentFlow=if p in inlet[i].phases then inlet[i].phase_component_flow[p,j] else 0{mol/s};
+}
 @id("3f86e78525fb4c41bcedc24aa318262b") def RecycleMixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType) {
-@id("685af2727e424e229eb56b878d2eff6b") child unit:mixing.Mixer=mixing.Mixer(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,inlets=inlets,momentum_mixing=momentum_mixing);
+@id("685af2727e424e229eb56b878d2eff6b") child unit:mixing.MixerModel=PhaseAwareMixer(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,inlets=inlets,momentum_mixing=momentum_mixing);
 @id("a1a1cf897fc54736ad310856d8c7ce15") eq fresh_pressure_selection:unit.outlet.pressure==unit.inlet[fresh].pressure;
 @id("4ac41154da6a4184b56c884904bf0a44") material port inlet_ports[i in inlets]=unit.inlet[i].material_state;
 @id("ac07559d3cff434086f53e0cb1971ae1") annotation connectivity inlet_ports(1,0);
@@ -78,9 +88,9 @@
 @id("d8a5f9228650494288916c171913ce7d") connect liquid:flash.liquid_port -> splitter.inlet_port;
 @id("86064b2612844614b40eb36cf6b085a5") connect recycle:splitter.outlet_ports[recycled] -> mixer.inlet_ports[recycled];
 @id("017a9b0ca6c1430e9470624599a5792f") let tear_component[j in components]:ComponentFlow=feed.state.component_flow[j]*0.01;
-@id("c386789179564f778ead8ad0072a81d0") let tear_temperature:Temperature=feed.state.T;
+@id("c386789179564f778ead8ad0072a81d0") let tear_temperature:Temperature=heater.target;
 @id("0e80a2fb8a904cf0b86e6228f97903f6") let tear_pressure:Pressure=feed.state.pressure;
-@id("3721bbebec294b25806dc437157b1bd6") let tear_energy:Power=feed.state.energy_flow*0.01;
+@id("3721bbebec294b25806dc437157b1bd6") let tear_energy:Power=feed.state.flow*0.01*ideal_caloric_state.mixture_enthalpy(tear_temperature,feed.state.z,components,bt_ideal.liquid_h);
 @id("76dc17d0b1d8478c9181cfe430939355") state tear_state supplied(true) {
 coordinate component[j in components]=tear_component[j];
 coordinate temperature=tear_temperature;
@@ -99,12 +109,12 @@ transport energy=tear_energy tolerance 0.001{W};
 }
 // Numeric specifications belong to their unit problems. The existing constructor
 // formals supply their initial values; the loop's lets only expose observations.
-// The recycle torn at the fresh feed: the tear stage holds a small positive recycle at the feed's
-// temperature, pressure and composition, so the loop solves once through; the original
+// The tear stage holds a small positive liquid recycle at the heater temperature,
+// with feed pressure and composition and matching liquid enthalpy. The original
 // specification then closes the recycle from that start.
 @id("01a0f042b660738c8ffef718e014a1d0") def RecycleFlash(purge_fraction:Scalar=0.25,temperature:Temperature=368{K}):RecycleLoop {
 @id("e961fb6db2b2497ab1cc6223b1d3cc7c") override child heater:RecycleHeater=RecycleHeater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),target_value=temperature);
-@id("aee77b64111544c68411d1b564a873b1") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTIdeal(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=purge_fraction);
+@id("aee77b64111544c68411d1b564a873b1") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTLiquid(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=purge_fraction);
 @id("01a0f042b660738c8ffef738c8c09b09") stage "tear" {
 @id("84f1b782717b4b09adbed4740223f8fd") override connect recycle:tear_port -> mixer.inlet_ports[recycled];
 }
@@ -120,7 +130,7 @@ transport energy=tear_energy tolerance 0.001{W};
 // RecycleFlash.
 @id("01a0f053c2807589b9b24ce8ecb9eca4") def OverheatedTear:RecycleLoop {
 @id("d3432b271c7a49eaaa9e8a5096060a45") override child heater:RecycleHeater=RecycleHeater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),target_value=368{K});
-@id("a1d5e8336cdf4a5cb79df1278297b815") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTIdeal(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=0.25);
+@id("a1d5e8336cdf4a5cb79df1278297b815") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTLiquid(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=0.25);
 @id("2fa918deb9bc4303851fc00d659879a0") let overheated_temperature:Temperature=500{K};
 @id("cad6a49dd3c74881881584e68aaa1180") state overheated_state supplied(true) {
 coordinate component[j in components]=tear_component[j];

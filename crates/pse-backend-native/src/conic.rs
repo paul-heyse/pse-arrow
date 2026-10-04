@@ -451,8 +451,8 @@ pub(crate) fn admit_threads(direct: Direct, threads: usize) -> Result<(), Proble
         _ => Ok(()),
     }
 }
-/// Map the pse settings, the shared controls and the resolved accuracy to Clarabel's
-/// complete native settings. Only this adapter sees `DefaultSettings`.
+/// Pure typed lowering of declared controls, without observing or loading a native
+/// direct-solver service. Only this adapter sees `DefaultSettings`.
 pub(crate) fn settings_base(
     pse: &Settings,
     controls: &Controls,
@@ -539,9 +539,10 @@ pub(crate) fn settings_base(
             settings.chordal_decomposition_enable = false;
         }
     }
-    settings
-        .validate()
-        .map_err(|e| ProblemError::Contract(format!("Clarabel settings: {e}")))?;
+    // The method and chordal spellings come from admitted exhaustive typed choices;
+    // native iparm values are the library defaults. Clarabel's validation also loads
+    // and probes MKL Pardiso, so it belongs to `settings` after the session owner has
+    // prepared the project loader, not to this pure routing/preflight lowering.
     Ok(settings)
 }
 pub(crate) fn settings(
@@ -563,6 +564,8 @@ pub(crate) fn settings(
     settings.reduced_tol_feas = settings.tol_feas;
     settings.equilibrate_enable = accuracy.native_scaling;
     settings.verbose = false;
+    // Session creation prepares the selected direct solver under the native owner
+    // before this complete library validation; compatible updates retain that owner.
     settings
         .validate()
         .map_err(|e| ProblemError::Contract(format!("Clarabel settings: {e}")))?;
@@ -682,6 +685,7 @@ impl Session {
         report.metrics = metrics(&self.solver.info);
         // Nonfinite native residuals compare false against every budget.
         let info = &self.solver.info;
+        report.evidence.work.iterations = Some(u64::from(info.iterations));
         report.evidence.conic = Some(ConicEvidence {
             primal_residual: info.res_primal,
             dual_residual: info.res_dual,

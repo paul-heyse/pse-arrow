@@ -699,31 +699,57 @@ fn second_order_route_limits_are_typed_refusals() {
             memory,
         )
     };
+    let refusal = |error: ProblemError, method: Method, contract: bool, expected: &str| {
+        let ProblemError::DynamicRouteRefused(decision) = error else {
+            panic!("expected the original typed dynamic route refusal, got {error:?}");
+        };
+        assert_eq!(decision.requested, method);
+        assert_eq!(decision.selected, None);
+        assert_eq!(decision.candidates.len(), 1);
+        let candidate = &decision.candidates[0];
+        assert_eq!(candidate.method, method);
+        assert!(
+            candidate.causes.iter().any(|cause| match cause.as_ref() {
+                ProblemError::Contract(reason) if contract => reason.contains(expected),
+                ProblemError::Unsupported(reason) if !contract => reason.contains(expected),
+                _ => false,
+            }),
+            "{decision:?}"
+        );
+    };
     let idas = reactor_profile(Method::Idas, DiffsolMethod::Bdf, true, true);
     let diffsol = reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, true, true);
     let mut oracle = Reactor::new(true);
-    assert!(matches!(
-        run(&mut oracle, &diffsol, &[0], 1 << 30),
-        Err(ProblemError::Unsupported(_))
-    ));
+    refusal(
+        run(&mut oracle, &diffsol, &[0], 1 << 30).unwrap_err(),
+        Method::Diffsol,
+        false,
+        "exact transient Hessians need IDAS",
+    );
     let mut first = Reactor::new(true);
     first.c.derivatives = pse_kernels::DerivativeOrder::First;
-    assert!(matches!(
-        run(&mut first, &idas, &[0], 1 << 30),
-        Err(ProblemError::Unsupported(_))
-    ));
+    refusal(
+        run(&mut first, &idas, &[0], 1 << 30).unwrap_err(),
+        Method::Idas,
+        false,
+        "needs second derivatives",
+    );
     for directions in [&[][..], &[0, 0], &[4]] {
-        assert!(matches!(
-            run(&mut oracle, &idas, directions, 1 << 30),
-            Err(ProblemError::Contract(_))
-        ));
+        refusal(
+            run(&mut oracle, &idas, directions, 1 << 30).unwrap_err(),
+            Method::Idas,
+            true,
+            "second-order directions are distinct integration columns",
+        );
     }
     let mut forward = idas.clone();
     forward.sensitivity = DynamicSensitivity::Forward;
-    assert!(matches!(
-        run(&mut oracle, &forward, &[0], 1 << 30),
-        Err(ProblemError::Contract(_))
-    ));
+    refusal(
+        run(&mut oracle, &forward, &[0], 1 << 30).unwrap_err(),
+        Method::Idas,
+        true,
+        "needs the adjoint sensitivity profile",
+    );
     let bytes = idas.admit_second_order(&oracle.c, &[0, 1]).unwrap();
     assert!(bytes > idas.checkpoint_bytes(&oracle.c).unwrap());
     let refused = run(&mut oracle, &idas, &[0, 1], bytes - 1).unwrap_err();

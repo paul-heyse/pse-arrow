@@ -15,6 +15,15 @@ use pse_model::{
 };
 use std::{collections::BTreeSet, sync::Arc};
 
+/// The actual consumer determines output and derivative-coordinate demand.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum ProviderDemand<'a> {
+    /// Observation projection or an explicit unbound all-input consumer.
+    Observations(Option<&'a BTreeSet<SemanticId>>),
+    /// Frozen bound solve/function/response derivative coordinates.
+    Case(&'a pse_math::assembly::CasePlan),
+}
+
 #[derive(Debug)]
 struct TrialHints {
     identity: pse_ids::ContentHash,
@@ -251,7 +260,7 @@ impl ModelingPackage {
         requested_output: pse_kernels::DerivativeOrder,
         compiler: Profile,
         cancel: &crate::CancelSource,
-        rows: Option<&BTreeSet<SemanticId>>,
+        demand: ProviderDemand<'_>,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, WorkflowError> {
         let product = model.compiled();
         if product.admitted.implicit_systems().next().is_none() {
@@ -260,10 +269,19 @@ impl ModelingPackage {
         controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
-        let provider_demands = product
-            .admitted
-            .provider_demands_for(rows, requested_output)
-            .map_err(crate::math::MathRuntimeError::from)?;
+        let rows = match demand {
+            ProviderDemand::Observations(rows) => rows,
+            ProviderDemand::Case(_) => None,
+        };
+        let provider_demands = match demand {
+            ProviderDemand::Observations(rows) => product
+                .admitted
+                .provider_demands_for(rows, requested_output),
+            ProviderDemand::Case(plan) => product
+                .admitted
+                .provider_demands_for_plan(plan, requested_output),
+        }
+        .map_err(crate::math::MathRuntimeError::from)?;
         let mut inputs = Vec::new();
         for inner in product
             .implicit_order_for(rows)
@@ -736,7 +754,7 @@ mod tests {
                 Value,
                 compiler,
                 &cancel,
-                Some(&selected),
+                ProviderDemand::Observations(Some(&selected)),
             )
             .await
             .unwrap();

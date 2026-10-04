@@ -82,6 +82,9 @@ Serializeable = "Serializeable"
 overrideable = "overrideable"   # Accepted spelling variant in the physical-semantics design page.
 
 [default.extend-identifiers]
+# Header-defined PETSc ABI symbol, preserved exactly in Rust and C bindings.
+PETSC_ERR_ARG_SIZ = "PETSC_ERR_ARG_SIZ"
+PSE_PETSC_ERR_ARG_SIZ = "PSE_PETSC_ERR_ARG_SIZ"
 # Exact crate/feature name retained from Cargo metadata, not prose.
 flate2 = "flate2"
 writeable = "writeable"

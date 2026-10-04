@@ -55,12 +55,12 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         (
             Backend::Ipopt,
             pse_backend_native::presolve::Policy::Auto,
-            Assurance::Feasible,
+            Assurance::LocalStationary,
         ),
         (
             Backend::Pounce,
             pse_backend_native::presolve::Policy::Auto,
-            Assurance::Feasible,
+            Assurance::LocalStationary,
         ),
     ] {
         let mut settings = profile(backend, true);
@@ -82,12 +82,19 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
             Termination::Success | Termination::Acceptable
         ));
         assert_eq!(native.termination.assurance, assurance, "{native:?}");
-        if assurance == Assurance::Feasible {
-            assert_eq!(
-                native.qualification,
-                pse_backend_native::solve::Qualification::Feasible
-            );
-        }
+        assert_eq!(
+            native.qualification,
+            pse_backend_native::solve::Qualification::Stationary
+        );
+        assert!(
+            native
+                .quality
+                .as_ref()
+                .is_some_and(|quality| quality.feasible())
+        );
+        let kkt = native.evidence.kkt.as_ref().unwrap();
+        assert_eq!(kkt.stationarity, Some(true));
+        assert_eq!(kkt.complementarity, Some(true));
     }
     for backend in [Backend::Ipopt, Backend::Pounce] {
         let result = seed_prepare(

@@ -13,6 +13,8 @@
 //! The process-level OpenMP environment that SPRAL needs (ADR-0108) is set before any
 //! thread starts: when it is missing, the worker re-executes itself with it.
 
+// Match the library's depth for the shared runtime's nested async `Send` proof.
+#![recursion_limit = "256"]
 #![allow(
     clippy::print_stdout,
     clippy::print_stderr,
@@ -56,7 +58,7 @@ struct Cli {
     #[arg(long)]
     until_idle: bool,
     /// Process memory budget in MiB.
-    #[arg(long, default_value_t = 4096)]
+    #[arg(long, default_value_t = 8192)]
     memory_mib: usize,
     /// Engine pool threads; defaults to the available parallelism.
     #[arg(long)]
@@ -94,7 +96,7 @@ fn ensure_openmp_environment() -> Result<(), String> {
     Err(format!("re-execute with the OpenMP environment: {error}"))
 }
 
-fn runtime(cli: &Cli) -> Result<Runtime, String> {
+fn resource_budget(cli: &Cli) -> ResourceBudget {
     let count = |n: usize| NonZeroUsize::new(n.max(1)).unwrap_or(NonZeroUsize::MIN);
     let threads = cli
         .threads
@@ -106,7 +108,7 @@ fn runtime(cli: &Cli) -> Result<Runtime, String> {
         artifact_bytes: memory / 8,
         ..Default::default()
     };
-    let shared = SharedRuntime::build(ResourceBudget {
+    ResourceBudget {
         memory_limit_bytes: count(memory),
         spill_dir: std::env::temp_dir(),
         max_temp_dir_bytes: 1 << 30,
@@ -119,8 +121,12 @@ fn runtime(cli: &Cli) -> Result<Runtime, String> {
         cache: pse_runtime::DeltaCacheBudget::disabled(1024),
         math,
         hashing_may_use_pool: false,
-    })
-    .map_err(|e| format!("runtime budget: {e}"))?;
+    }
+}
+
+fn runtime(cli: &Cli) -> Result<Runtime, String> {
+    let shared =
+        SharedRuntime::build(resource_budget(cli)).map_err(|e| format!("runtime budget: {e}"))?;
     let registry = pse_schema::shared_registry().map_err(|e| format!("registry: {e}"))?;
     let sessions = Arc::new(
         shared
@@ -212,5 +218,39 @@ fn main() -> ExitCode {
             report(&error);
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "assert the CLI parser and its production budget contract"
+)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parsed_default_budget_admits_default_compiler_scratch() {
+        let cli = Cli::try_parse_from(["pse-worker"]).unwrap();
+        let budget = resource_budget(&cli);
+        let compiler = pse_compiler::workspace::Profile::default();
+        assert!(budget.math.worker_bytes >= compiler.evaluation.scratch_bytes);
+        let compilation = compiler.evaluation.scratch_bytes
+            + budget.math.stack_bytes
+            + budget.math.foreign_bytes
+            + budget.math.inner_session_bytes;
+        assert!(compilation + budget.math.workspace_bytes <= budget.memory_limit_bytes.get());
+    }
+
+    #[test]
+    fn explicit_smaller_budget_retains_its_compilation_admission_limit() {
+        let cli = Cli::try_parse_from(["pse-worker", "--memory-mib", "4096"]).unwrap();
+        let budget = resource_budget(&cli);
+        assert!(
+            budget.math.worker_bytes
+                < pse_compiler::workspace::Profile::default()
+                    .evaluation
+                    .scratch_bytes
+        );
     }
 }

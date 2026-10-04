@@ -13,6 +13,18 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `NamedV1` | `pse:named:v1` | Named-policy entity identity: `named_id(package_id, qualified_name)`. |
 | `RegistryV1` | `pse:registry:v1` | Registry identity and the registry fingerprint. |
 | `SettingsV1` | `pse:settings:v1` | An engine settings or profile digest (blueprint §14.3, §23.2). |
+| `NumericalStrategyV1` | `pse:numerical-strategy:v1` | Declared numerical mechanisms, permissions, finite work and consumed accuracy. |
+| `NumericalWorkV1` | `pse:numerical-work:v1` | One actual numerical charging operation within a task's attempt/mechanism. |
+| `SolveStrategyPreparationV1` | `pse:solve-strategy-preparation:v1` | Resolved strategy and all admitted original/derived prepared rungs. |
+| `SolveStrategyRequestV1` | `pse:solve-strategy-request:v1` | Complete declared strategy request and admitted starts. |
+| `OriginalSolveContractV1` | `pse:original-solve-contract:v1` | Frozen original equations, binding, bounds, objective and final numerical policy. |
+| `NativeUnoBuildV1` | `pse:native-uno-build:v1` | Qualified Uno source, native inputs and project foreign bridge. |
+| `NativePetscBuildV1` | `pse:native-petsc-build:v1` | Qualified PETSc source, native inputs and project foreign bridge. |
+| `DerivedFamilyV1` | `pse:derived-family:v1` | Immutable numerical family structure and reconstruction contract. |
+| `DerivedBindingV1` | `pse:derived-binding:v1` | Numerical family values, anchors, mass and step binding. |
+| `AccuracyProductV1` | `pse:accuracy-product:v1` | Consumed numerical action/output accuracy, order, source and normalization. |
+| `ImplicitNumericalProductV1` | `pse:implicit-numerical-product:v1` | Selected-root numerical proposals/jets with their consumed accuracy binding. |
+| `SelectedRootSheetV1` | `pse:selected-root-sheet:v1` | Verified selected-root sheet lineage, distinct from a regime identifier. |
 | `BuildInputsV1` | `pse:build-inputs:v1` | The digest of the build inputs recorded as build provenance. |
 | `ArtifactDescriptorV1` | `pse:artifact-descriptor:v1` | A stored artifact descriptor's identity. |
 | `ArtifactDescriptorV3` | `pse:artifact-descriptor:v3` | Artifact descriptor with an explicit recorded profile root inventory. |
@@ -110,6 +122,7 @@ Derived in: pse-compiler.
 | `MathTypedDefinitionV10` | `pse.math.typed-definition.v10` | Checked-member tokens in normalized typed closure validity. |
 | `CompilerModelingViewV2` | `pse.compiler.modeling-view.v2` | A prepared view of a compiled modeling structure. |
 | `CompilerModelingViewV3` | `pse.compiler.modeling-view.v3` | Mathematical view and compiler profile, with revision attribution bound separately. |
+| `CompilerModelingViewV4` | `pse.compiler.modeling-view.v4` | Complete compiler view policy, including assembly limits and class-proof work. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingConsumerBodyV3` | `pse.modeling.consumer-body.v3` | Canonical complete identity under ADR-0150. |
@@ -177,11 +190,15 @@ Derived in: pse-backend-native.
 | `NativeBuildV1` | `pse.native.build.v1` | Every linked adapter's native build. |
 | `NativeContextSnapshotV1` | `pse.native.context-snapshot.v1` | Immutable adapter build and runtime observations consumed by contextual routing. |
 | `MathArtifactV5` | `pse.math.artifact.v5` | Selected mathematical support and evaluator policy under ADR-0152. |
+| `MathDirectionalArtifactV1` | `pse.math.directional-artifact.v1` | Demanded directional evaluator with runtime seed coordinates. |
+| `MathSurrogateTaskV1` | `pse.math.surrogate-task.v1` | Complete retained surrogate task correspondence, fidelity and finite controls. |
+| `InitializationDeviationV1` | `pse.math.initialization-deviation.v1` | Declared physical least-deviation center, metric, held coordinates and original contract. |
 | `MathCoefficientAssumptionsV2` | `pse.math.coefficient-assumptions.v2` | Original aggregate coefficient assumptions under ADR-0152. |
 | `MathBoundFactsV3` | `pse.math.bound-facts.v3` | Domain projection and demand-owned class-proof policy under ADR-0152. |
 | `NativeControlsV2` | `pse.native.controls.v2` | Native solve controls. |
 | `NativeControlsV3` | `pse.native.controls.v3` | Canonical complete identity under ADR-0150. |
 | `NativeIpoptBuildV1` | `pse.native.ipopt.build.v1` | The linked Ipopt build. |
+| `NativeIpoptSequenceBuildV1` | `pse.native.ipopt-sequence.build.v1` | Persistent TNLP/application bridge plus actual linked numerical providers. |
 | `NativeSeedV2` | `pse.native.seed.v2` | A seed's content, without its execution origin. |
 | `NativeSeedV3` | `pse.native.seed.v3` | Canonical complete identity under ADR-0150. |
 | `NativeStructuralScopeV1` | `pse.native.structural-scope.v1` | A structural analysis scope over a residual Jacobian. |

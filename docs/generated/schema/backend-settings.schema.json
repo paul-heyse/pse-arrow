@@ -561,6 +561,39 @@
       ],
       "type": "string"
     },
+    "NativePetscLinear": {
+      "enum": [
+        "gmres",
+        "fgmres",
+        "bicgstab",
+        "preonly"
+      ],
+      "type": "string"
+    },
+    "NativePetscMethod": {
+      "enum": [
+        "newton_trust_region",
+        "nonlinear_additive_schwarz",
+        "pseudo_transient"
+      ],
+      "type": "string"
+    },
+    "NativePetscPreconditioner": {
+      "enum": [
+        "none",
+        "jacobi",
+        "ilu",
+        "lu"
+      ],
+      "type": "string"
+    },
+    "NativeUnoMethod": {
+      "enum": [
+        "sqp",
+        "slp"
+      ],
+      "type": "string"
+    },
     "PardisoMatching": {
       "enum": [
         "complete",
@@ -594,9 +627,61 @@
     "Preconditioner": {
       "enum": [
         "none",
-        "jacobi"
+        "jacobi",
+        "block_factor"
       ],
       "type": "string"
+    },
+    "PseudoTime": {
+      "additionalProperties": false,
+      "description": "Finite step growth and rejection controls for artificial pseudo-time.",
+      "properties": {
+        "failed_scale": {
+          "default": 0.5,
+          "description": "Failed-stage shrink strictly between zero and one.",
+          "format": "double",
+          "type": "number"
+        },
+        "growth": {
+          "default": 1.1,
+          "description": "Successful-step growth greater than one.",
+          "format": "double",
+          "type": "number"
+        },
+        "initial": {
+          "default": 0.01,
+          "description": "Positive artificial initial time step.",
+          "format": "double",
+          "type": "number"
+        },
+        "maximum": {
+          "default": 1000000.0,
+          "description": "Finite maximum time step.",
+          "format": "double",
+          "type": "number"
+        },
+        "minimum": {
+          "default": 1e-12,
+          "description": "Explicit rejection floor; a step below this ends the attempt.",
+          "format": "double",
+          "type": "number"
+        },
+        "nonlinear_failures": {
+          "default": 20,
+          "description": "Finite allowed nonlinear failures.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rejections": {
+          "default": 20,
+          "description": "Finite allowed rejected steps.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
     },
     "RestartBarrier": {
       "description": "The initial barrier parameter of an interior-point restart.",
@@ -636,6 +721,24 @@
         }
       ]
     },
+    "Schwarz": {
+      "additionalProperties": false,
+      "description": "Explicit correction damping and overlap extension for nonlinear Schwarz.",
+      "properties": {
+        "damping": {
+          "default": 1.0,
+          "description": "Native nonlinear correction damping in (0,1].",
+          "format": "double",
+          "type": "number"
+        },
+        "restricted": {
+          "default": true,
+          "description": "Restrict the extension to each block's declared interior.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "SpralOrdering": {
       "enum": [
         "metis",
@@ -666,6 +769,31 @@
       "exclusiveMinimum": 0.0,
       "format": "double",
       "type": "number"
+    },
+    "TrustRegion": {
+      "additionalProperties": false,
+      "description": "Normalized radius bounds consumed by the native trust-region method.",
+      "properties": {
+        "initial": {
+          "default": 1.0,
+          "description": "Initial radius in normalized coordinates.",
+          "format": "double",
+          "type": "number"
+        },
+        "maximum": {
+          "default": 100000000.0,
+          "description": "Positive finite maximum radius.",
+          "format": "double",
+          "type": "number"
+        },
+        "minimum": {
+          "default": 1e-12,
+          "description": "Positive lower radius; reaching it stops the native trajectory.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "type": "object"
     },
     "WarmRestart": {
       "additionalProperties": false,
@@ -822,7 +950,7 @@
       "properties": {
         "anderson": {
           "default": 0,
-          "description": "Native Anderson history; zero disables acceleration.",
+          "description": "Native Anderson history for Picard/fixed point; zero disables acceleration.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -841,7 +969,7 @@
         "damping": {
           "$ref": "#/$defs/Fraction",
           "default": 1.0,
-          "description": "Damping in (0,1]."
+          "description": "Picard/fixed-point damping in (0,1]; Newton and line search require one."
         },
         "eta": {
           "$ref": "#/$defs/KinsolEta",
@@ -855,11 +983,11 @@
           "default": {
             "kind": "klu"
           },
-          "description": "Native linear solver for equation profiles."
+          "description": "Native linear solver for equation/Picard profiles; fixed point requires the default."
         },
         "max_newton_step": {
           "default": null,
-          "description": "Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit\nbecause KINSOL raises a smaller cap to one; `None` keeps KINSOL's\n`1000 * ||D_u u_0||`.",
+          "description": "Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit\nbecause KINSOL raises a smaller cap to one; Newton/line search only. `None` keeps KINSOL's\n`1000 * ||D_u u_0||`.",
           "format": "double",
           "type": [
             "number",
@@ -878,7 +1006,7 @@
         },
         "setup_interval": {
           "default": 10,
-          "description": "Maximum nonlinear iterations between linear setups.",
+          "description": "Maximum nonlinear iterations between linear setups; fixed point requires the default.",
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
@@ -1261,6 +1389,102 @@
         "backend"
       ],
       "title": "PounceConvexSettings",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "First-order Uno filter trust-region SQP or SLP.",
+      "properties": {
+        "backend": {
+          "const": "uno",
+          "type": "string"
+        },
+        "limited_memory": {
+          "default": 6,
+          "description": "Positive L-BFGS history for SQP; exactly zero for SLP.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "method": {
+          "$ref": "#/$defs/NativeUnoMethod",
+          "default": "sqp",
+          "description": "SQP uses an L-BFGS Hessian; SLP consumes no Hessian history."
+        },
+        "trust_radius": {
+          "default": 10.0,
+          "description": "Initial native trust radius, in normalized coordinates.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "backend"
+      ],
+      "title": "UnoSettings",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile.",
+      "properties": {
+        "backend": {
+          "const": "petsc",
+          "type": "string"
+        },
+        "linear": {
+          "$ref": "#/$defs/NativePetscLinear",
+          "default": "gmres",
+          "description": "Selected native KSP method."
+        },
+        "method": {
+          "$ref": "#/$defs/NativePetscMethod",
+          "default": "newton_trust_region",
+          "description": "Selected native nonlinear method."
+        },
+        "preconditioner": {
+          "$ref": "#/$defs/NativePetscPreconditioner",
+          "default": "ilu",
+          "description": "Selected native PC method."
+        },
+        "pseudo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PseudoTime"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Required precisely for the pseudo-transient profile."
+        },
+        "schwarz": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Schwarz"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Required precisely for nonlinear additive Schwarz."
+        },
+        "trust": {
+          "$ref": "#/$defs/TrustRegion",
+          "default": {
+            "initial": 1.0,
+            "maximum": 100000000.0,
+            "minimum": 1e-12
+          },
+          "description": "Inner trust-region profile used by SNES and TSPSEUDO correction."
+        }
+      },
+      "required": [
+        "backend"
+      ],
+      "title": "PetscSettings",
       "type": "object"
     }
   ],

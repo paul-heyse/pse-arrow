@@ -168,3 +168,30 @@ fn contextual_unit_dynamic_resource_refusal_never_selects_another_method() {
         Err(ProblemError::Limit { .. })
     ));
 }
+
+#[test]
+fn contextual_unit_idas_refuses_kinsol_only_block_factor_before_native_execution() {
+    let c = contract();
+    let mut p = profile();
+    p.method = Method::Idas;
+    for preconditioner in [
+        crate::solve::Preconditioner::None,
+        crate::solve::Preconditioner::Jacobi,
+        crate::solve::Preconditioner::BlockFactor,
+    ] {
+        p.idas.linear = IdasLinear::Spgmr {
+            dimension: PositiveCount::try_new(3).unwrap(),
+            preconditioner,
+        };
+        let causes = p.method_refusals(&c);
+        if preconditioner == crate::solve::Preconditioner::BlockFactor {
+            assert!(
+                causes
+                    .iter()
+                    .any(|cause| matches!(cause, ProblemError::Unsupported(_)))
+            );
+        } else {
+            assert!(causes.is_empty(), "{causes:?}");
+        }
+    }
+}

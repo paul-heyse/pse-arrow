@@ -162,6 +162,27 @@ pub(in crate::workflow) fn report(result: &RunResult) -> &FitReport {
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("fit report")
     };
+    let trace = report
+        .strategy
+        .as_ref()
+        .expect("joined fitting strategy trace");
+    assert!(trace.owner.is_some());
+    let rows = pse_relations::generated::runtime::solve_strategy_events::Row::rows(
+        &result.table("runtime.solve_strategy_events").unwrap(),
+    )
+    .unwrap();
+    assert_eq!(rows.len(), trace.events.len());
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row.kind == pse_model::generated::enums::NumericalEventKind::Started)
+            .count(),
+        1
+    );
+    let final_row = rows.last().unwrap();
+    assert_eq!(final_row.phase, pse_model::strategy::Phase::Assessment);
+    assert_eq!(final_row.attempts, Some(1));
+    assert_eq!(final_row.evaluations, None);
+    assert_eq!(final_row.factorizations, None);
     report
 }
 pub(in crate::workflow) fn close(actual: f64, expected: f64, relative: f64) -> bool {

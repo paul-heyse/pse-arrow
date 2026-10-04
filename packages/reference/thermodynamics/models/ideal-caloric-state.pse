@@ -5,21 +5,17 @@
 @id("01a0ede58ecf75039afc4717275205b3") use chemistry @"1.0.0";
 @id("f21929aacb324034b3385a220dd1ba81") use equilibrium @"1.0.0";
 @id("0fa5555ad5e9425487ce121716721238") use caloric @"1.0.0";
-@id("0fb5bfea78084dad8cf6d2688e180c3d") interface IdealGasState extends equilibrium.EntropyThermoPackage {
+@id("e07555fe07c844999405c8de8332de60") interface SinglePhaseCaloricState extends equilibrium.ThermoPackage {
+@id("a196f931116747dc93689ca5f430a151") param selected_phase:chemistry.phase=chemistry.vapor;
 @id("ab324a958c5e4d3a93acea3c16318088") param component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy;
-@id("1c69744112bc458baf91647a7ccb4207") param component_s:Fn(T:Temperature,j:chemistry.species)->MolarEntropy;
 @id("bfc22f31704c4c7a9b164a7bbb9c00cf") param reference_pressure:Pressure;
 @id("48b7742347a04348bff88245ce309554") param minimum_temperature:Temperature;
 @id("306f9ed8081f49c6920df5f98f39958c") param maximum_temperature:Temperature;
-@id("2d2937d6880f42e89a10d3224824b0de") override param phases:Set<chemistry.phase>={chemistry.vapor};
+@id("2d2937d6880f42e89a10d3224824b0de") override param phases:Set<chemistry.phase>={selected_phase};
 @id("577ef7dbf6b44a53b57b11af94ec6b53") let phase_enthalpy[p in phases]:MolarEnthalpy=h;
 @id("0c2d3c34495f49a5ad3abdac2a3dbaac") let phase_flow[p in phases]:Flow=flow;
 @id("5b0a96313d054d74ae0e57efe086ff2b") let phase_component_flow[p in phases,j in components]:ComponentFlow=component_flow[j];
-@id("0883bc239db1440ea53d3b81636ff560") eq enthalpy:h==constants.standard_enthalpy_datum+sum(j in components | (z[j]/equilibrium.fraction_unit())*(component_h(T,j)-constants.standard_enthalpy_datum));
-@id("7bbafb6b113a4d9aba1f12ec6a224054") let s:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (z[j]/equilibrium.fraction_unit())*(component_s(T,j)-constants.standard_entropy_datum))-equilibrium.ideal_entropy_increment(pressure,reference_pressure,z,components);
-@id("26e64380c8164ae489a3a470e3e91cf1") when not defined {
-@id("db94a8a671cd4275aedfa62a13b221bb") eq normalized:sum(j in components | z[j]/equilibrium.fraction_unit())==1;
-}
+@id("0883bc239db1440ea53d3b81636ff560") eq enthalpy:h==mixture_enthalpy(T,z,components,component_h);
 @id("58d8762abce845c599e77ff62445aab0") annotation start flow(1{mol/s});
 @id("955866b85230401b9dedbb7ce848aac4") annotation nominal flow(1{mol/s});
 @id("b956ce97bdb940f78e13aa6e2e08135c") annotation start T(300{K});
@@ -33,5 +29,10 @@
 @id("4ceef21ee3b847b2a83c6db3e3ef50f1") annotation bounds z(1e-12{1},1{1});
 @id("14110a2fca514435ac44c8d0b974d8b5") annotation start h(0{J/mol});
 @id("5c6fabb4ec1f44c198d0220507e83812") annotation nominal h(10000{J/mol});
+}
+@id("bf00072386d54ed28d149e4f7bb943ee") fn mixture_enthalpy(T:Temperature,z:MoleFraction[chemistry.species],members:Set<chemistry.species>,component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy)->MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in members | (z[j]/equilibrium.fraction_unit())*(component_h(T,j)-constants.standard_enthalpy_datum));
+@id("0fb5bfea78084dad8cf6d2688e180c3d") interface IdealGasState extends SinglePhaseCaloricState,equilibrium.EntropyThermoPackage {
+@id("1c69744112bc458baf91647a7ccb4207") param component_s:Fn(T:Temperature,j:chemistry.species)->MolarEntropy;
+@id("7bbafb6b113a4d9aba1f12ec6a224054") let s:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (z[j]/equilibrium.fraction_unit())*(component_s(T,j)-constants.standard_entropy_datum))-equilibrium.ideal_entropy_increment(pressure,reference_pressure,z,components);
 }
 }

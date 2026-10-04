@@ -15,6 +15,21 @@ use std::collections::BTreeMap;
 fn declaration(py: Python<'_>, text: &str) -> PyResult<DeclarationId> {
     id(py, text).map(DeclarationId::from)
 }
+/// Use the complete canonical preparation document or the existing Rust defaults.
+fn preparation_settings(
+    py: Python<'_>,
+    bytes: Option<&[u8]>,
+    limits: pse_modeling::Limits,
+    allowance: usize,
+) -> PyResult<native::PreparationSettings> {
+    match bytes {
+        Some(bytes) => documents::decode(py, "preparation settings", bytes, allowance / 4),
+        None => Ok(native::PreparationSettings {
+            limits,
+            ..Default::default()
+        }),
+    }
+}
 /// Decode the flow selection through its Rust-owned document contract.
 fn flow_selection(
     py: Python<'_>,
@@ -950,13 +965,20 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[pyo3(signature=(settings, *, controls=None))]
+    #[pyo3(signature=(settings, *, controls=None, preparation=None))]
     fn conform(
         &self,
         py: Python<'_>,
         settings: &[u8],
         controls: Option<&[u8]>,
+        preparation: Option<&[u8]>,
     ) -> PyResult<NativeModelingConformance> {
+        let preparation = preparation_settings(
+            py,
+            preparation,
+            self.limits,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let controls: native::ConformanceControls = documents::controls(
             py,
             "conformance controls",
@@ -978,10 +1000,10 @@ impl NativeModelingPackage {
         let settings = settings::solve_profile(py, settings)?;
         let cancel = CancelSource::new();
         let policy = native::ModelingConformancePolicy {
-            compiler: Default::default(),
+            compiler: preparation.compiler,
             solver: settings.clone(),
             numerical: Default::default(),
-            limits: self.limits,
+            limits: preparation.limits,
             derivatives: pse_backend_native::derivative_diagnostics::Policy {
                 perturbation: derivative_step,
                 relative_tolerance: derivative_tolerance,
@@ -999,12 +1021,20 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
+    #[pyo3(signature=(case_id, settings, *, preparation=None))]
     fn prepare_solve(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
+        preparation: Option<&[u8]>,
     ) -> PyResult<NativePreparedOperation> {
+        let preparation = preparation_settings(
+            py,
+            preparation,
+            self.limits,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
@@ -1016,10 +1046,10 @@ impl NativeModelingPackage {
                     .inner
                     .declared_execution(
                         root,
-                        Default::default(),
+                        preparation.compiler,
                         settings.clone(),
                         Default::default(),
-                        self.limits,
+                        preparation.limits,
                         &cancel,
                     )
                     .await?;
@@ -1032,12 +1062,20 @@ impl NativeModelingPackage {
             inner: PreparedOperation::Modeling(Box::new(inner)),
         })
     }
+    #[pyo3(signature=(case_id, settings, *, preparation=None))]
     fn solve_case(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
+        preparation: Option<&[u8]>,
     ) -> PyResult<NativeModelingResult> {
+        let preparation = preparation_settings(
+            py,
+            preparation,
+            self.limits,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
@@ -1049,10 +1087,10 @@ impl NativeModelingPackage {
                     .inner
                     .declared_execution(
                         root,
-                        Default::default(),
+                        preparation.compiler,
                         settings.clone(),
                         Default::default(),
-                        self.limits,
+                        preparation.limits,
                         &cancel,
                     )
                     .await?;
@@ -1603,7 +1641,7 @@ pub(crate) struct NativeModelingConformance {
 #[pymethods]
 impl NativeModelingConformance {
     #[staticmethod]
-    #[pyo3(signature=(documents, physical, settings, *, controls=None, limits=None))]
+    #[pyo3(signature=(documents, physical, settings, *, controls=None, limits=None, preparation=None))]
     fn pure(
         py: Python<'_>,
         documents: Vec<BTreeMap<String, DocumentContent>>,
@@ -1611,7 +1649,14 @@ impl NativeModelingConformance {
         settings: &inspection::EngineSettings,
         controls: Option<&[u8]>,
         limits: Option<&ModelingLimits>,
+        preparation: Option<&[u8]>,
     ) -> PyResult<Self> {
+        let preparation = preparation_settings(
+            py,
+            preparation,
+            limits.map_or_else(Default::default, |value| value.limits),
+            settings.resource_budget().math.workspace_bytes,
+        )?;
         let controls: native::PureConformanceControls = documents::controls(
             py,
             "pure conformance controls",
@@ -1643,7 +1688,7 @@ impl NativeModelingConformance {
                 selection,
                 maximum_fixtures,
                 maximum_checks,
-                limits.map_or_else(Default::default, |v| v.limits),
+                preparation,
                 &cancel,
             ),
             || cancel.cancel(),

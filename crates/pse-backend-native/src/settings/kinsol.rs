@@ -100,16 +100,16 @@ pub enum Eta {
 pub struct Method {
     /// Nonlinear strategy.
     pub strategy: Strategy,
-    /// Native linear solver for equation profiles.
+    /// Native linear solver for equation/Picard profiles; fixed point requires the default.
     pub linear: Linear,
-    /// Native Anderson history; zero disables acceleration.
+    /// Native Anderson history for Picard/fixed point; zero disables acceleration.
     pub anderson: usize,
-    /// Damping in (0,1].
+    /// Picard/fixed-point damping in (0,1]; Newton and line search require one.
     pub damping: Fraction,
-    /// Maximum nonlinear iterations between linear setups.
+    /// Maximum nonlinear iterations between linear setups; fixed point requires the default.
     pub setup_interval: u32,
     /// Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit
-    /// because KINSOL raises a smaller cap to one; `None` keeps KINSOL's
+    /// because KINSOL raises a smaller cap to one; Newton/line search only. `None` keeps KINSOL's
     /// `1000 * ||D_u u_0||`.
     pub max_newton_step: Option<f64>,
     /// Inexact-Newton forcing term; Krylov routes only.
@@ -136,5 +136,18 @@ impl Default for Method {
             orthogonalization: Orthogonalization::ModifiedGramSchmidt,
             anderson_delay: 0,
         }
+    }
+}
+
+impl Method {
+    /// Every equation Krylov route consumes the original residual action independently
+    /// of any assembled analytic Jacobian needed by its preconditioner.
+    pub fn consumes_jvp(&self) -> bool {
+        self.linear.krylov().is_some()
+            && matches!(self.strategy, Strategy::Newton | Strategy::LineSearch)
+    }
+    /// Matrix-free equation execution without an assembled-Jacobian preconditioner.
+    pub fn consumes_directional_only(&self) -> bool {
+        self.consumes_jvp() && self.preconditioner == Preconditioner::None
     }
 }

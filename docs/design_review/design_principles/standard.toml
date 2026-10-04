@@ -8,7 +8,7 @@ template = "core/design-review-template.md"
 
 [[profiles]]
 name = "process-simulator"
-version = "1.3"
+version = "1.4"
 prefix = "PS"
 principles = "profiles/process-simulator/principles.md"
 review = "profiles/process-simulator/review.md"

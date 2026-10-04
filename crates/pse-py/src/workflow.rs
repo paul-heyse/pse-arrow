@@ -1187,6 +1187,69 @@ impl NativePreparedOperation {
         };
         Ok(p.solve.eligibility().iter().map(Into::into).collect())
     }
+    /// Exact effective profile identity used by declared numerical mechanisms.
+    #[getter]
+    fn strategy_profile(&self, py: Python<'_>) -> PyResult<String> {
+        let PreparedOperation::Modeling(p) = &self.inner else {
+            return Err(invalid(py, "numerical profile requires an algebraic solve"));
+        };
+        p.solve
+            .strategy_profile()
+            .map(|key| key.to_prefixed())
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
+    /// Mechanical document projection of the actual declared execution policy.
+    #[getter]
+    fn numerical_strategy(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        let PreparedOperation::Modeling(p) = &self.inner else {
+            return Err(invalid(
+                py,
+                "numerical strategy requires an algebraic solve",
+            ));
+        };
+        documents::encode(py, &p.solve.numerical_strategy())
+    }
+    /// Bind prepared original-system profiles to the validated numerical declaration.
+    fn with_numerical_strategy(
+        &self,
+        py: Python<'_>,
+        declaration: &[u8],
+        rungs: Vec<PyRef<'_, NativePreparedOperation>>,
+    ) -> PyResult<Self> {
+        let PreparedOperation::Modeling(p) = &self.inner else {
+            return Err(invalid(
+                py,
+                "numerical composition requires an algebraic solve",
+            ));
+        };
+        let declaration: pse_model::strategy::NumericalStrategy = documents::decode(
+            py,
+            "numerical strategy",
+            declaration,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let rungs = rungs
+            .iter()
+            .map(|rung| {
+                if !Arc::ptr_eq(&self.owner, &rung.owner) {
+                    return Err(invalid(py, "numerical rungs belong to another runtime"));
+                }
+                let PreparedOperation::Modeling(prepared) = &rung.inner else {
+                    return Err(invalid(py, "numerical rung requires an algebraic solve"));
+                };
+                Ok(prepared.solve.clone().into())
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let mut prepared = p.as_ref().clone();
+        prepared.solve = prepared
+            .solve
+            .with_strategy(declaration, rungs)
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner: PreparedOperation::Modeling(Box::new(prepared)),
+        })
+    }
     fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
         let PreparedOperation::Modeling(p) = &self.inner else {
             return Err(invalid(py, "native warm starts require an algebraic solve"));

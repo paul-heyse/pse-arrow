@@ -1502,6 +1502,7 @@ class NativeArtifactDemand(StrEnum):
     """The declared NativeArtifactDemand enumeration."""
 
     DERIVATIVES = "derivatives"
+    JACOBIAN_PRODUCT = "jacobian_product"
     REPRESENTATION = "representation"
 
 
@@ -1540,6 +1541,8 @@ class NativeBackend(StrEnum):
     IDAS = "idas"
     SCIP = "scip"
     POUNCE_CONVEX = "pounce_convex"
+    UNO = "uno"
+    PETSC = "petsc"
 
 
 class NativeBoundaryClass(StrEnum):
@@ -1705,6 +1708,32 @@ class NativeObjectiveSense(StrEnum):
     MAXIMIZE = "maximize"
 
 
+class NativePetscLinear(StrEnum):
+    """The declared NativePetscLinear enumeration."""
+
+    GMRES = "gmres"
+    FGMRES = "fgmres"
+    BICGSTAB = "bicgstab"
+    PREONLY = "preonly"
+
+
+class NativePetscMethod(StrEnum):
+    """The declared NativePetscMethod enumeration."""
+
+    NEWTON_TRUST_REGION = "newton_trust_region"
+    NONLINEAR_ADDITIVE_SCHWARZ = "nonlinear_additive_schwarz"
+    PSEUDO_TRANSIENT = "pseudo_transient"
+
+
+class NativePetscPreconditioner(StrEnum):
+    """The declared NativePetscPreconditioner enumeration."""
+
+    NONE = "none"
+    JACOBI = "jacobi"
+    ILU = "ilu"
+    LU = "lu"
+
+
 class NativeProblemClass(StrEnum):
     """The declared NativeProblemClass enumeration."""
 
@@ -1848,6 +1877,13 @@ class NativeTermination(StrEnum):
     INVALID = "invalid"
 
 
+class NativeUnoMethod(StrEnum):
+    """The declared NativeUnoMethod enumeration."""
+
+    SQP = "sqp"
+    SLP = "slp"
+
+
 class NativeWarmCapability(StrEnum):
     """The declared NativeWarmCapability enumeration."""
 
@@ -1858,11 +1894,110 @@ class NativeWarmCapability(StrEnum):
     PRIMAL_DUAL_AND_BASIS = "primal_dual_and_basis"
 
 
+class NumericalAccuracyClass(StrEnum):
+    """The declared NumericalAccuracyClass enumeration."""
+
+    CERTIFIED = "certified"
+    ESTIMATED = "estimated"
+    UNRESOLVED = "unresolved"
+
+
+class NumericalAttemptObservation(StrEnum):
+    """The declared NumericalAttemptObservation enumeration."""
+
+    CONVERGED = "converged"
+    STALLED = "stalled"
+    LIMITED = "limited"
+    NUMERICAL_FAILURE = "numerical_failure"
+    CAPABILITY_REFUSAL = "capability_refusal"
+    CONTRACT_FAILURE = "contract_failure"
+    RESOURCE_EXHAUSTED = "resource_exhausted"
+    CANCELLED = "cancelled"
+    PANIC = "panic"
+    OPERATIONAL_FAILURE = "operational_failure"
+    AUXILIARY = "auxiliary"
+    INFEASIBLE = "infeasible"
+
+
+class NumericalBranchPolicy(StrEnum):
+    """The declared NumericalBranchPolicy enumeration."""
+
+    ANY_QUALIFIED = "any_qualified"
+    CONNECTED = "connected"
+
+
 class NumericalCoordinates(StrEnum):
     """The declared NumericalCoordinates enumeration."""
 
     PHYSICAL = "physical"
     NORMALIZED = "normalized"
+
+
+class NumericalEventKind(StrEnum):
+    """The declared NumericalEventKind enumeration."""
+
+    PLANNED = "planned"
+    STARTED = "started"
+    FINISHED = "finished"
+    REFUSED = "refused"
+    ABANDONED = "abandoned"
+
+
+class NumericalMechanism(StrEnum):
+    """The declared NumericalMechanism enumeration."""
+
+    DIRECT = "direct"
+    KKT_PREDICTOR = "kkt_predictor"
+    ACTIVITY_PATH = "activity_path"
+    LIMITED_CORRECTOR = "limited_corrector"
+    ROOT_RESPONSE = "root_response"
+    SECANT_PREDICTOR = "secant_predictor"
+    NEWTON_KRYLOV = "newton_krylov"
+    SETUP_REUSE = "setup_reuse"
+    MAPS_ANDERSON = "maps_anderson"
+    BOUNDED_FEASIBILITY = "bounded_feasibility"
+    NATIVE_GLOBALIZATION = "native_globalization"
+    CONTINUATION = "continuation"
+    HOMOTOPY = "homotopy"
+    PSEUDO_TRANSIENT = "pseudo_transient"
+    CONSISTENT_INITIALIZATION = "consistent_initialization"
+    BLOCK = "block"
+    REDUCED_SPACE = "reduced_space"
+    NONLINEAR_PRECONDITIONER = "nonlinear_preconditioner"
+    SURROGATE = "surrogate"
+    MULTIFIDELITY = "multifidelity"
+    SCHUR = "schur"
+    BATCH = "batch"
+    MULTISTART = "multistart"
+    SELECTED_EVALUATION = "selected_evaluation"
+    LEAST_DEVIATION = "least_deviation"
+
+
+class NumericalPathEventKind(StrEnum):
+    """The declared NumericalPathEventKind enumeration."""
+
+    REGULAR = "regular"
+    SIMPLE_FOLD = "simple_fold"
+    UNRESOLVED = "unresolved"
+
+
+class NumericalPhase(StrEnum):
+    """The declared NumericalPhase enumeration."""
+
+    PREPARATION = "preparation"
+    PREDICTION = "prediction"
+    SCREENING = "screening"
+    NATIVE = "native"
+    VERIFICATION = "verification"
+    ASSESSMENT = "assessment"
+
+
+class NumericalPosition(StrEnum):
+    """The declared NumericalPosition enumeration."""
+
+    PREPARATION = "preparation"
+    EXECUTION = "execution"
+    RECOVERY = "recovery"
 
 
 class NumericalProvenanceField(StrEnum):
@@ -1872,6 +2007,15 @@ class NumericalProvenanceField(StrEnum):
     ABSOLUTE_TOLERANCE = "absolute_tolerance"
     RELATIVE_TOLERANCE = "relative_tolerance"
     COORDINATE_SCALE = "coordinate_scale"
+
+
+class NumericalScope(StrEnum):
+    """The declared NumericalScope enumeration."""
+
+    TASK = "task"
+    OCCURRENCE = "occurrence"
+    MECHANISM = "mechanism"
+    ATTEMPT = "attempt"
 
 
 class NumericalSource(StrEnum):
@@ -1887,6 +2031,19 @@ class NumericalSource(StrEnum):
     CANONICAL_FALLBACK = "canonical_fallback"
 
 
+class NumericalStartOrigin(StrEnum):
+    """The declared NumericalStartOrigin enumeration."""
+
+    SPECIFICATION = "specification"
+    EXPLICIT = "explicit"
+    ACCEPTED = "accepted"
+    PREDICTED = "predicted"
+    AUXILIARY = "auxiliary"
+    PARTIAL = "partial"
+    MODIFIED_SPECIFICATION = "modified_specification"
+    SURROGATE = "surrogate"
+
+
 class NumericalTarget(StrEnum):
     """The declared NumericalTarget enumeration."""
 
@@ -1895,6 +2052,16 @@ class NumericalTarget(StrEnum):
     OBJECTIVE = "objective"
     OBSERVABLE = "observable"
     CLOSURE = "closure"
+
+
+class NumericalTransition(StrEnum):
+    """The declared NumericalTransition enumeration."""
+
+    FINISH = "finish"
+    CONTINUE = "continue"
+    SUBDIVIDE = "subdivide"
+    RECOVER = "recover"
+    STOP = "stop"
 
 
 class ObservationTimeBasis(StrEnum):
@@ -2018,6 +2185,7 @@ class Preconditioner(StrEnum):
 
     NONE = "none"
     JACOBI = "jacobi"
+    BLOCK_FACTOR = "block_factor"
 
 
 class PresolvePass(StrEnum):

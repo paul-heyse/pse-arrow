@@ -145,7 +145,18 @@ pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::
         .unwrap()
 }
 pub(crate) fn compiler() -> pse_compiler::workspace::Profile {
-    Default::default()
+    let mut profile = pse_compiler::workspace::Profile {
+        class_proof_work: 100_000_000,
+        ..Default::default()
+    };
+    // The simultaneous scientific closure proves all original rows and levels.
+    // Conservative symbolic work is independent of its byte reservation.
+    profile.assembly.worker_bytes = 16 << 30;
+    profile.evaluation.derivative_components = 1_000_000;
+    profile.evaluation.operations = 100_000_000;
+    profile.evaluation.scratch_bytes = 4 << 30;
+    profile.evaluation.provider_calls = 1_000_000;
+    profile
 }
 pub(crate) fn profile(backend: Backend, optimize: bool) -> SolverProfile {
     SolverProfile {
@@ -250,7 +261,9 @@ pub(crate) async fn seed_package_on(
 pub(crate) fn seed_limits() -> pse_modeling::Limits {
     pse_modeling::Limits {
         items: 1_000_000,
-        body_occurrences: Some(65_536),
+        // Complete PC-SAFT Second support shares the body's finite construction ledger.
+        body_occurrences: Some(16_777_216),
+        body_slots: Some(65_536),
         ..Default::default()
     }
 }

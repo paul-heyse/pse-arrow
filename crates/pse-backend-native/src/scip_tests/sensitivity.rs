@@ -6,7 +6,7 @@
 use super::*;
 use crate::{
     execution::ResolveSensitivity,
-    kkt::{Parametric, Sensitivity, Withheld},
+    kkt::{Parametric, Sensitivity},
     presolve::Policy,
     transform::Relaxed,
 };
@@ -506,64 +506,65 @@ fn singleton(registry: &QuantityRegistry) -> Parameterized {
 }
 
 #[test]
-fn presolve_lost_multiplier_withholds_sensitivity() {
-    // F01 (ADR-0118 item 7) on a real postsolve: the multiplier of the removed singleton
-    // row x₃ = p₁ should be −p₂ = −2, but postsolve of the pinned library returns zero, so
-    // the original-coordinate stationarity of x₃ is 2 and the candidate is only feasible.
-    // The sensitivity is withheld with that reason; presolve is not switched off to
-    // recover it, and without presolve the same case is certified:
+fn automatic_presolve_preserves_original_multiplier_and_sensitivity() {
+    // The supported affine reduction recovers the removed singleton row's multiplier
+    // x₃ = p₁ as −p₂ = −2. Untracked interval bounds must not replace that source owner.
+    // Both the original problem and the qualified reduction have the analytic response:
     // dx₃/dp = (1, 0), dλ₂/dp = (0, −1), df*/dp = (−λ₁ + p₂, −x₁ + x₃) = (4/3, −1/3) and
     // d²f*/dp² = [[2/3, 1/3], [1/3, −1/3]].
     let registry = standard_registry().unwrap();
     let case = singleton(&registry);
-    let off = nlp(&case, Backend::Ipopt, &Policy::Off);
-    let certified = certified(&off);
-    let s = certified.sensitivities.as_ref().unwrap();
-    assert!(
-        (s.primal[0][2] - 1.0).abs() < 1e-6 && s.primal[1][2].abs() < 1e-6,
-        "{s:?}"
-    );
-    assert!(
-        s.rows[0][1].abs() < 1e-6 && (s.rows[1][1] + 1.0).abs() < 1e-6,
-        "{s:?}"
-    );
-    assert!((s.objective[0] - 4.0 / 3.0).abs() < 1e-6, "{s:?}");
-    assert!((s.objective[1] + 1.0 / 3.0).abs() < 1e-6, "{s:?}");
-    let h = certified
-        .reduced_hessian
-        .as_ref()
-        .unwrap()
-        .as_ref()
-        .unwrap();
-    for (actual, expected) in h
-        .values
-        .iter()
-        .zip([2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, -1.0 / 3.0])
-    {
-        assert!((actual - expected).abs() < 1e-6, "{h:?}");
-    }
-    let auto = nlp(&case, Backend::Ipopt, &Policy::Auto);
-    assert_eq!(
-        auto.preprocessing
+    for policy in [Policy::Off, Policy::Auto] {
+        let report = nlp(&case, Backend::Ipopt, &policy);
+        assert!(
+            (report
+                .candidate
+                .as_ref()
+                .unwrap()
+                .row_dual
+                .as_ref()
+                .unwrap()[1]
+                + 2.0)
+                .abs()
+                < 1e-6,
+            "{report:?}"
+        );
+        assert_eq!(report.evidence.kkt.unwrap().stationarity, Some(true));
+        if matches!(policy, Policy::Auto) {
+            assert_eq!(
+                report
+                    .preprocessing
+                    .as_ref()
+                    .unwrap()
+                    .dimensions
+                    .presolved_rows,
+                0
+            );
+        }
+        let certified = certified(&report);
+        let s = certified.sensitivities.as_ref().unwrap();
+        assert!(
+            (s.primal[0][2] - 1.0).abs() < 1e-6 && s.primal[1][2].abs() < 1e-6,
+            "{s:?}"
+        );
+        assert!(
+            s.rows[0][1].abs() < 1e-6 && (s.rows[1][1] + 1.0).abs() < 1e-6,
+            "{s:?}"
+        );
+        assert!((s.objective[0] - 4.0 / 3.0).abs() < 1e-6, "{s:?}");
+        assert!((s.objective[1] + 1.0 / 3.0).abs() < 1e-6, "{s:?}");
+        let h = certified
+            .reduced_hessian
             .as_ref()
             .unwrap()
-            .dimensions
-            .presolved_rows,
-        0
-    );
-    assert_eq!(
-        auto.candidate.as_ref().unwrap().row_dual.as_ref().unwrap()[1],
-        0.0
-    );
-    assert_eq!(auto.evidence.kkt.unwrap().stationarity, Some(false));
-    let withheld = auto.evidence.sensitivity.as_ref().unwrap();
-    assert!(matches!(
-        withheld.sensitivities,
-        Err(Withheld::Unqualified(Qualification::Feasible))
-    ));
-    assert!(matches!(
-        withheld.reduced_hessian,
-        Some(Err(Withheld::Unqualified(Qualification::Feasible)))
-    ));
-    assert!(withheld.point.is_none());
+            .as_ref()
+            .unwrap();
+        for (actual, expected) in h
+            .values
+            .iter()
+            .zip([2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, -1.0 / 3.0])
+        {
+            assert!((actual - expected).abs() < 1e-6, "{h:?}");
+        }
+    }
 }

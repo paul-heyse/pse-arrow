@@ -16,7 +16,14 @@ import pse
 from pse import codec
 from pse.conformance import RunSummary, load_manifest
 from pse.conformance import main as conformance_main
-from pse.contracts.enums import NativeBackend, NativeSolveIntent
+from pse.contracts import documents
+from pse.contracts.enums import (
+    DiagnosticCode,
+    DiagnosticRule,
+    NativeBackend,
+    NativeBoundaryClass,
+    NativeSolveIntent,
+)
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
@@ -28,6 +35,30 @@ def identity(n: int) -> SemanticId:
 def declaration(n: int) -> DeclarationId:
     """The identity an authored `@id` gives a case or fixture declaration."""
     return DeclarationId(identity(n))
+
+
+def preparation_policy(class_proof_work: int) -> documents.PreparationSettings:
+    """Deliberate finite allowances for the small boundary test models."""
+    return documents.PreparationSettings(
+        compiler=documents.StudyCompilerProfile(
+            class_proof_work=class_proof_work,
+            assembly=documents.AssemblyLimits(
+                contributions=1_000_000,
+                native_index=2_147_483_647,
+                worker_bytes=1 << 30,
+            ),
+            optimization=documents.Optimization(
+                cores=1, horner_iterations=2, cpe_iterations=1
+            ),
+            evaluation=documents.EvaluationLimits(
+                derivative_components=4096,
+                operations=1_000_000,
+                scratch_bytes=8 << 20,
+                provider_calls=4096,
+            ),
+        ),
+        limits=documents.Limits(depth=64, items=100_000, members=100_000),
+    )
 
 
 @pytest.mark.unit
@@ -63,7 +94,7 @@ def test_conformance_runs_the_declared_reference_set(
     manifest = tmp_path / "conformance.toml"
     text = f"""
 [settings]
-memory_limit_bytes = {8 << 30}
+memory_limit_bytes = {16 << 30}
 maximum_checks = 32
 
 [[runs]]
@@ -156,7 +187,7 @@ def test_conformance_runs_only_selected_fixtures(
     manifest.write_text(
         f"""
 [settings]
-memory_limit_bytes = {8 << 30}
+memory_limit_bytes = {16 << 30}
 maximum_checks = 32
 
 [[runs]]
@@ -186,7 +217,7 @@ execution = "pure"
         "--physical",
         str(physical_root),
         "--memory-limit-bytes",
-        str(8 << 30),
+        str(16 << 30),
         "--maximum-checks",
         "32",
     ]
@@ -396,6 +427,150 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
         pse.ModelingLimits(body_slots=0)
     with pytest.raises(pse.InspectionError, match="positive"):
         pse.ModelingLimits(members=0)
+
+
+@pytest.mark.unit
+def test_complete_preparation_policy_controls_public_preparation_and_execution(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings)
+    root = Path(__file__).resolve().parents[3]
+    manifest = on_primitives(
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+    )
+    package = runtime.modeling_from_documents(
+        [
+            {
+                "package.toml": manifest,
+                "models/preparation.pse": """package p {
+          test bounded fixture {dof 0; route steady; procedure solve;} {
+            var x:Scalar; annotation start x(1); eq solution:x==2;
+            expect x==2 tolerance 1e-8;
+          }
+        }""",
+            }
+        ],
+        physical(runtime),
+    )
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "bounded"
+    )
+    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+    assert package.solve_case(case, settings).accepted
+    zero = preparation_policy(0)
+    for operation in (package.prepare_solve, package.solve_case):
+        with pytest.raises(pse.InspectionError, match="presolve tape extent"):
+            operation(case, settings, preparation=zero)
+    larger = preparation_policy(10_000_000)
+    limited = package.with_limits(pse.ModelingLimits(items=1))
+    with pytest.raises(pse.InspectionError, match="specialized item count"):
+        limited.prepare_solve(case, settings)
+    prepared = limited.prepare_solve(case, settings, preparation=larger)
+    assert (
+        prepared.identity
+        == package.prepare_solve(case, settings, preparation=larger).identity
+    )
+    assert limited.solve_case(case, settings, preparation=larger).accepted
+    incomplete = msgspec.convert(msgspec.to_builtins(larger), type=dict[str, object])
+    compiler = msgspec.convert(incomplete["compiler"], type=dict[str, object])
+    del compiler["class_proof_work"]
+    incomplete["compiler"] = compiler
+    with pytest.raises(msgspec.ValidationError, match="class_proof_work"):
+        codec.decode_json(codec.encode_json(incomplete), documents.PreparationSettings)
+    with pytest.raises(pse.InspectionError, match="class_proof_work"):
+        package.prepare_solve(
+            case,
+            settings,
+            preparation=cast("documents.PreparationSettings", incomplete),
+        )
+
+
+@pytest.mark.unit
+def test_conformance_preparation_policy_reaches_native_and_pure_compilers(
+    tmp_path: Path,
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    physical_root = root / "tests/fixtures/packages/physical-primitives"
+    manifest = on_primitives(
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+    )
+    source = {
+        "package.toml": manifest,
+        "models/pure.pse": """package p {
+      fn square(x:Scalar)->Scalar=x*x;
+      test positive fixture {dof 0; route steady; procedure check;} {
+        expect square(2)==4 tolerance 1e-12;
+      }
+    }""",
+    }
+    physical_documents = {
+        str(path.relative_to(physical_root)): path.read_text()
+        for path in physical_root.rglob("*")
+        if path.is_file()
+    }
+    runtime = pse.Runtime(inspection_settings)
+    package = runtime.modeling_from_documents([source], physical(runtime))
+    default = package.conform(pse.SolveSettings())
+    assert default.passed
+    assert default.complete
+    policy = preparation_policy(1_000_000)
+    positive = package.conform(pse.SolveSettings(), preparation=policy)
+    assert positive.passed
+    assert positive.complete
+    # Even a constant result needs a numeric evaluator frame. One positive byte
+    # cannot hold its scalar, unlike an unused coefficient-class proof allowance.
+    insufficient = msgspec.structs.replace(
+        policy,
+        compiler=msgspec.structs.replace(
+            policy.compiler,
+            evaluation=msgspec.structs.replace(
+                policy.compiler.evaluation, scratch_bytes=1
+            ),
+        ),
+    )
+    refused = package.conform(pse.SolveSettings(), preparation=insufficient)
+    assert not refused.passed
+    failure = refused.failure(0)
+    assert failure is not None
+    assert failure.envelope is not None
+    assert failure.envelope.code == DiagnosticCode.RUNTIME_RESOURCE_LIMIT
+    assert failure.envelope.rule == DiagnosticRule.MATH_LIMIT
+    assert failure.envelope.class_ == NativeBoundaryClass.RESOURCE_LIMIT
+    detail = failure.envelope.observations["detail"]
+    assert isinstance(detail, documents.ObservationText)
+    assert detail.value == "math limit exceeded: worker scratch bytes"
+    engine = pse.EngineSettings(
+        memory_limit_bytes=8 << 30,
+        math_worker_bytes=8 << 20,
+        math_workspace_bytes=8 << 20,
+        threads=1,
+        spill_dir=str(tmp_path),
+        max_spill_bytes=1 << 30,
+        batch_size=1024,
+    )
+    positive = pse.ModelingConformance.pure(
+        [source], physical_documents, engine, preparation=policy
+    )
+    assert positive.passed
+    assert positive.complete
+    refused = pse.ModelingConformance.pure(
+        [source], physical_documents, engine, preparation=insufficient
+    )
+    assert not refused.passed
+    failure = refused.failure(0)
+    assert failure is not None
+    assert failure.envelope is not None
+    assert failure.envelope.code == DiagnosticCode.RUNTIME_RESOURCE_LIMIT
+    assert failure.envelope.rule == DiagnosticRule.MATH_LIMIT
+    assert failure.envelope.class_ == NativeBoundaryClass.RESOURCE_LIMIT
+    detail = failure.envelope.observations["detail"]
+    assert isinstance(detail, documents.ObservationText)
+    assert detail.value == "math limit exceeded: worker scratch bytes"
 
 
 @pytest.mark.unit
@@ -1084,6 +1259,8 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
             physical_documents,
             pse.EngineSettings(
                 memory_limit_bytes=8 << 30,
+                math_worker_bytes=8 << 20,
+                math_workspace_bytes=8 << 20,
                 threads=threads,
                 spill_dir=str(tmp_path),
                 max_spill_bytes=1 << 30,
@@ -1111,6 +1288,8 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
         physical_documents,
         pse.EngineSettings(
             memory_limit_bytes=8 << 30,
+            math_worker_bytes=8 << 20,
+            math_workspace_bytes=8 << 20,
             threads=1,
             spill_dir=str(tmp_path),
             max_spill_bytes=1 << 30,
@@ -1137,7 +1316,7 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
             "--physical",
             str(physical_root),
             "--memory-limit-bytes",
-            str(8 << 30),
+            str(16 << 30),
             "--maximum-checks",
             "32",
             "--report",

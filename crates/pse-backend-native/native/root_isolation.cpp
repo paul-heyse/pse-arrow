@@ -27,6 +27,7 @@ struct PseRootRequest {
     uint64_t max_cells; double seconds;
     int32_t (*cancelled)(const void*); const void* cancel_context;
 };
+struct PseChartChainResult { uint32_t status; uint64_t proof_cells, charts, connections; };
 struct PseRootResult {
     uint32_t status; uint64_t cells, solution, boundary, unknown, pending;
 };
@@ -35,6 +36,11 @@ int32_t pse_ibex_certify(const PseRootRequest*, uint32_t count, uint32_t winner,
     PseRootResult*, double* parameter_lower,
     double* parameter_upper, double* existence_lower, double* existence_upper,
     double* uniqueness_lower, double* uniqueness_upper) noexcept;
+int32_t pse_ibex_promote(const PseRootRequest*, PseRootResult*,
+    const double* parameter_lower, const double* parameter_upper,
+    const double* uniqueness_lower, const double* uniqueness_upper) noexcept;
+int32_t pse_ibex_connect(const PseRootRequest*, PseRootResult*,
+    const double* intersection_lower, const double* intersection_upper) noexcept;
 }
 namespace {
 using namespace ibex;
@@ -200,18 +206,66 @@ struct Covering : Solver {
     using Solver::Solver;
     uint64_t visited_cells() const { return nb_cells; }
 };
+// A derivative-based split priority is useful only on its actual C1 domain.
+// Neither priority establishes root/chart evidence; Solver still owns covering.
+struct GuardBisector : Bsc {
+    const PseRootRequest& r; Graph& graph; Budget& budget;
+    LargestFirst fallback;
+    SmearSumRelative smear;
+    GuardBisector(const PseRootRequest& req,Graph& g,Budget& b,const Vector& precision)
+        : Bsc(precision),r(req),graph(g),budget(b),fallback(precision),
+          smear(*g.residual,precision,fallback) {}
+    void add_property(const IntervalVector& box,BoxProperties& prop) override {
+        // Smear forwards its property requirements to the borrowed fallback.
+        budget.check(); smear.add_property(box,prop); budget.check();
+    }
+    BisectionPoint choose_var(const Cell& cell) override {
+        budget.check();
+        const bool admitted=guards(r,graph,cell.box,true,true)==GuardState::Admitted;
+        budget.check();
+        BisectionPoint split=admitted?smear.choose_var(cell):fallback.choose_var(cell);
+        budget.check();
+        return split;
+    }
+};
+// Reuse one HC4 owner in the initial contraction, every library shaving slice,
+// and the LP fixpoint. A covering cell remains the accounting unit; each HC4
+// subcall observes the same absolute deadline and cancellation owner.
+struct BudgetHC4 : Ctc {
+    Budget& budget;
+    CtcHC4 hc4;
+    BudgetHC4(const System& system,Budget& b)
+        : Ctc(system.nb_var),budget(b),hc4(system.ctrs,0.01) {
+        input=hc4.input; output=hc4.output;
+    }
+    void add_property(const IntervalVector& box,BoxProperties& prop) override {
+        budget.check(); hc4.add_property(box,prop); budget.check();
+    }
+    void contract(IntervalVector& box) override {
+        ContractContext context(box); contract(box,context);
+    }
+    void contract(IntervalVector& box,ContractContext& context) override {
+        budget.check(); hc4.contract(box,context); budget.check();
+    }
+};
 struct GuardContractor : Ctc {
     const PseRootRequest& r; Graph& graph; Budget& budget;
-    CtcHC4 hc4;
+    BudgetHC4 hc4;
+    Ctc3BCid shaving;
     std::unique_ptr<CtcNewton> newton;
     LinearizerXTaylor linearizer; CtcPolytopeHull polytope; CtcCompo lp_hc4; CtcFixPoint lp;
     GuardContractor(const PseRootRequest& req,Graph& g,Budget& b,const VarSet& variables)
-        : Ctc(g.residual->nb_var),r(req),graph(g),budget(b),hc4(g.residual->ctrs,0.01),
+        : Ctc(g.residual->nb_var),r(req),graph(g),budget(b),hc4(*g.residual,b),
+          shaving(variables.is_var,hc4),
           newton(req.parameter_count?std::make_unique<CtcNewton>(g.equations->f_ctrs,variables,5e8):
               std::make_unique<CtcNewton>(g.equations->f_ctrs,5e8)),
-          linearizer(*g.residual),polytope(linearizer,100,1),lp_hc4(polytope,hc4),lp(lp_hc4) {}
+          // Library Taylor relaxation evaluates one interval Jacobian for both
+          // corners; RELAX still encloses every nonlinear feasible point.
+          linearizer(*g.residual,LinearizerXTaylor::RELAX,
+              LinearizerXTaylor::RANDOM_OPP,LinearizerXTaylor::TAYLOR),
+          polytope(linearizer,100,1),lp_hc4(polytope,hc4),lp(lp_hc4) {}
     void add_property(const IntervalVector& box,BoxProperties& prop) override {
-        hc4.add_property(box,prop); newton->add_property(box,prop); lp.add_property(box,prop);
+        shaving.add_property(box,prop); newton->add_property(box,prop); lp.add_property(box,prop);
     }
     void contract(IntervalVector& box) override { ContractContext context(box); contract(box,context); }
     void contract(IntervalVector& box,ContractContext& context) override {
@@ -219,7 +273,13 @@ struct GuardContractor : Ctc {
         if(guards(r,graph,box,false)==GuardState::Invalid) { box.set_empty(); return; }
         // Library-owned existential HC4 contraction preserves the admitted
         // portion of crossing log/sqrt/nonzero domains.
-        try { hc4.contract(box,context); } catch(const std::bad_alloc&) { throw; } catch(...) { throw Boundary(); }
+        try { hc4.contract(box,context); } catch(const Resource&) { throw; } catch(const std::bad_alloc&) { throw; } catch(...) { throw Boundary(); }
+        budget.check();
+        if(box.is_empty()) return;
+        // Only unknown coordinates are selected for shaving. HC4's existential
+        // subbox contractions may also soundly narrow parameters; no parametric
+        // Newton or C1 premise is used by this library-owned disjunction.
+        try { shaving.contract(box,context); } catch(const Resource&) { throw; } catch(const std::bad_alloc&) { throw; } catch(...) { throw Boundary(); }
         budget.check();
         if(box.is_empty()) return;
         // Every C1 mean-value premise is checked before Newton and Taylor/LP.
@@ -227,10 +287,10 @@ struct GuardContractor : Ctc {
         if(guards(r,graph,box,true,true)==GuardState::Admitted) {
             // Parametric interval Newton contracts unknowns only; it does not
             // turn a numerical proposal into root existence or selection evidence.
-            try { newton->contract(box,context); } catch(const std::bad_alloc&) { throw; } catch(...) { throw Boundary(); }
+            try { newton->contract(box,context); } catch(const Resource&) { throw; } catch(const std::bad_alloc&) { throw; } catch(...) { throw Boundary(); }
             budget.check();
             if(box.is_empty()) return;
-            try { lp.contract(box,context); } catch(const std::bad_alloc&) { throw; } catch(...) { throw Boundary(); }
+            try { lp.contract(box,context); } catch(const Resource&) { throw; } catch(const std::bad_alloc&) { throw; } catch(...) { throw Boundary(); }
             budget.check();
         }
     }
@@ -241,7 +301,7 @@ bool exclude(const PseRootRequest& r,Graph& graph,const VarSet& variables,
     Vector precision(domain.size(),1e-10);
     for(uint32_t i=r.unknown_count;i<static_cast<uint32_t>(domain.size());++i) precision[i]=2.0*domain[i].diam();
     GuardContractor guarded(r,graph,budget,variables);
-    LargestFirst bisector(precision); CellStack buffer;
+    GuardBisector bisector(r,graph,budget,precision); CellStack buffer;
     // Both inequalities encode each residual equality exactly. Hence m=0:
     // Solver::check_sol never performs hidden inflating Newton on a crossing cell.
     Covering solver(*graph.residual,guarded,bisector,buffer,precision,Vector(domain.size(),POS_INFINITY));
@@ -302,6 +362,61 @@ double competitive_threshold(double score_upper,double winner_tolerance,double r
     if(threshold.is_empty()||!std::isfinite(threshold.ub())) throw std::invalid_argument("selection threshold overflow");
     return threshold.ub();
 }
+// A coordinate-sensitive Newton-image proposal, not a root or selection proof.
+// IBEX supplies the interval derivatives, numerical preconditioner and arithmetic.
+// The centered parameter image reduces dependency without proving a root. Every
+// accepted seed still passes uniform Newton and full original competitive covering.
+bool predictive_seed(const PseRootRequest& r,Graph& graph,const IntervalVector& domain,
+    Budget& budget,IntervalVector& seed) {
+    budget.check();
+    const int n=static_cast<int>(r.unknown_count);
+    const int p=static_cast<int>(r.parameter_count);
+    IntervalVector point(domain),candidate(n);
+    for(int i=0;i<n;++i) point[i]=candidate[i]=Interval(r.candidate[i]);
+    const auto point_guards=guards(r,graph,point,true);budget.check();
+    if(point_guards!=GuardState::Admitted) return false;
+    const auto jacobian=graph.equations->f_ctrs.jacobian(point);budget.check();
+    if(jacobian.is_empty()) return false;
+    IntervalMatrix coefficients(n,n);
+    Matrix inverse(n,n);
+    for(int i=0;i<n;++i) for(int j=0;j<n;++j) coefficients[i][j]=jacobian[i][j];
+    try {
+        // A seed preconditioner needs no interval regularity certificate. IBEX's
+        // approximate real inverse is used only to propose a box for re-proof.
+        budget.check();real_inverse(coefficients.mid(),inverse);budget.check();
+    } catch(const LinearException&) { budget.check();return false; }
+    auto values=graph.equations->f_ctrs.eval_vector(point);budget.check();
+    if(values.is_empty()) return false;
+    if(p) {
+        IntervalMatrix parameter_jacobian(n,p);
+        IntervalVector midpoint(point),delta(p);
+        for(int j=0;j<p;++j) {
+            midpoint[n+j]=Interval(domain[n+j].mid());
+            delta[j]=domain[n+j]-midpoint[n+j];
+            for(int i=0;i<n;++i) parameter_jacobian[i][j]=jacobian[i][n+j];
+        }
+        // The preceding C1 guard admission covers the entire parameter box.
+        // Intersect the natural residual with its library mean-value enclosure,
+        // as IBEX's parametric inflating Newton does for its own Fmid.
+        budget.check();
+        const auto midpoint_values=graph.equations->f_ctrs.eval_vector(midpoint);budget.check();
+        if(midpoint_values.is_empty()) return false;
+        const IntervalVector centered=midpoint_values+parameter_jacobian*delta;budget.check();
+        values&=centered;
+        if(values.is_empty()) return false;
+    }
+    const IntervalVector prediction=candidate-inverse*values;budget.check();
+    seed=domain;
+    for(int i=0;i<n;++i) {
+        seed[i]=candidate[i]|prediction[i];
+        if(seed[i].is_empty()||!std::isfinite(seed[i].lb())||!std::isfinite(seed[i].ub())) return false;
+        seed[i].inflate(1.1,1e-12);
+        if(!seed[i].is_subset(domain[i])) return false;
+    }
+    budget.check();
+    const bool admitted=guards(r,graph,seed,true)==GuardState::Admitted;
+    budget.check();return admitted;
+}
 }
 extern "C" int32_t pse_ibex_certify(const PseRootRequest* requests,uint32_t count,uint32_t winner,PseRootResult* out,
     double* pl,double* pu,double* el,double* eu,double* ul,double* uu) noexcept {
@@ -331,7 +446,11 @@ extern "C" int32_t pse_ibex_certify(const PseRootRequest* requests,uint32_t coun
         const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
         const VarSet variables=unknown_variables(r);
         bool chart_boundary=false,any_chart=false;
-        for(double width:{1e-8,1e-10,1e-12}) {
+        // Propose a useful parameter neighborhood before the narrow fallbacks.
+        // This changes only the proof proposal: every admitted width still needs
+        // uniform Newton, all guards and complete competitive exclusion under
+        // this same account. Nearby evaluations can reuse only the proved box.
+        for(double width:{1e-5,1e-6,1e-8,1e-10,1e-12}) {
             budget.check();
             // IBEX vectors require a positive size; no placeholder coordinate is
             // inserted into any domain when the authored program has no parameters.
@@ -345,31 +464,38 @@ extern "C" int32_t pse_ibex_certify(const PseRootRequest* requests,uint32_t coun
             const IntervalVector domain=physical_domain(r,parameters);
             IntervalVector seed(domain),existence(dimension),uniqueness(dimension);
             auto graph=std::make_unique<Graph>(r,budget);
-            bool valid=false;
-            for(double chi:{1e-5,1e-8,1e-12}) {
+            auto prove_seed=[&](double chi) {
                 budget.check();
                 bool seed_inside=true;
                 for(uint32_t i=0;i<r.unknown_count;++i) {
-                    // An exact point root can otherwise yield E=U={candidate}.
-                    // Supply a local box; IBEX still owns all Newton inflation.
-                    seed[i]=Interval(r.candidate[i])+Interval(-chi,chi);
                     seed_inside&=seed[i].is_subset(domain[i]);
                 }
-                if(!seed_inside) continue;
-                if(guards(r,*graph,seed,true,true)!=GuardState::Admitted) { chart_boundary=true; continue; }
+                if(!seed_inside) return false;
+                if(guards(r,*graph,seed,true,true)!=GuardState::Admitted) { chart_boundary=true; return false; }
                 const bool chart_proved=r.parameter_count?
                     inflating_newton(graph->equations->f_ctrs,variables,seed,existence,uniqueness,100,1.0,1.1,chi):
                     inflating_newton(graph->equations->f_ctrs,seed,existence,uniqueness,100,1.0,1.1,chi);
-                budget.check(); if(!chart_proved) continue;
-                valid=true;
+                budget.check(); if(!chart_proved) return false;
+                bool valid=true;
                 for(uint32_t i=0;i<r.unknown_count;++i)
                     valid&=existence[i].is_interior_subset(uniqueness[i])&&uniqueness[i].is_subset(domain[i])&&
                         existence[i].is_interior_subset(domain[i])&&uniqueness[i].contains(r.candidate[i]);
                 for(uint32_t i=r.unknown_count;i<static_cast<uint32_t>(dimension);++i)
                     valid&=domain[i].is_subset(existence[i])&&domain[i].is_subset(uniqueness[i]);
-                if(!valid) continue;
-                if(guards(r,*graph,existence,true)!=GuardState::Admitted||guards(r,*graph,uniqueness,true)!=GuardState::Admitted) { chart_boundary=true; valid=false; continue; }
-                break;
+                if(!valid) return false;
+                if(guards(r,*graph,existence,true)!=GuardState::Admitted||guards(r,*graph,uniqueness,true)!=GuardState::Admitted) { chart_boundary=true; return false; }
+                budget.check();return true;
+            };
+            bool valid=predictive_seed(r,*graph,domain,budget,seed)&&prove_seed(1e-12);
+            for(double chi:{1e-3,1e-5,1e-8,1e-12}) {
+                if(valid) break;
+                budget.check();
+                for(uint32_t i=0;i<r.unknown_count;++i) {
+                    // An exact point root can otherwise yield E=U={candidate}.
+                    // Supply a local box; IBEX still owns all Newton inflation.
+                    seed[i]=Interval(r.candidate[i])+Interval(-chi,chi);
+                }
+                valid=prove_seed(chi);
             }
             if(!valid) continue;
             any_chart=true;
@@ -426,5 +552,383 @@ extern "C" int32_t pse_ibex_certify(const PseRootRequest* requests,uint32_t coun
       catch(const std::bad_alloc&) { out->status=4; }
       catch(const std::invalid_argument&) { out->status=6; }
       catch(...) { out->status=3; }
+    return 0;
+}
+
+// The Rust owner validates exact unchanged source/domain/selection scope first.
+// Existence, regularity, uniform uniqueness and full competitive exclusion remain
+// the previous chart's proof. This operation checks the newly encoded guard/order
+// obligations on that same uniform uniqueness box, without any covering search.
+extern "C" int32_t pse_ibex_promote(const PseRootRequest* request,PseRootResult* out,
+    const double* pl,const double* pu,const double* ul,const double* uu) noexcept {
+    if(!request||!out) return -1;
+    *out={6,0,0,0,0,0};
+    try {
+        const auto& r=*request;
+        if(!pl||!pu||!ul||!uu||!r.nodes||!r.edges||!r.residuals||!r.lower||!r.upper||
+           !r.parameters||!r.candidate||(r.guard_count&&!r.guards)||
+           r.unknown_count==0||r.unknown_count>128||r.parameter_count>128-r.unknown_count||
+           r.node_count==0||r.node_count>65536||r.edge_count>1048576||r.guard_count>8192||
+           r.score>=r.node_count||r.tolerance>=r.node_count||!std::isfinite(r.seconds)||r.seconds<=0) return 0;
+        Budget budget{r};budget.check();
+        IntervalVector box(static_cast<int>(r.unknown_count+r.parameter_count));
+        for(uint32_t i=0;i<r.unknown_count;++i) {
+            if(!std::isfinite(ul[i])||!std::isfinite(uu[i])||ul[i]>=uu[i]||
+               ul[i]<r.lower[i]||uu[i]>r.upper[i]||!std::isfinite(r.candidate[i])||
+               r.candidate[i]<ul[i]||r.candidate[i]>uu[i]) return 0;
+            box[i]=Interval(ul[i],uu[i]);
+        }
+        for(uint32_t j=0;j<r.parameter_count;++j) {
+            if(!std::isfinite(pl[j])||!std::isfinite(pu[j])||pl[j]>=pu[j]||
+               !std::isfinite(r.parameters[j])||r.parameters[j]<=pl[j]||r.parameters[j]>=pu[j]) return 0;
+            box[r.unknown_count+j]=Interval(pl[j],pu[j]);
+        }
+        Graph graph(r,budget);
+        if(guards(r,graph,box,true)!=GuardState::Admitted) { out->status=5;return 0; }
+        budget.check();out->status=0;out->solution=1;
+    } catch(const Resource&) { out->status=4; }
+      catch(const Boundary&) { out->status=5; }
+      catch(const std::bad_alloc&) { out->status=4; }
+      catch(const std::invalid_argument&) { out->status=6; }
+      catch(...) { out->status=2; }
+    return 0;
+}
+extern "C" int32_t pse_ibex_connect(const PseRootRequest* request,PseRootResult* out,
+    const double* lower,const double* upper) noexcept {
+    if(!request||!out) return -1;
+    *out={6,0,0,0,0,0};
+    try {
+        const auto& r=*request;
+        if(!lower||!upper||!r.nodes||!r.edges||!r.residuals||!r.lower||!r.upper||
+           !r.parameters||!r.candidate||(r.guard_count&&!r.guards)||r.unknown_count==0||
+           r.unknown_count>128||r.parameter_count>128-r.unknown_count||r.node_count==0||
+           r.node_count>65536||r.edge_count>1048576||r.guard_count>8192||
+           r.score>=r.node_count||r.tolerance>=r.node_count||!std::isfinite(r.seconds)||r.seconds<=0) return 0;
+        Budget budget{r};budget.check();
+        const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
+        IntervalVector domain(dimension),existence(dimension),uniqueness(dimension);
+        for(uint32_t i=0;i<r.unknown_count;++i) {
+            if(!std::isfinite(lower[i])||!std::isfinite(upper[i])||lower[i]>=upper[i]||
+               lower[i]<r.lower[i]||upper[i]>r.upper[i]) return 0;
+            domain[i]=Interval(lower[i],upper[i]);
+        }
+        for(uint32_t j=0;j<r.parameter_count;++j) {
+            if(!std::isfinite(r.parameters[j])) return 0;
+            domain[r.unknown_count+j]=Interval(r.parameters[j]);
+        }
+        Graph graph(r,budget);
+        if(guards(r,graph,domain,true,true)!=GuardState::Admitted) { out->status=5;return 0; }
+        const VarSet variables=unknown_variables(r);
+        const bool proved=r.parameter_count?
+            inflating_newton(graph.equations->f_ctrs,variables,domain,existence,uniqueness,100,1.0,1.1,1e-12):
+            inflating_newton(graph.equations->f_ctrs,domain,existence,uniqueness,100,1.0,1.1,1e-12);
+        budget.check();if(!proved) { out->status=2;return 0; }
+        for(uint32_t i=0;i<r.unknown_count;++i)
+            if(!existence[i].is_interior_subset(domain[i])) { out->status=2;return 0; }
+        if(guards(r,graph,existence,true)!=GuardState::Admitted) { out->status=5;return 0; }
+        budget.check();out->status=0;out->solution=1;
+    } catch(const Resource&) { out->status=4; }
+      catch(const Boundary&) { out->status=5; }
+      catch(const std::bad_alloc&) { out->status=4; }
+      catch(const std::invalid_argument&) { out->status=6; }
+      catch(...) { out->status=2; }
+    return 0;
+}
+
+// Root-sheet proof only: uniform regularity/eligibility and common-root bridges.
+// Competitive exclusion belongs to the independently certified endpoint charts;
+// this operation makes no selected-winner claim on intermediate parameter cells.
+extern "C" int32_t pse_ibex_connect_chain(const PseRootRequest* request,PseChartChainResult* out,
+    const double* origin,const double* previous_pl,const double* previous_pu,
+    const double* previous_el,const double* previous_eu,const double* previous_ul,const double* previous_uu,
+    const double* next_pl,const double* next_pu,const double* next_el,const double* next_eu,
+    const double* next_ul,const double* next_uu) noexcept {
+    if(!request||!out) return -1;
+    *out={6,0,0,0};
+    try {
+        const auto& r=*request;
+        if(!origin||!previous_pl||!previous_pu||!previous_el||!previous_eu||!previous_ul||!previous_uu||
+           !next_pl||!next_pu||!next_el||!next_eu||!next_ul||!next_uu||
+           !r.nodes||!r.edges||!r.residuals||!r.lower||!r.upper||!r.parameters||!r.candidate||
+           (r.guard_count&&!r.guards)||r.unknown_count==0||r.unknown_count>128||
+           r.parameter_count>128-r.unknown_count||r.node_count==0||r.node_count>65536||
+           r.edge_count>1048576||r.guard_count>8192||r.score>=r.node_count||r.tolerance>=r.node_count||
+           r.max_cells<2||r.max_cells>1048576||!std::isfinite(r.seconds)||r.seconds<=0) return 0;
+        Budget budget{r};budget.check();
+        const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
+        struct Chart {
+            IntervalVector box,existence,uniqueness;
+            explicit Chart(int n):box(n),existence(n),uniqueness(n){}
+        };
+        Chart current(dimension),endpoint(dimension);
+        for(uint32_t i=0;i<r.unknown_count;++i) {
+            if(!std::isfinite(r.lower[i])||!std::isfinite(r.upper[i])||r.lower[i]>=r.upper[i]||
+               !std::isfinite(previous_el[i])||!std::isfinite(previous_eu[i])||
+               !std::isfinite(previous_ul[i])||!std::isfinite(previous_uu[i])||
+               !std::isfinite(next_el[i])||!std::isfinite(next_eu[i])||
+               !std::isfinite(next_ul[i])||!std::isfinite(next_uu[i])||
+               previous_ul[i]>=previous_el[i]||previous_el[i]>previous_eu[i]||previous_eu[i]>=previous_uu[i]||
+               next_ul[i]>=next_el[i]||next_el[i]>next_eu[i]||next_eu[i]>=next_uu[i]||
+               previous_ul[i]<r.lower[i]||previous_uu[i]>r.upper[i]||
+               next_ul[i]<r.lower[i]||next_uu[i]>r.upper[i]) return 0;
+            current.box[i]=endpoint.box[i]=Interval(r.lower[i],r.upper[i]);
+            current.existence[i]=Interval(previous_el[i],previous_eu[i]); current.uniqueness[i]=Interval(previous_ul[i],previous_uu[i]);
+            endpoint.existence[i]=Interval(next_el[i],next_eu[i]); endpoint.uniqueness[i]=Interval(next_ul[i],next_uu[i]);
+        }
+        std::vector<Interval> margins; margins.reserve(r.parameter_count);
+        for(uint32_t j=0;j<r.parameter_count;++j) {
+            if(!std::isfinite(origin[j])||!std::isfinite(r.parameters[j])||
+               !std::isfinite(previous_pl[j])||!std::isfinite(previous_pu[j])||
+               !std::isfinite(next_pl[j])||!std::isfinite(next_pu[j])||
+               origin[j]<=previous_pl[j]||origin[j]>=previous_pu[j]||
+               r.parameters[j]<=next_pl[j]||r.parameters[j]>=next_pu[j]) return 0;
+            const int k=static_cast<int>(r.unknown_count+j);
+            current.box[k]=current.existence[k]=current.uniqueness[k]=Interval(previous_pl[j],previous_pu[j]);
+            endpoint.box[k]=endpoint.existence[k]=endpoint.uniqueness[k]=Interval(next_pl[j],next_pu[j]);
+            const double margin=std::min({(Interval(origin[j])-Interval(previous_pl[j])).lb(),
+                (Interval(previous_pu[j])-Interval(origin[j])).lb(),
+                (Interval(r.parameters[j])-Interval(next_pl[j])).lb(),
+                (Interval(next_pu[j])-Interval(r.parameters[j])).lb()});
+            if(!(margin>0.0)) { out->status=5;return 0; }
+            margins.push_back(Interval(-margin,margin)/Interval(2.0));
+        }
+        Graph graph(r,budget); const VarSet variables=unknown_variables(r);
+        auto proof_cell=[&]() {
+            budget.check();if(budget.cells>=r.max_cells) throw Resource();
+            ++budget.cells;out->proof_cells=budget.cells;
+        };
+        auto parameters_at=[&](double t) {
+            std::vector<double> p;p.reserve(r.parameter_count);
+            for(uint32_t j=0;j<r.parameter_count;++j) {
+                if(t==0.0) p.push_back(origin[j]);
+                else if(t==1.0) p.push_back(r.parameters[j]);
+                else p.push_back((Interval(origin[j])+Interval(t)*(Interval(r.parameters[j])-Interval(origin[j]))).mid());
+            }
+            return p;
+        };
+        auto common_root=[&](const Chart& a,const Chart& b,double t) {
+            proof_cell();const auto parameters=parameters_at(t);
+            IntervalVector domain(dimension),existence(dimension),uniqueness(dimension);
+            for(uint32_t i=0;i<r.unknown_count;++i) {
+                domain[i]=a.uniqueness[i]&b.uniqueness[i];
+                if(domain[i].is_empty()||domain[i].diam()<=0) return false;
+            }
+            for(uint32_t j=0;j<r.parameter_count;++j) {
+                const int k=static_cast<int>(r.unknown_count+j); const double p=parameters[j];
+                if(p<=a.box[k].lb()||p>=a.box[k].ub()||p<=b.box[k].lb()||p>=b.box[k].ub()) return false;
+                domain[k]=Interval(p);
+            }
+            if(guards(r,graph,domain,true,true)!=GuardState::Admitted) return false;
+            const bool proved=r.parameter_count?
+                inflating_newton(graph.equations->f_ctrs,variables,domain,existence,uniqueness,100,1.0,1.1,1e-12):
+                inflating_newton(graph.equations->f_ctrs,domain,existence,uniqueness,100,1.0,1.1,1e-12);
+            budget.check();if(!proved) return false;
+            for(uint32_t i=0;i<r.unknown_count;++i) if(!existence[i].is_interior_subset(domain[i])) return false;
+            return guards(r,graph,existence,true)==GuardState::Admitted;
+        };
+        enum class ChartSeed { PreviousExistence, EndpointExistenceHull, EndpointUniquenessHull };
+        auto uniform_chart=[&](const Interval& path,Chart& chart) {
+            auto attempt=[&](ChartSeed proposal) {
+                proof_cell();IntervalVector seed(dimension);
+                for(uint32_t i=0;i<r.unknown_count;++i) {
+                    chart.box[i]=Interval(r.lower[i],r.upper[i]);
+                    switch(proposal) {
+                        case ChartSeed::PreviousExistence: seed[i]=current.existence[i]; break;
+                        case ChartSeed::EndpointExistenceHull: seed[i]=current.existence[i]|endpoint.existence[i]; break;
+                        case ChartSeed::EndpointUniquenessHull: seed[i]=current.uniqueness[i]|endpoint.uniqueness[i]; break;
+                    }
+                    if(!seed[i].is_subset(chart.box[i])) return false;
+                }
+                for(uint32_t j=0;j<r.parameter_count;++j) {
+                    const int k=static_cast<int>(r.unknown_count+j);
+                    chart.box[k]=seed[k]=Interval(origin[j])+path*(Interval(r.parameters[j])-Interval(origin[j]))+margins[j];
+                    if(!std::isfinite(seed[k].lb())||!std::isfinite(seed[k].ub())||seed[k].diam()<=0) return false;
+                }
+                if(guards(r,graph,seed,true,true)!=GuardState::Admitted) return false;
+                const bool proved=r.parameter_count?
+                    inflating_newton(graph.equations->f_ctrs,variables,seed,chart.existence,chart.uniqueness,100,1.0,1.1,1e-12):
+                    inflating_newton(graph.equations->f_ctrs,seed,chart.existence,chart.uniqueness,100,1.0,1.1,1e-12);
+                budget.check();if(!proved) return false;
+                for(uint32_t i=0;i<r.unknown_count;++i) if(!chart.existence[i].is_interior_subset(chart.uniqueness[i])||
+                    !chart.uniqueness[i].is_subset(chart.box[i])||!chart.existence[i].is_interior_subset(chart.box[i])) return false;
+                for(uint32_t j=0;j<r.parameter_count;++j) {
+                    const int k=static_cast<int>(r.unknown_count+j);
+                    if(!chart.box[k].is_subset(chart.existence[k])||!chart.box[k].is_subset(chart.uniqueness[k])) return false;
+                }
+                return guards(r,graph,chart.existence,true)==GuardState::Admitted&&guards(r,graph,chart.uniqueness,true)==GuardState::Admitted;
+            };
+            // The old root enclosure is the cheap first proposal. If parameter
+            // movement defeats inflation from that tiny seed, the hull of the
+            // two certified endpoint enclosures is another Newton proposal. If
+            // the root barely moves, that hull can still be too small to absorb
+            // interval dependency; the endpoint uniqueness hull supplies a
+            // broader proposal without granting existence or selection evidence.
+            // Every attempt consumes the same proof account and must establish
+            // every guard, domain, existence and uniqueness check above.
+            return attempt(ChartSeed::PreviousExistence)||
+                attempt(ChartSeed::EndpointExistenceHull)||
+                attempt(ChartSeed::EndpointUniquenessHull);
+        };
+        // IBEX owns outward interval arithmetic and bisection. A finite stack covers
+        // [0,1] left-to-right; failed proof cells consume this same account. Successful
+        // charts replace the previous one, so no unaccounted retained chain appears.
+        std::vector<Interval> pending{Interval(0.0,1.0)};
+        while(!pending.empty()) {
+            budget.check();const Interval path=pending.back();pending.pop_back();Chart chart(dimension);
+            bool proved=uniform_chart(path,chart)&&common_root(current,chart,path.lb());
+            if(proved&&path.ub()==1.0) proved=common_root(chart,endpoint,1.0);
+            if(proved) {
+                ++out->charts;++out->connections;
+                if(path.ub()==1.0) ++out->connections;
+                current=std::move(chart);continue;
+            }
+            if(!path.is_bisectable()) { out->status=2;return 0; }
+            const auto halves=path.bisect();pending.push_back(halves.second);pending.push_back(halves.first);
+        }
+        budget.check();out->status=0;
+    } catch(const Resource&) { out->status=4; }
+      catch(const Boundary&) { out->status=5; }
+      catch(const std::bad_alloc&) { out->status=4; }
+      catch(const std::invalid_argument&) { out->status=6; }
+      catch(...) { out->status=2; }
+    return 0;
+}
+
+namespace {
+bool point_request(const PseRootRequest& r) {
+    return r.nodes&&r.edges&&r.residuals&&r.lower&&r.upper&&r.parameters&&r.candidate&&
+        (!r.guard_count||r.guards)&&r.unknown_count>0&&r.unknown_count<=128&&
+        r.parameter_count<=128-r.unknown_count&&r.node_count>0&&r.node_count<=65536&&
+        r.edge_count<=1048576&&r.guard_count<=8192&&r.score<r.node_count&&r.tolerance<r.node_count&&
+        r.max_cells>0&&r.max_cells<=1048576&&std::isfinite(r.seconds)&&r.seconds>0;
+}
+void point_cell(Budget& budget,PseRootResult& out) {
+    budget.check();if(budget.cells>=budget.r.max_cells) throw Resource();
+    ++budget.cells;out.cells=budget.cells;
+}
+// Root existence is established anew at singleton parameters by the bounded
+// library operator. The immutable original chart still owns selected-root meaning.
+bool fixed_root(const PseRootRequest& r,Graph& graph,Budget& budget,PseRootResult& out,
+    const double* el,const double* eu,const double* ul,const double* uu,
+    IntervalVector& local,IntervalVector& hull) {
+    const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
+    IntervalVector seed(dimension),unique(dimension),proved_unique(dimension);
+    for(uint32_t i=0;i<r.unknown_count;++i) {
+        if(!std::isfinite(el[i])||!std::isfinite(eu[i])||!std::isfinite(ul[i])||!std::isfinite(uu[i])||
+           el[i]>eu[i]||ul[i]>=el[i]||eu[i]>=uu[i]||ul[i]<r.lower[i]||uu[i]>r.upper[i]||
+           !std::isfinite(r.candidate[i])||r.candidate[i]<ul[i]||r.candidate[i]>uu[i]) return false;
+        seed[i]=Interval(el[i],eu[i]);unique[i]=Interval(ul[i],uu[i]);
+    }
+    for(uint32_t j=0;j<r.parameter_count;++j) {
+        if(!std::isfinite(r.parameters[j])) return false;
+        seed[r.unknown_count+j]=unique[r.unknown_count+j]=Interval(r.parameters[j]);
+    }
+    if(guards(r,graph,seed,true,true)!=GuardState::Admitted) throw Boundary();
+    point_cell(budget,out);
+    const VarSet variables=unknown_variables(r);
+    const bool proved=r.parameter_count?
+        inflating_newton(graph.equations->f_ctrs,variables,seed,local,proved_unique,64,1.0,1.1,1e-12):
+        inflating_newton(graph.equations->f_ctrs,seed,local,proved_unique,64,1.0,1.1,1e-12);
+    budget.check();if(!proved||local.is_empty()) return false;
+    for(uint32_t i=0;i<r.unknown_count;++i) {
+        if(!local[i].is_interior_subset(unique[i])||!std::isfinite(local[i].lb())||!std::isfinite(local[i].ub())) return false;
+    }
+    // Only after the newly proved root lies inside the retained uniqueness region
+    // do both enclosures identify the same root. Their intersection preserves it.
+    local &= seed;
+    if(local.is_empty()) return false;
+    hull=local;
+    for(uint32_t i=0;i<r.unknown_count;++i) {
+        hull[i] |= Interval(r.candidate[i]);
+        if(!hull[i].is_subset(unique[i])) return false;
+    }
+    if(guards(r,graph,local,true)!=GuardState::Admitted||
+       guards(r,graph,hull,true)!=GuardState::Admitted) throw Boundary();
+    budget.check();return true;
+}
+IntervalMatrix root_inverse(const PseRootRequest& r,Graph& graph,const IntervalVector& box,
+    Budget& budget,PseRootResult& out) {
+    point_cell(budget,out);
+    const auto jacobian=graph.equations->f_ctrs.jacobian(box);budget.check();
+    const int n=static_cast<int>(r.unknown_count);
+    IntervalMatrix coefficients(n,n),inverse(n,n);
+    for(int i=0;i<n;++i) for(int j=0;j<n;++j) coefficients[i][j]=jacobian[i][j];
+    neumaier_inverse(coefficients,inverse);budget.check();return inverse;
+}
+}
+extern "C" int32_t pse_ibex_refine_point(const PseRootRequest* request,PseRootResult* out,
+    const double* existence_lower,const double* existence_upper,
+    const double* uniqueness_lower,const double* uniqueness_upper,
+    const double* unknown_scales,const double* row_scales,
+    double* root_lower,double* root_upper,double* inverse_norm_upper) noexcept {
+    if(!request||!out) return -1;
+    *out={6,0,0,0,0,0};
+    try {
+        const auto& r=*request;
+        if(!point_request(r)||!existence_lower||!existence_upper||!uniqueness_lower||!uniqueness_upper||
+           !unknown_scales||!row_scales||!root_lower||!root_upper||!inverse_norm_upper) return 0;
+        for(uint32_t i=0;i<r.unknown_count;++i)
+            if(!std::isfinite(unknown_scales[i])||unknown_scales[i]<=0||
+               !std::isfinite(row_scales[i])||row_scales[i]<=0) return 0;
+        Budget budget{r};budget.check();Graph graph(r,budget);
+        const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
+        IntervalVector local(dimension),hull(dimension);
+        if(!fixed_root(r,graph,budget,*out,existence_lower,existence_upper,
+            uniqueness_lower,uniqueness_upper,local,hull)) {out->status=2;return 0;}
+        const auto inverse=root_inverse(r,graph,hull,budget,*out);
+        Interval bound(0.0);
+        for(uint32_t i=0;i<r.unknown_count;++i) {
+            Interval row(0.0);
+            for(uint32_t j=0;j<r.unknown_count;++j)
+                row+=abs(inverse[i][j])*Interval(row_scales[j])/Interval(unknown_scales[i]);
+            if(row.is_empty()||!std::isfinite(row.ub())) {out->status=2;return 0;}
+            bound=max(bound,row);
+        }
+        if(bound.is_empty()||!std::isfinite(bound.ub())||bound.ub()<=0) {out->status=2;return 0;}
+        for(uint32_t i=0;i<r.unknown_count;++i) {root_lower[i]=local[i].lb();root_upper[i]=local[i].ub();}
+        *inverse_norm_upper=bound.ub();budget.check();out->solution=1;out->status=0;
+    } catch(const Resource&) {out->status=4;}
+      catch(const Boundary&) {out->status=5;}
+      catch(const std::bad_alloc&) {out->status=4;}
+      catch(const std::invalid_argument&) {out->status=6;}
+      catch(...) {out->status=2;}
+    return 0;
+}
+// The actual IFT action uses a genuinely refined fixed-parameter root enclosure.
+extern "C" int32_t pse_ibex_enclose_action(const PseRootRequest* request,PseRootResult* out,
+    const double* existence_lower,const double* existence_upper,
+    const double* uniqueness_lower,const double* uniqueness_upper,const double* direction,
+    double* action_lower,double* action_upper) noexcept {
+    if(!request||!out) return -1;
+    *out={6,0,0,0,0,0};
+    try {
+        const auto& r=*request;
+        if(!point_request(r)||!existence_lower||!existence_upper||!uniqueness_lower||!uniqueness_upper||
+           !direction||!action_lower||!action_upper) return 0;
+        Budget budget{r};budget.check();
+        IntervalVector box(static_cast<int>(r.unknown_count+r.parameter_count));
+        for(uint32_t j=0;j<r.parameter_count;++j) if(!std::isfinite(direction[j])) return 0;
+        Graph graph(r,budget);IntervalVector hull(box.size());
+        if(!fixed_root(r,graph,budget,*out,existence_lower,existence_upper,
+            uniqueness_lower,uniqueness_upper,box,hull)) {out->status=2;return 0;}
+        const auto inverse=root_inverse(r,graph,box,budget,*out);
+        const auto jacobian=graph.equations->f_ctrs.jacobian(box);budget.check();
+        const int n=static_cast<int>(r.unknown_count);
+        IntervalVector rhs(n);
+        for(int i=0;i<n;++i) {
+            rhs[i]=Interval(0.0);
+            for(uint32_t j=0;j<r.parameter_count;++j) rhs[i]-=jacobian[i][n+static_cast<int>(j)]*Interval(direction[j]);
+        }
+        const auto action=inverse*rhs;
+        for(int i=0;i<n;++i) {
+            if(action[i].is_empty()||!std::isfinite(action[i].lb())||!std::isfinite(action[i].ub())) {out->status=2;return 0;}
+            action_lower[i]=action[i].lb();action_upper[i]=action[i].ub();
+        }
+        budget.check();out->solution=1;out->status=0;
+    } catch(const Resource&) {out->status=4;}
+      catch(const Boundary&) {out->status=5;}
+      catch(const std::bad_alloc&) {out->status=4;}
+      catch(const std::invalid_argument&) {out->status=6;}
+      catch(...) {out->status=2;}
     return 0;
 }

@@ -213,7 +213,7 @@ impl PreparedModeling {
         profile: Profile,
         context: &ContentHash,
     ) -> pse_ids::roles::PreparedViewHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV3);
+        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV4);
         h.hash(&structure.key())
             .hash(context)
             .u64(order as u64)
@@ -241,6 +241,10 @@ impl PreparedModeling {
             }
         }
         for x in [
+            profile.class_proof_work,
+            profile.assembly.contributions,
+            profile.assembly.native_index,
+            profile.assembly.worker_bytes,
             profile.optimization.cores,
             profile.optimization.horner_iterations,
             profile.optimization.cpe_iterations,
@@ -292,7 +296,13 @@ impl PreparedModeling {
         environment: &ContentHash,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
-        let derivation = Arc::new(Derivation::new(self, &structure, &quantities, cancel)?);
+        let derivation = Arc::new(Derivation::new(
+            self,
+            &structure,
+            &quantities,
+            profile.assembly,
+            cancel,
+        )?);
         let derived = derivation.derive(values, cancel)?;
         let values = derived.complete(values);
         structure.validate_frozen_values(&values)?;
@@ -305,11 +315,12 @@ impl PreparedModeling {
                 .collect(),
             &quantities,
             order,
-            AssemblyLimits::default(),
+            profile.assembly,
             cancel,
         )?);
-        let bound = ValueProducts::bind(&plan, &values, cancel)?;
+        let bound = ValueProducts::bind(&plan, &values, profile.class_proof_work, cancel)?;
         Ok(PreparedCase {
+            class_proof_work: profile.class_proof_work,
             quantities: quantities.into(),
             presolve: bound.presolve.into(),
             coefficient_values: Arc::new(bound.assumptions).into(),
@@ -392,7 +403,7 @@ impl PreparedCase {
         self.plan.structure().validate_frozen_values(&values)?;
         rebound.coefficient_values = Arc::new(fixed_values(&self.plan, &values)?).into();
         if !self.products_match(&values) {
-            let bound = ValueProducts::bind(&self.plan, &values, cancel)?;
+            let bound = ValueProducts::bind(&self.plan, &values, self.class_proof_work, cancel)?;
             rebound.presolve = bound.presolve.into();
             rebound.coefficients = bound.coefficients.map(Into::into);
             rebound.facts = bound.facts;
@@ -598,7 +609,7 @@ impl CompilerWorkspace {
                 .collect(),
             &self.inputs.quantities,
             DerivativeOrder::Value,
-            AssemblyLimits::default(),
+            profile.assembly,
             cancel,
         )?);
         Ok(PreparedFunctions {
@@ -623,7 +634,7 @@ impl CompilerWorkspace {
         let source = model.admitted.plan(
             &self.inputs.quantities,
             DerivativeOrder::Value,
-            AssemblyLimits::default(),
+            profile.assembly,
             cancel,
         )?;
         let plan = Arc::new(source.functions(

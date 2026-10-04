@@ -72,6 +72,8 @@ impl BackendExecution for Clarabel {
             BackendSettings::Clarabel(settings) => settings,
             _ => return Err(super::foreign(Backend::Clarabel)),
         };
+        // Admission lowers typed controls without starting Pardiso's loader. Actual
+        // availability is checked by the admitted native session before solver creation.
         conic::settings_base(settings, controls, settings.mode).map(|_| ())
     }
     fn assess_representation(

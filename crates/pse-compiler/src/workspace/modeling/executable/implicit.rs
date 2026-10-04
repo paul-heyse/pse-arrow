@@ -563,14 +563,20 @@ impl AdmittedImplicit {
                 }),
             );
             let compile = |body: &AdmittedBody, order| -> Result<Arc<CompiledBody>> {
-                Ok(Arc::new(body.math.compile(
-                    &(0..body.quantities.len()).collect::<Vec<_>>(),
-                    &(0..body.math.input_count()).collect::<Vec<_>>(),
-                    order,
-                    Optimization::default(),
-                    limits,
-                    &cancel,
-                )?))
+                Ok(Arc::new(
+                    body.math
+                        .compile(
+                            &(0..body.quantities.len()).collect::<Vec<_>>(),
+                            &(0..body.math.input_count()).collect::<Vec<_>>(),
+                            order,
+                            Optimization::default(),
+                            limits,
+                            &cancel,
+                        )
+                        .map_err(|error| {
+                            error.with_derivative_body(Some(residual.id), body.spec.key())
+                        })?,
+                ))
             };
             let branch_solver: Arc<dyn pse_math::implicit::InnerSolver> = match &self.algorithm {
                 ImplicitAlgorithm::Accelerator(id) => accelerators.admit(
@@ -617,7 +623,11 @@ impl AdmittedImplicit {
                             &cancel,
                         )
                         .map(Arc::new)
-                        .map_err(CompileError::from)
+                        .map_err(|error| {
+                            CompileError::from(
+                                error.with_derivative_body(Some(residual.id), body.spec.key()),
+                            )
+                        })
                 })
                 .transpose()?;
             let factory = Factory {
@@ -665,18 +675,24 @@ impl AdmittedImplicit {
                 providers: BTreeMap::new(),
             };
             let local = |body: &Arc<AdmittedBody>| -> Result<Arc<CompiledBody>> {
-                Ok(Arc::new(body.math.compile_branch_local(
-                    &(0..body.math.output_count()).collect::<Vec<_>>(),
-                    &(0..body.math.input_count()).collect::<Vec<_>>(),
-                    if requested_output > DerivativeOrder::Value {
-                        DerivativeOrder::First
-                    } else {
-                        DerivativeOrder::Value
-                    },
-                    Optimization::default(),
-                    limits,
-                    &cancel,
-                )?))
+                Ok(Arc::new(
+                    body.math
+                        .compile_branch_local(
+                            &(0..body.math.output_count()).collect::<Vec<_>>(),
+                            &(0..body.math.input_count()).collect::<Vec<_>>(),
+                            if requested_output > DerivativeOrder::Value {
+                                DerivativeOrder::First
+                            } else {
+                                DerivativeOrder::Value
+                            },
+                            Optimization::default(),
+                            limits,
+                            &cancel,
+                        )
+                        .map_err(|error| {
+                            error.with_derivative_body(Some(residual.id), body.spec.key())
+                        })?,
+                ))
             };
             match &residual.assessment {
                 Some(a) => branches.push(RegimeFactoryBranch {
@@ -1442,6 +1458,46 @@ fn ordered_bindings(bindings: Vec<(String, Expr)>) -> Result<Vec<(String, Expr)>
         .collect())
 }
 impl AdmittedModeling {
+    /// Provider demand from the bound case's actual output and formal-coordinate maps.
+    /// Fixed inputs remain Value unless an authored partial or explicit response consumes them.
+    pub fn provider_demands_for_plan(
+        &self,
+        plan: &CasePlan,
+        order: DerivativeOrder,
+    ) -> Result<BTreeMap<pse_kernels::ProviderKey, DerivativeOrder>> {
+        let mut demands = BTreeMap::new();
+        for demand in plan.demands() {
+            let body = self
+                .bodies
+                .get(&demand.body)
+                .ok_or_else(|| CompileError::Missing("bound provider demand body".into()))?;
+            if plan
+                .bodies()
+                .get(&demand.body)
+                .is_none_or(|bound| bound.as_ref() != body.math.as_ref())
+            {
+                return Err(CompileError::Missing(
+                    "bound provider demand source correspondence".into(),
+                ));
+            }
+            let order = if demand.directional {
+                order.max(DerivativeOrder::First)
+            } else {
+                order
+            };
+            for (key, required) in body.math.provider_demands_for_selection(
+                &demand.outputs,
+                &demand.coordinates,
+                order,
+            )? {
+                demands
+                    .entry(key)
+                    .and_modify(|o: &mut DerivativeOrder| *o = (*o).max(required))
+                    .or_insert(required);
+            }
+        }
+        Ok(demands)
+    }
     /// Provider demand of selected original observations before implicit dependency propagation.
     pub fn provider_demands_for(
         &self,

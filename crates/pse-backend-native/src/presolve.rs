@@ -132,6 +132,11 @@ impl PresolveProof {
         }
     }
 }
+/// Pinned Phase1/FBBT bounds have no provenance map for their native multipliers.
+/// They may inform a separate source assessment, but are not executable NLP barriers.
+const UNTRACKED_BOUND_DUALS: &str =
+    "pounce-presolve 0.12.0 lacks original-bound multiplier recovery for tightening";
+
 impl Policy {
     /// Complete option identity; no Debug strings or library fingerprint alone.
     pub fn key(&self) -> ContentHash {
@@ -189,15 +194,9 @@ impl Policy {
         }
         h.finish_hash()
     }
-    pub(super) fn qualify(
-        &self,
-        oracle: &dyn crate::NlpOracle,
-        t: &Tolerances,
-    ) -> Result<Report, ProblemError> {
-        let n = oracle.contract().variables.len();
-        let m = oracle.contract().rows.len();
-        t.validate(n, m)?;
-        let mut o = match self {
+    /// Full caller policy before representation-specific pass admission.
+    pub(super) fn options(&self) -> PresolveOptions {
+        match self {
             Self::Off => PresolveOptions::defaults(),
             Self::Auto => PresolveOptions {
                 enabled: true,
@@ -206,7 +205,18 @@ impl Policy {
                 ..PresolveOptions::defaults()
             },
             Self::Explicit { options, .. } => *options,
-        };
+        }
+    }
+    pub(super) fn qualify(
+        &self,
+        oracle: &dyn crate::NlpOracle,
+        t: &Tolerances,
+        normalization: &pse_math::normalization::Normalization,
+    ) -> Result<Report, ProblemError> {
+        let n = oracle.contract().variables.len();
+        let m = oracle.contract().rows.len();
+        t.validate(n, m)?;
+        let mut o = self.options();
         if !o.certify_tol.is_finite()
             || o.certify_tol <= 0.0
             || !o.fbbt_tol.is_finite()
@@ -227,12 +237,8 @@ impl Policy {
                 "unsupported or unbounded native presolve controls".into(),
             ));
         }
-        let normalization = oracle
-            .normalization()
-            .cloned()
-            .unwrap_or_else(|| pse_math::normalization::Normalization::identity(n, m));
         normalization.validate(n, m)?;
-        let normalized_tolerances = t.normalized(&normalization)?;
+        let normalized_tolerances = t.normalized(normalization)?;
         let t = &normalized_tolerances;
         let normalized_facts = oracle
             .presolve_facts()
@@ -240,7 +246,6 @@ impl Policy {
             .transpose()?;
         let facts = normalized_facts.as_ref();
         let affine = facts.is_some_and(|f| f.affine.iter().any(Option::is_some));
-        let has_tape = facts.is_some_and(|f| f.complete.iter().any(|v| *v));
         // The wrapper fixes eq_tol/coeff_tol at 1e-12. Decline rather than turn
         // a narrow interval into an equality or silently discard small support.
         let exact_rows = oracle
@@ -260,8 +265,8 @@ impl Policy {
             (
                 Pass::LinearBounds,
                 o.bound_tightening,
-                affine && safe_coefficients,
-                "affine coefficient support is unavailable or below native threshold",
+                false,
+                UNTRACKED_BOUND_DUALS,
             ),
             (
                 Pass::RedundantRows,
@@ -275,12 +280,7 @@ impl Policy {
                 affine && exact_rows && safe_coefficients && safe_tolerance,
                 "native 1e-12 equality/coefficient thresholds do not qualify",
             ),
-            (
-                Pass::Fbbt,
-                o.fbbt,
-                has_tape,
-                "no completely projected expression row",
-            ),
+            (Pass::Fbbt, o.fbbt, false, UNTRACKED_BOUND_DUALS),
             (
                 Pass::RankDiagnostics,
                 o.licq_check,
@@ -318,6 +318,9 @@ impl Policy {
         o.redundant_constraint_removal = passes[&Pass::RedundantRows].applied;
         o.linear_eq_reduction = passes[&Pass::AffineElimination].applied;
         o.fbbt = passes[&Pass::Fbbt].applied;
+        // Phase4 hints belong to the same untracked tightened bounds. Affine column
+        // transfers retain their separate library-owned source/multiplier map.
+        o.warm_z_bounds = false;
         o.licq_check = passes[&Pass::RankDiagnostics].applied;
         o.auxiliary = passes[&Pass::Auxiliary].applied;
         // Native margins are normalized algorithm controls. A terminal certificate

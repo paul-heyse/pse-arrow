@@ -20,6 +20,24 @@ pub enum MathError {
     /// Invalid input, binding or execution profile.
     #[error("math contract: {0}")]
     Contract(String),
+    /// A selected numerical derivative demand lacks an established neighborhood.
+    #[error(
+        "derivative demand {requested:?} exceeds {available:?} for body {body:?}, outputs {outputs:?}, coordinates {coordinates:?}"
+    )]
+    DerivativeDemand {
+        /// Actual compiler-owned source when its semantic owner attaches one.
+        source_id: Option<SemanticId>,
+        /// Actual semantic body key when its artifact owner attaches one.
+        body: Option<pse_ids::ContentHash>,
+        /// Selected original body output ordinals.
+        outputs: Vec<usize>,
+        /// Selected original formal derivative coordinates.
+        coordinates: Vec<usize>,
+        /// Actual consumer order.
+        requested: pse_kernels::DerivativeOrder,
+        /// Established selected-coordinate order.
+        available: pse_kernels::DerivativeOrder,
+    },
     /// Optional symbolic coefficient projection is outside finite f64 representation.
     #[error("symbolic coefficient is not representable as a finite f64")]
     CoefficientRange,
@@ -72,6 +90,18 @@ pub enum MathError {
     /// A configured finite admission bound was exceeded.
     #[error("math limit exceeded: {0}")]
     Limit(&'static str),
+    /// A producer-issued unavailable/exhausted consumed reconstruction product.
+    #[error("reconstruction product {product}: {reason:?}")]
+    Refinement {
+        /// Exact point/action demand identity.
+        product: pse_ids::ContentHash,
+        /// Actual reconstruction source identity.
+        source_key: pse_ids::ContentHash,
+        /// Actual conditional-equivalence validity identity.
+        validity: pse_ids::ContentHash,
+        /// Owned local refusal, distinct from enclosing task and foreign limits.
+        reason: crate::derived::RefinementRefusal,
+    },
     /// A body needs more formal slots (inputs plus stage results) than its explicit
     /// allowance. The formal pool extends up to the allowance, never beyond it.
     #[error("math limit exceeded: body slots: {required} required, allowance {available}")]
@@ -114,6 +144,9 @@ pub enum MathError {
         #[source]
         cause: pse_kernels::ProviderError,
     },
+    /// Original execution-scope failure without a fabricated authored occurrence.
+    #[error(transparent)]
+    Scope(pse_kernels::ProviderError),
     /// A retained typed boundary cause without a fabricated authored occurrence.
     #[error("{cause}")]
     Typed {
@@ -137,6 +170,21 @@ pub enum MathError {
     },
 }
 impl MathError {
+    /// Attach actual compiler identity to a local derivative refusal, preserving its demand.
+    pub fn with_derivative_body(
+        mut self,
+        source: Option<SemanticId>,
+        key: pse_ids::ContentHash,
+    ) -> Self {
+        if let Self::DerivativeDemand {
+            source_id, body, ..
+        } = &mut self
+        {
+            *source_id = source;
+            *body = Some(key);
+        }
+        self
+    }
     /// Conservative owned extent of the complete source/provider error chain.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(match self {
@@ -153,13 +201,27 @@ impl MathError {
                 s.capacity()
             }
             Self::Quantity(e) => e.retained_bytes(),
-            Self::Provider { cause, .. } => cause.retained_bytes(),
-            Self::Native { retained, .. } | Self::Typed { retained, .. } => *retained,
+            Self::DerivativeDemand {
+                outputs,
+                coordinates,
+                ..
+            } => outputs
+                .capacity()
+                .saturating_add(coordinates.capacity())
+                .saturating_mul(size_of::<usize>()),
+            Self::Provider { cause, .. } | Self::Scope(cause) => cause.retained_bytes(),
+            Self::Native {
+                retained, cause, ..
+            }
+            | Self::Typed { retained, cause } => {
+                retained.saturating_add(cause.allocation_overhead())
+            }
             Self::Applicability(assessment) => assessment.retained_bytes(),
             Self::Validity(lineage) => size_of_val(lineage.as_ref()) + lineage.heap_bytes(),
             Self::Domain { .. }
             | Self::OutsideRange { .. }
             | Self::Limit(_)
+            | Self::Refinement { .. }
             | Self::SlotLimit { .. }
             | Self::WorkLimit { .. }
             | Self::Cancelled
@@ -177,13 +239,17 @@ pse_diagnostics::impl_diagnostic! {
         Self::OutsideRange {..} => Some(pse_diagnostics::DiagnosticCode::MathRange),
         Self::Evaluation {..} => Some(pse_diagnostics::DiagnosticCode::MathEvaluation),
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
+        Self::Refinement {reason,..} => Some(match reason {
+            crate::derived::RefinementRefusal::Rounds | crate::derived::RefinementRefusal::ProofCells => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+            crate::derived::RefinementRefusal::Unavailable(_) | crate::derived::RefinementRefusal::Precision => pse_diagnostics::DiagnosticCode::CapabilityBackend,
+        }),
         Self::Limit(_) | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
-        Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} | Self::Native {..} | Self::Typed {..} => None,
-        Self::Contract(_) => Some(pse_diagnostics::DiagnosticCode::MathContract),
+        Self::Scope(_) | Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} | Self::Native {..} | Self::Typed {..} => None,
+        Self::Contract(_) | Self::DerivativeDemand {..} => Some(pse_diagnostics::DiagnosticCode::MathContract),
         Self::Library(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::CoefficientRange => Some(pse_diagnostics::DiagnosticCode::MathCoefficientRange),
     } },
-    forward(this) { match this { Self::Quantity(e) => Some(e), Self::Instance {cause,..} => Some(cause.as_ref()), Self::Provider {cause,..} => Some(cause), Self::Native {cause,..} | Self::Typed {cause,..} => Some(cause.as_ref()), _ => None } },
+    forward(this) { match this { Self::Scope(e) => Some(e), Self::Quantity(e) => Some(e), Self::Instance {cause,..} => Some(cause.as_ref()), Self::Provider {cause,..} => Some(cause), Self::Native {cause,..} | Self::Typed {cause,..} => Some(cause.as_ref()), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
@@ -216,7 +282,9 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
         let bindings = effective.as_ref().unwrap_or(bindings);
         let mut d = match self {
             Self::Instance { cause, .. } => cause.boundary_diagnostic_with_members(stage, bindings),
-            Self::Provider { cause, .. } => cause.boundary_diagnostic_with_members(stage, bindings),
+            Self::Provider { cause, .. } | Self::Scope(cause) => {
+                cause.boundary_diagnostic_with_members(stage, bindings)
+            }
             Self::Native { cause, .. } | Self::Typed { cause, .. } => {
                 cause.boundary_diagnostic_with_members(stage, bindings)
             }
@@ -224,6 +292,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 project_facts(cause.diagnostic_code(), cause.diagnostic_facts(), stage)
             }
             Self::Contract(_)
+            | Self::DerivativeDemand { .. }
             | Self::CoefficientRange
             | Self::Library(_)
             | Self::Evaluation { .. }
@@ -232,6 +301,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
             | Self::Domain { .. }
             | Self::OutsideRange { .. }
             | Self::Limit(_)
+            | Self::Refinement { .. }
             | Self::SlotLimit { .. }
             | Self::WorkLimit { .. }
             | Self::Cancelled => {
@@ -293,6 +363,36 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                         pse_kernels::DerivativeOrder::Second => 2,
                     }),
                 );
+            }
+            Self::DerivativeDemand {
+                source_id,
+                body,
+                outputs,
+                coordinates,
+                requested,
+                available,
+            } => {
+                d.rule = R::MathContract;
+                d.sources.extend(source_id);
+                if let Some(body) = body {
+                    d.observations
+                        .insert("body".into(), O::Text(body.to_string()));
+                }
+                for (key, order) in [
+                    ("requested_derivative_order", requested),
+                    ("available_derivative_order", available),
+                ] {
+                    d.observations.insert(key.into(), O::Integer(*order as i64));
+                }
+                for (prefix, ordinals) in [("output", outputs), ("coordinate", coordinates)] {
+                    for (index, ordinal) in ordinals.iter().enumerate() {
+                        d.observations.insert(
+                            format!("{prefix}_{index}"),
+                            i64::try_from(*ordinal)
+                                .map_or_else(|_| O::Text(ordinal.to_string()), O::Integer),
+                        );
+                    }
+                }
             }
             Self::OutsideRange {
                 source_id,
@@ -362,12 +462,34 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                     );
                 }
             }
+            Self::Refinement {
+                product,
+                source_key,
+                validity,
+                reason,
+            } => {
+                d.rule = match reason {
+                    crate::derived::RefinementRefusal::Rounds
+                    | crate::derived::RefinementRefusal::ProofCells => R::MathLimit,
+                    _ => R::MathProvider,
+                };
+                for (key, value) in [
+                    ("refinement_product", product),
+                    ("refinement_source", source_key),
+                    ("refinement_validity", validity),
+                ] {
+                    d.observations
+                        .insert(key.into(), O::Text(value.to_string()));
+                }
+                d.observations
+                    .insert("refinement_refusal".into(), O::Text(format!("{reason:?}")));
+            }
             Self::Limit(_) => d.rule = R::MathLimit,
             Self::Cancelled => d.rule = R::MathCancelled,
             Self::Contract(_) => d.rule = R::MathContract,
             Self::CoefficientRange => d.rule = R::MathCoefficientRange,
             Self::Library(_) => d.rule = R::MathLibrary,
-            Self::Quantity(_) | Self::Typed { .. } => {}
+            Self::Scope(_) | Self::Quantity(_) | Self::Typed { .. } => {}
         }
         d.observations
             .insert("detail".into(), O::Text(self.to_string()));
@@ -381,14 +503,67 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
 pub(crate) fn scope_error(error: pse_kernels::ProviderError) -> MathError {
     match error {
         pse_kernels::ProviderError::Cancelled => MathError::Cancelled,
-        pse_kernels::ProviderError::Limit(limit) => MathError::Limit(limit),
-        other => MathError::Contract(other.to_string()),
+        other => MathError::Scope(other),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn derivative_demand_retains_actual_body_selection_and_source() {
+        use pse_model::diagnostic::{DiagnosticProjection, Observation};
+        let source = SemanticId::from_bytes([1; 16]);
+        let body = pse_ids::ContentHash::from_bytes([2; 32]);
+        let error = MathError::DerivativeDemand {
+            source_id: None,
+            body: None,
+            outputs: vec![3],
+            coordinates: vec![7],
+            requested: pse_kernels::DerivativeOrder::First,
+            available: pse_kernels::DerivativeOrder::Value,
+        }
+        .with_derivative_body(Some(source), body);
+        let diagnostic =
+            error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingAdmission);
+        assert_eq!(diagnostic.sources, [source]);
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::MathContract
+        );
+        assert!(
+            matches!(&diagnostic.observations["body"], Observation::Text(value) if *value == body.to_string())
+        );
+        assert!(matches!(
+            diagnostic.observations["output_0"],
+            Observation::Integer(3)
+        ));
+        assert!(matches!(
+            diagnostic.observations["coordinate_0"],
+            Observation::Integer(7)
+        ));
+        assert!(matches!(
+            diagnostic.observations["requested_derivative_order"],
+            Observation::Integer(1)
+        ));
+        assert!(matches!(
+            diagnostic.observations["available_derivative_order"],
+            Observation::Integer(0)
+        ));
+        assert!(error.retained_bytes() >= size_of::<MathError>() + 2 * size_of::<usize>());
+    }
+    #[test]
+    fn scope_deadline_retains_typed_cause_without_source_attribution() {
+        use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
+        let error = scope_error(pse_kernels::ProviderError::Deadline);
+        assert!(matches!(
+            error,
+            MathError::Scope(pse_kernels::ProviderError::Deadline)
+        ));
+        let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+        assert_eq!(diagnostic.class, BoundaryClass::ResourceLimit);
+        assert!(diagnostic.sources.is_empty());
+    }
     #[test]
     fn retained_failure_counts_owned_capacity_through_instance_and_provider() {
         let mut message = String::with_capacity(1 << 20);

@@ -224,6 +224,7 @@ fn kernel_presolve_retains_the_typed_failed_trial_witness() {
         &[1., 3.],
         &Policy::Auto,
         &tolerances(),
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -243,11 +244,18 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
     fn run(backend: Backend, policy: &Policy, warm: Option<&WarmStart>) -> SolveReport {
         let mut compatibility = stamp();
         compatibility.backend = backend;
+        let accuracy = ResolvedAccuracy {
+            feasibility: 1e-10,
+            stationarity: 1e-10,
+            complementarity: 1e-10,
+            ..ResolvedAccuracy::nominal()
+        };
         let mut pipeline = Pipeline::new(
             Box::new(Mixed::new()),
             &[1., 3.],
             policy,
             &tolerances(),
+            &accuracy,
             execution(),
             warm,
             compatibility,
@@ -255,12 +263,13 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
         )
         .unwrap();
         let mut oracle = pipeline.take_oracle().unwrap();
-        let controls = Controls::default();
-        let accuracy = ResolvedAccuracy {
-            feasibility: 1e-10,
-            stationarity: 1e-10,
-            complementarity: 1e-10,
-            ..ResolvedAccuracy::nominal()
+        let controls = Controls {
+            start: if warm.is_some() {
+                StartPolicy::Explicit
+            } else {
+                StartPolicy::NoPriorStart
+            },
+            ..Controls::default()
         };
         let report = match backend {
             Backend::Ipopt => crate::ipopt::Session::new().solve(
@@ -396,6 +405,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                     &[1., 3.],
                     &policy,
                     &tolerances(),
+                    &ResolvedAccuracy::nominal(),
                     execution(),
                     Some(&incompatible),
                     compatibility,
@@ -413,6 +423,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         &[1.0, 3.0],
         &Policy::Auto,
         &tolerances(),
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -481,7 +492,13 @@ fn qualification_declines_tiny_support_and_narrow_intervals() {
         .unwrap()
         .entries
         .insert(1, 1e-15);
-    let r = Policy::Auto.qualify(&oracle, &tolerances()).unwrap();
+    let r = Policy::Auto
+        .qualify(
+            &oracle,
+            &tolerances(),
+            &pse_math::normalization::Normalization::identity(2, 2),
+        )
+        .unwrap();
     assert!(!r.passes[&Pass::AffineElimination].applied);
     let required = Policy::Explicit {
         options: PresolveOptions {
@@ -491,7 +508,15 @@ fn qualification_declines_tiny_support_and_narrow_intervals() {
         },
         required: BTreeSet::from([Pass::AffineElimination]),
     };
-    assert!(required.qualify(&oracle, &tolerances()).is_err());
+    assert!(
+        required
+            .qualify(
+                &oracle,
+                &tolerances(),
+                &pse_math::normalization::Normalization::identity(2, 2)
+            )
+            .is_err()
+    );
     oracle.facts.affine[0]
         .as_mut()
         .unwrap()
@@ -500,7 +525,11 @@ fn qualification_declines_tiny_support_and_narrow_intervals() {
     oracle.bounds[0] = (7.0, 7.0 + 1e-13);
     assert!(
         !Policy::Auto
-            .qualify(&oracle, &tolerances())
+            .qualify(
+                &oracle,
+                &tolerances(),
+                &pse_math::normalization::Normalization::identity(2, 2)
+            )
             .unwrap()
             .effective
             .linear_eq_reduction
@@ -513,6 +542,7 @@ fn off_is_identity_and_only_tape_edits_invalidate_native_reuse() {
         &[1.0, 3.0],
         &Policy::Off,
         &tolerances(),
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -529,6 +559,7 @@ fn off_is_identity_and_only_tape_edits_invalidate_native_reuse() {
             &[1.0, 3.0],
             &Policy::Off,
             &tolerances(),
+            &ResolvedAccuracy::nominal(),
             execution(),
             None,
             stamp(),
@@ -596,7 +627,14 @@ fn explicit_options_are_library_validated_and_required_passes_are_not_noops() {
         BTreeSet::from([Pass::Fbbt]),
     )
     .unwrap();
-    assert!(policy.qualify(&Mixed::new(), &tolerances()).unwrap().passes[&Pass::Fbbt].applied);
+    assert!(matches!(
+        policy.qualify(
+            &Mixed::new(),
+            &tolerances(),
+            &pse_math::normalization::Normalization::identity(2, 2)
+        ),
+        Err(ProblemError::Unsupported(_))
+    ));
     assert!(
         Policy::from_native_options(
             &Options::from([("invented".into(), OptionValue::Bool(true))]),
@@ -606,7 +644,15 @@ fn explicit_options_are_library_validated_and_required_passes_are_not_noops() {
     );
     let mut opaque = Mixed::new();
     opaque.facts.complete.fill(false);
-    assert!(policy.qualify(&opaque, &tolerances()).is_err());
+    assert!(
+        policy
+            .qualify(
+                &opaque,
+                &tolerances(),
+                &pse_math::normalization::Normalization::identity(2, 2)
+            )
+            .is_err()
+    );
 }
 #[test]
 fn maximization_and_original_warm_seed_preserve_conventions() {
@@ -628,6 +674,7 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
         &[1.0, 3.0],
         &Policy::Off,
         &tolerances(),
+        &ResolvedAccuracy::nominal(),
         execution(),
         Some(&warm),
         stamp(),
@@ -695,6 +742,7 @@ fn fully_determined_library_standdown_preserves_the_original_problem() {
         &[2.0, 2.0],
         &policy,
         &tolerances(),
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -736,11 +784,14 @@ fn normalization_callbacks_and_original_duals_round_trip() {
             working: None,
         },
     };
+    let mut tolerance = tolerances();
+    tolerance.rows = vec![1e-7, 5e-8];
     let mut pipeline = Pipeline::new(
         Box::new(source),
         &[2.0, 2.0],
         &Policy::Off,
-        &tolerances(),
+        &tolerance,
+        &ResolvedAccuracy::nominal(),
         execution(),
         Some(&warm),
         stamp(),
@@ -786,7 +837,7 @@ fn normalization_callbacks_and_original_duals_round_trip() {
     });
     let (report, _) = pipeline.finish(
         report,
-        &tolerances(),
+        &tolerance,
         ObjectiveSense::Minimize,
         &Analysis::NONE,
         UNUSED,
@@ -820,6 +871,7 @@ fn presolve_certificate_respects_each_bound_budget() {
         &[2.0, 2.0],
         &Policy::Auto,
         &allowed,
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -828,6 +880,15 @@ fn presolve_certificate_respects_each_bound_budget() {
     .unwrap();
     assert!(p.report().proof.is_none());
     assert!(!p.report().effective.enabled);
+    let mut native = p;
+    let oracle = native.take_oracle().unwrap();
+    assert!(
+        oracle
+            .contract()
+            .variables
+            .iter()
+            .all(|v| v.lower == 0.0 && v.upper == 10.0)
+    );
     let mut distinct = tolerances();
     distinct.rows[0] = 500.0;
     let p = Pipeline::new(
@@ -835,6 +896,7 @@ fn presolve_certificate_respects_each_bound_budget() {
         &[2.0, 2.0],
         &Policy::Auto,
         &distinct,
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -935,10 +997,10 @@ fn propagation_fixed_row() -> PropagationFixedRow {
     PropagationFixedRow(m)
 }
 /// Interval propagation fixes `x₀` through `x₀² = 4` and retains that row, which leaves the
-/// transformed problem overdetermined. Automatic presolve declines propagation alone and
-/// keeps the other qualified passes: the affine row still eliminates its column.
+/// transformed problem overdetermined. Unsupported barrier-bound propagation is declined
+/// at admission while the affine row still eliminates its column with source provenance.
 #[test]
-fn automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows() {
+fn automatic_presolve_declines_untracked_barriers_and_retains_affine_reduction() {
     let tolerance = Tolerances {
         variables: vec![1e-8; 3],
         rows: vec![1e-8; 3],
@@ -949,6 +1011,7 @@ fn automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows()
         &[1.5, 1.5, 1.5],
         &Policy::Auto,
         &tolerance,
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -956,19 +1019,10 @@ fn automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows()
     )
     .unwrap();
     let report = pipeline.report();
-    assert!(
-        report.diagnostics.contains_key("propagation.declined"),
-        "{:?}",
-        report.diagnostics
-    );
     assert!(!report.diagnostics.contains_key("structure.declined"));
     let fbbt = &report.passes[&Pass::Fbbt];
-    assert!(fbbt.requested && fbbt.eligible && !fbbt.applied);
-    assert!(
-        fbbt.reason
-            .as_deref()
-            .is_some_and(|r| r.contains("propagation"))
-    );
+    assert!(fbbt.requested && !fbbt.eligible && !fbbt.applied);
+    assert_eq!(fbbt.reason.as_deref(), Some(UNTRACKED_BOUND_DUALS));
     assert!(!report.effective.fbbt);
     assert!(report.passes[&Pass::AffineElimination].applied);
     assert_eq!(
@@ -995,12 +1049,13 @@ fn automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows()
             &[1.5, 1.5, 1.5],
             &required,
             &tolerance,
+            &ResolvedAccuracy::nominal(),
             execution(),
             None,
             stamp(),
             1000
         ),
-        Err(ProblemError::Structural { .. })
+        Err(ProblemError::Unsupported(_))
     ));
 }
 
@@ -1098,6 +1153,7 @@ fn automatic_presolve_propagates_an_affine_row_by_its_proof() {
         &[1.0, 1.5],
         &Policy::Auto,
         &tolerances(),
+        &ResolvedAccuracy::nominal(),
         execution(),
         None,
         stamp(),
@@ -1113,8 +1169,11 @@ fn automatic_presolve_propagates_an_affine_row_by_its_proof() {
         "{:?}",
         report.diagnostics
     );
-    assert!(report.passes[&Pass::Fbbt].applied, "{:?}", report.passes);
-    // The affine row is eliminated; its column stays, fixed at the row's value.
+    assert!(!report.passes[&Pass::Fbbt].applied, "{:?}", report.passes);
+    // The source affine proof eliminates its column; no tape-tightened clamp survives.
     assert!(report.passes[&Pass::AffineElimination].applied);
-    assert_eq!(report.dimensions, dimensions(2, 2, 2, 1));
+    assert_eq!(report.dimensions, dimensions(2, 2, 1, 1));
 }
+
+mod accuracy;
+mod bounds;

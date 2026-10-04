@@ -34,7 +34,13 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 /// The payload version this build executes: the store's `payload_version` column and the
 /// document's own `version` ([`JobPayload`]).
-pub const JOB_PAYLOAD_VERSION: i32 = 5;
+pub const JOB_PAYLOAD_VERSION: i32 = 6;
+
+/// Version admission precedes decoding any nested current scientific contract.
+#[derive(serde::Deserialize)]
+pub(super) struct DocumentVersion {
+    pub(super) version: u32,
+}
 
 /// How a job's solve is started.
 #[derive(
@@ -63,13 +69,13 @@ pub enum JobStart {
     },
 }
 
-/// Version 5 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+/// Version 6 of a durable job's payload: the one task a job runs. Unknown fields, tasks
 /// and versions are refused.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct JobPayload {
     /// Document version.
-    pub version: Version<5>,
+    pub version: Version<{ JOB_PAYLOAD_VERSION as u32 }>,
     /// The task.
     pub task: JobTask,
 }
@@ -600,8 +606,7 @@ impl Runtime {
             return Err(contract("study job binding or occurrence identity differs"));
         }
         let stored = operations.store().studies().row(job.point.study_id).await?;
-        let definition: super::StudyDefinition = serde_json::from_str(&stored.definition)
-            .map_err(|error| contract(format!("immutable study definition: {error}")))?;
+        let definition = super::StudyDefinition::readmission(&stored.definition)?;
         definition.validate_roles()?;
         let defined = definition
             .points
@@ -817,6 +822,16 @@ fn decode(claimed: &ClaimedJob) -> Result<JobTask, WorkflowError> {
             supported: JOB_PAYLOAD_VERSION,
         });
     }
+    let header = <DocumentVersion as serde::Deserialize>::deserialize(&claimed.payload)
+        .map_err(|error| contract(format!("job payload version: {error}")))?;
+    if header.version != Version::<{ JOB_PAYLOAD_VERSION as u32 }>::NUMBER {
+        let version = i32::try_from(header.version)
+            .map_err(|error| contract(format!("job payload version: {error}")))?;
+        return Err(WorkflowError::UnknownPayloadVersion {
+            version,
+            supported: JOB_PAYLOAD_VERSION,
+        });
+    }
     let payload: JobPayload = serde_json::from_value(claimed.payload.clone())
         .map_err(|e| contract(format!("job payload version {JOB_PAYLOAD_VERSION}: {e}")))?;
     Ok(payload.task)
@@ -973,13 +988,43 @@ mod decode_tests {
             ),
             "{error:?}"
         );
-        // The current column with a document of another version, or of another shape, is a
-        // contract error.
+        // A known column cannot grant admission to a document of another version.
         let mut restated = payload;
         restated["version"] = serde_json::json!(JOB_PAYLOAD_VERSION + 1);
-        for document in [restated, serde_json::json!({ "from": "a newer build" })] {
-            let error = decode(&claimed(JOB_PAYLOAD_VERSION, document));
-            assert!(matches!(error, Err(WorkflowError::Input(_))), "{error:?}");
+        assert!(matches!(
+            decode(&claimed(JOB_PAYLOAD_VERSION, restated)),
+            Err(WorkflowError::UnknownPayloadVersion { .. })
+        ));
+        let error = decode(&claimed(
+            JOB_PAYLOAD_VERSION,
+            serde_json::json!({ "from": "a newer build" }),
+        ));
+        assert!(matches!(error, Err(WorkflowError::Input(_))), "{error:?}");
+    }
+
+    #[test]
+    fn historical_payload_refusal_precedes_nested_scientific_decode() {
+        let historical = serde_json::json!({
+            "version": 5,
+            "task": {
+                "kind": "study_operation",
+                "point": {
+                    "operation": {
+                        "version": 1,
+                        "preparation": {"compiler": {"evaluation": {}, "optimization": {}}}
+                    }
+                }
+            }
+        });
+        for column in [5, JOB_PAYLOAD_VERSION] {
+            let claim = claimed(column, historical.clone());
+            let error = decode(&claim).unwrap_err();
+            assert!(matches!(
+                error,
+                WorkflowError::UnknownPayloadVersion { version: 5, supported }
+                    if supported == JOB_PAYLOAD_VERSION
+            ));
+            assert_eq!(claim.payload, historical);
         }
     }
 }

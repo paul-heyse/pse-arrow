@@ -107,7 +107,7 @@ impl ExecutionScope {
             .deadline
             .is_some_and(|deadline| Instant::now() >= deadline)
         {
-            Err(ProviderError::Limit("execution deadline"))
+            Err(ProviderError::Deadline)
         } else {
             Ok(())
         }
@@ -119,6 +119,7 @@ impl ExecutionScope {
             allowance.min(deadline.saturating_duration_since(Instant::now()))
         });
         if remaining.is_zero() {
+            self.check()?;
             Err(ProviderError::Limit("execution time allowance"))
         } else {
             Ok(remaining)
@@ -451,6 +452,9 @@ pub enum ProviderError {
     /// Cooperative evaluation cancellation.
     #[error("provider evaluation cancelled")]
     Cancelled,
+    /// The absolute execution deadline has expired, distinct from other resource limits.
+    #[error("provider execution deadline expired")]
+    Deadline,
     /// A bounded demand cannot be admitted.
     #[error("provider resource limit: {0}")]
     Limit(&'static str),
@@ -498,6 +502,15 @@ pub enum ProviderError {
         /// Regime the refused trial selected.
         selected: SemanticId,
     },
+    /// Original nested mathematical/native failure and its producer-owned extent.
+    #[error("{cause}")]
+    Nested {
+        /// Typed source owner; rendered text is never classification authority.
+        #[source]
+        cause: pse_model::diagnostic::DiagnosticCause,
+        /// Owned source extent, excluding the shared allocation overhead.
+        retained: usize,
+    },
     /// Terminal failure.
     #[error("provider failed: {0}")]
     Terminal(String),
@@ -509,15 +522,25 @@ impl ProviderError {
             Self::Contract(s) | Self::Trial(s) | Self::Singular(s) | Self::Terminal(s) => {
                 s.capacity()
             }
+            Self::Nested { cause, retained } => {
+                retained.saturating_add(cause.allocation_overhead())
+            }
             Self::OutsideEnvelope { axis, .. } => axis.capacity(),
             Self::DerivativeUnavailable { members, .. } => {
                 members.capacity() * size_of::<SemanticId>()
             }
-            Self::Cancelled | Self::Limit(_) | Self::RegimeCrossing { .. } => 0,
+            Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::RegimeCrossing { .. } => 0,
         })
     }
     /// A recoverable trial refusal: the outer method may shorten or change its step.
     pub fn recoverable(&self) -> bool {
+        if let Self::Nested { cause, .. } = self {
+            use pse_model::diagnostic::DiagnosticProjection;
+            return cause
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
+                .class
+                == pse_model::diagnostic::BoundaryClass::TrialRejected;
+        }
         matches!(
             self,
             Self::Trial(_)
@@ -529,17 +552,20 @@ impl ProviderError {
 }
 pse_diagnostics::impl_diagnostic! {
     ProviderError,
-    code(this) { Some(match this {
-        Self::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
-        Self::Limit(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
-        Self::Contract(_) => pse_diagnostics::DiagnosticCode::KernelUnboundParameter,
-        Self::DerivativeUnavailable { .. } => pse_diagnostics::DiagnosticCode::CapabilityBackend,
-        Self::Terminal(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
-        Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => pse_diagnostics::DiagnosticCode::MathProvider,
-    }) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    code(this) { match this {
+        Self::Nested {..} => None,
+        Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
+        Self::Deadline => Some(pse_diagnostics::DiagnosticCode::RuntimeTimeout),
+        Self::Limit(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
+        Self::Contract(_) => Some(pse_diagnostics::DiagnosticCode::KernelUnboundParameter),
+        Self::DerivativeUnavailable { .. } => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
+        Self::Terminal(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => Some(pse_diagnostics::DiagnosticCode::MathProvider),
+    } },
+    forward(this) { match this { Self::Nested {cause,..} => Some(cause.as_ref()), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation as O, DiagnosticRule as R};
+        if matches!(this, Self::Nested {..}) {return DiagnosticFacts::default();}
         let mut facts = DiagnosticFacts { rule: Some(R::MathProvider), ..Default::default() };
         facts.observe("provider_recoverable", O::Boolean(this.recoverable()));
         match this {
@@ -555,7 +581,7 @@ pse_diagnostics::impl_diagnostic! {
                 facts.observe("requested_derivative_order", O::Integer(order(*requested)));
                 facts.observe("available_derivative_order", O::Integer(order(*available)));
             }
-            Self::Cancelled | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
+            Self::Nested {..} | Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
         }
         facts
     }
@@ -831,4 +857,24 @@ mod execution_scope_tests;
 #[cfg(test)]
 mod envelope_tests;
 
-impl pse_model::diagnostic::DiagnosticProjection for ProviderError {}
+impl pse_model::diagnostic::DiagnosticProjection for ProviderError {
+    fn boundary_diagnostic(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        match self {
+            Self::Nested { cause, .. } => cause.boundary_diagnostic(stage),
+            _ => pse_model::diagnostic::project_typed(self, stage),
+        }
+    }
+    fn boundary_diagnostic_with_members(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+        bindings: &std::collections::BTreeMap<SemanticId, SemanticId>,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        match self {
+            Self::Nested { cause, .. } => cause.boundary_diagnostic_with_members(stage, bindings),
+            _ => self.boundary_diagnostic(stage),
+        }
+    }
+}

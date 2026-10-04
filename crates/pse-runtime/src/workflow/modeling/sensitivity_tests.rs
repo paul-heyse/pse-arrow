@@ -90,7 +90,7 @@ pub(in crate::workflow) fn analysis(
 pub(in crate::workflow) async fn solve(
     text: &str,
     selection: SolverSelection,
-) -> (std::sync::Arc<crate::workflow::RunResult>, [SemanticId; 3]) {
+) -> (Arc<crate::workflow::RunResult>, [SemanticId; 3]) {
     let (result, ids) = solve_propagating(text, selection, &["x"], |_, _| None).await;
     (result, [ids[0], ids[1], ids[2]])
 }
@@ -102,7 +102,7 @@ pub(in crate::workflow) async fn solve_propagating(
     selection: SolverSelection,
     outputs: &[&str],
     propagation: impl FnOnce(&[SemanticId], &[SemanticId]) -> Option<crate::math::settings::Propagation>,
-) -> (std::sync::Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
+) -> (Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
     let (package, root) = package(text);
     let cancel = crate::CancelSource::new();
     let mut analysis = analysis(root, selection);

@@ -136,4 +136,65 @@ mod boundary_unit {
             "not_requested"
         );
     }
+    #[test]
+    fn profile_transport_preserves_typed_trial_terminal_and_environment_causes() {
+        use super::super::{ProfileFailure, ProfilePoint};
+        use pse_backend_native::{ProblemError, solve::Termination};
+        let failure = |cause| ProfileFailure::from(cause);
+        let chain = ProfileChain {
+            scheduling_failures: Vec::new(),
+            worker_failure: Some(ProfileWorkerFailure::Environment(failure(
+                ProblemError::memory("worker native scope"),
+            ))),
+            actual_parallelism: 0,
+            parameter: pse_ids::SemanticId::from_bytes([7; 16]),
+            end: IntervalEnd::Lower,
+            estimate: 2.,
+            bound: IntervalBound {
+                value: None,
+                outcome: IntervalOutcome::Stopped,
+            },
+            detail: Some("stopped after terminal failure".into()),
+            points: vec![
+                ProfilePoint {
+                    value: 1.,
+                    seed: None,
+                    qualification: None,
+                    termination: None,
+                    failures: vec![failure(ProblemError::numerical("trial trajectory"))],
+                    callback_terminal_failure: false,
+                    objective: None,
+                    statistic: None,
+                    accepted: false,
+                    detail: Some("trial trajectory".into()),
+                },
+                ProfilePoint {
+                    value: 1.5,
+                    seed: None,
+                    qualification: None,
+                    termination: Some(Termination::Evaluation),
+                    failures: vec![failure(ProblemError::Provider(
+                        pse_kernels::ProviderError::Terminal("provider stopped".into()),
+                    ))],
+                    callback_terminal_failure: true,
+                    objective: None,
+                    statistic: None,
+                    accepted: false,
+                    detail: Some("provider stopped".into()),
+                },
+            ],
+        };
+        let value = serde_json::to_value(FitProfileDocument::Available {
+            chains: vec![chain],
+        })
+        .unwrap();
+        let chain = &value["chains"][0];
+        assert_eq!(chain["worker_failure"]["kind"], "environment");
+        assert_eq!(chain["worker_failure"]["detail"]["class"], "resource_limit");
+        assert_eq!(chain["points"][0]["failures"][0]["class"], "numerical");
+        assert_eq!(chain["points"][1]["failures"][0]["class"], "infrastructure");
+        assert_eq!(chain["points"][1]["termination"], "evaluation");
+        assert_eq!(chain["points"][1]["callback_terminal_failure"], true);
+        assert_eq!(chain["bound"]["outcome"], "stopped");
+    }
 }

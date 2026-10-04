@@ -591,21 +591,26 @@ mod tests {
             report.quality = Some(quality::Quality::new(vec![], vec![], vec![]).unwrap());
             report.qualification = Qualification::OptimalWithinTolerance;
             report.record_validation_failure(failure);
+            let outcome = Outcome::Native(Box::new(report));
+            let point = super::super::modeling::assessment::AssessedPoint {
+                values: prepared.model.values.clone(),
+                checks: vec![],
+                reports: vec![],
+                error: None,
+                complete: true,
+                required_closure: 0,
+                owner: owner.clone(),
+            };
+            let completion = point.completion(&outcome, &prepared.solve.numerics().policy);
             let step = super::super::ModelingResult::from_assessment(
                 prepared.clone(),
                 run_id,
                 0,
-                Outcome::Native(Box::new(report)),
-                super::super::modeling::assessment::AssessedPoint {
-                    values: prepared.model.values.clone(),
-                    checks: vec![],
-                    reports: vec![],
-                    error: None,
-                    complete: true,
-                    required_closure: 0,
-                    owner: owner.clone(),
-                },
+                outcome,
+                point,
+                completion,
                 owner.clone(),
+                None,
             );
             let mut result = RunResult::joined(
                 run_id,

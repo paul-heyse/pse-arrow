@@ -160,6 +160,8 @@ impl ToSql for crate::generated::enums::NativeBackend {
                 "idas",
                 "scip",
                 "pounce_convex",
+                "uno",
+                "petsc",
             ],
         )
     }

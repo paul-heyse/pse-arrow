@@ -238,8 +238,21 @@ async fn numerical_psd_only_under_explicit_policy() {
         .await
         .unwrap();
     assert_eq!(prepared.solve.route(), Route::Native(Backend::Highs));
+    // Exact coefficient evidence is an explicit class demand, independent of
+    // this selected solve's numerical PSD qualification.
+    let exact = package
+        .runtime
+        .shared
+        .math()
+        .discover_class(
+            prepared.model.case.clone(),
+            prepared.model.values.clone(),
+            &profile(highs, ConvexityPolicy::Exact),
+        )
+        .await
+        .unwrap();
     assert_eq!(
-        prepared.model.case.compiled().facts.convexity.class,
+        exact.compiled().facts.convexity.class,
         ConvexityClass::Unrecognized(Unrecognized::Indefinite)
     );
     assert!(matches!(

@@ -88,7 +88,7 @@ pub struct StudyPoint {
 #[serde(deny_unknown_fields)]
 pub struct StudyRequest {
     /// Document version.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// Ordered occurrence requests.
     pub points: Vec<StudyPoint>,
 }
@@ -106,13 +106,15 @@ pub struct StudyPlan {
     pub priority: i32,
 }
 
-/// Version 3 of a study's definition: the store's `definition` document and the content of
+const STUDY_DEFINITION_VERSION: u32 = 4;
+
+/// Version 4 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyDefinition {
     /// Document version.
-    pub version: Version<3>,
+    pub version: Version<STUDY_DEFINITION_VERSION>,
     /// The source bundle of the physical package.
     pub physical: ContentHash,
     /// The source bundles of the modeling package closure, in load order.
@@ -135,6 +137,25 @@ pub struct StudyPointDefinition {
     pub policy: PointPolicy,
 }
 impl StudyDefinition {
+    /// Read a current durable definition, refusing historical contracts before their
+    /// nested scientific inputs are decoded. Stored bytes are never rewritten.
+    pub(super) fn readmission(document: &str) -> Result<Self, WorkflowError> {
+        let header: super::worker::DocumentVersion = serde_json::from_str(document)
+            .map_err(|error| contract(format!("immutable study definition version: {error}")))?;
+        if header.version != Version::<STUDY_DEFINITION_VERSION>::NUMBER {
+            return Err(OperationsError::InvalidRequest {
+                reason: format!(
+                    "study definition version {} is unsupported (current: {}); explicit readmission is required",
+                    header.version,
+                    Version::<STUDY_DEFINITION_VERSION>::NUMBER
+                ),
+            }
+            .into());
+        }
+        serde_json::from_str(document)
+            .map_err(|error| contract(format!("immutable study definition: {error}")))
+    }
+
     /// Validate supported producer and consumer roles for every immutable descriptor.
     pub fn validate_roles(&self) -> Result<(), WorkflowError> {
         pse_operations::study_policy::admit(&self.graph()).map_err(|error| {
@@ -822,8 +843,7 @@ impl Runtime {
                 record.study.state.as_str()
             )));
         }
-        let definition: StudyDefinition = serde_json::from_str(&record.study.definition)
-            .map_err(|e| contract(format!("study {study} definition: {e}")))?;
+        let definition = StudyDefinition::readmission(&record.study.definition)?;
         let point_members = store.studies().available_members(study).await?;
         let available = point_members.iter().map(|(key, _)| *key).collect();
         let summary = self.study_outcomes(&record, &definition, &available)?;

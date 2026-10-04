@@ -132,7 +132,7 @@ fn implicit_outer_deadline_expiry_avoids_native_and_remains_distinct_from_cancel
     let scope = ExecutionScope::new(flag.clone(), Some(Instant::now()));
     assert!(matches!(
         factory.create_scoped(scope.clone()),
-        Err(pse_kernels::ProviderError::Limit(_))
+        Err(pse_kernels::ProviderError::Deadline)
     ));
     assert!(!flag.load(Ordering::Acquire));
     flag.store(true, Ordering::Release);
@@ -163,7 +163,7 @@ fn implicit_outer_deadline_caps_local_allowance_and_cannot_be_renewed_by_evaluat
     );
     assert!(matches!(
         worker.evaluate(&[1.], &request, &context),
-        Err(pse_kernels::ProviderError::Limit(_))
+        Err(pse_kernels::ProviderError::Deadline)
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
     assert!(!factory.cancel.load(Ordering::Acquire));
@@ -183,7 +183,7 @@ fn implicit_outer_deadline_rejects_late_positive_native_result() {
     let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);
     assert!(matches!(
         worker.evaluate(&[1.], &request, &context),
-        Err(pse_kernels::ProviderError::Limit(_))
+        Err(pse_kernels::ProviderError::Deadline)
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
     assert!(allowances.lock().unwrap()[0] <= Duration::from_millis(40));

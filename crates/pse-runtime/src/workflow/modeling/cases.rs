@@ -21,7 +21,7 @@ pub struct ModelingObservations {
     /// Typed evidence retained on demanded paths at this exact bound point.
     pub applicability: Vec<pse_model::applicability::Observation>,
     values: BTreeMap<SemanticId, f64>,
-    _owner: std::sync::Arc<pse_columnar::AllocationLease>,
+    _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl std::ops::Deref for ModelingObservations {
     type Target = BTreeMap<SemanticId, f64>;
@@ -93,16 +93,16 @@ pub struct ModelingSolvePreparation {
 /// Numerical resolution precedes native routing so diagnostics can inspect an
 /// underdetermined or otherwise ineligible problem without requesting a solver.
 pub(in crate::workflow) struct ModelingCaseResolution {
-    case_bindings: ModelingCaseBindings,
+    pub(super) case_bindings: ModelingCaseBindings,
     pub compiler: Profile,
     pub model: ModelingCasePreparation,
     pub starts: BTreeMap<SemanticId, StartSource>,
     pub providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub numerical: NumericalInputs,
     pub solver: SolverProfile,
-    pub numerics: std::sync::Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    pub numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
     /// The parametric program of the solver's sensitivity request (Plan 22 S1).
-    pub parametric: Option<ParametricPreparation<std::sync::Arc<crate::math::ExecutableCase>>>,
+    pub parametric: Option<ParametricPreparation<Arc<crate::math::ExecutableCase>>>,
 }
 impl ModelingCaseResolution {
     /// Canonical identity of the bound request and contextual native admission before an attempt exists.
@@ -289,7 +289,7 @@ impl ModelingPackage {
                 DerivativeOrder::Value,
                 profile,
                 cancel,
-                Some(&rows),
+                implicit::ProviderDemand::Observations(Some(&rows)),
             )
             .await?;
         self.observe_registered(model, rows, values, profile, providers, cancel)
@@ -735,34 +735,42 @@ impl ModelingPackage {
             parametric,
             ..
         } = resolution;
-        let mut solve = self
-            .runtime
-            .shared
-            .math()
-            .prepare_solve(
-                model.case.clone(),
-                model.values.clone(),
-                providers.clone(),
-                solver.clone(),
-                numerical.clone(),
-            )
-            .await
-            .map_err(|cause| {
-                let mut diagnostic = crate::workflow::diagnostics::observed(
-                    &cause,
-                    pse_diagnostics::DiagnosticStage::ModelingAdmission,
-                );
-                if diagnostic.rule == pse_diagnostics::DiagnosticRule::NativeStructural {
-                    diagnostics::attribute(&mut diagnostic, model.model.compiled());
-                    WorkflowError::ModelingAdmission {
-                        diagnostic: Box::new(diagnostic),
-                        cause,
-                    }
-                } else {
-                    WorkflowError::Math(cause)
+        let preparation = self.runtime.shared.math().prepare_solve(
+            model.case.clone(),
+            model.values.clone(),
+            providers.clone(),
+            solver.clone(),
+            numerical.clone(),
+        );
+        let mut solve = tokio::select! {
+            biased;
+            () = cancel.cancelled() => Err(crate::math::MathRuntimeError::Cancelled),
+            result = preparation => result,
+        }
+        .map_err(|cause| {
+            let mut diagnostic = crate::workflow::diagnostics::observed(
+                &cause,
+                pse_diagnostics::DiagnosticStage::ModelingAdmission,
+            );
+            if diagnostic.rule == pse_diagnostics::DiagnosticRule::NativeStructural {
+                diagnostics::attribute(&mut diagnostic, model.model.compiled());
+                WorkflowError::ModelingAdmission {
+                    diagnostic: Box::new(diagnostic),
+                    cause: Box::new(cause),
                 }
-            })?;
+            } else {
+                WorkflowError::Math(cause)
+            }
+        })?;
         if solve.required_order() > model.case.compiled().plan.order() {
+            let response = parametric.as_ref().and_then(|program| match program {
+                ParametricPreparation::Available(program) => Some(program),
+                ParametricPreparation::Unavailable(_) => None,
+            });
+            let plan = response.map_or(model.case.compiled().plan.as_ref(), |program| {
+                &program.assembly
+            });
+            let order = solve.required_order().max(plan.order());
             providers = self
                 .inner_registrations(
                     model.model.clone(),
@@ -770,10 +778,10 @@ impl ModelingPackage {
                     &numerical,
                     &solver.numerics,
                     &solver.controls,
-                    solve.required_order(),
+                    order,
                     compiler,
                     cancel,
-                    None,
+                    implicit::ProviderDemand::Case(plan),
                 )
                 .await?;
             solve = solve
@@ -838,17 +846,19 @@ impl ModelingPackage {
         if !allow_missing_free {
             require_inputs(&model, &values)?;
         }
-        let providers = self
+        // Starts and fixed-state hints consume values before the bound case owns its
+        // derivative coordinates. Authored partials retain their independent demand.
+        let mut providers = self
             .inner_registrations(
                 model.clone(),
                 &case,
                 &numerical,
                 &solver.numerics,
                 &solver.controls,
-                order,
+                DerivativeOrder::Value,
                 compiler,
                 cancel,
-                None,
+                implicit::ProviderDemand::Observations(None),
             )
             .await?;
         numerical
@@ -878,6 +888,23 @@ impl ModelingPackage {
         let prepared = self
             .bound_case(&model, values.clone(), &states, order, compiler, cancel)
             .await?;
+        // Upgrade from the actual bound output/coordinate maps, not every formal
+        // input of the original source. Native inner residual minima remain separate.
+        if order > DerivativeOrder::Value {
+            providers = self
+                .inner_registrations(
+                    model.clone(),
+                    &case,
+                    &numerical,
+                    &solver.numerics,
+                    &solver.controls,
+                    order,
+                    compiler,
+                    cancel,
+                    implicit::ProviderDemand::Case(&prepared.case.compiled().plan),
+                )
+                .await?;
+        }
         // A sensitivity request differentiates the view's parametric program, and each
         // parameter resolves its coordinate scale as a variable coordinate (Plan 22 S1).
         let parametric = match &solver.sensitivity {
@@ -935,6 +962,19 @@ impl ModelingPackage {
                     .await;
                 let preparation = match result {
                     Ok(program) => {
+                        providers = self
+                            .inner_registrations(
+                                model.clone(),
+                                &case,
+                                &numerical,
+                                &solver.numerics,
+                                &solver.controls,
+                                derivative_order,
+                                compiler,
+                                cancel,
+                                implicit::ProviderDemand::Case(&program.assembly),
+                            )
+                            .await?;
                         numerical
                             .targets
                             .extend(program.assembly.parameter_targets());
@@ -1121,7 +1161,7 @@ impl ModelingPackage {
         compiler: Profile,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
-    ) -> Result<std::sync::Arc<pse_model::numerics::ResolvedNumericalPolicy>, WorkflowError> {
+    ) -> Result<Arc<pse_model::numerics::ResolvedNumericalPolicy>, WorkflowError> {
         let product = model.compiled();
         let variables = variables(product);
         let equations = equations(product);
@@ -1168,6 +1208,36 @@ impl ModelingPackage {
             });
         }
         targets.extend(numerical.targets.clone());
+        let reconstruction_requirements = state_reconstruction_requirements(
+            product,
+            &targets,
+            model.solved().lineage(),
+            &physical,
+        )?;
+        let conservation_requirements =
+            conservation_row_requirements(product, &targets, model.solved().lineage(), &physical)?;
+        // These source-issued declarations must survive finish_case and every
+        // subsequent numerical re-resolution. Replace this producer's own IDs
+        // idempotently, including removal when its reconstruction row is absent.
+        let mut declared_row_ids = product
+            .model
+            .state_specifications
+            .values()
+            .flat_map(|specification| specification.reconstructions.iter())
+            .map(|(row, _)| state_reconstruction_requirement_id(row))
+            .collect::<BTreeSet<_>>();
+        declared_row_ids.extend(
+            product
+                .model
+                .closures
+                .values()
+                .map(conservation_requirement_id),
+        );
+        numerical.declarations.retain(|requirement| {
+            !declared_row_ids.contains(&requirement.declaration.requirement_id)
+        });
+        numerical.declarations.extend(reconstruction_requirements);
+        numerical.declarations.extend(conservation_requirements);
         let resolved = pse_math::numerics::resolve(
             &physical,
             &targets,
@@ -1248,7 +1318,7 @@ impl ModelingPackage {
                 ));
             }
         }
-        Ok(std::sync::Arc::new(
+        Ok(Arc::new(
             pse_math::numerics::resolve(
                 &physical,
                 &targets,
@@ -1258,6 +1328,154 @@ impl ModelingPackage {
             .map_err(crate::math::MathRuntimeError::from)?,
         ))
     }
+}
+fn state_reconstruction_requirement_id(row: &pse_modeling::specialize::Row) -> SemanticId {
+    pse_ids::named_id(
+        pse_ids::named_id(row.lineage.declaration.as_id(), &row.id.to_string()),
+        "state-reconstruction-tolerance",
+    )
+}
+fn conservation_requirement_id(closure: &pse_modeling::specialize::Closure) -> SemanticId {
+    pse_ids::named_id(
+        pse_ids::named_id(closure.lineage.declaration.as_id(), &closure.id.to_string()),
+        "conservation-row-tolerance",
+    )
+}
+/// Lower an already specialized physical tolerance through the existing numerical owner.
+fn physical_row_requirement(
+    target: &pse_math::numerics::TargetSpec,
+    tolerance: &pse_modeling::specialize::Value,
+    lineage: pse_model::lineage::Lineage,
+    declaration: DeclarationId,
+    registry: &pse_quantity::QuantityRegistry,
+) -> Result<pse_math::numerics::SourcedRequirement, WorkflowError> {
+    use pse_modeling::specialize::Value;
+    // Static numbers are already canonical; attach their canonical unit rather
+    // than applying the authored storage conversion a second time.
+    let (magnitude, quantity) = match tolerance {
+        Value::Number { bits, quantity } | Value::Coordinate { bits, quantity, .. } => {
+            (f64::from_bits(*bits), *quantity)
+        }
+        Value::Integer(value) => (
+            *value as f64,
+            registry
+                .neutral_dimensionless()
+                .ok_or_else(|| contract("integer row tolerance has no scalar contract"))?,
+        ),
+        _ => return Err(contract("declared row tolerance is not numeric")),
+    };
+    pse_quantity::admission::require_same_contract(target.quantity, quantity, registry)
+        .map_err(pse_math::MathError::from)
+        .map_err(crate::math::MathRuntimeError::from)?;
+    let unit = registry
+        .quantity_type(quantity)
+        .map_err(pse_math::MathError::from)
+        .map_err(crate::math::MathRuntimeError::from)?
+        .canonical_unit;
+    if !magnitude.is_finite() || magnitude <= 0.0 {
+        return Err(contract(
+            "declared row tolerance must be finite and positive",
+        ));
+    }
+    let mut declared = requirement(
+        lineage,
+        target.id,
+        NumericalTarget::Row,
+        declaration,
+        NumericalSource::Model,
+        None,
+        None,
+    );
+    declared.declaration.absolute_tolerance = Some(magnitude);
+    declared.declaration.unit_id = Some(unit.as_id());
+    Ok(declared)
+}
+/// Only source conservation equalities retained in this numerical view own row budgets.
+/// Connection transport and supplied-state consistency closures remain independent checks.
+fn conservation_row_requirements(
+    product: &pse_compiler::workspace::PreparedModeling,
+    targets: &[pse_math::numerics::TargetSpec],
+    lineage: pse_model::lineage::Lineage,
+    registry: &pse_quantity::QuantityRegistry,
+) -> Result<Vec<pse_math::numerics::SourcedRequirement>, WorkflowError> {
+    let mut requirements = Vec::new();
+    for closure in product.model.closures.values().filter(|closure| {
+        closure.mode == pse_model::generated::enums::ModelingAccumulatorMode::Conservation
+            && !closure.observation_only
+    }) {
+        let row = pse_ids::named_id(closure.id, "conservation");
+        let Some(target) = targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Row && target.id == row)
+        else {
+            continue;
+        };
+        let mut source = lineage;
+        source.instance_id = Some(closure.lineage.instance);
+        let mut declared = physical_row_requirement(
+            target,
+            &closure.tolerance,
+            source,
+            closure.lineage.declaration,
+            registry,
+        )?;
+        declared.declaration.requirement_id = conservation_requirement_id(closure);
+        declared.declaration.provenance = format!(
+            "conservation row {} declared by {}",
+            row, closure.lineage.declaration,
+        );
+        requirements.push(declared);
+    }
+    Ok(requirements)
+}
+/// Only original reconstruction equations present in this solved view impose row budgets.
+/// Supplied states still keep their independent consistency checks; absent equations
+/// cannot introduce phantom numerical requirements into a projected or fixed view.
+fn state_reconstruction_requirements(
+    product: &pse_compiler::workspace::PreparedModeling,
+    targets: &[pse_math::numerics::TargetSpec],
+    lineage: pse_model::lineage::Lineage,
+    registry: &pse_quantity::QuantityRegistry,
+) -> Result<Vec<pse_math::numerics::SourcedRequirement>, WorkflowError> {
+    let mut requirements: BTreeMap<SemanticId, pse_math::numerics::SourcedRequirement> =
+        BTreeMap::new();
+    for specification in product.model.state_specifications.values() {
+        for (row, tolerance) in &specification.reconstructions {
+            let Some(target) = targets
+                .iter()
+                .find(|target| target.kind == NumericalTarget::Row && target.id == row.id)
+            else {
+                continue;
+            };
+            let mut source = lineage;
+            source.instance_id = Some(row.lineage.instance);
+            let mut requirement = physical_row_requirement(
+                target,
+                tolerance,
+                source,
+                row.lineage.declaration,
+                registry,
+            )?;
+            requirement.declaration.requirement_id = state_reconstruction_requirement_id(row);
+            requirement.declaration.provenance = format!(
+                "state reconstruction {} declared by {}",
+                row.id, row.lineage.declaration,
+            );
+            if let Some(existing) = requirements.get(&row.id) {
+                if existing.declaration.requirement_id != requirement.declaration.requirement_id
+                    || existing.declaration.absolute_tolerance
+                        != requirement.declaration.absolute_tolerance
+                    || existing.declaration.unit_id != requirement.declaration.unit_id
+                    || existing.declaration.instance_id != requirement.declaration.instance_id
+                {
+                    return Err(contract("conflicting state reconstruction row tolerances"));
+                }
+            } else {
+                requirements.insert(row.id, requirement);
+            }
+        }
+    }
+    Ok(requirements.into_values().collect())
 }
 /// Coordinates owned by nested implicit realizations; the outer case never binds them.
 struct Inner {
@@ -1391,7 +1609,9 @@ fn root_parametric_failure(
     use crate::math::MathRuntimeError as E;
     use pse_backend_native::square_response::Withheld;
     match cause {
-        E::Shared(cause) => root_parametric_failure(cause),
+        E::Shared(cause)
+        | E::Strategy { cause, .. }
+        | E::StrategyTraceUnavailable { cause, .. } => root_parametric_failure(cause),
         E::Math(cause) | E::Solve(pse_backend_native::ProblemError::Math(cause)) => {
             root_math_response_failure(cause)
         }
@@ -1430,6 +1650,786 @@ fn root_math_response_failure(
 mod tests {
     use super::*;
     use crate::math::solves::Outcome;
+    use std::sync::Arc;
+    #[tokio::test]
+    #[cfg(feature = "solver-kinsol")]
+    async fn conservation_tolerance_reaches_native_accuracy_and_original_quality() {
+        use super::super::super::tests as fixture;
+        use pse_backend_native::{NlpOracle, quality::Tolerances};
+        use pse_model::generated::enums::NumericalProvenanceField;
+        let rt = fixture::runtime();
+        let mut physical = fixture::physical();
+        let mut centimetre = physical
+            .quantities
+            .compose(&pse_quantity::UnitProduct::symbol("m"))
+            .unwrap();
+        centimetre.id = pse_ids::named_id(SemanticId::NIL, "conservation-test-centimetre").into();
+        centimetre.symbol = "cm".into();
+        centimetre.scale_to_canonical *= 0.01;
+        centimetre.definition = None;
+        let mut quantities = physical.quantities.to_builder();
+        quantities.unit(centimetre);
+        physical.quantities = Arc::new(quantities.build().unwrap());
+        physical.key = pse_compiler::workspace::physical_identity(
+            &physical.quantities,
+            &physical.preconditions,
+        );
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {var x:Scalar;var length:Length;annotation start x(1);annotation start length(1{m});accumulate total:Scalar conservation tolerance 1e-7;contribute total role inflow=x;contribute total role outflow=1;accumulate distance:Length conservation tolerance 0.00002{cm};contribute distance role inflow=length;contribute distance role outflow=1{m};state consistency supplied(true) {coordinate amount=x;reconstruct agreement:x==1 tolerance 1e-11;transport amount=x tolerance 1e-8;}}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = rt.modeling_package(declarations, physical).unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut solver = fixture::profile();
+        solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+            pse_backend_native::solve::Backend::Kinsol,
+        );
+        let resolved = package
+            .resolve_case(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver,
+                NumericalInputs::default(),
+                CaseOverrides::default(),
+                false,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let product = resolved.model.model.compiled();
+        let plan = &resolved.model.case.compiled().plan;
+        let registry = &resolved.model.case.compiled().quantities;
+        let targets = plan.numerical_targets(registry).unwrap();
+        let sources = conservation_row_requirements(
+            product,
+            &targets,
+            resolved.model.model.solved().lineage(),
+            registry,
+        )
+        .unwrap();
+        assert_eq!(sources.len(), 2);
+        assert!(
+            product
+                .model
+                .closures
+                .values()
+                .any(|closure| closure.observation_only)
+        );
+        assert!(
+            state_reconstruction_requirements(
+                product,
+                &targets,
+                resolved.model.model.solved().lineage(),
+                registry
+            )
+            .unwrap()
+            .is_empty()
+        );
+        let scalar = sources
+            .iter()
+            .find(|source| source.declaration.absolute_tolerance == Some(1e-7))
+            .unwrap();
+        let scalar_id = scalar.declaration.target_id;
+        let dimensional = sources
+            .iter()
+            .find(|source| source.declaration.target_id != scalar_id)
+            .unwrap();
+        assert!((dimensional.declaration.absolute_tolerance.unwrap() - 2e-7).abs() < 1e-21);
+        for source in &sources {
+            let closure = product
+                .model
+                .closures
+                .values()
+                .find(|closure| {
+                    pse_ids::named_id(closure.id, "conservation") == source.declaration.target_id
+                })
+                .unwrap();
+            assert_eq!(
+                source.declaration.instance_id,
+                Some(closure.lineage.instance)
+            );
+            assert_eq!(
+                source.declaration.requirement_id,
+                conservation_requirement_id(closure)
+            );
+            assert_eq!(source.source, NumericalSource::Model);
+        }
+        // Real selected-output projections cannot inherit an inactive equality's budget.
+        let construction = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let projection = plan
+            .functions(
+                &[scalar_id],
+                plan.columns().to_vec(),
+                registry,
+                DerivativeOrder::First,
+                &construction,
+            )
+            .unwrap();
+        let projected = conservation_row_requirements(
+            product,
+            &projection.numerical_targets(registry).unwrap(),
+            resolved.model.model.solved().lineage(),
+            registry,
+        )
+        .unwrap();
+        assert_eq!(projected.len(), 1);
+        assert_eq!(projected[0].declaration.target_id, scalar_id);
+        let empty = plan
+            .functions(
+                &[],
+                plan.columns().to_vec(),
+                registry,
+                DerivativeOrder::Value,
+                &construction,
+            )
+            .unwrap();
+        assert!(
+            conservation_row_requirements(
+                product,
+                &empty.numerical_targets(registry).unwrap(),
+                resolved.model.model.solved().lineage(),
+                registry
+            )
+            .unwrap()
+            .is_empty()
+        );
+        let mut policy = resolved.solver.numerics.clone();
+        let mut tighter = scalar.declaration.clone();
+        tighter.requirement_id = pse_ids::named_id(tighter.requirement_id, "analysis-override");
+        tighter.absolute_tolerance = Some(5e-8);
+        policy.requirements.push(tighter);
+        let overridden =
+            pse_math::numerics::resolve(registry, &targets, &sources, &policy).unwrap();
+        assert_eq!(
+            overridden
+                .targets
+                .iter()
+                .find(|target| target.id == scalar_id && target.kind == NumericalTarget::Row)
+                .unwrap()
+                .budget,
+            5e-8
+        );
+        let second = package
+            .resolve_case(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                resolved.solver.clone(),
+                resolved.numerical.clone(),
+                CaseOverrides::default(),
+                false,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            second.numerical.declarations.len(),
+            resolved.numerical.declarations.len()
+        );
+        let variable = *product
+            .model
+            .state_specifications
+            .values()
+            .next()
+            .unwrap()
+            .coordinates
+            .values()
+            .next()
+            .unwrap();
+        let prepared = package.finish_case(resolved, &cancel).await.unwrap();
+        let frozen = prepared.solve.numerics();
+        let actual = frozen
+            .targets
+            .iter()
+            .find(|target| target.id == scalar_id && target.kind == NumericalTarget::Row)
+            .unwrap();
+        assert_eq!(actual.budget, 1e-7);
+        assert!(
+            actual
+                .provenance
+                .iter()
+                .any(|source| source.source == NumericalSource::Model
+                    && source.selected
+                    && source.field == NumericalProvenanceField::AbsoluteTolerance)
+        );
+        let executable = package
+            .runtime
+            .native()
+            .assemble(prepared.model.case.clone())
+            .await
+            .unwrap();
+        let plan = &prepared.model.case.compiled().plan;
+        let row_ids = plan
+            .structure()
+            .rows()
+            .iter()
+            .map(|row| row.id)
+            .collect::<Vec<_>>();
+        let row = row_ids.iter().position(|id| *id == scalar_id).unwrap();
+        let column = plan
+            .columns()
+            .iter()
+            .position(|id| *id == variable)
+            .unwrap();
+        let normalization =
+            pse_math::normalization::Normalization::from_policy(frozen, plan.columns(), &row_ids)
+                .unwrap();
+        let tolerances = prepared.solve.tolerances();
+        assert_eq!(tolerances.rows[row], 1e-7);
+        let normalized = tolerances.normalized(&normalization).unwrap();
+        assert_eq!(
+            prepared.solve.accuracy().feasibility,
+            normalized
+                .variables
+                .iter()
+                .chain(&normalized.rows)
+                .copied()
+                .reduce(f64::min)
+                .unwrap()
+        );
+        assert!(prepared.solve.accuracy().feasibility <= 1e-7 / normalization.rows[row]);
+        let budget =
+            crate::math::WorkerBudget::new(package.runtime.shared.budget().math.worker_bytes);
+        let _charge = budget
+            .charge(executable.assembly.numeric_worker_bytes())
+            .unwrap();
+        let execution =
+            pse_backend_native::solve::Execution::new(construction, &prepared.profile.controls);
+        let worker = executable
+            .assembly
+            .worker_scoped(BTreeMap::new(), execution.scope().unwrap());
+        let mut oracle = pse_backend_native::assembled::AlgebraicOracle::new(
+            worker,
+            prepared.model.values.clone(),
+        )
+        .unwrap();
+        let mut point = plan
+            .columns()
+            .iter()
+            .map(|id| prepared.model.values.scalars[id])
+            .collect::<Vec<_>>();
+        let mut values = vec![0.; row_ids.len()];
+        for (error, feasible) in [(0.5e-7, true), (1.5e-7, false)] {
+            point[column] = 1. + error;
+            oracle.constraints(&point, &mut values).unwrap();
+            let quality = pse_backend_native::quality::observed(
+                oracle.contract(),
+                oracle.constraint_bounds(),
+                &point,
+                &values,
+                tolerances,
+            )
+            .unwrap();
+            assert_eq!(quality.feasible(), feasible);
+            assert_eq!(quality.rows[row].tolerance, 1e-7);
+        }
+        // The frozen native tolerance and an independent lowering agree on row order.
+        assert_eq!(
+            Tolerances::from_policy(frozen, plan.columns(), &row_ids)
+                .unwrap()
+                .rows,
+            tolerances.rows
+        );
+    }
+    #[tokio::test]
+    #[cfg(feature = "solver-kinsol")]
+    async fn fixed_implicit_inputs_keep_value_provider_and_actual_free_jacobian() {
+        use super::super::super::tests as fixture;
+        use pse_backend_native::solve::{Backend, SolverSelection};
+        let rows = pse_authoring::language::parse(
+            "package p {def Root {var p:Scalar;var x:Scalar;implicit root select operational(y=1) settings(\"native.kinsol.v1\") {var y:Scalar;eq e:y*y==p;annotation start y(1);annotation bounds y(0.1,10);}realize policy on root using nested;eq e:x==root.y;annotation start x(2);}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let rt = fixture::runtime_with(128 << 20, 16 << 20, 1 << 30);
+        let package = rt.modeling_package(rows, fixture::physical()).unwrap();
+        let mut analysis = ModelingAnalysis {
+            root,
+            instance: pse_modeling::specialize::root_instance(root),
+            bindings: Bindings::default(),
+            limits: Limits::default(),
+            case: ModelingCaseBindings {
+                values: BTreeMap::from([("p".into(), 4.)]),
+                variables: BTreeMap::from([(
+                    "p".into(),
+                    ModelingVariableState {
+                        fixed: Some(true),
+                        ..Default::default()
+                    },
+                )]),
+                ..Default::default()
+            },
+            order: DerivativeOrder::First,
+            compiler: fixture::compiler_profile(),
+            solver: fixture::profile(),
+            numerical: NumericalInputs::default(),
+        };
+        analysis.solver.selection = SolverSelection::Explicit(Backend::Kinsol);
+        let cancel = crate::CancelSource::new();
+        let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let product = prepared.model.model.compiled();
+        let inner = product.admitted.implicit_systems().next().unwrap();
+        assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Value);
+        let key = inner.descriptor.spec().key();
+        assert_eq!(
+            prepared.providers[&key].descriptor().spec().derivatives,
+            DerivativeOrder::Value
+        );
+        let plan = &prepared.model.case.compiled().plan;
+        assert_eq!(plan.columns().len(), 1);
+        assert_eq!(plan.jacobian_pattern().compute_nnz(), 1);
+        assert_eq!(
+            product
+                .admitted
+                .provider_demands_for_plan(plan, DerivativeOrder::First)
+                .unwrap()[&key],
+            DerivativeOrder::Value
+        );
+
+        // An explicit response coordinate consumes the otherwise fixed input. It
+        // requires the selected provider's genuine derivative neighborhood.
+        let input = product.model.paths["p"];
+        let response = plan
+            .functions(
+                &plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|row| row.id)
+                    .collect::<Vec<_>>(),
+                vec![input],
+                &package.quantities,
+                DerivativeOrder::First,
+                &Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(
+            product
+                .admitted
+                .provider_demands_for_plan(&response, DerivativeOrder::First)
+                .unwrap()[&key],
+            DerivativeOrder::First
+        );
+        let refused = package
+            .inner_registrations(
+                prepared.model.model.clone(),
+                &analysis.case,
+                &analysis.numerical,
+                &analysis.solver.numerics,
+                &analysis.solver.controls,
+                DerivativeOrder::First,
+                analysis.compiler,
+                &cancel,
+                implicit::ProviderDemand::Case(&response),
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            refused
+                .boundary_diagnostic()
+                .observations
+                .contains_key("requested_derivative_order")
+        );
+
+        let result = package
+            .solve_case(prepared, analysis.compiler, &cancel)
+            .await
+            .unwrap();
+        assert!(result.completion.decision.permits_use());
+        let Outcome::Native(report) = &result.outcome else {
+            panic!("actual native original corrector required");
+        };
+        assert!((report.candidate.as_ref().unwrap().primal[0] - 2.).abs() < 1e-8);
+
+        // The same source with a genuinely free input cannot borrow the fixed
+        // callback's Value admission to qualify a derivative request.
+        analysis.case.variables.get_mut("p").unwrap().fixed = Some(false);
+        let refused = package
+            .prepare_analysis(&analysis, &cancel)
+            .await
+            .unwrap_err();
+        let diagnostic = refused.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::MathProvider
+        );
+        assert!(matches!(
+            diagnostic.observations["requested_derivative_order"],
+            pse_model::diagnostic::Observation::Integer(1)
+        ));
+        assert!(matches!(
+            diagnostic.observations["available_derivative_order"],
+            pse_model::diagnostic::Observation::Integer(0)
+        ));
+        assert!(!diagnostic.sources.is_empty());
+    }
+    #[tokio::test]
+    #[cfg(feature = "solver-kinsol")]
+    async fn state_reconstruction_tolerance_reaches_native_accuracy_and_original_quality() {
+        use pse_backend_native::{NlpOracle, quality::Tolerances, solve::ResolvedAccuracy};
+        use pse_model::generated::enums::NumericalProvenanceField;
+        let rt = super::super::super::tests::runtime();
+        let mut physical = super::super::super::tests::physical();
+        let mut centimetre = physical
+            .quantities
+            .compose(&pse_quantity::UnitProduct::symbol("m"))
+            .unwrap();
+        centimetre.id = pse_ids::named_id(SemanticId::NIL, "accuracy-test-centimetre").into();
+        centimetre.symbol = "cm".into();
+        centimetre.scale_to_canonical *= 0.01;
+        centimetre.definition = None;
+        let mut quantities = physical.quantities.to_builder();
+        quantities.unit(centimetre);
+        physical.quantities = Arc::new(quantities.build().unwrap());
+        physical.key = pse_compiler::workspace::physical_identity(
+            &physical.quantities,
+            &physical.preconditions,
+        );
+        let declarations = pse_authoring::language::parse(
+            "package p { def Root { var x:Scalar; var length:Length; annotation start x(1); annotation start length(1{m}); state s supplied(false) { coordinate amount=x; reconstruct normalization:x==1 tolerance 1e-9; reconstruct extent:length==1{m} tolerance 0.0000002{cm}; transport amount=x tolerance 1e-8; } } }",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = rt.modeling_package(declarations, physical).unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut solver = super::super::super::tests::profile();
+        solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+            pse_backend_native::solve::Backend::Kinsol,
+        );
+        let resolved = package
+            .resolve_case(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                super::super::super::tests::compiler_profile(),
+                solver,
+                NumericalInputs::default(),
+                CaseOverrides::default(),
+                false,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let product = resolved.model.model.compiled();
+        let specification = product.model.state_specifications.values().next().unwrap();
+        assert_eq!(specification.reconstructions.len(), 2);
+        let row_ids = resolved
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .rows()
+            .iter()
+            .map(|row| row.id)
+            .collect::<Vec<_>>();
+        assert_eq!(row_ids.len(), 2);
+        assert_eq!(specification.coordinates.len(), 1);
+        let x = *specification.coordinates.values().next().unwrap();
+        // Follow the exact authored reconstruction identity, independent of native row order.
+        let normalization_row = specification
+            .reconstructions
+            .iter()
+            .find(|(_, tolerance)| {
+                matches!(tolerance, pse_modeling::specialize::Value::Number { bits, .. }
+                if *bits == 1e-9_f64.to_bits())
+            })
+            .unwrap()
+            .0
+            .id;
+        let registry = &resolved.model.case.compiled().quantities;
+        let target = resolved
+            .numerics
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Row && target.id == normalization_row)
+            .unwrap();
+        assert_eq!(target.absolute, 1e-9);
+        assert_eq!(target.budget, 1e-9);
+        assert!(target.provenance.iter().any(|provenance| provenance.source
+            == NumericalSource::Model
+            && provenance.field == NumericalProvenanceField::AbsoluteTolerance
+            && provenance.selected
+            && provenance.declaration.is_some()));
+        let dimensional = resolved
+            .numerics
+            .targets
+            .iter()
+            .find(|other| other.kind == NumericalTarget::Row && other.id != target.id)
+            .unwrap();
+        assert!(
+            (dimensional.budget - 2e-9).abs() < 1e-23,
+            "authored centimetre tolerance is canonical metres: {}",
+            dimensional.budget
+        );
+        let variables = resolved.model.case.compiled().plan.columns().to_vec();
+        let tolerances = Tolerances::from_policy(&resolved.numerics, &variables, &row_ids).unwrap();
+        let normalization = pse_math::normalization::Normalization::from_policy(
+            &resolved.numerics,
+            &variables,
+            &row_ids,
+        )
+        .unwrap();
+        let accuracy =
+            ResolvedAccuracy::resolve(&resolved.solver.numerics, &tolerances, &normalization)
+                .unwrap();
+        let scalar_row = row_ids.iter().position(|id| *id == target.id).unwrap();
+        assert_eq!(tolerances.rows[scalar_row], 1e-9);
+        let normalized = tolerances.normalized(&normalization).unwrap();
+        assert_eq!(
+            accuracy.feasibility,
+            normalized
+                .variables
+                .iter()
+                .chain(&normalized.rows)
+                .copied()
+                .reduce(f64::min)
+                .unwrap()
+        );
+        assert!(accuracy.feasibility <= 1e-9 / normalization.rows[scalar_row]);
+        let service = package.runtime.native();
+        let executable = service.assemble(resolved.model.case.clone()).await.unwrap();
+        assert!(resolved.providers.is_empty());
+        let budget =
+            crate::math::WorkerBudget::new(package.runtime.shared.budget().math.worker_bytes);
+        let _charge = budget
+            .charge(executable.assembly.numeric_worker_bytes())
+            .unwrap();
+        let execution = pse_backend_native::solve::Execution::new(
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            &resolved.solver.controls,
+        );
+        let worker = executable
+            .assembly
+            .worker_scoped(BTreeMap::new(), execution.scope().unwrap());
+        let mut oracle = pse_backend_native::assembled::AlgebraicOracle::new(
+            worker,
+            resolved.model.values.clone(),
+        )
+        .unwrap();
+        let mut point = variables
+            .iter()
+            .map(|id| resolved.model.values.scalars[id])
+            .collect::<Vec<_>>();
+        let x_column = variables.iter().position(|id| *id == x).unwrap();
+        let mut rows = vec![0.; row_ids.len()];
+        for (error, feasible) in [(0.5e-9, true), (1.5e-9, false)] {
+            point[x_column] = 1. + error;
+            oracle.constraints(&point, &mut rows).unwrap();
+            let quality = pse_backend_native::quality::observed(
+                oracle.contract(),
+                oracle.constraint_bounds(),
+                &point,
+                &rows,
+                &tolerances,
+            )
+            .unwrap();
+            assert_eq!(quality.feasible(), feasible);
+            assert_eq!(quality.rows[scalar_row].tolerance, 1e-9);
+        }
+        let targets = resolved
+            .model
+            .case
+            .compiled()
+            .plan
+            .numerical_targets(registry)
+            .unwrap();
+        let sources = state_reconstruction_requirements(
+            product,
+            &targets,
+            resolved.model.model.solved().lineage(),
+            registry,
+        )
+        .unwrap();
+        assert_eq!(sources.len(), 2);
+        assert!(
+            sources.iter().all(
+                |source| source.declaration.instance_id == Some(specification.lineage.instance)
+            )
+        );
+        let absent = targets
+            .iter()
+            .filter(|target| target.kind != NumericalTarget::Row)
+            .cloned()
+            .collect::<Vec<_>>();
+        assert!(
+            state_reconstruction_requirements(
+                product,
+                &absent,
+                resolved.model.model.solved().lineage(),
+                registry
+            )
+            .unwrap()
+            .is_empty()
+        );
+        let mut policy = resolved.solver.numerics.clone();
+        let mut tighter = sources
+            .iter()
+            .find(|source| source.declaration.target_id == target.id)
+            .unwrap()
+            .declaration
+            .clone();
+        tighter.requirement_id = pse_ids::named_id(tighter.requirement_id, "analysis-override");
+        tighter.absolute_tolerance = Some(5e-10);
+        policy.requirements.push(tighter);
+        let overridden =
+            pse_math::numerics::resolve(registry, &targets, &sources, &policy).unwrap();
+        assert_eq!(
+            overridden
+                .targets
+                .iter()
+                .find(|other| other.kind == NumericalTarget::Row && other.id == target.id)
+                .unwrap()
+                .budget,
+            5e-10
+        );
+        // Reusing returned inputs must not multiply this producer's declarations.
+        let second_resolution = package
+            .resolve_case(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                super::super::super::tests::compiler_profile(),
+                resolved.solver.clone(),
+                resolved.numerical.clone(),
+                CaseOverrides::default(),
+                false,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            second_resolution.numerical.declarations.len(),
+            resolved.numerical.declarations.len()
+        );
+        let target_id = target.id;
+        let prepared = package.finish_case(resolved, &cancel).await.unwrap();
+        let actual = prepared
+            .solve
+            .numerics()
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Row && target.id == target_id)
+            .unwrap();
+        assert_eq!(actual.budget, 1e-9);
+        assert!(
+            actual
+                .provenance
+                .iter()
+                .any(|source| source.source == NumericalSource::Model
+                    && source.selected
+                    && source.field == NumericalProvenanceField::AbsoluteTolerance)
+        );
+        assert_eq!(prepared.solve.accuracy().feasibility, accuracy.feasibility);
+        assert_eq!(prepared.solve.tolerances().rows[scalar_row], 1e-9);
+    }
+    #[tokio::test]
+    async fn supplied_state_consistency_does_not_create_a_phantom_row_requirement() {
+        let rt = super::super::super::tests::runtime();
+        let physical = super::super::super::tests::physical();
+        let declarations = pse_authoring::language::parse(
+            "package p { def Root { var x:Scalar; annotation start x(1); eq other:x==1; state s supplied(true) { coordinate amount=x; reconstruct normalization:x==1 tolerance 1e-9; transport amount=x tolerance 1e-8; } } }",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = rt.modeling_package(declarations, physical).unwrap();
+        let resolved = package
+            .resolve_case(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                super::super::super::tests::compiler_profile(),
+                super::super::super::tests::profile(),
+                NumericalInputs::default(),
+                CaseOverrides::default(),
+                false,
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let product = resolved.model.model.compiled();
+        let specification = product.model.state_specifications.values().next().unwrap();
+        assert!(specification.supplied);
+        let (row, _) = &specification.reconstructions[0];
+        assert!(
+            product
+                .model
+                .closures
+                .contains_key(&pse_ids::named_id(row.id, "consistency"))
+        );
+        let registry = &resolved.model.case.compiled().quantities;
+        let targets = resolved
+            .model
+            .case
+            .compiled()
+            .plan
+            .numerical_targets(registry)
+            .unwrap();
+        assert!(
+            !targets
+                .iter()
+                .any(|target| target.kind == NumericalTarget::Row && target.id == row.id)
+        );
+        assert!(
+            state_reconstruction_requirements(
+                product,
+                &targets,
+                resolved.model.model.solved().lineage(),
+                registry
+            )
+            .unwrap()
+            .is_empty()
+        );
+        assert_eq!(
+            resolved
+                .numerics
+                .targets
+                .iter()
+                .find(|target| target.kind == NumericalTarget::Row)
+                .unwrap()
+                .budget,
+            1e-8
+        );
+    }
     #[tokio::test]
     async fn kernel_starts_numerics_and_constant_solver_share_the_existing_pipeline() {
         let rt = super::super::super::tests::runtime();
@@ -1647,7 +2647,7 @@ mod tests {
     async fn report_in_a_composite_unit_carries_its_identity() {
         use super::super::super::tests as fixture;
         let physical = fixture::physical();
-        let quantities = std::sync::Arc::clone(&physical.quantities);
+        let quantities = Arc::clone(&physical.quantities);
         let molar_cp = pse_quantity::QuantityTypeId::from_id(
             SemanticId::parse_hex("cd653ba98fa94d16b5d66b363f21c3d6").unwrap(),
         );

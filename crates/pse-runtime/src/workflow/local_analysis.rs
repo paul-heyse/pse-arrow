@@ -228,7 +228,7 @@ impl Rows {
                     W::Neighborhood(_) => WithheldReason::NeighborhoodUnavailable,
                     W::Rank { .. } => WithheldReason::RankDeficient,
                     W::Numerical(_) => WithheldReason::BacksolveFailed,
-                    W::Memory => WithheldReason::AnalysisUnavailable,
+                    W::Memory | W::Cause(_) => WithheldReason::AnalysisUnavailable,
                 },
                 w.to_string(),
             )

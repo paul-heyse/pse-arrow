@@ -70,7 +70,7 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
                 // Publication is an explicit new admission with its fit/run/source receipt;
                 // the fitted bank never mutates the measurements or the solved revision.
                 let bank = format!(
-                    "package fitted_bank {{identifier scheme run;identifier scheme fit;identifier scheme revision;entity kind receipt provenance {{attribute run_id:Id<run>;attribute fit_id:Id<fit>;attribute source_revision:Id<revision>;attribute fit_source:Id<revision>;}} enum role {{fitted facets(requires_fit)}} entity receipt qualified {{run_id=Id<run>(\"{}\"),fit_id=Id<fit>(\"{}\"),source_revision=Id<revision>(\"{}\"),fit_source=Id<revision>(\"{}\")}} entity kind heat_parameter {{attribute value:Power;}} entity heat_parameter estimate provenance(qualified,role.fitted,lineage(fit qualified)) {{value={}{{W}}}} }}",
+                    "package fitted_bank {{identifier scheme run;identifier scheme fit;identifier scheme revision;entity kind receipt provenance {{attribute run_id:Id<run>;attribute fit_id:Id<fit>;attribute source_revision:Id<revision>;attribute fit_source:Id<revision>;}} enum role {{fitted facets(requires_fit)}} entity receipt qualified {{run_id=Id<run>(\"{}\"),fit_id=Id<fit>(\"{}\"),source_revision=Id<revision>(\"{}\"),fit_source=Id<revision>(\"{}\")}} entity kind heat_parameter {{attribute value:EnergyTransferRate;}} entity heat_parameter estimate provenance(qualified,role.fitted,lineage(fit qualified)) {{value={}{{W}}}} }}",
                     cell.run_id, cell.fit_id, cell.source_revision, cell.fit_source, cell.value
                 );
                 let declarations = |text: &str| {

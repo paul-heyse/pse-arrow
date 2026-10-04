@@ -37,6 +37,8 @@ pub enum EvidenceDemand {
 pub enum ArtifactDemand {
     /// Exact selected mathematical derivative order.
     Derivatives(DerivativeOrder),
+    /// First residual action without requiring a full assembled Jacobian program.
+    JacobianProduct,
     /// The selected native representation and its executable realization.
     Representation(crate::execution::Representation),
 }
@@ -60,6 +62,7 @@ impl ArtifactDemand {
         use pse_model::generated::enums::NativeArtifactDemand as A;
         match self {
             Self::Derivatives(_) => A::Derivatives,
+            Self::JacobianProduct => A::JacobianProduct,
             Self::Representation(_) => A::Representation,
         }
     }
@@ -589,7 +592,7 @@ pub fn class_evidence_required(
     intent: SolveIntent,
     selection: SolverSelection,
 ) -> bool {
-    if facts.variables == 0 || matches!(intent, SolveIntent::Root | SolveIntent::Initialize) {
+    if facts.variables == 0 || root_intent(facts, intent) {
         return false;
     }
     if !matches!(
@@ -613,7 +616,7 @@ pub fn pending_class_evidence(
     selection: SolverSelection,
 ) -> Vec<ProblemClass> {
     if facts.variables == 0
-        || root_intent(intent)
+        || root_intent(facts, intent)
         || !matches!(
             facts.class_status,
             pse_math::presolve::ClassStatus::Pending(_)
@@ -719,8 +722,11 @@ fn continuous(f: &ProblemFacts) -> bool {
 fn square_root(f: &ProblemFacts) -> bool {
     f.equalities && f.rows == f.variables && !f.objective && continuous(f)
 }
-const fn root_intent(intent: SolveIntent) -> bool {
-    matches!(intent, SolveIntent::Root | SolveIntent::Initialize)
+/// Initialization retains the mathematical class of its actual representation.
+/// A square equality system is root initialization; an authored auxiliary objective
+/// or inequality/freedom is NLP initialization, without changing the caller's intent.
+pub(crate) fn root_intent(facts: &ProblemFacts, intent: SolveIntent) -> bool {
+    intent == SolveIntent::Root || intent == SolveIntent::Initialize && square_root(facts)
 }
 /// Conservative compilation demand of one adapter's declared derivative capability.
 /// Numerical callers and eligibility consume this same operation.
@@ -756,10 +762,10 @@ pub fn problem_classes(
     numerical_psd: bool,
 ) -> Vec<ProblemClass> {
     let mut classes = Vec::new();
-    if root_intent(intent) && square_root(f) {
+    if root_intent(f, intent) && square_root(f) {
         classes.push(ProblemClass::SquareRoot);
     }
-    if !root_intent(intent) {
+    if !root_intent(f, intent) {
         let convex = f.convexity.convex_quadratic().is_some() || numerical_psd;
         let coefficient_class = f.coefficients
             || matches!(
@@ -801,7 +807,7 @@ pub fn admit(
     if r.controls.threads != 1 && !capability.parallel {
         reasons.push(Ineligible::Serial);
     }
-    if root_intent(r.intent) && !square_root(f) {
+    if root_intent(f, r.intent) && !square_root(f) {
         reasons.push(Ineligible::NotSquareRoot);
     }
     if r.intent == SolveIntent::Optimize && !f.objective {
@@ -942,13 +948,22 @@ pub fn assess_static(
     if let Some(required) = requirements
         .table
         .get(backend)
-        .and_then(|adapter| adapter.required_order(requirements))
-        && requirements.facts.derivatives >= required
-        && requirements.facts.prepared_derivatives < required
+        .and_then(|adapter| adapter.required_artifact(requirements))
     {
-        assessment
-            .artifacts
-            .push(ArtifactDemand::Derivatives(required));
+        let missing = match required {
+            ArtifactDemand::Derivatives(order) => {
+                requirements.facts.derivatives >= order
+                    && requirements.facts.prepared_derivatives < order
+            }
+            ArtifactDemand::JacobianProduct => {
+                requirements.facts.derivatives >= DerivativeOrder::First
+                    && !requirements.context.prepared.contains(&required)
+            }
+            ArtifactDemand::Representation(_) => !requirements.context.prepared.contains(&required),
+        };
+        if missing {
+            assessment.artifacts.push(required);
+        }
     }
     assessment
 }
@@ -1023,13 +1038,19 @@ impl Requirements<'_> {
                     .map(|(_, backend)| backend)
             })
         };
-        let preferred = match selection {
-            SolverSelection::Explicit(backend) => Some(backend),
-            SolverSelection::Auto => self
-                .sensitivity
-                .then(|| ordered(true))
-                .flatten()
-                .or_else(|| ordered(false)),
+        // A point evaluation consumes original source/structure, not native solver
+        // evidence. Native pending candidates must not prevent its own admission.
+        let preferred = if self.facts.variables == 0 {
+            None
+        } else {
+            match selection {
+                SolverSelection::Explicit(backend) => Some(backend),
+                SolverSelection::Auto => self
+                    .sensitivity
+                    .then(|| ordered(true))
+                    .flatten()
+                    .or_else(|| ordered(false)),
+            }
         };
         let preferred_entry =
             preferred.and_then(|backend| eligibility.iter().find(|entry| entry.backend == backend));
@@ -1438,6 +1459,54 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn initialization_routes_its_actual_root_or_nlp_representation() {
+        let mut facts = root_facts();
+        assert!(root_intent(&facts, SolveIntent::Initialize));
+        assert!(
+            problem_classes(&facts, SolveIntent::Initialize, false)
+                .contains(&ProblemClass::SquareRoot)
+        );
+        facts.objective = true;
+        facts.objectives = 1;
+        assert!(!root_intent(&facts, SolveIntent::Initialize));
+        assert!(
+            !problem_classes(&facts, SolveIntent::Initialize, false)
+                .contains(&ProblemClass::SquareRoot)
+        );
+        assert!(
+            problem_classes(&facts, SolveIntent::Initialize, false)
+                .contains(&ProblemClass::SmoothNlp)
+        );
+        assert_eq!(
+            crate::structural::mode(
+                crate::structural::Policy::Equalities,
+                &facts,
+                SolveIntent::Initialize
+            ),
+            crate::structural::Mode::Nlp
+        );
+        assert_eq!(
+            crate::structural::mode(
+                crate::structural::Policy::Equalities,
+                &facts,
+                SolveIntent::Root
+            ),
+            crate::structural::Mode::Roots
+        );
+        facts.objective = false;
+        facts.objectives = 0;
+        facts.equalities = false;
+        assert!(!root_intent(&facts, SolveIntent::Initialize));
+        assert_eq!(
+            crate::structural::mode(
+                crate::structural::Policy::Equalities,
+                &facts,
+                SolveIntent::Initialize
+            ),
+            crate::structural::Mode::Nlp
+        );
+    }
     fn select(
         f: &ProblemFacts,
         intent: SolveIntent,
@@ -1498,6 +1567,89 @@ mod tests {
             native: vec![],
             requirements: vec![],
             convexity: Convexity::not_assessed(pse_ids::ContentHash::from_bytes([0; 32])),
+        }
+    }
+    #[test]
+    fn krylov_product_preparation_is_distinct_from_assembled_first_derivatives() {
+        let mut facts = root_facts();
+        facts.prepared_derivatives = DerivativeOrder::Value;
+        let controls = crate::solve::Controls::default();
+        let method = crate::settings::kinsol::Method {
+            linear: crate::settings::kinsol::Linear::Spgmr {
+                dimension: pse_model::scalars::PositiveCount::try_new(3).unwrap(),
+            },
+            ..Default::default()
+        };
+        let settings = BackendSettings::Kinsol(method);
+        let mut context = test_context(&LINKED);
+        let mut requirements = Requirements {
+            table: &LINKED,
+            facts: &facts,
+            intent: SolveIntent::Root,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &controls,
+            settings: &settings,
+            sensitivity: false,
+            context: context.clone(),
+        };
+        let adapter = adapter(Backend::Kinsol);
+        let missing = assess_static(Backend::Kinsol, adapter.capability(), &requirements);
+        assert!(missing.artifacts.contains(&ArtifactDemand::JacobianProduct));
+        assert!(
+            !missing
+                .artifacts
+                .contains(&ArtifactDemand::Derivatives(DerivativeOrder::First))
+        );
+        context.prepared = &[ArtifactDemand::JacobianProduct];
+        requirements.context = context;
+        assert!(
+            assess_static(Backend::Kinsol, adapter.capability(), &requirements)
+                .artifacts
+                .is_empty()
+        );
+        let jacobi = BackendSettings::Kinsol(crate::settings::kinsol::Method {
+            preconditioner: crate::solve::Preconditioner::Jacobi,
+            ..method
+        });
+        requirements.settings = &jacobi;
+        let assembled = assess_static(Backend::Kinsol, adapter.capability(), &requirements);
+        assert!(
+            assembled
+                .artifacts
+                .contains(&ArtifactDemand::Derivatives(DerivativeOrder::First))
+        );
+        // An assembled program is not a compiled directional action, including
+        // when the Krylov setup also consumes an assembled preconditioner.
+        let mut assembled_facts = facts.clone();
+        assembled_facts.prepared_derivatives = DerivativeOrder::First;
+        requirements.facts = &assembled_facts;
+        requirements.context.prepared = &[ArtifactDemand::Derivatives(DerivativeOrder::First)];
+        let krylov_settings = [
+            crate::solve::Preconditioner::None,
+            crate::solve::Preconditioner::Jacobi,
+            crate::solve::Preconditioner::BlockFactor,
+        ]
+        .map(|preconditioner| {
+            BackendSettings::Kinsol(crate::settings::kinsol::Method {
+                preconditioner,
+                ..method
+            })
+        });
+        for settings in &krylov_settings {
+            requirements.settings = settings;
+            let missing = assess_static(Backend::Kinsol, adapter.capability(), &requirements);
+            assert_eq!(missing.artifacts, vec![ArtifactDemand::JacobianProduct]);
+            requirements.context.prepared = &[
+                ArtifactDemand::Derivatives(DerivativeOrder::First),
+                ArtifactDemand::JacobianProduct,
+            ];
+            assert!(
+                assess_static(Backend::Kinsol, adapter.capability(), &requirements)
+                    .artifacts
+                    .is_empty()
+            );
+            requirements.context.prepared = &[ArtifactDemand::Derivatives(DerivativeOrder::First)];
         }
     }
     /// I8: a Gauss–Newton Hessian is admitted only for a least-squares objective; a

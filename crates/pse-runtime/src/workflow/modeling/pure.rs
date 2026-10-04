@@ -30,7 +30,7 @@ pub async fn conform_pure_documents(
     selection: ModelingFixtureSelection,
     maximum_fixtures: usize,
     maximum_checks: usize,
-    limits: Limits,
+    preparation: crate::workflow::PreparationSettings,
     cancel: &crate::CancelSource,
 ) -> Result<ModelingConformanceReport, WorkflowError> {
     if maximum_fixtures == 0
@@ -161,7 +161,7 @@ pub async fn conform_pure_documents(
             // fixture runs (ADR-0119).
             let fixture_limits = fixtures
                 .iter()
-                .map(|row| declared_limits(row, limits))
+                .map(|row| declared_limits(row, preparation.limits))
                 .collect::<Result<Vec<_>, _>>()?;
             let mut covered = BTreeSet::new();
             for (index, (row, limits)) in fixtures.iter().zip(fixture_limits).enumerate() {
@@ -229,7 +229,7 @@ pub async fn conform_pure_documents(
                         &pse_math::binding::CaseValues {
                             scalars: BTreeMap::new(),
                         },
-                        pse_compiler::workspace::Profile::default(),
+                        preparation.compiler,
                         worker_flag.clone(),
                     )
                     .map_err(crate::math::MathRuntimeError::from)

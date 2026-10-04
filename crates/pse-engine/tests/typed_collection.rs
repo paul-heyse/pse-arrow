@@ -147,18 +147,33 @@ fn checked_reuse_and_single_input_concat_share_the_existing_allocation_claim()
     let original = &batches[&spec.key];
     let held = budget.reserved();
     let reused = original.retained(&budget, &cancel)?;
-    let sliced = reused.slice(0, 1)?.retained(&budget, &cancel)?;
+    assert_eq!(budget.reserved(), held);
+    let slice = reused.slice(0, 1)?;
+    let slice_held = budget.reserved();
+    assert!(slice_held > held, "the new slice owns its metadata");
+    let sliced = slice.retained(&budget, &cancel)?;
+    assert_eq!(budget.reserved(), slice_held);
+    drop(slice);
     let concatenated = pse_relations::columnar::FieldCheckedBatch::concat_reserved(
         registry,
         spec,
-        &[sliced],
+        std::slice::from_ref(&sliced),
         &budget,
         &cancel,
     )?;
-    assert_eq!(budget.reserved(), held);
+    assert_eq!(budget.reserved(), slice_held);
+    for (source, result) in sliced
+        .batch()
+        .columns()
+        .iter()
+        .zip(concatenated.batch().columns())
+    {
+        assert!(std::sync::Arc::ptr_eq(source, result));
+    }
     drop(batches);
     drop(reused);
-    assert_eq!(budget.reserved(), held);
+    drop(sliced);
+    assert!(budget.reserved() > 0 && budget.reserved() < slice_held);
     assert_eq!(
         packages::View::from_checked(&concatenated)?.rows()?,
         vec![package()]

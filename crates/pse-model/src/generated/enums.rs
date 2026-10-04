@@ -11425,6 +11425,10 @@ pub enum NativeArtifactDemand {
     #[serde(rename = "derivatives")]
     #[strum(serialize = "derivatives")]
     Derivatives,
+    ///jacobian_product
+    #[serde(rename = "jacobian_product")]
+    #[strum(serialize = "jacobian_product")]
+    JacobianProduct,
     ///representation
     #[serde(rename = "representation")]
     #[strum(serialize = "representation")]
@@ -11437,8 +11441,8 @@ impl crate::SemanticEq for NativeArtifactDemand {
 }
 impl NativeArtifactDemand {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -11451,7 +11455,8 @@ impl NativeArtifactDemand {
     pub const fn ordinal(self) -> usize {
         match self {
             Self::Derivatives => 0usize,
-            Self::Representation => 1usize,
+            Self::JacobianProduct => 1usize,
+            Self::Representation => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -11463,6 +11468,7 @@ impl NativeArtifactDemand {
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
             Self::Derivatives => None,
+            Self::JacobianProduct => None,
             Self::Representation => None,
         }
     }
@@ -11480,7 +11486,8 @@ impl schemars::JsonSchema for NativeArtifactDemand {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["derivatives", "representation"] }
+            { "type" : "string", "enum" : ["derivatives", "jacobian_product",
+            "representation"] }
         )
     }
 }
@@ -11818,6 +11825,14 @@ pub enum NativeBackend {
     #[serde(rename = "pounce_convex")]
     #[strum(serialize = "pounce_convex")]
     PounceConvex,
+    ///uno
+    #[serde(rename = "uno")]
+    #[strum(serialize = "uno")]
+    Uno,
+    ///petsc
+    #[serde(rename = "petsc")]
+    #[strum(serialize = "petsc")]
+    Petsc,
 }
 impl crate::SemanticEq for NativeBackend {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -11826,8 +11841,8 @@ impl crate::SemanticEq for NativeBackend {
 }
 impl NativeBackend {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+    pub const ALL: [Self; 11usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<11usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -11848,6 +11863,8 @@ impl NativeBackend {
             Self::Idas => 6usize,
             Self::Scip => 7usize,
             Self::PounceConvex => 8usize,
+            Self::Uno => 9usize,
+            Self::Petsc => 10usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -11867,6 +11884,8 @@ impl NativeBackend {
             Self::Idas => None,
             Self::Scip => None,
             Self::PounceConvex => None,
+            Self::Uno => None,
+            Self::Petsc => None,
         }
     }
 }
@@ -11882,7 +11901,7 @@ impl schemars::JsonSchema for NativeBackend {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["ipopt", "pounce", "kinsol", "highs",
-            "clarabel", "diffsol", "idas", "scip", "pounce_convex"] }
+            "clarabel", "diffsol", "idas", "scip", "pounce_convex", "uno", "petsc"] }
         )
     }
 }
@@ -13807,6 +13826,339 @@ impl NativeObjectiveSense {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NativePetscLinear {
+    ///gmres
+    #[serde(rename = "gmres")]
+    #[strum(serialize = "gmres")]
+    Gmres,
+    ///fgmres
+    #[serde(rename = "fgmres")]
+    #[strum(serialize = "fgmres")]
+    Fgmres,
+    ///bicgstab
+    #[serde(rename = "bicgstab")]
+    #[strum(serialize = "bicgstab")]
+    Bicgstab,
+    ///preonly
+    #[serde(rename = "preonly")]
+    #[strum(serialize = "preonly")]
+    Preonly,
+}
+impl crate::SemanticEq for NativePetscLinear {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativePetscLinear {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Gmres => 0usize,
+            Self::Fgmres => 1usize,
+            Self::Bicgstab => 2usize,
+            Self::Preonly => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Gmres => None,
+            Self::Fgmres => None,
+            Self::Bicgstab => None,
+            Self::Preonly => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativePetscLinear {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativePetscLinear))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativePetscLinear)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["gmres", "fgmres", "bicgstab", "preonly"] }
+        )
+    }
+}
+impl NativePetscLinear {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativePetscLinear),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NativePetscMethod {
+    ///newton_trust_region
+    #[serde(rename = "newton_trust_region")]
+    #[strum(serialize = "newton_trust_region")]
+    NewtonTrustRegion,
+    ///nonlinear_additive_schwarz
+    #[serde(rename = "nonlinear_additive_schwarz")]
+    #[strum(serialize = "nonlinear_additive_schwarz")]
+    NonlinearAdditiveSchwarz,
+    ///pseudo_transient
+    #[serde(rename = "pseudo_transient")]
+    #[strum(serialize = "pseudo_transient")]
+    PseudoTransient,
+}
+impl crate::SemanticEq for NativePetscMethod {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativePetscMethod {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::NewtonTrustRegion => 0usize,
+            Self::NonlinearAdditiveSchwarz => 1usize,
+            Self::PseudoTransient => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::NewtonTrustRegion => None,
+            Self::NonlinearAdditiveSchwarz => None,
+            Self::PseudoTransient => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativePetscMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativePetscMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativePetscMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["newton_trust_region",
+            "nonlinear_additive_schwarz", "pseudo_transient"] }
+        )
+    }
+}
+impl NativePetscMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativePetscMethod),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NativePetscPreconditioner {
+    ///none
+    #[serde(rename = "none")]
+    #[strum(serialize = "none")]
+    None,
+    ///jacobi
+    #[serde(rename = "jacobi")]
+    #[strum(serialize = "jacobi")]
+    Jacobi,
+    ///ilu
+    #[serde(rename = "ilu")]
+    #[strum(serialize = "ilu")]
+    Ilu,
+    ///lu
+    #[serde(rename = "lu")]
+    #[strum(serialize = "lu")]
+    Lu,
+}
+impl crate::SemanticEq for NativePetscPreconditioner {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativePetscPreconditioner {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::None => 0usize,
+            Self::Jacobi => 1usize,
+            Self::Ilu => 2usize,
+            Self::Lu => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::None => None,
+            Self::Jacobi => None,
+            Self::Ilu => None,
+            Self::Lu => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativePetscPreconditioner {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativePetscPreconditioner))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativePetscPreconditioner)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "jacobi", "ilu", "lu"] }
+        )
+    }
+}
+impl NativePetscPreconditioner {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativePetscPreconditioner),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NativeProblemClass {
     ///smooth_nlp
     #[serde(rename = "smooth_nlp")]
@@ -15447,6 +15799,104 @@ impl NativeTermination {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NativeUnoMethod {
+    ///sqp
+    #[serde(rename = "sqp")]
+    #[strum(serialize = "sqp")]
+    Sqp,
+    ///slp
+    #[serde(rename = "slp")]
+    #[strum(serialize = "slp")]
+    Slp,
+}
+impl crate::SemanticEq for NativeUnoMethod {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeUnoMethod {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Sqp => 0usize,
+            Self::Slp => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Sqp => None,
+            Self::Slp => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeUnoMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeUnoMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeUnoMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["sqp", "slp"] })
+    }
+}
+impl NativeUnoMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NativeUnoMethod),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NativeWarmCapability {
     ///none
     #[serde(rename = "none")]
@@ -15534,6 +15984,381 @@ impl NativeWarmCapability {
     fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
         pse_diagnostics::VocabularyError::UnknownMember {
             vocabulary: stringify!(NativeWarmCapability),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalAccuracyClass {
+    ///certified
+    #[serde(rename = "certified")]
+    #[strum(serialize = "certified")]
+    Certified,
+    ///estimated
+    #[serde(rename = "estimated")]
+    #[strum(serialize = "estimated")]
+    Estimated,
+    ///unresolved
+    #[serde(rename = "unresolved")]
+    #[strum(serialize = "unresolved")]
+    Unresolved,
+}
+impl crate::SemanticEq for NumericalAccuracyClass {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalAccuracyClass {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Certified => 0usize,
+            Self::Estimated => 1usize,
+            Self::Unresolved => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Certified => None,
+            Self::Estimated => None,
+            Self::Unresolved => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalAccuracyClass {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalAccuracyClass))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalAccuracyClass)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["certified", "estimated", "unresolved"] }
+        )
+    }
+}
+impl NumericalAccuracyClass {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalAccuracyClass),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalAttemptObservation {
+    ///converged
+    #[serde(rename = "converged")]
+    #[strum(serialize = "converged")]
+    Converged,
+    ///stalled
+    #[serde(rename = "stalled")]
+    #[strum(serialize = "stalled")]
+    Stalled,
+    ///limited
+    #[serde(rename = "limited")]
+    #[strum(serialize = "limited")]
+    Limited,
+    ///numerical_failure
+    #[serde(rename = "numerical_failure")]
+    #[strum(serialize = "numerical_failure")]
+    NumericalFailure,
+    ///capability_refusal
+    #[serde(rename = "capability_refusal")]
+    #[strum(serialize = "capability_refusal")]
+    CapabilityRefusal,
+    ///contract_failure
+    #[serde(rename = "contract_failure")]
+    #[strum(serialize = "contract_failure")]
+    ContractFailure,
+    ///resource_exhausted
+    #[serde(rename = "resource_exhausted")]
+    #[strum(serialize = "resource_exhausted")]
+    ResourceExhausted,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
+    Cancelled,
+    ///panic
+    #[serde(rename = "panic")]
+    #[strum(serialize = "panic")]
+    Panic,
+    ///operational_failure
+    #[serde(rename = "operational_failure")]
+    #[strum(serialize = "operational_failure")]
+    OperationalFailure,
+    ///auxiliary
+    #[serde(rename = "auxiliary")]
+    #[strum(serialize = "auxiliary")]
+    Auxiliary,
+    ///infeasible
+    #[serde(rename = "infeasible")]
+    #[strum(serialize = "infeasible")]
+    Infeasible,
+}
+impl crate::SemanticEq for NumericalAttemptObservation {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalAttemptObservation {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 12usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<12usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Converged => 0usize,
+            Self::Stalled => 1usize,
+            Self::Limited => 2usize,
+            Self::NumericalFailure => 3usize,
+            Self::CapabilityRefusal => 4usize,
+            Self::ContractFailure => 5usize,
+            Self::ResourceExhausted => 6usize,
+            Self::Cancelled => 7usize,
+            Self::Panic => 8usize,
+            Self::OperationalFailure => 9usize,
+            Self::Auxiliary => 10usize,
+            Self::Infeasible => 11usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Converged => None,
+            Self::Stalled => None,
+            Self::Limited => None,
+            Self::NumericalFailure => None,
+            Self::CapabilityRefusal => None,
+            Self::ContractFailure => None,
+            Self::ResourceExhausted => None,
+            Self::Cancelled => None,
+            Self::Panic => None,
+            Self::OperationalFailure => None,
+            Self::Auxiliary => None,
+            Self::Infeasible => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalAttemptObservation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalAttemptObservation))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalAttemptObservation)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["converged", "stalled", "limited",
+            "numerical_failure", "capability_refusal", "contract_failure",
+            "resource_exhausted", "cancelled", "panic", "operational_failure",
+            "auxiliary", "infeasible"] }
+        )
+    }
+}
+impl NumericalAttemptObservation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalAttemptObservation),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalBranchPolicy {
+    ///any_qualified
+    #[serde(rename = "any_qualified")]
+    #[strum(serialize = "any_qualified")]
+    AnyQualified,
+    ///connected
+    #[serde(rename = "connected")]
+    #[strum(serialize = "connected")]
+    Connected,
+}
+impl crate::SemanticEq for NumericalBranchPolicy {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalBranchPolicy {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::AnyQualified => 0usize,
+            Self::Connected => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::AnyQualified => None,
+            Self::Connected => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalBranchPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalBranchPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalBranchPolicy)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["any_qualified", "connected"] }
+        )
+    }
+}
+impl NumericalBranchPolicy {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalBranchPolicy),
             value: value.to_owned(),
         }
     }
@@ -15670,6 +16495,712 @@ impl NumericalCoordinates {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NumericalEventKind {
+    ///planned
+    #[serde(rename = "planned")]
+    #[strum(serialize = "planned")]
+    Planned,
+    ///started
+    #[serde(rename = "started")]
+    #[strum(serialize = "started")]
+    Started,
+    ///finished
+    #[serde(rename = "finished")]
+    #[strum(serialize = "finished")]
+    Finished,
+    ///refused
+    #[serde(rename = "refused")]
+    #[strum(serialize = "refused")]
+    Refused,
+    ///abandoned
+    #[serde(rename = "abandoned")]
+    #[strum(serialize = "abandoned")]
+    Abandoned,
+}
+impl crate::SemanticEq for NumericalEventKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalEventKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Planned => 0usize,
+            Self::Started => 1usize,
+            Self::Finished => 2usize,
+            Self::Refused => 3usize,
+            Self::Abandoned => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Planned => None,
+            Self::Started => None,
+            Self::Finished => None,
+            Self::Refused => None,
+            Self::Abandoned => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalEventKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalEventKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalEventKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["planned", "started", "finished", "refused",
+            "abandoned"] }
+        )
+    }
+}
+impl NumericalEventKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalEventKind),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalMechanism {
+    ///direct
+    #[serde(rename = "direct")]
+    #[strum(serialize = "direct")]
+    Direct,
+    ///kkt_predictor
+    #[serde(rename = "kkt_predictor")]
+    #[strum(serialize = "kkt_predictor")]
+    KktPredictor,
+    ///activity_path
+    #[serde(rename = "activity_path")]
+    #[strum(serialize = "activity_path")]
+    ActivityPath,
+    ///limited_corrector
+    #[serde(rename = "limited_corrector")]
+    #[strum(serialize = "limited_corrector")]
+    LimitedCorrector,
+    ///root_response
+    #[serde(rename = "root_response")]
+    #[strum(serialize = "root_response")]
+    RootResponse,
+    ///secant_predictor
+    #[serde(rename = "secant_predictor")]
+    #[strum(serialize = "secant_predictor")]
+    SecantPredictor,
+    ///newton_krylov
+    #[serde(rename = "newton_krylov")]
+    #[strum(serialize = "newton_krylov")]
+    NewtonKrylov,
+    ///setup_reuse
+    #[serde(rename = "setup_reuse")]
+    #[strum(serialize = "setup_reuse")]
+    SetupReuse,
+    ///maps_anderson
+    #[serde(rename = "maps_anderson")]
+    #[strum(serialize = "maps_anderson")]
+    MapsAnderson,
+    ///bounded_feasibility
+    #[serde(rename = "bounded_feasibility")]
+    #[strum(serialize = "bounded_feasibility")]
+    BoundedFeasibility,
+    ///native_globalization
+    #[serde(rename = "native_globalization")]
+    #[strum(serialize = "native_globalization")]
+    NativeGlobalization,
+    ///continuation
+    #[serde(rename = "continuation")]
+    #[strum(serialize = "continuation")]
+    Continuation,
+    ///homotopy
+    #[serde(rename = "homotopy")]
+    #[strum(serialize = "homotopy")]
+    Homotopy,
+    ///pseudo_transient
+    #[serde(rename = "pseudo_transient")]
+    #[strum(serialize = "pseudo_transient")]
+    PseudoTransient,
+    ///consistent_initialization
+    #[serde(rename = "consistent_initialization")]
+    #[strum(serialize = "consistent_initialization")]
+    ConsistentInitialization,
+    ///block
+    #[serde(rename = "block")]
+    #[strum(serialize = "block")]
+    Block,
+    ///reduced_space
+    #[serde(rename = "reduced_space")]
+    #[strum(serialize = "reduced_space")]
+    ReducedSpace,
+    ///nonlinear_preconditioner
+    #[serde(rename = "nonlinear_preconditioner")]
+    #[strum(serialize = "nonlinear_preconditioner")]
+    NonlinearPreconditioner,
+    ///surrogate
+    #[serde(rename = "surrogate")]
+    #[strum(serialize = "surrogate")]
+    Surrogate,
+    ///multifidelity
+    #[serde(rename = "multifidelity")]
+    #[strum(serialize = "multifidelity")]
+    Multifidelity,
+    ///schur
+    #[serde(rename = "schur")]
+    #[strum(serialize = "schur")]
+    Schur,
+    ///batch
+    #[serde(rename = "batch")]
+    #[strum(serialize = "batch")]
+    Batch,
+    ///multistart
+    #[serde(rename = "multistart")]
+    #[strum(serialize = "multistart")]
+    Multistart,
+    ///selected_evaluation
+    #[serde(rename = "selected_evaluation")]
+    #[strum(serialize = "selected_evaluation")]
+    SelectedEvaluation,
+    ///least_deviation
+    #[serde(rename = "least_deviation")]
+    #[strum(serialize = "least_deviation")]
+    LeastDeviation,
+}
+impl crate::SemanticEq for NumericalMechanism {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalMechanism {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 25usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<25usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Direct => 0usize,
+            Self::KktPredictor => 1usize,
+            Self::ActivityPath => 2usize,
+            Self::LimitedCorrector => 3usize,
+            Self::RootResponse => 4usize,
+            Self::SecantPredictor => 5usize,
+            Self::NewtonKrylov => 6usize,
+            Self::SetupReuse => 7usize,
+            Self::MapsAnderson => 8usize,
+            Self::BoundedFeasibility => 9usize,
+            Self::NativeGlobalization => 10usize,
+            Self::Continuation => 11usize,
+            Self::Homotopy => 12usize,
+            Self::PseudoTransient => 13usize,
+            Self::ConsistentInitialization => 14usize,
+            Self::Block => 15usize,
+            Self::ReducedSpace => 16usize,
+            Self::NonlinearPreconditioner => 17usize,
+            Self::Surrogate => 18usize,
+            Self::Multifidelity => 19usize,
+            Self::Schur => 20usize,
+            Self::Batch => 21usize,
+            Self::Multistart => 22usize,
+            Self::SelectedEvaluation => 23usize,
+            Self::LeastDeviation => 24usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Direct => None,
+            Self::KktPredictor => None,
+            Self::ActivityPath => None,
+            Self::LimitedCorrector => None,
+            Self::RootResponse => None,
+            Self::SecantPredictor => None,
+            Self::NewtonKrylov => None,
+            Self::SetupReuse => None,
+            Self::MapsAnderson => None,
+            Self::BoundedFeasibility => None,
+            Self::NativeGlobalization => None,
+            Self::Continuation => None,
+            Self::Homotopy => None,
+            Self::PseudoTransient => None,
+            Self::ConsistentInitialization => None,
+            Self::Block => None,
+            Self::ReducedSpace => None,
+            Self::NonlinearPreconditioner => None,
+            Self::Surrogate => None,
+            Self::Multifidelity => None,
+            Self::Schur => None,
+            Self::Batch => None,
+            Self::Multistart => None,
+            Self::SelectedEvaluation => None,
+            Self::LeastDeviation => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalMechanism {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalMechanism))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalMechanism)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["direct", "kkt_predictor", "activity_path",
+            "limited_corrector", "root_response", "secant_predictor", "newton_krylov",
+            "setup_reuse", "maps_anderson", "bounded_feasibility",
+            "native_globalization", "continuation", "homotopy", "pseudo_transient",
+            "consistent_initialization", "block", "reduced_space",
+            "nonlinear_preconditioner", "surrogate", "multifidelity", "schur", "batch",
+            "multistart", "selected_evaluation", "least_deviation"] }
+        )
+    }
+}
+impl NumericalMechanism {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalMechanism),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalPathEventKind {
+    ///regular
+    #[serde(rename = "regular")]
+    #[strum(serialize = "regular")]
+    Regular,
+    ///simple_fold
+    #[serde(rename = "simple_fold")]
+    #[strum(serialize = "simple_fold")]
+    SimpleFold,
+    ///unresolved
+    #[serde(rename = "unresolved")]
+    #[strum(serialize = "unresolved")]
+    Unresolved,
+}
+impl crate::SemanticEq for NumericalPathEventKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalPathEventKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Regular => 0usize,
+            Self::SimpleFold => 1usize,
+            Self::Unresolved => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Regular => None,
+            Self::SimpleFold => None,
+            Self::Unresolved => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalPathEventKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalPathEventKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalPathEventKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["regular", "simple_fold", "unresolved"] }
+        )
+    }
+}
+impl NumericalPathEventKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalPathEventKind),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalPhase {
+    ///preparation
+    #[serde(rename = "preparation")]
+    #[strum(serialize = "preparation")]
+    Preparation,
+    ///prediction
+    #[serde(rename = "prediction")]
+    #[strum(serialize = "prediction")]
+    Prediction,
+    ///screening
+    #[serde(rename = "screening")]
+    #[strum(serialize = "screening")]
+    Screening,
+    ///native
+    #[serde(rename = "native")]
+    #[strum(serialize = "native")]
+    Native,
+    ///verification
+    #[serde(rename = "verification")]
+    #[strum(serialize = "verification")]
+    Verification,
+    ///assessment
+    #[serde(rename = "assessment")]
+    #[strum(serialize = "assessment")]
+    Assessment,
+}
+impl crate::SemanticEq for NumericalPhase {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalPhase {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Preparation => 0usize,
+            Self::Prediction => 1usize,
+            Self::Screening => 2usize,
+            Self::Native => 3usize,
+            Self::Verification => 4usize,
+            Self::Assessment => 5usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Preparation => None,
+            Self::Prediction => None,
+            Self::Screening => None,
+            Self::Native => None,
+            Self::Verification => None,
+            Self::Assessment => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalPhase {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalPhase))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NumericalPhase)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["preparation", "prediction", "screening",
+            "native", "verification", "assessment"] }
+        )
+    }
+}
+impl NumericalPhase {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalPhase),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalPosition {
+    ///preparation
+    #[serde(rename = "preparation")]
+    #[strum(serialize = "preparation")]
+    Preparation,
+    ///execution
+    #[serde(rename = "execution")]
+    #[strum(serialize = "execution")]
+    Execution,
+    ///recovery
+    #[serde(rename = "recovery")]
+    #[strum(serialize = "recovery")]
+    Recovery,
+}
+impl crate::SemanticEq for NumericalPosition {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalPosition {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Preparation => 0usize,
+            Self::Execution => 1usize,
+            Self::Recovery => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Preparation => None,
+            Self::Execution => None,
+            Self::Recovery => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalPosition {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalPosition))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NumericalPosition)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["preparation", "execution", "recovery"] }
+        )
+    }
+}
+impl NumericalPosition {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalPosition),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NumericalProvenanceField {
     ///nominal
     #[serde(rename = "nominal")]
@@ -15751,6 +17282,119 @@ impl NumericalProvenanceField {
     fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
         pse_diagnostics::VocabularyError::UnknownMember {
             vocabulary: stringify!(NumericalProvenanceField),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalScope {
+    ///task
+    #[serde(rename = "task")]
+    #[strum(serialize = "task")]
+    Task,
+    ///occurrence
+    #[serde(rename = "occurrence")]
+    #[strum(serialize = "occurrence")]
+    Occurrence,
+    ///mechanism
+    #[serde(rename = "mechanism")]
+    #[strum(serialize = "mechanism")]
+    Mechanism,
+    ///attempt
+    #[serde(rename = "attempt")]
+    #[strum(serialize = "attempt")]
+    Attempt,
+}
+impl crate::SemanticEq for NumericalScope {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalScope {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Task => 0usize,
+            Self::Occurrence => 1usize,
+            Self::Mechanism => 2usize,
+            Self::Attempt => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Task => None,
+            Self::Occurrence => None,
+            Self::Mechanism => None,
+            Self::Attempt => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalScope {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalScope))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NumericalScope)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["task", "occurrence", "mechanism", "attempt"]
+            }
+        )
+    }
+}
+impl NumericalScope {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalScope),
             value: value.to_owned(),
         }
     }
@@ -15923,6 +17567,145 @@ impl NumericalSource {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NumericalStartOrigin {
+    ///specification
+    #[serde(rename = "specification")]
+    #[strum(serialize = "specification")]
+    Specification,
+    ///explicit
+    #[serde(rename = "explicit")]
+    #[strum(serialize = "explicit")]
+    Explicit,
+    ///accepted
+    #[serde(rename = "accepted")]
+    #[strum(serialize = "accepted")]
+    Accepted,
+    ///predicted
+    #[serde(rename = "predicted")]
+    #[strum(serialize = "predicted")]
+    Predicted,
+    ///auxiliary
+    #[serde(rename = "auxiliary")]
+    #[strum(serialize = "auxiliary")]
+    Auxiliary,
+    ///partial
+    #[serde(rename = "partial")]
+    #[strum(serialize = "partial")]
+    Partial,
+    ///modified_specification
+    #[serde(rename = "modified_specification")]
+    #[strum(serialize = "modified_specification")]
+    ModifiedSpecification,
+    ///surrogate
+    #[serde(rename = "surrogate")]
+    #[strum(serialize = "surrogate")]
+    Surrogate,
+}
+impl crate::SemanticEq for NumericalStartOrigin {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalStartOrigin {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 8usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<8usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Specification => 0usize,
+            Self::Explicit => 1usize,
+            Self::Accepted => 2usize,
+            Self::Predicted => 3usize,
+            Self::Auxiliary => 4usize,
+            Self::Partial => 5usize,
+            Self::ModifiedSpecification => 6usize,
+            Self::Surrogate => 7usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Specification => None,
+            Self::Explicit => None,
+            Self::Accepted => None,
+            Self::Predicted => None,
+            Self::Auxiliary => None,
+            Self::Partial => None,
+            Self::ModifiedSpecification => None,
+            Self::Surrogate => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalStartOrigin {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalStartOrigin))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalStartOrigin)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["specification", "explicit", "accepted",
+            "predicted", "auxiliary", "partial", "modified_specification", "surrogate"] }
+        )
+    }
+}
+impl NumericalStartOrigin {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalStartOrigin),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NumericalTarget {
     ///variable
     #[serde(rename = "variable")]
@@ -16008,6 +17791,127 @@ impl NumericalTarget {
     fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
         pse_diagnostics::VocabularyError::UnknownMember {
             vocabulary: stringify!(NumericalTarget),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NumericalTransition {
+    ///finish
+    #[serde(rename = "finish")]
+    #[strum(serialize = "finish")]
+    Finish,
+    ///continue
+    #[serde(rename = "continue")]
+    #[strum(serialize = "continue")]
+    Continue,
+    ///subdivide
+    #[serde(rename = "subdivide")]
+    #[strum(serialize = "subdivide")]
+    Subdivide,
+    ///recover
+    #[serde(rename = "recover")]
+    #[strum(serialize = "recover")]
+    Recover,
+    ///stop
+    #[serde(rename = "stop")]
+    #[strum(serialize = "stop")]
+    Stop,
+}
+impl crate::SemanticEq for NumericalTransition {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalTransition {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Finish => 0usize,
+            Self::Continue => 1usize,
+            Self::Subdivide => 2usize,
+            Self::Recover => 3usize,
+            Self::Stop => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Finish => None,
+            Self::Continue => None,
+            Self::Subdivide => None,
+            Self::Recover => None,
+            Self::Stop => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalTransition {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalTransition))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalTransition)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["finish", "continue", "subdivide", "recover",
+            "stop"] }
+        )
+    }
+}
+impl NumericalTransition {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(NumericalTransition),
             value: value.to_owned(),
         }
     }
@@ -16838,6 +18742,10 @@ pub enum Preconditioner {
     #[serde(rename = "jacobi")]
     #[strum(serialize = "jacobi")]
     Jacobi,
+    ///KINSOL right preconditioning by library sparse LU factors of the complete original equality BTF diagonal blocks; requires an assembled analytic Jacobian and finite admitted storage.
+    #[serde(rename = "block_factor")]
+    #[strum(serialize = "block_factor")]
+    BlockFactor,
 }
 impl crate::SemanticEq for Preconditioner {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -16846,8 +18754,8 @@ impl crate::SemanticEq for Preconditioner {
 }
 impl Preconditioner {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -16861,6 +18769,7 @@ impl Preconditioner {
         match self {
             Self::None => 0usize,
             Self::Jacobi => 1usize,
+            Self::BlockFactor => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -16873,6 +18782,7 @@ impl Preconditioner {
         match self {
             Self::None => None,
             Self::Jacobi => None,
+            Self::BlockFactor => None,
         }
     }
 }
@@ -16886,7 +18796,9 @@ impl schemars::JsonSchema for Preconditioner {
         std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(Preconditioner)))
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["none", "jacobi"] })
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "jacobi", "block_factor"] }
+        )
     }
 }
 impl Preconditioner {
@@ -22941,6 +24853,36 @@ impl crate::SemanticFrame for NativeObjectiveSense {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for NativePetscLinear {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativePetscLinear {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativePetscMethod {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativePetscMethod {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativePetscPreconditioner {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativePetscPreconditioner {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for NativeProblemClass {
     fn heap_bytes(&self) -> usize {
         0
@@ -23071,12 +25013,52 @@ impl crate::SemanticFrame for NativeTermination {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for NativeUnoMethod {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeUnoMethod {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for NativeWarmCapability {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for NativeWarmCapability {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalAccuracyClass {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalAccuracyClass {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalAttemptObservation {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalAttemptObservation {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalBranchPolicy {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalBranchPolicy {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -23091,12 +25073,72 @@ impl crate::SemanticFrame for NumericalCoordinates {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for NumericalEventKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalEventKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalMechanism {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalMechanism {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalPathEventKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalPathEventKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalPhase {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalPhase {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalPosition {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalPosition {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for NumericalProvenanceField {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for NumericalProvenanceField {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalScope {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalScope {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -23111,12 +25153,32 @@ impl crate::SemanticFrame for NumericalSource {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for NumericalStartOrigin {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalStartOrigin {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for NumericalTarget {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for NumericalTarget {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalTransition {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalTransition {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

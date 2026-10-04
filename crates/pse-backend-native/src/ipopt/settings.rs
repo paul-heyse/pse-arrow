@@ -97,7 +97,9 @@ fn linear_options(linear: &Linear) -> Vec<(&'static str, OptionValue)> {
 }
 /// Native options the typed settings own; raw options may not set them. `hsllib` and
 /// `pardisolib` load excluded libraries (HSL, runtime Pardiso) and stay reserved.
-pub(crate) const RESERVED: [&str; 12] = [
+/// `warm_start_same_structure` is set only by the retained C++ application/TNLP
+/// lifecycle; a raw caller option cannot establish its same-structure contract.
+pub(crate) const RESERVED: [&str; 13] = [
     "linear_solver",
     "hsllib",
     "pardisolib",
@@ -110,6 +112,7 @@ pub(crate) const RESERVED: [&str; 12] = [
     "mu_strategy",
     "bound_push",
     "bound_frac",
+    "warm_start_same_structure",
 ];
 
 /// The native option table `settings` set on every solve.

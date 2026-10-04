@@ -223,6 +223,7 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::math::flows::TearSelectionDocument>("tear-selection"),
         document::<pse_runtime::workflow::InitializationDocument>("initialization"),
         document::<pse_runtime::math::settings::SolveSettings>("solve-settings"),
+        document::<pse_model::strategy::NumericalStrategy>("numerical-strategy"),
         document::<pse_backend_native::execution::BackendSettings>("backend-settings"),
         document::<pse_backend_native::dynamics::DiffsolSettings>("diffsol-settings"),
         document::<pse_backend_native::dynamics::IdasSettings>("idas-settings"),

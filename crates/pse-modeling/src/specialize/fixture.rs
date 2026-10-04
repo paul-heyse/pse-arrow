@@ -1029,7 +1029,7 @@ impl Engine<'_, '_> {
             lineage,
         })
     }
-    /// The variables or equations a member path of the fixture names.
+    /// Variables, equations, or the exact equality rows of a named connection.
     fn members(
         &mut self,
         instance: InstanceId,
@@ -1039,13 +1039,57 @@ impl Engine<'_, '_> {
         position: usize,
         env: &Environment,
     ) -> Result<Vec<SemanticId>> {
-        let targets = self.annotation_targets(
-            instance,
-            &self.p.expression_at(at, role, position)?.clone(),
-            env,
-            at,
-            false,
-        )?;
+        let expression = self.p.expression_at(at, role, position)?.clone();
+        if let ExprKind::Path(member_path) = &expression.kind
+            && let Some((last, prefix)) = member_path.segments.split_last()
+        {
+            let mut owner = instance;
+            for segment in prefix {
+                owner = if segment.name == "parent" && segment.indices.is_empty() {
+                    self.states[&owner]
+                        .parent
+                        .ok_or_else(|| invalid(at, "root has no parent"))?
+                } else {
+                    self.child_instance(owner, at, segment, env)?
+                };
+            }
+            if let Some(member) = self.states[&owner].members.get(&last.name).copied()
+                && self.p.declarations[&member].value.kind == Kind::Connection
+            {
+                let occurrence = if last.indices.is_empty() {
+                    None
+                } else {
+                    let (owner, member, coordinates) =
+                        self.resolve_path(instance, at, member_path, env, true)?;
+                    Some(self.connection_occurrence_id(
+                        owner,
+                        &self.p.declarations[&member],
+                        &coordinates,
+                    ))
+                };
+                let rows = self
+                    .model
+                    .connections
+                    .values()
+                    .filter(|connection| {
+                        connection.lineage.instance == owner
+                            && connection.lineage.declaration == member
+                            && occurrence.is_none_or(|id| connection.id == id)
+                    })
+                    .flat_map(|connection| connection.rows.iter().copied())
+                    .collect::<Vec<_>>();
+                if rows.is_empty() {
+                    return Err(invalid(
+                        at,
+                        format!(
+                            "expected failure names connection {path}, which has no active equality rows"
+                        ),
+                    ));
+                }
+                return Ok(rows);
+            }
+        }
+        let targets = self.annotation_targets(instance, &expression, env, at, false)?;
         if targets.is_empty() {
             return Err(invalid(
                 at,

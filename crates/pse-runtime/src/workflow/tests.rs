@@ -39,7 +39,7 @@ pub(super) fn runtime_with_workspace(workspace_bytes: usize) -> Runtime {
 }
 /// A runtime whose native jobs admit `foreign_bytes` of library-owned memory within a
 /// `pool_bytes` memory pool; SCIP takes its memory limit from the foreign allowance.
-pub(super) fn runtime_with(
+pub(crate) fn runtime_with(
     workspace_bytes: usize,
     foreign_bytes: usize,
     pool_bytes: usize,
@@ -54,20 +54,20 @@ pub(super) fn runtime_with(
         },
     )
 }
-/// A runtime whose worker budget admits the default evaluation profile (64 MiB of scratch),
-/// which a job's declared analysis uses.
+/// A runtime whose worker budget admits the default evaluation profile and 64 MiB of
+/// attempt storage, which a job's declared analysis uses.
 pub(super) fn job_runtime() -> Runtime {
     runtime_on(
         1 << 30,
         crate::math::MathPolicy {
-            worker_bytes: 128 << 20,
+            worker_bytes: pse_math::jets::EvaluationLimits::default().scratch_bytes + (64 << 20),
             workspace_bytes: 128 << 20,
             foreign_bytes: 1 << 20,
             ..Default::default()
         },
     )
 }
-pub(super) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtime {
+pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtime {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(crate::ResourceBudget {
         memory_limit_bytes: n(memory),
@@ -108,7 +108,7 @@ pub(crate) fn physical() -> PhysicalContext {
         _inventory: None,
     }
 }
-pub(super) fn profile() -> SolverProfile {
+pub(crate) fn profile() -> SolverProfile {
     SolverProfile {
         presolve: Default::default(),
         numerics: Default::default(),

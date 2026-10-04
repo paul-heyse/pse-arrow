@@ -25,7 +25,7 @@ use super::{
     numerics::{CandidateDecision, refused},
 };
 use crate::math::{
-    NativeSession,
+    NativeSession, SessionDisposition, StepRetention,
     solves::{Outcome, Predecessor},
 };
 use pse_backend_native::solve::{Progress, WarmStart};
@@ -148,9 +148,8 @@ impl Staged {
         })
     }
     /// The values a step starting at `start` is seeded with, by the candidate-use rule
-    /// (ADR-0106): none for the specification; an accepted result's solved values; or, for
-    /// an explicit dependency, a result's or a seed-only candidate's. `None` refuses the
-    /// start.
+    /// (ADR-0106): none for the specification, or an accepted result's solved values.
+    /// `None` refuses a missing or unpermitted predecessor.
     pub(in crate::workflow) fn seed(&self, start: Start) -> Option<BTreeMap<SemanticId, f64>> {
         let (index, permitted): (usize, fn(&CandidateDecision) -> bool) = match start {
             Start::Specification => return Some(BTreeMap::new()),
@@ -246,7 +245,7 @@ impl Staged {
             .clone()
             .unwrap_or_else(|| Arc::new(Progress::new(prepared.profile.controls.history)));
         let evaluated = prepared.clone();
-        let (outcome, point) = self
+        let (outcome, (point, completion), strategy) = self
             .session
             .step(
                 prepared.solve.clone(),
@@ -263,15 +262,26 @@ impl Staged {
                         outcome,
                         execution,
                         budget,
-                        point_owner,
+                        point_owner.clone(),
                     );
-                    let accepted = point.accepted();
-                    (point, accepted)
+                    let completion = point.completion(outcome, &evaluated.solve.numerics().policy);
+                    let retention = StepRetention {
+                        candidate: completion.decision.clone(),
+                        session: SessionDisposition::RetainCompatible,
+                    };
+                    ((point, completion), retention)
                 },
             )
             .await?;
         Ok(ModelingResult::from_assessment(
-            prepared, run_id, attempt, outcome, point, owner,
+            prepared,
+            run_id,
+            attempt,
+            outcome,
+            point,
+            completion,
+            owner,
+            Some(strategy),
         ))
     }
     /// One step of `package`: `overlay` composed over `original`, seeded from `start`,
@@ -419,22 +429,34 @@ impl Staged {
                 members,
                 progress,
                 cancel,
-                move |i, outcome, execution, budget| match states.get_mut(i).and_then(Option::take)
-                {
+                move |i, outcome, execution, budget| match states.get(i).and_then(Option::as_ref) {
                     Some((prepared, run_id, assessment, point_owner)) => {
                         let point = assessment.assess(
-                            &prepared,
-                            run_id,
+                            prepared,
+                            *run_id,
                             0,
                             outcome,
                             execution,
                             budget,
-                            point_owner,
+                            point_owner.clone(),
                         );
-                        let accepted = point.accepted();
-                        (Some(point), accepted)
+                        let completion =
+                            point.completion(outcome, &prepared.solve.numerics().policy);
+                        let retention = StepRetention {
+                            candidate: completion.decision.clone(),
+                            session: SessionDisposition::RetainCompatible,
+                        };
+                        (Some((point, completion)), retention)
                     }
-                    None => (None, false),
+                    None => (
+                        None,
+                        StepRetention {
+                            candidate: refused(
+                                pse_model::generated::enums::CandidateRefusal::NoCandidate,
+                            ),
+                            session: SessionDisposition::Discard,
+                        },
+                    ),
                 },
             )
             .await;
@@ -461,9 +483,18 @@ impl Staged {
             .map(|b| {
                 let (prepared, owner, run_id) = b.map_err(Arc::new)?;
                 match solved.next().flatten() {
-                    Some(Ok((outcome, Some(point)))) => Ok(ModelingResult::from_assessment(
-                        prepared, run_id, 0, outcome, point, owner,
-                    )),
+                    Some(Ok((outcome, Some((point, completion)), trace))) => {
+                        Ok(ModelingResult::from_assessment(
+                            prepared,
+                            run_id,
+                            0,
+                            outcome,
+                            point,
+                            completion,
+                            owner,
+                            Some(trace),
+                        ))
+                    }
                     Some(Err(error)) => Err(Arc::new(WorkflowError::from(error))),
                     _ => Err(Arc::new(WorkflowError::from(
                         crate::math::MathRuntimeError::Infrastructure(

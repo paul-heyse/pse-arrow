@@ -46,13 +46,30 @@ pub fn physical_identity(
 ) -> ContentHash {
     crate::physical_identity::identity(quantities, preconditions)
 }
-/// Evaluator-affecting profile, separate from semantic preparation and resource admission.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+/// Consumed compilation controls, separate from semantic preparation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Profile {
     /// Optimization controls.
     pub optimization: Optimization,
     /// Local numeric limits affecting evaluator admission.
     pub evaluation: EvaluationLimits,
+    /// Per-case sparse assembly and complete numerical-worker admission limits.
+    pub assembly: AssemblyLimits,
+    /// Shared finite conservative construction work for domain facts and demanded
+    /// class proof, including expression storage/substitution bounds and derivative
+    /// calls. These units are not measured library-operation counters and do not
+    /// admit byte allocations or numerical evaluator work.
+    pub class_proof_work: usize,
+}
+impl Default for Profile {
+    fn default() -> Self {
+        Self {
+            optimization: Optimization::default(),
+            evaluation: EvaluationLimits::default(),
+            assembly: AssemblyLimits::default(),
+            class_proof_work: 1_000_000,
+        }
+    }
 }
 /// Finite workspace metadata policy. Generations never escape as Salsa handles.
 #[derive(Clone, Copy, Debug)]
@@ -356,7 +373,8 @@ pub struct ArtifactRequest {
     demand: LocalDemand,
     body: Arc<PreparedBody>,
     support: Arc<pse_math::guarded::PreparedSupport>,
-    profile: Profile,
+    optimization: Optimization,
+    evaluation: EvaluationLimits,
 }
 impl ArtifactRequest {
     /// Preserve product accounting if the request outlives its preparation.
@@ -378,17 +396,23 @@ impl ArtifactRequest {
     }
     /// Requested native optimizer concurrency.
     pub fn cores(&self) -> usize {
-        self.profile.optimization.cores
+        self.optimization.cores
     }
     /// Maximum known numeric worker storage; foreign storage has a separate runtime allowance.
     pub fn scratch_limit(&self) -> usize {
-        self.profile.evaluation.scratch_bytes
+        self.evaluation.scratch_bytes
     }
     /// Construct native programs only at the runtime effect boundary.
     pub fn build(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<CompiledBody, MathError> {
         let _span = tracing::info_span!("pse.case.program_optimization").entered();
-        self.support
-            .compile(self.profile.optimization, self.profile.evaluation, cancel)
+        let compiled = if self.demand.directional {
+            self.support
+                .compile_directional(self.optimization, self.evaluation, cancel)
+        } else {
+            self.support
+                .compile(self.optimization, self.evaluation, cancel)
+        };
+        compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }
 }
 fn artifact_requests(
@@ -397,14 +421,15 @@ fn artifact_requests(
     environment: &ContentHash,
 ) -> Arc<Vec<ArtifactRequest>> {
     Arc::new(p.demands().iter().enumerate().map(|(index, d)|{
-        let mut h=FramedHasher::new(pse_ids::Frame::MathArtifactV5);
+        let mut h=FramedHasher::new(if d.directional { pse_ids::Frame::MathDirectionalArtifactV1 } else { pse_ids::Frame::MathArtifactV5 });
         h.hash(&d.body).hash(environment).hash(&pse_buildinfo::SOURCE_IDENTITY).hash(&pse_buildinfo::BUILD_IDENTITY)
             .str("pse-math-evaluator-abi-v4;demanded-support;interpreted-f64;numerica-jets;real-algebra;no-jit;no-simd")
             .u64(d.order as u64).u64(d.outputs.len() as u64);
         for &x in &d.outputs{h.u64(x as u64);}h.u64(d.coordinates.len() as u64);for &x in &d.coordinates{h.u64(x as u64);}
+        if d.directional { h.str("directional-first;one-taylor-axis;runtime-formal-seeds-v1"); }
         h.u64(p.supports()[index].remaining_occurrences() as u64);
         for x in [profile.optimization.cores,profile.optimization.horner_iterations,profile.optimization.cpe_iterations,profile.evaluation.derivative_components,profile.evaluation.operations,profile.evaluation.scratch_bytes,profile.evaluation.provider_calls]{h.u64(x as u64);}
-        ArtifactRequest{key:h.finish_hash(),environment:*environment,demand:d.clone(),body:p.bodies()[&d.body].clone(),support:p.supports()[index].clone(),profile}
+        ArtifactRequest{key:h.finish_hash(),environment:*environment,demand:d.clone(),body:p.bodies()[&d.body].clone(),support:p.supports()[index].clone(),optimization:profile.optimization,evaluation:profile.evaluation}
     }).collect())
 }
 /// Pure general function projection; roles are supplied by the consuming physical workflow.
@@ -418,6 +443,8 @@ pub struct PreparedFunctions {
 /// Owned result: neither Salsa handles nor native mutable state escape.
 #[derive(Clone, Debug)]
 pub struct PreparedCase {
+    /// Consumed finite domain/class construction policy, continued by each class demand.
+    pub class_proof_work: usize,
     /// Physical registry used by this immutable compilation and numerical resolution.
     pub quantities: pse_math::SharedAllocation<QuantityRegistry>,
     /// Library presolve projection with complete expression/value invalidation.
@@ -475,6 +502,34 @@ impl PreparedCase {
         result.coefficients = coefficients.map(Into::into);
         Ok(result)
     }
+    /// Prepare first directional actions only after the consuming route requests them.
+    /// Normal artifact keys and ordinals remain unchanged in the appended demand list.
+    pub fn prepare_directional_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        let plan = Arc::new(self.plan.with_directional_actions(cancel)?);
+        let profile = self.artifacts.first().map_or(
+            Profile {
+                assembly: self.plan.limits(),
+                class_proof_work: self.class_proof_work,
+                ..Profile::default()
+            },
+            |request| Profile {
+                optimization: request.optimization,
+                evaluation: request.evaluation,
+                assembly: self.plan.limits(),
+                class_proof_work: self.class_proof_work,
+            },
+        );
+        let environment = self
+            .artifacts
+            .first()
+            .map_or(ContentHash::from_bytes([0; 32]), |request| {
+                request.environment
+            });
+        let mut result = self.clone();
+        result.artifacts = artifact_requests(&plan, profile, &environment).into();
+        result.plan = plan;
+        Ok(result)
+    }
     /// Prepare a stronger immutable kernel demand after contextual route selection.
     /// Scientific/value facts and original structural witnesses retain their owners.
     pub fn prepare_order(&self, order: DerivativeOrder, cancel: &Arc<AtomicBool>) -> Result<Self> {
@@ -482,10 +537,19 @@ impl PreparedCase {
             return Ok(self.clone());
         }
         let plan = Arc::new(self.plan.prepare_order(order, cancel)?);
-        let profile = self
-            .artifacts
-            .first()
-            .map_or(Profile::default(), |request| request.profile);
+        let profile = self.artifacts.first().map_or(
+            Profile {
+                assembly: self.plan.limits(),
+                class_proof_work: self.class_proof_work,
+                ..Profile::default()
+            },
+            |request| Profile {
+                optimization: request.optimization,
+                evaluation: request.evaluation,
+                assembly: self.plan.limits(),
+                class_proof_work: self.class_proof_work,
+            },
+        );
         // Existing artifact keys contain the physical environment consumed by admission.
         // Preserve it directly instead of reconstructing it from a public receipt.
         let environment = self
@@ -559,8 +623,13 @@ struct ValueProducts {
     assumptions: Vec<(SemanticId, u64)>,
 }
 impl ValueProducts {
-    fn bind(plan: &CasePlan, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
-        let presolve = Arc::new(plan.presolve_domain_facts(values, 100_000, cancel)?);
+    fn bind(
+        plan: &CasePlan,
+        values: &CaseValues,
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self> {
+        let presolve = Arc::new(plan.presolve_domain_facts(values, limit, cancel)?);
         let coefficients: Option<Arc<Coefficients>> = None;
         // The convexity fact is established with the other value-dependent products, so a
         // rebind re-establishes it under the new values (ADR-0121, A6).
@@ -604,6 +673,8 @@ fn fixed_values(plan: &CasePlan, values: &CaseValues) -> Result<Vec<(SemanticId,
 /// Pure conditional block products; runtime attaches boundary values and evaluator owners.
 #[derive(Clone, Debug)]
 pub struct PreparedBlock {
+    /// Actual finite domain/class construction policy of the declaring compiler profile.
+    pub class_proof_work: usize,
     /// Conditional source rows/columns and explicit predecessor inputs.
     pub boundary: pse_structural::initialization::Block,
     /// Immutable plan containing only selected row demands.
@@ -627,8 +698,9 @@ impl PreparedBlock {
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
         self.plan.structure().validate_frozen_values(values)?;
-        let bound = ValueProducts::bind(&self.plan, values, cancel)?;
+        let bound = ValueProducts::bind(&self.plan, values, self.class_proof_work, cancel)?;
         Ok(PreparedCase {
+            class_proof_work: self.class_proof_work,
             quantities,
             presolve: bound.presolve.into(),
             coefficient_values: Arc::new(bound.assumptions).into(),
@@ -677,6 +749,7 @@ fn conditional_blocks(
         let artifacts = artifact_requests(&plan, profile, environment);
         let structure = structural_plan(SemanticId::NIL, &plan, cancel)?;
         blocks.push(PreparedBlock {
+            class_proof_work: profile.class_proof_work,
             boundary: b.clone(),
             plan,
             structure,
@@ -971,5 +1044,119 @@ impl CompileError {
             Self::Structure(error) => size_of_val(error) + error.to_string().len(),
             Self::Cancelled | Self::Limit(_) => 0,
         })
+    }
+}
+
+#[cfg(test)]
+mod directional_identity_tests {
+    use super::*;
+    use pse_math::{
+        binding::{Contribution, InstanceBinding, Row, SlotBinding, Variable},
+        typed::{Binary, BodyBuilder, BodyLimits},
+    };
+    use pse_quantity::{
+        IndexSet,
+        standard::{StandardInvariantChecker, ids, standard_registry},
+    };
+    #[test]
+    fn directional_requests_append_distinct_keys_and_build_one_axis_with_full_formal_support() {
+        let registry = standard_registry().unwrap();
+        let quantity = ids::quantity("neutral");
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let port = |n| pse_kernels::Port {
+            id: id(n),
+            quantity,
+            unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+        };
+        let mut builder = BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            3,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let a = builder.input(0, quantity, IndexSet::new(), id(10)).unwrap();
+        let b = builder.input(1, quantity, IndexSet::new(), id(11)).unwrap();
+        let c = builder.input(2, quantity, IndexSet::new(), id(12)).unwrap();
+        let ab = builder.binary(Binary::Mul, a, b, None, id(13)).unwrap();
+        let result = builder.binary(Binary::Add, ab, c, None, id(14)).unwrap();
+        let body = Arc::new(builder.prepare(&[result]).unwrap());
+        let key = ContentHash::from_bytes([17; 32]);
+        let structure = Arc::new(
+            CaseStructure::new(
+                (1..=3)
+                    .map(|n| Variable {
+                        port: port(n),
+                        fixed: false,
+                        domain: pse_model::generated::enums::ModelingVariableDomain::Continuous,
+                        lower: None,
+                        upper: None,
+                    })
+                    .collect(),
+                vec![],
+                vec![InstanceBinding {
+                    checked_members: Default::default(),
+                    instance: id(7),
+                    body: key,
+                    slots: (1..=3)
+                        .map(|n| SlotBinding::new(&port(n), &port(n), &registry).unwrap())
+                        .collect(),
+                    contributions: vec![Contribution {
+                        output: 0,
+                        target: Target::Row(id(8)),
+                        scale: 1.0,
+                    }],
+                }],
+                vec![Row {
+                    id: id(8),
+                    quantity,
+                    lower: 0.0,
+                    upper: 0.0,
+                }],
+                None,
+                CaseLimits::default(),
+            )
+            .unwrap(),
+        );
+        let cancel = Arc::new(AtomicBool::new(false));
+        let plan = CasePlan::prepare(
+            structure,
+            BTreeMap::from([(key, body)]),
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        let profile = Profile {
+            evaluation: EvaluationLimits {
+                derivative_components: 2,
+                ..EvaluationLimits::default()
+            },
+            ..Profile::default()
+        };
+        let environment = ContentHash::from_bytes([19; 32]);
+        let normal = artifact_requests(&plan, profile, &environment);
+        let directional = plan.with_directional_actions(&cancel).unwrap();
+        let requests = artifact_requests(&directional, profile, &environment);
+        assert_eq!(normal.as_slice(), &requests[..normal.len()]);
+        assert!(requests.len() > normal.len());
+        assert_ne!(requests[normal.len()].key(), normal[0].key());
+        let programs = requests
+            .iter()
+            .map(|r| Arc::new(r.build(&cancel).unwrap()))
+            .collect();
+        let assembly = Arc::new(Arc::new(directional).assemble(programs).unwrap());
+        let inputs = CaseValues {
+            scalars: BTreeMap::from([(id(1), 2.0), (id(2), 3.0), (id(3), 4.0)]),
+        };
+        let mut output = [0.0];
+        assembly
+            .worker(BTreeMap::new(), cancel)
+            .jacobian_product(&inputs, &[5.0, 7.0, 11.0], &mut output)
+            .unwrap();
+        assert_eq!(output, [40.0]);
+        assert_eq!(requests[normal.len()].support.coordinates(), [0, 1, 2]);
     }
 }

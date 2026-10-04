@@ -3,6 +3,9 @@
 //! Integrated time consumes generated coordinates and the existing function oracle.
 #[path = "dynamics_checks.rs"]
 pub(in crate::workflow) mod checks;
+#[cfg(feature = "solver-idas")]
+#[path = "consistent.rs"]
+pub(super) mod consistent;
 #[path = "dynamics_events.rs"]
 mod events;
 #[path = "trajectory.rs"]
@@ -391,17 +394,18 @@ impl ModelingSimulation {
     pub(in crate::workflow) fn submit(
         &self,
         run_id: RunId,
-        submission: crate::math::Submission,
+        mut submission: crate::math::Submission,
     ) -> Result<DynamicsHandle, WorkflowError> {
+        let local = std::time::Instant::now()
+            .checked_add(self.profile.time_limit)
+            .ok_or_else(|| contract("simulation submission deadline extent"))?;
+        let deadline = submission.deadline.map_or(local, |outer| outer.min(local));
+        submission.deadline = Some(deadline);
         let service = self.runtime.shared.math();
         let prepared = self.clone();
         let handle = service.submit_with(1, self.bytes, submission, move |flag, progress| {
             #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
             {
-                let started = std::time::Instant::now();
-                let deadline = started
-                    .checked_add(prepared.profile.time_limit)
-                    .ok_or_else(|| ProblemError::Contract("simulation deadline extent".into()))?;
                 let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
                 let mut worker = prepared.worker(scope.clone())?;
                 let report = native::integrate_with_progress_observed(
@@ -1026,7 +1030,7 @@ impl ModelingPackage {
                 derivatives,
                 compiler,
                 cancel,
-                None,
+                implicit::ProviderDemand::Observations(None),
             )
             .await?;
         let mut differential = Vec::new();

@@ -25,7 +25,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, atomic::AtomicBool},
 };
-use symbolica::atom::Atom;
+use symbolica::atom::{Atom, AtomCore};
 
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
@@ -1552,6 +1552,423 @@ fn root_isolation_refuses_conditional_criterion_guards_with_constant_score() {
         )
         .unwrap()
         .is_none()
+    );
+}
+
+fn covered_guard_criterion(cover: Option<Stage>, guard: Stage) -> PreparedBody {
+    let mut stages = vec![Stage::Block {
+        expressions: vec![Atom::num(0)],
+        outputs: vec![2],
+        source: id(247),
+    }];
+    stages.extend(cover);
+    stages.push(Stage::Branch {
+        continuity: DerivativeOrder::Second,
+        comparison: Comparison::Lt,
+        left: 2,
+        right: 1,
+        then: vec![
+            guard,
+            Stage::Block {
+                expressions: vec![Atom::num(1)],
+                outputs: vec![4],
+                source: id(248),
+            },
+        ],
+        otherwise: vec![Stage::Block {
+            expressions: vec![Atom::num(1)],
+            outputs: vec![4],
+            source: id(248),
+        }],
+    });
+    isolation_body(2, 7, vec![4, 2], stages)
+}
+fn project_guard_criterion(criterion: &PreparedBody) -> Option<RootIsolationProgram> {
+    root_isolation_program(
+        id(240),
+        &isolation_body(2, 2, vec![0], vec![]),
+        &isolation_true(2),
+        criterion,
+        &Arc::new(AtomicBool::new(false)),
+        10_000,
+    )
+    .unwrap()
+}
+fn guard_domain(argument: usize, token: usize, source: SemanticId) -> Stage {
+    Stage::Domain {
+        stages: vec![],
+        argument,
+        token,
+        lineage: form_lineage(source),
+    }
+}
+fn guard_require(
+    argument: usize,
+    condition: crate::guarded::Condition,
+    order: DerivativeOrder,
+    source: SemanticId,
+) -> Stage {
+    Stage::Require {
+        argument,
+        condition,
+        order,
+        source,
+        lineage: None,
+    }
+}
+
+#[test]
+fn root_isolation_retains_unconditionally_covered_branch_domain_attribution() {
+    let criterion = covered_guard_criterion(
+        Some(guard_domain(0, 3, id(247))),
+        guard_domain(0, 6, id(248)),
+    );
+    let program = project_guard_criterion(&criterion).unwrap();
+    assert_eq!(program.obligations.len(), 2);
+    assert_eq!(program.obligations[0].source, id(247));
+    assert_eq!(program.obligations[1].source, id(248));
+    assert_eq!(
+        program.obligations[0].constraints,
+        program.obligations[1].constraints
+    );
+    assert_eq!(program.obligations[1].constraints.len(), 1);
+    assert!(
+        program
+            .obligations
+            .iter()
+            .all(|o| o.scope == ObligationScope::Unconditional
+                && o.represented
+                && o.fidelity == Fidelity::Exact
+                && o.instance == id(240))
+    );
+}
+
+#[test]
+fn root_isolation_refuses_branch_guards_without_the_same_unconditional_predicate() {
+    use crate::guarded::Condition;
+    for criterion in [
+        covered_guard_criterion(None, guard_domain(0, 6, id(248))),
+        covered_guard_criterion(
+            Some(guard_domain(1, 3, id(247))),
+            guard_domain(0, 6, id(248)),
+        ),
+        covered_guard_criterion(
+            Some(guard_require(
+                0,
+                Condition::Nonnegative,
+                DerivativeOrder::Value,
+                id(247),
+            )),
+            guard_require(0, Condition::Positive, DerivativeOrder::Value, id(248)),
+        ),
+        // Nonzero guards have identical empty closed constraints; their actual arguments
+        // still differ, so the unconditional guard cannot cover this branch obligation.
+        covered_guard_criterion(
+            Some(guard_require(
+                1,
+                Condition::Nonzero,
+                DerivativeOrder::Value,
+                id(247),
+            )),
+            guard_require(0, Condition::Nonzero, DerivativeOrder::Value, id(248)),
+        ),
+        covered_guard_criterion(
+            Some(guard_require(
+                0,
+                Condition::Nonzero,
+                DerivativeOrder::Value,
+                id(247),
+            )),
+            guard_domain(0, 6, id(248)),
+        ),
+    ] {
+        assert!(project_guard_criterion(&criterion).is_none());
+    }
+}
+
+#[test]
+fn root_isolation_guard_coverage_respects_minimum_derivative_order() {
+    use crate::guarded::Condition;
+    let criterion = |cover, branch| {
+        covered_guard_criterion(
+            Some(guard_require(0, Condition::Nonzero, cover, id(247))),
+            guard_require(0, Condition::Nonzero, branch, id(248)),
+        )
+    };
+    assert!(
+        project_guard_criterion(&criterion(DerivativeOrder::Second, DerivativeOrder::First))
+            .is_none()
+    );
+    let program =
+        project_guard_criterion(&criterion(DerivativeOrder::First, DerivativeOrder::Second))
+            .unwrap();
+    assert_eq!(program.derivative_obligations.len(), 2);
+    assert_eq!(program.derivative_obligations[0].0, DerivativeOrder::First);
+    assert_eq!(program.derivative_obligations[1].0, DerivativeOrder::Second);
+    assert_eq!(program.derivative_obligations[1].1.source, id(248));
+    assert_eq!(
+        program.derivative_obligations[1].1.scope,
+        ObligationScope::Unconditional
+    );
+}
+
+#[test]
+fn root_isolation_does_not_promote_matching_unrepresented_domain_guards() {
+    let domain = |source, token| Stage::Domain {
+        stages: vec![Stage::Branch {
+            continuity: DerivativeOrder::Value,
+            comparison: Comparison::Ne,
+            left: 0,
+            right: 2,
+            then: vec![Stage::Block {
+                expressions: vec![Atom::num(1)],
+                outputs: vec![5],
+                source,
+            }],
+            otherwise: vec![Stage::Block {
+                expressions: vec![Atom::num(0)],
+                outputs: vec![5],
+                source,
+            }],
+        }],
+        argument: 5,
+        token,
+        lineage: form_lineage(source),
+    };
+    // The nonzero predicate is a disjunction. Identical incomplete records do not
+    // establish the required complete original validity domain.
+    let criterion = covered_guard_criterion(Some(domain(id(247), 3)), domain(id(248), 6));
+    assert!(project_guard_criterion(&criterion).is_none());
+}
+
+fn rational_power_body(exponent: &Rational, positive: bool) -> PreparedBody {
+    crate::initialize().unwrap();
+    let mut stages = vec![];
+    if positive {
+        stages.push(Stage::Require {
+            argument: 0,
+            condition: crate::guarded::Condition::Positive,
+            order: DerivativeOrder::Value,
+            source: id(249),
+            lineage: None,
+        });
+    }
+    stages.push(Stage::Block {
+        expressions: vec![library::formal(0).unwrap().pow(Atom::num(exponent.clone()))],
+        outputs: vec![1],
+        source: id(250),
+    });
+    isolation_body(1, 2, vec![1], stages)
+}
+fn native_power_vocabulary(program: &RootIsolationProgram) -> bool {
+    program.nodes.iter().all(|node| match node {
+        Node::Pow {
+            exponent: Constant::Rational(r),
+            ..
+        } => r == &Rational::new(1, 2) || r.is_integer() && i32::try_from(r.numerator()).is_ok(),
+        Node::Pow { .. } => false,
+        _ => true,
+    })
+}
+
+#[test]
+fn root_isolation_projects_general_rational_powers_under_original_positive_guards() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    for exponent in [
+        Rational::new(3, 2),
+        Rational::new(1, 3),
+        Rational::new(5, 8),
+        Rational::new(-2, 3),
+        Rational::new(-3, 2),
+    ] {
+        let body = rational_power_body(&exponent, true);
+        let program = isolation_project(&body, &isolation_true(1)).unwrap();
+        assert!(native_power_vocabulary(&program));
+        assert!(
+            program
+                .nodes
+                .iter()
+                .any(|node| matches!(node, Node::Exp(_)))
+        );
+        assert!(
+            program
+                .nodes
+                .iter()
+                .any(|node| matches!(node, Node::Log(_)))
+        );
+        let guard = program
+            .obligations
+            .iter()
+            .find(|guard| guard.source == id(249))
+            .unwrap();
+        assert_eq!(
+            guard.kind,
+            ObligationKind::Require(crate::guarded::Condition::Positive)
+        );
+        assert_eq!(guard.scope, ObligationScope::Unconditional);
+        assert!(guard.represented);
+        assert!(guard.constraints[0].strict);
+        assert!(matches!(
+            program.nodes[guard.argument.unwrap()],
+            Node::Var(0)
+        ));
+        let mut worker = body
+            .compile(
+                &[0],
+                &[],
+                DerivativeOrder::Value,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap()
+            .worker();
+        let original = worker
+            .evaluate(
+                &[8.0],
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert!((original.values[0] - 8.0_f64.powf(exponent.to_f64())).abs() < 1e-10);
+        for invalid in [0.0, -1.0] {
+            assert!(
+                matches!(worker.evaluate(&[invalid], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel),
+                Err(MathError::Domain { source_id, .. }) if source_id == id(249))
+            );
+        }
+    }
+}
+
+#[test]
+fn root_isolation_raw_dyadic_powers_preserve_zero_and_negative_power_poles() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    for exponent in [
+        Rational::new(3, 2),
+        Rational::new(5, 8),
+        Rational::new(-3, 2),
+    ] {
+        let body = rational_power_body(&exponent, false);
+        let program = isolation_project(&body, &isolation_true(1)).unwrap();
+        assert!(native_power_vocabulary(&program));
+        assert!(program.nodes.iter().any(|node| matches!(node,
+            Node::Pow { exponent: Constant::Rational(r), .. } if r == &Rational::new(1, 2))));
+        assert!(
+            !program
+                .nodes
+                .iter()
+                .any(|node| matches!(node, Node::Log(_) | Node::Exp(_)))
+        );
+        assert!(program.obligations.is_empty());
+        let mut worker = body
+            .compile(
+                &[0],
+                &[],
+                DerivativeOrder::Value,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap()
+            .worker();
+        if exponent > 0 {
+            assert_eq!(
+                worker
+                    .evaluate(
+                        &[0.0],
+                        DerivativeOrder::Value,
+                        &mut BTreeMap::new(),
+                        &cancel
+                    )
+                    .unwrap()
+                    .values,
+                vec![0.0]
+            );
+        } else {
+            assert!(
+                worker
+                    .evaluate(
+                        &[0.0],
+                        DerivativeOrder::Value,
+                        &mut BTreeMap::new(),
+                        &cancel
+                    )
+                    .is_err()
+            );
+            assert!(program.nodes.iter().any(|node| matches!(node,
+                Node::Pow { exponent: Constant::Rational(r), .. } if r.is_integer() && r < &Rational::from(0))));
+        }
+        assert!(
+            worker
+                .evaluate(
+                    &[-1.0],
+                    DerivativeOrder::Value,
+                    &mut BTreeMap::new(),
+                    &cancel
+                )
+                .is_err()
+        );
+    }
+    // No positive-domain authority exists for an arbitrary unguarded rational power.
+    // Keep it outside the native vocabulary rather than introducing a new log domain.
+    let raw = isolation_project(
+        &rational_power_body(&Rational::new(1, 3), false),
+        &isolation_true(1),
+    )
+    .unwrap();
+    assert!(!native_power_vocabulary(&raw));
+    assert!(
+        !raw.nodes
+            .iter()
+            .any(|node| matches!(node, Node::Log(_) | Node::Exp(_)))
+    );
+}
+
+#[test]
+fn root_isolation_integer_negative_base_domain_is_unchanged() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let body = rational_power_body(&Rational::from(-3), false);
+    let program = isolation_project(&body, &isolation_true(1)).unwrap();
+    assert!(native_power_vocabulary(&program));
+    assert!(
+        !program
+            .nodes
+            .iter()
+            .any(|node| matches!(node, Node::Log(_) | Node::Exp(_)))
+    );
+    let mut worker = body
+        .compile(
+            &[0],
+            &[],
+            DerivativeOrder::Value,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    assert_eq!(
+        worker
+            .evaluate(
+                &[-2.0],
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &cancel
+            )
+            .unwrap()
+            .values,
+        vec![-0.125]
+    );
+    assert!(
+        worker
+            .evaluate(
+                &[0.0],
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &cancel
+            )
+            .is_err()
     );
 }
 

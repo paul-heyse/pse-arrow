@@ -408,10 +408,10 @@ impl ModelingPackage {
                     cancel,
                 )
                 .await?;
-            let decision = resolution.route_decision()?;
-            decision
-                .route()
-                .map_err(crate::math::MathRuntimeError::from)?;
+            // A pure route assessment may select a supported method whose
+            // representation is still pending. Prepare its actual selected
+            // artifacts before admitting the first numerical priority step.
+            self.finish_case(resolution, cancel).await?;
         }
         let mut report = self.report(ModelingObjectiveRoute::Staged, levels);
         let mut bounds = BTreeMap::new();

@@ -8,11 +8,15 @@ mod functions;
 pub mod initialization;
 mod jobs;
 pub mod modeling;
+pub(crate) mod opaque_strategy;
+pub mod prediction;
 mod products;
 pub(crate) mod retention;
 pub mod settings;
 pub mod solves;
 mod staged;
+pub(crate) mod strategy;
+pub mod surrogate;
 pub use artifacts::Artifact;
 use artifacts::{Key, Value};
 use datafusion::execution::{
@@ -29,6 +33,7 @@ use pse_engine::cache_service::CacheComponent;
 use pse_kernels::{Provider, ProviderKey};
 use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
+pub(crate) use staged::{SessionDisposition, StepRetention};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex, atomic::AtomicUsize},
@@ -116,6 +121,24 @@ pub enum MathRuntimeError {
     /// Shared typed failure.
     #[error(transparent)]
     Shared(Arc<MathRuntimeError>),
+    /// Failed numerical task retains its actual driver events and original typed cause.
+    #[error("{cause}")]
+    Strategy {
+        /// Original failure, used by classification and diagnostic projection.
+        #[source]
+        cause: Arc<MathRuntimeError>,
+        /// Accounted immutable events, including failures before a native report exists.
+        trace: Arc<strategy::Trace>,
+    },
+    /// Original failure survives when a foreign payload cannot supply retained extent.
+    #[error("{cause}")]
+    StrategyTraceUnavailable {
+        /// Actual original failure, which remains the classification authority.
+        #[source]
+        cause: Arc<MathRuntimeError>,
+        /// Typed reason the actual event allocation could not be retained.
+        refusal: Arc<pse_backend_native::ProblemError>,
+    },
     /// Finite admission bound.
     #[error("math resource limit: {0}")]
     Limit(&'static str),
@@ -133,6 +156,96 @@ pub enum MathRuntimeError {
     Infrastructure(String),
 }
 impl MathRuntimeError {
+    /// Producer-owned retained failure extent. Separately leased strategy traces are
+    /// excluded; opaque foreign errors without an allocation contract are refused.
+    pub(crate) fn retained_bytes(&self) -> Result<usize, pse_backend_native::ProblemError> {
+        use pse_backend_native::{LimitKind, ProblemError};
+        let add = |left: usize, right: usize| {
+            left.checked_add(right).ok_or_else(|| ProblemError::Limit {
+                kind: LimitKind::Memory,
+                detail: "retained runtime failure extent".into(),
+            })
+        };
+        fn pool(error: &datafusion::common::DataFusionError) -> Result<usize, ProblemError> {
+            use datafusion::common::DataFusionError as E;
+            let payload = match error {
+                E::ResourcesExhausted(text)
+                | E::NotImplemented(text)
+                | E::Internal(text)
+                | E::Plan(text)
+                | E::Configuration(text)
+                | E::Execution(text)
+                | E::Substrait(text)
+                | E::Ffi(text) => Some(text.capacity()),
+                E::Context(text, cause) => text.capacity().checked_add(pool(cause)?),
+                E::Shared(cause) => pool(cause)?.checked_add(2 * size_of::<usize>()),
+                E::Collection(causes) => {
+                    let mut bytes = causes.capacity().checked_mul(size_of::<E>());
+                    for cause in causes {
+                        let extent = pool(cause)?;
+                        bytes = bytes.and_then(|bytes| bytes.checked_add(extent));
+                    }
+                    bytes
+                }
+                _ => {
+                    return Err(ProblemError::Unsupported(
+                        "foreign pool failure has no retained allocation contract".into(),
+                    ));
+                }
+            };
+            let payload = payload.ok_or_else(|| ProblemError::Limit {
+                kind: LimitKind::Memory,
+                detail: "retained pool failure extent".into(),
+            })?;
+            size_of::<E>()
+                .checked_add(payload)
+                .ok_or_else(|| ProblemError::Limit {
+                    kind: LimitKind::Memory,
+                    detail: "retained pool failure extent".into(),
+                })
+        }
+        let payload = match self {
+            Self::Solve(cause) => cause.retained_bytes(),
+            Self::Compile(cause) => cause.retained_bytes(),
+            Self::Math(cause) => cause.retained_bytes(),
+            Self::Pool(cause) => pool(cause)?,
+            Self::Shared(cause) | Self::Strategy { cause, .. } => {
+                add(2 * size_of::<usize>(), cause.retained_bytes()?)?
+            }
+            Self::StrategyTraceUnavailable { cause, refusal } => add(
+                add(4 * size_of::<usize>(), cause.retained_bytes()?)?,
+                refusal.retained_bytes(),
+            )?,
+            Self::Panic(text) | Self::Infrastructure(text) => text.capacity(),
+            Self::Limit(_) | Self::Cancelled | Self::Retiring => 0,
+        };
+        add(size_of::<Self>(), payload)
+    }
+    /// Actual execution trace survives typed failure and shared-load wrappers.
+    pub fn strategy_trace(&self) -> Option<&Arc<strategy::Trace>> {
+        match self {
+            Self::Strategy { trace, .. } => Some(trace),
+            Self::Shared(cause) => cause.strategy_trace(),
+            _ => None,
+        }
+    }
+    /// Actual unavailable-accounting reason, kept separate from numerical failure class.
+    pub fn strategy_trace_refusal(&self) -> Option<&Arc<pse_backend_native::ProblemError>> {
+        match self {
+            Self::StrategyTraceUnavailable { refusal, .. } => Some(refusal),
+            Self::Shared(cause) => cause.strategy_trace_refusal(),
+            _ => None,
+        }
+    }
+    /// The native error ABI requires an infallible extent. Unknown foreign extents
+    /// use an unreservable admission bound, never a purported observed allocation.
+    fn into_retained_problem(self) -> pse_backend_native::ProblemError {
+        let retained = self.retained_bytes().unwrap_or(usize::MAX);
+        pse_backend_native::ProblemError::Math(pse_math::MathError::Typed {
+            retained,
+            cause: pse_model::diagnostic::DiagnosticCause::new(self),
+        })
+    }
     /// Carry a runtime failure into the native report's single typed validation record,
     /// keeping its class: cancellation, limits and native causes stay typed.
     pub fn into_problem(self) -> pse_backend_native::ProblemError {
@@ -145,19 +258,13 @@ impl MathRuntimeError {
                 kind: LimitKind::Memory,
                 detail: detail.into(),
             },
-            Self::Pool(e) => ProblemError::Math(pse_math::MathError::Typed {
-                retained: size_of_val(&e) + e.to_string().len(),
-                cause: pse_model::diagnostic::DiagnosticCause::new(Self::Pool(e)),
-            }),
-            Self::Shared(e) => Arc::try_unwrap(e).map_or_else(
-                |e| {
-                    ProblemError::Math(pse_math::MathError::Typed {
-                        cause: pse_model::diagnostic::DiagnosticCause::new(Self::Shared(e)),
-                        retained: size_of::<Self>(),
-                    })
-                },
-                Self::into_problem,
-            ),
+            Self::Shared(error) => match Arc::try_unwrap(error) {
+                Ok(error) => error.into_problem(),
+                Err(error) => Self::Shared(error).into_retained_problem(),
+            },
+            Self::Pool(_) | Self::Strategy { .. } | Self::StrategyTraceUnavailable { .. } => {
+                self.into_retained_problem()
+            }
             Self::Compile(CompileError::Cancelled) => ProblemError::Cancelled,
             Self::Compile(CompileError::Limit(detail)) => ProblemError::Limit {
                 kind: LimitKind::Work,
@@ -168,10 +275,7 @@ impl MathRuntimeError {
                 cause: pse_model::diagnostic::DiagnosticCause::new(e),
             }),
             Self::Retiring | Self::Infrastructure(_) | Self::Panic(_) => {
-                ProblemError::Math(pse_math::MathError::Typed {
-                    retained: size_of::<Self>(),
-                    cause: pse_model::diagnostic::DiagnosticCause::new(self),
-                })
+                self.into_retained_problem()
             }
         }
     }
@@ -179,12 +283,12 @@ impl MathRuntimeError {
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
     code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
-    forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None} },
+    forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticRule as R, DiagnosticFacts, DiagnosticObservation as O};
-        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(R::MathLimit), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_)=>None },..Default::default() };
-        if !matches!(this,Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)) {facts.observe("detail",O::Text(this.to_string()));}
+        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(R::MathLimit), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
+        if !matches!(this,Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)|Self::Strategy {..}|Self::StrategyTraceUnavailable {..}) {facts.observe("detail",O::Text(this.to_string()));}
         facts
     }
 }
@@ -458,37 +562,70 @@ impl MathService {
         driver: &crate::CancelSource,
         work: impl FnOnce(&mut CaseWorker) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
-        self.with_owned_worker(case, providers, driver, move |mut worker| work(&mut worker))
-            .await
+        self.with_owned_worker(case, providers, driver, None, move |mut worker| {
+            work(&mut worker)
+        })
+        .await
     }
     /// Transfer a worker to a finite native diagnostic on its admitted execution thread.
     /// The compiled owner remains alive through callback teardown and completion.
+    /// A scoped task supplies the original flight cancellation and absolute deadline;
+    /// `None` deliberately retains direct observation's unbounded task semantics.
     pub(crate) async fn with_owned_worker<T: Send + 'static>(
         self: &Arc<Self>,
         case: Arc<ExecutableCase>,
         providers: BTreeMap<ProviderKey, pse_kernels::Registration>,
         driver: &crate::CancelSource,
+        task: Option<(pse_kernels::ExecutionScope, FlightCancellation)>,
         work: impl FnOnce(CaseWorker) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
-        let control = FlightCancellation::default();
+        if driver.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        let (scope, control) = match task {
+            Some((scope, control)) => {
+                if !Arc::ptr_eq(scope.cancellation(), &control.flag()) {
+                    return Err(pse_backend_native::ProblemError::Contract(
+                        "worker task cancellation owner differs from flight".into(),
+                    )
+                    .into());
+                }
+                scope
+                    .check()
+                    .map_err(pse_backend_native::ProblemError::Provider)?;
+                (scope, control)
+            }
+            None => {
+                let control = FlightCancellation::default();
+                (
+                    pse_kernels::ExecutionScope::new(control.flag(), None),
+                    control,
+                )
+            }
+        };
         let service = self.clone();
         let bytes = case.assembly.numeric_worker_bytes();
         let budget = WorkerBudget::new(bytes);
-        let operation = self.job(1, bytes, control.clone(), move |flag| {
+        let operation = self.job_scoped(1, bytes, control.clone(), scope.deadline(), move |flag| {
+            if !Arc::ptr_eq(&flag, scope.cancellation()) {
+                return Err(pse_backend_native::ProblemError::Contract(
+                    "worker admission changed task cancellation owner".into(),
+                )
+                .into());
+            }
             let ExecutionWorker {
                 worker,
                 _case,
                 _charge,
-            } = service.worker(
-                case,
-                &providers,
-                pse_kernels::ExecutionScope::new(flag, None),
-                &budget,
-            )?;
+            } = service.worker(case, &providers, scope.clone(), &budget)?;
             let result = work(worker);
             drop(_case);
             drop(_charge);
-            result
+            let value = result?;
+            scope
+                .check()
+                .map_err(pse_backend_native::ProblemError::Provider)?;
+            Ok(value)
         });
         tokio::pin!(operation);
         tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
@@ -538,6 +675,12 @@ impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
             Self::Compile(e) => e.boundary_diagnostic(stage),
             Self::Math(e) => e.boundary_diagnostic(stage),
             Self::Shared(e) => e.boundary_diagnostic(stage),
+            Self::Strategy { cause, .. } => cause.boundary_diagnostic(stage),
+            Self::StrategyTraceUnavailable { cause, refusal } => {
+                let mut diagnostic = cause.boundary_diagnostic(stage);
+                diagnostic.causes.push(refusal.boundary_diagnostic(stage));
+                diagnostic
+            }
             Self::Pool(_)
             | Self::Limit(_)
             | Self::Cancelled

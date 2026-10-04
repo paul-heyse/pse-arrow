@@ -4,7 +4,7 @@ CREATE TYPE pse_ops.diagnostic_code AS ENUM ('authoring.parse', 'authoring.parse
 CREATE TYPE pse_ops.evidence_unavailable_reason AS ENUM ('not_requested', 'not_computed', 'not_applicable', 'unsupported', 'failed', 'unknown', 'nonfinite');
 CREATE TYPE pse_ops.job_state AS ENUM ('waiting', 'queued', 'running', 'completed', 'failed', 'cancelled');
 CREATE TYPE pse_ops.member_selection_kind AS ENUM ('full', 'revision');
-CREATE TYPE pse_ops.native_backend AS ENUM ('ipopt', 'pounce', 'kinsol', 'highs', 'clarabel', 'diffsol', 'idas', 'scip', 'pounce_convex');
+CREATE TYPE pse_ops.native_backend AS ENUM ('ipopt', 'pounce', 'kinsol', 'highs', 'clarabel', 'diffsol', 'idas', 'scip', 'pounce_convex', 'uno', 'petsc');
 CREATE TYPE pse_ops.native_metric_kind AS ENUM ('real', 'integer', 'boolean', 'text', 'unavailable');
 CREATE TYPE pse_ops.native_run_state AS ENUM ('native', 'constant_evaluation', 'rejected', 'unattempted');
 CREATE TYPE pse_ops.native_termination AS ENUM ('success', 'acceptable', 'feasible_only', 'infeasible', 'unbounded', 'infeasible_or_unbounded', 'limit', 'iteration_limit', 'node_limit', 'resource_exhausted', 'inconclusive', 'objective_limit', 'solution_limit', 'time_limit', 'cancelled', 'numerical', 'evaluation', 'panic', 'invalid');

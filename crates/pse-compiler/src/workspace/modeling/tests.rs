@@ -657,7 +657,17 @@ fn kernel_literals_keep_physical_context_after_source_spans_are_removed() {
         .declaration_id;
     let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
     workspace.publish_modeling(rows, names).unwrap();
-    let admitted = admit(&mut workspace, root);
+    let admitted = workspace
+        .admit_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings {
+                demand: vec!["t".into(), "initial".into()],
+                ..Bindings::default()
+            },
+            Limits::default(),
+        )
+        .unwrap();
     assert_eq!(admitted.inputs.len(), 1);
     assert_eq!(admitted.outputs.len(), 4);
     let flag = Arc::new(AtomicBool::new(false));
@@ -675,6 +685,48 @@ fn kernel_literals_keep_physical_context_after_source_spans_are_removed() {
         .values;
     values.sort_by(f64::total_cmp);
     assert_eq!(values, vec![0., 0., 300., 300.]);
+}
+
+#[test]
+fn declared_hybrid_event_guards_and_reset_values_have_callable_projections() {
+    let (mut workspace, rows, _, _) = setup(
+        "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq initial:x[0{s}]==0{s}; eq rate[i in t]:d(x[i])/di==1; let hit[i in t]:Time=x[i]-0.5{s}; let jump[i in t]:Time=2*x[i]; let unused:Scalar=log(-1); } test evented fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) reset(root.x[0{s}]=root.jump[0{s}]) next(after); mode after; } { child root:Root=Root(); } }",
+    );
+    let root = rows
+        .iter()
+        .find(|row| row.name == "evented")
+        .unwrap()
+        .declaration_id;
+    let cancel = Arc::new(AtomicBool::new(false));
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings::default().with_analysis(pse_modeling::analysis::Route::Integrated),
+            Limits::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    let event = &model.model.fixtures[&root_instance(root)].modes[0].events[0];
+    let selected = std::iter::once(event.guard)
+        .chain(event.reset.values().copied())
+        .map(|member| ModelingOutput::Member(member).row_id())
+        .collect::<Vec<_>>();
+    let functions = workspace
+        .prepare_modeling_functions(
+            &model,
+            selected.clone(),
+            vec![],
+            DerivativeOrder::Value,
+            Profile::default(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(functions.plan.structure().rows().len(), selected.len());
+    assert!(!model.admitted.outputs.iter().any(|output| {
+        matches!(output, ModelingOutput::Member(member)
+            if model.model.symbols[member].lineage.path.ends_with(".unused"))
+    }));
 }
 
 #[test]
@@ -2598,7 +2650,15 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     assert!(model.admitted.case.rows().len() > 1);
     assert_eq!(solve.plan.structure().rows().len(), 1);
     assert_eq!(solve.facts.variables, 1);
-    assert!(solve.facts.equalities && solve.facts.coefficients);
+    assert!(solve.facts.equalities);
+    assert!(
+        !solve.facts.coefficients,
+        "class evidence is a separate demand"
+    );
+    let solve = solve
+        .prepare_class(&values, &Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert!(solve.facts.coefficients);
     assert!(!model.admitted.case.variables().iter().any(|v| v.fixed));
     let assembly = Arc::new(
         solve
@@ -2686,6 +2746,8 @@ fn convexity_fact_rebinds_with_values() {
                 &cancel,
             )
             .unwrap()
+            .prepare_class(&values(p_value), &cancel)
+            .unwrap()
         };
         let first = prepare(&mut w, 1.0);
         assert!(
@@ -2693,7 +2755,11 @@ fn convexity_fact_rebinds_with_values() {
             "{text}: {:?}",
             first.facts.convexity
         );
-        let rebound = first.rebind(&values(-1.0), &cancel).unwrap();
+        let rebound = first
+            .rebind(&values(-1.0), &cancel)
+            .unwrap()
+            .prepare_class(&values(-1.0), &cancel)
+            .unwrap();
         assert_eq!(rebound.facts.convexity.class, nonconvex, "{text}");
         assert_ne!(rebound.facts.convexity.key, first.facts.convexity.key);
         assert_eq!(
@@ -2701,8 +2767,249 @@ fn convexity_fact_rebinds_with_values() {
             prepare(&mut w, -1.0).facts.convexity
         );
         // Back to the first values: the fact is re-established with the first key.
-        let restored = rebound.rebind(&values(1.0), &cancel).unwrap();
+        let restored = rebound
+            .rebind(&values(1.0), &cancel)
+            .unwrap()
+            .prepare_class(&values(1.0), &cancel)
+            .unwrap();
         assert_eq!(restored.facts.convexity, first.facts.convexity);
+    }
+}
+
+#[test]
+fn class_proof_policy_is_consumed_on_bind_and_rebind_without_changing_artifacts() {
+    let (mut workspace, _, _, root) =
+        setup("package p { def Root { param p:Scalar=1; var x:Scalar; eq e:p*x==2; } }");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings {
+                demand: vec!["p".into(), "x".into()],
+                ..Bindings::default()
+            },
+            Limits::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
+    let values = |p| CaseValues {
+        scalars: BTreeMap::from([(model.model.paths["p"], p), (model.model.paths["x"], 1.)]),
+    };
+    let profile = Profile::default();
+    let larger = Profile {
+        class_proof_work: profile.class_proof_work + 1,
+        ..profile
+    };
+    let prepare = |profile, p| {
+        workspace.prepare_modeling_view(
+            &model,
+            structure.clone(),
+            &values(p),
+            DerivativeOrder::First,
+            profile,
+            &cancel,
+        )
+    };
+    let first = prepare(profile, 1.).unwrap();
+    let higher = prepare(larger, 1.).unwrap();
+    assert_eq!(
+        higher.presolve.proof_remaining,
+        first.presolve.proof_remaining + 1
+    );
+    assert_eq!(
+        first.artifacts, higher.artifacts,
+        "class proof is not evaluator demand"
+    );
+    let physical = physical_identity(
+        &workspace.inputs.quantities,
+        &workspace.inputs.preconditions,
+    );
+    assert_ne!(
+        model.view_key(&structure, DerivativeOrder::First, profile, &physical),
+        model.view_key(&structure, DerivativeOrder::First, larger, &physical),
+    );
+    let rebound = first.rebind(&values(2.), &cancel).unwrap();
+    let fresh = prepare(profile, 2.).unwrap();
+    assert_eq!(rebound.class_proof_work, profile.class_proof_work);
+    assert_eq!(
+        rebound.presolve.proof_remaining,
+        fresh.presolve.proof_remaining
+    );
+    let classified = first.prepare_class(&values(1.), &cancel).unwrap();
+    let insufficient = Profile {
+        class_proof_work: profile.class_proof_work - classified.presolve.proof_remaining - 1,
+        ..profile
+    };
+    let limited = prepare(insufficient, 1.).unwrap();
+    assert!(matches!(
+        limited.prepare_class(&values(1.), &cancel),
+        Err(CompileError::Math(error)) if matches!(error.as_ref(),
+            MathError::WorkLimit { resource: "class proof construction", .. }),
+    ));
+    assert_eq!(
+        limited.presolve.class_status,
+        pse_math::presolve::ClassStatus::Unassessed
+    );
+    assert!(matches!(
+        prepare(Profile { class_proof_work: 0, ..profile }, 1.),
+        Err(CompileError::Math(error)) if matches!(error.as_ref(),
+            MathError::Limit("presolve tape extent")),
+    ));
+}
+#[test]
+fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
+    let (mut workspace, _, _, root) =
+        setup("package p { def Root { param p:Scalar=1; var x:Scalar; eq e:p*x*x==4; } }");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings {
+                demand: vec!["p".into(), "x".into()],
+                ..Bindings::default()
+            },
+            Limits::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
+    let x = model.model.paths["x"];
+    let p = model.model.paths["p"];
+    let values = CaseValues {
+        scalars: BTreeMap::from([(p, 1.), (x, 2.)]),
+    };
+    let prepare = |profile| {
+        workspace.prepare_modeling_view(
+            &model,
+            structure.clone(),
+            &values,
+            DerivativeOrder::Value,
+            profile,
+            &cancel,
+        )
+    };
+    let profile = Profile::default();
+    let baseline = prepare(profile)
+        .unwrap()
+        .prepare_order(DerivativeOrder::First, &cancel)
+        .unwrap()
+        .prepare_directional_actions(&cancel)
+        .unwrap();
+    let assembly = baseline
+        .plan
+        .compile(profile.optimization, profile.evaluation, &cancel)
+        .unwrap();
+    let bytes = assembly.numeric_worker_bytes();
+    assert!(bytes > 1);
+    let exact = Profile {
+        assembly: AssemblyLimits {
+            contributions: 128,
+            native_index: 128,
+            worker_bytes: bytes,
+        },
+        ..profile
+    };
+    let prepared = prepare(exact).unwrap();
+    assert_eq!(prepared.plan.limits(), exact.assembly);
+    let first = prepared
+        .prepare_order(DerivativeOrder::First, &cancel)
+        .unwrap();
+    let directional = first.prepare_directional_actions(&cancel).unwrap();
+    assert_eq!(directional.plan.limits(), exact.assembly);
+    assert_eq!(
+        directional.artifacts, baseline.artifacts,
+        "assembly admission must not change evaluator artifacts"
+    );
+    let exact_assembly = directional
+        .plan
+        .compile(exact.optimization, exact.evaluation, &cancel)
+        .unwrap();
+    assert_eq!(exact_assembly.numeric_worker_bytes(), bytes);
+    let rebound = directional.rebind(&values, &cancel).unwrap();
+    assert_eq!(rebound.plan.limits(), exact.assembly);
+    let physical = physical_identity(
+        &workspace.inputs.quantities,
+        &workspace.inputs.preconditions,
+    );
+    assert_ne!(
+        model.view_key(&structure, DerivativeOrder::Value, profile, &physical),
+        model.view_key(&structure, DerivativeOrder::Value, exact, &physical),
+    );
+    let insufficient = Profile {
+        assembly: AssemblyLimits {
+            worker_bytes: bytes - 1,
+            ..exact.assembly
+        },
+        ..exact
+    };
+    let limited = prepare(insufficient)
+        .unwrap()
+        .prepare_order(DerivativeOrder::First, &cancel)
+        .unwrap()
+        .prepare_directional_actions(&cancel)
+        .unwrap();
+    assert!(matches!(
+        limited.plan.assemble(exact_assembly.programs().to_vec()),
+        Err(MathError::Limit("case worker bytes")),
+    ));
+    let rows: BTreeSet<_> = structure.rows().iter().map(|row| row.id).collect();
+    let observed = workspace
+        .prepare_modeling_observations(&model, &rows, exact, &cancel)
+        .unwrap();
+    assert_eq!(observed.plan.limits(), exact.assembly);
+    let functions = workspace
+        .prepare_modeling_functions(
+            &model,
+            rows.iter().copied().collect(),
+            vec![x],
+            DerivativeOrder::First,
+            exact,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(functions.plan.limits(), exact.assembly);
+    let conditional = first
+        .plan
+        .conditional(
+            &rows,
+            &BTreeSet::from([x]),
+            &workspace.inputs.quantities,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(conditional.limits(), exact.assembly);
+    let parametric = first
+        .plan
+        .parametric(
+            &[p],
+            DerivativeOrder::First,
+            &workspace.inputs.quantities,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(parametric.limits(), exact.assembly);
+    assert_eq!(parametric.columns(), &[x, p]);
+    for assembly in [
+        AssemblyLimits {
+            contributions: 0,
+            ..exact.assembly
+        },
+        AssemblyLimits {
+            native_index: 0,
+            ..exact.assembly
+        },
+        AssemblyLimits {
+            worker_bytes: 0,
+            ..exact.assembly
+        },
+    ] {
+        assert!(matches!(prepare(Profile { assembly, ..exact }),
+            Err(CompileError::Math(error)) if matches!(error.as_ref(),
+                MathError::Limit("zero case assembly budget")),
+        ));
     }
 }
 #[test]
@@ -4058,9 +4365,12 @@ mod nonlinear_selection_isolation_tests {
                         &context,
                     )
                     .unwrap_err();
+                let pse_kernels::ProviderError::Nested { cause, .. } = &error else {
+                    panic!("original selection cause must be retained: {error}");
+                };
                 assert!(
-                    matches!(error, pse_kernels::ProviderError::Trial(ref reason)
-                    if reason.contains(message)),
+                    matches!(cause.as_error().downcast_ref::<MathError>(),
+                    Some(MathError::Domain { requirement, .. }) if requirement.contains(message)),
                     "{error}"
                 );
                 assert_eq!(verifier.calls.load(Ordering::Relaxed), 1);
@@ -4107,9 +4417,12 @@ mod nonlinear_selection_isolation_tests {
                     },
                 )
                 .unwrap_err();
+            let pse_kernels::ProviderError::Nested { cause, .. } = &error else {
+                panic!("original chart contract cause must be retained: {error}");
+            };
             assert!(
-                matches!(error, pse_kernels::ProviderError::Terminal(ref reason)
-                if reason.contains("nonlinear selection chart transport")),
+                matches!(cause.as_error().downcast_ref::<MathError>(),
+                Some(MathError::Contract(reason)) if reason == "nonlinear selection chart transport"),
                 "{error}"
             );
             assert_eq!(verifier.calls.load(Ordering::Relaxed), 1);

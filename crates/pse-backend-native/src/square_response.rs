@@ -5,6 +5,9 @@ use crate::{OracleContract, ProblemError};
 use faer::Mat;
 use pse_ids::SemanticId;
 
+mod actions;
+pub use actions::{ActionEvidence, SparseFactor, SparsePredictor, SparseRequest, point_key};
+
 /// Default relative scaled rank cutoff of public Root parameter analysis.
 pub const DEFAULT_RELATIVE_RANK_CUTOFF: f64 = 1e-10;
 
@@ -40,12 +43,16 @@ pub enum Withheld {
     /// The explicit worker allowance cannot hold the operation.
     #[error("square response memory allowance")]
     Memory,
+    /// Exact mathematical, operational or checkpoint cause of an optional action.
+    #[error("square response action: {0}")]
+    Cause(#[source] std::sync::Arc<ProblemError>),
 }
 /// A complete original equality scope admitted using library-owned matching.
 #[derive(Clone, Debug)]
 pub struct SquareScope {
     contract: OracleContract,
     bounds: Vec<(f64, f64)>,
+    pattern: faer::sparse::SymbolicSparseColMat<usize>,
 }
 impl SquareScope {
     /// Validate every original row/free coordinate and its matching witness.
@@ -76,6 +83,7 @@ impl SquareScope {
         Ok(Self {
             contract: contract.clone(),
             bounds: bounds.to_vec(),
+            pattern: pattern.to_owned().map_err(|_| Withheld::Memory)?,
         })
     }
 }
@@ -426,7 +434,7 @@ mod tests {
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
     }
-    fn scope() -> SquareScope {
+    pub(super) fn scope() -> SquareScope {
         let contract = OracleContract {
             identity: pse_ids::ContentHash::from_bytes([1; 32]),
             variables: vec![

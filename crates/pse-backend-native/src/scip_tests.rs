@@ -19,7 +19,7 @@ use crate::{
     solve::{
         Assurance, Backend, BoundSource, Controls, Execution, IisMember, IpoptLinearSolver,
         OptionValue, PrimalSource, Qualification, ResolvedAccuracy, SolveIntent, SolveReport,
-        Termination, WarmCapability, WitnessSource,
+        StartPolicy, Termination, WarmCapability, WitnessSource,
     },
     solver_tests::stamp,
 };
@@ -997,7 +997,23 @@ fn fixed_assignment_resolve_keeps_local_analysis() {
     let registry = standard_registry().unwrap();
     let case = synthesis(&registry);
     let program = case.program(&FactorableRequest::default());
-    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    let controls = Controls::default();
+    assert_eq!(controls.start, StartPolicy::NoPriorStart);
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Optimize,
+        true,
+        false,
+        &ScipSettings::default(),
+        &controls,
+        &mut Retained::default(),
+    )
+    .unwrap();
+    // The auxiliary re-solve owns its explicit seed; the external entry policy remains
+    // NoPriorStart while the adopted commitment and conditional analysis below survive.
+    assert_eq!(controls.start, StartPolicy::NoPriorStart);
+    assert!(!report.metrics.contains_key("resolve.refused"));
     assert_eq!(
         report.evidence.global.unwrap().primal,
         PrimalSource::FixedAssignment
@@ -1566,8 +1582,8 @@ fn genuinely_infeasible_model_still_reports_infeasible() {
 }
 
 /// Register R-52's saved reproducer (Plan 23 H10). SCIP 10.0.2's convex nonlinear handler
-/// falsely proves the Peng–Robinson liquid tangent-plane problem of the campaign fixture
-/// `bt_pr_liquid_stability` infeasible. `tests/fixtures/scip/bt-pr-liquid-tpd.cip` is that
+/// falsely proves the Peng–Robinson liquid tangent-plane problem of the historical
+/// campaign fixture `bt_pr_liquid_stability` infeasible. `tests/fixtures/scip/bt-pr-liquid-tpd.cip` is that
 /// fixture's exported problem as SCIP's CIP writer writes the adapter's native model,
 /// reduced by deletion to the rows SCIP needs for the false conclusion: the reference
 /// pressure row in its normalized coordinate (`c1`), the compressibility obligation
@@ -2558,7 +2574,7 @@ fn highs_native(case: &Case) -> SolveReport {
     let cancel = Arc::new(AtomicBool::new(false));
     let coefficients = case
         .assembly
-        .coefficients(&case.values, 100, &cancel)
+        .coefficients(&case.values, 1024, &cancel)
         .unwrap();
     let constants = coefficients.row_constants.clone();
     let problem = crate::CoefficientProblem::from_plan(&case.assembly, coefficients).unwrap();

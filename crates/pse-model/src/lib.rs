@@ -30,6 +30,8 @@ pub mod postgres;
 mod postgres_tests;
 /// Validated single-value setting domains (ADR-0116 Outcome 8).
 pub mod scalars;
+/// Declared bounded numerical composition and consumed product contracts.
+pub mod strategy;
 /// Pure occurrence, dependency and outcome facts shared by study executors.
 pub mod study;
 #[cfg(test)]

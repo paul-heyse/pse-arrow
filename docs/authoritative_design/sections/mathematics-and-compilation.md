@@ -201,6 +201,33 @@ selector and residual/library provenance, parameter scope and derivative order.
 One worker-owned certificate may be reused only within all of those scopes; a changed
 winner, higher order or changed source, bounds or parameters requires revalidation.
 
+Competitive covering uses the library's outer Taylor relaxation with two opposite
+corners and one whole-box interval Jacobian, after all C1 guards are admitted.
+HC4, unknown-coordinate shaving, parametric Newton and complete native covering
+retain their independent roles. A wider relaxation can require more covering work;
+unresolved cells still refuse. Connected root-sheet transport first proposes the
+previous existence enclosure, then the endpoint existence hull and finally the
+endpoint uniqueness hull. The broader boxes supply Newton seeds only. Every proposal
+must independently establish uniform existence/uniqueness, original-domain and guard
+containment, and common-root bridges over a finite covering of the entire parameter
+path under one deadline and proof account. Endpoint competitive exclusion does not
+establish competitive exclusion at intermediate path parameters.
+
+Cold chart construction proposes a useful parameter neighborhood before its narrow
+fallbacks. A coordinate-sensitive seed uses the interval library's numerical midpoint
+preconditioner and a centered parameter residual enclosure intersected with the natural
+residual enclosure, after all C1 guards admit the candidate over the entire proposed
+parameter box. The predicted root box supplies a numerical proposal only; midpoint
+inversion establishes no interval regularity. Coordinate-sized initial radii remain
+separate from the small common Newton inflation floor. A failed prediction, empty
+intersection or inadmissible seed retains the scalar fallbacks. The entire proposed
+neighborhood must pass uniform Newton and complete competitive exclusion; widening a proposal cannot widen an already issued certificate.
+Nearby point/root refinement reuses only an actually containing certificate, with its
+original source/domain/order checks and independently consumed accuracy. A competing
+winner inside the proposed neighborhood prevents that broad certificate. All proposals
+share the original finite proof account; larger cold-proof ceilings do not substitute
+for reuse.
+
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
 Factorable transport retains original residuals, selection restrictions and graph fidelity. Exact means equivalent to the selected graph on its admitted domain; residual-only operational selection is Relaxed. An exact-only request refuses a relaxation. Symbolica Rational remains arbitrary precision through folding and export; binary64 conversion is an explicit backend boundary. Canonical normalized numerator/positive denominator and selection dependencies enter new identity frames; historical frames are not reinterpreted.
@@ -352,10 +379,11 @@ output inside a nonlinear term is refused; no production provider declares an en
 from this projection, under the default request (no implicit definitions or envelopes;
 auxiliary branches). Affine proofs and the objective degree still use the optional
 flattened expressions. An affine row propagates from its affine proof, not from a separately
-built tape, so its constants agree exactly. When interval propagation leaves a nonlinear row
-with no free variable, automatic presolve declines only that propagation and keeps its other
-reductions (Plan 23 H1f; `automatic_presolve_propagates_an_affine_row_by_its_proof`,
-`automatic_presolve_declines_propagation_that_leaves_constant_nonlinear_rows`). A large factorable body therefore keeps a complete tape, a
+built tape, so its constants agree exactly. These facts support interval source-infeasibility
+analysis independently of executable NLP transformations. The pinned binding's untracked
+bound tightening is not admitted to native execution; supported affine elimination retains
+its distinct source and multiplier map ([§18.5](numerical-execution.md#section-18-5)). A
+large factorable body therefore keeps a complete tape, a
 requirement is admitted through its exact condition on its argument, and a validity
 predicate through its closed conjunction, which must be complete, over the selected
 variable box. Admission follows the evaluator's obligations:
@@ -504,6 +532,33 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0155](../../adr/0155-numerical-derived-families.md) (proposed;
+> independently reviewed target, implementation owned by Plan 25m).
+
+Derived-family preparation separates immutable family structure from bound anchors and
+parameters. Each family owns actual incidence, reconstruction, preserved original
+bounds/guards/inequalities/objective and selection meaning, and actual derivative/action
+support. Terminal identity, conditional equivalence, block coverage and approximation have
+distinct permissions. Opaque oracles cannot acquire unsupported derivative order through a
+wrapper. Consumed accuracy separates certified bounds, admitted numerical estimates and
+unresolved evidence. Original physical/backward-error acceptance remains authoritative;
+a requested forward/root/jet bound has its own consumer contract. Selected-root proof,
+numerical products and connected-sheet transport have separate validity and lifetime keys.
+Auxiliary success never bypasses frozen original assessment.
+
+Consumed selected-root accuracy uses a separate fixed-parameter enclosure beneath the
+retained uniform selection chart. Point refinement never replaces the chart's parameter
+neighborhood or competitive exclusion. The verifier establishes a normalized interval
+inverse bound over the numerical candidate/root hull; that bound includes nonlinear
+variation and guides stricter physical residual controls. JVP controls translate actual
+residual-jet backward-error denominators using original row scales and remaining action
+allowance. Those numerical control estimates do not certify the result: the actual fixed
+root/action enclosure must satisfy the consumer's product, normalization and error demand.
+Each product has explicit finite refinement rounds and proof cells under the original
+cancellation owner and absolute deadline. Changed controls invalidate numerical products;
+compatible selection, source and sheet evidence remain separately reusable.
+
+
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 Immutable support requests identify admitted body, ordered outputs and coordinates, order and finite construction policy. Value requests construct no numerical derivative support and First requests construct no Second support. Structural incidence is conservative all-branch dependency evidence and does not promise provider derivative evaluation. Stronger preparation cannot mutate weaker products, reset allowances or memoize transient failure; existing retention, flight and allocation owners remain authoritative.
@@ -620,12 +675,25 @@ they protect.
 |---|---|
 | DSL text | 65,535 bytes; nesting and unit depth 64 |
 | Body construction (`BodyLimits`) | 8,192 formal slots by default (one pool chunk; the pool grows to an explicitly raised allowance); 16,384 construction occurrences; syntax, filter and conditional depth 128; integral power degree 1,024 |
+| Domain/class construction (`Profile.class_proof_work`) | 1,000,000 shared conservative work units per bound product; expression storage/substitution bounds and derivative construction consume the same remaining allowance; these are not measured operation counters or byte reservations |
 | Local evaluation (`EvaluationLimits`) | 4,096 derivative components; 1,000,000 scalar operations per demand; 512 MiB numeric worker scratch; 4,096 provider calls |
 | Optimizer (`Optimization`) | cores 1–64 (default 1); Horner iterations up to 1,000 (default 10); common-pair rounds up to 32 (default 1); a fixed Horner-scheme budget of 8,192 variables, an optimizer budget rather than a symbol bound |
 | Case (`CaseLimits`, `AssemblyLimits`) | 100,000 scalars, instances and rows; 8,192 distinct bodies; 1,000,000 slots and contributions; native index within `i32`; 2 GiB complete attempt storage (shared evaluator scratch, cloned instructions/descriptors, occurrence caches and sparse refills) |
 | Workspace (`WorkspaceLimits`) | 4,096 input entries; 2 GiB input extent; 16,384 retained entries and 256 MiB known retained bytes; LRU of 64 values per expensive query |
 | Structural matching | 100,000 rows on a 32 MiB stack |
 | Runtime (`MathPolicy`) | 8 GiB artifact retention; 64 MiB foreign allowance per job/program; 8 GiB worker, 4 GiB workspace; 4 jobs; 128 flights |
+
+The compiler carries the declared class-proof and typed assembly allowances through initial,
+value-rebound and derivative-upgraded products. The complete consumed profile uses the v4
+modeling-view identity frame, preserving historical v2/v3 hash bytes. Public preparation
+documents require the assembly contribution, native-index and complete worker-byte limits;
+the unchanged defaults are explicit Rust policy rather than a hidden ceiling. Changing only that policy does not
+change an evaluator artifact that does not consume it. Class discovery occurs at its
+actual representation consumer; a factorable export admits its own evidence rather than
+waiting for an unrelated polynomial coefficient proof. Structural incidence includes all
+original contributions, even when numerical evaluation selects only one objective level.
+Mandatory derived-extremum and declared event guard/reset inputs remain in the executable
+projection alongside requested outputs; unrelated observations remain undemanded.
 
 Derivative admission bounds the pinned Numerica Taylor convolution and primitive expansion
 from the source operation counts before vectorization, then reconciles the actual built

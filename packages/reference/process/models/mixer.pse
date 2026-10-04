@@ -7,29 +7,34 @@
 @id("965d150600a14d82ad54a7a98e46c7b1") use math @"1.0.0";
 @id("01a0f04afd5876089ffcc796fdba7fb0") use compatibility @"1.0.0";
 @id("c06f32cad3ac57329388c23c8cada855") use control_volumes @"1.0.0";
-@id("ad9e7e09fb5e43e29f663be91fb9bd5c") def Mixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType=compatibility.MomentumMixingType.minimize):control_volumes.IndexedBalances {
-@id("9462bb04f86b48e6a4fd4b357f1b3487") override param components:Set<chemistry.species>=outlet_pkg.components;
-@id("850888c6170b4fec8ba0d7155da115e0") require inlet_pkg.components==components : "all mixer states use one component membership";
+@id("1756ffd3e0b44cc0b61494a360ca6655") interface MixerModel extends control_volumes.IndexedBalances {
+@id("98f87f2164634d07bf2ca88652bf1a65") param inlet_package:equilibrium.ThermoPackage;
+@id("f01def9818d8442cac6d6b8b513f4dd4") param outlet_package:equilibrium.ThermoPackage;
+@id("f43261dbb4a943dab2ee839fa5a8671e") param inlet_membership:Set<kinds.port_set>;
+@id("a434771e4fe24c25a90894059fa42772") param momentum_policy:compatibility.MomentumMixingType;
+
+@id("9462bb04f86b48e6a4fd4b357f1b3487") override param components:Set<chemistry.species>=outlet_package.components;
+@id("850888c6170b4fec8ba0d7155da115e0") require inlet_package.components==components : "all mixer states use one component membership";
 @id("ca05685c798d40ae8c1357958126918a") when material_basis==control_volumes.MaterialBalance.componentPhase {
-@id("811d8b7747fd4e518350c435590397a8") require inlet_pkg.phases==phases : "phase-component mixing requires matching declared phase membership";
+@id("811d8b7747fd4e518350c435590397a8") require inlet_package.phases==phases : "phase-component mixing requires matching declared phase membership";
 }
-@id("6c80630f504947349b3980e0ec2c20a3") require inlet_pkg.defined and not outlet_pkg.defined : "specified inlets and normalized outlet are required";
-@id("01a0f04afd5876089ffcc797a6f1895d") require not (momentum_mixing==compatibility.MomentumMixingType.minimize_and_equality) : "this mixer selects one outlet pressure relation: minimize, equality or none";
+@id("6c80630f504947349b3980e0ec2c20a3") require inlet_package.defined and not outlet_package.defined : "specified inlet_membership and normalized outlet are required";
+@id("01a0f04afd5876089ffcc797a6f1895d") require not (momentum_policy==compatibility.MomentumMixingType.minimize_and_equality) : "this mixer selects one outlet pressure relation: minimize, equality or none";
 @id("48e4c60fba3f440480979e5e2f0edd0a") param epsilon:DeltaPressure=0.001{Pa};
-@id("2f6c0c13ea5d4350bf6d0e725f277bc6") child inlet[i in inlets]:equilibrium.ThermoPackage=inlet_pkg;
-@id("e85983a28af44088b84ccc5209a05366") child outlet:equilibrium.ThermoPackage=outlet_pkg;
-@id("6309208e7e5e4ecaaff7a8b806c4ff38") let inlet_pressure[i in inlets]:Pressure=inlet[i].pressure;
+@id("2f6c0c13ea5d4350bf6d0e725f277bc6") child inlet[i in inlet_membership]:equilibrium.ThermoPackage=inlet_package;
+@id("e85983a28af44088b84ccc5209a05366") child outlet:equilibrium.ThermoPackage=outlet_package;
+@id("6309208e7e5e4ecaaff7a8b806c4ff38") let inlet_pressure[i in inlet_membership]:Pressure=inlet[i].pressure;
 // The outlet pressure is the smooth minimum of the inlet pressures, every inlet pressure, or,
 // with none, stated by the flowsheet: a closed isobaric recycle loop has no minimum to select.
-@id("01a0f04afd5876089ffcc7989e5ba33d") when momentum_mixing==compatibility.MomentumMixingType.minimize {
-@id("e3d942b4f14d45e9b2f109c173a2dfb7") eq pressure_selection:outlet.pressure==math.smooth_min_over(inlet_pressure,inlets,epsilon);
+@id("01a0f04afd5876089ffcc7989e5ba33d") when momentum_policy==compatibility.MomentumMixingType.minimize {
+@id("e3d942b4f14d45e9b2f109c173a2dfb7") eq pressure_selection:outlet.pressure==math.smooth_min_over(inlet_pressure,inlet_membership,epsilon);
 }
-@id("01a0f04afd5876089ffcc799956e58e9") when momentum_mixing==compatibility.MomentumMixingType.equality {
-@id("01a0f04afd5876089ffcc79a1f925671") eq pressure_equality[i in inlets]:inlet[i].pressure==outlet.pressure;
+@id("01a0f04afd5876089ffcc799956e58e9") when momentum_policy==compatibility.MomentumMixingType.equality {
+@id("01a0f04afd5876089ffcc79a1f925671") eq pressure_equality[i in inlet_membership]:inlet[i].pressure==outlet.pressure;
 }
 @id("394f2807b5a1584a820380e7bea963a3") override param outlet_boundaries:Set<kinds.port_set>={control_volumes.outlet_boundary};
-@id("6b5b6d2e229a47af9d216386d7d43a80") override param inlet_boundaries:Set<kinds.port_set>=inlets;
-@id("c2d49da56d755b5d913b82f78dfa4486") override param phases:Set<chemistry.phase>=outlet_pkg.phases;
+@id("6b5b6d2e229a47af9d216386d7d43a80") override param inlet_boundaries:Set<kinds.port_set>=inlet_membership;
+@id("c2d49da56d755b5d913b82f78dfa4486") override param phases:Set<chemistry.phase>=outlet_package.phases;
 @id("16bba81c5b1152b09e2e3e7d27a3242f") override let in_component[i in inlet_boundaries,j in components]:ComponentFlow=inlet[i].component_flow[j];
 @id("5c7bcf3d104a55aab19ecb233a906d4a") override let out_component[o in outlet_boundaries,j in components]:ComponentFlow=outlet.component_flow[j];
 @id("070bff3393045fdd9d8256e0cdbc8009") override let in_phase_component[i in inlet_boundaries,p in phases,j in components]:ComponentFlow=inlet[i].phase_component_flow[p,j];
@@ -38,12 +43,18 @@
 @id("e8c8ed9ab794574f9149fc58ff5ba1a7") override let out_energy[o in outlet_boundaries]:Power=outlet.energy_flow;
 @id("6be6bd47505c5648a74d170f93d7f63c") override let in_total[i in inlet_boundaries]:Flow=inlet[i].flow;
 @id("011c0e482be858a4bec2d08807fd0fe7") override let out_total[o in outlet_boundaries]:Flow=outlet.flow;
-@id("ce65b38d4a73518eb4c371383c0dff96") material port inlet_ports[i in inlets]=inlet[i].material_state;
+@id("ce65b38d4a73518eb4c371383c0dff96") material port inlet_ports[i in inlet_membership]=inlet[i].material_state;
 @id("7b102200889952ee9181282791e38bba") material port outlet_port=outlet.material_state;
 @id("29e865fb81c6467ea2bc25af3eeded90") annotation report outlet.T("outlet temperature");
 @id("ec83d218ee9442b8904d6b595a1a24d6") annotation report outlet.pressure("outlet pressure");
 @id("e23bb673f2914bd2a231c3b3ccb655b2") annotation report outlet.flow("outlet molar flow");
 @id("3120e4eb44c3512e89d5df8282445e92") annotation connectivity inlet_ports(1,0);
 @id("c5e59b906cc8531e866ceb47e1575193") annotation connectivity outlet_port(0,1);
+}
+@id("ad9e7e09fb5e43e29f663be91fb9bd5c") def Mixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType=compatibility.MomentumMixingType.minimize):MixerModel {
+@id("abca7155704a4e82b035e593c7816f4b") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
+@id("738edcee2afe4b8e98ceb3121996b665") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
+@id("4ac6df77382b48918b21f161728eacb2") override param inlet_membership:Set<kinds.port_set>=inlets;
+@id("ac231ba90736448090ec4b46b6145adf") override param momentum_policy:compatibility.MomentumMixingType=momentum_mixing;
 }
 }

@@ -30,6 +30,7 @@ arrow-array = { version = "59", default-features = false, features = ["chrono-tz
 arrow-cast = { version = "59", default-features = false, features = ["prettyprint"] }
 arrow-schema = { version = "59", default-features = false, features = ["canonical_extension_types", "ffi", "serde"] }
 base64 = { version = "0.23" }
+bitflags = { version = "2", default-features = false, features = ["serde"] }
 blake3 = { version = "1", features = ["rayon"] }
 brotli = { version = "8" }
 bytemuck = { version = "1", default-features = false, features = ["aarch64_simd", "wasm_simd"] }
@@ -37,6 +38,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env"] }
 clap_builder = { version = "4", default-features = false, features = ["color", "env", "help", "std", "suggestions", "usage"] }
 comfy-table = { version = "7" }
+crc32fast = { version = "1" }
 datafusion-common = { version = "55", default-features = false, features = ["object_store", "parquet", "recursive_protection", "sql"] }
 datafusion-datasource = { version = "55", features = ["proto"] }
 datafusion-datasource-arrow = { version = "55", default-features = false, features = ["compression", "proto"] }
@@ -60,6 +62,7 @@ form_urlencoded = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-task = { version = "0.3" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
+getrandom-6f8ce4dd05d13bba = { package = "getrandom", version = "0.2", default-features = false, features = ["std"] }
 half = { version = "2", features = ["num-traits"] }
 hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15" }
 hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17", features = ["rayon"] }
@@ -67,6 +70,7 @@ icu_locale_core = { version = "2", default-features = false, features = ["alloc"
 icu_provider = { version = "2", default-features = false, features = ["alloc", "baked"] }
 idna = { version = "1" }
 indexmap = { version = "2", features = ["rayon", "serde"] }
+itertools = { version = "0.13" }
 libc = { version = "0.2" }
 litemap = { version = "0.8", default-features = false, features = ["alloc"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
@@ -98,6 +102,7 @@ serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
 serde_json = { version = "1", features = ["alloc", "preserve_order", "raw_value", "unbounded_depth"] }
 serde_spanned = { version = "1", default-features = false, features = ["serde", "std"] }
+simd-adler32 = { version = "0.3", default-features = false, features = ["std"] }
 similar = { version = "2", features = ["inline"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 sqlparser = { version = "0.62", features = ["visitor"] }
@@ -136,7 +141,7 @@ form_urlencoded = { version = "1", default-features = false, features = ["std"] 
 icu_locale_core = { version = "2", default-features = false, features = ["zerovec"] }
 icu_provider = { version = "2", default-features = false, features = ["baked"] }
 idna = { version = "1", default-features = false, features = ["compiled_data", "std"] }
-memchr = { version = "2", default-features = false, features = ["std"] }
+memchr = { version = "2" }
 miette = { version = "7" }
 percent-encoding = { version = "2", default-features = false, features = ["std"] }
 potential_utf = { version = "0.1", default-features = false, features = ["zerovec"] }
@@ -148,7 +153,7 @@ regex-syntax = { version = "0.8" }
 semver = { version = "1" }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
-serde_json = { version = "1", default-features = false, features = ["alloc"] }
+serde_json = { version = "1", features = ["alloc"] }
 smallvec = { version = "1", default-features = false, features = ["const_generics"] }
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "full", "visit", "visit-mut"] }
 syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
@@ -162,9 +167,10 @@ zerovec = { version = "0.11", default-features = false, features = ["derive", "y
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 bitflags = { version = "2", default-features = false, features = ["std"] }
-getrandom = { version = "0.4", default-features = false, features = ["std", "sys_rng"] }
+getrandom-9fbad63c4bcf4a8f = { package = "getrandom", version = "0.4", default-features = false, features = ["std", "sys_rng"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["aws-lc-rs", "http1", "http2", "native-tokio", "ring", "tls12"] }
 hyper-util = { version = "0.1", features = ["client-legacy", "client-proxy", "client-proxy-system", "http1", "http2"] }
+libc = { version = "0.2", default-features = false, features = ["extra_traits"] }
 rustix = { version = "1", features = ["fs", "stdio", "termios"] }
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "aws_lc_rs", "ring", "std", "tls12"] }
 rustls-webpki = { version = "0.103", default-features = false, features = ["aws-lc-rs", "ring", "std"] }

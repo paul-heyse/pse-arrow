@@ -227,12 +227,16 @@ pub struct BlockAttempt {
     pub boundary: pse_structural::initialization::Block,
     /// Faithful native report or typed pre-execution failure.
     pub result: Result<Box<SolveReport>, Arc<MathRuntimeError>>,
+    /// Actual shared driver events when execution reached an observed strategy.
+    pub trace: Option<Arc<super::strategy::Trace>>,
     /// Whether its original-quality-validated coordinates were committed.
     pub committed: bool,
 }
 /// Initialized values and complete bounded attempt history, without an optimum claim.
 #[derive(Debug)]
 pub struct InitializationReport {
+    /// Actual initialization submission identity shared by its block event rows.
+    pub run_id: pse_model::generated::identities::RunId,
     /// Immutable original specification, including its authored guesses.
     pub original: CaseValues,
     /// Committed solved unknowns only; never fixed inputs or temporary overlays.
@@ -278,7 +282,19 @@ pub struct InitializationProfile {
 pub struct DeclaredRootReport {
     /// Native root outcome with original residual validation.
     pub report: SolveReport,
+    /// Actual submission identity, retained across every trace projection.
+    pub run_id: pse_model::generated::identities::RunId,
+    /// Shared numerical execution and original candidate assessment events.
+    pub strategy: Arc<super::strategy::Trace>,
+    decision: crate::workflow::numerics::CandidateDecision,
     _owner: Arc<pse_columnar::AllocationLease>,
+}
+
+impl DeclaredRootReport {
+    /// Original residual quality and the declared numerical policy own this permission.
+    pub fn candidate_use(&self) -> pse_model::generated::enums::CandidateUse {
+        self.decision.usability
+    }
 }
 
 /// One admitted original-equation unit execution. The profile is interpreted once,
@@ -612,8 +628,14 @@ impl MathService {
                 })
             })
             .collect::<Result<_, _>>()?;
+        let _root_support = budget
+            .charge(native::assembled::AlgebraicOracle::root_support_allowance(
+                worker.assembly(),
+                &prepared.view.structure,
+            )?)
+            .map_err(MathRuntimeError::into_problem)?;
         let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
-            .with_structural_analysis(prepared.view.structure.clone().into())
+            .with_structural_analysis(prepared.view.structure.clone().into())?
             .with_normalization(prepared.normalization.clone())?;
         oracle.admit_nle()?;
         let mut nested = execution.clone();
@@ -659,16 +681,40 @@ impl MathService {
             Some(&report),
             &prepared.profile.numerics,
         ) {
-            return Err(native::ProblemError::Contract(format!(
-                "conditional unit refused unqualified result: {:?}",
-                report.qualification
-            )));
+            return Err(conditional_failure(&report));
         }
         // Teardown releases native state, temporary evaluator values and its budget
         // charge on every return path, including callback refusal and cancellation.
         drop(retained);
         Ok(candidate)
     }
+}
+
+/// Preserve actual evaluation witnesses before lowering an unqualified native exit.
+#[cfg(feature = "solver-kinsol")]
+fn conditional_failure(report: &SolveReport) -> native::ProblemError {
+    if let Some(cause) = report
+        .shared_validation_failure()
+        .or_else(|| report.shared_callback_failure())
+    {
+        return native::ProblemError::Math(pse_math::MathError::Typed {
+            retained: cause.retained_bytes(),
+            cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+        });
+    }
+    native::ProblemError::native(
+        native::NativeStatus {
+            backend: report.backend,
+            code: report.termination.code,
+            name: report.termination.name.clone(),
+        },
+        report.termination.category,
+        report
+            .termination
+            .message
+            .clone()
+            .unwrap_or_else(|| "conditional unit candidate refused by original assessment".into()),
+    )
 }
 
 #[cfg(feature = "solver-kinsol")]
@@ -708,6 +754,8 @@ impl MathService {
         controls: Controls,
         accuracy: ResolvedAccuracy,
         tolerances: Tolerances,
+        policy: pse_model::numerics::NumericalPolicy,
+        profile: pse_ids::ContentHash,
         factory: impl FnOnce(
             Execution,
             Arc<WorkerBudget>,
@@ -733,60 +781,102 @@ impl MathService {
         let owner = self.reserve("math:declared-root-result", bytes)?;
         let cancel = FlightCancellation::default();
         let control = cancel.clone();
+        let deadline = std::time::Instant::now()
+            .checked_add(controls.time_limit)
+            .ok_or(MathRuntimeError::Limit("declared root deadline extent"))?;
+        let scope = pse_kernels::ExecutionScope::new(cancel.flag().clone(), Some(deadline));
         let progress = Arc::new(Progress::new(controls.history));
         let events = progress.clone();
         let service = self.clone();
+        let foreign_bytes = self.policy.foreign_allowance(&controls);
+        let job_bytes =
+            self.policy
+                .worker_bytes
+                .checked_add(foreign_bytes)
+                .ok_or(MathRuntimeError::Limit(
+                    "declared root worker/foreign allowance",
+                ))?;
+        let run_id = pse_operations::mint_id();
         let (tx, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let bytes = service.policy.worker_bytes;
             // The factory charges every evaluator it builds to this job's reservation.
             let budget = WorkerBudget::new(bytes);
+            let worker_service = service.clone();
             let result = service
-                .job(1, bytes, control, move |flag| {
-                    let mut execution = Execution::new(flag, &controls);
-                    execution.progress = events;
-                    let function = factory(execution.clone(), budget)?;
-                    let actual = function.contract();
-                    if actual.identity != contract.identity
-                        || actual.rows != contract.rows
-                        || actual.variables.len() != n
-                        || actual
-                            .variables
-                            .iter()
-                            .zip(&contract.variables)
-                            .any(|(a, b)| {
-                                a.id != b.id
-                                    || a.lower.to_bits() != b.lower.to_bits()
-                                    || a.upper.to_bits() != b.upper.to_bits()
-                            })
-                    {
-                        return Err(native::ProblemError::Internal(
-                            "root factory differs from admitted source contract".into(),
-                        )
-                        .into());
-                    }
-                    let stamp = Compatibility {
-                        layout: contract.identity,
-                        profile: accuracy.key()?,
-                        data: contract.identity,
-                        backend: Backend::Kinsol,
-                    };
-                    let mut session =
-                        kinsol::Session::new(function, settings, execution.clone(), stamp)?;
-                    // The declared root runs and qualifies with the budgets its caller
-                    // resolved from the numerical policy (F20).
-                    let mut report = session.solve(
-                        &initial,
-                        &controls,
-                        &accuracy,
-                        execution,
-                        &tolerances,
-                        None,
+                .job_scoped(1, job_bytes, control, Some(deadline), move |flag| {
+                    let original = contract.identity;
+                    let start_identity = super::opaque_strategy::point_identity(original, &initial);
+                    let (result, trace) = super::opaque_strategy::direct(
+                        &worker_service,
+                        super::opaque_strategy::Source {
+                            original,
+                            preparation: original,
+                            profile,
+                            backend: Some(Backend::Kinsol),
+                            controls: &controls,
+                            start: pse_model::strategy::StartOrigin::Specification,
+                            start_identity: Some(start_identity),
+                        },
+                        &scope,
+                        || {
+                            let mut execution = Execution::within(flag, &controls, scope.clone())?;
+                            execution.progress = events;
+                            execution.memory = Some(foreign_bytes);
+                            let function = factory(execution.clone(), budget)?;
+                            let actual = function.contract();
+                            if actual.identity != contract.identity
+                                || actual.rows != contract.rows
+                                || actual.variables.len() != n
+                                || actual
+                                    .variables
+                                    .iter()
+                                    .zip(&contract.variables)
+                                    .any(|(a, b)| {
+                                        a.id != b.id
+                                            || a.lower.to_bits() != b.lower.to_bits()
+                                            || a.upper.to_bits() != b.upper.to_bits()
+                                    })
+                            {
+                                return Err(native::ProblemError::Internal(
+                                    "root factory differs from admitted source contract".into(),
+                                )
+                                .into());
+                            }
+                            let stamp = Compatibility {
+                                layout: contract.identity,
+                                profile,
+                                data: contract.identity,
+                                backend: Backend::Kinsol,
+                            };
+                            let mut session =
+                                kinsol::Session::new(function, settings, execution.clone(), stamp)?;
+                            // The declared root runs and qualifies with the budgets its caller
+                            // resolved from the numerical policy (F20).
+                            let mut report = session.solve(
+                                &initial,
+                                &controls,
+                                &accuracy,
+                                execution,
+                                &tolerances,
+                                None,
+                            )?;
+                            native::quality::qualify(&mut report, &accuracy);
+                            drop(session);
+                            Ok(report.with_owner(owner.clone()))
+                        },
+                        |report| Some(report),
+                        |report| crate::workflow::numerics::native_use(report, &policy),
+                        super::strategy::cause_native,
                     )?;
-                    native::quality::qualify(&mut report, &accuracy);
-                    drop(session);
+                    let decision = crate::workflow::numerics::native_use(&result, &policy);
+                    // The trace owns its independent allocation; native result ownership
+                    // survives the joined worker without cloning evaluator storage.
                     Ok(DeclaredRootReport {
-                        report: report.with_owner(owner.clone()),
+                        report: result,
+                        run_id,
+                        strategy: trace,
+                        decision,
                         _owner: owner,
                     })
                 })
@@ -919,6 +1009,13 @@ impl MathService {
         )?;
         let owner = self.reserve("math:initialization-results", size)?;
         let progress = Arc::new(Progress::new(controls.history));
+        let deadline = std::time::Instant::now()
+            .checked_add(controls.time_limit)
+            .ok_or(MathRuntimeError::Limit(
+                "initialization task deadline extent",
+            ))?;
+        let scope = pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline));
+        let run_id = pse_operations::mint_id();
         let session = self.open_session()?;
         let service = self.clone();
         let events = progress.clone();
@@ -934,6 +1031,8 @@ impl MathService {
                 progress: &events,
                 owner: &owner,
                 cancel: &cancel,
+                scope,
+                run_id,
                 bound: vec![None; prepared.blocks.len()],
                 attempts: Vec::new(),
             };
@@ -955,6 +1054,8 @@ struct Blocks<'a> {
     progress: &'a Arc<Progress>,
     owner: &'a Arc<pse_columnar::AllocationLease>,
     cancel: &'a crate::CancelSource,
+    scope: pse_kernels::ExecutionScope,
+    run_id: pse_model::generated::identities::RunId,
     /// Each block's view as last bound; later stages rebind its values (A6).
     bound: Vec<Option<Preparation>>,
     attempts: Vec<BlockAttempt>,
@@ -1000,10 +1101,13 @@ impl Blocks<'_> {
                             .rposition(|a| a.boundary.id == id && a.committed)
                     })
                     .flatten();
-                let result = self
-                    .attempt(index, &values, previous)
-                    .await
-                    .map_err(Arc::new);
+                let attempted = self.attempt(index, &values, previous).await;
+                let trace = match &attempted {
+                    Ok((_, trace)) => Some(trace.clone()),
+                    Err(MathRuntimeError::Strategy { trace, .. }) => Some(trace.clone()),
+                    _ => None,
+                };
+                let result = attempted.map(|(report, _)| report).map_err(Arc::new);
                 let boundary = &self.prepared.blocks[index].boundary;
                 let committed_block = commit_block(
                     &mut values,
@@ -1016,6 +1120,7 @@ impl Blocks<'_> {
                     strategy: self.strategies[index],
                     boundary: boundary.clone(),
                     result,
+                    trace,
                     committed: committed_block,
                 });
                 if !committed_block {
@@ -1053,6 +1158,7 @@ impl Blocks<'_> {
                     .all(|(id, v)| original.scalars.get(id) == Some(v))
         });
         Ok(InitializationReport {
+            run_id: self.run_id,
             original,
             values: committed,
             stages,
@@ -1071,12 +1177,13 @@ impl Blocks<'_> {
         index: usize,
         values: &CaseValues,
         previous: Option<usize>,
-    ) -> Result<Box<SolveReport>, MathRuntimeError> {
+    ) -> Result<(Box<SolveReport>, Arc<super::strategy::Trace>), MathRuntimeError> {
+        self.scope.check().map_err(native::ProblemError::Provider)?;
         let block = &self.prepared.blocks[index];
         let bound = match &self.bound[index] {
             Some(view) => {
                 self.service
-                    .rebind(view, values.clone(), self.cancel)
+                    .rebind_within(view, values.clone(), self.cancel, self.scope.clone())
                     .await?
             }
             None => {
@@ -1086,10 +1193,12 @@ impl Blocks<'_> {
                         self.prepared.quantities.clone(),
                         values.clone(),
                         self.cancel,
+                        self.scope.deadline(),
                     )
                     .await?
             }
         };
+        self.scope.check().map_err(native::ProblemError::Provider)?;
         self.bound[index] = Some(bound.clone());
         let step = self
             .service
@@ -1109,15 +1218,18 @@ impl Blocks<'_> {
                 self.numerics.clone(),
                 self.strategies[index],
                 self.prepared.snapshot.clone(),
+                &self.scope,
+                self.cancel,
             )
             .await?;
         // The block starts from its staged values. Only a predecessor stage's committed
         // values make that start a seed; the authored initial point is not a warm start (F25).
+        let step = step.within_task(self.scope.clone())?;
         let previous = previous
             .map(|attempt| step.primal_seed().map(|seed| Predecessor { attempt, seed }))
             .transpose()?;
         let numerical_policy = self.numerics.policy.clone();
-        let (outcome, ()) = self
+        let (outcome, (), strategy) = self
             .session
             .step(
                 step,
@@ -1126,16 +1238,32 @@ impl Blocks<'_> {
                 self.progress.clone(),
                 self.owner.clone(),
                 self.cancel,
-                move |outcome, _, _| ((), outcome.candidate_use(&numerical_policy).permits_use()),
+                move |outcome, _, _| {
+                    (
+                        (),
+                        super::StepRetention {
+                            candidate: outcome.candidate_use(&numerical_policy),
+                            session: super::SessionDisposition::RetainCompatible,
+                        },
+                    )
+                },
             )
             .await?;
         match outcome {
-            super::solves::Outcome::Native(report) => Ok(report),
-            super::solves::Outcome::Rejected(error) => Err(MathRuntimeError::Shared(error)),
-            super::solves::Outcome::Constant(_) => Err(native::ProblemError::Internal(
-                "conditional block evaluated without free coordinates".into(),
-            )
-            .into()),
+            super::solves::Outcome::Native(report) => Ok((report, strategy)),
+            super::solves::Outcome::Rejected(error) => Err(MathRuntimeError::Strategy {
+                cause: error,
+                trace: strategy,
+            }),
+            super::solves::Outcome::Constant(_) => Err(MathRuntimeError::Strategy {
+                cause: Arc::new(
+                    native::ProblemError::Internal(
+                        "conditional block evaluated without free coordinates".into(),
+                    )
+                    .into(),
+                ),
+                trace: strategy,
+            }),
         }
     }
 }
@@ -1147,17 +1275,23 @@ impl MathService {
         quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
         values: CaseValues,
         driver: &crate::CancelSource,
+        deadline: Option<std::time::Instant>,
     ) -> Result<Preparation, MathRuntimeError> {
         let view = block.view.clone();
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
+        let operation = self.job_retained_scoped(
+            1,
+            self.policy.worker_bytes,
+            control.clone(),
+            deadline,
+            move |flag| {
                 let bound = view.bind(quantities, &values, &flag)?;
                 // The block plan, structural witness, descriptors and registry already
                 // have owners. Only this first binding's products and wrappers escape.
                 let bytes = block_binding_bytes(&bound);
                 Ok((bound, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (bound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let executable = Arc::new(std::sync::OnceLock::from(block.executable.clone()));
@@ -1226,6 +1360,169 @@ mod tests {
     fn id(v: u8) -> SemanticId {
         SemanticId::from_bytes([v; 16])
     }
+    fn declared_submission(
+        service: &Arc<MathService>,
+        duration: std::time::Duration,
+        called: Arc<AtomicBool>,
+    ) -> SolveHandle<DeclaredRootReport> {
+        let contract = native::OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([72; 32]),
+            variables: vec![native::Variable {
+                id: id(71),
+                lower: f64::NEG_INFINITY,
+                upper: f64::INFINITY,
+            }],
+            rows: vec![id(72)],
+            derivatives: pse_kernels::DerivativeOrder::Value,
+            smoothness: pse_kernels::DerivativeOrder::Value,
+        };
+        let policy = pse_model::numerics::NumericalPolicy::default();
+        let tolerances = Tolerances {
+            variables: vec![1e-8],
+            rows: vec![1e-8],
+            integrality: 1e-8,
+        };
+        let normalization = pse_math::normalization::Normalization {
+            variables: vec![1.],
+            rows: vec![1.],
+            objective: 1.,
+        };
+        let accuracy = ResolvedAccuracy::resolve(&policy, &tolerances, &normalization).unwrap();
+        let settings = kinsol::Settings::from_policy(
+            kinsol::Method {
+                strategy: kinsol::Strategy::FixedPoint,
+                ..Default::default()
+            },
+            &tolerances,
+            &normalization,
+            accuracy.feasibility,
+        );
+        let controls = Controls {
+            time_limit: duration,
+            ..Default::default()
+        };
+        let profile = SolverProfile {
+            selection: SolverSelection::Explicit(Backend::Kinsol),
+            backend: execution::BackendSettings::Kinsol(settings.method),
+            controls: controls.clone(),
+            numerics: policy.clone(),
+            intent: SolveIntent::Root,
+            presolve: Default::default(),
+            convexity: Default::default(),
+            sensitivity: None,
+        };
+        service
+            .solve_declared_root(
+                contract,
+                vec![0.],
+                settings,
+                controls,
+                accuracy,
+                tolerances,
+                policy,
+                super::super::solves::profile_key(&profile).unwrap().as_id(),
+                move |_, _| {
+                    called.store(true, std::sync::atomic::Ordering::Release);
+                    Err(native::ProblemError::Internal(
+                        "queued declared root factory must not run".into(),
+                    ))
+                },
+            )
+            .unwrap()
+    }
+    #[tokio::test]
+    async fn declared_root_deadline_and_cancellation_cover_cpu_wait_without_dispatch() {
+        use std::sync::atomic::Ordering;
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let permit = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+        let called = Arc::new(AtomicBool::new(false));
+        let handle = declared_submission(
+            &service,
+            std::time::Duration::from_millis(25),
+            called.clone(),
+        );
+        let cancellation = handle.cancellation();
+        let result = handle.finish().await;
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(native::ProblemError::Limit {
+                kind: native::LimitKind::Time,
+                ..
+            }))
+        ));
+        assert!(!cancellation.flag().load(Ordering::Acquire));
+        assert!(!called.load(Ordering::Acquire));
+        assert_eq!(service.cpu.available_permits(), 0);
+        let handle =
+            declared_submission(&service, std::time::Duration::from_secs(5), called.clone());
+        handle.cancel();
+        assert!(matches!(
+            handle.finish().await,
+            Err(MathRuntimeError::Cancelled)
+        ));
+        assert!(!called.load(Ordering::Acquire));
+        drop(permit);
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.cpu.available_permits(), 2);
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[test]
+    fn conditional_failure_preserves_shared_terminal_causes_and_actual_native_status() {
+        let controls = Controls::default();
+        let execution = Execution::new(Arc::default(), &controls);
+        let contract = native::OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([71; 32]),
+            variables: vec![native::Variable {
+                id: id(71),
+                lower: f64::NEG_INFINITY,
+                upper: f64::INFINITY,
+            }],
+            rows: vec![id(72)],
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+        };
+        let terminal = NativeTermination {
+            code: -8,
+            name: "KIN_MAXITER_REACHED".into(),
+            message: None,
+            category: Termination::IterationLimit,
+            assurance: Assurance::None,
+        };
+        let mut report = SolveReport::new(Backend::Kinsol, &contract, terminal, &execution);
+        let failure = conditional_failure(&report);
+        assert!(matches!(
+            failure,
+            native::ProblemError::Limit {
+                kind: native::LimitKind::Work,
+                ..
+            }
+        ));
+        for error in [
+            native::ProblemError::memory("original allocation"),
+            native::ProblemError::Contract("original unit contract".into()),
+            native::ProblemError::Provider(pse_kernels::ProviderError::Deadline),
+        ] {
+            report.record_validation_failure(error);
+            let original = report.shared_validation_failure().unwrap();
+            let failure = conditional_failure(&report);
+            let native::ProblemError::Math(pse_math::MathError::Typed { cause, .. }) = &failure
+            else {
+                panic!("actual failure was erased")
+            };
+            assert!(std::ptr::eq(
+                cause
+                    .as_error()
+                    .downcast_ref::<native::ProblemError>()
+                    .unwrap(),
+                original.as_ref()
+            ));
+            assert_eq!(
+                native::callback::classify(&failure),
+                native::callback::classify(original.as_ref())
+            );
+        }
+    }
     #[tokio::test]
     async fn first_block_binding_retains_shared_parents_until_last_alias() {
         pse_math::initialize().unwrap();
@@ -1282,6 +1579,7 @@ mod tests {
             .unwrap(),
         );
         let view = pse_compiler::workspace::PreparedBlock {
+            class_proof_work: Profile::default().class_proof_work,
             boundary: pse_structural::initialization::Block {
                 id: pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([8; 32])),
                 members: pse_structural::incidence::Part {
@@ -1318,6 +1616,7 @@ mod tests {
                         scalars: BTreeMap::new()
                     },
                     &crate::CancelSource::new(),
+                    None,
                 )
                 .await,
             Err(MathRuntimeError::Pool(_))
@@ -1332,6 +1631,7 @@ mod tests {
                     scalars: BTreeMap::new(),
                 },
                 &crate::CancelSource::new(),
+                None,
             )
             .await
             .unwrap();

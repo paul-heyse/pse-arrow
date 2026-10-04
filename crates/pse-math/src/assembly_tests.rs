@@ -1347,6 +1347,90 @@ fn ruled_out_coefficient_class_retains_independent_affine_rows() {
 }
 
 #[test]
+fn coefficient_objective_projection_reuses_proved_rows_under_one_work_ledger() {
+    let (original, values) = fixture(true, false);
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let quantity = ids::quantity("neutral");
+    let project = |count: u8| {
+        let mut instances = original.structure().instances().to_vec();
+        instances[0].contributions = vec![Contribution {
+            output: 0,
+            target: Target::PRIMARY,
+            scale: 1.,
+        }];
+        let rows = (0..count)
+            .map(|index| {
+                let row = id(index + 30);
+                instances[0].contributions.push(Contribution {
+                    output: 1,
+                    target: Target::Row(row),
+                    scale: 3.,
+                });
+                Row {
+                    id: row,
+                    quantity,
+                    lower: 0.,
+                    upper: 100.,
+                }
+            })
+            .collect();
+        let structure = CaseStructure::new(
+            original.structure().variables().to_vec(),
+            original.structure().parameters().to_vec(),
+            instances,
+            rows,
+            original.structure().objective().cloned(),
+            CaseLimits::default(),
+        )
+        .unwrap();
+        let plan = CasePlan::prepare(
+            Arc::new(structure),
+            original.bodies().clone(),
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        let facts = plan.presolve_facts(&values, 10_000_000, &cancel).unwrap();
+        assert_eq!(
+            facts.class_status,
+            crate::presolve::ClassStatus::Established
+        );
+        assert_eq!(facts.objective_degree, Some(2));
+        assert!(facts.affine.iter().all(Option::is_some));
+        let (coefficients, remaining) = plan
+            .coefficient_projection(&values, &facts, facts.proof_remaining, &cancel)
+            .unwrap();
+        let consumed = facts.proof_remaining - remaining;
+        // The exact remaining work suffices; one less still refuses the shared ledger.
+        assert!(
+            plan.coefficient_projection(&values, &facts, consumed, &cancel)
+                .is_ok()
+        );
+        assert!(matches!(
+            plan.coefficient_projection(&values, &facts, consumed - 1, &cancel),
+            Err(crate::MathError::WorkLimit {
+                resource: "class proof construction",
+                ..
+            }),
+        ));
+        assert_eq!(coefficients.constraints.val(), vec![6.; usize::from(count)]);
+        assert_eq!(coefficients.row_constants, vec![0.; usize::from(count)]);
+        (coefficients, consumed)
+    };
+    let (small, small_work) = project(1);
+    let (large, large_work) = project(200);
+    assert_eq!(large.objective, small.objective);
+    assert_eq!(large.objective_constant, small.objective_constant);
+    assert_eq!(large.hessian.to_dense(), small.hessian.to_dense());
+    // Each extra proved row needs one output slot, affine entry and sparse entry.
+    // No symbolic row reconstruction or substitution is consumed by this product.
+    assert_eq!(large_work - small_work, 3 * 199);
+}
+
+#[test]
 fn class_proof_and_coefficients_share_aggregate_objective_cancellation() {
     use crate::presolve::{ClassEvidence, ClassRequest};
     let (assembly, values) = fixture(true, false);
@@ -1716,4 +1800,219 @@ fn changed_coordinate_incidence_retains_support_owner_and_unspent_budget() {
     assert_eq!(exhausted.remaining_occurrences(), 0);
     assert!(exhausted.support().first.is_empty());
     assert!(body.incidence(&[0], &[0, 1], &cancel).is_ok());
+}
+
+#[test]
+fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_programs() {
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    for alias in [false, true] {
+        let (reference, values) = fixture(alias, false);
+        let value_plan = CasePlan::prepare(
+            Arc::new(reference.structure().clone()),
+            reference.bodies().clone(),
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        let old = value_plan.demands().to_vec();
+        let requested = value_plan.with_directional_actions(&cancel).unwrap();
+        assert_eq!(&requested.demands()[..old.len()], old);
+        assert_eq!(requested.order(), DerivativeOrder::Value);
+        assert!(
+            requested.demands()[old.len()..]
+                .iter()
+                .all(|d| d.directional && d.order == DerivativeOrder::First)
+        );
+        assert_eq!(
+            requested
+                .with_directional_actions(&cancel)
+                .unwrap()
+                .demands(),
+            requested.demands()
+        );
+        let limits = EvaluationLimits {
+            derivative_components: 2,
+            ..EvaluationLimits::default()
+        };
+        let action = Arc::new(
+            Arc::new(requested)
+                .compile(Optimization::default(), limits, &cancel)
+                .unwrap(),
+        );
+        let mut actual = action.worker(BTreeMap::new(), cancel.clone());
+        let mut assembled = reference.worker(BTreeMap::new(), cancel.clone());
+        for direction in [[2.0, -3.0], [-5.0, 7.0], [0.0, 0.0]] {
+            let mut expected = [0.0; 2];
+            assembled
+                .jacobian_product(&values, &direction, &mut expected)
+                .unwrap();
+            let mut output = [123.0; 2];
+            actual
+                .jacobian_product(&values, &direction, &mut output)
+                .unwrap();
+            assert_eq!(output, expected);
+            let mut same = [123.0; 2];
+            actual
+                .jacobian_product(&values, &direction, &mut same)
+                .unwrap();
+            assert_eq!(same, expected);
+        }
+        // The ordinary Value programs cannot evaluate First: the action has not used them.
+        assert!(actual.jacobian(&values).is_err());
+        let mut output = [123.0; 2];
+        let mut missing = values.clone();
+        missing.scalars.remove(&id(1));
+        assert!(
+            actual
+                .jacobian_product(&missing, &[2.0, 3.0], &mut output)
+                .is_err()
+        );
+        assert_eq!(output, [123.0; 2]);
+        assert!(
+            actual
+                .jacobian_product(&values, &[f64::NAN, 3.0], &mut output)
+                .is_err()
+        );
+        assert_eq!(output, [123.0; 2]);
+        // A stronger assembled demand preserves the separately keyed First-only action.
+        let upgraded = action
+            .prepare_order(DerivativeOrder::Second, &cancel)
+            .unwrap();
+        assert_eq!(
+            upgraded.demands().iter().filter(|d| d.directional).count(),
+            1
+        );
+        assert!(
+            upgraded
+                .demands()
+                .iter()
+                .filter(|d| d.directional)
+                .all(|d| d.order == DerivativeOrder::First)
+        );
+    }
+}
+
+#[test]
+fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_per_alias() {
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("temperature.point");
+    let difference = ids::quantity("temperature.difference");
+    let canonical = registry.quantity_type(quantity).unwrap().canonical_unit;
+    let source = Port {
+        id: id(1),
+        quantity,
+        unit: ids::unit("degF"),
+    };
+    let formal = Port {
+        id: id(2),
+        quantity,
+        unit: canonical,
+    };
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        3,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let a = builder.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let b = builder.input(1, quantity, IndexSet::new(), id(21)).unwrap();
+    let c = builder.input(2, quantity, IndexSet::new(), id(22)).unwrap();
+    let ac = builder
+        .binary(Binary::Sub, a, c.clone(), None, id(23))
+        .unwrap();
+    let bc = builder.binary(Binary::Sub, b, c, None, id(24)).unwrap();
+    let body = Arc::new(builder.prepare(&[ac, bc]).unwrap());
+    let key = ContentHash::from_bytes([92; 32]);
+    let variable = |port| Variable {
+        port,
+        fixed: false,
+        domain: ModelingVariableDomain::Continuous,
+        lower: None,
+        upper: None,
+    };
+    let structure = Arc::new(
+        CaseStructure::new(
+            vec![variable(source.clone()), variable(formal.clone())],
+            vec![],
+            vec![InstanceBinding {
+                checked_members: Default::default(),
+                instance: id(9),
+                body: key,
+                slots: vec![
+                    SlotBinding::new(&source, &formal, &registry).unwrap(),
+                    SlotBinding::new(&source, &formal, &registry).unwrap(),
+                    SlotBinding::new(&formal, &formal, &registry).unwrap(),
+                ],
+                contributions: vec![
+                    Contribution {
+                        output: 0,
+                        target: Target::Row(id(10)),
+                        scale: 1.0,
+                    },
+                    Contribution {
+                        output: 1,
+                        target: Target::Row(id(10)),
+                        scale: -3.0,
+                    },
+                ],
+            }],
+            vec![Row {
+                id: id(10),
+                quantity: difference,
+                lower: 0.0,
+                upper: 0.0,
+            }],
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let values = CaseValues {
+        scalars: BTreeMap::from([(id(1), 68.0), (id(2), 300.0)]),
+    };
+    let plan = CasePlan::prepare(
+        structure,
+        BTreeMap::from([(key, body)]),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let reference = Arc::new(
+        Arc::new(plan.clone())
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    let direct = Arc::new(
+        Arc::new(plan.with_directional_actions(&cancel).unwrap())
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    let mut expected = [0.0];
+    reference
+        .worker(BTreeMap::new(), cancel.clone())
+        .jacobian_product(&values, &[9.0, 4.0], &mut expected)
+        .unwrap();
+    let mut output = [0.0];
+    direct
+        .worker(BTreeMap::new(), cancel)
+        .jacobian_product(&values, &[9.0, 4.0], &mut output)
+        .unwrap();
+    assert_eq!(output, expected);
+    assert!((output[0] + 2.0).abs() < 1e-12);
 }

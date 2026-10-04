@@ -25,6 +25,20 @@ pub fn classify(error: &ProblemError) -> Failure {
         use pse_kernels::ProviderError as E;
         match error {
             E::Cancelled => Failure::Stopped(Termination::Cancelled),
+            E::Deadline => Failure::Stopped(Termination::TimeLimit),
+            E::Nested { cause, .. } => {
+                use pse_diagnostics::{DiagnosticCode, TypedDiagnostic};
+                match cause.diagnostic_code() {
+                    Some(DiagnosticCode::RuntimeTimeout) => {
+                        Failure::Stopped(Termination::TimeLimit)
+                    }
+                    Some(DiagnosticCode::RuntimeCancelled) => {
+                        Failure::Stopped(Termination::Cancelled)
+                    }
+                    _ if error.recoverable() => Failure::Trial,
+                    _ => Failure::Fatal,
+                }
+            }
             _ if error.recoverable() => Failure::Trial,
             _ => Failure::Fatal,
         }
@@ -37,16 +51,18 @@ pub fn classify(error: &ProblemError) -> Failure {
                 Failure::Trial
             }
             E::Cancelled => Failure::Stopped(Termination::Cancelled),
-            E::Provider { cause, .. } => provider(cause),
+            E::Provider { cause, .. } | E::Scope(cause) => provider(cause),
             E::Native { cause, .. } | E::Typed { cause, .. } => cause
                 .as_error()
                 .downcast_ref::<ProblemError>()
                 .map_or(Failure::Fatal, classify),
             E::Contract(_)
+            | E::DerivativeDemand { .. }
             | E::CoefficientRange
             | E::Library(_)
             | E::Evaluation { .. }
             | E::Limit(_)
+            | E::Refinement { .. }
             | E::SlotLimit { .. }
             | E::WorkLimit { .. }
             | E::Quantity(_) => Failure::Fatal,
@@ -60,6 +76,16 @@ pub fn classify(error: &ProblemError) -> Failure {
             kind: crate::LimitKind::Time,
             ..
         } => Failure::Stopped(Termination::TimeLimit),
+        ProblemError::Native {
+            kind: crate::NativeFailureKind::Resource,
+            ..
+        } => Failure::Stopped(Termination::ResourceExhausted),
+        ProblemError::Native { .. } => Failure::Fatal,
+        ProblemError::Linear {
+            kind: crate::LinearFailureKind::Memory,
+            ..
+        } => Failure::Stopped(Termination::ResourceExhausted),
+        ProblemError::Linear { .. } => Failure::Fatal,
         ProblemError::DynamicRouteRefused(_)
         | ProblemError::RouteRefused(_)
         | ProblemError::Unavailable { .. }
@@ -127,6 +153,7 @@ impl CallbackState {
             return None;
         }
         if let Some(stop) = self.execution.stopped() {
+            self.last_failure = None;
             self.terminal = Some((stop, "execution checkpoint".into()));
             return None;
         }
@@ -137,6 +164,11 @@ impl CallbackState {
         let (failure, message) = match result {
             Ok(Ok(value)) => {
                 self.last_failure = None;
+                if let Some(stop) = self.execution.stopped() {
+                    self.rejected_evaluations = self.rejected_evaluations.saturating_add(1);
+                    self.terminal = Some((stop, "execution checkpoint after callback".into()));
+                    return None;
+                }
                 return Some(value);
             }
             Ok(Err(e)) => {
@@ -150,6 +182,7 @@ impl CallbackState {
                 (failure, message)
             }
             Err(_) => {
+                self.last_failure = None;
                 self.rejected_evaluations = self.rejected_evaluations.saturating_add(1);
                 self.terminal = Some((Termination::Panic, "panic in native callback".into()));
                 return None;
@@ -184,19 +217,33 @@ impl CallbackState {
     /// the callback's own witness; checkpoint stops and panics return their typed class.
     pub fn terminal_error(&mut self) -> Option<ProblemError> {
         let (kind, message) = self.terminal.as_ref()?;
+        if let Some(cause) = self.last_failure.take() {
+            return Some(cause);
+        }
         Some(match kind {
-            Termination::Evaluation => self
-                .last_failure
-                .take()
-                .unwrap_or_else(|| ProblemError::internal(message.clone())),
+            Termination::Evaluation => ProblemError::internal(message.clone()),
             Termination::Cancelled | Termination::TimeLimit => {
                 ProblemError::stopped(*kind, message.clone())
             }
+            Termination::Limit => ProblemError::Limit {
+                kind: crate::LimitKind::Work,
+                detail: message.clone(),
+            },
             _ => ProblemError::internal(message.clone()),
         })
     }
     /// Append callback measurements and preserve native status alongside terminal cause.
     pub fn finish(&mut self, report: &mut crate::solve::SolveReport) {
+        if self.terminal.is_none()
+            && let Some(stop) = self.execution.stopped()
+        {
+            self.last_failure = self.execution.check().err();
+            self.terminal = Some((stop, "execution checkpoint after native work".into()));
+        }
+        report.evidence.abandoned = self.execution.abandonment.observation();
+        report.evidence.work.evaluations = self.counts.values().try_fold(0_u64, |total, count| {
+            total.checked_add(u64::try_from(*count).ok()?)
+        });
         report.evidence.callback = crate::solve::CallbackEvidence {
             trial_rejections: self.trial_rejections,
             regime_crossings: self.regime_crossings,
@@ -229,7 +276,7 @@ impl CallbackState {
             report.termination.assurance = crate::solve::Assurance::None;
             report.termination.message = Some(message.clone());
         }
-        if report.termination.category == Termination::Evaluation {
+        if self.terminal.is_some() || report.termination.category == Termination::Evaluation {
             if let Some(cause) = self.last_failure.take() {
                 report.callback_failure = Some(std::sync::Arc::new(cause));
             }
@@ -273,6 +320,145 @@ pub fn retryable_evaluation(report: &crate::solve::SolveReport) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn report(execution: &Execution) -> crate::solve::SolveReport {
+        use crate::solve::{Assurance, Backend, NativeTermination, SolveReport};
+        SolveReport::new(
+            Backend::Kinsol,
+            &crate::OracleContract {
+                identity: pse_ids::ContentHash::from_bytes([0; 32]),
+                variables: vec![],
+                rows: vec![],
+                derivatives: pse_kernels::DerivativeOrder::First,
+                smoothness: pse_kernels::DerivativeOrder::First,
+            },
+            NativeTermination {
+                code: 0,
+                name: "success".into(),
+                message: None,
+                category: Termination::Success,
+                assurance: Assurance::None,
+            },
+            execution,
+        )
+    }
+    #[test]
+    fn scoped_deadline_classification_preserves_time_stop_and_other_limits() {
+        let deadline = ProblemError::Math(pse_math::MathError::Scope(
+            pse_kernels::ProviderError::Deadline,
+        ));
+        assert_eq!(
+            classify(&deadline),
+            Failure::Stopped(Termination::TimeLimit)
+        );
+        let limit = ProblemError::Math(pse_math::MathError::Scope(
+            pse_kernels::ProviderError::Limit("allocation"),
+        ));
+        assert_eq!(classify(&limit), Failure::Fatal);
+    }
+    #[test]
+    fn stopped_callback_keeps_its_original_typed_cause() {
+        let execution = Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        let mut state = CallbackState::new(execution.clone());
+        assert!(
+            state
+                .evaluate::<()>("residual", || Err(ProblemError::Limit {
+                    kind: crate::LimitKind::Memory,
+                    detail: "nested retained allocation".into()
+                }))
+                .is_none()
+        );
+        let mut report = report(&execution);
+        state.finish(&mut report);
+        assert!(
+            matches!(report.callback_failure.as_deref(), Some(ProblemError::Limit {kind:crate::LimitKind::Memory,detail}) if detail == "nested retained allocation")
+        );
+        assert!(report.evidence.callback.terminal_failure);
+    }
+    #[test]
+    fn callback_abandonment_discards_output_and_counts_owned_work_once() {
+        use pse_model::generated::enums::NumericalAttemptObservation as O;
+        let execution = Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        let mut state = CallbackState::new(execution.clone());
+        assert_eq!(state.evaluate("residual", || Ok(1)), Some(1));
+        assert_eq!(
+            state.evaluate::<()>("jacobian", || Err(pse_math::MathError::Domain {
+                source_id: pse_ids::SemanticId::NIL,
+                requirement: "positive",
+            }
+            .into())),
+            None
+        );
+        assert_eq!(
+            state.evaluate("residual", || {
+                execution.abandon(O::Limited)?;
+                Ok(2)
+            }),
+            None
+        );
+        let mut invoked = false;
+        assert_eq!(
+            state.evaluate("residual", || {
+                invoked = true;
+                Ok(3)
+            }),
+            None
+        );
+        assert!(!invoked);
+        assert!(!execution.cancel.load(std::sync::atomic::Ordering::Acquire));
+        assert!(matches!(
+            state.terminal_error(),
+            Some(ProblemError::Limit {
+                kind: crate::LimitKind::Work,
+                ..
+            })
+        ));
+        let mut report = report(&execution);
+        assert_eq!(report.evidence.abandoned, Some(O::Limited));
+        report.evidence.work.iterations = Some(7);
+        state.finish(&mut report);
+        assert_eq!(report.termination.category, Termination::Limit);
+        assert_eq!(report.termination.code, 0);
+        assert_eq!(report.termination.name, "success");
+        assert_eq!(report.evidence.abandoned, Some(O::Limited));
+        assert_eq!(report.evidence.work.evaluations, Some(3));
+        assert_eq!(report.evidence.work.iterations, Some(7));
+        assert_eq!(report.evidence.work.factorizations, None);
+        assert_eq!(report.evidence.work.proof_steps, None);
+        assert!(report.evidence.callback.terminal_failure);
+        assert!(!retryable_evaluation(&report));
+    }
+    #[test]
+    fn finish_rejects_late_native_success_without_another_callback() {
+        let mut execution = Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        let mut report = report(&execution);
+        execution.enclosing_scope = Some(pse_kernels::ExecutionScope::new(
+            execution.cancel.clone(),
+            Some(std::time::Instant::now()),
+        ));
+        let mut state = CallbackState::new(execution);
+        state.finish(&mut report);
+        assert_eq!(report.termination.category, Termination::TimeLimit);
+        assert_eq!(report.evidence.work.evaluations, Some(0));
+        assert_eq!(report.evidence.abandoned, None);
+        assert_eq!(report.evidence.work.iterations, None);
+        assert!(report.evidence.callback.terminal_failure);
+        assert!(matches!(
+            report.callback_failure.as_deref(),
+            Some(ProblemError::Limit {
+                kind: crate::LimitKind::Time,
+                ..
+            })
+        ));
+    }
     #[test]
     fn callback_recovery_evidence_survives_empty_history_and_refuses_fatal_failures() {
         use crate::solve::{Assurance, Backend, Controls, NativeTermination, SolveReport};
@@ -354,15 +540,26 @@ mod tests {
             ),
         ] {
             assert_eq!(classify(&error), Failure::Stopped(stop));
+            let original_kind = std::mem::discriminant(&error);
+            let original_message = error.to_string();
             let mut state = CallbackState::new(Execution::new(
                 std::sync::Arc::default(),
                 &crate::solve::Controls::default(),
             ));
             assert!(state.evaluate::<()>("f", || Err(error)).is_none());
             assert_eq!(state.terminal.as_ref().map(|t| t.0), Some(stop));
+            let retained = state.terminal_error().unwrap();
+            assert_eq!(classify(&retained), Failure::Stopped(stop));
+            assert_eq!(std::mem::discriminant(&retained), original_kind);
+            assert_eq!(retained.to_string(), original_message);
             assert!(matches!(
-                state.terminal_error(),
-                Some(ProblemError::Cancelled | ProblemError::Limit { .. })
+                retained,
+                ProblemError::Cancelled
+                    | ProblemError::Limit {
+                        kind: crate::LimitKind::Time,
+                        ..
+                    }
+                    | ProblemError::Math(pse_math::MathError::Cancelled)
             ));
         }
         for fatal in [

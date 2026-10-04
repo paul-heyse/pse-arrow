@@ -1249,7 +1249,9 @@ impl Loop {
                     .staged
                     .native(admitted.threads, &self.cancel, move |retained, _, _| {
                         let outcome = match retained.advance() {
-                            Some(advance) if usable => native::kkt::predict(advance, &parameters),
+                            Some(advance) if usable => {
+                                crate::math::prediction::kkt(advance, &parameters)
+                            }
                             _ => Err(Fallback::NotRetained),
                         };
                         retained.release();

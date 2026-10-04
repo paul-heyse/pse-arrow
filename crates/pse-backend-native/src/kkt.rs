@@ -60,7 +60,11 @@ use pse_math::{
 };
 use std::sync::Arc;
 
+/// Explicit original-coordinate activity/release factor operations.
+pub mod activity;
 mod advance;
+/// Bounded library natural-parameter path predictions.
+pub mod path;
 mod sensitivity;
 pub use advance::{Advance, Fallback, Prediction, predict};
 pub use sensitivity::{

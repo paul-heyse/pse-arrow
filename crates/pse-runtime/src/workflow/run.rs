@@ -294,6 +294,7 @@ fn submission(
     cancel: &FlightCancellation,
     progress: &Arc<Progress>,
     durable: bool,
+    deadline: std::time::Instant,
 ) -> (Submission, Option<tokio::sync::oneshot::Receiver<()>>) {
     let (admitted, signal) = if durable {
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -307,6 +308,7 @@ fn submission(
             progress: progress.clone(),
             queue: durable,
             admitted,
+            deadline: Some(deadline),
         },
         signal,
     )
@@ -341,7 +343,10 @@ impl super::ModelingSimulation {
             .unwrap_or(run_id);
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
-        let (submission, signal) = submission(&cancel, &progress, durable.is_some());
+        let deadline = std::time::Instant::now()
+            .checked_add(self.profile().time_limit)
+            .ok_or_else(|| contract("submitted task deadline extent"))?;
+        let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
         // An ephemeral submission is admitted or refused here; a durable one queues.
         let handle = self.submit(run_id, submission)?;
         let lease = Arc::new(Lease(cancel.clone(), None));
@@ -418,15 +423,28 @@ impl super::ShootingProblem {
         let mut durable = attempt_for(&runtime, None)?;
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
-        let (submission, signal) = submission(&cancel, &progress, durable.is_some());
+        let deadline = std::time::Instant::now()
+            .checked_add(self.solver.controls.time_limit)
+            .ok_or_else(|| contract("submitted task deadline extent"))?;
+        let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
         let prepared = self.clone();
+        let mut declared_profile = self.solver.clone();
+        if initial.is_some() {
+            declared_profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
+        }
         let start = initial.clone();
         let handle = runtime.native().submit_with(
             self.solver.controls.threads,
             self.job_bytes()?,
             submission,
             move |flag, progress| {
-                let report = prepared.solve(run_id, flag, progress, start.as_deref())?;
+                let report = prepared.solve(
+                    run_id,
+                    pse_kernels::ExecutionScope::new(flag, Some(deadline)),
+                    progress,
+                    start.as_deref(),
+                    &declared_profile,
+                )?;
                 let retained = report
                     .numeric_bytes()
                     .checked_add(prepared.solver.controls.report_allowance()?)
@@ -503,7 +521,10 @@ impl super::PreparedFit {
             .unwrap_or(run_id);
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
-        let (submission, signal) = submission(&cancel, &progress, durable.is_some());
+        let deadline = std::time::Instant::now()
+            .checked_add(self.problem.profile.solver.controls.time_limit)
+            .ok_or_else(|| contract("submitted task deadline extent"))?;
+        let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
         // Profile chains solved at once each need the fit's threads and a solve's memory.
         let workers = self.problem.profile_workers(runtime.native().cores());
         let cores = self
@@ -529,7 +550,12 @@ impl super::PreparedFit {
                         .solver
                         .controls
                         .report_allowance()?;
-                    let report = prepared.execute(run_id, flag, progress, workers)?;
+                    let report = prepared.execute(
+                        run_id,
+                        pse_kernels::ExecutionScope::new(flag, Some(deadline)),
+                        progress,
+                        workers,
+                    )?;
                     let retained = report
                         .numeric_bytes()
                         .checked_add(allowance)

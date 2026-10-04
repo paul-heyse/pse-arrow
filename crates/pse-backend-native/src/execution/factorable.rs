@@ -27,7 +27,7 @@ use crate::{
     solve::{
         BoundSource, Candidate, Compatibility, Controls, ExportTransformation,
         InfeasibilityContradiction, Metric, Options, PrimalSource, SolveIntent, SolveReport,
-        SolverSelection, WarmPayload, WarmStart, WitnessSource,
+        SolverSelection, StartPolicy, WarmPayload, WarmStart, WitnessSource,
     },
     transform::{Commitment, Pinned, Relaxed},
 };
@@ -47,6 +47,29 @@ use std::collections::BTreeMap;
 pub(crate) const STRICT_MARGIN: f64 = 1e-9;
 /// Largest affine form tracked for one node; larger forms export as expressions.
 const AFFINE_TERMS: usize = 4096;
+
+/// Callback support consumed by a potential fixed-assignment NLP re-solve. The
+/// primary factorable export's value support remains independent of this demand.
+pub fn factorable_resolve_order(
+    program: &FactorableProgram,
+    intent: SolveIntent,
+    controls: &Controls,
+) -> Result<Option<pse_kernels::DerivativeOrder>, ProblemError> {
+    let exported = plan(program, intent).map_err(|refusals| {
+        ProblemError::Unsupported(format!("factorable export: {refusals:?}"))
+    })?;
+    if exported.fidelity != Fidelity::Exact || exported.discrete() && exported.nonlinear() {
+        Ok(Some(
+            if controls.hessian == crate::solve::HessianMode::LimitedMemory {
+                pse_kernels::DerivativeOrder::First
+            } else {
+                pse_kernels::DerivativeOrder::Second
+            },
+        ))
+    } else {
+        Ok(None)
+    }
+}
 
 /// Why a factorable program cannot be exported to a global backend.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1411,6 +1434,8 @@ fn fixed_assignment(
     let controls = Controls {
         options: Options::new(),
         threads: 1,
+        // This operation supplies the fixed assignment's own explicit primal seed.
+        start: StartPolicy::Explicit,
         ..step.controls.clone()
     };
     let guards = BTreeMap::new();

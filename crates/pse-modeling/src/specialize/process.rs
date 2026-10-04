@@ -552,12 +552,13 @@ impl Engine<'_, '_> {
         }
         Ok(())
     }
-    pub(super) fn process_connection(
-        &mut self,
+    /// A stage replaces endpoints while retaining the original connection occurrence.
+    pub(super) fn connection_occurrence_id(
+        &self,
         instance: InstanceId,
         row: &Declaration,
-        env: &Environment,
-    ) -> Result<()> {
+        indices: &[(String, Value)],
+    ) -> SemanticId {
         let at = row.declaration_id;
         let identity_at = if row.is_override {
             self.p
@@ -569,6 +570,15 @@ impl Engine<'_, '_> {
         } else {
             at
         };
+        member_id(instance, identity_at, indices)
+    }
+    pub(super) fn process_connection(
+        &mut self,
+        instance: InstanceId,
+        row: &Declaration,
+        env: &Environment,
+    ) -> Result<()> {
+        let at = row.declaration_id;
         let value = row
             .value
             .connection
@@ -594,7 +604,7 @@ impl Engine<'_, '_> {
             let (b, db, cb) = endpoint(self, &target)?;
             let from = member_id(a, da, &ca);
             let to = member_id(b, db, &cb);
-            let id = member_id(instance, identity_at, &indices);
+            let id = self.connection_occurrence_id(instance, row, &indices);
             let lineage = self.lineage(instance, row, &[at]);
             let material = self.p.declarations[&da].value.kind == Kind::StatePort;
             let mut bindings = Vec::new();

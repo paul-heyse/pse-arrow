@@ -1,6 +1,6 @@
 # Process-simulator review additions
 
-**Version 1.3 · 2026-09-30** · What the [process-simulator profile](principles.md) adds
+**Version 1.4 · 2026-10-03** · What the [process-simulator profile](principles.md) adds
 to each slot of the [core review template](../../core/design-review-template.md). The additions
 sit within the core slots; no slot is added or removed. Everything here applies only where the
 subject touches the behaviour concerned. Architectural foundations and G9 remain visible;

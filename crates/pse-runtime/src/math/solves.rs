@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One completion-owned solve lifecycle; finite batches never create persistent native sessions.
+mod derived;
+pub mod multistart;
+pub mod paths;
+#[cfg(feature = "solver-petsc")]
+pub mod petsc;
+mod starts;
 use super::{
     ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, Preparation, WorkerBudget,
+};
+pub use derived::{
+    DerivedAttempt, DerivedRequest, OriginalProposal, PreparedDerived, PreparedFamily, PreparedRung,
 };
 use pse_backend_native::{
     self as native, ProblemError,
@@ -14,6 +23,8 @@ use pse_backend_native::{
 use pse_columnar::flight::FlightCancellation;
 use pse_ids::FramedHasher;
 pub use pse_math::convexity::ConvexityPolicy;
+/// Shared immutable driver history; cloning retains one admitted allocation.
+pub type StrategyTrace = Arc<super::strategy::Trace>;
 use pse_math::{
     binding::{CaseValues, ObjectiveSense},
     convexity::QuadraticEvidence,
@@ -77,6 +88,8 @@ impl Default for SolverProfile {
 struct AlgebraicCase {
     prepared: Preparation,
     case: Option<Arc<ExecutableCase>>,
+    /// Actual auxiliary NLP callbacks; the primary factorable program keeps its own order.
+    pricing_case: Option<PricingCase>,
     values: CaseValues,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     certificate: Option<Arc<dyn QuadraticEvidence>>,
@@ -101,6 +114,12 @@ struct AlgebraicCase {
         Arc<pse_math::convexity::GramCertificate>,
         Arc<pse_columnar::AllocationLease>,
     )>,
+}
+/// Auxiliary callbacks and the compiler-issued requests that identify those programs.
+#[derive(Clone, Debug)]
+struct PricingCase {
+    prepared: Preparation,
+    executable: Arc<ExecutableCase>,
 }
 /// Availability of a requested parametric program, independent of its base solve.
 #[derive(Clone, Debug)]
@@ -129,6 +148,9 @@ struct SensitivityProgram {
     /// Keep the pinned factor in the worker's retained state for an advanced step (Plan 22
     /// Y5c2), charged to the job's allowance; set by [`PreparedSolve::retaining_factor`].
     retain: bool,
+    /// Immutable original dependencies for a requested fresh Root predictor. Its actual
+    /// point is filled only by the postsolve fresh derivative producer.
+    root_source: Option<pse_model::strategy::SemanticProductKey>,
 }
 impl SensitivityProgram {
     /// The request for the backend: callbacks over `worker`, or the reason none could be
@@ -186,9 +208,295 @@ pub struct PreparedSolve {
     compatibility: Option<Compatibility>,
     explicit_start: Option<WarmStart>,
     route_decision: Option<routing::Decision>,
+    /// Finite original-problem profiles resolved before entering the effectful driver.
+    composition: Option<Arc<PreparedComposition>>,
+    task_scope: Option<pse_kernels::ExecutionScope>,
+    pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+#[derive(Clone, Debug)]
+pub(crate) struct PreparedComposition {
+    pub(crate) declaration: pse_model::strategy::NumericalStrategy,
+    pub(crate) rungs: Vec<PreparedRung>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl PreparedSolve {
+    /// Preserve a caller's finite task deadline and cancellation through queued execution.
+    /// # Errors
+    /// An unbounded, expired or conflicting task scope is supplied.
+    pub fn within_task(mut self, scope: pse_kernels::ExecutionScope) -> Result<Self, ProblemError> {
+        scope.check().map_err(ProblemError::Provider)?;
+        if scope.deadline().is_none() {
+            return Err(ProblemError::Contract(
+                "solve task requires a finite deadline".into(),
+            ));
+        }
+        if self.composition.as_ref().is_some_and(|c| {
+            c.rungs
+                .iter()
+                .filter_map(PreparedRung::task_scope)
+                .any(|r| {
+                    !Arc::ptr_eq(r.cancellation(), scope.cancellation())
+                        || r.deadline() != scope.deadline()
+                })
+        }) {
+            return Err(ProblemError::Contract(
+                "solve task differs from its prepared family scope".into(),
+            ));
+        }
+        self.task_scope = Some(scope);
+        Ok(self)
+    }
+    pub(crate) fn task_scope(&self) -> Option<pse_kernels::ExecutionScope> {
+        self.task_scope.clone()
+    }
+    pub(crate) fn source_start(
+        &self,
+        previous: Option<&Predecessor>,
+    ) -> Result<Vec<f64>, ProblemError> {
+        let seed = match self.profile.controls.start {
+            StartPolicy::Explicit => self.explicit_start.as_ref(),
+            StartPolicy::PreviousAccepted => previous.map(|p| &p.seed),
+            StartPolicy::NoPriorStart => None,
+        };
+        if let Some(seed) = seed {
+            match &seed.payload {
+                WarmPayload::Root(x) | WarmPayload::Nlp { primal: x, .. } => return Ok(x.clone()),
+                WarmPayload::Highs {
+                    primal: Some(x), ..
+                } => return Ok(x.clone()),
+                WarmPayload::Highs { primal: None, .. } => {}
+            }
+        }
+        match &self.representation {
+            Representation::Algebraic(source) => source
+                .prepared
+                .prepared
+                .plan
+                .columns()
+                .iter()
+                .map(|id| {
+                    source.values.scalars.get(id).copied().ok_or_else(|| {
+                        ProblemError::Contract("original source coordinate missing".into())
+                    })
+                })
+                .collect(),
+            Representation::Conic { .. } => Err(ProblemError::Unsupported(
+                "derived start requires original compiled algebraic coordinates".into(),
+            )),
+        }
+    }
+    pub(crate) fn with_recovery_point(self, point: &[f64]) -> Result<Self, ProblemError> {
+        let ids = match &self.representation {
+            Representation::Algebraic(source) => source.prepared.prepared.plan.columns(),
+            Representation::Conic { .. } => {
+                return Err(ProblemError::Unsupported(
+                    "derived correction requires original compiled algebraic coordinates".into(),
+                ));
+            }
+        };
+        if ids.len() != point.len() {
+            return Err(ProblemError::Contract(
+                "derived original coordinate inventory differs".into(),
+            ));
+        }
+        let values = ids.iter().copied().zip(point.iter().copied()).collect();
+        self.with_primal_start(values)
+    }
+    /// Compose already admitted profiles for the same original problem and frozen policy.
+    /// Every profile is explicit in the declaration; no trajectory failure changes routing.
+    ///
+    /// # Errors
+    /// A declaration, profile, entry start, original binding or numerical policy differs.
+    pub fn with_strategy(
+        mut self,
+        declaration: pse_model::strategy::NumericalStrategy,
+        mut rungs: Vec<PreparedRung>,
+    ) -> Result<Self, ProblemError> {
+        use pse_model::strategy::ProfileRef;
+        declaration
+            .validate()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        if declaration.start.policy != self.profile.controls.start
+            || declaration.mechanisms.len() != rungs.len()
+        {
+            return Err(ProblemError::Contract(
+                "prepared strategy must preserve entry policy and bind every mechanism".into(),
+            ));
+        }
+        let original = self.original_identity()?;
+        if !matches!(
+            rungs.last(),
+            Some(PreparedRung::Original(_) | PreparedRung::Multistart(_))
+        ) {
+            return Err(ProblemError::Contract(
+                "a composed strategy must end with original correction and assessment".into(),
+            ));
+        }
+        let mut task_scope = self.task_scope.clone();
+        for (mechanism, rung) in declaration.mechanisms.iter().zip(&mut rungs) {
+            if !rung.admits_mechanism(mechanism.kind) {
+                return Err(ProblemError::Unsupported(
+                    "this prepared original profile requires its mathematical mechanism producer"
+                        .into(),
+                ));
+            }
+            if let PreparedRung::Multistart(prepared) = rung
+                && declaration.branch != prepared.branch()
+            {
+                return Err(ProblemError::Contract(
+                    "multistart cannot replace the declared connected path".into(),
+                ));
+            }
+            if matches!(rung, PreparedRung::Surrogate(_)) && declaration.branch.connected.is_some()
+            {
+                return Err(ProblemError::Contract(
+                    "statistical starts do not establish connected path transport".into(),
+                ));
+            }
+            if let PreparedRung::Path { prepared, start } = rung {
+                prepared.origin_connected(start)?;
+                if declaration.branch.connected.is_some() && declaration.branch != prepared.branch()
+                {
+                    return Err(ProblemError::Contract(
+                        "declared connected path differs from its validated originating product"
+                            .into(),
+                    ));
+                }
+            }
+            if let Some(scope) = rung.task_scope() {
+                if task_scope.as_ref().is_some_and(|prior| {
+                    !Arc::ptr_eq(prior.cancellation(), scope.cancellation())
+                        || prior.deadline() != scope.deadline()
+                }) {
+                    return Err(ProblemError::Contract(
+                        "composed families must retain one original task scope".into(),
+                    ));
+                }
+                task_scope = Some(scope);
+            }
+            if rung.original_identity()? != original {
+                return Err(ProblemError::Contract("strategy rung must preserve the original binding, bounds, objective and frozen accuracy".into()));
+            }
+            if rung.threads() != self.threads() {
+                return Err(ProblemError::Contract(
+                    "composed native profiles must use the task's admitted thread extent".into(),
+                ));
+            }
+            let actual = match rung.backend() {
+                Some(backend) => Some(ProfileRef {
+                    backend,
+                    key: rung.strategy_profile()?,
+                }),
+                None => None,
+            };
+            if actual != mechanism.profile {
+                return Err(ProblemError::Contract(
+                    "strategy rung profile must equal its admitted backend and settings identity"
+                        .into(),
+                ));
+            }
+            rung.clear_composition();
+        }
+        use pse_model::HeapUsage;
+        let boxed_payloads = rungs.iter().try_fold(0usize, |bytes, rung| {
+            bytes
+                .checked_add(rung.boxed_payload_bytes())
+                .ok_or_else(|| ProblemError::memory("prepared composition boxed payload extent"))
+        })?;
+        let bytes = size_of::<PreparedComposition>()
+            .checked_add(declaration.heap_bytes())
+            .and_then(|n| n.checked_add(rungs.capacity().checked_mul(size_of::<PreparedRung>())?))
+            .and_then(|n| n.checked_add(boxed_payloads))
+            .ok_or_else(|| ProblemError::memory("prepared composition extent"))?;
+        let reservation =
+            datafusion::execution::memory_pool::MemoryConsumer::new("math:prepared-composition")
+                .register(&self.pool);
+        reservation
+            .try_grow(bytes)
+            .map_err(|error| ProblemError::memory(error.to_string()))?;
+        let owner = pse_columnar::AllocationLease::new(reservation);
+        self.task_scope = task_scope;
+        self.composition = Some(Arc::new(PreparedComposition {
+            declaration,
+            rungs,
+            _owner: owner,
+        }));
+        Ok(self)
+    }
+    /// Complete original physical state inventory, supplied by the compiled source owner.
+    pub(crate) fn original_coordinates(&self) -> Result<Vec<pse_ids::SemanticId>, ProblemError> {
+        match &self.representation {
+            Representation::Algebraic(case) => Ok(case.prepared.prepared.plan.columns().to_vec()),
+            Representation::Conic { .. } => Err(ProblemError::Unsupported(
+                "compiled original coordinates required".into(),
+            )),
+        }
+    }
+    /// Original problem and final accuracy identity, independent of native profile/start.
+    ///
+    /// # Errors
+    /// Canonical original data cannot be encoded.
+    pub fn original_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
+        let mut h = FramedHasher::new(pse_ids::Frame::OriginalSolveContractV1);
+        h.hash(&self.numerics.key).str(self.profile.intent.as_str());
+        match &self.representation {
+            Representation::Algebraic(case) => {
+                h.str("algebraic")
+                    .hash(&case.prepared.prepared.plan.structure().key());
+                for (id, value) in &case.values.scalars {
+                    h.id(id).f64(*value);
+                }
+                for (key, provider) in &case.providers {
+                    h.hash(&key.0).hash(&provider.configuration_key());
+                }
+            }
+            Representation::Conic { original, .. } => {
+                h.str("conic").hash(&original.contract.identity);
+                for variable in &original.contract.variables {
+                    h.id(&variable.id).f64(variable.lower).f64(variable.upper);
+                }
+                for row in &original.contract.rows {
+                    h.id(row);
+                }
+                h.hash(&native::conic::cone_key(&original.cones)?)
+                    .f64(original.objective_constant);
+                for matrix in [&original.quadratic, &original.constraints] {
+                    h.u64(matrix.rows as u64).u64(matrix.columns as u64);
+                    for index in &matrix.column_starts {
+                        h.u64(*index as u64);
+                    }
+                    for index in &matrix.row_indices {
+                        h.u64(*index as u64);
+                    }
+                    for value in &matrix.values {
+                        h.f64(*value);
+                    }
+                }
+                for value in &original.objective {
+                    h.f64(*value);
+                }
+                for value in &original.rhs {
+                    h.f64(*value);
+                }
+            }
+        }
+        Ok(h.finish_hash())
+    }
+    pub(crate) fn take_composition(&mut self) -> Option<Arc<PreparedComposition>> {
+        self.composition.take()
+    }
+    pub(crate) fn composition_is_declared(&self) -> bool {
+        self.composition.is_some()
+    }
+    pub(crate) fn entry_origin(&self, has_previous: bool) -> pse_model::strategy::StartOrigin {
+        use pse_model::strategy::StartOrigin;
+        match self.profile.controls.start {
+            StartPolicy::Explicit => StartOrigin::Explicit,
+            StartPolicy::PreviousAccepted if has_previous => StartOrigin::Accepted,
+            _ => StartOrigin::Specification,
+        }
+    }
     /// Attach provider kernels prepared for the selected mandatory consumer demand.
     pub(crate) fn with_providers(
         mut self,
@@ -210,10 +518,20 @@ impl PreparedSolve {
         }
         Ok(self)
     }
-    /// Selected mandatory kernel order, established by contextual route admission.
+    /// Kernel order consumed by selected callbacks, including an admitted auxiliary re-solve.
     pub fn required_order(&self) -> pse_kernels::DerivativeOrder {
         match &self.representation {
-            Representation::Algebraic(case) => case.prepared.prepared.plan.order(),
+            Representation::Algebraic(case) => {
+                let plan = &case.prepared.prepared.plan;
+                let original = if plan.has_directional_actions() {
+                    plan.order().max(pse_kernels::DerivativeOrder::First)
+                } else {
+                    plan.order()
+                };
+                case.pricing_case.as_ref().map_or(original, |pricing| {
+                    original.max(pricing.executable.assembly.order())
+                })
+            }
             Representation::Conic { .. } => pse_kernels::DerivativeOrder::Value,
         }
     }
@@ -229,6 +547,7 @@ impl PreparedSolve {
                 prepared,
                 providers,
                 factorable,
+                pricing_case,
                 ..
             }) => {
                 for provider in providers.values() {
@@ -237,6 +556,14 @@ impl PreparedSolve {
                 // The projection's key covers its implicit definitions and envelopes.
                 if let Some((program, _)) = factorable {
                     h.hash(&program.key);
+                }
+                if let Some(case) = pricing_case {
+                    h.str("fixed-assignment-callbacks")
+                        .hash(&case.executable.assembly.structure().key())
+                        .u64(case.executable.assembly.order() as u64);
+                    for artifact in case.prepared.compiled().artifacts.iter() {
+                        h.hash(&artifact.key());
+                    }
                 }
                 h.str("algebraic")
                     .hash(&prepared.compiled().plan.structure().key());
@@ -254,7 +581,22 @@ impl PreparedSolve {
                 .hash(&c.data)
                 .str(c.backend.as_str());
         }
-        Ok(h.finish_hash())
+        let base = h.finish_hash();
+        if let Some(composition) = &self.composition {
+            let mut strategy = FramedHasher::new(pse_ids::Frame::SolveStrategyPreparationV1);
+            strategy.hash(&base).hash(
+                &composition
+                    .declaration
+                    .key()
+                    .map_err(|e| ProblemError::Contract(e.to_string()))?,
+            );
+            for rung in &composition.rungs {
+                strategy.hash(&rung.request_identity()?.as_id());
+            }
+            Ok(strategy.finish_hash())
+        } else {
+            Ok(base)
+        }
     }
     /// The preparation a stored seed is keyed by (ADR-0112 Outcome 17): the compiled
     /// structure, its artifacts and providers, and the seed coordinates and backend. Numeric
@@ -289,7 +631,11 @@ impl PreparedSolve {
     }
     /// Complete selected request, including explicit seed payload and compatibility data.
     pub fn request_identity(&self) -> Result<pse_ids::roles::LineageRequestHash, ProblemError> {
-        let mut h = FramedHasher::new(pse_ids::Frame::SolveRequestV2);
+        let mut h = FramedHasher::new(if self.composition.is_some() {
+            pse_ids::Frame::SolveStrategyRequestV1
+        } else {
+            pse_ids::Frame::SolveRequestV2
+        });
         h.hash(&self.preparation_identity()?)
             .hash(&self.numerics.key);
         if let Some(compatibility) = &self.compatibility {
@@ -469,23 +815,43 @@ impl PreparedSolve {
             parameters,
             reduced_hessian: request.reduced_hessian,
             retain: false,
+            root_source: None,
         }));
         Ok(self)
     }
-    /// Keep the attached sensitivity request's pinned factor after the step, for an
-    /// advanced-step prediction (Plan 22 Y5c2): the worker's retained state holds it,
-    /// charged to the job's allowance, until a later step replaces or releases it. Only the
-    /// callback route keeps one.
+    /// Keep the attached sensitivity request's actual factor for related-target prediction.
+    /// Optimization retains its KKT worker product. Root execution prepares a fresh sparse
+    /// factor and parameter partials whose charged owner survives native-session teardown.
     ///
     /// # Errors
     /// No sensitivity program is attached.
     pub fn retaining_factor(mut self) -> Result<Self, MathRuntimeError> {
+        let root_source = if self.profile.intent == SolveIntent::Root {
+            let Representation::Algebraic(case) = &self.representation else {
+                return Err(ProblemError::Contract(
+                    "a Root predictor requires original algebraic coordinates".into(),
+                )
+                .into());
+            };
+            let point = case
+                .prepared
+                .compiled()
+                .plan
+                .columns()
+                .iter()
+                .map(|id| case.values.scalars[id])
+                .collect::<Vec<_>>();
+            Some(self.semantic_point_key(&point)?)
+        } else {
+            None
+        };
         match &mut self.representation {
             Representation::Algebraic(AlgebraicCase {
                 sensitivity: Some(ParametricPreparation::Available(program)),
                 ..
             }) => {
                 program.retain = true;
+                program.root_source = root_source;
                 Ok(self)
             }
             _ => Err(ProblemError::Contract(
@@ -523,12 +889,135 @@ impl PreparedSolve {
     pub fn route(&self) -> Route {
         self.route
     }
+    /// One explicit minimal strategy when no composition was declared.
+    pub fn numerical_strategy(&self) -> pse_model::strategy::NumericalStrategy {
+        self.composition.as_ref().map_or_else(
+            || super::strategy::direct(&self.profile.controls),
+            |c| c.declaration.clone(),
+        )
+    }
+    /// Existing finite wall allowance, carried across waiting, execution and assessment.
+    pub(crate) fn time_limit(&self) -> std::time::Duration {
+        self.profile.controls.time_limit
+    }
+    /// Identity of the complete effective native profile for a declared rung.
+    ///
+    /// # Errors
+    /// The admitted profile cannot be encoded canonically.
+    pub fn strategy_profile(&self) -> Result<pse_ids::ContentHash, ProblemError> {
+        Ok(profile_key(&self.profile)?.as_id())
+    }
     /// Semantic/numerical reuse identity, absent for all-fixed validation.
     pub fn compatibility(&self) -> Option<&Compatibility> {
         self.compatibility.as_ref()
     }
+    /// Dependencies of an original physical semantic point. The completion owner grants
+    /// its permission separately; a profile or native payload is not consumed by this key.
+    /// # Errors
+    /// Invalid point shape/values or original identity serialization.
+    pub fn semantic_point_key(
+        &self,
+        point: &[f64],
+    ) -> Result<pse_model::strategy::SemanticProductKey, ProblemError> {
+        let Representation::Algebraic(case) = &self.representation else {
+            return Err(ProblemError::Unsupported(
+                "semantic point key requires original algebraic coordinates".into(),
+            ));
+        };
+        let plan = &case.prepared.compiled().plan;
+        if point.len() != plan.columns().len() || point.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::Contract(
+                "semantic point shape or nonfinite values".into(),
+            ));
+        }
+        let mut parameters = FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
+        parameters.str("original-bound-parameters");
+        for (id, value) in &case.values.scalars {
+            if !plan.columns().contains(id) {
+                parameters.id(id).f64(*value);
+            }
+        }
+        Ok(pse_model::strategy::SemanticProductKey {
+            structure: plan.structure().key(),
+            binding: self.original_identity()?,
+            numerical_policy: Some(self.numerics.key),
+            normalization: Some(self.normalization.key()),
+            point: Some(native::square_response::point_key(point)),
+            parameters: Some(parameters.finish_hash()),
+            derivation: None,
+            branch: None,
+            accuracy: Some(self.numerics.key),
+        })
+    }
+    /// Admit a related Root target by its actual fixed dependencies, allowing changes
+    /// only to the explicitly differentiated parameters and numerical starting point.
+    pub(crate) fn root_target_parameters(
+        &self,
+        source: &Self,
+        parameters: &[(pse_ids::SemanticId, f64)],
+    ) -> Result<Vec<(pse_ids::SemanticId, f64)>, ProblemError> {
+        let (Representation::Algebraic(target), Representation::Algebraic(base)) =
+            (&self.representation, &source.representation)
+        else {
+            return Err(ProblemError::Unsupported(
+                "root prediction requires related original algebraic cases".into(),
+            ));
+        };
+        let ids = parameters
+            .iter()
+            .map(|p| p.0)
+            .collect::<std::collections::BTreeSet<_>>();
+        let plan = &target.prepared.compiled().plan;
+        let original = &base.prepared.compiled().plan;
+        if self.profile.intent != SolveIntent::Root
+            || source.profile.intent != SolveIntent::Root
+            || self.numerics.key != source.numerics.key
+            || self.normalization != source.normalization
+            || plan.structure().key() != original.structure().key()
+            || plan.columns() != original.columns()
+            || target.providers.len() != base.providers.len()
+            || target.providers.iter().any(|(id, provider)| {
+                base.providers
+                    .get(id)
+                    .is_none_or(|p| p.configuration_key() != provider.configuration_key())
+            })
+            || target.values.scalars.len() != base.values.scalars.len()
+            || target.values.scalars.iter().any(|(id, value)| {
+                !plan.columns().contains(id)
+                    && !ids.contains(id)
+                    && base.values.scalars.get(id) != Some(value)
+            })
+            || parameters
+                .iter()
+                .any(|(id, value)| base.values.scalars.get(id) != Some(value))
+        {
+            return Err(ProblemError::Contract("root predictor target changes an unconsumed parameter, authored structure, provider or frozen numerical policy".into()));
+        }
+        parameters
+            .iter()
+            .map(|(id, _)| {
+                target
+                    .values
+                    .scalars
+                    .get(id)
+                    .copied()
+                    .filter(|v| v.is_finite())
+                    .map(|v| (*id, v))
+                    .ok_or_else(|| {
+                        ProblemError::Contract(
+                            "root predictor target parameter missing or nonfinite".into(),
+                        )
+                    })
+            })
+            .collect()
+    }
     /// Retained result allowance of one attempt of this step.
     pub(crate) fn result_bytes(&self) -> Result<usize, MathRuntimeError> {
+        if let Some(composition) = &self.composition {
+            return composition.rungs.iter().try_fold(0usize, |maximum, rung| {
+                Ok(maximum.max(rung.result_bytes()?))
+            });
+        }
         let (n, m) = match &self.representation {
             Representation::Algebraic(a) => (
                 a.prepared.prepared.facts.variables,
@@ -597,7 +1086,16 @@ impl PreparedSolve {
     /// allowance its native session holds: the one its controls declare, else none. A
     /// prepared step, and a result that keeps it, reserve no foreign allowance.
     pub(crate) fn declared_foreign_bytes(&self) -> usize {
-        self.profile.controls.foreign_bytes.unwrap_or(0)
+        self.composition.as_ref().map_or_else(
+            || self.profile.controls.foreign_bytes.unwrap_or(0),
+            |c| {
+                c.rungs
+                    .iter()
+                    .map(PreparedRung::declared_foreign_bytes)
+                    .max()
+                    .unwrap_or(0)
+            },
+        )
     }
     /// The adapter whose scope this step's native state lives in.
     pub(crate) fn backend(&self) -> Option<Backend> {
@@ -657,8 +1155,12 @@ impl Outcome {
 /// Owned result of one prepared step, retaining its result allowance through the last reader.
 #[derive(Debug)]
 pub struct StepReport {
+    /// Identity minted once for this standalone submitted operation.
+    pub run_id: pse_model::generated::identities::RunId,
     /// The step's native attempt, constant evaluation or typed refusal.
     pub outcome: Outcome,
+    /// Declared versus actual numerical operations, including report-less failures.
+    pub strategy: StrategyTrace,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 /// The output seed of an earlier accepted step, offered to a step whose start policy is
@@ -1353,10 +1855,31 @@ impl MathService {
                     _ => None,
                 })
                 .max();
+            let directional = decision
+                .artifacts
+                .contains(&routing::ArtifactDemand::JacobianProduct);
+            if order.is_some() || directional {
+                // Executable readiness belongs to the current prepared support.
+                // A later directional/order upgrade must not keep an earlier
+                // assembly ready merely because its representation is unchanged.
+                case = None;
+                artifacts.retain(|artifact| {
+                    !matches!(
+                        artifact,
+                        routing::ArtifactDemand::Representation(
+                            execution::Representation::Nlp | execution::Representation::Roots
+                        )
+                    )
+                });
+            }
             if let Some(order) = order {
                 prepared = self
                     .prepare_order(prepared, order, FlightCancellation::default())
                     .await?;
+            }
+            if directional {
+                prepared = self.prepare_directional_actions(prepared).await?;
+                artifacts.push(routing::ArtifactDemand::JacobianProduct);
             }
             if decision
                 .artifacts
@@ -1410,11 +1933,41 @@ impl MathService {
             Some(case) => Some(case),
             None => Some(self.assemble(prepared.clone()).await?),
         };
+        let pricing_case = if let Some((program, _)) = &factorable {
+            let program = program.clone();
+            let intent = profile.intent;
+            let controls = profile.controls.clone();
+            let order = self
+                .job(
+                    1,
+                    self.policy.worker_bytes,
+                    FlightCancellation::default(),
+                    move |_| {
+                        execution::factorable_resolve_order(&program, intent, &controls)
+                            .map_err(Into::into)
+                    },
+                )
+                .await?;
+            if let Some(order) = order {
+                let callbacks = self
+                    .prepare_order(prepared.clone(), order, FlightCancellation::default())
+                    .await?;
+                Some(PricingCase {
+                    executable: self.assemble(callbacks.clone()).await?,
+                    prepared: callbacks,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         Ok(PreparedSolve {
             snapshot: snapshot.clone(),
             representation: Representation::Algebraic(AlgebraicCase {
                 prepared,
                 case,
+                pricing_case,
                 values,
                 providers,
                 certificate,
@@ -1432,6 +1985,9 @@ impl MathService {
             compatibility: stamp,
             explicit_start: None,
             route_decision: Some(decision),
+            composition: None,
+            task_scope: None,
+            pool: self.pool.clone(),
             _owner: owner,
         })
     }
@@ -1455,6 +2011,8 @@ impl MathService {
         numerics: Arc<ResolvedNumericalPolicy>,
         route: Route,
         snapshot: execution::Snapshot,
+        scope: &pse_kernels::ExecutionScope,
+        driver: &crate::CancelSource,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
         let Route::Native(selected) = route else {
@@ -1468,14 +2026,34 @@ impl MathService {
             &profile.controls,
         )
         .unwrap_or(pse_kernels::DerivativeOrder::Value);
-        let (prepared, executable) = if prepared.prepared.plan.order() < order {
-            let prepared = self
-                .prepare_order(prepared, order, FlightCancellation::default())
-                .await?;
-            let executable = self.assemble(prepared.clone()).await?;
-            (prepared, executable)
+        let method = match &profile.backend {
+            BackendSettings::Kinsol(method) => *method,
+            _ => native::kinsol::Method::default(),
+        };
+        let directional_only = selected == Backend::Kinsol && method.consumes_directional_only();
+        let consumes_jvp = selected == Backend::Kinsol && method.consumes_jvp();
+        let mut changed = false;
+        let prepared = if !directional_only && prepared.prepared.plan.order() < order {
+            changed = true;
+            Self::within_task(
+                scope,
+                driver,
+                self.prepare_order(prepared, order, FlightCancellation::default()),
+            )
+            .await?
         } else {
-            (prepared, executable)
+            prepared
+        };
+        let prepared = if consumes_jvp && !prepared.prepared.plan.has_directional_actions() {
+            changed = true;
+            Self::within_task(scope, driver, self.prepare_directional_actions(prepared)).await?
+        } else {
+            prepared
+        };
+        let executable = if changed {
+            Self::within_task(scope, driver, self.assemble(prepared.clone())).await?
+        } else {
+            executable
         };
         let plan = &prepared.prepared.plan;
         plan.structure().validate_values(&values)?;
@@ -1506,6 +2084,12 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
         let oracle = native::assembled::contract(plan);
+        let mut prepared_operations = vec![routing::ArtifactDemand::Representation(
+            execution::adapter(backend).representation(),
+        )];
+        if plan.has_directional_actions() {
+            prepared_operations.push(routing::ArtifactDemand::JacobianProduct);
+        }
         let decision = routing::Requirements {
             table: &execution::LINKED,
             facts: &prepared.prepared.facts,
@@ -1530,9 +2114,7 @@ impl MathService {
                 cone: None,
                 factorable: None,
                 certificate: None,
-                prepared: &[routing::ArtifactDemand::Representation(
-                    execution::adapter(backend).representation(),
-                )],
+                prepared: &prepared_operations,
                 refusals: &BTreeMap::new(),
             },
         }
@@ -1563,6 +2145,7 @@ impl MathService {
             representation: Representation::Algebraic(AlgebraicCase {
                 prepared,
                 case: Some(executable),
+                pricing_case: None,
                 values,
                 providers,
                 certificate: None,
@@ -1581,6 +2164,9 @@ impl MathService {
             compatibility: Some(stamp),
             explicit_start: None,
             route_decision: Some(decision),
+            composition: None,
+            task_scope: None,
+            pool: self.pool.clone(),
             _owner: self.reserve("math:prepared-block", bytes)?,
         })
     }
@@ -1804,6 +2390,9 @@ impl MathService {
             compatibility: Some(stamp),
             explicit_start: None,
             route_decision: Some(decision),
+            composition: None,
+            task_scope: None,
+            pool: self.pool.clone(),
             _owner: owner,
         })
     }
@@ -1817,6 +2406,17 @@ impl MathService {
         self: &Arc<Self>,
         step: PreparedSolve,
     ) -> Result<SolveHandle<StepReport>, MathRuntimeError> {
+        let step = if step.task_scope.is_none() {
+            let deadline = std::time::Instant::now()
+                .checked_add(step.time_limit())
+                .ok_or_else(|| ProblemError::Contract("submitted solve deadline extent".into()))?;
+            step.within_task(pse_kernels::ExecutionScope::new(
+                Arc::default(),
+                Some(deadline),
+            ))?
+        } else {
+            step
+        };
         if step.profile.controls.start == StartPolicy::Explicit && step.explicit_start.is_none() {
             return Err(ProblemError::Contract(
                 "explicit start policy requires a seed before submission".into(),
@@ -1824,18 +2424,36 @@ impl MathService {
             .into());
         }
         let owner = self.reserve("math:solve-results", step.result_bytes()?)?;
+        let run_id = pse_operations::mint_id();
         let progress = Arc::new(Progress::new(step.profile.controls.history));
         let session = self.open_session()?;
         let events = progress.clone();
+        let numerical_policy = step.numerics.policy.clone();
         Ok(SolveHandle::supervise(progress, move |cancel| async move {
             let result = session
-                .step(step, None, 0, events, owner.clone(), &cancel, |_, _, _| {
-                    ((), true)
-                })
+                .step(
+                    step,
+                    None,
+                    0,
+                    events,
+                    owner.clone(),
+                    &cancel,
+                    move |outcome, _, _| {
+                        (
+                            (),
+                            super::StepRetention {
+                                candidate: outcome.candidate_use(&numerical_policy),
+                                session: super::SessionDisposition::Discard,
+                            },
+                        )
+                    },
+                )
                 .await;
             session.close().await;
-            result.map(|(outcome, ())| StepReport {
+            result.map(|(outcome, (), strategy)| StepReport {
+                run_id,
                 outcome,
+                strategy,
                 _owner: owner,
             })
         }))
@@ -1858,8 +2476,10 @@ impl MathService {
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
         owner: &Arc<pse_columnar::AllocationLease>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Result<ScopedOutcome, MathRuntimeError> {
-        let admitted = match self.admit_step(step, previous, retained, flag, progress) {
+        let admitted = match self.admit_step(step, previous, retained, flag, progress, Some(scope))
+        {
             Ok(admitted) => admitted,
             Err(refused) => return Ok((refused, None)),
         };
@@ -1889,12 +2509,13 @@ impl MathService {
         flag: &Arc<std::sync::atomic::AtomicBool>,
         progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
+        scope: &pse_kernels::ExecutionScope,
     ) -> Vec<Result<ScopedOutcome, MathRuntimeError>> {
         let mut outcomes: Vec<Option<Result<ScopedOutcome, MathRuntimeError>>> =
             members.iter().map(|_| None).collect();
         let mut admitted = Vec::new();
         for (i, member) in members.into_iter().enumerate() {
-            match self.admit_step(member.step, None, retained, flag, progress) {
+            match self.admit_step(member.step, None, retained, flag, progress, Some(scope)) {
                 Ok(step) => admitted.push((i, member.attempt, member.owner, step)),
                 Err(refused) => outcomes[i] = Some(Ok((refused, None))),
             }
@@ -1978,6 +2599,7 @@ impl MathService {
         retained: &mut Retained,
         flag: &Arc<std::sync::atomic::AtomicBool>,
         progress: &Arc<Progress>,
+        scope: Option<&pse_kernels::ExecutionScope>,
     ) -> Result<Admitted, Outcome> {
         let controls = step.profile.controls.clone();
         if controls.reuse == ReusePolicy::Fresh {
@@ -2011,7 +2633,11 @@ impl MathService {
                 return Err(Outcome::Rejected(Arc::new(error.into())));
             }
         }
-        let mut execution = Execution::new(flag.clone(), &controls);
+        let mut execution = match scope {
+            Some(scope) => Execution::within(flag.clone(), &controls, scope.clone())
+                .map_err(|error| Outcome::Rejected(Arc::new(error.into())))?,
+            None => Execution::new(flag.clone(), &controls),
+        };
         execution.progress = progress.clone();
         // Libraries that enforce their own memory limit read the solve's foreign allowance.
         execution.memory = Some(self.policy.foreign_allowance(&controls));
@@ -2498,6 +3124,7 @@ impl MathService {
             values,
             providers,
             factorable,
+            pricing_case,
             sensitivity,
             ..
         } = case;
@@ -2531,7 +3158,15 @@ impl MathService {
                     worker,
                     _case,
                     _charge,
-                } = self.case_worker(case.clone(), providers.clone(), &scope, budget)?;
+                } = self.case_worker(
+                    pricing_case
+                        .as_ref()
+                        .map(|case| case.executable.clone())
+                        .or_else(|| case.clone()),
+                    providers.clone(),
+                    &scope,
+                    budget,
+                )?;
                 owners.push((_case, _charge));
                 Ok(native::assembled::AlgebraicOracle::relaxation(
                     worker,
@@ -2662,8 +3297,13 @@ impl MathService {
         } = self.case_worker(case, providers.clone(), &scope, budget)?;
         let plan = &prepared.prepared.plan;
         let initial: Vec<_> = plan.columns().iter().map(|id| values.scalars[id]).collect();
+        let _root_support =
+            budget.charge(native::assembled::AlgebraicOracle::root_support_allowance(
+                plan,
+                &prepared.prepared.structure,
+            )?)?;
         let mut oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
-            .with_structural_analysis(prepared.prepared.structure.clone())
+            .with_structural_analysis(prepared.prepared.structure.clone())?
             .with_presolve_facts(prepared.prepared.presolve.clone())?
             .with_normalization(run.normalization.clone())?;
         if let Some(c) = &prepared.prepared.coefficients {
@@ -2769,6 +3409,22 @@ impl MathService {
     ) {
         use native::square_response::{self, SquareScope, Withheld};
         let plan = &prepared.prepared.plan;
+        if let Some(ParametricPreparation::Available(program)) = sensitivity
+            && program.retain
+            && program.root_source.is_some()
+        {
+            report.evidence.root_predictor = Some(self.fresh_root_predictor(
+                report,
+                prepared,
+                program,
+                values,
+                providers,
+                scope,
+                normalization,
+                tolerances,
+                budget,
+            ));
+        }
         if let Some(preparation) = sensitivity {
             let result = (|| {
                 let candidate = report.candidate.as_ref().ok_or(Withheld::NoCandidate)?;
@@ -2884,6 +3540,151 @@ impl MathService {
             })();
             report.evidence.root_response = Some(result);
         }
+    }
+    /// Factor the fresh original state Jacobian once, retaining sparse parameter
+    /// partials for subsequent actions. This operation is independent of a native
+    /// iteration setup and of the optional dense public response analysis.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the postsolve producer consumes the complete original case, scope and resolved physical budgets"
+    )]
+    fn fresh_root_predictor(
+        &self,
+        report: &SolveReport,
+        prepared: &Preparation,
+        program: &SensitivityProgram,
+        values: &CaseValues,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        scope: &pse_kernels::ExecutionScope,
+        normalization: &Normalization,
+        tolerances: &Tolerances,
+        budget: &Arc<WorkerBudget>,
+    ) -> Result<native::square_response::SparsePredictor, native::square_response::Withheld> {
+        use native::square_response::{
+            SparseFactor, SparsePredictor, SparseRequest, SquareScope, Withheld,
+        };
+        let cause = |error: ProblemError| Withheld::Cause(Arc::new(error));
+        scope.check().map_err(ProblemError::from).map_err(cause)?;
+        let candidate = report.candidate.as_ref().ok_or(Withheld::NoCandidate)?;
+        if report.quality.as_ref().is_none_or(|q| !q.feasible())
+            || report.callback_failure().is_some()
+            || report.validation_failure().is_some()
+        {
+            return Err(Withheld::Infeasible("fresh predictor requires independent original feasibility without a terminal cause".into()));
+        }
+        let observed = report
+            .observation
+            .as_ref()
+            .ok_or_else(|| Withheld::Infeasible("fresh predictor lacks original values".into()))?;
+        let plan = &prepared.compiled().plan;
+        let n = plan.columns().len();
+        let np = program.parameters.len();
+        let bytes = SparseFactor::allowance(n)
+            .and_then(|b| {
+                b.checked_add(
+                    program
+                        .program
+                        .assembly
+                        .jacobian_pattern()
+                        .compute_nnz()
+                        .checked_mul(64)?,
+                )
+            })
+            .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
+            .ok_or(Withheld::Memory)?;
+        let charge = budget
+            .charge(bytes)
+            .map_err(|error| cause(error.into_problem()))?;
+        let ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self
+            .worker(program.program.clone(), providers, scope.clone(), budget)
+            .map_err(|e| cause(e.into_problem()))?;
+        let mut request = program.request(worker, values).map_err(cause)?;
+        let contract = native::assembled::contract(plan);
+        request.admit(&contract).map_err(cause)?;
+        let row_bounds = plan
+            .structure()
+            .rows()
+            .iter()
+            .map(|r| (r.lower, r.upper))
+            .collect::<Vec<_>>();
+        let square = SquareScope::admit(
+            &contract,
+            plan.jacobian_pattern(),
+            &row_bounds,
+            Some(&prepared.compiled().structure),
+        )?;
+        let mut point = candidate.primal.clone();
+        point.extend(program.parameters.iter().map(|(_, v)| *v));
+        let mut jacobian = vec![0.; request.oracle.jacobian_pattern().compute_nnz()];
+        request
+            .oracle
+            .jacobian(&point, &mut jacobian)
+            .map_err(cause)?;
+        scope.check().map_err(ProblemError::from).map_err(cause)?;
+        let pattern = request.oracle.jacobian_pattern();
+        let mut state_entries = Vec::new();
+        let mut parameter_entries = Vec::new();
+        for column in 0..n + np {
+            for entry in pattern.col_range(column) {
+                let row = pattern.row_idx()[entry];
+                let value = jacobian[entry];
+                if column < n {
+                    state_entries.push(faer::sparse::Triplet::new(row, column, value));
+                } else {
+                    parameter_entries.push(faer::sparse::Triplet::new(row, column - n, value));
+                }
+            }
+        }
+        let state = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &state_entries)
+            .map_err(|e| {
+                cause(ProblemError::numerical(format!(
+                    "fresh original state partials: {e:?}"
+                )))
+            })?;
+        let parameters =
+            faer::sparse::SparseColMat::try_new_from_triplets(n, np, &parameter_entries).map_err(
+                |e| {
+                    cause(ProblemError::numerical(format!(
+                        "fresh original parameter partials: {e:?}"
+                    )))
+                },
+            )?;
+        let mut key = program.root_source.ok_or_else(|| {
+            cause(ProblemError::internal(
+                "retained Root predictor lacks original dependencies",
+            ))
+        })?;
+        key.point = Some(native::square_response::point_key(&candidate.primal));
+        let execution = Execution::within(
+            scope.cancellation().clone(),
+            &Controls::default(),
+            scope.clone(),
+        )
+        .map_err(cause)?;
+        let owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(charge);
+        let factor = SparseFactor::prepare(
+            SparseRequest {
+                scope: &square,
+                point: &candidate.primal,
+                values: &observed.values,
+                tolerances,
+                normalization,
+                key,
+                bytes,
+            },
+            || Ok(state),
+            &execution,
+        )?
+        .with_owner(owner.clone());
+        Ok(
+            SparsePredictor::new(factor, program.parameters.clone(), parameters)
+                .map_err(cause)?
+                .with_owner(owner),
+        )
     }
     /// Worker-scoped providers and one attempt-local evaluator on this thread.
     fn case_worker(

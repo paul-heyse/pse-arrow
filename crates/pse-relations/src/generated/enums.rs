@@ -37,11 +37,15 @@ pub use pse_model::generated::r#enums::{
     NativeDependencyKind, NativeDerivativeCapability, NativeEvidenceDemand,
     NativeIneligibility, NativeInfeasibilityWitness, NativeLexicographicDegradation,
     NativeLexicographicRealization, NativeMetricKind, NativeObjectiveSense,
-    NativeProblemClass, NativeQualification, NativeRayCoordinate, NativeRepresentation,
-    NativeRouteKind, NativeRouteRefusal, NativeRouteSelection, NativeRunState,
-    NativeSolveIntent, NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy,
-    NativeTermination, NativeWarmCapability, NumericalCoordinates,
-    NumericalProvenanceField, NumericalSource, NumericalTarget, ObservationTimeBasis,
+    NativePetscLinear, NativePetscMethod, NativePetscPreconditioner, NativeProblemClass,
+    NativeQualification, NativeRayCoordinate, NativeRepresentation, NativeRouteKind,
+    NativeRouteRefusal, NativeRouteSelection, NativeRunState, NativeSolveIntent,
+    NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy, NativeTermination,
+    NativeUnoMethod, NativeWarmCapability, NumericalAccuracyClass,
+    NumericalAttemptObservation, NumericalBranchPolicy, NumericalCoordinates,
+    NumericalEventKind, NumericalMechanism, NumericalPathEventKind, NumericalPhase,
+    NumericalPosition, NumericalProvenanceField, NumericalScope, NumericalSource,
+    NumericalStartOrigin, NumericalTarget, NumericalTransition, ObservationTimeBasis,
     Opcode, OperationEffect, OrphanDisposition, OrphanOwnership, PackageKind,
     PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner, PresolvePass,
     PresolvePolicyKind, PublicationKind, PublicationMemberRole, QuantityAdditionKind,
@@ -3680,6 +3684,93 @@ impl crate::columnar::ArrowValue for NativeObjectiveSense {
             })
     }
 }
+impl crate::columnar::ArrowValue for NativePetscLinear {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NativePetscLinear).to_owned(),
+                enumeration: stringify!(NativePetscLinear).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NativePetscMethod {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NativePetscMethod).to_owned(),
+                enumeration: stringify!(NativePetscMethod).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NativePetscPreconditioner {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NativePetscPreconditioner).to_owned(),
+                enumeration: stringify!(NativePetscPreconditioner).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NativeProblemClass {
     fn append(
         &self,
@@ -4057,6 +4148,35 @@ impl crate::columnar::ArrowValue for NativeTermination {
             })
     }
 }
+impl crate::columnar::ArrowValue for NativeUnoMethod {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NativeUnoMethod).to_owned(),
+                enumeration: stringify!(NativeUnoMethod).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NativeWarmCapability {
     fn append(
         &self,
@@ -4078,6 +4198,93 @@ impl crate::columnar::ArrowValue for NativeWarmCapability {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(NativeWarmCapability).to_owned(),
                 enumeration: stringify!(NativeWarmCapability).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalAccuracyClass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalAccuracyClass).to_owned(),
+                enumeration: stringify!(NumericalAccuracyClass).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalAttemptObservation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalAttemptObservation).to_owned(),
+                enumeration: stringify!(NumericalAttemptObservation).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalBranchPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalBranchPolicy).to_owned(),
+                enumeration: stringify!(NumericalBranchPolicy).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -4115,6 +4322,151 @@ impl crate::columnar::ArrowValue for NumericalCoordinates {
             })
     }
 }
+impl crate::columnar::ArrowValue for NumericalEventKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalEventKind).to_owned(),
+                enumeration: stringify!(NumericalEventKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalMechanism {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalMechanism).to_owned(),
+                enumeration: stringify!(NumericalMechanism).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalPathEventKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalPathEventKind).to_owned(),
+                enumeration: stringify!(NumericalPathEventKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalPhase {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalPhase).to_owned(),
+                enumeration: stringify!(NumericalPhase).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalPosition {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalPosition).to_owned(),
+                enumeration: stringify!(NumericalPosition).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NumericalProvenanceField {
     fn append(
         &self,
@@ -4136,6 +4488,35 @@ impl crate::columnar::ArrowValue for NumericalProvenanceField {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(NumericalProvenanceField).to_owned(),
                 enumeration: stringify!(NumericalProvenanceField).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalScope {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalScope).to_owned(),
+                enumeration: stringify!(NumericalScope).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -4173,6 +4554,35 @@ impl crate::columnar::ArrowValue for NumericalSource {
             })
     }
 }
+impl crate::columnar::ArrowValue for NumericalStartOrigin {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalStartOrigin).to_owned(),
+                enumeration: stringify!(NumericalStartOrigin).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NumericalTarget {
     fn append(
         &self,
@@ -4194,6 +4604,35 @@ impl crate::columnar::ArrowValue for NumericalTarget {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(NumericalTarget).to_owned(),
                 enumeration: stringify!(NumericalTarget).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for NumericalTransition {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(NumericalTransition).to_owned(),
+                enumeration: stringify!(NumericalTransition).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

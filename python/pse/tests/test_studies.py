@@ -465,11 +465,14 @@ def test_durable_study_publishes_once(
     ] == [
         "point_0",
         "point_1",
-        None,
+        "point_2",
         None,
     ]
+    failed_member = next(row for row in outcomes if row["point_index"] == 2)
+    assert failed_member["state"] == StudyPointState.FAILED
+    assert failed_member["usable"] is False
     catalogs = {name.catalog for name in publication.tables()}
-    assert catalogs == {"study", "point_0", "point_1"}
+    assert catalogs == {"study", "point_0", "point_1", "point_2"}
 
 
 @pytest.mark.integration
@@ -605,7 +608,14 @@ def test_flash_sweep_prepares_structure_once(
         # qualified separately at its single 368 K feed.
         (attempt,) = pa.table(result.table("runtime.solve_runs")).to_pylist()
         assert attempt["termination"] == NativeTermination.SUCCESS
-        assert result.usable, result.diagnostics()
+        if not result.usable:
+            checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
+            failed_checks = [row for row in checks if not row["satisfied"]]
+            pytest.fail(
+                f"point {index}, inlet temperature {temperatures[index]} K: "
+                f"{tuple(diagnostic.message for diagnostic in result.diagnostics())}; "
+                f"failed physical checks {failed_checks}"
+            )
         values.append(
             pa.table(result.table("runtime.solve_variables"))
             .column("value")
@@ -613,9 +623,8 @@ def test_flash_sweep_prepares_structure_once(
         )
     # Each point solved its own feed temperature ...
     assert values[0] != values[-1]
-    # ... on one prepared structure: every later point only rebound its values.
+    # Admission already froze and cached the solver view. These counters measure
+    # execution only: every point rebinds that view, and none prepares another one.
     preparations = study.preparations
-    assert preparations.views == 1, preparations
-    assert preparations.rebuilt + preparations.shared == len(temperatures) - 1, (
-        preparations
-    )
+    assert preparations.views == 0, preparations
+    assert preparations.rebuilt + preparations.shared == len(temperatures), preparations

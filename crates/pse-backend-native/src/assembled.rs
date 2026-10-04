@@ -22,6 +22,7 @@ pub struct AlgebraicOracle {
     normalization: Option<pse_math::normalization::Normalization>,
     presolve: Option<pse_math::SharedAllocation<pse_math::presolve::Facts>>,
     structure: Option<pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>>,
+    root_pattern: Option<faer::sparse::SymbolicSparseColMat<usize>>,
 }
 impl AlgebraicOracle {
     /// Admit continuous NLP/NLE variables. All-fixed cases stay on constant evaluation.
@@ -93,16 +94,80 @@ impl AlgebraicOracle {
             normalization: None,
             presolve: None,
             structure: None,
+            root_pattern: None,
         })
     }
     /// Attach a compiler analysis. Native admission checks its complete matching
     /// witness against the current IDs, equality classification and sparse edges.
+    /// # Errors
+    /// Allocation of a directional-only original support projection fails.
     pub fn with_structural_analysis(
         mut self,
         analysis: pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>,
-    ) -> Self {
+    ) -> Result<Self, ProblemError> {
+        if !self.root_operations().jacobian && self.root_operations().jacobian_product {
+            let rows = self
+                .contract
+                .rows
+                .iter()
+                .enumerate()
+                .map(|(i, id)| (*id, i))
+                .collect::<std::collections::BTreeMap<_, _>>();
+            let columns = self
+                .contract
+                .variables
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (v.id, i))
+                .collect::<std::collections::BTreeMap<_, _>>();
+            let pairs = analysis
+                .contributions
+                .iter()
+                .filter_map(|edge| {
+                    Some(faer::sparse::Pair::new(
+                        *rows.get(&edge.row)?,
+                        *columns.get(&edge.column)?,
+                    ))
+                })
+                .collect::<Vec<_>>();
+            self.root_pattern = Some(
+                faer::sparse::SymbolicSparseColMat::try_new_from_indices(
+                    rows.len(),
+                    columns.len(),
+                    &pairs,
+                )
+                .map_err(|e| ProblemError::memory(e.to_string()))?
+                .0,
+            );
+        }
         self.structure = Some(analysis);
-        self
+        Ok(self)
+    }
+    /// Finite reservation for the directional-only original support projection and its
+    /// construction scratch. It is not a measurement of native or allocator overhead.
+    /// # Errors
+    /// Checked support shape overflow.
+    pub fn root_support_allowance(
+        plan: &CasePlan,
+        analysis: &pse_structural::incidence::StructuralAnalysis,
+    ) -> Result<usize, ProblemError> {
+        if plan.order() >= DerivativeOrder::First || !plan.has_directional_actions() {
+            return Ok(0);
+        }
+        analysis
+            .contributions
+            .len()
+            .checked_mul(64)
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    plan.columns()
+                        .len()
+                        .checked_add(plan.structure().rows().len())?
+                        .checked_mul(256)?,
+                )
+            })
+            .and_then(|bytes| bytes.checked_add(256))
+            .ok_or_else(|| ProblemError::memory("directional original support allowance"))
     }
     /// Attach the immutable resolved coordinate projection before native preparation.
     pub fn with_normalization(
@@ -143,7 +208,8 @@ impl AlgebraicOracle {
     }
     /// Root-system view additionally requires equality rows and no optimization objective.
     pub fn admit_nle(&self) -> Result<(), ProblemError> {
-        self.contract.square()?;
+        self.root_operations()
+            .admit(&self.contract, !self.root_operations().jacobian)?;
         if self.worker.assembly().structure().objective().is_some()
             || self.bounds.iter().any(|(l, u)| !l.is_finite() || l != u)
         {
@@ -152,6 +218,13 @@ impl AlgebraicOracle {
             ));
         }
         Ok(())
+    }
+    /// Exact prepared root operation support; directional programs do not promise a full jet.
+    pub fn root_operations(&self) -> crate::RootOperations {
+        let plan = self.worker.assembly();
+        let mut operations = crate::RootOperations::from_order(plan.order());
+        operations.jacobian_product |= plan.has_directional_actions();
+        operations
     }
     /// Updating parameters invalidates numerical caches by complete local input identity.
     pub fn update_values(&mut self, values: CaseValues) -> Result<(), ProblemError> {
@@ -243,6 +316,9 @@ impl NlpOracle for AlgebraicOracle {
     }
 }
 impl NleOracle for AlgebraicOracle {
+    fn operations(&self) -> crate::RootOperations {
+        self.root_operations()
+    }
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         self.structure.as_deref()
     }
@@ -270,7 +346,10 @@ impl NleOracle for AlgebraicOracle {
         &self.contract
     }
     fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
-        self.worker.assembly().jacobian_pattern()
+        self.root_pattern.as_ref().map_or_else(
+            || self.worker.assembly().jacobian_pattern(),
+            |pattern| pattern.as_ref(),
+        )
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.admit_nle()?;

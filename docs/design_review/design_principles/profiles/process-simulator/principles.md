@@ -1,6 +1,6 @@
 # Process-simulator design principles
 
-**Version 1.3 · 2026-09-30** · Domain profile for process simulation software:
+**Version 1.4 · 2026-10-03** · Domain profile for process simulation software:
 steady-state and dynamic flowsheet simulation, optimization and parameter estimation.
 Refines the [core design principles](../../core/design-principles.md) under their layering
 rules (§B). It adds and tightens; it never relaxes a core principle. It names no specific
@@ -168,8 +168,14 @@ chose the tear set and convergence method, and can the history be inspected?
 conic, NLP, mixed-integer, DAE — is derived from the model's structure and analysis mode, not
 assumed. The solver is selected by declared capability for that class (derivative orders,
 bounds, sparsity, warm start, cancellation) and explicit policy, and the selection is recorded.
-Established numerical solvers own iteration, globalization and factorization; the simulator does
-not reimplement them. A class the configured solvers cannot handle is rejected before solving.
+Established numerical solvers own fitting iteration, globalization, factorization and native
+model management; the simulator does not reimplement them. Scientific problem definitions,
+derived families, consumed accuracy, start/branch permission, bounded orchestration and original
+assessment belong to the simulator. Domain-level path, shift or block composition may connect
+admitted library operations when no fitting library supplies the complete consumed contract.
+Its correspondence, derivative actions, accepted/rejected state and finite caps are explicit;
+a fitting library controller is not copied to expose observations. A class the configured
+solvers cannot handle is rejected before solving.
 
 **Audit.** Is the class derived or assumed? Does any own code reimplement a Newton step, line
 search or factorization that a qualified solver provides? What happens when no solver supports

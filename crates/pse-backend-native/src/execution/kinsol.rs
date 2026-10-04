@@ -46,7 +46,7 @@ fn settings(
     budgets: Budgets<'_>,
 ) -> Result<crate::kinsol::Settings, ProblemError> {
     let method = match settings {
-        BackendSettings::Default => crate::kinsol::Method::default(),
+        BackendSettings::Default => crate::settings::kinsol::Method::default(),
         BackendSettings::Kinsol(method) => *method,
         _ => return Err(super::foreign(Backend::Kinsol)),
     };
@@ -66,6 +66,29 @@ impl BackendExecution for Kinsol {
     }
     fn representation(&self) -> Representation {
         Representation::Roots
+    }
+    fn required_artifact(
+        &self,
+        r: &crate::routing::Requirements<'_>,
+    ) -> Option<crate::routing::ArtifactDemand> {
+        let method = match r.settings {
+            BackendSettings::Kinsol(method) => *method,
+            _ => crate::settings::kinsol::Method::default(),
+        };
+        if method.consumes_jvp() {
+            // An assembled preconditioner consumes both programs. Establish its
+            // ordinary derivative order first, then the independent residual action.
+            if !method.consumes_directional_only()
+                && let Some(order) = self.required_order(r)
+                && r.facts.prepared_derivatives < order
+            {
+                return Some(crate::routing::ArtifactDemand::Derivatives(order));
+            }
+            Some(crate::routing::ArtifactDemand::JacobianProduct)
+        } else {
+            self.required_order(r)
+                .map(crate::routing::ArtifactDemand::Derivatives)
+        }
     }
     fn linked(&self) -> bool {
         cfg!(feature = "kinsol")

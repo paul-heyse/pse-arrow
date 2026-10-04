@@ -11,6 +11,7 @@ use std::time::Duration;
 const CASES: &str = r#"package algebraic {
 def Root { param a:Scalar=4; var x:Scalar; eq square:x*x==a; annotation start x(1); annotation bounds x(0,10); annotation report x("root"); annotation check x(x>1); }
 def Failed { var x:Scalar; eq square:x*x == -1; annotation start x(1); annotation report x("root"); }
+def Fixed { param a:Scalar=4; param x:Scalar=2; eq square:x*x==a; annotation report x("root"); annotation check x(x>1); }
 def Storage { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; }
 test dynamic fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); } {child root:Storage=Storage();}
 }"#;
@@ -26,7 +27,10 @@ fn point(
             route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
             settings: ipopt(),
         }),
-        preparation: PreparationSettings::default(),
+        preparation: PreparationSettings {
+            compiler: tests::compiler_profile(),
+            ..Default::default()
+        },
         overlay: PointOverlay::default(),
         policy: StudyPointPolicy {
             key: OccurrenceKey(key),
@@ -39,6 +43,7 @@ fn point(
 async fn admitted(
     runtime: &Runtime,
     points: impl FnOnce(
+        pse_model::generated::identities::DeclarationId,
         pse_model::generated::identities::DeclarationId,
         pse_model::generated::identities::DeclarationId,
     ) -> Vec<StudyPoint>,
@@ -62,7 +67,7 @@ async fn admitted(
             .unwrap()
             .declaration_id
     };
-    let points = points(find("Root"), find("Failed"));
+    let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
         .admit_study_points(
             crate::authoring_driver::document::package_checksum(&physical),
@@ -90,12 +95,94 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
         points: vec![point(case, 7, vec![], StartPolicy::Fresh)],
     };
     let encoded = serde_json::to_value(request).unwrap();
+    assert_eq!(encoded["version"], 2);
     assert!(encoded["points"][0]["policy"].get("seed_need").is_none());
     let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
+    let mut historical = encoded.clone();
+    historical["version"] = serde_json::json!(1);
+    assert!(serde_json::from_value::<StudyRequest>(historical).is_err());
     let mut bare = encoded;
     bare["points"][0]["overlay"] = serde_json::json!({"values":{"x":1}});
     assert!(serde_json::from_value::<StudyRequest>(bare).is_err());
+}
+
+#[test]
+fn study_definition_historical_readmission_codec_unit() {
+    let hash = pse_ids::ContentHash::from_bytes([4; 32]);
+    let binding = AdmittedBinding {
+        revision: hash.into(),
+        context: hash,
+        entries: std::collections::BTreeMap::new(),
+    };
+    let requested = point(
+        pse_model::generated::identities::DeclarationId::from_bytes([5; 16]),
+        7,
+        vec![],
+        StartPolicy::Fresh,
+    );
+    let definition = StudyDefinition {
+        version: pse_model::document::Version,
+        physical: hash,
+        modeling: vec![pse_ids::ContentHash::from_bytes([5; 32])],
+        points: vec![StudyPointDefinition {
+            operation: StudyOperation {
+                version: pse_model::document::Version,
+                source: OperationSource {
+                    revision: hash.into(),
+                    physical_context: hash,
+                },
+                preparation: requested.preparation,
+                operation: requested.operation,
+                admitted_horizon: None,
+            },
+            binding_hash: binding.identity(),
+            binding,
+            policy: PointPolicy {
+                key: OccurrenceKey(7),
+                dependencies: vec![],
+                seed_need: SeedNeed::NotNeeded,
+                start: StartPolicy::Fresh,
+                attempt_limit: 1,
+            },
+        }],
+    };
+    let current = serde_json::to_string(&definition).unwrap();
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 4);
+    let decoded = StudyDefinition::readmission(&current).unwrap();
+    assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
+
+    // A historical envelope is refused even when its scientific layout cannot be read
+    // by this build, and even when the version follows the nested document in the bytes.
+    let mut former = serde_json::to_value(&definition).unwrap();
+    former["version"] = serde_json::json!(3);
+    former["points"][0]["operation"]["version"] = serde_json::json!(1);
+    let compiler = former["points"][0]["operation"]["preparation"]["compiler"]
+        .as_object_mut()
+        .unwrap();
+    compiler.remove("class_proof_work");
+    compiler.remove("assembly");
+    let historical = serde_json::to_string(&former).unwrap();
+    let retained = historical.clone();
+    let error = StudyDefinition::readmission(&historical).unwrap_err();
+    let WorkflowError::Operations(pse_operations::OperationsError::InvalidRequest { reason }) =
+        &error
+    else {
+        panic!("{error:?}")
+    };
+    assert!(reason.contains("study definition version 3 is unsupported"));
+    assert!(reason.contains("explicit readmission is required"));
+    assert_eq!(
+        error.boundary_diagnostic().rule,
+        pse_diagnostics::DiagnosticRule::WorkflowOperations
+    );
+    assert_eq!(historical, retained);
+    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":4}"#] {
+        assert!(matches!(
+            StudyDefinition::readmission(malformed),
+            Err(WorkflowError::Input(_))
+        ));
+    }
 }
 
 #[cfg_attr(
@@ -114,7 +201,7 @@ async fn immutable_definition_equal_bindings_distinct_occurrences_and_usable_dep
         )
         .await
         .unwrap();
-    let (sources, definition) = admitted(&runtime, |root, failed| {
+    let (sources, definition) = admitted(&runtime, |root, failed, _| {
         vec![
             point(root, 2, vec![], StartPolicy::Fresh),
             point(root, 4, vec![], StartPolicy::Fresh),
@@ -168,11 +255,11 @@ async fn cancellation_preserves_one_outcome_for_every_unattempted_occurrence() {
         )
         .await
         .unwrap();
-    let (sources, definition) = admitted(&runtime, |root, _| {
+    let (sources, definition) = admitted(&runtime, |_, _, fixed| {
         vec![
-            point(root, 3, vec![], StartPolicy::Fresh),
+            point(fixed, 3, vec![], StartPolicy::Fresh),
             point(
-                root,
+                fixed,
                 9,
                 vec![Dependency::Ordering(OccurrenceKey(3))],
                 StartPolicy::Fresh,

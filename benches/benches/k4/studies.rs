@@ -12,7 +12,7 @@ use pse_model::{
 use pse_operations::{jobs::RetryPolicy, studies::StudyState, testing::TestDatabase};
 use pse_relations::{
     columnar::RelationRow,
-    generated::runtime::{solve_metrics, solve_variables},
+    generated::runtime::{solve_metrics, solve_strategy_events, solve_variables},
 };
 use pse_runtime::workflow::{self, Runtime};
 use serde_json::{Value, json};
@@ -141,6 +141,7 @@ async fn persisted(
     runtime: &Runtime,
     owner: &WorkflowRuntime,
     publication: pse_operations::catalog::PublicationId,
+    numerical: &mut observations::Observations,
 ) -> Vec<Value> {
     let opened = runtime.open(publication, &owner.cancel).await.unwrap();
     let original = opened.publication();
@@ -162,7 +163,24 @@ async fn persisted(
         let checked = completed
             .checked_relation(&owner.registry, relation("solve_metrics"), &owner.cancel)
             .unwrap();
-        let native = metrics(solve_metrics::Row::rows(&checked).unwrap());
+        let rows = solve_metrics::Row::rows(&checked).unwrap();
+        numerical.persisted_metrics(&rows);
+        let native = metrics(rows);
+        let completed = original
+            .relation_stream(&member("solve_strategy_events"), &owner.cancel)
+            .await
+            .unwrap()
+            .collect(&owner.cancel)
+            .await
+            .unwrap();
+        let checked = completed
+            .checked_relation(
+                &owner.registry,
+                relation("solve_strategy_events"),
+                &owner.cancel,
+            )
+            .unwrap();
+        numerical.rows(&solve_strategy_events::Row::rows(&checked).unwrap());
         let completed = original
             .relation_stream(&member("solve_variables"), &owner.cancel)
             .await
@@ -211,6 +229,7 @@ pub(super) fn measure(
         let mut timed = Duration::ZERO;
         for _ in 0..iterations {
             let (elapsed, record) = executor.block_on(async {
+                let mut numerical=observations::Observations::default();
                 let started=Instant::now();
                 let database=if durable_mode { Some(TestDatabase::create().await.unwrap()) } else { None };
                 let database_setup=started.elapsed();
@@ -266,7 +285,7 @@ pub(super) fn measure(
                     let outcomes:Vec<_>=status.points.into_iter().map(|p|p.outcome.unwrap()).collect();
                     check(&outcomes);
                     let published=handle.result().await.unwrap().unwrap();
-                    let metrics=persisted(&runtime,&owner,published.publication_id).await;
+                    let metrics=persisted(&runtime,&owner,published.publication_id,&mut numerical).await;
                     (elapsed,submission,submission_counts,worker_counts,read.elapsed().as_secs_f64(),outcomes,metrics)
                 } else {
                     let report=package.study(&definition,8,&CancelSource::new()).await.unwrap();
@@ -277,6 +296,7 @@ pub(super) fn measure(
                     for (index,result) in report.results.iter().enumerate() {
                         let result=result.as_ref().unwrap();
                         let report=authored_success(result);
+                        numerical.run(result);
                         let symbol=report.prepared.model.model.compiled().model.symbols.values().find(|s|s.lineage.path.ends_with(".x")).unwrap().id;
                         near(variable(result,symbol),VALUES[index],1e-7);
                         let rows=solve_metrics::Row::rows(&result.table("runtime.solve_metrics").unwrap()).unwrap();
@@ -284,13 +304,14 @@ pub(super) fn measure(
                     }
                     (elapsed,Duration::ZERO,json!({"views":0,"observations":0,"rebuilt":0,"shared":0}),serde_json::to_value(report.preparations).unwrap(),read.elapsed().as_secs_f64(),report.outcomes,metrics)
                 };
+                numerical.preparations(before,owner.runtime.math().preparations());
                 let execution_counts=support::counts(before,owner.runtime.math().preparations());
                 let execution_phases=phases.report(8);
                 let peak=owner.runtime.observation_peak_bytes();
                 let rss=owner.runtime.report().unwrap().process_peak_rss_bytes;
                 let pool=owner.runtime.pool();
                 let retained=pool.reserved();
-                let record=json!({"seconds":{"database_setup":database_setup.as_secs_f64(),"source_and_definition_admission":admission.as_secs_f64(),"execution_total":elapsed.as_secs_f64(),"submission":submission.as_secs_f64(),"result_read":result_read_seconds},"admission_preparations":admission_counts,"submission_preparations":submission_counts,"worker_preparations":worker_counts,"execution_preparations":execution_counts,"admission_phases":admission_phases,"execution_phases":execution_phases,"worker_passes":worker_passes,"outcomes":outcomes,"point_metrics":metrics,"definition":definition,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,"retained_runtime_bytes":retained});
+                let record=json!({"seconds":{"database_setup":database_setup.as_secs_f64(),"source_and_definition_admission":admission.as_secs_f64(),"execution_total":elapsed.as_secs_f64(),"submission":submission.as_secs_f64(),"result_read":result_read_seconds},"admission_preparations":admission_counts,"submission_preparations":submission_counts,"worker_preparations":worker_counts,"execution_preparations":execution_counts,"admission_phases":admission_phases,"execution_phases":execution_phases,"worker_passes":worker_passes,"outcomes":outcomes,"point_metrics":metrics,"numerical_observations":numerical.json(),"definition":definition,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,"retained_runtime_bytes":retained});
                 drop(package); drop(physical); drop(runtime); drop(owner);
                 tokio::task::yield_now().await;
                 let mut record=record;

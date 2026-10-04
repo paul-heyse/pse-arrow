@@ -55,6 +55,17 @@
 }
 @id("01a0e1971f90755199259821d780acbd") def BTIdeal(defined_state:Boolean=true):BTIdealBinding {
 @id("d897aba318dc401b9700c4f6ecbda064") override param defined:Boolean=defined_state;}
+@id("268ab1ebc75e4eccbd36c7c7418cbaa3") use ideal_caloric_state @"1.0.0";
+// A separated liquid keeps its phase enthalpy without an equilibrium re-flash.
+@id("0812ec7723e74cc486dc774bdb5764ea") def BTLiquid(defined_state:Boolean=true):ideal_caloric_state.SinglePhaseCaloricState {
+@id("169ecf09bd1640c28d2d508bd9a0790a") override param defined:Boolean=defined_state;
+@id("8b22b5822329441f95bdb73a4607fa16") override param selected_phase:chemistry.phase=chemistry.liquid;
+@id("4bce291fa70e4e8596ef09f144308802") override param components:Set<chemistry.species>=aromatics;
+@id("c0b12ac7389549e6aef60263096dcc44") override param component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=liquid_h;
+@id("749ef68fdf9b4ddaa49a788869a97e1c") override param reference_pressure:Pressure=101325{Pa};
+@id("de8e6c0687a54cd1a51015358e02f67f") override param minimum_temperature:Temperature=300{K};
+@id("e4286a7963ea446f99f3966064b0b577") override param maximum_temperature:Temperature=450{K};
+}
 @id("01a0e1971f9075519925982ae2d21d11") test ftpx_oracle oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1}; fix root.T=368{K};} {
 @id("01a0e1971f9075519925982b3ee6b34a") child root:BTIdeal=BTIdeal;
 @id("01a0e1971f9075519925982cdc912da2") expect root.x[chem.benzene]==0.4121{1} tolerance 0.0001{1};

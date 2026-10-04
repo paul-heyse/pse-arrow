@@ -120,6 +120,10 @@ impl MathService {
             .and_then(|v| v.checked_add(self.policy.worker_bytes))
             .ok_or(MathRuntimeError::Limit("tear worker stack allowance"))?;
         let cancel = FlightCancellation::default();
+        let deadline = std::time::Instant::now()
+            .checked_add(controls.time_limit)
+            .ok_or(MathRuntimeError::Limit("tear task deadline"))?;
+        let scope = pse_kernels::ExecutionScope::new(cancel.flag(), Some(deadline));
         let control = cancel.clone();
         let progress = Arc::new(Progress::new(controls.history));
         let events = progress.clone();
@@ -127,39 +131,46 @@ impl MathService {
         let (tx, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let result = service
-                .job(controls.threads, worker_bytes, control, move |flag| {
-                    let mut execution = Execution::new(flag, &controls);
-                    execution.progress = events;
-                    if execution.stopped().is_some() {
-                        return Err(MathRuntimeError::Cancelled);
-                    }
-                    let (selected, attempt) = match method {
-                        TearMethod::UnweightedHeuristic => {
-                            (Some(tears::heuristic(&flow.graph)?), None)
-                        }
-                        TearMethod::Highs if flow.graph.declaration().connections.is_empty() => {
-                            (Some(tears::heuristic(&flow.graph)?), None)
-                        }
-                        #[cfg(feature = "solver-highs")]
-                        TearMethod::Highs => {
-                            let (s, r) = tears::solve(&flow.graph, &controls, execution)?;
-                            (s, Some(r.with_owner(owner.clone())))
-                        }
-                        #[cfg(not(feature = "solver-highs"))]
-                        TearMethod::Highs => {
-                            return Err(ProblemError::Unavailable {
-                                backend: Backend::Highs,
-                                alternatives: vec![],
+                .job_scoped(
+                    controls.threads,
+                    worker_bytes,
+                    control,
+                    Some(deadline),
+                    move |flag| {
+                        let mut execution = Execution::within(flag, &controls, scope.clone())?;
+                        execution.progress = events;
+                        execution.check()?;
+                        let (selected, attempt) = match method {
+                            TearMethod::UnweightedHeuristic => {
+                                (Some(tears::heuristic(&flow.graph)?), None)
                             }
-                            .into());
-                        }
-                    };
-                    Ok(TearResult {
-                        selected: selected.map(|v| v.with_owner(owner.clone())),
-                        attempt,
-                        _owner: owner,
-                    })
-                })
+                            TearMethod::Highs
+                                if flow.graph.declaration().connections.is_empty() =>
+                            {
+                                (Some(tears::heuristic(&flow.graph)?), None)
+                            }
+                            #[cfg(feature = "solver-highs")]
+                            TearMethod::Highs => {
+                                let (s, r) = tears::solve(&flow.graph, &controls, execution)?;
+                                (s, Some(r.with_owner(owner.clone())))
+                            }
+                            #[cfg(not(feature = "solver-highs"))]
+                            TearMethod::Highs => {
+                                return Err(ProblemError::Unavailable {
+                                    backend: Backend::Highs,
+                                    alternatives: vec![],
+                                }
+                                .into());
+                            }
+                        };
+                        scope.check().map_err(ProblemError::from)?;
+                        Ok(TearResult {
+                            selected: selected.map(|v| v.with_owner(owner.clone())),
+                            attempt,
+                            _owner: owner,
+                        })
+                    },
+                )
                 .await;
             let _ = tx.send(result);
         });
@@ -303,5 +314,75 @@ impl TearResult {
                 cost: selected.cost,
                 method: selected.method.into(),
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn structural_tear_deadline_includes_cpu_wait_without_cancellation() {
+        let service = super::super::tests::service();
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let graph = Arc::new(
+            pse_structural::flowsheet::FlowGraph::admit(
+                pse_structural::flowsheet::Declaration {
+                    nodes: vec![pse_structural::flowsheet::Node {
+                        id: SemanticId::from_bytes([1; 16]),
+                        ports: vec![],
+                    }],
+                    connections: vec![],
+                    decisions: vec![],
+                },
+                &registry,
+                pse_structural::projection::GraphLimits { nodes: 1, edges: 0 },
+            )
+            .unwrap(),
+        );
+        let lease = service.reserve("test:structural-flow", 1024).unwrap();
+        let owner = service
+            .shared_product(
+                vec![2, Arc::as_ptr(&graph) as usize],
+                graph.clone(),
+                lease,
+                vec![],
+            )
+            .unwrap();
+        let flow = PreparedFlow {
+            graph,
+            _owner: owner,
+        };
+        let permit = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+        let controls = Controls {
+            time_limit: std::time::Duration::from_millis(25),
+            ..Controls::default()
+        };
+        let handle = service
+            .select_tears(flow.clone(), TearMethod::UnweightedHeuristic, controls)
+            .unwrap();
+        let cancellation = handle.cancel.flag();
+        let result = tokio::time::timeout(std::time::Duration::from_secs(1), handle.finish())
+            .await
+            .unwrap();
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }))
+        ));
+        assert!(!cancellation.load(std::sync::atomic::Ordering::Acquire));
+        assert_eq!(service.cpu.available_permits(), 0);
+        drop(permit);
+        let result = service
+            .select_tears(flow, TearMethod::UnweightedHeuristic, Controls::default())
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        assert!(result.selected.is_some());
+        assert!(result.attempt.is_none());
+        assert_eq!(service.cpu.available_permits(), 2);
     }
 }

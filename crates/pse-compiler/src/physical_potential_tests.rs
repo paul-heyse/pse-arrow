@@ -83,7 +83,13 @@ fn check(name: &str) {
             root,
             root_instance(root),
             Bindings::default(),
-            Limits::default(),
+            Limits {
+                // This full PC-SAFT response includes authored physical partials and
+                // their independent perturbation controls. Keep its construction
+                // explicitly finite without changing the default production budget.
+                body_occurrences: (name == "pcsaft_physical_partials").then_some(65536),
+                ..Limits::default()
+            },
             &CaseValues {
                 scalars: BTreeMap::new(),
             },

@@ -185,15 +185,25 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
     let output = completed
         .checked_relation(&registry, target, &cancel)
         .unwrap();
-    assert_eq!(
-        budget.reserved(),
-        before_materialization,
-        "single-batch materialization transfers its existing claim"
+    let materialized = budget.reserved();
+    assert!(
+        materialized > before_materialization,
+        "checked storage owns its metadata"
     );
+    for (source, result) in completed.batches()[0]
+        .columns()
+        .iter()
+        .zip(output.batch().columns())
+    {
+        assert!(
+            Arc::ptr_eq(source, result),
+            "materialization shares its existing native arrays"
+        );
+    }
     let second = completed
         .checked_relation(&registry, target, &cancel)
         .unwrap();
-    assert_eq!(budget.reserved(), before_materialization);
+    assert_eq!(budget.reserved(), materialized);
     assert!(Arc::ptr_eq(
         output.batch().column(0),
         second.batch().column(0)
@@ -343,10 +353,33 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         }
         let retained = checked.retained(&budget, &cancel).unwrap();
         assert_eq!(retained.batch().num_rows(), batch.num_rows());
+        let retained_charge = budget.reserved();
+        assert!(
+            retained_charge > before,
+            "the checked projection owns its metadata"
+        );
+        for (source, result) in batch.columns()[..4].iter().zip(retained.batch().columns()) {
+            assert_eq!(source.to_data().buffers(), result.to_data().buffers());
+            for (source, result) in source
+                .to_data()
+                .buffers()
+                .iter()
+                .zip(result.to_data().buffers())
+            {
+                assert_eq!(
+                    source.as_ptr(),
+                    result.as_ptr(),
+                    "projection shares native payload buffers"
+                );
+            }
+        }
+        let again = retained.retained(&budget, &cancel).unwrap();
+        assert_eq!(budget.reserved(), retained_charge);
+        drop((retained, again, checked));
         assert_eq!(
             budget.reserved(),
             before,
-            "ancillary projection does not charge its native buffers again"
+            "last checked owner releases its metadata"
         );
     }
 }

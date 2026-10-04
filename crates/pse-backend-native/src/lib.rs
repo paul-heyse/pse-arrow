@@ -9,12 +9,19 @@ pub mod conditioning;
 pub mod conic;
 mod convexity;
 pub mod derivative_diagnostics;
+pub mod derived;
 pub mod dynamics;
 pub mod execution;
+#[cfg(any(feature = "uno", feature = "ipopt"))]
+#[path = "uno/callback.rs"]
+pub(crate) mod foreign_nlp;
 #[cfg(feature = "highs")]
 pub mod highs;
+#[cfg(any(feature = "highs", feature = "uno"))]
+mod highs_lifecycle;
 #[cfg(feature = "kinsol")]
 pub mod implicit;
+pub mod initialization;
 #[cfg(feature = "ipopt")]
 pub mod ipopt;
 #[cfg(feature = "highs")]
@@ -22,9 +29,16 @@ pub mod jacobian_diagnostics;
 #[cfg(feature = "kinsol")]
 pub mod kinsol;
 pub mod kkt;
-#[cfg(any(feature = "ipopt", feature = "clarabel-pardiso"))]
+#[cfg(any(
+    feature = "ipopt",
+    feature = "clarabel-pardiso",
+    feature = "uno",
+    feature = "petsc"
+))]
 mod mkl;
 mod nlp_pattern;
+#[cfg(feature = "petsc")]
+pub mod petsc;
 #[cfg(feature = "pounce")]
 pub mod pounce;
 pub mod presolve;
@@ -46,6 +60,8 @@ pub mod tears;
 mod tnlp;
 pub mod transform;
 pub mod transport;
+#[cfg(feature = "uno")]
+pub mod uno;
 pub use convexity::GramCertificate;
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::DerivativeOrder;
@@ -129,6 +145,30 @@ impl std::fmt::Display for ReuseRefusal {
         }
     }
 }
+/// Failure class established by the linear library's typed error variant.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LinearFailureKind {
+    /// Invalid dimensions or input violate the caller's contract.
+    Contract,
+    /// A numerical factor or update could not be established.
+    Numerical,
+    /// A finite symbolic workspace allowance was exhausted.
+    Memory,
+    /// Required state or an internal operation failed.
+    Internal,
+}
+/// Failure class established by a native library's tagged return code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeFailureKind {
+    /// The native allocation failed.
+    Resource,
+    /// Argument or operation-order requirements were violated.
+    Contract,
+    /// A qualified numerical method failed.
+    Numerical,
+    /// Library, system, or unqualified native failure.
+    Infrastructure,
+}
 /// A refused request or an attributable failure, classified by its cause (DP-21).
 #[derive(Debug, thiserror::Error)]
 pub enum ProblemError {
@@ -185,6 +225,25 @@ pub enum ProblemError {
         status: Option<NativeStatus>,
         /// Failed operation.
         detail: String,
+    },
+    /// A tagged native operation failed; its original structured status is retained.
+    #[error("native {kind:?} failure: {detail} [{status}]")]
+    Native {
+        /// Original native code, spelling, and backend.
+        status: NativeStatus,
+        /// Classification established from the library's tagged constants.
+        kind: NativeFailureKind,
+        /// Failed operation and its native description.
+        detail: String,
+    },
+    /// A linear operation failed, retaining its exact library cause and typed class.
+    #[error("linear {kind:?} failure: {cause}")]
+    Linear {
+        /// Classification from the exact public library variant.
+        kind: LinearFailureKind,
+        /// Unmodified library error, including its numerical/workspace payload.
+        #[source]
+        cause: Box<feral::FeralError>,
     },
     /// A declared finite allowance was exhausted.
     #[error("{kind:?} limit: {detail}")]
@@ -285,7 +344,17 @@ impl ProblemError {
             Self::Numerical { status, detail } => detail
                 .capacity()
                 .saturating_add(status.as_ref().map_or(0, |s| s.name.capacity())),
+            Self::Native { status, detail, .. } => {
+                detail.capacity().saturating_add(status.name.capacity())
+            }
             Self::Limit { detail, .. } => detail.capacity(),
+            Self::Linear { cause, .. } => {
+                size_of::<feral::FeralError>().saturating_add(match cause.as_ref() {
+                    feral::FeralError::InvalidInput(message)
+                    | feral::FeralError::IoError(message) => message.capacity(),
+                    _ => 0,
+                })
+            }
             Self::Reuse { refusal, .. } => match refusal {
                 ReuseRefusal::DroppedOptions(keys) => keys.iter().fold(
                     keys.capacity().saturating_mul(size_of::<String>()),
@@ -316,6 +385,18 @@ pse_diagnostics::impl_diagnostic! {
         Self::Unsupported(_) => Some(pse_diagnostics::DiagnosticCode::NativeUnsupported),
         Self::Reuse{..} => Some(pse_diagnostics::DiagnosticCode::NativeReuse),
         Self::Numerical{..} => Some(pse_diagnostics::DiagnosticCode::NativeNumerical),
+        Self::Native { kind, .. } => Some(match kind {
+            NativeFailureKind::Resource => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+            NativeFailureKind::Contract => pse_diagnostics::DiagnosticCode::NativeContract,
+            NativeFailureKind::Numerical => pse_diagnostics::DiagnosticCode::NativeNumerical,
+            NativeFailureKind::Infrastructure => pse_diagnostics::DiagnosticCode::InternalInvariant,
+        }),
+        Self::Linear { kind, .. } => Some(match kind {
+            LinearFailureKind::Contract => pse_diagnostics::DiagnosticCode::NativeContract,
+            LinearFailureKind::Numerical => pse_diagnostics::DiagnosticCode::NativeNumerical,
+            LinearFailureKind::Memory => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
+            LinearFailureKind::Internal => pse_diagnostics::DiagnosticCode::InternalInvariant,
+        }),
         Self::Limit{kind: LimitKind::Time, ..} => Some(pse_diagnostics::DiagnosticCode::RuntimeTimeout),
         Self::Limit{..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
@@ -388,8 +469,49 @@ impl OracleContract {
         Ok(())
     }
 }
+/// Actual prepared root operations, independent of authored smoothness and full jet order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RootOperations {
+    /// Canonical sparse Jacobian values can actually be evaluated.
+    pub jacobian: bool,
+    /// A first directional action can actually be evaluated.
+    pub jacobian_product: bool,
+}
+impl RootOperations {
+    /// Ordinary First programs supply both operations through their existing reference path.
+    pub fn from_order(order: DerivativeOrder) -> Self {
+        Self {
+            jacobian: order >= DerivativeOrder::First,
+            jacobian_product: order >= DerivativeOrder::First,
+        }
+    }
+    /// Validate a complete smooth square closure for the exact consumed operation.
+    /// # Errors
+    /// Shape, smoothness or missing actual support.
+    pub fn admit(self, contract: &OracleContract, product: bool) -> Result<(), ProblemError> {
+        contract.validate(DerivativeOrder::Value)?;
+        if contract.rows.len() != contract.variables.len()
+            || contract.smoothness < DerivativeOrder::First
+            || if product {
+                !self.jacobian_product
+            } else {
+                !self.jacobian
+            }
+        {
+            return Err(ProblemError::Unsupported(
+                "square root operation is not prepared in its smooth original scope".into(),
+            ));
+        }
+        Ok(())
+    }
+}
 /// Square nonlinear equations, with a residual Jacobian or Jacobian-vector product.
 pub trait NleOracle: std::fmt::Debug {
+    /// Actual executable operations. Generic First contracts retain their existing guarantees.
+    fn operations(&self) -> RootOperations {
+        RootOperations::from_order(self.contract().derivatives)
+    }
+
     /// Existing compiler matching witness; generic callbacks perform fresh analysis.
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         None
@@ -951,6 +1073,8 @@ impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
             | Self::Reuse { .. }
             | Self::Structural { .. }
             | Self::Numerical { .. }
+            | Self::Native { .. }
+            | Self::Linear { .. }
             | Self::Limit { .. }
             | Self::Cancelled
             | Self::Internal(_) => {}
@@ -1163,6 +1287,42 @@ impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
                     pse_diagnostics::DiagnosticRule::NativeNumerical,
                 )
             }
+            E::Native { status, kind, .. } => {
+                result.observations.insert(
+                    "native_backend".into(),
+                    Observation::Text(status.backend.as_str().into()),
+                );
+                result
+                    .observations
+                    .insert("native_code".into(), Observation::Integer(status.code));
+                result.observations.insert(
+                    "native_status".into(),
+                    Observation::Text(status.name.clone()),
+                );
+                match kind {
+                    NativeFailureKind::Resource => {
+                        result
+                            .observations
+                            .insert("limit".into(), Observation::Text("memory".into()));
+                        (
+                            Class::ResourceLimit,
+                            pse_diagnostics::DiagnosticRule::NativeLimit,
+                        )
+                    }
+                    NativeFailureKind::Contract => (
+                        Class::InvalidModel,
+                        pse_diagnostics::DiagnosticRule::NativeContract,
+                    ),
+                    NativeFailureKind::Numerical => (
+                        Class::Numerical,
+                        pse_diagnostics::DiagnosticRule::NativeNumerical,
+                    ),
+                    NativeFailureKind::Infrastructure => (
+                        Class::Infrastructure,
+                        pse_diagnostics::DiagnosticRule::NativeInternal,
+                    ),
+                }
+            }
             E::Limit { kind, .. } => {
                 result.observations.insert(
                     "limit".into(),
@@ -1180,6 +1340,29 @@ impl pse_model::diagnostic::DiagnosticProjection for ProblemError {
                     pse_diagnostics::DiagnosticRule::NativeLimit,
                 )
             }
+            E::Linear { kind, .. } => match kind {
+                LinearFailureKind::Contract => (
+                    Class::InvalidModel,
+                    pse_diagnostics::DiagnosticRule::NativeContract,
+                ),
+                LinearFailureKind::Numerical => (
+                    Class::Numerical,
+                    pse_diagnostics::DiagnosticRule::NativeNumerical,
+                ),
+                LinearFailureKind::Memory => {
+                    result
+                        .observations
+                        .insert("limit".into(), Observation::Text("memory".into()));
+                    (
+                        Class::ResourceLimit,
+                        pse_diagnostics::DiagnosticRule::NativeLimit,
+                    )
+                }
+                LinearFailureKind::Internal => (
+                    Class::Internal,
+                    pse_diagnostics::DiagnosticRule::NativeInternal,
+                ),
+            },
             E::Cancelled => (
                 Class::Cancelled,
                 pse_diagnostics::DiagnosticRule::NativeCancelled,

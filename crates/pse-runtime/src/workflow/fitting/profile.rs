@@ -16,7 +16,8 @@
 //!
 //! **Step control** (homotopy style). The predictor extrapolates `r` along the secant of
 //! the last two accepted points to reach `r*`, at most doubling the step; a failed pinned
-//! fit halves it toward the last accepted point. Once a point passes the threshold, the
+//! fit with a recoverable numerical cause halves it toward the last accepted point.
+//! Contract, resource and operational failures end the chain. Once a point passes the threshold, the
 //! end is bracketed and the next pin is the secant root in `r` between the bracket's
 //! points, exact on a linear model. A chain ends at a point within the tolerance of `r*`
 //! (`threshold`), at the parameter's declared bound below it (`bound`), or stops: a failure
@@ -27,8 +28,9 @@ use super::{covariance::IntervalBound, oracle::FitOracle};
 use native::{
     ProblemError,
     kkt::Withheld,
-    solve::{Backend, Compatibility, Execution, Qualification},
+    solve::{Backend, Compatibility, Execution, Qualification, Termination},
 };
+use pse_model::diagnostic::{BoundaryDiagnostic, DiagnosticProjection};
 use pse_relations::generated::enums::{IntervalEnd, IntervalOutcome};
 use statrs::distribution::{ChiSquared, ContinuousCDF};
 use std::sync::{
@@ -46,6 +48,12 @@ pub struct ProfilePoint {
     pub seed: Option<usize>,
     /// The pinned fit's qualification, when the runner returned a report.
     pub qualification: Option<Qualification>,
+    /// Actual native termination, when the runner returned a report.
+    pub termination: Option<Termination>,
+    /// Original typed cause; serialized through its owner's boundary diagnostic.
+    pub failures: Vec<ProfileFailure>,
+    /// The native callback owner latched a terminal failure, even for a trial-class cause.
+    pub callback_terminal_failure: bool,
     /// The pinned fit's objective, half the weighted residual sum of squares.
     pub objective: Option<f64>,
     /// `√(2·max(f - f*, 0))`.
@@ -54,6 +62,46 @@ pub struct ProfilePoint {
     pub accepted: bool,
     /// Why the pinned fit failed or was not used.
     pub detail: Option<String>,
+}
+/// A retained source failure. Clones share the same typed witness; presentation is derived.
+#[derive(Clone, Debug, schemars::JsonSchema)]
+#[schemars(with = "BoundaryDiagnostic")]
+pub struct ProfileFailure(Arc<ProblemError>);
+impl From<ProblemError> for ProfileFailure {
+    fn from(error: ProblemError) -> Self {
+        Self(Arc::new(error))
+    }
+}
+impl ProfileFailure {
+    /// Original native, mathematical or provider failure.
+    pub fn cause(&self) -> &ProblemError {
+        self.0.as_ref()
+    }
+    /// Structured boundary projection supplied by the source failure's owner.
+    pub fn diagnostic(&self) -> BoundaryDiagnostic {
+        self.0
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
+    }
+    fn subdivides(&self) -> bool {
+        matches!(
+            crate::math::strategy::failure(self.cause()),
+            pse_model::generated::enums::NumericalAttemptObservation::NumericalFailure
+        )
+    }
+    fn bytes(&self) -> usize {
+        self.0.retained_bytes().saturating_add(128)
+    }
+}
+impl PartialEq for ProfileFailure {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+impl Eq for ProfileFailure {}
+impl serde::Serialize for ProfileFailure {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.diagnostic().serialize(serializer)
+    }
 }
 /// Infrastructure outcome of one chain; this never becomes a scientific trial rejection.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
@@ -69,6 +117,8 @@ pub enum ProfileWorkerFailure {
     /// A worker could not start or enter its execution environment; an unstarted
     /// chain carries this outcome when no remaining worker completes it.
     Scheduling(String),
+    /// Entering the worker's native environment failed with an original typed cause.
+    Environment(ProfileFailure),
 }
 /// The chain of one free parameter toward one end.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
@@ -105,7 +155,7 @@ fn dispatch<T: Send>(
     stack: usize,
     run: impl Fn(usize) -> T + Sync,
     failed: impl Fn(usize, ProfileWorkerFailure) -> T + Sync,
-    environment: impl Fn(&(dyn Fn() + Sync)) -> Result<(), String> + Sync,
+    environment: impl Fn(&(dyn Fn() + Sync)) -> Result<(), ProfileWorkerFailure> + Sync,
     spawn: impl Fn(usize) -> Result<(), String>,
 ) -> (Vec<T>, usize, Vec<ProfileWorkerFailure>) {
     if workers == 1 {
@@ -152,7 +202,7 @@ fn dispatch<T: Send>(
         for handle in handles {
             match handle.join() {
                 Ok(Ok(())) => {}
-                Ok(Err(error)) => scheduling.push(ProfileWorkerFailure::Scheduling(error)),
+                Ok(Err(error)) => scheduling.push(error),
                 Err(_) => scheduling.push(ProfileWorkerFailure::Panic),
             }
         }
@@ -166,6 +216,7 @@ fn dispatch<T: Send>(
             .map(|failure| match failure {
                 ProfileWorkerFailure::Panic => "profile worker panicked outside a chain",
                 ProfileWorkerFailure::Scheduling(detail) => detail.as_str(),
+                ProfileWorkerFailure::Environment(_) => "profile worker environment failed",
             })
             .collect::<Vec<_>>()
             .join("; ")
@@ -175,6 +226,11 @@ fn dispatch<T: Send>(
         .any(|failure| matches!(failure, ProfileWorkerFailure::Panic))
     {
         ProfileWorkerFailure::Panic
+    } else if let Some(failure) = scheduling
+        .iter()
+        .find(|failure| matches!(failure, ProfileWorkerFailure::Environment(_)))
+    {
+        failure.clone()
     } else {
         ProfileWorkerFailure::Scheduling(detail)
     };
@@ -197,6 +253,7 @@ impl ProfileChain {
             + self.detail.as_ref().map_or(0, String::capacity)
             + match &self.worker_failure {
                 Some(ProfileWorkerFailure::Scheduling(detail)) => detail.capacity(),
+                Some(ProfileWorkerFailure::Environment(failure)) => failure.bytes(),
                 _ => 0,
             }
             + self.scheduling_failures.capacity() * size_of::<ProfileWorkerFailure>()
@@ -205,6 +262,7 @@ impl ProfileChain {
                 .iter()
                 .map(|failure| match failure {
                     ProfileWorkerFailure::Scheduling(detail) => detail.capacity(),
+                    ProfileWorkerFailure::Environment(failure) => failure.bytes(),
                     ProfileWorkerFailure::Panic => 0,
                 })
                 .sum::<usize>()
@@ -212,7 +270,11 @@ impl ProfileChain {
             + self
                 .points
                 .iter()
-                .map(|p| p.detail.as_ref().map_or(0, String::capacity))
+                .map(|p| {
+                    p.detail.as_ref().map_or(0, String::capacity)
+                        + p.failures.capacity() * size_of::<ProfileFailure>()
+                        + p.failures.iter().map(ProfileFailure::bytes).sum::<usize>()
+                })
                 .sum::<usize>()
     }
 }
@@ -231,6 +293,117 @@ struct Solution {
     objective: f64,
     primal: Vec<f64>,
     qualification: Qualification,
+    termination: Termination,
+}
+/// A failed pinned solve retains report state independently from its original causes.
+struct PinFailure {
+    qualification: Option<Qualification>,
+    termination: Option<Termination>,
+    failures: Vec<ProfileFailure>,
+    callback_terminal_failure: bool,
+}
+impl From<ProblemError> for PinFailure {
+    fn from(error: ProblemError) -> Self {
+        Self {
+            qualification: None,
+            termination: None,
+            failures: vec![ProfileFailure(Arc::new(error))],
+            callback_terminal_failure: false,
+        }
+    }
+}
+impl PinFailure {
+    fn subdivides(&self) -> bool {
+        !self.callback_terminal_failure
+            && !self.failures.is_empty()
+            && self.failures.iter().all(ProfileFailure::subdivides)
+    }
+    fn detail(&self) -> String {
+        self.failures
+            .iter()
+            .map(|f| f.cause().to_string())
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+    /// Extract the original callback/validation witnesses before any statistical decision.
+    fn assess(report: native::solve::SolveReport) -> Result<Solution, Self> {
+        let qualification = report.qualification;
+        let termination = report.termination.category;
+        let mut failure = Self {
+            qualification: Some(qualification),
+            termination: Some(termination),
+            failures: [
+                report.shared_callback_failure(),
+                report.shared_validation_failure(),
+            ]
+            .into_iter()
+            .flatten()
+            .map(ProfileFailure)
+            .collect(),
+            callback_terminal_failure: report.evidence.callback.terminal_failure,
+        };
+        if failure.callback_terminal_failure && failure.failures.is_empty() {
+            failure.failures.push(
+                ProblemError::Internal("terminal callback failure has no original cause".into())
+                    .into(),
+            );
+        }
+        // A native operational stop stays terminal even if its incumbent is stationary.
+        if !matches!(
+            termination,
+            Termination::Success | Termination::Acceptable | Termination::FeasibleOnly
+        ) || failure.failures.is_empty()
+            && (!matches!(
+                qualification,
+                Qualification::Stationary
+                    | Qualification::OptimalWithinTolerance
+                    | Qualification::GapQualified
+            ) || !report
+                .quality
+                .as_ref()
+                .is_some_and(native::quality::Quality::feasible))
+        {
+            failure
+                .failures
+                .push(ProfileFailure(Arc::new(ProblemError::native(
+                    native::NativeStatus {
+                        backend: report.backend,
+                        code: report.termination.code,
+                        name: report.termination.name.clone(),
+                    },
+                    termination,
+                    format!(
+                        "the pinned fit is qualified {} ({})",
+                        qualification.as_str(),
+                        report.termination.name
+                    ),
+                ))));
+        }
+        if !failure.failures.is_empty() {
+            return Err(failure);
+        }
+        let objective = report
+            .observation
+            .as_ref()
+            .and_then(|o| o.objective)
+            .filter(|f| f.is_finite());
+        match (report.candidate, objective) {
+            (Some(candidate), Some(objective)) => Ok(Solution {
+                objective,
+                primal: candidate.primal,
+                qualification,
+                termination,
+            }),
+            _ => {
+                failure
+                    .failures
+                    .push(ProfileFailure(Arc::new(ProblemError::Internal(
+                        "the qualified pinned fit observed no finite objective or candidate".into(),
+                    ))));
+                Err(failure)
+            }
+        }
+    }
 }
 /// What every chain of one fit shares.
 struct Chains<'a> {
@@ -247,14 +420,9 @@ struct Chains<'a> {
 }
 impl Chains<'_> {
     /// One pinned fit at `value`, seeded from `seed`.
-    fn solve(
-        &self,
-        column: OriginalCol,
-        value: f64,
-        seed: &[f64],
-    ) -> Result<Solution, (Option<Qualification>, String)> {
+    fn solve(&self, column: OriginalCol, value: f64, seed: &[f64]) -> Result<Solution, PinFailure> {
         if let Some(stop) = self.execution.stopped() {
-            return Err((None, format!("the fit stopped: {}", stop.as_str())));
+            return Err(ProblemError::stopped(stop, "the fit stopped").into());
         }
         let p = self.problem;
         let mut controls = p.profile.solver.controls.clone();
@@ -262,7 +430,7 @@ impl Chains<'_> {
             .execution
             .time_limit
             .saturating_sub(self.execution.started.elapsed());
-        let failed = |e: ProblemError| (None, e.to_string());
+        let failed = PinFailure::from;
         let oracle = FitOracle::new(p.clone(), self.execution.clone()).map_err(failed)?;
         let pinned = native::transform::Pinned::new(Box::new(oracle), &[(column.get(), value)])
             .map_err(failed)?;
@@ -299,42 +467,7 @@ impl Chains<'_> {
             },
         )
         .map_err(failed)?;
-        let qualification = report.qualification;
-        if !matches!(
-            qualification,
-            Qualification::Stationary
-                | Qualification::OptimalWithinTolerance
-                | Qualification::GapQualified
-        ) || !report
-            .quality
-            .as_ref()
-            .is_some_and(native::quality::Quality::feasible)
-        {
-            return Err((
-                Some(qualification),
-                format!(
-                    "the pinned fit is qualified {} ({})",
-                    qualification.as_str(),
-                    report.termination.name
-                ),
-            ));
-        }
-        let objective = report
-            .observation
-            .as_ref()
-            .and_then(|o| o.objective)
-            .filter(|f| f.is_finite());
-        match (report.candidate, objective) {
-            (Some(candidate), Some(objective)) => Ok(Solution {
-                objective,
-                primal: candidate.primal,
-                qualification,
-            }),
-            _ => Err((
-                Some(qualification),
-                "the pinned fit observed no objective".into(),
-            )),
-        }
+        PinFailure::assess(report)
     }
     fn failed(&self, task: Task, failure: ProfileWorkerFailure) -> ProfileChain {
         ProfileChain {
@@ -348,6 +481,7 @@ impl Chains<'_> {
             detail: Some(match &failure {
                 ProfileWorkerFailure::Panic => "profile chain worker panic".into(),
                 ProfileWorkerFailure::Scheduling(reason) => reason.clone(),
+                ProfileWorkerFailure::Environment(failure) => failure.cause().to_string(),
             }),
             points: Vec::new(),
             worker_failure: Some(failure),
@@ -359,27 +493,63 @@ impl Chains<'_> {
     fn run(&self, task: Task) -> ProfileChain {
         let p = self.problem;
         let column = task.column.get();
-        let direction = if task.end == IntervalEnd::Lower {
+        let variable = &p.contract.variables[column];
+        ChainPolicy {
+            parameter: p.declaration.parameters[task.parameter].symbol_id,
+            column,
+            end: task.end,
+            step: task.step,
+            estimate: self.estimate,
+            limit: if task.end == IntervalEnd::Lower {
+                variable.lower
+            } else {
+                variable.upper
+            },
+            bound_tolerance: p.tolerances.variables[column],
+            scale: p.declaration.parameters[task.parameter].scale,
+            optimum: self.optimum,
+            threshold: self.threshold,
+            tolerance: self.tolerance,
+            points: self.points,
+            execution: self.execution,
+        }
+        .run(|value, seed| self.solve(task.column, value, seed))
+    }
+}
+/// Statistical target and bracketing policy, independent of problem/native startup.
+struct ChainPolicy<'a> {
+    parameter: SemanticId,
+    column: usize,
+    end: IntervalEnd,
+    step: f64,
+    estimate: &'a [f64],
+    limit: f64,
+    bound_tolerance: f64,
+    scale: f64,
+    optimum: f64,
+    threshold: f64,
+    tolerance: f64,
+    points: usize,
+    execution: &'a Execution,
+}
+impl ChainPolicy<'_> {
+    fn run(
+        &self,
+        mut solve: impl FnMut(f64, &[f64]) -> Result<Solution, PinFailure>,
+    ) -> ProfileChain {
+        let direction = if self.end == IntervalEnd::Lower {
             -1.0
         } else {
             1.0
         };
-        let estimate = self.estimate[column];
-        let variable = &p.contract.variables[column];
-        let limit = if task.end == IntervalEnd::Lower {
-            variable.lower
-        } else {
-            variable.upper
-        };
-        let tolerance = p.tolerances.variables[column];
-        let scale = p.declaration.parameters[task.parameter].scale;
-        let smallest = 1e-9 * scale.max(estimate.abs());
+        let estimate = self.estimate[self.column];
+        let smallest = 1e-9 * self.scale.max(estimate.abs());
         let mut chain = ProfileChain {
             worker_failure: None,
             scheduling_failures: Vec::new(),
             actual_parallelism: 1,
-            parameter: p.declaration.parameters[task.parameter].symbol_id,
-            end: task.end,
+            parameter: self.parameter,
+            end: self.end,
             estimate,
             bound: IntervalBound {
                 value: None,
@@ -393,15 +563,15 @@ impl Chains<'_> {
             chain.detail = detail;
             chain
         };
-        if limit.is_finite() && (limit - estimate).abs() <= tolerance {
-            return end(chain, Some(limit), IntervalOutcome::Bound, None);
+        if self.limit.is_finite() && (self.limit - estimate).abs() <= self.bound_tolerance {
+            return end(chain, Some(self.limit), IntervalOutcome::Bound, None);
         }
         // The latest accepted point below the threshold: value, statistic, solution and
         // chain index (`None` for the estimate).
         let mut base = (estimate, 0.0, self.estimate.to_vec(), None::<usize>);
         let mut over: Option<(f64, f64)> = None;
         let mut ceiling: Option<f64> = None;
-        let mut step = task.step.max(smallest);
+        let mut step = self.step.max(smallest);
         // An objective this far below the estimate's is a lower minimum, not noise.
         let lower = self.tolerance * self.threshold * self.threshold / 2.0;
         while chain.points.len() < self.points {
@@ -420,20 +590,29 @@ impl Chains<'_> {
                     {
                         value = 0.5 * (at + ceiling);
                     }
-                    if limit.is_finite() && direction * (value - limit) > 0.0 {
-                        value = limit;
+                    if self.limit.is_finite() && direction * (value - self.limit) > 0.0 {
+                        value = self.limit;
                     }
                     value
                 }
             };
             let index = chain.points.len();
             let seed = base.3;
-            match self.solve(task.column, value, &base.2) {
-                Err((qualification, detail)) => {
+            let result = self.execution.stopped().map_or_else(
+                || solve(value, &base.2),
+                |stop| Err(ProblemError::stopped(stop, "the profile chain stopped").into()),
+            );
+            match result {
+                Err(failure) => {
+                    let subdivides = failure.subdivides();
+                    let detail = failure.detail();
                     chain.points.push(ProfilePoint {
                         value,
                         seed,
-                        qualification,
+                        qualification: failure.qualification,
+                        termination: failure.termination,
+                        failures: failure.failures,
+                        callback_terminal_failure: failure.callback_terminal_failure,
                         objective: None,
                         statistic: None,
                         accepted: false,
@@ -441,7 +620,7 @@ impl Chains<'_> {
                     });
                     // Halve the step toward the last accepted point.
                     let gap = (value - at).abs() / 2.0;
-                    if gap < smallest || self.execution.stopped().is_some() {
+                    if !subdivides || gap < smallest || self.execution.stopped().is_some() {
                         return end(chain, None, IntervalOutcome::Stopped, Some(detail));
                     }
                     over = None;
@@ -456,6 +635,9 @@ impl Chains<'_> {
                         value,
                         seed,
                         qualification: Some(solution.qualification),
+                        termination: Some(solution.termination),
+                        failures: Vec::new(),
+                        callback_terminal_failure: false,
                         objective: Some(solution.objective),
                         statistic: Some(r),
                         accepted: !below,
@@ -479,8 +661,8 @@ impl Chains<'_> {
                     let advanced = (value - at).abs();
                     let slope = (r - statistic) / advanced;
                     base = (value, r, solution.primal, Some(index));
-                    if limit.is_finite() && value == limit {
-                        return end(chain, Some(limit), IntervalOutcome::Bound, None);
+                    if self.limit.is_finite() && value == self.limit {
+                        return end(chain, Some(self.limit), IntervalOutcome::Bound, None);
                     }
                     if over.is_none() {
                         let predicted = if slope > 0.0 {
@@ -575,7 +757,7 @@ impl FitProblem {
                         Ok(())
                     },
                 )
-                .map_err(|error| error.to_string())
+                .map_err(|error| ProfileWorkerFailure::Environment(ProfileFailure(Arc::new(error))))
             },
             |_| Ok(()),
         );
@@ -590,6 +772,257 @@ impl FitProblem {
 #[cfg(test)]
 mod worker_tests {
     use super::*;
+    fn policy(execution: &Execution) -> ChainPolicy<'_> {
+        ChainPolicy {
+            parameter: SemanticId::NIL,
+            column: 0,
+            end: IntervalEnd::Upper,
+            step: 1.0,
+            estimate: &[0.0],
+            limit: 10.0,
+            bound_tolerance: 1e-8,
+            scale: 1.0,
+            optimum: 0.0,
+            threshold: 1.0,
+            tolerance: 1e-2,
+            points: 8,
+            execution,
+        }
+    }
+    fn execution() -> Execution {
+        Execution::new(
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            &Default::default(),
+        )
+    }
+    fn solution(value: f64) -> Solution {
+        Solution {
+            objective: value * value / 2.0,
+            primal: vec![value],
+            qualification: Qualification::Stationary,
+            termination: Termination::Success,
+        }
+    }
+    fn report(termination: Termination, execution: &Execution) -> native::solve::SolveReport {
+        native::solve::SolveReport::new(
+            Backend::Ipopt,
+            &OracleContract {
+                identity: ContentHash::from_bytes([1; 32]),
+                variables: Vec::new(),
+                rows: Vec::new(),
+                derivatives: DerivativeOrder::Second,
+                smoothness: DerivativeOrder::Second,
+            },
+            native::solve::NativeTermination {
+                code: 123,
+                name: "injected native stop".into(),
+                message: None,
+                category: termination,
+                assurance: native::solve::Assurance::None,
+            },
+            execution,
+        )
+    }
+    #[test]
+    fn numerical_failure_subdivides_then_brackets_without_replacing_statistical_policy() {
+        let execution = execution();
+        let mut pins = Vec::new();
+        let mut seeds = Vec::new();
+        let chain = policy(&execution).run(|value, seed| {
+            pins.push(value);
+            seeds.push(seed.to_vec());
+            if pins.len() == 1 {
+                Err(ProblemError::numerical("injected trajectory failure").into())
+            } else {
+                Ok(solution(value))
+            }
+        });
+        assert_eq!(pins[0..2], [1.0, 0.5]);
+        assert_eq!(seeds[0], vec![0.0]);
+        assert_eq!(seeds[1], vec![0.0]);
+        assert_eq!(seeds[2], vec![0.5]);
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Threshold);
+        assert!((chain.bound.value.unwrap() - 1.0).abs() <= 1e-2);
+        assert!(matches!(
+            chain.points[0].failures[0].cause(),
+            ProblemError::Numerical { .. }
+        ));
+        assert!(!chain.points[0].accepted);
+        assert_eq!(chain.points[1].seed, None);
+        assert_eq!(chain.points[2].seed, Some(1));
+    }
+    #[test]
+    fn terminal_profile_causes_never_subdivide_and_keep_the_original_error() {
+        let source_id = SemanticId::from_bytes([9; 16]);
+        let terminal = vec![
+            ProblemError::Contract("numerical-looking contract".into()),
+            ProblemError::Unsupported("required representation".into()),
+            ProblemError::memory("allocation refused"),
+            ProblemError::Limit {
+                kind: native::LimitKind::Work,
+                detail: "attempt cap".into(),
+            },
+            ProblemError::Cancelled,
+            ProblemError::Internal("infrastructure invariant".into()),
+            ProblemError::Provider(pse_kernels::ProviderError::Terminal(
+                "provider stopped".into(),
+            )),
+            ProblemError::Math(pse_math::MathError::Instance {
+                instance: source_id,
+                checked_members: Default::default(),
+                cause: Box::new(pse_math::MathError::Provider {
+                    source_id,
+                    provider: source_id,
+                    cause: pse_kernels::ProviderError::DerivativeUnavailable {
+                        capability: pse_kernels::DerivativeCapability::SelectorNeighborhood,
+                        requested: DerivativeOrder::Second,
+                        available: DerivativeOrder::First,
+                        members: vec![source_id],
+                    },
+                }),
+            }),
+        ];
+        for cause in terminal {
+            let execution = execution();
+            let mut attempt = Some(cause);
+            let mut pins = Vec::new();
+            let chain = policy(&execution).run(|value, _| {
+                pins.push(value);
+                Err(attempt
+                    .take()
+                    .expect("terminal cause must never run another pin")
+                    .into())
+            });
+            assert_eq!(pins, vec![1.0]);
+            assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+            assert!(chain.bound.value.is_none());
+            assert_eq!(chain.points.len(), 1);
+            assert!(!chain.points[0].failures[0].subdivides());
+            assert!(chain.worker_failure.is_none());
+        }
+    }
+    #[test]
+    fn nested_provider_trial_can_subdivide_but_native_terminal_latch_cannot() {
+        let trial = || {
+            ProblemError::Math(pse_math::MathError::Instance {
+                instance: SemanticId::NIL,
+                checked_members: Default::default(),
+                cause: Box::new(pse_math::MathError::Provider {
+                    source_id: SemanticId::NIL,
+                    provider: SemanticId::NIL,
+                    cause: pse_kernels::ProviderError::Trial("injected trial".into()),
+                }),
+            })
+        };
+        let execution = execution();
+        let mut pins = Vec::new();
+        let chain = policy(&execution).run(|value, _| {
+            pins.push(value);
+            if pins.len() == 1 {
+                Err(trial().into())
+            } else {
+                Ok(solution(value))
+            }
+        });
+        assert_eq!(pins[0..2], [1.0, 0.5]);
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Threshold);
+        let mut pins = Vec::new();
+        let chain = policy(&execution).run(|value, _| {
+            pins.push(value);
+            Err(PinFailure {
+                qualification: Some(Qualification::Unqualified),
+                termination: Some(Termination::Evaluation),
+                failures: vec![trial().into()],
+                callback_terminal_failure: true,
+            })
+        });
+        assert_eq!(pins, vec![1.0]);
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+        assert!(chain.points[0].callback_terminal_failure);
+        assert!(chain.points[0].failures[0].subdivides());
+        let mut latched = report(Termination::Evaluation, &execution);
+        latched.record_validation_failure(trial());
+        latched.evidence.callback.terminal_failure = true;
+        let mut latched = Some(latched);
+        let mut pins = Vec::new();
+        let chain = policy(&execution).run(|value, _| {
+            pins.push(value);
+            PinFailure::assess(latched.take().expect("terminal report must never repeat"))
+        });
+        assert_eq!(pins, vec![1.0]);
+        assert!(chain.points[0].callback_terminal_failure);
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+    }
+    #[test]
+    fn native_limits_stop_stationary_profile_reports_and_validation_cause_is_retained() {
+        let execution = execution();
+        for termination in [
+            Termination::IterationLimit,
+            Termination::TimeLimit,
+            Termination::ResourceExhausted,
+            Termination::Cancelled,
+            Termination::Panic,
+            Termination::Invalid,
+        ] {
+            let mut observed = report(termination, &execution);
+            observed.qualification = Qualification::Stationary;
+            let mut observed = Some(observed);
+            let mut attempts = 0;
+            let chain = policy(&execution).run(|_, _| {
+                attempts += 1;
+                PinFailure::assess(observed.take().expect("native stop must never repeat"))
+            });
+            assert_eq!(attempts, 1);
+            assert_eq!(
+                chain.points[0].qualification,
+                Some(Qualification::Stationary)
+            );
+            assert_eq!(chain.points[0].termination, Some(termination));
+            assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+        }
+        let mut observed = report(Termination::Success, &execution);
+        observed.record_validation_failure(ProblemError::Provider(
+            pse_kernels::ProviderError::Terminal("validation provider".into()),
+        ));
+        let original = observed.shared_validation_failure().unwrap();
+        let failed = PinFailure::assess(observed).err().unwrap();
+        assert!(!failed.subdivides());
+        assert!(Arc::ptr_eq(&original, &failed.failures[0].0));
+    }
+    #[test]
+    fn stopped_scope_never_starts_a_scripted_pin() {
+        let execution = execution();
+        execution.cancel.store(true, Ordering::Release);
+        let chain = policy(&execution).run(|_, _| panic!("cancelled profile started a pin"));
+        assert_eq!(chain.points.len(), 1);
+        assert!(matches!(
+            chain.points[0].failures[0].cause(),
+            ProblemError::Cancelled
+        ));
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped);
+    }
+    #[test]
+    fn worker_environment_retains_typed_failure_without_starting_a_chain() {
+        let attempts = AtomicUsize::new(0);
+        let failure =
+            ProfileWorkerFailure::Environment(ProblemError::memory("worker native scope").into());
+        let (results, started, failures) = dispatch(
+            4,
+            2,
+            2 * 1024 * 1024,
+            |_| {
+                attempts.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            },
+            |_, failure| Err(failure),
+            |_| Err(failure.clone()),
+            |_| Ok(()),
+        );
+        assert_eq!(started, 2);
+        assert_eq!(attempts.load(Ordering::Relaxed), 0);
+        assert_eq!(failures, vec![failure.clone(); 2]);
+        assert_eq!(results, vec![Err(failure); 4]);
+    }
     #[test]
     fn worker_panic_is_typed_and_never_replays_a_started_chain() {
         let attempts = AtomicUsize::new(0);

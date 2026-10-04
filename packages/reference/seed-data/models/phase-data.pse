@@ -23,6 +23,8 @@
 @id("01a0e15d9eff71b98e751a06aab4b497") expect root.pressure==101378{Pa} tolerance 0{Pa} relative 1e-4;
 }
 @id("01a0e16127e470a5896844b4731c4f7c") test critical_endpoint_rejected oracle references.rpp4 fixture {dof 0; route steady; procedure check; failure trial_rejected validity(form) form(correlations.rpp4_wagner_psat) set(correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit]) variable(T);} {
+// Admit this exact empirical endpoint solely to exercise the stricter mathematical form guard.
+@id("01a1068872ca7366a5228b92271f3807") permission endpoint_data records(correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit]) allow_unknown false allow_extrapolation true;
 @id("01a0e16127e470a5896844b51e6733d6") expect correlations.rpp4_wagner_psat(562.2{K},correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit])==4890000{Pa} tolerance 1{Pa};
 }
 }

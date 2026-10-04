@@ -60,7 +60,7 @@ async fn algebraic(
     )
 }
 
-async fn cone(owner: &WorkflowRuntime) {
+async fn cone(owner: &WorkflowRuntime, observations: &mut observations::Observations) {
     let physical = physical(owner).await;
     let request = workflow::ConicRequest {
         variables: vec![serde_json::from_value(port(id(20), &physical)).unwrap()],
@@ -81,6 +81,18 @@ async fn cone(owner: &WorkflowRuntime) {
     let pse_runtime::math::solves::Outcome::Native(report) = &result.outcome else {
         panic!("missing cone result")
     };
+    // The direct mathematical step has no workflow run identity. This local
+    // projection identity is not retained or used as scientific provenance.
+    observations.rows(
+        &result
+            .strategy
+            .rows(
+                pse_model::generated::identities::RunId::from_id(SemanticId::NIL),
+                0,
+            )
+            .unwrap(),
+    );
+    observations.native(report);
     near(report.candidate.as_ref().unwrap().primal[0], 2., 1e-6);
     near(
         report.candidate.as_ref().unwrap().objective.unwrap(),
@@ -90,7 +102,7 @@ async fn cone(owner: &WorkflowRuntime) {
     assert!(report.quality.as_ref().unwrap().feasible());
 }
 
-async fn recycle(owner: &WorkflowRuntime) {
+async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Observations) {
     let physical = physical(owner).await;
     let rows=pse_authoring::language::parse("package benchmark {def Root {param a:Scalar=2; var x:Scalar; let result:Scalar=x/2+a; port inlet:Scalar=x; port outlet:Scalar=result; connect outlet -> inlet; annotation start x(1);}}",id(1),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
     let root = rows
@@ -184,6 +196,8 @@ async fn recycle(owner: &WorkflowRuntime) {
         .await
         .unwrap();
     let result = prepared.start().unwrap().finish().await.unwrap();
+    observations.rows(&result.strategy.rows(result.run_id, 0).unwrap());
+    observations.native(&result.report);
     near(
         result.report.candidate.as_ref().unwrap().primal[0],
         4.,
@@ -192,7 +206,11 @@ async fn recycle(owner: &WorkflowRuntime) {
     assert!(result.report.quality.as_ref().unwrap().feasible());
 }
 
-async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
+async fn sparse_fit(
+    owner: &WorkflowRuntime,
+    n: usize,
+    observations: &mut observations::Observations,
+) {
     let physical = physical(owner).await;
     let source = format!(
         "package benchmark {{ entity kind source provenance {{}} entity source analytic {{}} enum Role {{ measured facets(measured) }} entity kind measurement {{attribute observed:Scalar;}} {} def Identity {{ {} }} }}",
@@ -243,6 +261,7 @@ async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
         .await
         .unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();
+    observations.run(&result);
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing sparse fit")
     };
@@ -256,11 +275,16 @@ async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
     );
 }
 
-async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
+async fn run(
+    owner: &WorkflowRuntime,
+    operation: &str,
+    size: usize,
+    observations: &mut observations::Observations,
+) {
     match operation {
-        "conic" => cone(owner).await,
-        "recycle" => recycle(owner).await,
-        "sparse-fit" => sparse_fit(owner, size).await,
+        "conic" => cone(owner, observations).await,
+        "recycle" => recycle(owner, observations).await,
+        "sparse-fit" => sparse_fit(owner, size, observations).await,
         "mixed-scale" | "qp" | "value-sweep" => {
             let quadratic = operation == "qp";
             let mixed = operation == "mixed-scale";
@@ -314,6 +338,7 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                 let coordinates = [symbol("x"), symbol("y")];
                 let result = prepared.start().unwrap().wait().await.unwrap();
                 authored_success(&result);
+                observations.run(&result);
                 for (id, expected) in coordinates.into_iter().zip(expected) {
                     near(variable(&result, id), expected, expected.abs() * 1e-7);
                 }
@@ -333,6 +358,7 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
             if operation == "vessel" {
                 let result = prepared.run(&cancel).await.unwrap();
                 assert!(result.accepted, "{result:?}");
+                observations.trajectory(&result.report);
                 std::hint::black_box(result.tables().unwrap());
             } else {
                 let analysis = package
@@ -366,6 +392,7 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                         .unwrap();
                     let result = rebound.run(&cancel).await.unwrap();
                     assert!(result.accepted, "{result:?}");
+                    observations.trajectory(&result.report);
                 }
             }
         }
@@ -416,6 +443,7 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
                 .wait()
                 .await
                 .unwrap();
+            observations.run(&result);
             let RunReport::Fit(report) = result.report().unwrap() else {
                 panic!("missing fit")
             };
@@ -445,6 +473,7 @@ pub(super) fn measure(
     let mut retained = 0;
     let mut after_teardown = 0;
     let mut iterations = 0;
+    let mut observations = observations::Observations::default();
     compiler_phases.reset();
     let mut group = c.benchmark_group("process");
     group
@@ -455,7 +484,9 @@ pub(super) fn measure(
     group.bench_function(name, |b| {
         b.iter(|| {
             let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
-            executor.block_on(run(&owner, operation, size));
+            let before = owner.runtime.math().preparations();
+            executor.block_on(run(&owner, operation, size, &mut observations));
+            observations.preparations(before, owner.runtime.math().preparations());
             peak = peak.max(owner.runtime.observation_peak_bytes());
             rss = rss.max(
                 owner
@@ -480,6 +511,7 @@ pub(super) fn measure(
         "id":name,"iterations":iterations,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,
         "retained_runtime_bytes":retained,"after_case_teardown_bytes":after_teardown,
         "after_retained_runtime_teardown_bytes":null,"workload":spec,
+        "numerical_observations":observations.json(),
         "threads":1,"native_threads":1,"compiler_phases":compiler_phases.report(iterations),
         "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "scope":"fresh runtime per iteration; public source/preparation/execution/analytic validation and teardown; value sweep retains one compiler for 1000 revisions; dynamic rebind retains initial preparation",

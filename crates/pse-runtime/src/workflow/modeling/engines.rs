@@ -11,7 +11,7 @@ use crate::math::solves::{NumericalInputs, SolverProfile};
 use crate::workflow::staged::{Overlay, Staged, Start, bounded};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
 use pse_kernels::DerivativeOrder;
-use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic};
+use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, DiagnosticProjection};
 use pse_model::generated::identities::RunId;
 use pse_modeling::specialize::Value;
 use std::sync::Arc;
@@ -178,60 +178,17 @@ impl ModelingInitializationAttempt {
     pub fn accepted(&self) -> bool {
         self.interruption.is_none() && self.result.as_ref().is_ok_and(|r| r.accepted)
     }
-    fn retryable(&self) -> bool {
-        if self.interruption.is_some() {
-            return false;
+    fn numerical_observation(&self) -> pse_model::generated::enums::NumericalAttemptObservation {
+        if let Some(interruption) = &self.interruption {
+            return crate::math::strategy::boundary_failure(interruption.class);
         }
-        use crate::math::solves::Outcome;
-        use pse_backend_native::solve::Termination as T;
         match &self.result {
-            Err(error) => scientific_attempt_retry(error.boundary_diagnostic().class),
-            Ok(result) => match &result.outcome {
-                Outcome::Rejected(error) => scientific_attempt_retry(
-                    WorkflowError::Math(crate::math::MathRuntimeError::Shared(error.clone()))
-                        .boundary_diagnostic()
-                        .class,
-                ),
-                Outcome::Constant(_) => true,
-                Outcome::Native(native) => match native.termination.category {
-                    T::Success
-                    | T::Acceptable
-                    | T::FeasibleOnly
-                    | T::Infeasible
-                    | T::Inconclusive
-                    | T::IterationLimit
-                    | T::Numerical => true,
-                    T::Evaluation => pse_backend_native::callback::retryable_evaluation(native),
-                    T::Unbounded
-                    | T::InfeasibleOrUnbounded
-                    | T::Limit
-                    | T::NodeLimit
-                    | T::ResourceExhausted
-                    | T::ObjectiveLimit
-                    | T::SolutionLimit
-                    | T::TimeLimit
-                    | T::Cancelled
-                    | T::Panic
-                    | T::Invalid => false,
-                },
-            },
+            Err(error) => crate::math::strategy::workflow_failure(error),
+            Ok(result) => result.validation_error.as_ref().map_or_else(
+                || crate::math::strategy::observe(&result.outcome),
+                |error| crate::math::strategy::boundary_failure(error.class),
+            ),
         }
-    }
-}
-/// Scientific initialization retries are independent of durable effect/replay permission.
-const fn scientific_attempt_retry(class: BoundaryClass) -> bool {
-    match class {
-        BoundaryClass::TrialRejected | BoundaryClass::Numerical => true,
-        BoundaryClass::InvalidModel
-        | BoundaryClass::Nonfinite
-        | BoundaryClass::Inconclusive
-        | BoundaryClass::Unsupported
-        | BoundaryClass::Cancelled
-        | BoundaryClass::ResourceLimit
-        | BoundaryClass::Conflict
-        | BoundaryClass::Incompatible
-        | BoundaryClass::Infrastructure
-        | BoundaryClass::Internal => false,
     }
 }
 /// Attempts retain their own report/specification. A failed attempt never publishes a seed.
@@ -515,7 +472,10 @@ impl Initializer<'_> {
         &mut self,
         step: ModelingInitializationStep,
         overlay: Overlay,
-    ) -> Option<(bool, bool)> {
+    ) -> Option<(
+        bool,
+        pse_model::generated::enums::NumericalAttemptObservation,
+    )> {
         if self.report.attempts.len() == self.policy.maximum_attempts {
             self.stop(
                 BoundaryClass::ResourceLimit,
@@ -553,12 +513,12 @@ impl Initializer<'_> {
             interruption: record.interruption,
             stage_sources,
         };
-        let (accepted, retryable) = (attempt.accepted(), attempt.retryable());
+        let (accepted, observation) = (attempt.accepted(), attempt.numerical_observation());
         if accepted {
             self.accepted = Some(self.report.attempts.len());
         }
         self.report.attempts.push(attempt);
-        Some((accepted, retryable))
+        Some((accepted, observation))
     }
     fn stage_sources(
         &self,
@@ -660,13 +620,27 @@ impl Initializer<'_> {
             return true;
         }
         let mut progress = 0.;
-        let mut step = self.policy.initial_step;
+        let mut steps = match crate::math::strategy::path_control::StepControl::new(
+            self.policy.initial_step,
+            self.policy.minimum_step,
+            1.,
+            self.policy.growth,
+            self.policy.maximum_attempts,
+        ) {
+            Ok(steps) => steps,
+            Err(error) => {
+                self.report.failure = Some(
+                    error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Initialization),
+                );
+                return false;
+            }
+        };
         let mut initial = true;
         loop {
             let fraction = if initial {
                 0.
             } else {
-                (progress + step).min(1.)
+                (progress + steps.step()).min(1.)
             };
             if !initial && fraction <= progress {
                 return self.stop(
@@ -695,16 +669,19 @@ impl Initializer<'_> {
                     if fraction == 1. {
                         return true;
                     }
-                    if !initial {
-                        step = (step * self.policy.growth).min(1. - progress);
+                    if !initial && let Err(error) = steps.accepted(1. - progress) {
+                        self.report.failure =
+                            Some(error.boundary_diagnostic(
+                                pse_diagnostics::DiagnosticStage::Initialization,
+                            ));
+                        return false;
                     }
                 }
-                Some((false, retryable)) => {
-                    if initial || !retryable {
+                Some((false, observation)) => {
+                    if initial || !matches!(observation, pse_model::generated::enums::NumericalAttemptObservation::NumericalFailure | pse_model::generated::enums::NumericalAttemptObservation::Stalled) {
                         return self.failed_last();
                     }
-                    step *= 0.5;
-                    if step < self.policy.minimum_step {
+                    if !steps.rejected(observation) {
                         return self.stop(
                             BoundaryClass::TrialRejected,
                             pse_diagnostics::DiagnosticRule::ModelingInitializationMinimumStep,
@@ -881,7 +858,7 @@ mod tests {
     }
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
-    async fn kernel_initialization_shrinks_failed_native_nonlinear_steps() {
+    async fn initialization_iteration_limit_does_not_invent_stagnation_or_subdivision() {
         let (package, analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 100; var x: Scalar; eq residual: x*x == t; annotation start x(1); continue ramp on t from 1 to 100; } }",
             12,
@@ -890,28 +867,33 @@ mod tests {
             .initialize_model(&analysis, policy, &crate::CancelSource::new())
             .await
             .unwrap();
-        assert!(report.completed, "{}", initialization_summary(&report));
-        assert!(report.attempts.iter().any(|a|!a.accepted() && matches!(&a.result,Ok(r) if matches!(r.outcome,crate::math::solves::Outcome::Native(_)))),"{}", initialization_summary(&report));
-        assert!(
-            report
-                .committed
-                .as_ref()
-                .unwrap()
-                .values()
-                .any(|v| (v - 10.).abs() < 1e-6)
-        );
-        let original = report.attempts.last().unwrap().result.as_ref().unwrap();
-        assert!(original.accepted);
+        assert!(!report.completed, "{}", initialization_summary(&report));
+        assert!(report.committed.is_none());
+        assert_eq!(report.attempts.len(), 2);
         assert_eq!(
-            original
-                .prepared
-                .model
-                .model
-                .compiled()
-                .model
-                .continuation
-                .len(),
-            1
+            report.attempts[0].step,
+            ModelingInitializationStep::Homotopy(0.)
+        );
+        assert!(report.attempts[0].accepted());
+        assert_eq!(
+            report.attempts[1].step,
+            ModelingInitializationStep::Homotopy(1.)
+        );
+        assert_eq!(
+            report.attempts[1].numerical_observation(),
+            pse_model::generated::enums::NumericalAttemptObservation::Limited
+        );
+        let result = report.attempts[1].result.as_ref().unwrap();
+        let crate::math::solves::Outcome::Native(native) = &result.outcome else {
+            panic!("expected actual native iteration limit");
+        };
+        assert_eq!(
+            native.termination.category,
+            pse_backend_native::solve::Termination::IterationLimit
+        );
+        assert!(
+            native.evidence.abandoned.is_none(),
+            "iteration cap supplies no stagnation evidence"
         );
     }
     #[cfg(feature = "solver-kinsol")]

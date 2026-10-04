@@ -16,3 +16,4 @@ export SUITESPARSE_LIBRARY_DIR="$pse_klu_prefix/lib"
 
 pse_isolation_prefix="$(python3 "$pse_math_root/scripts/native_cache.py" isolation)"
 export PSE_ROOT_ISOLATION_DIR="$pse_isolation_prefix"
+source "$pse_math_root/scripts/native-pipeline-env.sh"

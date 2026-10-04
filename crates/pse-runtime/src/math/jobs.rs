@@ -108,6 +108,8 @@ pub(crate) struct Submission {
     pub(crate) queue: bool,
     /// Signalled once the operation holds its job slot, CPU permits and reservation.
     pub(crate) admitted: Option<tokio::sync::oneshot::Sender<()>>,
+    /// Absolute task deadline, including durable job and CPU waiting.
+    pub(crate) deadline: Option<std::time::Instant>,
 }
 impl Submission {
     /// In-memory work: a fresh cancellation, 256 retained events, refused when full.
@@ -117,6 +119,7 @@ impl Submission {
             progress: Arc::new(pse_backend_native::solve::Progress::new(256)),
             queue: false,
             admitted: None,
+            deadline: None,
         }
     }
 }
@@ -157,15 +160,20 @@ impl MathService {
             progress,
             queue,
             admitted,
+            deadline,
         } = submission;
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let result = service
-                .admitted(cores, bytes, flag, (queue, admitted), move |flag| {
-                    work(flag, events)
-                })
+                .admitted(
+                    cores,
+                    bytes,
+                    flag,
+                    (queue, admitted, deadline),
+                    move |flag| work(flag, events),
+                )
                 .await;
             let _ = sender.send(result);
         });
@@ -188,6 +196,23 @@ impl MathService {
             .await
             .map(|(r, _)| r)
     }
+    /// Run an attempt with queueing, execution and join under its original deadline.
+    pub(crate) async fn job_scoped<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        cancel: FlightCancellation,
+        deadline: Option<std::time::Instant>,
+        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<T, MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<T, MathRuntimeError> {
+        self.job_retained_scoped(cores, bytes, cancel, deadline, move |flag| {
+            work(flag).map(|value| (value, 0))
+        })
+        .await
+        .map(|(value, _)| value)
+    }
     /// Transfer retained capacity from the active job reservation after native join.
     /// The returned owner is acquired without releasing/reacquiring pool capacity; a
     /// product larger than `bytes` grows the reservation to its extent first.
@@ -200,7 +225,22 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(cores, bytes, cancel, (false, None), work)
+        self.admitted(cores, bytes, cancel, (false, None, None), work)
+            .await
+    }
+    /// Prepare/advance a product under the caller's original task clock. Waiting for
+    /// capacity and execution share this deadline; it is never interpreted as cancellation.
+    pub(super) async fn job_retained_scoped<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        cancel: FlightCancellation,
+        deadline: Option<std::time::Instant>,
+        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        self.admitted(cores, bytes, cancel, (false, None, deadline), work)
             .await
     }
     /// [`MathService::job_retained`] under an explicit admission: a queued job waits for a
@@ -211,7 +251,11 @@ impl MathService {
         cores: usize,
         bytes: usize,
         cancel: FlightCancellation,
-        (queue, admitted): (bool, Option<tokio::sync::oneshot::Sender<()>>),
+        (queue, admitted, deadline): (
+            bool,
+            Option<tokio::sync::oneshot::Sender<()>>,
+            Option<std::time::Instant>,
+        ),
         work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
         + Send
         + 'static,
@@ -219,12 +263,32 @@ impl MathService {
         if cores == 0 || cores > self.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
+        let expires = async move {
+            match deadline {
+                Some(at) => tokio::time::sleep_until(at.into()).await,
+                None => std::future::pending::<()>().await,
+            }
+        };
+        tokio::pin!(expires);
+        let timeout = || {
+            MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "task deadline while waiting for native job/CPU admission".into(),
+            })
+        };
+        if cancel.flag().load(Ordering::Acquire) {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        if deadline.is_some_and(|at| std::time::Instant::now() >= at) {
+            return Err(timeout());
+        }
         let slot = if queue {
             tokio::select! {
                 slot = self.jobs.clone().acquire_owned() => {
                     slot.map_err(|_| MathRuntimeError::Limit("native job admission closed"))?
                 }
                 () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
+                () = &mut expires => return Err(timeout()),
             }
         } else {
             self.jobs
@@ -237,7 +301,8 @@ impl MathService {
         let (tx, rx) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let result=async {
-                let cpu=tokio::select!{p=service.cpu.clone().acquire_many_owned(cores as u32)=>p.map_err(|_|MathRuntimeError::Limit("CPU admission closed"))?,()=cancel.cancelled()=>return Err(MathRuntimeError::Cancelled)};
+                let expires=async move {match deadline {Some(at)=>tokio::time::sleep_until(at.into()).await,None=>std::future::pending::<()>().await}};
+                let cpu=tokio::select!{p=service.cpu.clone().acquire_many_owned(cores as u32)=>p.map_err(|_|MathRuntimeError::Limit("CPU admission closed"))?,()=cancel.cancelled()=>return Err(MathRuntimeError::Cancelled),()=expires=>return Err(timeout())};
                 // Parallel libraries may keep a coordinator in addition to their
                 // admitted worker team. Charge its stack plus the whole team; CPU
                 // permits bound the active workers. Serial jobs have one stack.
@@ -249,6 +314,7 @@ impl MathService {
                 let lease=datafusion::execution::memory_pool::MemoryConsumer::new("math:native-job").register(&service.pool);
                 lease.try_grow(bytes)?;
                 if cancel.flag().load(Ordering::Acquire){return Err(MathRuntimeError::Cancelled);}
+                if deadline.is_some_and(|at|std::time::Instant::now()>=at) {return Err(timeout());}
                 if let Some(admitted)=admitted {let _=admitted.send(());}
                 let flag=cancel.flag();
                 let sessions=service.policy.inner_session_bytes;
@@ -262,6 +328,8 @@ impl MathService {
                 // Joining, not receipt of an early result, witnesses TLS destruction.
                 let result=tokio::task::spawn_blocking(move||handle.join()).await.map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?.map_err(|_|MathRuntimeError::Panic("native worker panic".into()))?;
                 let result = result.and_then(|(value, retained)| {
+                    if cancel.flag().load(Ordering::Acquire) {return Err(MathRuntimeError::Cancelled);}
+                    if deadline.is_some_and(|at|std::time::Instant::now()>=at) {return Err(timeout());}
                     // A product beyond the working allowance is charged at its actual extent.
                     if let Some(more) = retained.checked_sub(lease.size()).filter(|n| *n > 0) { lease.try_grow(more)?; }
                     Ok((value, pse_columnar::AllocationLease::new(lease.split(retained))))

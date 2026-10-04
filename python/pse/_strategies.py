@@ -12,6 +12,7 @@ from pse._build import (
     _NativePreparedStrategy,
     _NativeStrategyResult,
 )
+from pse._inspection import TableStream
 from pse.contracts.documents import (
     FlowGraphDocument,
     InitializationDocument,
@@ -20,6 +21,8 @@ from pse.contracts.documents import (
     TearSelectionDocument,
 )
 from pse.contracts.enums import TearMethod
+from pse.contracts.identities import RunId
+from pse.contracts.values import SemanticId
 
 
 @attrs.frozen
@@ -62,6 +65,16 @@ class StrategyResult:
     """Owned native attempts, including failures and stage overlays."""
 
     _handle: _NativeStrategyResult
+
+    @property
+    def run_id(self) -> RunId | None:
+        """Identity of the submitted numerical operation; structural tears have none."""
+        value = self._handle.run_id
+        return None if value is None else RunId(SemanticId.from_hex(value))
+
+    def strategy_events(self) -> TableStream:
+        """Project retained numerical observations through the generated contract."""
+        return TableStream(self._handle.strategy_events())
 
     def tears(self) -> TearSelectionDocument | None:
         """Selected decisions, authored cost and independently checked acyclic order."""

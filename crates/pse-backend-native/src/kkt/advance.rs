@@ -31,6 +31,8 @@ pub struct Advance {
     parameters: Vec<(SemanticId, f64)>,
     /// The solve's variables, in report order.
     variables: Vec<SemanticId>,
+    /// Original semantic constraint order, including inactive inequality rows.
+    rows: Vec<SemanticId>,
     /// The candidate's primal values.
     primal: Vec<f64>,
     /// Its row multipliers, in the minimization convention.
@@ -138,6 +140,7 @@ impl Advance {
             pins,
             parameters,
             variables: report.variables.clone(),
+            rows: report.rows.clone(),
             primal: candidate.primal.clone(),
             row_dual: candidate.row_dual.clone()?,
             lower,
@@ -149,6 +152,25 @@ impl Advance {
             tolerances: tolerances.clone(),
         })
     }
+    /// Source data in the physical active-set layout consumed by the activity adapter.
+    pub(super) fn activity_point(&self) -> super::path::Point {
+        super::path::Point {
+            factor: self.factor.clone(),
+            original_variables: self.primal.len(),
+            variables: self.variables.clone(),
+            rows: self.rows.clone(),
+            parameters: self.parameters.clone(),
+            pins: self.pins.clone(),
+            primal: self.primal.clone(),
+            row_dual: self.row_dual.clone(),
+            lower: self.lower.clone(),
+            upper: self.upper.clone(),
+            values: self.values.clone(),
+            row_bounds: self.row_bounds.clone(),
+            bounds: self.bounds.clone(),
+            jacobian: self.jacobian.clone(),
+        }
+    }
     /// Bytes held: the factor and the candidate data a prediction reads.
     pub fn bytes(&self) -> usize {
         let f = size_of::<f64>();
@@ -157,10 +179,26 @@ impl Advance {
             + (self.row_bounds.len() + self.bounds.len()) * 2 * f
             + (self.tolerances.variables.len() + self.tolerances.rows.len()) * f
             + self.jacobian.len() * size_of::<(usize, usize, f64)>()
-            + self.variables.len() * size_of::<SemanticId>()
+            + (self.variables.len() + self.rows.len()) * size_of::<SemanticId>()
             + self.parameters.len() * size_of::<(SemanticId, f64)>()
             + self.pins.len() * size_of::<i32>();
         self.factor.bytes().saturating_add(vectors)
+    }
+    /// Original solve-variable identities in the source prediction order.
+    pub fn variables(&self) -> &[SemanticId] {
+        &self.variables
+    }
+    /// Original constraint identities, including inactive inequality rows.
+    pub fn rows(&self) -> &[SemanticId] {
+        &self.rows
+    }
+    /// Qualified source primal in original physical units.
+    pub fn point(&self) -> &[f64] {
+        &self.primal
+    }
+    /// Explicit factor layout, including appended parameter columns and pin rows.
+    pub fn layout(&self) -> &super::Layout {
+        self.factor.layout()
     }
     /// The parameters and the values the factor was assembled at.
     pub fn parameters(&self) -> &[(SemanticId, f64)] {

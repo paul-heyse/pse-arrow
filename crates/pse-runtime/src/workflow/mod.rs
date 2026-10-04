@@ -14,7 +14,7 @@ pub use diagnostic_documents::{
     DiagnosticAnnotationDocument, DiagnosticCauseDocument, DiagnosticContextDocument,
     DiagnosticNoteDocument, DiagnosticSpanDocument,
 };
-mod diagnostic_rows;
+pub(crate) mod diagnostic_rows;
 mod diagnostics;
 mod durable;
 pub use completion::Completion;
@@ -105,8 +105,8 @@ pub use dynamics::SimulationProfile;
 pub use fitting::{
     Covariance, FitDeclaration, FitDeclarations, FitDerivatives, FitDiagnostic,
     FitPreparationDocument, FitProfile, FitProfileDocument, FitReport, FitRule, FitUncertainty,
-    FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain, ProfileControls, ProfilePoint,
-    ProfileWorkerFailure,
+    FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain, ProfileControls,
+    ProfileFailure, ProfilePoint, ProfileWorkerFailure,
 };
 #[cfg(feature = "solver-diffsol")]
 pub use shooting::{
@@ -124,6 +124,8 @@ pub use modeling::documents::{
     LinearDiagnosticControls, ModelingInspection, PureConformanceControls,
 };
 pub mod uncertainty;
+#[cfg(feature = "solver-idas")]
+pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
     DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
@@ -183,7 +185,7 @@ pub enum WorkflowError {
         diagnostic: Box<BoundaryDiagnostic>,
         /// Original typed failure before any unit iteration.
         #[source]
-        cause: MathRuntimeError,
+        cause: Box<MathRuntimeError>,
     },
     /// Original modeling admission facts with their authored lineage and typed native cause.
     #[error("{diagnostic}")]
@@ -192,7 +194,7 @@ pub enum WorkflowError {
         diagnostic: Box<BoundaryDiagnostic>,
         /// Retained route decision or structural failure before native execution.
         #[source]
-        cause: MathRuntimeError,
+        cause: Box<MathRuntimeError>,
     },
     /// Invalid model, preparation, runtime or solver state.
     #[error(transparent)]

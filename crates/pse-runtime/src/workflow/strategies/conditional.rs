@@ -142,6 +142,7 @@ pub struct PreparedRecycle {
     fixed: BTreeMap<SemanticId, f64>,
     settings: kinsol::Settings,
     controls: Controls,
+    profile_key: pse_ids::ContentHash,
     /// Stopping budgets resolved from the map's numerical policy.
     accuracy: ResolvedAccuracy,
     tolerances: Tolerances,
@@ -195,6 +196,8 @@ impl PreparedRecycle {
             self.controls.clone(),
             self.accuracy.clone(),
             self.tolerances.clone(),
+            self.numerics.policy.clone(),
+            self.profile_key,
             move |execution, budget| {
                 let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
                 for program in prepared.programs {
@@ -383,6 +386,7 @@ impl ModelingPackage {
                     input_program.clone(),
                     resolved.providers.clone(),
                     cancel,
+                    None,
                     move |mut worker| Ok(worker.constraints(&initial_values)?),
                 )
                 .await
@@ -727,6 +731,13 @@ impl ModelingPackage {
         settings
             .validate_contract(&contract, kinsol::Strategy::FixedPoint, &BTreeMap::new())
             .map_err(MathRuntimeError::from)?;
+        let mut effective_profile = profile.clone();
+        effective_profile.selection = SolverSelection::Explicit(Backend::Kinsol);
+        effective_profile.backend = native::execution::BackendSettings::Kinsol(settings.method);
+        effective_profile.numerics = numerics.policy.clone();
+        let profile_key = crate::math::solves::profile_key(&effective_profile)
+            .map_err(MathRuntimeError::from)?
+            .as_id();
         Ok(PreparedRecycle {
             runtime: self.runtime.clone(),
             providers: resolved.providers,
@@ -739,6 +750,7 @@ impl ModelingPackage {
             fixed,
             settings,
             controls: profile.controls,
+            profile_key,
             accuracy,
             tolerances,
             numerics,
@@ -851,7 +863,7 @@ fn conditional_admission(
         .insert("cause".into(), Observation::Text(cause.to_string()));
     WorkflowError::ConditionalAdmission {
         diagnostic: Box::new(diagnostic),
-        cause,
+        cause: Box::new(cause),
     }
 }
 

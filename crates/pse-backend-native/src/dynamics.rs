@@ -170,9 +170,7 @@ pub(crate) const fn state_sign_code(sign: StateSign) -> f64 {
 /// (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
 /// Version 2 removes the per-state sign constraints: they derive from the authored bounds
 /// ([`Contract::signs`], ADR-0119 Outcome 4).
-#[derive(
-    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct IdasSettings {
     /// Document version.
@@ -187,6 +185,9 @@ pub struct IdasSettings {
     /// always keep their differential states.
     #[serde(default = "IdasSettings::default_initialization")]
     pub initialization: IdasInitialization,
+    /// Public IDACalcIC phase controls, also applied to scheduled consistent restarts.
+    #[serde(default)]
+    pub initial_conditions: IdasInitialConditions,
 }
 impl IdasSettings {
     const fn default_sensitivity() -> SensitivityCorrector {
@@ -205,8 +206,189 @@ impl Default for IdasSettings {
             linear: IdasLinear::Klu,
             sensitivity: Self::default_sensitivity(),
             initialization: Self::default_initialization(),
+            initial_conditions: IdasInitialConditions::default(),
         }
     }
+}
+/// Exact IDAS consistent-initialization controls; no physical time stepping is requested.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct IdasInitialConditions {
+    /// Maximum attempted artificial step scales; applies only to AlgebraicAndRates.
+    pub step_trials: Option<u32>,
+    /// Maximum Jacobian setup attempts at each artificial scale.
+    pub jacobian_attempts: u32,
+    /// Maximum Newton iterations at each setup attempt.
+    pub newton_iterations: u32,
+    /// Positive IDASetNonlinConvCoefIC coefficient.
+    pub convergence_coefficient: f64,
+    /// Enable IDAS's IC line search.
+    pub line_search: bool,
+    /// Explicit maximum backtracks per Newton step, when line search is enabled.
+    pub backtracks: Option<u32>,
+    /// Positive scaled Newton-step floor for constraints and the enabled line search.
+    pub step_tolerance: Option<f64>,
+}
+impl Default for IdasInitialConditions {
+    fn default() -> Self {
+        Self {
+            step_trials: None,
+            jacobian_attempts: 4,
+            newton_iterations: 10,
+            convergence_coefficient: 0.0033,
+            line_search: true,
+            backtracks: None,
+            step_tolerance: None,
+        }
+    }
+}
+impl IdasInitialConditions {
+    pub(crate) fn validate_for(
+        &self,
+        mode: IdasInitialization,
+        sign_constraints: bool,
+    ) -> Result<(), ProblemError> {
+        if [
+            Some(self.jacobian_attempts),
+            Some(self.newton_iterations),
+            self.step_trials,
+            self.backtracks,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|n| n == 0 || i32::try_from(n).is_err())
+            || !positive(self.convergence_coefficient)
+            || self.step_tolerance.is_some_and(|x| !positive(x))
+        {
+            return Err(contract("invalid IDAS consistent-initialization controls"));
+        }
+        if mode == IdasInitialization::SteadyStates && self.step_trials.is_some() {
+            return Err(contract(
+                "IC step-scale trials do not act in the all-state initialization mode",
+            ));
+        }
+        if !self.line_search && self.backtracks.is_some() {
+            return Err(contract(
+                "IC line-search controls require the IC line search",
+            ));
+        }
+        if !self.line_search && !sign_constraints && self.step_tolerance.is_some() {
+            return Err(contract(
+                "IC step tolerance requires the IC line search or authored sign constraints",
+            ));
+        }
+        let scales = if mode == IdasInitialization::AlgebraicAndRates {
+            self.step_trials.unwrap_or(5)
+        } else {
+            1
+        };
+        let iterations = u64::from(scales)
+            .checked_mul(u64::from(self.jacobian_attempts))
+            .and_then(|n| n.checked_mul(u64::from(self.newton_iterations)))
+            .and_then(|n| n.checked_mul(2));
+        if iterations.is_none_or(|n| n > std::ffi::c_long::MAX as u64) {
+            return Err(contract(
+                "composed IC iteration extent exceeds the native counter",
+            ));
+        }
+        Ok(())
+    }
+}
+/// One original semi-explicit consistent-state calculation, with no integration horizon.
+#[derive(Clone, Debug)]
+pub struct ConsistentInitialization {
+    /// Original physical time at which the original residual is assessed.
+    pub time: f64,
+    /// Finite distinct time used only to orient/scale IDACalcIC, never integrated toward.
+    pub toward: f64,
+    /// Positive native weighted convergence tolerances.
+    pub rtol: f64,
+    /// Absolute native state tolerances in the contract's order.
+    pub atol: Vec<f64>,
+    /// Original residual tolerances in the same normalized residual order.
+    pub residual_tolerances: Vec<f64>,
+    /// Explicit role-preserving or all-state mode.
+    pub mode: IdasInitialization,
+    /// Analytic native Newton linear solver.
+    pub linear: IdasLinear,
+    /// Actual IC-only controls.
+    pub controls: IdasInitialConditions,
+    /// Whether original-domain trial failures are recoverable during the IC line search.
+    pub trial_failures: TrialPolicy,
+}
+/// Finite native observation; its existence alone never qualifies a consistent state.
+#[derive(Clone, Debug)]
+pub struct ConsistentState {
+    /// Original state coordinates in the authored order.
+    pub state: Vec<f64>,
+    /// Actual native rates in the same coordinate order.
+    pub rates: Vec<f64>,
+}
+/// Independent assessment of the authored residual and requested role preservation.
+#[derive(Clone, Debug)]
+pub struct ConsistentStateAssessment {
+    /// Actual original residual, differential rates minus RHS or minus algebraic RHS.
+    pub residual: Vec<f64>,
+    /// Every residual meets its explicitly requested tolerance.
+    pub residual_satisfied: bool,
+    /// AlgebraicAndRates kept every requested differential state; all-state mode is explicit.
+    pub roles_preserved: bool,
+    /// Every observed state meets the authored sign constraint.
+    pub signs_satisfied: bool,
+}
+/// A native IC attempt and its original-space assessment, including failed native attempts.
+#[derive(Debug)]
+pub struct ConsistentStateReport {
+    /// Original authored dynamics identity for this observation.
+    pub identity: ContentHash,
+    /// Original time at which the original residual was assessed.
+    pub time: f64,
+    /// Explicit mode actually supplied to IDACalcIC.
+    pub mode: IdasInitialization,
+    /// Whether the first actual original residual in this IC phase succeeded; unknown if uncalled.
+    pub initial_residual: Option<bool>,
+    /// Actual IDACalcIC return with terminal callback category applied separately.
+    pub termination: crate::solve::NativeTermination,
+    /// Authored initial values actually submitted.
+    pub requested: Vec<f64>,
+    /// Finite native observation after IDACalcIC, when retrievable.
+    pub candidate: Option<ConsistentState>,
+    /// Fresh original residual/role evidence; absent after a terminal latch.
+    pub assessment: Option<ConsistentStateAssessment>,
+    /// Actual callback/native work; unknown counters remain absent.
+    pub evidence: crate::solve::Evidence,
+    /// Actual IDAS backtrack operations, including failed IC attempts.
+    pub backtracks: Option<u64>,
+    /// Original typed native or callback cause, never replaced by a message wrapper.
+    pub error: Option<ProblemError>,
+    /// Independent assessment failure, kept separate from the native attempt cause.
+    pub validation_error: Option<ProblemError>,
+}
+impl ConsistentStateReport {
+    /// Known escaping numeric buffers; the caller separately reserves typed diagnostics.
+    pub fn numeric_bytes(&self) -> usize {
+        size_of::<Self>()
+            + size_of::<f64>()
+                * (self.requested.capacity()
+                    + self
+                        .candidate
+                        .as_ref()
+                        .map_or(0, |point| point.state.capacity() + point.rates.capacity())
+                    + self
+                        .assessment
+                        .as_ref()
+                        .map_or(0, |assessment| assessment.residual.capacity()))
+    }
+}
+/// Compute consistent state/rates at one original time using the caller's original scope.
+#[cfg(feature = "idas")]
+pub fn initialize_consistent(
+    oracle: &mut dyn Oracle,
+    parameters: &[f64],
+    request: &ConsistentInitialization,
+    execution: crate::solve::Execution,
+) -> Result<ConsistentStateReport, ProblemError> {
+    idas::initialize_consistent(oracle, parameters, request, execution)
 }
 /// The native IDAS root direction of an event's guard crossing (`IDASetRootDirection`).
 #[cfg_attr(
@@ -799,13 +981,11 @@ pub struct Profile {
     /// Typed IDAS linear solver, sensitivity corrector and start.
     #[serde(default)]
     pub idas: IdasSettings,
-    /// Native initialization controls, available in the linked profile.
-    #[cfg(feature = "diffsol")]
+    /// Library-owned initialization controls, transported in every profile.
     #[serde(with = "initial_options")]
     #[schemars(with = "initial_options::Remote")]
     pub initialization: Arc<diffsol::InitialConditionSolverOptions<f64>>,
     /// Native BDF/nonlinear/error-control settings.
-    #[cfg(feature = "diffsol")]
     #[serde(with = "ode_options")]
     #[schemars(with = "ode_options::Remote")]
     pub native: Arc<diffsol::OdeSolverOptions<f64>>,
@@ -814,6 +994,44 @@ pub struct Profile {
 #[cfg(test)]
 mod duration_schema_unit {
     use super::*;
+
+    #[test]
+    fn dynamics_profile_retains_library_controls_in_every_build() {
+        let mut profile = Profile::default();
+        Arc::get_mut(&mut profile.initialization)
+            .unwrap()
+            .max_newton_iterations = 17;
+        Arc::get_mut(&mut profile.native)
+            .unwrap()
+            .nonlinear_solver_tolerance = 0.0123;
+        let encoded = serde_json::to_value(&profile).unwrap();
+        assert_eq!(encoded["initialization"]["max_newton_iterations"], 17);
+        assert_eq!(encoded["native"]["nonlinear_solver_tolerance"], 0.0123);
+        let decoded: Profile = serde_json::from_value(encoded.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), encoded);
+        assert_eq!(settings_identity(&decoded), settings_identity(&profile));
+        assert_ne!(
+            settings_identity(&decoded),
+            settings_identity(&Profile::default())
+        );
+
+        let schema = schemars::schema_for!(Profile).to_value();
+        let required = schema["required"].as_array().unwrap();
+        for field in ["initialization", "native"] {
+            assert!(required.contains(&serde_json::json!(field)));
+            let mut incomplete = encoded.clone();
+            incomplete.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<Profile>(incomplete).is_err());
+        }
+        assert_eq!(
+            schema["properties"]["initialization"]["$ref"],
+            "#/$defs/DiffsolInitialConditionOptions"
+        );
+        assert_eq!(
+            schema["properties"]["native"]["$ref"],
+            "#/$defs/DiffsolOdeSolverOptions"
+        );
+    }
 
     #[test]
     fn dynamics_profile_duration_schema_matches_closed_serde_representation() {
@@ -1370,10 +1588,13 @@ impl Profile {
         let mut causes = Vec::new();
         match self.method {
             Method::Idas => {
-                let changed = self.diffsol != DiffsolSettings::default();
-                #[cfg(feature = "diffsol")]
-                let changed =
-                    changed || settings_identity(self) != settings_identity(&Self::default());
+                if let Err(error) = self.idas.initial_conditions.validate_for(
+                    self.idas.initialization,
+                    c.signs.iter().any(|sign| *sign != StateSign::Free),
+                ) {
+                    causes.push(error);
+                }
+                let changed = settings_identity(self) != settings_identity(&Self::default());
                 if changed {
                     causes.push(contract(
                         "Diffsol-specific controls cannot be applied to IDAS",
@@ -1381,6 +1602,20 @@ impl Profile {
                 }
                 if self.forward() && c.events.iter().any(|events| !events.is_empty()) {
                     causes.push(ProblemError::unsupported("IDAS forward sensitivities do not cross events; Diffsol owns reset sensitivities"));
+                }
+                if matches!(
+                    self.idas.linear,
+                    IdasLinear::Spgmr {
+                        preconditioner: crate::solve::Preconditioner::BlockFactor,
+                        ..
+                    } | IdasLinear::Spfgmr {
+                        preconditioner: crate::solve::Preconditioner::BlockFactor,
+                        ..
+                    }
+                ) {
+                    causes.push(ProblemError::unsupported(
+                        "IDAS block factor preconditioning is not supplied",
+                    ));
                 }
                 if match self.idas.linear {
                     IdasLinear::Klu => false,
@@ -1465,7 +1700,6 @@ impl Profile {
                 "explicit physical output integration tolerances required",
             ));
         }
-        #[cfg(feature = "diffsol")]
         {
             let i = &self.initialization;
             let n = &self.native;
@@ -1941,7 +2175,6 @@ impl std::fmt::Debug for Profile {
 /// Every Diffsol-only control, in the serde encoding of the profile (F09): the remote
 /// definitions fail to compile when a pinned option type gains a field, and no field
 /// list is written by hand.
-#[cfg(feature = "diffsol")]
 #[derive(serde::Serialize)]
 struct DiffsolIdentity<'a> {
     #[serde(with = "initial_options")]
@@ -1951,7 +2184,6 @@ struct DiffsolIdentity<'a> {
     diffsol: &'a DiffsolSettings,
 }
 /// Exact Diffsol-only controls included in environment identity and reporting.
-#[cfg(feature = "diffsol")]
 pub fn settings_identity(p: &Profile) -> String {
     encoded(&DiffsolIdentity {
         initialization: p.initialization.clone(),
@@ -2098,7 +2330,6 @@ pub(crate) fn guards_at_zero(guards: &[f64], events: &[Event]) -> usize {
         .count()
 }
 
-#[cfg(feature = "diffsol")]
 mod initial_options {
     use super::*;
     #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -2128,7 +2359,6 @@ mod initial_options {
     }
 }
 
-#[cfg(feature = "diffsol")]
 mod ode_options {
     use super::*;
     #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -2198,9 +2428,7 @@ impl Default for Profile {
             schedule: vec![],
             diffsol: DiffsolSettings::default(),
             idas: IdasSettings::default(),
-            #[cfg(feature = "diffsol")]
             initialization: Arc::new(Default::default()),
-            #[cfg(feature = "diffsol")]
             native: Arc::new(Default::default()),
         }
     }

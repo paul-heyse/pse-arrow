@@ -1612,6 +1612,109 @@ fn selected_support_separates_value_first_second_and_retries_after_cancellation(
 }
 
 #[test]
+fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partials() {
+    crate::initialize().unwrap();
+    let (mut spec, _, calls) = provider();
+    spec.derivatives = DerivativeOrder::Value;
+    spec.smoothness = DerivativeOrder::Value;
+    let body = PreparedBody::new(
+        2,
+        4,
+        vec![3],
+        vec![
+            Stage::Provider {
+                spec: spec.clone(),
+                partial: vec![],
+                inputs: vec![1],
+                outputs: vec![2],
+                source: id(20),
+            },
+            block(
+                vec![library::formal(0).unwrap() + library::formal(2).unwrap()],
+                vec![3],
+            ),
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    assert_eq!(
+        body.provider_demands_for_selection(&[0], &[0], DerivativeOrder::Second)
+            .unwrap()[&spec.key()],
+        DerivativeOrder::Value
+    );
+    assert_eq!(
+        body.provider_demands_for_selection(&[0], &[1], DerivativeOrder::First)
+            .unwrap()[&spec.key()],
+        DerivativeOrder::First
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut worker = body
+        .compile(
+            &[0],
+            &[0],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    let selected_provider: Box<dyn Provider> = Box::new(Cubic {
+        spec: spec.clone(),
+        calls: calls.clone(),
+    });
+    let mut providers = BTreeMap::from([(spec.key(), selected_provider)]);
+    let result = worker
+        .evaluate(&[3., 2.], DerivativeOrder::Second, &mut providers, &cancel)
+        .unwrap();
+    assert_eq!(result.values, [11.]);
+    assert_eq!(result.jacobian, [1.]);
+    assert_eq!(result.hessians, [0.]);
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+    let error = body
+        .compile(
+            &[0],
+            &[1],
+            DerivativeOrder::First,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap_err();
+    assert!(
+        matches!(error, MathError::DerivativeDemand { ref outputs, ref coordinates, requested: DerivativeOrder::First, available: DerivativeOrder::Value, .. } if outputs == &[0] && coordinates == &[1])
+    );
+
+    let (spec, _, _) = provider();
+    let partial = PreparedBody::new(
+        1,
+        2,
+        vec![1],
+        vec![Stage::Provider {
+            spec: spec.clone(),
+            partial: vec![0],
+            inputs: vec![0],
+            outputs: vec![1],
+            source: id(21),
+        }],
+        DerivativeOrder::First,
+    )
+    .unwrap();
+    assert_eq!(
+        partial
+            .provider_demands_for_selection(&[0], &[], DerivativeOrder::Value)
+            .unwrap()[&spec.key()],
+        DerivativeOrder::First
+    );
+    assert_eq!(
+        partial
+            .provider_demands_for_selection(&[0], &[0], DerivativeOrder::First)
+            .unwrap()[&spec.key()],
+        DerivativeOrder::Second
+    );
+}
+
+#[test]
 fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() {
     use crate::typed::{Binary, BodyBuilder, BodyLimits};
     use pse_quantity::{
@@ -1830,4 +1933,170 @@ fn opaque_class_evidence_remains_pending_after_actual_bounded_request() {
     assert!(!facts.coefficient_eligible());
     assert!(facts.proof_remaining < base.proof_remaining);
     assert_eq!(base.class_status, ClassStatus::Unassessed);
+}
+
+#[test]
+fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_limit() {
+    crate::initialize().unwrap();
+    let n = 12;
+    let sum = (0..n).fold(Atom::num(0), |sum, i| sum + library::formal(i).unwrap());
+    let body = PreparedBody::new(
+        n,
+        n + 1,
+        vec![n],
+        vec![block(vec![&sum * &sum], vec![n])],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let support = body
+        .prepare_support(
+            &[0],
+            &(0..n).collect::<Vec<_>>(),
+            DerivativeOrder::First,
+            &cancel,
+        )
+        .unwrap();
+    let limits = EvaluationLimits {
+        derivative_components: 2,
+        ..EvaluationLimits::default()
+    };
+    assert!(matches!(
+        support.compile(Optimization::default(), limits, &cancel),
+        Err(MathError::Limit("derivative components"))
+    ));
+    let action = support
+        .compile_directional(Optimization::default(), limits, &cancel)
+        .unwrap();
+    assert!(action.is_directional());
+    assert_eq!(action.coordinates(), (0..n).collect::<Vec<_>>());
+    assert_eq!(action.support().first[0], (0..n).collect::<BTreeSet<_>>());
+    let inputs = (0..n).map(|i| i as f64 - 2.0).collect::<Vec<_>>();
+    let direction = (0..n)
+        .map(|i| if i % 2 == 0 { i as f64 } else { -2.0 })
+        .collect::<Vec<_>>();
+    let reference = support
+        .compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker()
+        .evaluate(
+            &inputs,
+            DerivativeOrder::First,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    let mut worker = action.worker();
+    let result = worker
+        .evaluate_directional(&inputs, &direction, &mut BTreeMap::new(), &cancel)
+        .unwrap();
+    assert_eq!(result.values, reference.values);
+    assert_eq!(
+        result.jacobian,
+        vec![
+            reference
+                .jacobian
+                .iter()
+                .zip(&direction)
+                .map(|(a, b)| a * b)
+                .sum::<f64>()
+        ]
+    );
+    assert!(result.hessians.is_empty());
+    assert!(
+        worker
+            .evaluate(
+                &inputs,
+                DerivativeOrder::First,
+                &mut BTreeMap::new(),
+                &cancel
+            )
+            .is_err()
+    );
+    assert!(
+        worker
+            .evaluate_directional(&inputs, &direction[..n - 1], &mut BTreeMap::new(), &cancel)
+            .is_err()
+    );
+    cancel.store(true, Ordering::Relaxed);
+    assert!(
+        worker
+            .evaluate_directional(&inputs, &direction, &mut BTreeMap::new(), &cancel)
+            .is_err()
+    );
+}
+
+#[test]
+fn demanded_directional_provider_composition_keeps_original_guard_and_first_partials() {
+    crate::initialize().unwrap();
+    let (spec, provider, calls) = provider();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let body = PreparedBody::new(
+        2,
+        5,
+        vec![4],
+        vec![
+            Stage::Require {
+                argument: 1,
+                condition: Condition::Positive,
+                order: DerivativeOrder::First,
+                source: id(88),
+                lineage: None,
+            },
+            block(vec![&x * &x + &y], vec![2]),
+            Stage::Provider {
+                partial: vec![],
+                spec: spec.clone(),
+                inputs: vec![2],
+                outputs: vec![3],
+                source: id(21),
+            },
+            block(vec![library::formal(3).unwrap() + &x], vec![4]),
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let support = body
+        .prepare_support(&[0], &[0, 1], DerivativeOrder::First, &cancel)
+        .unwrap();
+    let limits = EvaluationLimits {
+        derivative_components: 2,
+        ..EvaluationLimits::default()
+    };
+    let mut worker = support
+        .compile_directional(Optimization::default(), limits, &cancel)
+        .unwrap()
+        .worker();
+    let mut providers = BTreeMap::from([(spec.key(), provider)]);
+    let result = worker
+        .evaluate_directional(&[2.0, 3.0], &[4.0, -1.0], &mut providers, &cancel)
+        .unwrap();
+    // (x²+y)^3+x, DF*v=3*(7²)*(2*x*4-1)+4.
+    assert_eq!(result.values, [345.0]);
+    assert_eq!(result.jacobian, [2209.0]);
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+    assert!(
+        matches!(worker.evaluate_directional(&[2.0,-3.0],&[4.0,-1.0],&mut providers,&cancel),Err(MathError::Domain { source_id,.. }) if source_id==id(88))
+    );
+    assert_eq!(
+        calls.load(Ordering::Relaxed),
+        1,
+        "guard refuses before provider execution"
+    );
+    assert!(
+        matches!(worker.evaluate_directional(&[0.0,0.0],&[4.0,-1.0],&mut providers,&cancel),Err(MathError::Domain { source_id,.. }) if source_id==id(88))
+    );
+    assert_eq!(
+        worker
+            .evaluate_directional(&[1.0, 2.0], &[0.0, 2.0], &mut providers, &cancel)
+            .unwrap()
+            .jacobian,
+        [54.0]
+    );
 }

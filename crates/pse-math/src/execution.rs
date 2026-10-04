@@ -277,6 +277,32 @@ impl PreparedSupport {
             limits,
             cancel,
             false,
+            false,
+            self,
+        )
+    }
+    /// Compile a first directional action using one Taylor axis. Structural support
+    /// still names every admitted formal coordinate; the axis is a computational layout.
+    pub fn compile_directional(
+        &self,
+        options: Optimization,
+        limits: EvaluationLimits,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<CompiledBody, MathError> {
+        if self.order() != DerivativeOrder::First {
+            return Err(MathError::Contract(
+                "directional support must admit exactly First".into(),
+            ));
+        }
+        self.body().compile_scope(
+            self.outputs(),
+            self.coordinates(),
+            DerivativeOrder::First,
+            options,
+            limits,
+            cancel,
+            false,
+            true,
             self,
         )
     }
@@ -295,6 +321,7 @@ impl PreparedSupport {
             limits,
             cancel,
             true,
+            false,
             self,
         )
     }
@@ -869,21 +896,37 @@ impl PreparedBody {
         outputs: &[usize],
         order: DerivativeOrder,
     ) -> Result<BTreeMap<ProviderKey, DerivativeOrder>, MathError> {
+        self.provider_demands_for_selection(outputs, &(0..self.inputs).collect::<Vec<_>>(), order)
+    }
+    /// Provider requirements on the actual numerical derivative coordinates. Mandatory
+    /// effects retain Value demand, and explicitly authored partials retain their order.
+    /// # Errors
+    /// Invalid output/coordinate selection or unsupported authored provider partials.
+    pub fn provider_demands_for_selection(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        order: DerivativeOrder,
+    ) -> Result<BTreeMap<ProviderKey, DerivativeOrder>, MathError> {
         fn collect(
             stages: &[Stage],
             order: DerivativeOrder,
             demands: &mut BTreeMap<ProviderKey, DerivativeOrder>,
             numeric: &BTreeSet<usize>,
+            coordinates: &[Vec<bool>],
         ) -> Result<(), MathError> {
             for stage in stages {
                 match stage {
                     Stage::Provider {
                         spec,
                         partial,
+                        inputs,
                         outputs,
                         ..
                     } => {
-                        let requested = if outputs.iter().any(|i| numeric.contains(i)) {
+                        let requested = if outputs.iter().any(|i| numeric.contains(i))
+                            && inputs.iter().any(|&i| coordinates[i][0])
+                        {
                             order
                         } else {
                             DerivativeOrder::Value
@@ -894,31 +937,44 @@ impl PreparedBody {
                             .and_modify(|o| *o = (*o).max(required))
                             .or_insert(required);
                     }
-                    Stage::Domain { stages, .. } | Stage::Applicability { stages, .. } => {
-                        collect(stages, DerivativeOrder::Value, demands, numeric)?
-                    }
+                    Stage::Domain { stages, .. } | Stage::Applicability { stages, .. } => collect(
+                        stages,
+                        DerivativeOrder::Value,
+                        demands,
+                        numeric,
+                        coordinates,
+                    )?,
                     Stage::Branch {
                         then, otherwise, ..
                     } => {
-                        collect(then, order, demands, numeric)?;
-                        collect(otherwise, order, demands, numeric)?;
+                        collect(then, order, demands, numeric, coordinates)?;
+                        collect(otherwise, order, demands, numeric, coordinates)?;
                     }
                     Stage::Block { .. } | Stage::Require { .. } => {}
                 }
             }
             Ok(())
         }
+        self.check_selection(outputs, coordinates)?;
         let mut demands = BTreeMap::new();
         let stages = self.demanded_stages(outputs)?;
         let parameters = (0..self.slots)
             .map(library::formal)
             .collect::<Result<Vec<_>, _>>()?;
+        let symbols = symbol_map(&parameters);
         let numeric = numeric_slots(
             &stages,
             &outputs.iter().map(|&i| self.outputs[i]).collect::<Vec<_>>(),
-            &symbol_map(&parameters),
+            &symbols,
         )?;
-        collect(&stages, order, &mut demands, &numeric)?;
+        let mut reachability = vec![vec![false]; self.slots];
+        if order > DerivativeOrder::Value {
+            for &coordinate in coordinates {
+                reachability[coordinate][0] = true;
+            }
+            coordinate_reachability(&stages, &symbols, &mut reachability)?;
+        }
+        collect(&stages, order, &mut demands, &numeric, &reachability)?;
         Ok(demands)
     }
     /// Optional flattened library expression of one output. It is absent when a provider or
@@ -1003,6 +1059,7 @@ impl PreparedBody {
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
         local_branches: bool,
+        directional: bool,
         prepared_support: &PreparedSupport,
     ) -> Result<CompiledBody, MathError> {
         let construction = tracing::info_span!(
@@ -1017,10 +1074,16 @@ impl PreparedBody {
             return Err(MathError::Cancelled);
         }
         self.check_selection(outputs, coordinates)?;
-        if order > self.selected_order(outputs, coordinates, local_branches)? {
-            return Err(MathError::Contract(
-                "nonsmooth operation lacks a derivative neighborhood".into(),
-            ));
+        let available = self.selected_order(outputs, coordinates, local_branches)?;
+        if order > available {
+            return Err(MathError::DerivativeDemand {
+                source_id: None,
+                body: None,
+                outputs: outputs.to_vec(),
+                coordinates: coordinates.to_vec(),
+                requested: order,
+                available,
+            });
         }
         let selected: Vec<_> = outputs.iter().map(|&i| self.outputs[i]).collect();
         let parameters = (0..self.slots)
@@ -1032,7 +1095,7 @@ impl PreparedBody {
         // Conservative coordinate reachability includes every branch alternative. It
         // selects Taylor coefficients; Symbolica still owns every derivative operation.
         let reachability_coordinates = if order > DerivativeOrder::Value {
-            coordinates.len()
+            if directional { 1 } else { coordinates.len() }
         } else {
             0
         };
@@ -1044,7 +1107,7 @@ impl PreparedBody {
         let mut coordinate_support = vec![vec![false; reachability_coordinates]; self.slots];
         if order > DerivativeOrder::Value {
             for (coordinate, &slot) in coordinates.iter().enumerate() {
-                coordinate_support[slot][coordinate] = true;
+                coordinate_support[slot][if directional { 0 } else { coordinate }] = true;
             }
             coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         }
@@ -1071,7 +1134,15 @@ impl PreparedBody {
                 success = false
             );
             let _order_construction = order_construction.enter();
-            let layout = JetLayout::new(coordinates.to_vec(), requested, limits)?;
+            let layout = JetLayout::new(
+                if directional {
+                    vec![0]
+                } else {
+                    coordinates.to_vec()
+                },
+                requested,
+                limits,
+            )?;
             let frame = self
                 .slots
                 .checked_mul(layout.width())
@@ -1111,7 +1182,7 @@ impl PreparedBody {
             used = used
                 .checked_add(allowance.entries)
                 .ok_or(MathError::Limit("compiled demand scratch"))?;
-            let n = coordinates.len();
+            let n = if directional { 1 } else { coordinates.len() };
             let output_width = 1usize
                 .checked_add(if requested >= DerivativeOrder::First {
                     n
@@ -1144,7 +1215,7 @@ impl PreparedBody {
         if scratch_bytes > limits.scratch_bytes {
             return Err(MathError::Limit("applicability observation storage"));
         }
-        let n = coordinates.len();
+        let n = if directional { 1 } else { coordinates.len() };
         let output_width = 1usize
             .checked_add(if order >= DerivativeOrder::First {
                 n
@@ -1180,6 +1251,7 @@ impl PreparedBody {
             .ok_or(MathError::Limit("worker owned storage"))?;
         let compiled = CompiledBody {
             owner: None,
+            directional,
             inputs: self.inputs,
             slots: self.slots,
             scratch_bytes,
@@ -1264,6 +1336,7 @@ enum CompiledStage {
 /// Immutable library artifact. Clone workers to obtain independent evaluator scratch.
 #[derive(Clone)]
 pub struct CompiledBody {
+    directional: bool,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
     evaluation_cache_bytes: usize,
@@ -1320,6 +1393,10 @@ impl CompiledBody {
                     .saturating_sub(self.support.retained_bytes()),
             ),
         ]
+    }
+    /// Whether this product carries one directional Taylor axis instead of a full Jacobian.
+    pub fn is_directional(&self) -> bool {
+        self.directional
     }
     /// Highest residual order actually compiled, distinct from symbolic availability.
     pub fn compiled_order(&self) -> DerivativeOrder {
@@ -1396,9 +1473,7 @@ impl CompiledBody {
     }
     /// Differentiation coordinates in formal input order.
     pub fn coordinates(&self) -> &[usize] {
-        self.layouts[DerivativeOrder::Value]
-            .as_ref()
-            .map_or(&[], JetLayout::coordinates)
+        self.support.coordinates()
     }
 }
 /// Atomic result, with raw derivatives in output-major row-major order.
@@ -1442,6 +1517,46 @@ impl Worker {
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
+        if self.body.directional {
+            return Err(MathError::Contract(
+                "directional artifact requires a runtime direction".into(),
+            ));
+        }
+        self.evaluate_seeded(inputs, order, None, providers, cancelled)
+    }
+    /// Evaluate DF(x)v from the demanded formal-coordinate seeds, without assembling
+    /// output-by-coordinate partials. Returned jacobian contains one action per output.
+    pub fn evaluate_directional(
+        &mut self,
+        inputs: &[f64],
+        direction: &[f64],
+        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<Evaluation, MathError> {
+        if !self.body.directional
+            || direction.len() != self.body.inputs
+            || direction.iter().any(|v| !v.is_finite())
+        {
+            return Err(MathError::Contract(
+                "finite full formal direction and directional artifact required".into(),
+            ));
+        }
+        self.evaluate_seeded(
+            inputs,
+            DerivativeOrder::First,
+            Some(direction),
+            providers,
+            cancelled,
+        )
+    }
+    fn evaluate_seeded(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        direction: Option<&[f64]>,
+        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<Evaluation, MathError> {
         self.scope.check().map_err(crate::error::scope_error)?;
         self.frame.fill(f64::NAN);
         if inputs.len() != self.body.inputs || inputs.iter().any(|v| !v.is_finite()) {
@@ -1463,8 +1578,14 @@ impl Worker {
             jet[0] = value;
         }
         if order >= DerivativeOrder::First {
-            for (i, &slot) in layout.coordinates.iter().enumerate() {
-                self.frame[slot * width + 1 + i] = 1.0;
+            if let Some(direction) = direction {
+                for &slot in self.body.support.coordinates() {
+                    self.frame[slot * width + 1] = direction[slot];
+                }
+            } else {
+                for (i, &slot) in layout.coordinates.iter().enumerate() {
+                    self.frame[slot * width + 1 + i] = 1.0;
+                }
             }
         }
         let context = EvaluationContext {

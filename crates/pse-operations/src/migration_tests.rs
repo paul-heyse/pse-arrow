@@ -63,7 +63,7 @@ fn migration_frozen_source_identity_and_history_ownership() {
         .part(SOURCE_PHYSICAL.as_bytes());
     assert_eq!(hash.finish_hash().to_hex(), MIGRATION_SOURCE);
     let (catalog, operations) = transitions().unwrap();
-    assert_eq!((catalog.len(), operations.len()), (2, 7));
+    assert_eq!((catalog.len(), operations.len()), (2, 8));
     assert_ne!(CATALOG_HISTORY, OPERATIONS_HISTORY);
 }
 #[tokio::test]
@@ -89,7 +89,7 @@ async fn migration_supported_source_preserves_payload_and_catalog() {
             .count("SELECT count(*) FROM pse_ops.operations_schema_history")
             .await
             .unwrap(),
-        7
+        8
     );
     assert_eq!(session.count("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename='refinery_schema_history'").await.unwrap(),0);
     let reopened = Store::open_with(db.url(), &crate::store::StoreOptions::for_tests())
@@ -364,6 +364,7 @@ fn migration_source_and_history_prefix_are_admitted_together() {
         (FRESH_PLAN25E_ORIGIN, false, 0, 0),
         (FRESH_PLAN25E_ORIGIN, true, 0, 0),
         (FRESH_PLAN25E_ORIGIN, true, 0, 1),
+        (FRESH_PLAN25E_ORIGIN, true, 1, 4),
     ] {
         assert!(
             admit_prefix(origin, pending, catalog, operations).is_ok(),
@@ -381,7 +382,7 @@ fn migration_source_and_history_prefix_are_admitted_together() {
         (STUDY_MIGRATION_SOURCE, true, 0, 4),
         (FRESH_PLAN25E_ORIGIN, false, 0, 1),
         (FRESH_PLAN25E_ORIGIN, true, 1, 0),
-        (FRESH_PLAN25E_ORIGIN, true, 1, 4),
+        (FRESH_PLAN25E_ORIGIN, true, 1, 5),
         ("unknown", false, 0, 0),
     ] {
         reason(
@@ -497,7 +498,7 @@ async fn migration_plan25e_fresh_and_upgraded_sources_preserve_historical_occurr
                 .count("SELECT count(*) FROM pse_ops.operations_schema_history")
                 .await
                 .unwrap(),
-            if fresh { 3 } else { 7 }
+            if fresh { 4 } else { 8 }
         );
         if fresh {
             assert_eq!(
@@ -530,7 +531,7 @@ async fn migration_inspection_is_read_only_and_stale_plan_refuses_before_marker(
     let plan = db.store().migration_plan().await.unwrap();
     assert_eq!(comment(&db).await, before);
     assert_eq!(plan.source, MIGRATION_SOURCE);
-    assert_eq!(plan.pending_steps().len(), 9);
+    assert_eq!(plan.pending_steps().len(), 10);
     assert_eq!(raw.count("SELECT count(*) FROM pg_tables WHERE schemaname='pse_ops' AND tablename LIKE '%schema_history'").await.unwrap(), 0);
     let mut changed = plan.clone();
     changed.shared_version += 1;
@@ -635,7 +636,7 @@ async fn migration_plan25f_fresh_and_upgraded_inventory_preserves_every_catalog_
                 .iter()
                 .map(|s| s.version)
                 .collect::<Vec<_>>(),
-            [2, 6, 7]
+            [2, 6, 7, 8]
         );
         let report = db.store().migrate(&plan).await.unwrap();
         assert!(report.final_ready.ready);
@@ -707,9 +708,17 @@ fn operational_identity_v7_preserves_v6_digest_and_unknown_frame_provenance() {
     assert!(sql.contains("RENAME COLUMN request_identity TO operational_job_identity"));
     assert!(sql.contains("ADD COLUMN operational_job_frame text"));
     assert!(!sql.contains("UPDATE pse_ops.attempts"));
-    assert!(sql.contains(SCHEMA_FINGERPRINT_HEX));
+    assert!(sql.contains(NATIVE_BACKENDS_MIGRATION_SOURCE));
     let (_, operations) = transitions().unwrap();
-    assert_eq!(operations.last().unwrap().version(), 7);
+    assert_eq!(
+        operations
+            .iter()
+            .find(|step| step.version() == 7)
+            .unwrap()
+            .version(),
+        7
+    );
+    assert_eq!(operations.last().unwrap().version(), 8);
 }
 
 #[tokio::test]
@@ -732,7 +741,7 @@ async fn operational_identity_v7_migrates_fresh_v6_and_preserves_unknown_provena
             .iter()
             .map(|s| s.version)
             .collect::<Vec<_>>(),
-        vec![7]
+        vec![7, 8]
     );
     let report = db.store().migrate(&plan).await.unwrap();
     assert!(report.final_ready.ready);
@@ -783,7 +792,7 @@ async fn operational_identity_v7_migrates_upgraded_v6_and_normalizes_only_known_
             .iter()
             .map(|s| s.version)
             .collect::<Vec<_>>(),
-        vec![7]
+        vec![7, 8]
     );
     assert!(db.store().migrate(&plan).await.unwrap().final_ready.ready);
     assert_eq!(raw.texts(SNAPSHOT).await.unwrap(), before);
@@ -792,4 +801,107 @@ async fn operational_identity_v7_migrates_upgraded_v6_and_normalizes_only_known_
     db.store().open().await.unwrap();
     drop(raw);
     db.remove().await.unwrap();
+}
+
+async fn plan25h_source(fresh: bool) -> TestDatabase {
+    let db = legacy().await;
+    let mut session = db.store().schema_session().await.unwrap();
+    let (catalog, operations) = transitions().unwrap();
+    run_history(&mut session.client, &catalog[..1], CATALOG_HISTORY)
+        .await
+        .unwrap();
+    run_history(&mut session.client, &operations[..5], OPERATIONS_HISTORY)
+        .await
+        .unwrap();
+    run_history(&mut session.client, &catalog, CATALOG_HISTORY)
+        .await
+        .unwrap();
+    run_history(&mut session.client, &operations[..7], OPERATIONS_HISTORY)
+        .await
+        .unwrap();
+    if fresh {
+        // A schema created at V7 has the same physical layout with no upgrade history.
+        session.client.batch_execute("DROP TABLE pse_ops.catalog_schema_history; DROP TABLE pse_ops.operations_schema_history; UPDATE pse_ops.schema_support_state SET source='fresh'").await.unwrap();
+    }
+    drop(session);
+    db
+}
+
+#[tokio::test]
+async fn native_backends_v8_preserves_v7_rows_histories_and_rejects_enum_drift() {
+    for fresh in [false, true] {
+        let db = plan25h_source(fresh).await;
+        let raw = db.session().await.unwrap();
+        let before = raw.texts(SNAPSHOT).await.unwrap();
+        let marker = comment(&db).await;
+        let plan = db.store().migration_plan().await.unwrap();
+        assert_eq!(comment(&db).await, marker);
+        assert_eq!(
+            plan.pending_steps()
+                .iter()
+                .map(|step| step.version)
+                .collect::<Vec<_>>(),
+            [8]
+        );
+        assert!(db.store().migrate(&plan).await.unwrap().final_ready.ready);
+        assert_eq!(raw.texts(SNAPSHOT).await.unwrap(), before);
+        assert_eq!(raw.texts("SELECT enumlabel::text FROM pg_enum WHERE enumtypid='pse_ops.native_backend'::regtype ORDER BY enumsortorder").await.unwrap().into_iter().flatten().flatten().collect::<Vec<_>>(), crate::generated::layout::ENUMS.iter().find(|(name,_)| *name=="native_backend").unwrap().1);
+        db.store().open().await.unwrap();
+        drop(raw);
+        db.remove().await.unwrap();
+    }
+    let db = legacy().await;
+    let raw = db.session().await.unwrap();
+    raw.execute("ALTER TYPE pse_ops.native_backend ADD VALUE 'foreign_profile'")
+        .await
+        .unwrap();
+    let marker = comment(&db).await;
+    reason(
+        db.store().migration_plan().await.unwrap_err(),
+        MigrationRefusal::Drift,
+    );
+    assert_eq!(comment(&db).await, marker);
+    drop(raw);
+    db.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn native_backends_v8_interruption_resumes_without_rewriting_history_or_rows() {
+    for point in [FaultPoint::BeforeCommit, FaultPoint::AfterCommit] {
+        let db = plan25h_source(true).await;
+        let raw = db.session().await.unwrap();
+        let before = raw.texts(SNAPSHOT).await.unwrap();
+        let proxy = FaultProxy::start(db.url()).await.unwrap();
+        proxy.arm(Fault {
+            marker: "ALTER TYPE pse_ops.native_backend ADD VALUE 'uno'",
+            point,
+        });
+        let interrupted =
+            Store::connect_with(proxy.url(), &crate::store::StoreOptions::for_tests())
+                .await
+                .unwrap();
+        let plan = interrupted.migration_plan().await.unwrap();
+        assert!(interrupted.migrate(&plan).await.is_err());
+        assert!(proxy.fired());
+        interrupted.close();
+        let resumed = db.store().migration_plan().await.unwrap();
+        assert!(
+            db.store()
+                .migrate(&resumed)
+                .await
+                .unwrap()
+                .final_ready
+                .ready
+        );
+        assert_eq!(raw.texts(SNAPSHOT).await.unwrap(), before);
+        assert_eq!(
+            raw.count("SELECT count(*) FROM pse_ops.operations_schema_history WHERE version=8")
+                .await
+                .unwrap(),
+            1
+        );
+        proxy.shutdown().await.unwrap();
+        drop(raw);
+        db.remove().await.unwrap();
+    }
 }

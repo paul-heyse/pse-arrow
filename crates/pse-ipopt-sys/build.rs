@@ -11,19 +11,22 @@
 //! `cargo xtask codegen --only bindgen` inside the solver container (blueprint §3.1,
 //! plan §4).
 
+use sha2::{Digest, Sha256};
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-/// Minimum Ipopt supported by the platform: `GetIpoptCurrentIterate` and
-/// `GetIpoptCurrentViolations` (blueprint §18.3) arrived in 3.14.
-const MIN_VERSION: &str = "3.14.0";
+/// Minimum Ipopt supported by the platform: current-iterate and violation APIs
+/// arrived in 3.14; resetting per-attempt TNLP restart options requires 3.14.2.
+const MIN_VERSION: &str = "3.14.2";
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-env-changed=IPOPT_DIR");
     println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=bridge/pse_ipopt_sequence.cpp");
+    println!("cargo:rerun-if-changed=bridge/pse_ipopt_sequence.h");
 
     if env::var_os("CARGO_FEATURE_LINK").is_none() {
         // Compile-only shell; see the `link` feature comment in Cargo.toml.
@@ -46,6 +49,40 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     println!("cargo:version={version}");
+    let mut sequence_identity = Sha256::new();
+    sequence_identity.update(version.as_bytes());
+    for source in [
+        "bridge/pse_ipopt_sequence.cpp",
+        "bridge/pse_ipopt_sequence.h",
+    ] {
+        sequence_identity.update(fs::read(source)?);
+    }
+    let sequence_identity: String = sequence_identity
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    println!("cargo:rustc-env=PSE_IPOPT_SEQUENCE_BUILD_ID={sequence_identity}");
+    let mut sequence = cc::Build::new();
+    sequence
+        .cpp(true)
+        .std("c++17")
+        .file("bridge/pse_ipopt_sequence.cpp")
+        .flag("-ffp-contract=off")
+        .flag("-fno-fast-math");
+    if let Some(prefix) = env::var_os("IPOPT_DIR") {
+        sequence.include(Path::new(&prefix).join("include/coin-or"));
+    } else {
+        for include in pkg_config::Config::new()
+            .atleast_version(MIN_VERSION)
+            .probe("ipopt")?
+            .include_paths
+        {
+            sequence.include(include);
+        }
+    }
+    sequence.try_compile("pse_ipopt_sequence")?;
+    println!("cargo:rustc-link-lib=stdc++");
     Ok(())
 }
 
@@ -81,12 +118,13 @@ one of these ways, then re-run:
         docker build -t pse-solvers docker/solvers
         docker run --rm -it -v \"$PWD:/w\" -w /w pse-solvers
   * macOS:         brew install ipopt
-  * conda / pixi:  conda install -c conda-forge 'ipopt>=3.14'
+  * conda / pixi:  conda install -c conda-forge 'ipopt>=3.14.2'
   * a manual build: set IPOPT_DIR=<prefix> so that
     $IPOPT_DIR/lib/pkgconfig/ipopt.pc exists.
 
 A system Ipopt on the 3.11 line (Debian/Ubuntu `coinor-libipopt-dev`) is NOT enough: the
-iterate and violation APIs of blueprint §18.3 arrived in 3.14."
+iterate and violation APIs of blueprint §18.3 arrived in 3.14; per-attempt
+restart-option reset requires OptionsList::UnsetValue from 3.14.2."
     ))
 }
 

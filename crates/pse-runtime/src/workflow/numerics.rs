@@ -283,6 +283,14 @@ pub(crate) fn trajectory_use(
         _ => refused(CandidateRefusal::NativeOutcome),
     }
 }
+/// A screened auxiliary point may seed original correction, never grant scientific use.
+pub(crate) fn auxiliary_start(available: bool) -> CandidateDecision {
+    CandidateDecision::new(if available {
+        CandidateUse::SeedOnly
+    } else {
+        CandidateUse::Unusable
+    })
+}
 pub(crate) fn refused(reason: CandidateRefusal) -> CandidateDecision {
     let mut decision = CandidateDecision::new(CandidateUse::Unusable);
     decision.refusals.push(reason);
@@ -486,15 +494,7 @@ impl RunResult {
                                 r.quality.as_ref().map(|q| q.feasible()),
                                 r.solve.is_none() && r.candidate.is_some(),
                                 policy,
-                                complete(
-                                    r.candidate_use(policy),
-                                    CompletionEvidence::point(
-                                        &r.checks,
-                                        r.checks_complete && r.validation_error.is_none(),
-                                        p.required_closure_checks(),
-                                    ),
-                                    policy,
-                                ),
+                                p.assess_completion(r),
                             )
                         }
                         (RunRequest::Modeling(p), Ok(RunReport::Modeling(results)))

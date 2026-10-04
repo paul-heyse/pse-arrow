@@ -120,6 +120,8 @@ pub struct ModelingResult(Arc<ModelingResultData>);
 #[derive(Debug)]
 pub struct ModelingResultData {
     pub outcome: Outcome,
+    /// Ordered shared numerical operations; absent only for a producer not yet traced.
+    pub strategy: Option<crate::math::solves::StrategyTrace>,
     pub values: CaseValues,
     pub checks: Vec<ModelingCheck>,
     pub reports: Vec<ModelingReport>,
@@ -160,6 +162,157 @@ fn stamp_start(outcome: &mut Outcome, run: RunId, attempt: usize) {
     }
 }
 impl ModelingResult {
+    /// Bind an original-permitted candidate as the starting point of a scalar path.
+    /// Auxiliary reports cannot establish this originating scientific point.
+    /// # Errors
+    /// Missing candidate, original permission, source binding or a valid orientation.
+    pub fn path_start(
+        &self,
+        orientation: Vec<f64>,
+    ) -> Result<crate::math::solves::paths::PathStart, WorkflowError> {
+        let report = match &self.outcome {
+            Outcome::Native(report) => report,
+            _ => {
+                return Err(contract(
+                    "path origin requires an original native candidate",
+                ));
+            }
+        };
+        let candidate = report
+            .candidate
+            .as_ref()
+            .ok_or_else(|| contract("path origin requires a candidate"))?;
+        let start = crate::math::solves::paths::PathStart::admitted(
+            &self.prepared.solve,
+            candidate.primal.clone(),
+            orientation,
+            self.completion.decision.clone(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let owner = self.runtime.native().reserve(
+            "modeling:path-origin",
+            start
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok(start.with_owner(owner))
+    }
+    /// Retain this original-permitted point as a sample for the shared secant predictor.
+    /// A seed-only result cannot establish an accepted sequence anchor.
+    /// # Errors
+    /// No original permission/candidate or invalid parameter/semantic coordinates.
+    pub fn prediction_anchor(
+        &self,
+        parameter: f64,
+    ) -> Result<crate::math::prediction::Anchor, WorkflowError> {
+        let report = match &self.outcome {
+            Outcome::Native(report) => report,
+            _ => {
+                return Err(contract(
+                    "prediction anchor requires an original native candidate",
+                ));
+            }
+        };
+        let candidate = report
+            .candidate
+            .as_ref()
+            .ok_or_else(|| contract("prediction anchor requires a candidate"))?;
+        let key = self
+            .prepared
+            .solve
+            .semantic_point_key(&candidate.primal)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let anchor = crate::math::prediction::Anchor::admitted(
+            key,
+            report.variables.clone(),
+            candidate.primal.clone(),
+            parameter,
+            self.completion.decision.clone(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let owner = self.runtime.native().reserve(
+            "modeling:prediction-anchor",
+            anchor
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok(anchor.with_owner(owner))
+    }
+    /// A fresh sparse Root predictor is exposed only under composed original permission.
+    /// Its own numerical action remains estimated start evidence.
+    /// # Errors
+    /// Original permission, native candidate or the requested fresh factor is unavailable.
+    pub fn root_predictor(
+        &self,
+    ) -> Result<
+        pse_backend_native::square_response::SparsePredictor,
+        pse_backend_native::square_response::Withheld,
+    > {
+        use pse_backend_native::square_response::Withheld;
+        if !self.completion.decision.permits_use() {
+            return Err(Withheld::Infeasible(
+                "original completion does not permit prediction reuse".into(),
+            ));
+        }
+        let Outcome::Native(report) = &self.outcome else {
+            return Err(Withheld::NoCandidate);
+        };
+        report.evidence.root_predictor.clone().unwrap_or_else(|| {
+            Err(Withheld::Neighborhood(
+                "a fresh sparse Root predictor was not requested".into(),
+            ))
+        })
+    }
+    /// Produce a start for an admitted related target, retaining actual source/target
+    /// identities. The target must subsequently screen it and perform original correction.
+    /// # Errors
+    /// Changed fixed dependencies, unavailable original permission or numerical action.
+    pub fn root_prediction(
+        &self,
+        target: &crate::math::solves::PreparedSolve,
+        branch: pse_model::strategy::BranchPolicy,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<
+        (
+            crate::math::prediction::Proposal,
+            pse_backend_native::square_response::ActionEvidence,
+        ),
+        WorkflowError,
+    > {
+        let predictor = self.root_predictor().map_err(|error| match error {
+            pse_backend_native::square_response::Withheld::Cause(cause) => {
+                crate::math::MathRuntimeError::Solve(pse_backend_native::ProblemError::Math(
+                    pse_math::MathError::Typed {
+                        retained: cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                    },
+                ))
+            }
+            error => crate::math::MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Unsupported(error.to_string()),
+            ),
+        })?;
+        let parameters = target
+            .root_target_parameters(&self.prepared.solve, predictor.parameters())
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let (proposal, work) = crate::math::prediction::parameter_root(
+            &predictor,
+            &parameters,
+            target
+                .original_identity()
+                .map_err(crate::math::MathRuntimeError::from)?,
+            branch,
+            execution,
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let owner = self.runtime.native().reserve(
+            "modeling:root-proposal",
+            proposal
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok((proposal.with_owner(owner), work))
+    }
     /// Structured reason this original-model result was not accepted.
     pub fn diagnostic(&self) -> Option<pse_model::diagnostic::BoundaryDiagnostic> {
         use pse_model::diagnostic::{BoundaryClass as C, BoundaryDiagnostic as D, Observation};
@@ -311,25 +464,23 @@ pub(in crate::workflow) fn result_bytes(
     Ok(bytes)
 }
 impl ModelingResult {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "result assembly retains separate preparation, attempt identity, outcome, original assessment, completion permission, native ownership and strategy observations"
+    )]
     pub(in crate::workflow) fn from_assessment(
         prepared: ModelingSolvePreparation,
         run_id: RunId,
         attempt: usize,
         mut outcome: Outcome,
         point: assessment::AssessedPoint,
+        completion: crate::workflow::numerics::Completed,
         native_owner: Arc<pse_columnar::AllocationLease>,
+        strategy: Option<crate::math::solves::StrategyTrace>,
     ) -> Self {
-        let completion = crate::workflow::numerics::complete(
-            outcome.candidate_use(&prepared.solve.numerics().policy),
-            crate::workflow::numerics::CompletionEvidence::point(
-                &point.checks,
-                point.complete && point.error.is_none(),
-                point.required_closure,
-            ),
-            &prepared.solve.numerics().policy,
-        );
         stamp_start(&mut outcome, run_id, attempt);
         Self(Arc::new(ModelingResultData {
+            strategy,
             runtime: prepared.source.runtime.clone(),
             prepared,
             run_id,
@@ -909,6 +1060,17 @@ impl ModelingResult {
         );
         columns.ensure::<ModelingCheck>().map_err(relation)?;
         columns.ensure::<ModelingReport>().map_err(relation)?;
+        columns
+            .ensure::<pse_model::generated::runtime::solve_strategy_events::Row>()
+            .map_err(relation)?;
+        if let Some(strategy) = &self.strategy {
+            for row in strategy
+                .rows(self.run_id, 0)
+                .map_err(crate::math::MathRuntimeError::from)?
+            {
+                columns.push(row).map_err(relation)?;
+            }
+        }
         columns
             .ensure::<pse_model::generated::runtime::modeling_findings::Row>()
             .map_err(relation)?;

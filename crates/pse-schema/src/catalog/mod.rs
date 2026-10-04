@@ -23,6 +23,7 @@ mod modeling_analysis;
 mod modeling_knowledge;
 mod modeling_native_analysis;
 mod native_math;
+mod native_strategy;
 mod normalization;
 mod operations;
 mod publication;
@@ -92,6 +93,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     s6_11_numerical::declare(builder);
     s6_13_runtime::declare(builder);
     native_math::declare(builder);
+    native_strategy::declare(builder);
     solve_settings::declare(builder);
     modeling::declare(builder);
     modeling_knowledge::declare(builder);

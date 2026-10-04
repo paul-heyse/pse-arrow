@@ -3,6 +3,7 @@
 //! Native POUNCE TNLP adapter sharing the exact NLP oracle and callback failure policy.
 mod equalities;
 mod records;
+mod retained;
 pub use crate::settings::pounce::{LinearSettings, Method, Settings};
 use crate::tnlp::{Adapter, finite};
 use crate::{
@@ -138,12 +139,15 @@ pub fn with_threads<T: Send, E: From<ProblemError> + Send>(
         .build_scoped(|thread| thread.run(), |pool| pool.install(run))
         .map_err(|e| E::from(ProblemError::Internal(format!("POUNCE local pool: {e}"))))?
 }
-/// Worker-local native application reuse; each call still constructs native iteration
-/// state. This makes no claim of retaining numeric factors across different solves.
+/// Worker-local application and actual FERAL backend retention. Each call constructs
+/// iteration state and refactors its matrix; compatible library symbolic state survives
+/// through exclusive role-specific leases rather than a fresh backend factory.
 #[derive(Default)]
 pub struct Session {
     app: Option<IpoptApplication>,
     stamp: Option<Compatibility>,
+    factors: Option<Rc<RefCell<retained::Pool>>>,
+    foreign_allowance: Option<usize>,
 }
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -156,6 +160,20 @@ impl Session {
     /// Construct after the owning worker has received admission.
     pub fn new() -> Self {
         Self::default()
+    }
+    /// Observable pattern/owner buffers. This is not the extent of opaque FERAL
+    /// allocations; the execution owner must retain its admitted foreign allowance.
+    pub fn retained_layout_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(
+            self.factors
+                .as_ref()
+                .map_or(0, |pool| pool.borrow().layout_bytes()),
+        )
+    }
+    /// Full finite foreign allowance to keep charged while opaque backends are retained.
+    /// `None` means no full allocation accounting was supplied by this caller.
+    pub fn retained_foreign_allowance(&self) -> Option<usize> {
+        self.factors.as_ref().and(self.foreign_allowance)
     }
     /// Execute native POUNCE over the already-preprocessed oracle. The oracle
     /// must be created on this worker; a parallel profile requires `with_threads`.
@@ -340,7 +358,7 @@ impl Session {
             ));
         }
         let mut options = controls.options.clone();
-        options.extend(accuracy.nlp_options());
+        options.extend(accuracy.pounce_options());
         options.extend([
             (
                 "algorithm".into(),
@@ -404,6 +422,10 @@ impl Session {
             options.extend(restart_options);
             applied
         });
+        let linear_threads = feral_threads(controls.threads, feral_pool_threads());
+        feral.parallel = Some(linear_threads > 1);
+        feral.fma = false;
+        let factor_identity = serde_json::json!({"feral":crate::settings::pounce::record(&feral).map_err(|e|ProblemError::Internal(format!("FERAL identity: {e}")))?,"hessian_supplied":supplied,"method":serde_json::to_value(method).map_err(|e|ProblemError::Internal(format!("POUNCE method identity: {e}")))?});
         let reused = self.app.is_some()
             && self
                 .stamp
@@ -411,6 +433,17 @@ impl Session {
                 .is_some_and(|s| s.same_session(&compatibility))
             && controls.reuse != ReusePolicy::Fresh;
         if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
+            return Err(ProblemError::Reuse {
+                backend: Backend::Pounce,
+                refusal: crate::ReuseRefusal::Structure,
+            });
+        }
+        let factor_reused = reused
+            && self
+                .factors
+                .as_ref()
+                .is_some_and(|pool| pool.borrow().matches(&factor_identity));
+        if self.factors.is_some() && !factor_reused && controls.reuse == ReusePolicy::RequireReuse {
             return Err(ProblemError::Reuse {
                 backend: Backend::Pounce,
                 refusal: crate::ReuseRefusal::Structure,
@@ -442,24 +475,30 @@ impl Session {
                 return Err(ProblemError::Contract(format!("POUNCE ignored option {k}")));
             }
         }
-        let linear_threads = feral_threads(controls.threads, feral_pool_threads());
-        feral.parallel = Some(linear_threads > 1);
-        feral.fma = false;
+        let pool = if factor_reused {
+            self.factors
+                .as_ref()
+                .ok_or_else(|| ProblemError::Internal("missing retained FERAL pool".into()))?
+                .clone()
+        } else {
+            retained::Pool::new(feral.clone(), factor_identity)
+        };
+        self.factors = Some(pool.clone());
+        self.foreign_allowance = controls.foreign_bytes.or(execution.memory);
+        let before_factors = pool.borrow().counts();
         let sink = Arc::new(Mutex::new(Default::default()));
-        app.set_linear_backend_factory(
-            pounce_rs::pounce_algorithm::application::default_backend_factory_with_sink(
-                feral.clone(),
-                Default::default(),
-                sink.clone(),
-            ),
-        );
+        app.set_linear_backend_factory(retained::factory(
+            pool.clone(),
+            sink.clone(),
+            retained::Phase::Main,
+        ));
         app.initialize()
             .map_err(|e| ProblemError::Internal(format!("POUNCE initialization: {e}")))?;
         let inner = app.algorithm_builder_from_options();
-        let config = feral.clone();
         let restore_sink = sink.clone();
+        let restore_pool = pool.clone();
         app.set_restoration_factory_provider(pounce_rs::pounce_restoration::resto_inner_solver::make_default_restoration_factory_provider(
-        Default::default(),inner,move || {let config=config.clone();let sink=restore_sink.clone();Box::new(move ||pounce_rs::pounce_algorithm::application::default_backend_factory_with_sink(config.clone(),Default::default(),sink.clone()))}));
+        Default::default(),inner,move || {let pool=restore_pool.clone();let sink=restore_sink.clone();Box::new(move ||retained::factory(pool.clone(),sink.clone(),retained::Phase::Restoration))}));
         let working_set_submitted = sqp_seed.as_ref().is_some_and(|s| s.working.is_some());
         if let Some(seed) = sqp_seed {
             app.set_sqp_warm_start(seed);
@@ -506,6 +545,49 @@ impl Session {
             .metrics
             .insert("reuse.native_application".into(), Metric::Bool(reused));
         report.evidence.reused_native_state = reused;
+        let after_factors = pool.borrow().counts();
+        for (name, count) in [
+            (
+                "linear.backend_objects.created",
+                after_factors.created.saturating_sub(before_factors.created),
+            ),
+            (
+                "linear.backend_objects.reused",
+                after_factors.reused.saturating_sub(before_factors.reused),
+            ),
+            (
+                "linear.structure_kept",
+                after_factors
+                    .pattern_kept
+                    .saturating_sub(before_factors.pattern_kept),
+            ),
+            (
+                "linear.structure_refreshes",
+                after_factors
+                    .structure_refreshes
+                    .saturating_sub(before_factors.structure_refreshes),
+            ),
+        ] {
+            report.metrics.insert(
+                name.into(),
+                Metric::Integer(i64::try_from(count).unwrap_or(i64::MAX)),
+            );
+        }
+        report.metrics.insert(
+            "linear.retained_pool_compatible".into(),
+            Metric::Bool(factor_reused),
+        );
+        report.metrics.insert(
+            "linear.retained_layout_bytes".into(),
+            Metric::Integer(i64::try_from(self.retained_layout_bytes()).unwrap_or(i64::MAX)),
+        );
+        report.metrics.insert(
+            "linear.lifetime_extrema".into(),
+            Metric::Text("unavailable-for-this-attempt-from-pinned-cumulative-summary".into()),
+        );
+        report
+            .metrics
+            .insert("linear.fresh_response_factor".into(), Metric::Bool(false));
         report.metrics.insert(
             "linear.threads".into(),
             Metric::Integer(i64::try_from(linear_threads).unwrap_or(i64::MAX)),
@@ -556,6 +638,7 @@ impl Session {
             eval_lag_hess
         );
         if let Ok(s) = sink.lock() {
+            report.evidence.work.factorizations = Some(s.n_factors);
             report
                 .metrics
                 .insert("linear.factors".into(), Metric::Integer(s.n_factors as i64));
@@ -674,6 +757,9 @@ impl Session {
         ) {
             self.app = Some(app);
             self.stamp = Some(compatibility);
+        } else {
+            self.factors = None;
+            self.foreign_allowance = None;
         }
         Ok(report)
     }
@@ -847,6 +933,146 @@ mod tests {
         );
         let fresh = run(&mut Session::new(), Options::new(), 1).unwrap();
         assert_eq!(second.options, fresh.options);
+    }
+    fn reuse_run(
+        session: &mut Session,
+        settings: &Settings,
+        reuse: ReusePolicy,
+        stamp: Compatibility,
+    ) -> Result<SolveReport, ProblemError> {
+        session.solve(
+            Box::new(crate::solver_tests::Polynomial::new()),
+            &[2.0],
+            ObjectiveSense::Minimize,
+            &Controls {
+                reuse,
+                foreign_bytes: Some(64 << 20),
+                ..Controls::default()
+            },
+            &ResolvedAccuracy::nominal(),
+            settings,
+            crate::solver_tests::execution(),
+            &Tolerances {
+                variables: vec![1e-8],
+                rows: vec![1e-8],
+                integrality: 1e-8,
+            },
+            None,
+            stamp,
+        )
+    }
+    fn counted(report: &SolveReport, name: &str) -> i64 {
+        match report.metrics.get(name) {
+            Some(Metric::Integer(n)) => *n,
+            other => panic!("{name}: {other:?}"),
+        }
+    }
+    #[test]
+    fn compatible_applications_retain_actual_feral_backend_and_observe_attempt_factor_deltas() {
+        let mut session = Session::new();
+        let stamp = crate::solver_tests::stamp(Backend::Pounce);
+        let cold = reuse_run(
+            &mut session,
+            &Settings::default(),
+            ReusePolicy::AllowRebuild,
+            stamp.clone(),
+        )
+        .unwrap();
+        assert_eq!(cold.termination.category, Termination::Success);
+        assert!(counted(&cold, "linear.backend_objects.created") > 0);
+        assert!(counted(&cold, "linear.factors") > 0);
+        let pool = session.factors.as_ref().unwrap().clone();
+        let mut changed = stamp.clone();
+        changed.data = pse_ids::ContentHash::from_bytes([61; 32]);
+        let warm = reuse_run(
+            &mut session,
+            &Settings::default(),
+            ReusePolicy::AllowRebuild,
+            changed,
+        )
+        .unwrap();
+        assert_eq!(warm.termination.category, Termination::Success);
+        assert!(Rc::ptr_eq(&pool, session.factors.as_ref().unwrap()));
+        assert_eq!(counted(&warm, "linear.backend_objects.created"), 0);
+        assert!(counted(&warm, "linear.backend_objects.reused") > 0);
+        assert!(counted(&warm, "linear.structure_kept") > 0);
+        assert!(counted(&warm, "linear.pattern_reuse") > 0);
+        assert_eq!(
+            warm.evidence.work.factorizations,
+            Some(counted(&warm, "linear.factors") as u64)
+        );
+        assert!(!warm.metrics.contains_key("linear.min_pivot"));
+        assert_eq!(
+            warm.metrics["linear.fresh_response_factor"],
+            Metric::Bool(false)
+        );
+        assert_eq!(session.retained_foreign_allowance(), Some(64 << 20));
+        assert!(session.retained_layout_bytes() > size_of::<Session>());
+        let fresh = reuse_run(
+            &mut session,
+            &Settings::default(),
+            ReusePolicy::Fresh,
+            stamp,
+        )
+        .unwrap();
+        assert_eq!(fresh.termination.category, Termination::Success);
+        assert!(!Rc::ptr_eq(&pool, session.factors.as_ref().unwrap()));
+        assert_eq!(counted(&fresh, "linear.backend_objects.reused"), 0);
+        assert!(counted(&fresh, "linear.backend_objects.created") > 0);
+    }
+    #[test]
+    fn native_layout_and_effective_factor_profile_invalidate_retained_backends_and_require_reuse_refuses()
+     {
+        let mut session = Session::new();
+        let stamp = crate::solver_tests::stamp(Backend::Pounce);
+        reuse_run(
+            &mut session,
+            &Settings::default(),
+            ReusePolicy::AllowRebuild,
+            stamp.clone(),
+        )
+        .unwrap();
+        let pool = session.factors.as_ref().unwrap().clone();
+        let mut changed = Settings::default();
+        changed.linear.refine = !changed.linear.refine;
+        assert!(matches!(
+            reuse_run(
+                &mut session,
+                &changed,
+                ReusePolicy::RequireReuse,
+                stamp.clone()
+            ),
+            Err(ProblemError::Reuse { .. })
+        ));
+        assert!(Rc::ptr_eq(&pool, session.factors.as_ref().unwrap()));
+        assert!(session.app.is_some());
+        let updated = reuse_run(
+            &mut session,
+            &changed,
+            ReusePolicy::AllowRebuild,
+            stamp.clone(),
+        )
+        .unwrap();
+        assert_eq!(updated.termination.category, Termination::Success);
+        assert!(!Rc::ptr_eq(&pool, session.factors.as_ref().unwrap()));
+        assert_eq!(counted(&updated, "linear.backend_objects.reused"), 0);
+        let current = session.factors.as_ref().unwrap().clone();
+        let mut layout = stamp;
+        layout.layout = pse_ids::ContentHash::from_bytes([62; 32]);
+        assert!(matches!(
+            reuse_run(
+                &mut session,
+                &changed,
+                ReusePolicy::RequireReuse,
+                layout.clone()
+            ),
+            Err(ProblemError::Reuse { .. })
+        ));
+        assert!(Rc::ptr_eq(&current, session.factors.as_ref().unwrap()));
+        let rebuilt = reuse_run(&mut session, &changed, ReusePolicy::AllowRebuild, layout).unwrap();
+        assert_eq!(rebuilt.termination.category, Termination::Success);
+        assert!(!Rc::ptr_eq(&current, session.factors.as_ref().unwrap()));
+        assert_eq!(counted(&rebuilt, "linear.backend_objects.reused"), 0);
     }
     #[test]
     fn pounce_retry_options_reserved_and_snapshotted() {

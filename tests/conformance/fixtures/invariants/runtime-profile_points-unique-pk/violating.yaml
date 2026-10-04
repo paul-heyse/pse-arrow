@@ -4,8 +4,10 @@
     "runtime.profile_points": [
       {
         "accepted": "[\"bool\",true]",
+        "callback_terminal_failure": "[\"bool\",true]",
         "detail": "[\"text\",\"value-1\"]",
         "end": "[\"enum\",\"lower\"]",
+        "failures": "[\"list\",[]]",
         "objective": "[\"f64\",\"3ff0000000000000\"]",
         "parameter_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "point": "[\"i64\",1]",
@@ -13,12 +15,15 @@
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "seed": "[\"i64\",1]",
         "statistic": "[\"f64\",\"3ff0000000000000\"]",
+        "termination": "[\"enum\",\"success\"]",
         "value": "[\"f64\",\"3ff0000000000000\"]"
       },
       {
         "accepted": "[\"bool\",true]",
+        "callback_terminal_failure": "[\"bool\",true]",
         "detail": "[\"text\",\"value-1\"]",
         "end": "[\"enum\",\"lower\"]",
+        "failures": "[\"list\",[]]",
         "objective": "[\"f64\",\"3ff0000000000000\"]",
         "parameter_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "point": "[\"i64\",1]",
@@ -26,6 +31,7 @@
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "seed": "[\"i64\",1]",
         "statistic": "[\"f64\",\"3ff0000000000000\"]",
+        "termination": "[\"enum\",\"success\"]",
         "value": "[\"f64\",\"3ff0000000000000\"]"
       }
     ]

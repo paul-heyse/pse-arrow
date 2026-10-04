@@ -11,6 +11,8 @@ mod configuration;
 mod cubic;
 #[path = "implicit_isolation.rs"]
 mod isolation;
+#[path = "implicit_reconstruction.rs"]
+pub mod reconstruction;
 #[path = "implicit_regimes.rs"]
 mod regimes;
 #[path = "implicit_selection.rs"]
@@ -32,11 +34,14 @@ use faer::{
     },
 };
 pub use isolation::{
-    ProofInterval, SelectionAlternative, SelectionChart, SelectionEvidence, SelectionProofRefusal,
-    SelectionProofRequest, SelectionScope, SelectionVerifier,
+    ChartChainCoverage, ChartChainEvidence, ChartChainProof, ChartChainRequest, ChartChainWork,
+    ProofInterval, RootActionEvidence, RootPointEvidence, SelectionAlternative, SelectionChart,
+    SelectionEvidence, SelectionProofRefusal, SelectionProofRequest, SelectionScope,
+    SelectionVerifier,
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, ProviderValues};
+pub(crate) use regimes::NumericalRefinement;
 pub use regimes::{Regime, RegimeFactory, RegimeFactoryBranch, RegimeSelection, SelectedRegime};
 pub use selection::{Selection, SelectionEquivalence, graph_equivalence};
 use std::{
@@ -93,6 +98,7 @@ pub struct Problem {
     pub compiled_order: DerivativeOrder,
     /// Resolved derivative facts shared with provider and native contracts.
     pub requirements: pse_kernels::DerivativeRequirements,
+    residual_offsets: Vec<f64>,
     worker: Mutex<Worker>,
     providers: Mutex<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>>,
     pattern: SymbolicSparseColMat<usize>,
@@ -161,6 +167,7 @@ impl Problem {
             .map_err(|e| MathError::Library(e.to_string()))?;
         let symbolic =
             SymbolicLu::try_new(pattern.as_ref()).map_err(|e| MathError::Library(e.to_string()))?;
+        let residual_offsets = vec![0.0; rows.len()];
         Ok(Self {
             id,
             identity,
@@ -176,11 +183,31 @@ impl Problem {
                 body.compiled_order(),
             )
             .map_err(|e| MathError::Contract(e.to_string()))?,
+            residual_offsets,
             worker: Mutex::new(body.worker()),
             providers: Mutex::new(BTreeMap::new()),
             pattern,
             symbolic,
         })
+    }
+    /// Apply an explicit authored-equality offset in named residual output order.
+    /// Derivatives and guards stay those of the actual compiled body. Identity changes
+    /// with every consumed offset; verifier projection must apply the same subtraction.
+    pub fn with_residual_offsets(mut self, offsets: &[f64]) -> Result<Self, MathError> {
+        if offsets.len() != self.rows.len() || offsets.iter().any(|v| !v.is_finite()) {
+            return Err(MathError::Contract(
+                "implicit residual offset extent/value".into(),
+            ));
+        }
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        h.str("authored-implicit-residual-offsets")
+            .hash(&self.identity);
+        for (row, value) in self.rows.iter().zip(offsets) {
+            h.id(row).f64(*value);
+        }
+        self.identity = h.finish_hash();
+        self.residual_offsets = offsets.to_vec();
+        Ok(self)
     }
     /// Attach admitted external workers to this residual worker; ownership is attempt-local.
     pub fn with_providers(
@@ -236,18 +263,28 @@ impl Problem {
             .chain(parameters)
             .copied()
             .collect::<Vec<_>>();
-        self.worker
-            .lock()
-            .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?
-            .evaluate(
-                &values,
-                order,
-                &mut *self
-                    .providers
-                    .lock()
-                    .map_err(|_| MathError::Library("implicit provider lock poisoned".into()))?,
-                cancel,
-            )
+        let mut evaluation =
+            self.worker
+                .lock()
+                .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?
+                .evaluate(
+                    &values,
+                    order,
+                    &mut *self.providers.lock().map_err(|_| {
+                        MathError::Library("implicit provider lock poisoned".into())
+                    })?,
+                    cancel,
+                )?;
+        for (value, offset) in evaluation.values.iter_mut().zip(&self.residual_offsets) {
+            *value -= offset;
+        }
+        if evaluation.values.iter().any(|v| !v.is_finite()) {
+            return Err(MathError::Domain {
+                source_id: self.id,
+                requirement: "implicit offset residual is nonfinite",
+            });
+        }
+        Ok(evaluation)
     }
     /// Check that options match the system's extents and hold finite positive budgets.
     pub fn validate_options(&self, options: &Options) -> Result<(), MathError> {
@@ -473,6 +510,66 @@ pub fn solver_identity(reference: &str) -> ContentHash {
     identity.finish_hash()
 }
 
+/// Exact worker-local numerical dependencies. Accuracy controls are deliberately
+/// absent from selection proof scope and present in this root/jet realization key.
+pub(super) fn numerical_product_key(
+    problem: &Problem,
+    parameters: &[f64],
+    options: &Options,
+    solver: ContentHash,
+) -> ContentHash {
+    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
+    h.id(&problem.id)
+        .hash(&problem.identity)
+        .hash(&solver)
+        .u64(problem.inputs as u64)
+        .u64(problem.compiled_order as u64);
+    h.u64(problem.unknowns.len() as u64);
+    for unknown in &problem.unknowns {
+        h.id(&unknown.id).f64(unknown.lower).f64(unknown.upper);
+    }
+    h.u64(problem.rows.len() as u64);
+    for row in &problem.rows {
+        h.id(row);
+    }
+    for values in [
+        parameters,
+        &options.start,
+        &options.variable_nominals,
+        &options.variable_tolerance,
+        &options.residual_tolerance,
+    ] {
+        h.u64(values.len() as u64);
+        for value in values {
+            h.f64(*value);
+        }
+    }
+    h.u64(options.iterations as u64)
+        .u64(options.time_limit.as_secs())
+        .u64(options.time_limit.subsec_nanos() as u64)
+        .f64(options.derivative_tolerance);
+    h.finish_hash()
+}
+#[derive(Debug)]
+struct NumericalProduct {
+    key: ContentHash,
+    order: DerivativeOrder,
+    values: ProviderValues,
+}
+pub(super) fn numerical_product_bytes(inputs: usize, unknowns: usize) -> Result<usize, MathError> {
+    inputs
+        .checked_mul(inputs)
+        .and_then(|square| square.checked_add(inputs))
+        .and_then(|width| width.checked_add(1))
+        .and_then(|width| width.checked_mul(unknowns))
+        .and_then(|scalars| scalars.checked_add(inputs))
+        .and_then(|scalars| scalars.checked_mul(2 * size_of::<f64>()))
+        .and_then(|bytes| bytes.checked_add(size_of::<NumericalProduct>()))
+        .ok_or(MathError::Limit(
+            "implicit retained numerical product extent",
+        ))
+}
+
 /// Attempt-bound provider construction, using the same callback and cancellation owner
 /// as outer math evaluation. The factory never acquires runtime CPU permits.
 #[derive(Debug)]
@@ -519,70 +616,80 @@ pub enum ImplicitFactory {
 impl ImplicitFactory {
     /// Library programs and conservative derivative scratch retained by the factory.
     pub fn retained_bytes(&self) -> Result<usize, MathError> {
-        let root = |factory: &Factory| {
-            factory
-                .body
-                .retained_bytes()
-                .checked_add(factory.body.scratch_bytes())?
-                .checked_add(factory.max_entries.checked_mul(8)?)
-                .and_then(|n| n.checked_add(factory.configuration.retained_bytes()))
-                .and_then(|n| {
-                    n.checked_add(
-                        factory
-                            .hints
-                            .iter()
-                            .chain(&factory.terms)
-                            .chain(&factory.selection.anchor)
-                            .chain(&factory.selection.restriction)
-                            .try_fold(0usize, |n, b| {
-                                n.checked_add(b.retained_bytes())?
-                                    .checked_add(b.scratch_bytes())
-                            })?,
-                    )
-                })
-        };
         match self {
-            Self::Root(factory) => root(factory),
-            Self::Regimes(factory) => {
+            Self::Root(factory) => Self::root_bytes(factory)
+                .ok_or(MathError::Limit("implicit factory retained extent")),
+            Self::Regimes(factory) => Self::regime_bytes(factory),
+        }
+    }
+    fn root_bytes(factory: &Factory) -> Option<usize> {
+        factory
+            .body
+            .retained_bytes()
+            .checked_add(factory.body.scratch_bytes())?
+            .checked_add(factory.max_entries.checked_mul(8)?)
+            .and_then(|n| n.checked_add(factory.configuration.retained_bytes()))
+            .and_then(|n| {
+                n.checked_add(
+                    numerical_product_bytes(factory.spec.inputs.len(), factory.unknowns.len())
+                        .ok()?,
+                )
+            })
+            .and_then(|n| {
+                n.checked_add(
+                    factory
+                        .hints
+                        .iter()
+                        .chain(&factory.terms)
+                        .chain(&factory.selection.anchor)
+                        .chain(&factory.selection.restriction)
+                        .try_fold(0usize, |n, b| {
+                            n.checked_add(b.retained_bytes())?
+                                .checked_add(b.scratch_bytes())
+                        })?,
+                )
+            })
+    }
+    fn regime_bytes(factory: &RegimeFactory) -> Result<usize, MathError> {
+        let programs = factory
+            .alternatives
+            .iter()
+            .try_fold(0usize, |bytes, branch| {
+                bytes
+                    .checked_add(Self::root_bytes(&branch.residual)?)?
+                    .checked_add(branch.eligibility.retained_bytes())?
+                    .checked_add(branch.eligibility.scratch_bytes())?
+                    .checked_add(branch.criterion.retained_bytes())?
+                    .checked_add(branch.criterion.scratch_bytes())?
+                    .checked_add(
+                        branch
+                            .isolation
+                            .as_ref()
+                            .map_or(0, |program| program.retained_bytes()),
+                    )
+            });
+        let workspace = match &factory.verifier {
+            Some(verifier) => {
                 let programs = factory
                     .alternatives
                     .iter()
-                    .try_fold(0usize, |bytes, branch| {
-                        bytes
-                            .checked_add(root(&branch.residual)?)?
-                            .checked_add(branch.eligibility.retained_bytes())?
-                            .checked_add(branch.criterion.retained_bytes())?
-                            .checked_add(
-                                branch
-                                    .isolation
-                                    .as_ref()
-                                    .map_or(0, |program| program.retained_bytes()),
-                            )
-                    });
-                let workspace = match &factory.verifier {
-                    Some(verifier) => {
-                        let programs = factory
-                            .alternatives
-                            .iter()
-                            .filter_map(|branch| branch.isolation.clone())
-                            .collect::<Vec<_>>();
-                        verifier.workspace_bytes(&programs)?
-                    }
-                    None => 0,
-                };
-                let certificate = regimes::certificate_bytes(
-                    factory.spec.inputs.len(),
-                    factory
-                        .alternatives
-                        .iter()
-                        .map(|branch| branch.residual.unknowns.len()),
-                )?;
-                programs
-                    .and_then(|bytes| bytes.checked_add(workspace))
-                    .and_then(|bytes| bytes.checked_add(certificate))
+                    .filter_map(|branch| branch.isolation.clone())
+                    .collect::<Vec<_>>();
+                verifier.workspace_bytes(&programs)?
             }
-        }
-        .ok_or(MathError::Limit("implicit factory retained extent"))
+            None => 0,
+        };
+        let certificate = regimes::certificate_bytes(
+            factory.spec.inputs.len(),
+            factory
+                .alternatives
+                .iter()
+                .map(|branch| branch.residual.unknowns.len()),
+        )?;
+        programs
+            .and_then(|bytes| bytes.checked_add(workspace))
+            .and_then(|bytes| bytes.checked_add(certificate))
+            .ok_or(MathError::Limit("implicit regime factory retained extent"))
     }
     /// Preserve the runtime's admission lease through every separately compiled program.
     pub fn retain(&mut self, owner: Arc<dyn crate::AllocationOwner>) {
@@ -722,6 +829,7 @@ impl pse_kernels::ProviderFactory for Factory {
             scope,
             selection: selection::SelectionWorker::new(&self.selection),
             requested_output: self.requirements.requested_output,
+            numerical: None,
         }))
     }
 }
@@ -794,6 +902,7 @@ struct Nested {
     configuration: ConfigurationWorker,
     solver: Arc<dyn InnerSolver>,
     cancel: Arc<AtomicBool>,
+    numerical: Option<NumericalProduct>,
 }
 impl pse_kernels::Provider for Nested {
     fn spec(&self) -> &pse_kernels::ProviderSpec {
@@ -830,6 +939,8 @@ impl pse_kernels::Provider for Nested {
         self.selection
             .configure(&mut self.problem, &options)
             .map_err(provider_error)?;
+        let numerical_key =
+            numerical_product_key(&self.problem, inputs, &options, self.solver.identity());
         options.time_limit = self
             .scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
@@ -839,16 +950,33 @@ impl pse_kernels::Provider for Nested {
             ));
         }
         self.scope.check()?;
-        let point = self
-            .solver
-            .solve(self.problem.clone(), inputs, &options, &self.cancel)
-            .map_err(provider_error)?;
+        let point = match self
+            .numerical
+            .as_ref()
+            .filter(|product| product.key == numerical_key)
+        {
+            Some(product) => product.values.values.clone(),
+            None => self
+                .solver
+                .solve(self.problem.clone(), inputs, &options, &self.cancel)
+                .map_err(provider_error)?,
+        };
         self.scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
-        let all = self
-            .problem
-            .derivatives(inputs, &point, request.order, &options, &self.cancel)
+        self.problem
+            .verify(inputs, &point, &options, &self.cancel)
             .map_err(provider_error)?;
+        let all = match self
+            .numerical
+            .as_ref()
+            .filter(|product| product.key == numerical_key && product.order >= request.order)
+        {
+            Some(product) => product.values.clone(),
+            None => self
+                .problem
+                .derivatives(inputs, &point, request.order, &options, &self.cancel)
+                .map_err(provider_error)?,
+        };
         self.scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
         self.selection
@@ -878,6 +1006,17 @@ impl pse_kernels::Provider for Nested {
         }
         out.validate(&self.spec, request)?;
         self.scope.check()?;
+        if self
+            .numerical
+            .as_ref()
+            .is_none_or(|product| product.key != numerical_key || product.order < request.order)
+        {
+            self.numerical = Some(NumericalProduct {
+                key: numerical_key,
+                order: request.order,
+                values: all,
+            });
+        }
         Ok(out)
     }
 }
@@ -885,14 +1024,14 @@ fn provider_error(error: MathError) -> pse_kernels::ProviderError {
     match error {
         MathError::Cancelled => pse_kernels::ProviderError::Cancelled,
         MathError::Limit(limit) => pse_kernels::ProviderError::Limit(limit),
-        MathError::Domain { requirement, .. } => {
-            pse_kernels::ProviderError::Trial(requirement.into())
+        MathError::Provider { cause, .. } | MathError::Scope(cause) => cause,
+        other => {
+            let retained = other.retained_bytes();
+            pse_kernels::ProviderError::Nested {
+                cause: pse_model::diagnostic::DiagnosticCause::new(other),
+                retained,
+            }
         }
-        error @ (MathError::OutsideRange { .. } | MathError::Validity(_)) => {
-            pse_kernels::ProviderError::Trial(error.to_string())
-        }
-        MathError::Provider { cause, .. } => cause,
-        other => pse_kernels::ProviderError::Terminal(other.to_string()),
     }
 }
 
@@ -903,6 +1042,159 @@ mod deadline_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[derive(Debug)]
+    struct CountedLinear(Arc<std::sync::atomic::AtomicUsize>);
+    impl InnerSolver for CountedLinear {
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
+        fn identity(&self) -> ContentHash {
+            solver_identity("test.counted-linear.v1")
+        }
+        fn solve(
+            &self,
+            _: Arc<Problem>,
+            parameters: &[f64],
+            _: &Options,
+            _: &Arc<AtomicBool>,
+        ) -> Result<Vec<f64>, MathError> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            Ok(vec![parameters[0]])
+        }
+    }
+    #[test]
+    fn nested_selected_products_reuse_same_point_proposal_and_invalidate_accuracy() {
+        use pse_kernels::{EvaluationContext, ProviderFactory};
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let q = registry.neutral_dimensionless().unwrap();
+        let unit = registry.quantity_type(q).unwrap().canonical_unit;
+        let id = SemanticId::from_bytes([95; 16]);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = crate::typed::BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            2,
+            crate::typed::BodyLimits::default(),
+        )
+        .unwrap();
+        let y = builder
+            .input(0, q, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let p = builder
+            .input(1, q, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let residual = builder
+            .binary(crate::typed::Binary::Sub, y, p, None, id)
+            .unwrap();
+        let body = Arc::new(
+            builder
+                .finish(
+                    &[residual],
+                    DerivativeOrder::Second,
+                    crate::library::Optimization::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        );
+        let unknowns = vec![Unknown {
+            id,
+            lower: -10.0,
+            upper: 10.0,
+        }];
+        let options = Options {
+            start: vec![1.0],
+            variable_nominals: vec![1.0],
+            variable_tolerance: vec![1e-9],
+            residual_tolerance: vec![1e-9],
+            iterations: 10,
+            time_limit: Duration::from_secs(10),
+            derivative_tolerance: 1e-10,
+        };
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let port = |id| pse_kernels::Port {
+            id,
+            quantity: q,
+            unit,
+        };
+        let factory = Factory {
+            selection: Selection::default(),
+            requirements: pse_kernels::DerivativeRequirements::new(
+                DerivativeOrder::Second,
+                DerivativeOrder::Second,
+                DerivativeOrder::Second,
+                DerivativeOrder::First,
+                DerivativeOrder::Second,
+            )
+            .unwrap(),
+            spec: pse_kernels::ProviderSpec {
+                shapes: Default::default(),
+                derivative_source: pse_kernels::DerivativeSource::Analytic,
+                id,
+                revision: ContentHash::from_bytes([1; 32]),
+                data: ContentHash::from_bytes([2; 32]),
+                inputs: vec![port(pse_ids::named_id(id, "parameter"))],
+                outputs: vec![port(id)],
+                derivatives: DerivativeOrder::Second,
+                smoothness: DerivativeOrder::Second,
+            },
+            body,
+            unknowns: unknowns.clone(),
+            rows: vec![pse_ids::named_id(id, "row")],
+            configuration: Configuration::Fixed(unknowns, options.clone()),
+            hints: None,
+            terms: None,
+            solver: Arc::new(CountedLinear(calls.clone())),
+            cancel: cancel.clone(),
+            max_entries: 100,
+            providers: BTreeMap::new(),
+        };
+        let mut provider = factory.create().unwrap();
+        let context = EvaluationContext {
+            cancelled: cancel.as_ref(),
+            max_result_bytes: 1024 * 1024,
+        };
+        for order in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+            DerivativeOrder::First,
+        ] {
+            let result = provider
+                .evaluate(
+                    &[2.0],
+                    &pse_kernels::ProviderRequest::all(&factory.spec, order),
+                    &context,
+                )
+                .unwrap();
+            assert_eq!(result.values, [2.0]);
+            if order >= DerivativeOrder::First {
+                assert_eq!(result.jacobian, [1.0]);
+            }
+            if order >= DerivativeOrder::Second {
+                assert_eq!(result.hessians, [0.0]);
+            }
+        }
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        provider
+            .evaluate(
+                &[2.1],
+                &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::First),
+                &context,
+            )
+            .unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 2);
+        let problem = factory
+            .problem(pse_kernels::ExecutionScope::new(cancel.clone(), None))
+            .unwrap();
+        let key = numerical_product_key(&problem, &[2.0], &options, factory.solver.identity());
+        let mut tighter = options;
+        tighter.derivative_tolerance *= 0.5;
+        assert_ne!(
+            key,
+            numerical_product_key(&problem, &[2.0], &tighter, factory.solver.identity())
+        );
+    }
     #[test]
     fn implicit_ift_second_derivatives_and_singular_refusal() {
         let registry = pse_quantity::standard::standard_registry().unwrap();

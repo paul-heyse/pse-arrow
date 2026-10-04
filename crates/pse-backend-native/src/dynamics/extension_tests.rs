@@ -286,6 +286,7 @@ fn idas_events_without_sensitivities() {
 #[test]
 fn idas_events_with_sensitivities_refused() {
     let toy = Toy::new(false, true);
+    let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
     for (method, trials) in [
         (Method::Idas, TrialPolicy::Terminal),
         (Method::Auto, TrialPolicy::Recoverable),
@@ -295,18 +296,52 @@ fn idas_events_with_sensitivities_refused() {
         p.trial_failures = trials;
         p.sensitivity = DynamicSensitivity::Forward;
         if !cfg!(feature = "idas") {
-            assert!(p.validate(&toy.c, &[2.0]).is_err());
+            assert!(
+                p.resolve_for(
+                    &toy.c,
+                    &[2.0],
+                    &snapshot,
+                    DynamicDemand::Base,
+                    toy.c.derivatives,
+                    &[]
+                )
+                .is_err()
+            );
             continue;
         }
-        let Err(ProblemError::Unsupported(reason)) = p.validate(&toy.c, &[2.0]) else {
+        let Err(ProblemError::DynamicRouteRefused(decision)) = p.resolve_for(
+            &toy.c,
+            &[2.0],
+            &snapshot,
+            DynamicDemand::Base,
+            toy.c.derivatives,
+            &[],
+        ) else {
             panic!("IDAS event sensitivities were admitted");
         };
+        assert_eq!(decision.selected, None);
+        let idas = decision
+            .candidates
+            .iter()
+            .find(|candidate| candidate.method == Method::Idas)
+            .unwrap();
         assert!(
-            reason.contains("Diffsol owns reset sensitivities"),
-            "{reason}"
+            idas.causes.iter().any(|cause| matches!(cause.as_ref(), ProblemError::Unsupported(reason) if reason.contains("Diffsol owns reset sensitivities"))),
+            "{decision:?}"
         );
         p.sensitivity = DynamicSensitivity::None;
-        assert!(p.validate(&toy.c, &[2.0]).is_ok());
+        let admitted = p
+            .resolve_for(
+                &toy.c,
+                &[2.0],
+                &snapshot,
+                DynamicDemand::Base,
+                toy.c.derivatives,
+                &[],
+            )
+            .unwrap();
+        assert_eq!(admitted.method, Method::Idas);
+        assert!(admitted.validate(&toy.c, &[2.0]).is_ok());
     }
     let mut p = profile(false);
     p.sensitivity = DynamicSensitivity::Forward;

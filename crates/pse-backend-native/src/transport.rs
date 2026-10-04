@@ -444,6 +444,9 @@ impl Roots {
     }
 }
 impl NleOracle for Roots {
+    fn operations(&self) -> crate::RootOperations {
+        self.original.operations()
+    }
     fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
         self.original.structural_analysis()
     }

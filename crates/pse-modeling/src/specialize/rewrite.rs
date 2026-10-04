@@ -227,6 +227,12 @@ impl Engine<'_, '_> {
                 .iter()
                 .map(|i| (i.name.as_str(), i.domain.as_str()))
                 .collect()
+        } else if let Some(connection) = &declaration.value.connection {
+            connection
+                .indices
+                .iter()
+                .map(|i| (i.name.as_str(), i.domain.as_str()))
+                .collect()
         } else {
             Vec::new()
         };

@@ -68,6 +68,91 @@ async fn cancellation_before_entry_releases_admission_without_starting() {
     assert_eq!(s.pool.reserved(), baseline);
     drop(permit);
 }
+#[tokio::test]
+async fn scoped_preparation_deadline_includes_cpu_wait_and_late_join() {
+    use pse_backend_native::{LimitKind, ProblemError};
+    let s = service();
+    let permit = s.cpu.clone().acquire_many_owned(2).await.unwrap();
+    let control = FlightCancellation::default();
+    let baseline = s.pool.reserved();
+    let called = Arc::new(AtomicBool::new(false));
+    let flag = called.clone();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(20);
+    let result = s
+        .job_retained_scoped(2, 0, control.clone(), Some(deadline), move |_| {
+            flag.store(true, Ordering::Release);
+            Ok(((), 0))
+        })
+        .await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Solve(ProblemError::Limit {
+            kind: LimitKind::Time,
+            ..
+        }))
+    ));
+    assert!(!called.load(Ordering::Acquire));
+    assert!(!control.flag().load(Ordering::Acquire));
+    assert_eq!(s.pool.reserved(), baseline);
+    drop(permit);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(20);
+    let result = s
+        .job_retained_scoped(1, 0, control.clone(), Some(deadline), move |_| {
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            Ok((42, 1024))
+        })
+        .await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Solve(ProblemError::Limit {
+            kind: LimitKind::Time,
+            ..
+        }))
+    ));
+    assert!(!control.flag().load(Ordering::Acquire));
+    assert_eq!(s.pool.reserved(), baseline);
+    assert_eq!(s.cpu.available_permits(), 2);
+}
+#[tokio::test]
+async fn task_preparation_waiter_expires_without_renewing_or_cancelling_parent() {
+    let service = service();
+    let permit = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+    let driver = crate::CancelSource::new();
+    let parent = Arc::new(AtomicBool::new(false));
+    let scope = pse_kernels::ExecutionScope::new(
+        parent.clone(),
+        Some(std::time::Instant::now() + std::time::Duration::from_millis(25)),
+    );
+    let control = FlightCancellation::default();
+    let called = Arc::new(AtomicBool::new(false));
+    let observed = called.clone();
+    let baseline = service.pool.reserved();
+    let operation = service.job_retained(1, 0, control.clone(), move |_| {
+        observed.store(true, Ordering::Release);
+        Ok((42, 0))
+    });
+    let result = MathService::within_task(&scope, &driver, operation).await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+        ))
+    ));
+    assert!(!parent.load(Ordering::Acquire));
+    assert!(!driver.token().is_cancelled());
+    assert!(!called.load(Ordering::Acquire));
+    // The detached owner releases admission after observing waiter departure.
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        while service.jobs.available_permits() != service.policy.jobs {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(service.pool.reserved(), baseline);
+    assert_eq!(service.cpu.available_permits(), 0);
+    drop(permit);
+}
 #[derive(Debug)]
 struct SlowDrop {
     entered: Arc<tokio::sync::Notify>,

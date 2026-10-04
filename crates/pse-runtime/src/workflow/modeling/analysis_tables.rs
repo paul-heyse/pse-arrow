@@ -94,7 +94,7 @@ pub struct ModelingNativeAnalysis {
     pub table: FieldCheckedBatch,
     /// Original native attempts, ordered as described by the relation.
     pub attempts: Vec<pse_backend_native::solve::SolveReport>,
-    _owner: std::sync::Arc<pse_columnar::AllocationLease>,
+    _owner: Arc<pse_columnar::AllocationLease>,
 }
 
 #[cfg(feature = "solver-highs")]

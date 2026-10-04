@@ -144,6 +144,16 @@ the durable attempt of the run it publishes ([§20.2](#section-20-2)).
 
 ### 5.3 Canonical framing and hashing
 
+> Decision: [ADR-0155](../../adr/0155-numerical-derived-families.md) and
+> [ADR-0154](../../adr/0154-declared-numerical-strategy.md) (proposed target).
+
+Current declared numerical strategy, derived-family structure/binding and retained products
+use separately versioned frames over their consumed dependencies. Semantic proposal transport
+and native payload compatibility are distinct. New current frames do not change historical
+bytes or grant current reuse from readable historical provenance. Generated strategy/result
+changes use the existing directional compatibility and explicit preserving migration owners.
+
+
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 Demand-indexed support/assessment products frame their consumed semantic, physical, provider, ordered selection, policy and relevant build/runtime contracts. Existing role separation remains: changing current preimages versions those frames and never reinterprets historical bytes. Runtime observation does not invalidate mathematics that did not consume it.
@@ -736,10 +746,15 @@ ADR-0114 Outcome 22's single `TerminationCode` enumeration; `TerminationCode` su
 the Rust type over those columns (`pse-operations::attempts`).
 
 **Queue and workers.** A job names its current try's attempt and a typed, versioned
-payload (`JobPayload` version 3): a `ModelingJob` (content-addressed source bundles keyed
-by the §6.1 package content hash, the case, route, typed `SolveSettings`, a `JobStart`
-policy and, for a study point, its `StudyPointBinding`) or a study's finalization. An
-unknown version is refused (`UnknownPayloadVersion`). `Operations::enqueue` takes the typed
+payload (`JobPayload` version 6): a `ModelingJob` (content-addressed source bundles keyed
+by the §6.1 package content hash, the case, route, typed `SolveSettings` and a `JobStart`
+policy), a `StudyOperationJob` (source bundles and the immutable `StudyPointBinding`,
+including its admitted operation and occurrence policy), or a study's finalization. An
+unknown version is refused (`UnknownPayloadVersion`). Current study operation descriptors and public study requests use version 2;
+stored study definitions use version 4. Decode the version boundary before nested current
+preparation and library profiles. Unsupported historical readmission refuses explicitly
+without changing stored bytes or inventing missing policy. Operational readiness fingerprints
+cover SQL declarations; opaque JSON values require their own version boundaries. `Operations::enqueue` takes the typed
 job and frames its request identity from it; an idempotency key is unique. Workers claim
 queued jobs with `FOR UPDATE SKIP LOCKED` by priority and availability. Each try is a new
 attempt run under the worker's lease, renewed by a heartbeat that also returns the
@@ -748,7 +763,11 @@ attempt under the job's retry policy (maximum tries, capped exponential backoff)
 durable connection runs this sweep at start-up, and a worker repeats it. `pse-worker`, a
 binary of `pse-runtime`, is the claim loop; it sets the process-level OpenMP environment
 SPRAL needs before any thread starts ([ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md)).
-`Runtime::work` serves the queue in-process.
+`Runtime::work` serves the queue in-process. The CLI's default deployment memory is
+8 GiB. Its existing one-sixteenth numeric-worker allocation admits the compiler's
+default scratch allowance; explicitly smaller deployments retain their declared capacity
+and may refuse compilation before solver execution. Compilation reservations remain
+subject to the deployment pool and the same typed resource-admission checks.
 
 **Cancellation.** `cancel_requested` is the authority. Planned and queued attempts cancel
 at once; a running try sees the flag through its heartbeat or a listener notification, and

@@ -19,6 +19,8 @@ workspace = true
 [features]
 default = []
 solver-ipopt = ["pse-backend-native/ipopt"]
+solver-uno = ["pse-backend-native/uno"]
+solver-petsc = ["pse-backend-native/petsc"]
 solver-highs = ["pse-backend-native/highs"]
 solver-pounce = ["pse-backend-native/pounce"]
 solver-kinsol = ["pse-backend-native/kinsol"]
@@ -30,6 +32,8 @@ solver-idas = ["solver-diffsol", "pse-backend-native/idas"]
 solver-scip = ["pse-backend-native/scip"]
 native-solvers = [
   "solver-ipopt",
+  "solver-uno",
+  "solver-petsc",
   "solver-highs",
   "solver-pounce",
   "solver-kinsol",

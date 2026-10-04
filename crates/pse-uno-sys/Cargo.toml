@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+name = "pse-uno-sys"
+description = "Exception-shielded scoped C ABI for library-owned Uno solve profiles."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+links = "uno"
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+highs-provider = ["dep:highs-sys"]
+link = ["highs-provider"]
+
+[build-dependencies]
+cc.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
+
+[dependencies]
+highs-sys = { workspace = true, optional = true }
+pse-workspace-hack.workspace = true

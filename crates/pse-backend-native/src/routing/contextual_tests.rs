@@ -76,6 +76,105 @@ fn context(c: &crate::OracleContract) -> Context<'_> {
     }
 }
 #[test]
+fn contextual_unit_constant_keeps_point_admission_independent_of_native_evidence() {
+    let mut c = contract();
+    c.variables.clear();
+    c.derivatives = DerivativeOrder::Value;
+    c.rows = vec![pse_ids::SemanticId::from_bytes([3; 16])];
+    let pattern = faer::sparse::SymbolicSparseColMat::try_new_from_indices(1, 0, &[])
+        .unwrap()
+        .0;
+    let original =
+        crate::structural::oracle_structure(&c, pattern.as_ref(), &[(0., 1.)], true).unwrap();
+    let facts = oracle_facts(&c, true, false);
+    let controls = Controls::default();
+    let requirements = Requirements {
+        table: &TABLE,
+        facts: &facts,
+        intent: SolveIntent::Optimize,
+        numerical_psd: false,
+        least_squares: true,
+        controls: &controls,
+        settings: &crate::execution::BackendSettings::Default,
+        sensitivity: false,
+        context: Context {
+            oracle: Some(&c),
+            structure: Some(original.clone()),
+            ..test_context(&TABLE)
+        },
+    };
+    // A retained native proposal requires evidence unavailable to the direct route.
+    let pending = vec![Eligibility {
+        backend: Backend::Ipopt,
+        reasons: vec![],
+        causes: vec![],
+        class_dependencies: vec![],
+        evidence: vec![EvidenceDemand::Factorable],
+        artifacts: vec![],
+        factorable_refusals: vec![],
+        structure: None,
+        state: AssessmentState::PendingEvidence,
+    }];
+    let decision = requirements.decide_assessed(SolverSelection::Auto, pending, None);
+    assert_eq!(decision.route().unwrap(), Route::Constant);
+    assert_eq!(decision.state, AssessmentState::Ready);
+    assert!(decision.evidence.is_empty() && decision.artifacts.is_empty());
+    assert_eq!(decision.pending_backend, None);
+    let point = decision.structure.as_ref().unwrap();
+    assert_eq!(point.mode, crate::structural::Mode::PointEvaluation);
+    assert_eq!(point.equations, original.equations);
+    assert_eq!(point.witness, original.witness);
+    assert_eq!(
+        decision.row(c.identity, 0).selected,
+        Some(pse_model::generated::enums::NativeRouteKind::Constant)
+    );
+
+    // Missing original structure is still a demanded point-evaluation dependency.
+    let mut missing = requirements.context.clone();
+    missing.structure = None;
+    let missing = Requirements {
+        context: missing,
+        ..requirements
+    };
+    let decision = missing.decision(SolverSelection::Auto);
+    assert_eq!(decision.selected, Some(Route::Constant));
+    assert_eq!(decision.state, AssessmentState::PendingEvidence);
+    assert_eq!(decision.evidence, [EvidenceDemand::Structure]);
+    assert!(decision.route().is_err());
+
+    // No objective, certification and native-only forms keep their own refusals.
+    let mut no_objective = facts.clone();
+    no_objective.objective = false;
+    let no_objective = Requirements {
+        facts: &no_objective,
+        context: requirements.context.clone(),
+        ..requirements
+    };
+    assert_eq!(
+        no_objective.decision(SolverSelection::Auto).state,
+        AssessmentState::Refused
+    );
+    let certify = Requirements {
+        intent: SolveIntent::Certify,
+        context: requirements.context.clone(),
+        ..requirements
+    };
+    assert!(certify.decision(SolverSelection::Auto).route().is_err());
+    let mut native = facts.clone();
+    native.native = vec![NativeConstraintForm::Indicator];
+    let native = Requirements {
+        facts: &native,
+        ..requirements
+    };
+    let decision = native.decision(SolverSelection::Auto);
+    assert!(matches!(
+        decision.refusal,
+        Some(Refusal::ConstantNativeForms)
+    ));
+    assert_eq!(decision.state, AssessmentState::Refused);
+}
+
+#[test]
 fn contextual_unit_available_second_order_does_not_fall_through_to_prepared_first() {
     let c = contract();
     let mut facts = oracle_facts(&c, true, true);
@@ -115,18 +214,155 @@ fn contextual_unit_available_second_order_does_not_fall_through_to_prepared_firs
     );
 }
 #[test]
-fn contextual_unit_pending_class_blocks_nlp_and_explicit_policy_stays_strict() {
+fn contextual_unit_callback_class_dependencies_preserve_actual_artifact_demands() {
     let c = contract();
     let mut facts = oracle_facts(&c, true, true);
     facts.derivatives = DerivativeOrder::Second;
+    let controls = Controls::default();
+    let obligation = pse_math::presolve::ClassDependency::UnestablishedObligation {
+        instance: c.variables[0].id,
+    };
+    let missing = pse_math::presolve::ClassDependency::MissingSymbolicExpression {
+        instance: c.variables[0].id,
+        output: 7,
+    };
+    for dependencies in [vec![obligation.clone()], vec![missing, obligation]] {
+        facts.class_status = pse_math::presolve::ClassStatus::Pending(dependencies.clone());
+        let pending = pending_class_evidence(&facts, SolveIntent::Optimize, SolverSelection::Auto);
+        let mut callback_context = context(&c);
+        callback_context.pending_classes = &pending;
+        let requirements = Requirements {
+            table: &TABLE,
+            facts: &facts,
+            intent: SolveIntent::Optimize,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &controls,
+            settings: &crate::execution::BackendSettings::Default,
+            sensitivity: false,
+            context: callback_context,
+        };
+        let decision = requirements.decision(SolverSelection::Auto);
+        assert_eq!(decision.selected, Some(Route::Native(Backend::Ipopt)));
+        assert_eq!(decision.state, AssessmentState::SupportedPendingArtifacts);
+        assert_eq!(decision.pending_backend, None);
+        assert!(decision.evidence.is_empty());
+        assert_eq!(
+            decision.artifacts,
+            [ArtifactDemand::Derivatives(DerivativeOrder::Second)]
+        );
+        assert!(decision.route().is_err());
+        assert_eq!(decision.eligibility[0].class_dependencies, dependencies);
+        assert_eq!(
+            facts.class_status,
+            pse_math::presolve::ClassStatus::Pending(dependencies)
+        );
+
+        // Preparing the actual demanded callbacks resolves readiness without
+        // turning the outstanding coefficient obligation into an established fact.
+        let mut prepared = c.clone();
+        prepared.derivatives = DerivativeOrder::Second;
+        let mut prepared_facts = facts.clone();
+        prepared_facts.prepared_derivatives = DerivativeOrder::Second;
+        let mut prepared_context = context(&prepared);
+        prepared_context.pending_classes = &pending;
+        let prepared_requirements = Requirements {
+            facts: &prepared_facts,
+            context: prepared_context,
+            ..requirements
+        };
+        let ready = prepared_requirements.decision(SolverSelection::Auto);
+        assert_eq!(ready.state, AssessmentState::Ready);
+        assert_eq!(ready.route().unwrap(), Route::Native(Backend::Ipopt));
+        assert_eq!(
+            ready.eligibility[0].class_dependencies,
+            decision.eligibility[0].class_dependencies
+        );
+    }
+    assert!(pending_class_evidence(&facts, SolveIntent::Root, SolverSelection::Auto).is_empty());
+    assert!(
+        pending_class_evidence(
+            &facts,
+            SolveIntent::Optimize,
+            SolverSelection::Explicit(Backend::Ipopt)
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn contextual_unit_admissible_coefficient_pending_keeps_priority_over_ready_callback() {
+    static COEFFICIENT_AND_CALLBACKS: Table =
+        Table::new(&[crate::execution::adapter(Backend::Highs), &EXACT, &FIRST]);
+    let mut c = contract();
+    c.derivatives = DerivativeOrder::Second;
+    let mut facts = oracle_facts(&c, true, true);
+    let dependency = pse_math::presolve::ClassDependency::UnestablishedObligation {
+        instance: c.variables[0].id,
+    };
+    facts.class_status = pse_math::presolve::ClassStatus::Pending(vec![dependency.clone()]);
+    let pending = pending_class_evidence(&facts, SolveIntent::Optimize, SolverSelection::Auto);
+    let mut ctx = context(&c);
+    ctx.snapshot = test_context(&COEFFICIENT_AND_CALLBACKS).snapshot;
+    ctx.snapshot
+        .adapters
+        .get_mut(&Backend::Highs)
+        .unwrap()
+        .linked = true;
+    ctx.pending_classes = &pending;
+    let controls = Controls::default();
+    let requirements = Requirements {
+        table: &COEFFICIENT_AND_CALLBACKS,
+        facts: &facts,
+        intent: SolveIntent::Optimize,
+        numerical_psd: false,
+        least_squares: false,
+        controls: &controls,
+        settings: &crate::execution::BackendSettings::Default,
+        sensitivity: false,
+        context: ctx,
+    };
+    let decision = requirements.decision(SolverSelection::Auto);
+    assert_eq!(decision.state, AssessmentState::PendingEvidence);
+    assert_eq!(decision.pending_backend, Some(Backend::Highs));
+    assert_eq!(decision.selected, None);
+    assert!(
+        decision
+            .evidence
+            .contains(&EvidenceDemand::Class(ProblemClass::Linear))
+    );
+    assert!(decision.evidence.contains(&EvidenceDemand::Coefficients));
+    assert!(decision.route().is_err());
+    let callback = decision
+        .eligibility
+        .iter()
+        .find(|entry| entry.backend == Backend::Ipopt)
+        .unwrap();
+    assert_eq!(callback.state, AssessmentState::Ready);
+    assert_eq!(callback.class_dependencies, [dependency]);
+    assert!(callback.evidence.is_empty());
+    assert_eq!(
+        requirements
+            .decision(SolverSelection::Explicit(Backend::Ipopt))
+            .route()
+            .unwrap(),
+        Route::Native(Backend::Ipopt)
+    );
+}
+
+#[test]
+fn contextual_unit_callback_class_independence_preserves_contract_and_derivative_refusals() {
+    let mut c = contract();
+    c.derivatives = DerivativeOrder::Second;
+    let mut facts = oracle_facts(&c, true, true);
     facts.class_status = pse_math::presolve::ClassStatus::Pending(vec![
         pse_math::presolve::ClassDependency::UnestablishedObligation {
             instance: c.variables[0].id,
         },
     ]);
     let pending = pending_class_evidence(&facts, SolveIntent::Optimize, SolverSelection::Auto);
-    let mut context = context(&c);
-    context.pending_classes = &pending;
+    let mut ctx = context(&c);
+    ctx.pending_classes = &pending;
     let controls = Controls::default();
     let requirements = Requirements {
         table: &TABLE,
@@ -137,25 +373,56 @@ fn contextual_unit_pending_class_blocks_nlp_and_explicit_policy_stays_strict() {
         controls: &controls,
         settings: &crate::execution::BackendSettings::Default,
         sensitivity: false,
-        context,
+        context: ctx,
     };
-    let decision = requirements.decision(SolverSelection::Auto);
+    let mut missing = requirements.context.clone();
+    missing.oracle = None;
+    let missing = Requirements {
+        context: missing,
+        ..requirements
+    };
+    let decision = missing.decision(SolverSelection::Auto);
     assert_eq!(decision.state, AssessmentState::PendingEvidence);
-    assert_eq!(decision.pending_backend, Some(Backend::Ipopt));
-    assert!(
-        decision
-            .evidence
-            .contains(&EvidenceDemand::Class(ProblemClass::Linear))
-    );
+    assert_eq!(decision.evidence, [EvidenceDemand::CallbackContract]);
     assert!(decision.route().is_err());
-    assert!(pending_class_evidence(&facts, SolveIntent::Root, SolverSelection::Auto).is_empty());
+
+    let mut invalid = c.clone();
+    invalid.variables[0].lower = 2.;
+    let mut invalid_context = requirements.context.clone();
+    invalid_context.oracle = Some(&invalid);
+    let invalid = Requirements {
+        context: invalid_context,
+        ..requirements
+    };
+    let decision = invalid.decision(SolverSelection::Auto);
+    assert_eq!(decision.state, AssessmentState::Refused);
+    assert!(decision.eligibility.iter().all(|entry| {
+        entry
+            .causes
+            .iter()
+            .any(|cause| matches!(cause.as_ref(), ProblemError::Contract(_)))
+    }));
+    assert!(decision.route().is_err());
+
+    let mut unavailable = facts.clone();
+    unavailable.derivatives = DerivativeOrder::Value;
+    let unavailable = Requirements {
+        facts: &unavailable,
+        ..requirements
+    };
+    let decision = unavailable.decision(SolverSelection::Auto);
+    assert_eq!(decision.state, AssessmentState::Refused);
+    assert!(decision.eligibility.iter().all(|entry| {
+        entry
+            .reasons
+            .iter()
+            .any(|reason| matches!(reason, Ineligible::Derivatives { .. }))
+    }));
     assert!(
-        pending_class_evidence(
-            &facts,
-            SolveIntent::Optimize,
-            SolverSelection::Explicit(Backend::Ipopt)
-        )
-        .is_empty()
+        unavailable
+            .decision(SolverSelection::Explicit(Backend::Ipopt))
+            .route()
+            .is_err()
     );
 }
 #[test]
@@ -293,6 +560,85 @@ fn contextual_unit_performed_missing_symbolic_export_refuses_only_its_representa
     assert_eq!(assessment.state, AssessmentState::Refused);
     assert!(assessment.reasons.contains(&Ineligible::Contextual));
     assert_eq!(assessment.class_dependencies.len(), 1);
+}
+
+#[test]
+fn contextual_unit_coefficient_pending_does_not_replace_factorable_evidence() {
+    let c = contract();
+    let mut facts = oracle_facts(&c, true, true);
+    let dependency = pse_math::presolve::ClassDependency::MissingSymbolicExpression {
+        instance: c.variables[0].id,
+        output: 7,
+    };
+    facts.class_status = pse_math::presolve::ClassStatus::Pending(vec![dependency.clone()]);
+    let pending = pending_class_evidence(&facts, SolveIntent::Optimize, SolverSelection::Auto);
+    let mut context = context(&c);
+    context.pending_classes = &pending;
+    // Pure policy observations; this control constructs no foreign solver or proof.
+    for backend in [Backend::Scip, Backend::Highs] {
+        context.snapshot.adapters.insert(
+            backend,
+            crate::execution::BuildObservation {
+                linked: true,
+                identity: None,
+            },
+        );
+    }
+    let controls = Controls::default();
+    let requirements = Requirements {
+        table: &TABLE,
+        facts: &facts,
+        intent: SolveIntent::Optimize,
+        numerical_psd: false,
+        least_squares: false,
+        controls: &controls,
+        settings: &crate::execution::BackendSettings::Default,
+        sensitivity: false,
+        context,
+    };
+    let scip = crate::execution::adapter(Backend::Scip);
+    let mut factorable = assess_static(Backend::Scip, scip.capability(), &requirements);
+    crate::execution::assess_representation(scip, &requirements, &mut factorable);
+    factorable.finish();
+    assert_eq!(factorable.state, AssessmentState::PendingEvidence);
+    assert_eq!(
+        factorable.class_dependencies.as_slice(),
+        std::slice::from_ref(&dependency)
+    );
+    assert_eq!(factorable.evidence, [EvidenceDemand::Factorable]);
+    assert!(
+        factorable
+            .artifacts
+            .contains(&ArtifactDemand::Representation(Representation::Factorable))
+    );
+    let mut prepared = requirements.context.clone();
+    prepared.prepared = &[ArtifactDemand::Representation(Representation::Factorable)];
+    let requirements = Requirements {
+        context: prepared,
+        ..requirements
+    };
+    let mut absent = assess_static(Backend::Scip, scip.capability(), &requirements);
+    crate::execution::assess_representation(scip, &requirements, &mut absent);
+    absent.finish();
+    assert_eq!(absent.state, AssessmentState::PendingEvidence);
+    assert_eq!(absent.evidence, [EvidenceDemand::Factorable]);
+    let highs = crate::execution::adapter(Backend::Highs);
+    let mut coefficients = assess_static(Backend::Highs, highs.capability(), &requirements);
+    crate::execution::assess_representation(highs, &requirements, &mut coefficients);
+    coefficients.finish();
+    assert_eq!(coefficients.state, AssessmentState::Refused);
+    assert!(coefficients.reasons.contains(&Ineligible::Contextual));
+    assert_eq!(coefficients.class_dependencies, [dependency]);
+    assert!(
+        coefficients
+            .evidence
+            .iter()
+            .any(|demand| matches!(demand, EvidenceDemand::Class(_)))
+    );
+    assert!(matches!(
+        facts.class_status,
+        pse_math::presolve::ClassStatus::Pending(_)
+    ));
 }
 
 #[test]
@@ -571,11 +917,32 @@ fn contextual_unit_positive_lower_priority_cone_does_not_replace_missing_coeffic
             ProblemClass::NonconvexQuadratic
         ]
     );
-    assert!(!class_evidence_required(
+    // Initialization with an authored objective retains the NLP class demands.
+    assert!(class_evidence_required(
         &facts,
         SolveIntent::Initialize,
         SolverSelection::Auto
     ));
+    let mut root_contract = c.clone();
+    root_contract.rows = vec![pse_ids::SemanticId::from_bytes([2; 16])];
+    let objective_facts = oracle_facts(&root_contract, true, true);
+    assert!(!root_intent(&objective_facts, SolveIntent::Initialize));
+    assert!(class_evidence_required(
+        &objective_facts,
+        SolveIntent::Initialize,
+        SolverSelection::Auto
+    ));
+    let root_facts = oracle_facts(&root_contract, false, true);
+    assert!(root_intent(&root_facts, SolveIntent::Initialize));
+    assert!(!class_evidence_required(
+        &root_facts,
+        SolveIntent::Initialize,
+        SolverSelection::Auto
+    ));
+    assert!(
+        pending_class_evidence(&root_facts, SolveIntent::Initialize, SolverSelection::Auto)
+            .is_empty()
+    );
     facts.class_status =
         pse_math::presolve::ClassStatus::RuledOut(pse_math::presolve::ClassWitness::NonAffineRow {
             row: c.variables[0].id,

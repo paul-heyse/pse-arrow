@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Escaping immutable product ownership, separate from the bounded Salsa generation.
 use super::*;
+use pse_backend_native::ProblemError;
 
 #[derive(Debug)]
 pub(super) struct ProductOwner {
@@ -12,6 +13,61 @@ pub(super) struct ProductOwner {
     _parents: Vec<Arc<ProductOwner>>,
 }
 impl MathService {
+    /// Bound a preparation consumer by its task clock without renewing a shared loader's
+    /// lifetime. Dropping the waiter leaves native teardown with the completion owner.
+    pub(crate) async fn within_task<T, E>(
+        scope: &pse_kernels::ExecutionScope,
+        driver: &crate::CancelSource,
+        operation: impl Future<Output = Result<T, E>>,
+    ) -> Result<T, E>
+    where
+        E: From<MathRuntimeError>,
+    {
+        scope
+            .check()
+            .map_err(ProblemError::Provider)
+            .map_err(MathRuntimeError::from)?;
+        if driver.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled.into());
+        }
+        let expires = async {
+            match scope.deadline() {
+                Some(deadline) => tokio::time::sleep_until(deadline.into()).await,
+                None => std::future::pending::<()>().await,
+            }
+        };
+        tokio::pin!(operation);
+        let value = tokio::select! {
+            biased;
+            () = driver.cancelled() => return Err(MathRuntimeError::Cancelled.into()),
+            () = expires => return Err(MathRuntimeError::from(ProblemError::Provider(pse_kernels::ProviderError::Deadline)).into()),
+            value = &mut operation => value?,
+        };
+        scope
+            .check()
+            .map_err(ProblemError::Provider)
+            .map_err(MathRuntimeError::from)?;
+        if driver.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled.into());
+        }
+        Ok(value)
+    }
+    /// Await immutable derivative compilation within the consumer's original clock.
+    /// Loader abandonment cancels its own flight, never the diagnostic's task flag.
+    pub(crate) async fn prepare_order_within_task(
+        self: &Arc<Self>,
+        prepared: Preparation,
+        order: pse_kernels::DerivativeOrder,
+        scope: &pse_kernels::ExecutionScope,
+        driver: &crate::CancelSource,
+    ) -> Result<Preparation, MathRuntimeError> {
+        Self::within_task(
+            scope,
+            driver,
+            self.prepare_order(prepared, order, FlightCancellation::default()),
+        )
+        .await
+    }
     /// Prepare the consumer's derivative demand on an admitted job, retaining the
     /// original weaker product and sharing its unchanged owned components.
     pub(crate) async fn prepare_order(
@@ -30,6 +86,29 @@ impl MathService {
                 let bytes = product.retained_bytes();
                 Ok((product, bytes))
             })
+            .await?;
+        self.own_preparation(upgraded)
+    }
+    /// Compile only separately demanded first actions, retaining normal artifact identities.
+    pub(crate) async fn prepare_directional_actions(
+        self: &Arc<Self>,
+        prepared: Preparation,
+    ) -> Result<Preparation, MathRuntimeError> {
+        if prepared.compiled().plan.has_directional_actions() {
+            return Ok(prepared);
+        }
+        let source = prepared.prepared.clone();
+        let upgraded = self
+            .job_retained(
+                1,
+                self.policy.workspace_bytes,
+                FlightCancellation::default(),
+                move |flag| {
+                    let product = source.prepare_directional_actions(&flag)?;
+                    let bytes = product.retained_bytes();
+                    Ok((product, bytes))
+                },
+            )
             .await?;
         self.own_preparation(upgraded)
     }

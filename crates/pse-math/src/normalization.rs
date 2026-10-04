@@ -74,6 +74,34 @@ impl Normalization {
         }
         Ok(())
     }
+    /// Derive native NLP row coordinates for one uniform feasibility budget.
+    ///
+    /// For physical row budget εᵢ and native budget τ, Srᵢ = εᵢ / τ makes
+    /// |physical violationᵢ / Srᵢ| ≤ τ equivalent to its original budget.
+    /// Variable/objective coordinates retain their declared meaning. This derived
+    /// map does not change the declared nominals used by original KKT analysis.
+    pub fn with_row_budgets(&self, budgets: &[f64], feasibility: f64) -> Result<Self, MathError> {
+        self.validate(self.variables.len(), budgets.len())?;
+        if budgets.iter().any(|v| !v.is_finite() || *v <= 0.0)
+            || !feasibility.is_finite()
+            || feasibility <= 0.0
+        {
+            return Err(MathError::Contract(
+                "native NLP row budgets must be positive finite".into(),
+            ));
+        }
+        let rows = budgets
+            .iter()
+            .map(|v| checked_ratio(*v, feasibility))
+            .collect::<Result<Vec<_>, _>>()?;
+        let result = Self {
+            variables: self.variables.clone(),
+            rows,
+            objective: self.objective,
+        };
+        result.validate(self.variables.len(), budgets.len())?;
+        Ok(result)
+    }
     /// Normalization has a separate identity from native algorithmic scaling.
     pub fn key(&self) -> ContentHash {
         let mut h = FramedHasher::new(pse_ids::Frame::MathNormalizationV1);
@@ -227,4 +255,57 @@ fn transform(values: &[f64], scales: &[f64], divide: bool) -> Result<Vec<f64>, M
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_row_budgets_preserve_each_physical_acceptance_and_declared_scales() {
+        let declared = Normalization {
+            variables: vec![2.0],
+            rows: vec![3.0, 7.0],
+            objective: 5.0,
+        };
+        let original = declared.clone();
+        let budgets = [1e-8, 1e-4];
+        let native = declared.with_row_budgets(&budgets, 1e-8).unwrap();
+        assert_eq!(declared, original);
+        assert_eq!(native.variables, declared.variables);
+        assert_eq!(native.objective, declared.objective);
+        assert_eq!(native.rows, vec![1.0, 10000.0]);
+        for (budget, scale) in budgets.iter().zip(&native.rows) {
+            for fraction in [0.5, 1.0, 2.0] {
+                let violation = budget * fraction;
+                assert_eq!(violation <= *budget, violation / scale <= 1e-8);
+                assert!((violation / scale / 1e-8 - fraction).abs() < 1e-15);
+            }
+        }
+        let changed = declared.with_row_budgets(&[1e-8, 2e-4], 1e-8).unwrap();
+        assert_ne!(native.key(), changed.key());
+        assert_eq!(declared.key(), original.key());
+    }
+
+    #[test]
+    fn native_row_budgets_refuse_extent_invalidity_and_unrepresentable_ratios() {
+        let declared = Normalization::identity(1, 2);
+        assert!(declared.with_row_budgets(&[1e-8], 1e-8).is_err());
+        for budget in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(declared.with_row_budgets(&[1e-8, budget], 1e-8).is_err());
+        }
+        for accuracy in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(declared.with_row_budgets(&[1e-8, 1e-4], accuracy).is_err());
+        }
+        assert!(
+            declared
+                .with_row_budgets(&[1.0, f64::MAX], f64::MIN_POSITIVE)
+                .is_err()
+        );
+        assert!(
+            declared
+                .with_row_budgets(&[1.0, f64::from_bits(1)], f64::MAX)
+                .is_err()
+        );
+    }
 }

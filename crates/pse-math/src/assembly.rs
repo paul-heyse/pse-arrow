@@ -24,7 +24,18 @@ use std::{
 };
 
 /// Per-case bounds, distinct from a local derivative artifact's resource budget.
-#[derive(Clone, Copy, Debug)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct AssemblyLimits {
     /// Maximum original derivative contributions before duplicate accumulation.
     pub contributions: usize,
@@ -48,6 +59,7 @@ enum Demand {
     Objective,
     Constraints,
     All,
+    Directional,
 }
 #[derive(Clone, Debug)]
 struct Group {
@@ -454,6 +466,7 @@ impl CasePlan {
                     outputs: outputs.clone(),
                     coordinates: formal.clone(),
                     order,
+                    directional: false,
                 };
                 let key = (
                     demand.body,
@@ -566,7 +579,7 @@ impl CasePlan {
             self.bodies.clone(),
             registry,
             order,
-            AssemblyLimits::default(),
+            self.limits,
             cancel,
             coordinates,
         )
@@ -606,10 +619,7 @@ impl CasePlan {
             self.bodies.clone(),
             registry,
             order,
-            AssemblyLimits {
-                worker_bytes: self.limits.worker_bytes,
-                ..AssemblyLimits::default()
-            },
+            self.limits,
             cancel,
             coordinates,
         )
@@ -678,9 +688,78 @@ impl CasePlan {
             bodies,
             registry,
             DerivativeOrder::First,
-            AssemblyLimits::default(),
+            self.limits,
             cancel,
         )
+    }
+    /// Append first directional constraint actions after a consumer requests them.
+    /// Existing demands, support products and artifact ordinals retain their identity.
+    pub fn with_directional_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        let mut instances = self.instances.as_ref().clone();
+        let mut requests = self.requests.as_ref().clone();
+        let mut supports = self.supports.as_ref().clone();
+        let mut indices = BTreeMap::new();
+        for (index, request) in requests.iter().enumerate().filter(|(_, r)| r.directional) {
+            indices.insert(
+                (
+                    request.body,
+                    request.outputs.clone(),
+                    request.coordinates.clone(),
+                ),
+                index,
+            );
+        }
+        for instance in &mut instances {
+            if instance.groups[Demand::Directional].is_some() {
+                continue;
+            }
+            let Some(group) = instance.groups[Demand::Constraints].as_ref() else {
+                continue;
+            };
+            let original = &requests[group.request];
+            let key = (
+                original.body,
+                group.outputs.clone(),
+                original.coordinates.clone(),
+            );
+            let request = if let Some(&index) = indices.get(&key) {
+                index
+            } else {
+                let support = self.bodies[&original.body].prepare_support(
+                    &group.outputs,
+                    &original.coordinates,
+                    DerivativeOrder::First,
+                    cancel,
+                )?;
+                let index = requests.len();
+                requests.push(LocalDemand {
+                    body: original.body,
+                    outputs: group.outputs.clone(),
+                    coordinates: original.coordinates.clone(),
+                    order: DerivativeOrder::First,
+                    directional: true,
+                });
+                supports.push(Arc::new(support));
+                indices.insert(key, index);
+                index
+            };
+            instance.groups[Demand::Directional] = Some(Group {
+                outputs: group.outputs.clone(),
+                request,
+            });
+        }
+        let mut result = self.clone();
+        result.instances = Arc::new(instances);
+        result.requests = Arc::new(requests);
+        result.supports = Arc::new(supports);
+        Ok(result)
+    }
+    /// Whether independently demanded directional constraint actions are prepared.
+    pub fn has_directional_actions(&self) -> bool {
+        self.requests.iter().any(|r| r.directional)
     }
     /// Monotonic immutable support upgrade under the original case and body allowances.
     /// Failed or cancelled stronger construction leaves this plan and its products intact.
@@ -708,6 +787,10 @@ impl CasePlan {
         }
         let mut supports = Vec::with_capacity(self.supports.len());
         for (request, previous) in self.supports.iter().enumerate() {
+            if self.requests[request].directional {
+                supports.push(previous.clone());
+                continue;
+            }
             if let Some(support) = stronger.get(&request) {
                 supports.push(Arc::clone(support));
                 continue;
@@ -747,7 +830,9 @@ impl CasePlan {
                 .iter()
                 .cloned()
                 .map(|mut request| {
-                    request.order = order;
+                    if !request.directional {
+                        request.order = order;
+                    }
                     request
                 })
                 .collect(),
@@ -759,9 +844,59 @@ impl CasePlan {
         result.hessian_terms = Arc::new(patterns.hessian_terms);
         Ok(result)
     }
+    /// Verify one genuine derivative projection against frozen source mathematics and
+    /// quantities, excluding only the admitted derivative demand/order. Actual bodies,
+    /// guards, physical bounds/maps and symbolic sparse terms must all match.
+    /// # Errors
+    /// Cancellation, unavailable support or the source's existing construction allowance.
+    pub fn is_derivative_projection_of(
+        &self,
+        original: &Self,
+        quantities: &QuantityRegistry,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<bool, MathError> {
+        if self.structure != original.structure
+            || self.columns != original.columns
+            || self.bodies != original.bodies
+            || self.requests.iter().any(|d| d.directional)
+        {
+            return Ok(false);
+        }
+        let expected = Self::prepare_with_coordinates(
+            original.structure.clone(),
+            original.bodies.clone(),
+            quantities,
+            self.order,
+            original.limits,
+            cancel,
+            original.columns.as_ref().clone(),
+        )?;
+        let same_terms = |left: &[Term], right: &[Term]| {
+            left.len() == right.len()
+                && left.iter().zip(right).all(|(a, b)| {
+                    a.instance == b.instance
+                        && a.output == b.output
+                        && a.i == b.i
+                        && a.j == b.j
+                        && a.scale.to_bits() == b.scale.to_bits()
+                        && a.target == b.target
+                })
+        };
+        Ok(self.structure == expected.structure
+            && self.columns == expected.columns
+            && self.bodies == expected.bodies
+            && self.requests == expected.requests
+            && self.supports == expected.supports
+            && same_terms(&self.jacobian_terms, &expected.jacobian_terms)
+            && same_terms(&self.hessian_terms, &expected.hessian_terms))
+    }
     /// Consumed immutable semantic bodies.
     pub fn bodies(&self) -> &BTreeMap<ContentHash, Arc<PreparedBody>> {
         &self.bodies
+    }
+    /// Caller-issued per-case admission policy, preserved by derivative and function projections.
+    pub fn limits(&self) -> AssemblyLimits {
+        self.limits
     }
     /// Stable free-variable order.
     pub fn columns(&self) -> &[SemanticId] {
@@ -805,26 +940,42 @@ impl CasePlan {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
-            let group = instance.groups[Demand::All].as_ref().ok_or_else(|| {
-                MathError::Contract("instance has no selected output incidence".into())
-            })?;
-            let ready = &self.supports[group.request];
+            // Structural incidence covers every original contribution, including
+            // later lexicographic objectives that have no primary numerical group.
+            let outputs = binding
+                .contributions
+                .iter()
+                .map(|contribution| contribution.output)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let ready = instance.groups[Demand::All]
+                .as_ref()
+                .map(|group| &self.supports[group.request])
+                .filter(|ready| ready.outputs() == outputs);
             let coordinates = binding
                 .slots
                 .iter()
                 .enumerate()
                 .filter_map(|(slot, binding)| free.contains(&binding.source()).then_some(slot))
                 .collect::<Vec<_>>();
-            let key = (binding.body, ready.outputs().to_vec(), coordinates.clone());
+            let key = (binding.body, outputs.clone(), coordinates.clone());
             let product = if let Some(product) = shared.get(&key) {
                 Arc::clone(product)
             } else {
-                let product = if ready.coordinates() == coordinates
-                    && ready.order() >= DerivativeOrder::First
-                {
-                    Arc::clone(ready)
-                } else {
-                    Arc::new(ready.incidence(&coordinates, cancel)?)
+                let product = match ready {
+                    Some(ready)
+                        if ready.coordinates() == coordinates
+                            && ready.order() >= DerivativeOrder::First =>
+                    {
+                        Arc::clone(ready)
+                    }
+                    Some(ready) => Arc::new(ready.incidence(&coordinates, cancel)?),
+                    None => Arc::new(self.bodies[&binding.body].incidence(
+                        &outputs,
+                        &coordinates,
+                        cancel,
+                    )?),
                 };
                 shared.insert(key, Arc::clone(&product));
                 product
@@ -879,6 +1030,7 @@ impl CasePlan {
             if support.outputs() != request.outputs
                 || support.coordinates() != request.coordinates
                 || program.compiled_order() != request.order
+                || program.is_directional() != request.directional
                 || support.body() != self.bodies[&request.body].as_ref()
             {
                 return Err(MathError::Contract(
@@ -907,6 +1059,25 @@ impl CasePlan {
                 )
             })
             .and_then(|n| n.checked_add(programs.len().checked_mul(size_of::<Worker>())?))
+            .and_then(|n| {
+                if self.has_directional_actions() {
+                    let formals = self
+                        .structure
+                        .instances()
+                        .iter()
+                        .map(|i| i.slots.len())
+                        .max()
+                        .unwrap_or(0);
+                    n.checked_add(
+                        self.rows
+                            .len()
+                            .checked_add(formals.checked_mul(4)?)?
+                            .checked_mul(size_of::<f64>())?,
+                    )
+                } else {
+                    Some(n)
+                }
+            })
             .ok_or(MathError::Limit("case worker bytes"))?;
         if bytes > self.limits.worker_bytes {
             return Err(MathError::Limit("case worker bytes"));
@@ -927,7 +1098,16 @@ impl CasePlan {
         let programs = self
             .supports
             .iter()
-            .map(|support| support.compile(optimization, limits, cancel).map(Arc::new))
+            .zip(self.requests.iter())
+            .map(|(support, request)| {
+                if request.directional {
+                    support
+                        .compile_directional(optimization, limits, cancel)
+                        .map(Arc::new)
+                } else {
+                    support.compile(optimization, limits, cancel).map(Arc::new)
+                }
+            })
             .collect::<Result<_, _>>()?;
         self.assemble(programs)
     }
@@ -1040,6 +1220,8 @@ pub struct LocalDemand {
     pub coordinates: Vec<usize>,
     /// Derivative ceiling.
     pub order: DerivativeOrder,
+    /// One runtime directional Taylor axis, distinct from assembled partials.
+    pub directional: bool,
 }
 /// A structural plan bound to immutable numeric programs.
 #[derive(Clone, Debug)]
@@ -1349,21 +1531,117 @@ impl CaseWorker {
         }
         Ok(self.hessian.matrix())
     }
-    /// Apply the assembled Jacobian through faer sparse multiplication.
+    /// Apply demanded directional programs, or the assembled reference when none are prepared.
     pub fn jacobian_product(
         &mut self,
         values: &CaseValues,
         direction: &[f64],
         output: &mut [f64],
     ) -> Result<(), MathError> {
-        self.jacobian(values)?;
-        self.jacobian.product(direction, output)
+        if !self.assembly.has_directional_actions() {
+            self.jacobian(values)?;
+            return self.jacobian.product(direction, output);
+        }
+        if direction.len() != self.assembly.columns.len()
+            || output.len() != self.assembly.rows.len()
+            || direction.iter().any(|v| !v.is_finite())
+        {
+            return Err(MathError::Contract(
+                "finite case direction and exact action output dimensions required".into(),
+            ));
+        }
+        let result = self.directional_product(values, direction);
+        match result {
+            Ok(result) => {
+                output.copy_from_slice(&result);
+                Ok(())
+            }
+            Err(cause) => {
+                for groups in &mut self.groups {
+                    if let Some(group) = &mut groups[Demand::Directional] {
+                        group.cache = None;
+                    }
+                }
+                Err(cause)
+            }
+        }
+    }
+    fn directional_product(
+        &mut self,
+        values: &CaseValues,
+        direction: &[f64],
+    ) -> Result<Vec<f64>, MathError> {
+        self.scope.check().map_err(crate::error::scope_error)?;
+        let mut output = vec![0.0; self.assembly.rows.len()];
+        for (index, binding) in self.assembly.structure.instances().iter().enumerate() {
+            self.scope.check().map_err(crate::error::scope_error)?;
+            let local = &self.assembly.instances[index];
+            let Some(group) = &local.groups[Demand::Directional] else {
+                continue;
+            };
+            let context = |cause| MathError::Instance {
+                instance: binding.instance,
+                checked_members: binding.checked_members.clone(),
+                cause: Box::new(cause),
+            };
+            let inputs = binding.values(values).map_err(context)?;
+            let mut formal_direction = vec![0.0; inputs.len()];
+            for (&formal, &column) in local.coordinates.iter().zip(&local.columns) {
+                formal_direction[formal.get()] =
+                    finite(binding.slots[formal.get()].scale() * direction[column.get()])
+                        .map_err(context)?;
+            }
+            let bits = inputs
+                .iter()
+                .chain(&formal_direction)
+                .map(|v| v.to_bits())
+                .collect::<Vec<_>>();
+            let cache = self.groups[index][Demand::Directional]
+                .as_mut()
+                .ok_or_else(|| MathError::Contract("missing directional group".into()))?;
+            if !cache
+                .cache
+                .as_ref()
+                .is_some_and(|(previous, _, _)| *previous == bits)
+            {
+                cache.cache = None;
+                let evaluation = self.workers[group.request]
+                    .evaluate_directional(
+                        &inputs,
+                        &formal_direction,
+                        &mut self.providers,
+                        &self.cancel,
+                    )
+                    .map_err(context)?;
+                cache.cache = Some((bits, DerivativeOrder::First, evaluation));
+            }
+            let evaluation = &cache
+                .cache
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("unevaluated directional group".into()))?
+                .2;
+            for contribution in &binding.contributions {
+                if let Target::Row(row) = contribution.target {
+                    let local_row = group
+                        .outputs
+                        .binary_search(&contribution.output)
+                        .map_err(|_| MathError::Contract("missing directional output".into()))?;
+                    let slot = self.assembly.rows[&row].get();
+                    output[slot] =
+                        finite(output[slot] + contribution.scale * evaluation.jacobian[local_row])
+                            .map_err(context)?;
+                }
+            }
+        }
+        self.scope.check().map_err(crate::error::scope_error)?;
+        Ok(output)
     }
 }
 fn selected(target: Target, demand: Demand) -> bool {
     match demand {
         Demand::Objective => target == Target::PRIMARY,
         Demand::Constraints => matches!(target, Target::Row(_)),
+        Demand::Directional => false,
         // A later lexicographic objective is projected to coefficients, never evaluated.
         Demand::All => matches!(target, Target::Row(_)) || target == Target::PRIMARY,
     }

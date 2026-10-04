@@ -626,6 +626,17 @@ impl MathService {
         self.count(|p| &p.rebuilt);
         Ok(Self::own_rebind(prepared, rebound, lease))
     }
+    /// Rebind inside an existing attempt, including CPU waiting and late completion.
+    #[cfg(feature = "solver-kinsol")]
+    pub(crate) async fn rebind_within(
+        self: &Arc<Self>,
+        prepared: &super::Preparation,
+        values: pse_math::binding::CaseValues,
+        driver: &crate::CancelSource,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<super::Preparation, MathRuntimeError> {
+        Self::within_task(&scope, driver, self.rebind(prepared, values, driver)).await
+    }
     /// Own immutable generated declarations and their package data documents under the
     /// deployment pool.
     pub fn modeling_revision(

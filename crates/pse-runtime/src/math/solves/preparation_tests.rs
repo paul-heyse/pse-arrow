@@ -9,6 +9,16 @@ use pse_kernels::DerivativeOrder;
 use pse_modeling::{Bindings, DeclarationId, Limits};
 
 fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+    let (package, root, _) = package_and_runtime(text);
+    (package, root)
+}
+fn package_and_runtime(text: &str) -> (ModelingPackage, DeclarationId, crate::workflow::Runtime) {
+    package_with_runtime(text, fixture::runtime())
+}
+fn package_with_runtime(
+    text: &str,
+    runtime: crate::workflow::Runtime,
+) -> (ModelingPackage, DeclarationId, crate::workflow::Runtime) {
     let rows = pse_authoring::language::parse(
         text,
         SemanticId::NIL,
@@ -21,10 +31,8 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime()
-        .modeling_package(rows, fixture::physical())
-        .unwrap();
-    (package, root)
+    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    (package, root, runtime)
 }
 
 async fn prepare(
@@ -67,6 +75,340 @@ fn ready(solve: &PreparedSolve) -> &AlgebraicCase {
         "the selected numeric program is retained"
     );
     case
+}
+
+#[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
+    let (package, root, runtime) = package_with_runtime(
+        "package p { def Root { param size:Power=1{W}; var x:Scalar; var y:Scalar; var on:Indicator in binary; annotation bounds x(0,2); annotation bounds y(0,1); annotation start x(1); annotation start y(1); annotation start on(1{1}); eq link:size*y==size*on; eq floor:x>=y; let cost:Scalar=x*x-3*y; annotation objective cost(minimize); } }",
+        fixture::runtime_on(
+            1 << 30,
+            crate::math::MathPolicy {
+                worker_bytes: 8 << 20,
+                workspace_bytes: 16 << 20,
+                foreign_bytes: 256 << 20,
+                ..Default::default()
+            },
+        ),
+    );
+    for (hessian, order) in [
+        (HessianMode::Exact, DerivativeOrder::Second),
+        (HessianMode::LimitedMemory, DerivativeOrder::First),
+    ] {
+        let driver = crate::CancelSource::new();
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::Value,
+                fixture::compiler_profile(),
+                SolverProfile {
+                    intent: SolveIntent::Optimize,
+                    selection: SolverSelection::Explicit(Backend::Scip),
+                    controls: Controls {
+                        hessian,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                NumericalInputs::default(),
+                &driver,
+            )
+            .await
+            .unwrap();
+        let case = ready(&prepared.solve);
+        assert_eq!(
+            case.prepared.compiled().plan.order(),
+            DerivativeOrder::Value
+        );
+        assert_eq!(
+            case.case.as_ref().unwrap().assembly.order(),
+            DerivativeOrder::Value
+        );
+        assert_eq!(
+            case.pricing_case
+                .as_ref()
+                .unwrap()
+                .executable
+                .assembly
+                .order(),
+            order
+        );
+        assert_eq!(prepared.solve.required_order(), order);
+        assert_eq!(prepared.solve.profile.controls.hessian, hessian);
+        assert_eq!(
+            prepared.solve.profile.controls.start,
+            StartPolicy::NoPriorStart
+        );
+        let result = runtime
+            .native()
+            .solve(prepared.solve)
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        let Outcome::Native(report) = &result.outcome else {
+            panic!("expected an actual factorable native solve");
+        };
+        assert!(
+            !report.metrics.contains_key("resolve.refused"),
+            "{:?}",
+            report.metrics
+        );
+        let commitment = report
+            .candidate
+            .as_ref()
+            .and_then(|candidate| candidate.commitment.as_ref())
+            .unwrap_or_else(|| {
+                let resolve = report.metrics.iter()
+                    .filter(|(name, _)| name.starts_with("resolve."))
+                    .collect::<Vec<_>>();
+                panic!("required fixed-assignment commitment missing: hessian={hessian:?}, termination={:?}, primal_source={:?}, quality={:?}, resolve={resolve:?}", report.termination, report.evidence.global.as_ref().map(|evidence| evidence.primal), report.quality);
+            });
+        assert_eq!(commitment.columns.len(), 1);
+        assert_eq!(commitment.columns[0].1, (1.0, 1.0));
+        assert!(report.quality.as_ref().unwrap().feasible());
+        assert!(report.evidence.kkt.is_some());
+    }
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn demanded_krylov_route_prepares_actions_from_value_under_a_narrow_jet_budget() {
+    let (package, root, runtime) = package_and_runtime(
+        "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(2); annotation start y(3); eq first:x*x==1; eq second:y==x+1; } }",
+    );
+    let mut compiler = fixture::compiler_profile();
+    compiler.evaluation.derivative_components = 2;
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            ModelingCaseBindings::default(),
+            DerivativeOrder::Value,
+            compiler,
+            SolverProfile {
+                intent: SolveIntent::Root,
+                selection: SolverSelection::Explicit(Backend::Kinsol),
+                backend: BackendSettings::Kinsol(native::settings::kinsol::Method {
+                    linear: native::settings::kinsol::Linear::Spgmr {
+                        dimension: pse_model::scalars::PositiveCount::try_new(3).unwrap(),
+                    },
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            NumericalInputs::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let case = ready(&prepared.solve);
+    assert_eq!(case.prepared.prepared.plan.order(), DerivativeOrder::Value);
+    assert!(case.prepared.prepared.plan.has_directional_actions());
+    assert_eq!(prepared.solve.required_order(), DerivativeOrder::First);
+    assert_eq!(
+        case.prepared.prepared.facts.prepared_derivatives,
+        DerivativeOrder::Value
+    );
+    let result = runtime
+        .native()
+        .solve(prepared.solve)
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    let Outcome::Native(report) = &result.outcome else {
+        panic!("{:?}", result.outcome)
+    };
+    assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+    assert_eq!(
+        report.termination.category,
+        Termination::Success,
+        "{report:?}"
+    );
+    assert!(report.metrics.contains_key("KINGetNumJtimesEvals"));
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_conditional() {
+    use native::settings::kinsol::{Linear, Method};
+    let (package, root, runtime) = package_and_runtime(
+        "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(1.5); annotation start y(1.2); eq first:x*x+y==5; eq second:y*y+x==3; } }",
+    );
+    let service = runtime.native();
+    let driver = crate::CancelSource::new();
+    let scope = pse_kernels::ExecutionScope::new(
+        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
+    );
+    for preconditioner in [Preconditioner::Jacobi, Preconditioner::BlockFactor] {
+        let profile = SolverProfile {
+            intent: SolveIntent::Root,
+            selection: SolverSelection::Explicit(Backend::Kinsol),
+            backend: BackendSettings::Kinsol(Method {
+                linear: Linear::Spgmr {
+                    dimension: pse_model::scalars::PositiveCount::try_new(3).unwrap(),
+                },
+                preconditioner,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let original = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::Value,
+                fixture::compiler_profile(),
+                profile.clone(),
+                NumericalInputs::default(),
+                &driver,
+            )
+            .await
+            .unwrap();
+        let base = original.model.case.clone();
+        assert_eq!(base.compiled().plan.order(), DerivativeOrder::Value);
+        assert!(
+            !base.compiled().plan.has_directional_actions(),
+            "the unchanged original compiler product has no demanded actions"
+        );
+        let value_programs =
+            MathService::within_task(&scope, &driver, service.assemble(base.clone()))
+                .await
+                .unwrap();
+        let conditional = service
+            .prepare_conditional(
+                base.clone(),
+                value_programs,
+                original.model.values.clone(),
+                BTreeMap::new(),
+                profile,
+                original.solve.numerics.clone(),
+                Route::Native(Backend::Kinsol),
+                original.solve.snapshot.clone(),
+                &scope,
+                &driver,
+            )
+            .await
+            .unwrap()
+            .within_task(scope.clone())
+            .unwrap();
+        let actual_scope = conditional.task_scope().unwrap();
+        assert!(Arc::ptr_eq(
+            actual_scope.cancellation(),
+            scope.cancellation()
+        ));
+        assert_eq!(actual_scope.deadline(), scope.deadline());
+        for solve in [&original.solve, &conditional] {
+            let case = ready(solve);
+            let plan = &case.prepared.compiled().plan;
+            let executable = case.case.as_ref().unwrap();
+            assert_eq!(plan.order(), DerivativeOrder::First);
+            assert_eq!(
+                case.prepared.compiled().facts.prepared_derivatives,
+                DerivativeOrder::First
+            );
+            assert!(
+                plan.has_directional_actions() && executable.assembly.has_directional_actions()
+            );
+            assert!(
+                executable
+                    ._artifacts
+                    .iter()
+                    .any(|artifact| artifact.program.is_directional())
+            );
+            assert!(
+                executable
+                    ._artifacts
+                    .iter()
+                    .any(|artifact| !artifact.program.is_directional()
+                        && artifact.program.compiled_order() == DerivativeOrder::First)
+            );
+            assert!(
+                executable
+                    ._artifacts
+                    .iter()
+                    .all(|artifact| artifact.program.compiled_order() <= DerivativeOrder::First),
+                "no second-order product was fabricated"
+            );
+            let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+            {
+                let ExecutionWorker {
+                    mut worker,
+                    _case,
+                    _charge,
+                } = service
+                    .case_worker(case.case.clone(), case.providers.clone(), &scope, &budget)
+                    .unwrap();
+                let direction = [0.75, -0.5];
+                let mut action = [f64::NAN; 2];
+                worker
+                    .jacobian_product(&case.values, &direction, &mut action)
+                    .unwrap();
+                let jacobian = worker.jacobian(&case.values).unwrap();
+                let mut reference = [0.0; 2];
+                let mut coupling = 0;
+                for (col, component) in direction.iter().enumerate() {
+                    for entry in
+                        jacobian.symbolic().col_ptr()[col]..jacobian.symbolic().col_ptr()[col + 1]
+                    {
+                        let row = jacobian.row_idx()[entry];
+                        reference[row] += jacobian.val()[entry] * component;
+                        if row != col && jacobian.val()[entry] != 0.0 {
+                            coupling += 1;
+                        }
+                    }
+                }
+                assert!(
+                    coupling > 0,
+                    "the action includes actual off-diagonal coupling"
+                );
+                for (actual, expected) in action.into_iter().zip(reference) {
+                    assert!((actual - expected).abs() < 1e-12);
+                }
+            }
+            assert_eq!(budget.used(), 0);
+        }
+        for solve in [
+            original.solve.within_task(scope.clone()).unwrap(),
+            conditional,
+        ] {
+            let result = service.solve(solve).unwrap().finish().await.unwrap();
+            let Outcome::Native(report) = &result.outcome else {
+                panic!("expected real compiled KINSOL execution")
+            };
+            assert_eq!(
+                report.termination.category,
+                Termination::Success,
+                "{report:?}"
+            );
+            assert!(report.quality.as_ref().unwrap().feasible());
+            for name in [
+                "callback.jvp.calls",
+                "callback.preconditioner.calls",
+                "KINGetNumJtimesEvals",
+                "KINGetNumPrecEvals",
+            ] {
+                assert!(
+                    matches!(report.metrics.get(name),Some(Metric::Integer(count)) if *count>0),
+                    "{name}: {report:?}"
+                );
+            }
+        }
+        assert_eq!(base.compiled().plan.order(), DerivativeOrder::Value);
+        assert!(!base.compiled().plan.has_directional_actions());
+    }
 }
 
 #[cfg(any(feature = "solver-ipopt", feature = "solver-pounce"))]

@@ -36,7 +36,7 @@ const PHASE_STABILITY_FIXTURES: &str = "881a0e9fb03144108d64f181a79d1e9f";
 fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, SemanticId) {
     let name = "tpd_pr_two_phase";
     let source = format!(
-        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use eos_data @\"1.0.0\"; test {name} fixture {{dof 1; route steady; procedure solve; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m^3}}; value root.trial_upper=10500{{mol/m^3}}; value root.reference.rho=34{{mol/m^3}}; value root.trial.rho=9505.77{{mol/m^3}}; {header}}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=bt_ideal.aromatics,law=eos_data.potential,feed=bt_feed); }} }}"
+        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use eos_data @\"1.0.0\"; use cubic @\"1.0.0\"; use properties @\"1.0.0\"; test {name} fixture {{dof 1; route steady; procedure solve; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m^3}}; value root.trial_upper=10500{{mol/m^3}}; value root.reference.rho=34{{mol/m^3}}; value root.trial.rho=9505.77{{mol/m^3}}; {header}}} {{ permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false; child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=bt_ideal.aromatics,law=eos_data.potential,feed=bt_feed); }} }}"
     );
     let extra = pse_authoring::language::parse(
         &source,
@@ -389,7 +389,7 @@ async fn pcsaft_tpd(
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let name = "tpd_pcsaft";
     let source = format!(
-        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use pcsaft_data @\"1.0.0\"; test {name} fixture {{dof 2; route steady; procedure solve;}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,feed=vessel_fixtures.fraction); }} }}"
+        "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use pcsaft_data @\"1.0.0\"; use pcsaft_parameters @\"1.0.0\"; use properties @\"1.0.0\"; test {name} fixture {{dof 2; route steady; procedure solve;}} {{ permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false; child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,feed=vessel_fixtures.fraction); }} }}"
     );
     let extra = pse_authoring::language::parse(
         &source,
@@ -427,10 +427,18 @@ async fn pcsaft_tpd(
 
 #[tokio::test]
 async fn pcsaft_tpd_fits_the_formal_pool() {
-    // The PC-SAFT tangent-plane body of three components needs 5510 formal slots (measured
-    // 2026-09-29), above the former 4096 pool: it is refused within that allowance and
-    // prepares and solves within the process-global pool.
-    let owner = WorkflowRuntime::new().unwrap();
+    // The former 4096-slot allowance refuses the complete three-component body;
+    // the positive control uses the seed campaign's explicit finite allowance and
+    // grows the same process-global pool. Its historical 5510-slot measurement
+    // (2026-09-29) does not describe the current demanded-support construction.
+    let owner = WorkflowRuntime::with_math(
+        std::num::NonZeroUsize::new(2).unwrap(),
+        pse_runtime::math::MathPolicy {
+            worker_bytes: 16 << 30,
+            ..Default::default()
+        },
+    )
+    .unwrap();
     let package = seed_package(&owner).await;
     let former = pse_modeling::Limits {
         body_slots: Some(4096),

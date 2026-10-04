@@ -4,10 +4,12 @@
 
 from pathlib import Path
 
+import pyarrow as pa
 import pytest
 
 import pse
 from pse import codec
+from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
     NativeBackend,
     NativeSolveIntent,
@@ -123,6 +125,20 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     result = prepared.run()
     del package, runtime, flow, prepared
     assert not result.failures()
+    events = codec.structure_rows(
+        pa.table(result.strategy_events()).to_pylist(),
+        result_contracts.RuntimeSolveStrategyEventsRow,
+    )
+    assert events
+    assert result.run_id is not None
+    assert {event.run_id for event in events} == {result.run_id}
+    assert (
+        codec.structure_rows(
+            pa.table(result.strategy_events()).to_pylist(),
+            result_contracts.RuntimeSolveStrategyEventsRow,
+        )
+        == events
+    )
     (row,) = result.attempts()
     attempt = row.report
     assert attempt is not None

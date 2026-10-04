@@ -20,6 +20,7 @@ use std::{
     rc::Rc,
 };
 use sundials_sys as ffi;
+mod block;
 // Retain native KLU/AMD/BTF linkage even though SUNDIALS owns all calls.
 use suitesparse_sys as _;
 /// A declared causal map is distinct from an equation residual oracle.
@@ -145,6 +146,11 @@ impl Settings {
     /// Admit exact dimensions, one-sided bound semantics and strategy representation.
     pub fn validate(&self, function: &Function) -> Result<Constraints, ProblemError> {
         let c = function.contract();
+        if let Function::Equations(oracle) = function {
+            oracle
+                .operations()
+                .admit(c, self.method.consumes_directional_only())?;
+        }
         let representation = match function {
             Function::Equations(_) => Strategy::LineSearch,
             Function::Picard { .. } => Strategy::Picard,
@@ -216,7 +222,7 @@ impl Settings {
                 "Picard requires an explicit constant splitting".into(),
             ));
         }
-        if !fixed {
+        if !fixed && !m.consumes_directional_only() {
             c.square()?;
         } else {
             c.validate(pse_kernels::DerivativeOrder::Value)?;
@@ -240,6 +246,25 @@ impl Settings {
             _ => {}
         }
         let krylov = m.linear.krylov().is_some();
+        let map = matches!(m.strategy, Strategy::FixedPoint | Strategy::Picard);
+        let defaults = Method::default();
+        if m.preconditioner == Preconditioner::BlockFactor && map {
+            return Err(ProblemError::Unsupported(
+                "block factor preconditioning requires original analytic equation Jacobians".into(),
+            ));
+        }
+        if (!map && (m.anderson != 0 || m.damping != defaults.damping))
+            || (map && m.max_newton_step.is_some())
+            || (fixed
+                && (m.linear != defaults.linear
+                    || m.setup_interval != defaults.setup_interval
+                    || m.eta != defaults.eta
+                    || m.preconditioner != defaults.preconditioner))
+        {
+            return Err(ProblemError::Unsupported(
+                "KINSOL selected strategy does not consume the requested method controls".into(),
+            ));
+        }
         if m.max_newton_step
             .is_some_and(|v| !(v.is_finite() && v >= 1.0))
             || match m.eta {
@@ -311,6 +336,20 @@ pub fn guarded_sign_constraints(
     }
     Ok(constraints)
 }
+#[derive(Clone, Debug)]
+struct SetupStamp {
+    point: Vec<f64>,
+    data: pse_ids::ContentHash,
+}
+fn setup_iteration(mem: *mut c_void) -> Option<i64> {
+    let mut iteration = 0;
+    // SAFETY: a read-only counter query on the session whose setup callback is active.
+    if !mem.is_null() && unsafe { ffi::KINGetNumNonlinSolvIters(mem, &raw mut iteration) } == 0 {
+        Some(long(iteration))
+    } else {
+        None
+    }
+}
 struct Context {
     function: Function,
     state: CallbackState,
@@ -322,6 +361,14 @@ struct Context {
     offsets: Vec<f64>,
     /// Inverse Jacobi diagonal from the last preconditioner setup.
     inverse_diagonal: Vec<f64>,
+    /// Library BTF factors, never an accepted-point response factor.
+    blocks: Option<block::Blocks>,
+    /// Last actual matrix/preconditioner setup, not an accepted-point response factor.
+    setup: Option<SetupStamp>,
+    setup_calls: u64,
+    first_setup_iteration: Option<i64>,
+    data: pse_ids::ContentHash,
+    native_mem: *mut c_void,
 }
 /// Worker-local allocation retains native layouts across compatible equation values.
 pub struct Session {
@@ -336,6 +383,7 @@ pub struct Session {
     callback: Box<Context>,
     settings: Settings,
     compatibility: Compatibility,
+    setup_usable: bool,
     _local: PhantomData<Rc<()>>,
 }
 impl std::fmt::Debug for Session {
@@ -470,6 +518,21 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
         // SAFETY: as above.
         unsafe { publish(out, &v) }
     });
+    // KINFP and KINPicardAA only test for negative callback returns; a positive
+    // trial refusal would let them consume stale output. They cannot recover the
+    // failed map, so latch its original typed cause before returning terminally.
+    if value.is_none()
+        && c.state.terminal.is_none()
+        && !matches!(c.function, Function::Equations(_))
+    {
+        c.state.terminal = Some((
+            Termination::Evaluation,
+            c.state.last_failure.as_ref().map_or_else(
+                || "failed KINSOL map evaluation".into(),
+                ToString::to_string,
+            ),
+        ));
+    }
     result(value, &c.state)
 }
 unsafe extern "C" fn jacobian(
@@ -486,13 +549,14 @@ unsafe extern "C" fn jacobian(
         return -1;
     };
     let value = c.state.evaluate("jacobian", || {
+        // SAFETY: the native callback's checked serial vector in original coordinates.
+        let point = shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0);
         let mut v = vec![0.0; c.rows.len()];
         match &mut c.function {
             Function::Equations(o) => o.jacobian(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
-                &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
-                &mut v,
+                &point, &mut v,
             )?,
             Function::Picard { linear, .. } => v.copy_from_slice(linear.val()),
             Function::FixedPoint(_) => {
@@ -544,6 +608,14 @@ unsafe extern "C" fn jacobian(
                 unsafe { std::ptr::copy_nonoverlapping(v.as_ptr(), p, v.len()) };
             }
         }
+        c.setup = Some(SetupStamp {
+            point,
+            data: c.data,
+        });
+        c.setup_calls = c.setup_calls.saturating_add(1);
+        if c.first_setup_iteration.is_none() {
+            c.first_setup_iteration = setup_iteration(c.native_mem);
+        }
         Ok(())
     });
     result(value, &c.state)
@@ -587,7 +659,7 @@ unsafe extern "C" fn jvp(
     });
     result(value, &c.state)
 }
-/// Jacobi preconditioner setup from the analytic Jacobian diagonal (right preconditioning).
+/// Analytic right preconditioner setup under KINSOL's native refresh policy.
 unsafe extern "C" fn precondition_setup(
     x: ffi::N_Vector,
     _us: ffi::N_Vector,
@@ -600,14 +672,16 @@ unsafe extern "C" fn precondition_setup(
     let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
         return -1;
     };
+    let execution = c.state.execution.clone();
     let value = c.state.evaluate("preconditioner", || {
+        // SAFETY: the native callback's checked serial vector in original coordinates.
+        let point = shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0);
         let mut v = vec![0.0; c.rows.len()];
         match &mut c.function {
             Function::Equations(o) => o.jacobian(
                 // SAFETY: KINSOL passes null or a live serial vector for the callback, and `values`
                 // checks it against the `n` coordinates.
-                &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
-                &mut v,
+                &point, &mut v,
             )?,
             Function::Picard { linear, .. } => v.copy_from_slice(linear.val()),
             Function::FixedPoint(_) => {
@@ -616,24 +690,36 @@ unsafe extern "C" fn precondition_setup(
                 ));
             }
         }
-        for col in 0..c.n {
-            let range = c.columns[col] as usize..c.columns[col + 1] as usize;
-            let diagonal = range
-                .clone()
-                .find(|k| c.rows[*k] as usize == col)
-                .map_or(0.0, |k| v[k]);
-            c.inverse_diagonal[col] = if diagonal.is_finite() && diagonal.abs() > f64::MIN_POSITIVE
-            {
-                diagonal.recip()
-            } else {
-                1.0
-            };
+        if let Some(blocks) = &mut c.blocks {
+            blocks.setup(&v, &execution)?;
+        } else {
+            for col in 0..c.n {
+                let range = c.columns[col] as usize..c.columns[col + 1] as usize;
+                let diagonal = range
+                    .clone()
+                    .find(|k| c.rows[*k] as usize == col)
+                    .map_or(0.0, |k| v[k]);
+                c.inverse_diagonal[col] =
+                    if diagonal.is_finite() && diagonal.abs() > f64::MIN_POSITIVE {
+                        diagonal.recip()
+                    } else {
+                        1.0
+                    };
+            }
+        }
+        c.setup = Some(SetupStamp {
+            point,
+            data: c.data,
+        });
+        c.setup_calls = c.setup_calls.saturating_add(1);
+        if c.first_setup_iteration.is_none() {
+            c.first_setup_iteration = setup_iteration(c.native_mem);
         }
         Ok(())
     });
     result(value, &c.state)
 }
-/// Jacobi preconditioner solve, in place.
+/// Selected library block or Jacobi preconditioner solve, in place.
 unsafe extern "C" fn precondition_solve(
     _x: ffi::N_Vector,
     _us: ffi::N_Vector,
@@ -647,25 +733,96 @@ unsafe extern "C" fn precondition_solve(
     let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
         return -1;
     };
+    let execution = c.state.execution.clone();
     let value = c.state.evaluate("preconditioner.solve", || {
         // SAFETY: KINSOL passes null or a live serial vector for the callback, and
         // `values` checks it against the `n` coordinates.
-        let z: Vec<f64> = unsafe { values(v, c.n) }?
-            .iter()
-            .zip(&c.inverse_diagonal)
-            .map(|(r, d)| r * d)
-            .collect();
+        let z = if let Some(blocks) = &mut c.blocks {
+            // SAFETY: as above, the callback's checked live serial right-hand side.
+            blocks.solve(unsafe { values(v, c.n) }?, &execution)?
+        } else {
+            // SAFETY: the callback receives this session's live serial vector with n entries.
+            let z: Vec<f64> = unsafe { values(v, c.n) }?
+                .iter()
+                .zip(&c.inverse_diagonal)
+                .map(|(r, d)| r * d)
+                .collect();
+            z
+        };
         // SAFETY: as above; the slice read above is no longer used.
         unsafe { publish(v, &z) }
     });
     result(value, &c.state)
 }
+// The fixed allowance covers KINSOL's internal clones even without AA/Krylov.
+// N_VSpace reports payload words and one integer, omitting each cloned vector's
+// operations/content/object headers. SPFGMR owns two dimension-sized arrays;
+// this conservative per-dimension allowance covers both plus pointer arrays.
+fn native_header_bytes(linear: Linear) -> Result<usize, ProblemError> {
+    match linear.krylov() {
+        Some(dimension) => dimension
+            .checked_mul(2048)
+            .and_then(|bytes| bytes.checked_add(16384))
+            .ok_or_else(|| ProblemError::memory("Krylov retained header extent")),
+        None => Ok(16384),
+    }
+}
+// SPFGMR dominates the four supported Krylov allocation shapes: two vector
+// arrays, Hessenberg, rotations and header/pointer storage, plus callback scratch.
+fn native_krylov_storage(n: usize, linear: Linear) -> Result<usize, ProblemError> {
+    let headers = native_header_bytes(linear)?;
+    let Some(dimension) = linear.krylov() else {
+        return Ok(headers);
+    };
+    dimension
+        .checked_mul(2)
+        .and_then(|count| count.checked_add(64))
+        .and_then(|count| count.checked_mul(n))
+        .and_then(|count| count.checked_mul(128))
+        .and_then(|vectors| {
+            dimension
+                .checked_add(10)
+                .and_then(|width| dimension.checked_mul(width))
+                .and_then(|entries| entries.checked_mul(64))
+                .and_then(|matrix| vectors.checked_add(matrix))
+        })
+        .and_then(|bytes| bytes.checked_add(headers))
+        .ok_or_else(|| ProblemError::memory("native Krylov workspace extent"))
+}
+// AA's R/T QR matrices and scalar/pointer arrays are not fully represented by
+// KINGetWorkSpace. Vector payloads are queried there; their headers are not.
+fn anderson_storage(n: usize, method: Method) -> Result<(usize, usize), ProblemError> {
+    let m = method.anderson;
+    if m == 0 {
+        return Ok((0, 0));
+    }
+    let omitted = m
+        .checked_mul(m)
+        .and_then(|square| square.checked_mul(16))
+        .and_then(|qr| {
+            m.checked_mul(4096)
+                .and_then(|headers| qr.checked_add(headers))
+        })
+        .ok_or_else(|| ProblemError::memory("Anderson QR/header extent"))?;
+    // KINAllocVectors: three m-sized vector arrays, fold/gold and fixed work clones.
+    // Two m*m matrices cover ICWY; every other QR route uses no more storage.
+    let native_workspace = native_krylov_storage(n, method.linear)?;
+    let peak = m
+        .checked_mul(3)
+        .and_then(|count| count.checked_add(16))
+        .and_then(|count| count.checked_mul(n))
+        .and_then(|count| count.checked_mul(8))
+        .and_then(|payload| payload.checked_add(omitted))
+        .and_then(|bytes| bytes.checked_add(native_workspace))
+        .ok_or_else(|| ProblemError::memory("Anderson native allocation extent"))?;
+    Ok((peak, omitted))
+}
 impl Session {
     /// Bytes the session keeps between solves, as the libraries report them: KINSOL's
     /// and its linear interface's workspace, the session's own vectors, the Jacobian
     /// storage and KLU's current factor memory, plus the owned callback buffers (Plan 22
-    /// I14). The count is exact for SUNDIALS' own arrays and KLU's allocations; the
-    /// SUNDIALS object headers are covered by a fixed allowance per object.
+    /// I14). Library-reported payload words and KLU memory are combined with
+    /// source-backed conservative header, pointer-array and Anderson QR allowances.
     pub fn retained_bytes(&self) -> usize {
         const HEADER: usize = 256;
         // Real and integer word counts at 8 bytes each, plus the object header allowance.
@@ -680,8 +837,21 @@ impl Session {
             (callback.rows.capacity()
                 + callback.columns.capacity()
                 + callback.offsets.capacity()
-                + callback.inverse_diagonal.capacity())
+                + callback.inverse_diagonal.capacity()
+                + callback.setup.as_ref().map_or(0, |s| s.point.capacity()))
             .saturating_mul(8),
+        );
+        bytes = bytes.saturating_add(
+            callback
+                .blocks
+                .as_ref()
+                .map_or(0, block::Blocks::retained_bytes),
+        );
+        bytes = bytes
+            .saturating_add(native_header_bytes(self.settings.method.linear).unwrap_or(usize::MAX));
+        bytes = bytes.saturating_add(
+            anderson_storage(callback.n, self.settings.method)
+                .map_or(usize::MAX, |(_, omitted)| omitted),
         );
         // Every queried object is live and owned by this session; the queries only write
         // the caller's counters, and KLU's common block is read between solves.
@@ -741,7 +911,8 @@ impl Session {
         self.compatibility.same_session(stamp) && stamp.backend == Backend::Kinsol
     }
     /// Replace compatible numeric equations while retaining native allocation and
-    /// symbolic layout. The next solve explicitly refreshes numeric setup.
+    /// symbolic layout. Compatible equation changes may use stale iteration setup under
+    /// native monitoring; an authored Picard splitting change requires a fresh setup.
     pub fn replace(
         &mut self,
         function: Function,
@@ -782,6 +953,12 @@ impl Session {
                 ));
             }
         }
+        if let (Function::Picard { linear: held, .. }, Function::Picard { linear: next, .. }) =
+            (&self.callback.function, &function)
+            && held.val() != next.val()
+        {
+            self.setup_usable = false;
+        }
         if constraints.any() {
             if self.signs.is_null() {
                 // SAFETY: the session's live context; `Drop` frees the vector.
@@ -800,8 +977,16 @@ impl Session {
                 "clear sign constraints",
             )?;
         }
+        if settings.method.preconditioner == Preconditioner::BlockFactor {
+            // Replacement can change guard/domain/data meaning even when CSC indices
+            // match. Drop old factors before admitting and constructing the new maps.
+            self.callback.blocks = None;
+            self.setup_usable = false;
+            self.callback.setup = None;
+        }
         self.callback.function = function;
         self.callback.offsets = constraints.offsets;
+        self.callback.data = compatibility.data;
         self.settings = settings;
         self.compatibility = compatibility;
         Ok(())
@@ -815,6 +1000,36 @@ impl Session {
     ) -> Result<Self, ProblemError> {
         let constraints = settings.validate(&function)?;
         let n = function.contract().variables.len();
+        let (anderson_peak, _) = anderson_storage(n, settings.method)?;
+        // AA's peak already includes the selected Krylov workspace. Without AA,
+        // every Krylov route must still own its finite workspace before SUN allocation.
+        let native_peak = if anderson_peak > 0 {
+            anderson_peak
+        } else if settings.method.linear.krylov().is_some() {
+            native_krylov_storage(n, settings.method.linear)?
+        } else {
+            0
+        };
+        if native_peak > 0 {
+            execution.check()?;
+            let memory = execution.memory.filter(|bytes| *bytes > 0).ok_or_else(|| {
+                ProblemError::memory("native Krylov/Anderson needs finite admitted storage")
+            })?;
+            if native_peak > memory {
+                return Err(ProblemError::memory(
+                    "native Krylov/Anderson plan exceeds admitted storage",
+                ));
+            }
+        }
+        let blocks = if settings.method.preconditioner == Preconditioner::BlockFactor {
+            Some(block::Blocks::admit(
+                &function,
+                &execution,
+                settings.method.linear,
+            )?)
+        } else {
+            None
+        };
         let (rows, columns) = match function.pattern() {
             Some(p) => {
                 if p.nrows() != n || p.ncols() != n {
@@ -848,6 +1063,12 @@ impl Session {
             dense: matches!(settings.method.linear, Linear::Dense { .. }),
             offsets: constraints.offsets.clone(),
             inverse_diagonal: vec![1.0; n],
+            blocks,
+            setup: None,
+            setup_calls: 0,
+            first_setup_iteration: None,
+            data: compatibility.data,
+            native_mem: std::ptr::null_mut(),
         });
         let mut s = Self {
             ctx: std::ptr::null_mut(),
@@ -861,6 +1082,7 @@ impl Session {
             callback,
             settings,
             compatibility,
+            setup_usable: false,
             _local: PhantomData,
         };
         native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
@@ -882,6 +1104,7 @@ impl Session {
         if s.mem.is_null() {
             return Err(ProblemError::memory("KINSOL allocation"));
         }
+        s.callback.native_mem = s.mem;
         native!(
             ffi::KINSetMAA(s.mem, s.settings.method.anderson as _),
             "Anderson history",
@@ -957,7 +1180,7 @@ impl Session {
                         .map_err(|_| ProblemError::Contract("KINSOL Krylov dimension".into()))?;
                     let side = match method.preconditioner {
                         Preconditioner::None => ffi::SUN_PREC_NONE,
-                        Preconditioner::Jacobi => ffi::SUN_PREC_RIGHT,
+                        Preconditioner::Jacobi | Preconditioner::BlockFactor => ffi::SUN_PREC_RIGHT,
                     } as i32;
                     let krylov: unsafe extern "C" fn(
                         ffi::N_Vector,
@@ -984,14 +1207,14 @@ impl Session {
             )?;
             if method.linear.krylov().is_some() {
                 native!(ffi::KINSetJacTimesVecFn(s.mem, Some(jvp)), "analytic JVP")?;
-                if method.preconditioner == Preconditioner::Jacobi {
+                if method.preconditioner != Preconditioner::None {
                     native!(
                         ffi::KINSetPreconditioner(
                             s.mem,
                             Some(precondition_setup),
                             Some(precondition_solve),
                         ),
-                        "Jacobi preconditioner",
+                        "selected analytic preconditioner",
                     )?;
                 }
             } else {
@@ -1007,8 +1230,9 @@ impl Session {
         }
         Ok(s)
     }
-    /// Run with an explicit start. A reused session refreshes its numeric setup;
-    /// KLU owns symbolic reuse and numeric factorization decisions.
+    /// Run with an explicit start. Admitted compatible setup reuse skips initial numeric
+    /// setup while KINSOL owns residual/forcing monitoring and subsequent refreshes.
+    /// The retained iteration setup is never advertised as a fresh response factor.
     pub fn solve(
         &mut self,
         initial: &[f64],
@@ -1041,8 +1265,33 @@ impl Session {
         } else {
             initial
         };
+        if self.settings.method.preconditioner == Preconditioner::BlockFactor
+            && self.callback.blocks.is_none()
+        {
+            // Replacements are admitted under this attempt's current scope/allowance,
+            // never under the previous solve's expired callback clock.
+            self.callback.blocks = Some(block::Blocks::admit(
+                &self.callback.function,
+                &execution,
+                self.settings.method.linear,
+            )?);
+        }
         self.callback.state = CallbackState::new(execution.clone());
+        self.callback.setup_calls = 0;
+        if let Some(blocks) = &mut self.callback.blocks {
+            blocks.reset_counts();
+        }
+        self.callback.first_setup_iteration = None;
         let method = self.settings.method;
+        let reuse_setup = self.setup_usable
+            && self.callback.setup.is_some()
+            && controls.reuse != ReusePolicy::Fresh
+            && method.strategy != Strategy::FixedPoint;
+        let input_stale = self
+            .callback
+            .setup
+            .as_ref()
+            .is_some_and(|s| s.data != self.compatibility.data || s.point != start);
         let (eta, eta_constant, eta_gamma, eta_alpha) = match method.eta {
             Eta::Choice1 => (ffi::KIN_ETACHOICE1, 0.0, 0.0, 0.0),
             Eta::Choice2 { gamma, alpha } => (ffi::KIN_ETACHOICE2, 0.0, gamma.into_inner(), alpha),
@@ -1081,7 +1330,16 @@ impl Session {
             ffi::KINSetMaxSetupCalls(self.mem, method.setup_interval.into()),
             "setup interval",
         )?;
-        native!(ffi::KINSetNoInitSetup(self.mem, 0), "refresh numeric setup")?;
+        native!(
+            ffi::KINSetNoInitSetup(self.mem, i32::from(reuse_setup)),
+            "initial setup policy"
+        )?;
+        // Direct modified Newton uses KINSOL's progress monitor. KINSOL itself disables
+        // this monitor for inexact Krylov and uses its forcing/refresh criteria instead.
+        native!(
+            ffi::KINSetNoResMon(self.mem, 0),
+            "native residual monitoring"
+        )?;
         // Every refreshable option is set on every solve (zero selects KINSOL's
         // default), so a reused session never inherits a previous request's value.
         native!(
@@ -1139,6 +1397,22 @@ impl Session {
                 KINGetNumJtimesEvals,
                 KINGetLastLinFlag
             );
+            // INITIAL_GUESS_OK returns before kinLsInitialize resets linear counters.
+            // Do not leak preceding-attempt statistics through those native getters.
+            if code == ffi::KIN_INITIAL_GUESS_OK {
+                for name in [
+                    "KINGetNumJacEvals",
+                    "KINGetNumLinFuncEvals",
+                    "KINGetNumPrecEvals",
+                    "KINGetNumPrecSolves",
+                    "KINGetNumLinIters",
+                    "KINGetNumLinConvFails",
+                    "KINGetNumJtimesEvals",
+                    "KINGetLastLinFlag",
+                ] {
+                    report.metrics.insert(name.into(), Metric::Integer(0));
+                }
+            }
         }
         macro_rules! real {
             ($($get:ident),*) => {$(
@@ -1165,74 +1439,76 @@ impl Session {
         // SAFETY: the session's live iterate vector of the `n` coordinates.
         let x = shifted(unsafe { values(self.x, n) }?, &self.callback.offsets, 1.0);
         if x.iter().all(|v| v.is_finite()) {
-            let mut f = vec![0.0; n];
-            let evaluation = crate::quality::contained(|| match &mut self.callback.function {
-                Function::Equations(o) => o.residual(&x, &mut f),
-                Function::Picard { oracle, .. } => oracle.residual(&x, &mut f),
-                Function::FixedPoint(o) => o.original_residual(&x, &mut f),
-            });
-            match evaluation {
-                Ok(()) => {
-                    let c = self.callback.function.contract();
-                    let rows = c
-                        .rows
-                        .iter()
-                        .zip(&f)
-                        .zip(&tolerances.rows)
-                        .map(|((id, v), t)| Violation {
-                            id: *id,
-                            physical: v.abs(),
-                            tolerance: *t,
-                        })
-                        .collect();
-                    let bounds = c
-                        .variables
-                        .iter()
-                        .zip(&x)
-                        .zip(&tolerances.variables)
-                        .map(|((v, x), t)| Violation {
-                            id: v.id,
-                            physical: interval(*x, v.lower, v.upper),
-                            tolerance: *t,
-                        })
-                        .collect();
-                    match Quality::new(rows, bounds, vec![]) {
-                        Ok(quality) => {
-                            report.termination.assurance =
-                                if quality.feasible() && matches!(code, 0..=2) {
-                                    Assurance::Feasible
-                                } else {
-                                    Assurance::None
+            if self.callback.state.terminal.is_none() {
+                let mut f = vec![0.0; n];
+                let evaluation = crate::quality::contained(|| match &mut self.callback.function {
+                    Function::Equations(o) => o.residual(&x, &mut f),
+                    Function::Picard { oracle, .. } => oracle.residual(&x, &mut f),
+                    Function::FixedPoint(o) => o.original_residual(&x, &mut f),
+                });
+                match evaluation {
+                    Ok(()) => {
+                        let c = self.callback.function.contract();
+                        let rows = c
+                            .rows
+                            .iter()
+                            .zip(&f)
+                            .zip(&tolerances.rows)
+                            .map(|((id, v), t)| Violation {
+                                id: *id,
+                                physical: v.abs(),
+                                tolerance: *t,
+                            })
+                            .collect();
+                        let bounds = c
+                            .variables
+                            .iter()
+                            .zip(&x)
+                            .zip(&tolerances.variables)
+                            .map(|((v, x), t)| Violation {
+                                id: v.id,
+                                physical: interval(*x, v.lower, v.upper),
+                                tolerance: *t,
+                            })
+                            .collect();
+                        match Quality::new(rows, bounds, vec![]) {
+                            Ok(quality) => {
+                                report.termination.assurance =
+                                    if quality.feasible() && matches!(code, 0..=2) {
+                                        Assurance::Feasible
+                                    } else {
+                                        Assurance::None
+                                    };
+                                report.quality = Some(quality);
+                                let observation = match &self.callback.function {
+                                    Function::Equations(o) => o.observe(f.clone()),
+                                    Function::Picard { oracle, .. } => oracle.observe(f.clone()),
+                                    Function::FixedPoint(_) => {
+                                        crate::quality::Observation::from_values(
+                                            None,
+                                            f.clone(),
+                                            vec![(0.0, 0.0); f.len()],
+                                        )
+                                    }
                                 };
-                            report.quality = Some(quality);
-                            let observation = match &self.callback.function {
-                                Function::Equations(o) => o.observe(f.clone()),
-                                Function::Picard { oracle, .. } => oracle.observe(f.clone()),
-                                Function::FixedPoint(_) => {
-                                    crate::quality::Observation::from_values(
-                                        None,
-                                        f.clone(),
-                                        vec![(0.0, 0.0); f.len()],
-                                    )
-                                }
-                            };
-                            match observation {
-                                Ok(o) => report.observation = Some(o),
-                                Err(e) => {
-                                    report.record_validation_failure(e);
-                                    report.termination.assurance = Assurance::None;
+                                match observation {
+                                    Ok(o) => report.observation = Some(o),
+                                    Err(e) => {
+                                        report.record_validation_failure(e);
+                                        report.termination.assurance = Assurance::None;
+                                    }
                                 }
                             }
-                        }
-                        Err(e) => {
-                            report.record_validation_failure(e);
-                            report.termination.assurance = Assurance::None;
+                            Err(e) => {
+                                report.record_validation_failure(e);
+                                report.termination.assurance = Assurance::None;
+                            }
                         }
                     }
-                }
-                Err(e) => {
-                    report.record_validation_failure(e);
-                    report.termination.assurance = Assurance::None
+                    Err(e) => {
+                        report.record_validation_failure(e);
+                        report.termination.assurance = Assurance::None
+                    }
                 }
             }
             report.candidate = Some(Candidate {
@@ -1253,6 +1529,94 @@ impl Session {
         } else {
             report.termination.assurance = Assurance::None
         }
+        let iterations = report
+            .metrics
+            .get("KINGetNumNonlinSolvIters")
+            .and_then(|m| match m {
+                Metric::Integer(n) => Some(*n),
+                _ => None,
+            })
+            .unwrap_or(0);
+        let reused_initial = reuse_setup
+            && iterations > 0
+            && (self.callback.setup_calls == 0
+                || self
+                    .callback
+                    .first_setup_iteration
+                    .is_some_and(|iteration| iteration > 1));
+        report.metrics.insert(
+            "setup.initial_reuse_requested".into(),
+            Metric::Bool(reuse_setup),
+        );
+        report
+            .metrics
+            .insert("setup.initial_reused".into(), Metric::Bool(reused_initial));
+        report.metrics.insert(
+            "setup.input_stale".into(),
+            Metric::Bool(reuse_setup && input_stale),
+        );
+        report.metrics.insert(
+            "setup.refreshes".into(),
+            Metric::Integer(i64::try_from(self.callback.setup_calls).unwrap_or(i64::MAX)),
+        );
+        if let Some(blocks) = &self.callback.blocks {
+            for (name, count) in [
+                ("preconditioner.block.factor_calls", blocks.factor_calls),
+                (
+                    "preconditioner.block.factors_completed",
+                    blocks.factors_completed,
+                ),
+                ("preconditioner.block.solve_calls", blocks.solve_calls),
+            ] {
+                report.metrics.insert(
+                    name.into(),
+                    i64::try_from(count).map_or(
+                        Metric::Unavailable(UnavailableReason::Unknown),
+                        Metric::Integer,
+                    ),
+                );
+            }
+            report.metrics.insert(
+                "preconditioner.block.count".into(),
+                i64::try_from(blocks.count()).map_or(
+                    Metric::Unavailable(UnavailableReason::Unknown),
+                    Metric::Integer,
+                ),
+            );
+            // Native Krylov internal factorizations are not separately reported.
+            // These subtotal metrics never replace unknown complete work evidence.
+        }
+        report.metrics.insert(
+            "setup.monitoring".into(),
+            Metric::Text(
+                if method.strategy == Strategy::FixedPoint {
+                    "not-applicable"
+                } else if method.linear.krylov().is_some() {
+                    "native-forcing-and-refresh"
+                } else {
+                    "native-residual"
+                }
+                .into(),
+            ),
+        );
+        let output_stale = self.callback.setup.as_ref().is_some_and(|s| {
+            s.data != self.compatibility.data
+                || report
+                    .candidate
+                    .as_ref()
+                    .is_none_or(|candidate| s.point != candidate.primal)
+        });
+        report
+            .metrics
+            .insert("setup.output_stale".into(), Metric::Bool(output_stale));
+        report
+            .metrics
+            .insert("setup.fresh_response_factor".into(), Metric::Bool(false));
+        self.setup_usable = self.callback.setup.is_some()
+            && self.callback.state.terminal.is_none()
+            && matches!(code, ffi::KIN_SUCCESS | ffi::KIN_INITIAL_GUESS_OK)
+            && report.quality.as_ref().is_some_and(Quality::feasible);
+        report.evidence.reused_native_state |= reused_initial;
         Ok(report)
     }
 }
@@ -1261,7 +1625,7 @@ pub fn termination(code: i32) -> NativeTermination {
     let (name, category) = match code {
         ffi::KIN_SUCCESS => ("KIN_SUCCESS", Termination::Success),
         ffi::KIN_INITIAL_GUESS_OK => ("KIN_INITIAL_GUESS_OK", Termination::Success),
-        ffi::KIN_STEP_LT_STPTOL => ("KIN_STEP_LT_STPTOL", Termination::Acceptable),
+        ffi::KIN_STEP_LT_STPTOL => ("KIN_STEP_LT_STPTOL", Termination::Limit),
         ffi::KIN_MEM_NULL => ("KIN_MEM_NULL", Termination::Invalid),
         ffi::KIN_ILL_INPUT => ("KIN_ILL_INPUT", Termination::Invalid),
         ffi::KIN_NO_MALLOC => ("KIN_NO_MALLOC", Termination::Invalid),
@@ -1346,6 +1710,196 @@ mod tests {
         c.variables[0].upper = 0.0;
         assert!(guarded_sign_constraints(&c, &guard).is_err());
     }
+    fn execution() -> Execution {
+        let mut execution = crate::solver_tests::execution();
+        execution.memory = Some(64 << 20);
+        execution
+    }
+    #[test]
+    fn native_krylov_storage_refuses_unowned_peak_before_callbacks() {
+        let dimension = positive(3);
+        for linear in [
+            Linear::Spgmr { dimension },
+            Linear::Spfgmr { dimension },
+            Linear::Spbcgs { dimension },
+            Linear::Sptfqmr { dimension },
+        ] {
+            let peak = native_krylov_storage(1, linear).unwrap();
+            for preconditioner in [Preconditioner::None, Preconditioner::Jacobi] {
+                let method = Method {
+                    linear,
+                    preconditioner,
+                    ..Method::default()
+                };
+                for memory in [None, Some(0), Some(peak - 1)] {
+                    let oracle = FaultOracle::new(usize::MAX);
+                    let calls = oracle.calls.clone();
+                    let mut denied = execution();
+                    denied.memory = memory;
+                    assert!(matches!(
+                        Session::new(
+                            Function::Equations(Box::new(oracle)),
+                            Settings {
+                                method,
+                                ..settings()
+                            },
+                            denied,
+                            crate::solver_tests::stamp(Backend::Kinsol)
+                        ),
+                        Err(ProblemError::Limit {
+                            kind: crate::LimitKind::Memory,
+                            ..
+                        })
+                    ));
+                    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+                }
+                let mut admitted = execution();
+                admitted.memory = Some(peak);
+                let oracle = FaultOracle::new(usize::MAX);
+                let calls = oracle.calls.clone();
+                let session = Session::new(
+                    Function::Equations(Box::new(oracle)),
+                    Settings {
+                        method,
+                        ..settings()
+                    },
+                    admitted,
+                    crate::solver_tests::stamp(Backend::Kinsol),
+                )
+                .unwrap();
+                assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+                drop(session);
+                let oversized = Method {
+                    linear: Linear::Spfgmr {
+                        dimension: positive(1_000_000),
+                    },
+                    ..method
+                };
+                let oracle = FaultOracle::new(usize::MAX);
+                let calls = oracle.calls.clone();
+                assert!(matches!(
+                    Session::new(
+                        Function::Equations(Box::new(oracle)),
+                        Settings {
+                            method: oversized,
+                            ..settings()
+                        },
+                        execution(),
+                        crate::solver_tests::stamp(Backend::Kinsol)
+                    ),
+                    Err(ProblemError::Limit {
+                        kind: crate::LimitKind::Memory,
+                        ..
+                    })
+                ));
+                assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+            }
+        }
+        // Picard AA and Krylov coexist: owning either subtotal alone cannot admit
+        // the combined native allocation, even though both controls are applicable.
+        let linear = Linear::Spgmr { dimension };
+        let method = Method {
+            strategy: Strategy::Picard,
+            linear,
+            anderson: 1,
+            ..Method::default()
+        };
+        let base = native_krylov_storage(1, linear).unwrap();
+        assert!(anderson_storage(1, method).unwrap().0 > base);
+        let oracle = FaultOracle::new(usize::MAX);
+        let calls = oracle.calls.clone();
+        let split = faer::sparse::SparseColMat::try_new_from_triplets(
+            1,
+            1,
+            &[faer::sparse::Triplet::new(0, 0, 3.)],
+        )
+        .unwrap();
+        let mut denied = execution();
+        denied.memory = Some(base);
+        assert!(matches!(
+            Session::new(
+                Function::Picard {
+                    oracle: Box::new(oracle),
+                    linear: split
+                },
+                Settings {
+                    method,
+                    ..settings()
+                },
+                denied,
+                crate::solver_tests::stamp(Backend::Kinsol)
+            ),
+            Err(ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                ..
+            })
+        ));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+    #[test]
+    fn native_anderson_storage_refuses_unowned_peak_before_callbacks() {
+        for orthogonalization in [
+            Orthogonalization::ModifiedGramSchmidt,
+            Orthogonalization::InverseCompactWy,
+        ] {
+            let method = Method {
+                strategy: Strategy::FixedPoint,
+                anderson: 1,
+                orthogonalization,
+                ..Method::default()
+            };
+            let (peak, omitted) = anderson_storage(1, method).unwrap();
+            for memory in [None, Some(0), Some(peak - 1)] {
+                let oracle = FaultOracle::new(usize::MAX);
+                let calls = oracle.calls.clone();
+                let mut denied = execution();
+                denied.memory = memory;
+                assert!(matches!(
+                    Session::new(
+                        Function::FixedPoint(Box::new(oracle)),
+                        Settings {
+                            method,
+                            ..settings()
+                        },
+                        denied,
+                        crate::solver_tests::stamp(Backend::Kinsol)
+                    ),
+                    Err(ProblemError::Limit {
+                        kind: crate::LimitKind::Memory,
+                        ..
+                    })
+                ));
+                assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+            }
+            let mut admitted = execution();
+            admitted.memory = Some(peak);
+            let mut session = Session::new(
+                Function::FixedPoint(Box::new(FaultOracle::new(usize::MAX))),
+                Settings {
+                    method,
+                    ..settings()
+                },
+                admitted,
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
+            let report = solve_fault(&mut session, 0.0);
+            solved(&report);
+            assert!(
+                session.retained_bytes() >= omitted + native_header_bytes(method.linear).unwrap()
+            );
+        }
+        assert!(
+            anderson_storage(
+                usize::MAX,
+                Method {
+                    anderson: usize::MAX,
+                    ..Method::default()
+                }
+            )
+            .is_err()
+        );
+    }
     fn settings() -> Settings {
         Settings {
             method: Method::default(),
@@ -1354,13 +1908,533 @@ mod tests {
             step_tolerance: 1e-8,
         }
     }
+    #[derive(Debug)]
+    struct CountedAffineRoot {
+        inner: crate::solver_tests::Polynomial,
+        target: f64,
+        setups: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl NleOracle for CountedAffineRoot {
+        fn contract(&self) -> &OracleContract {
+            &self.inner.c
+        }
+        fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out[0] = x[0] - self.target;
+            Ok(())
+        }
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.inner.matrix.symbolic()
+        }
+        fn jacobian(&mut self, _x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.setups
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            out[0] = 1.0;
+            Ok(())
+        }
+        fn jacobian_product(
+            &mut self,
+            _x: &[f64],
+            v: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), ProblemError> {
+            out[0] = v[0];
+            Ok(())
+        }
+    }
+    fn affine_function(
+        target: f64,
+        setups: &std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    ) -> Function {
+        Function::Equations(Box::new(CountedAffineRoot {
+            inner: crate::solver_tests::Polynomial::new(),
+            target,
+            setups: setups.clone(),
+        }))
+    }
+    fn setup_solve(session: &mut Session, initial: f64, reuse: ReusePolicy) -> SolveReport {
+        session
+            .solve(
+                &[initial],
+                &Controls {
+                    reuse,
+                    ..Controls::default()
+                },
+                &ResolvedAccuracy::nominal(),
+                execution(),
+                &Tolerances {
+                    variables: vec![1e-8],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                None,
+            )
+            .unwrap()
+    }
+    #[test]
+    fn compatible_native_setup_is_actually_reused_and_fresh_policy_refreshes_it() {
+        for linear in [
+            Linear::Klu,
+            Linear::Dense {
+                limit: positive(10),
+            },
+            Linear::Spgmr {
+                dimension: positive(4),
+            },
+        ] {
+            let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let mut config = settings();
+            config.method.linear = linear;
+            if linear.krylov().is_some() {
+                config.method.preconditioner = Preconditioner::Jacobi;
+            }
+            let stamp = crate::solver_tests::stamp(Backend::Kinsol);
+            let mut session = Session::new(
+                affine_function(1.0, &setups),
+                config.clone(),
+                execution(),
+                stamp.clone(),
+            )
+            .unwrap();
+            let cold = setup_solve(&mut session, 0.0, ReusePolicy::AllowRebuild);
+            assert_eq!(cold.termination.category, Termination::Success);
+            assert!(metric(&cold, "setup.refreshes") > 0);
+            let native_address = session.linear;
+            let before = setups.load(std::sync::atomic::Ordering::SeqCst);
+            let mut next = stamp.clone();
+            next.data = pse_ids::ContentHash::from_bytes([51; 32]);
+            session
+                .replace(affine_function(2.0, &setups), config.clone(), next)
+                .unwrap();
+            let reused = setup_solve(&mut session, 0.0, ReusePolicy::AllowRebuild);
+            assert_eq!(reused.termination.category, Termination::Success);
+            assert_eq!(reused.candidate.as_ref().unwrap().primal, [2.0]);
+            assert_eq!(session.linear, native_address);
+            assert_eq!(setups.load(std::sync::atomic::Ordering::SeqCst), before);
+            assert_eq!(metric(&reused, "setup.refreshes"), 0);
+            assert_eq!(reused.metrics["setup.initial_reused"], Metric::Bool(true));
+            assert_eq!(reused.metrics["setup.input_stale"], Metric::Bool(true));
+            assert_eq!(
+                reused.metrics["setup.fresh_response_factor"],
+                Metric::Bool(false)
+            );
+            assert!(reused.evidence.reused_native_state);
+            let fresh = setup_solve(&mut session, 0.0, ReusePolicy::Fresh);
+            assert_eq!(fresh.termination.category, Termination::Success);
+            assert!(metric(&fresh, "setup.refreshes") > 0);
+            assert!(setups.load(std::sync::atomic::Ordering::SeqCst) > before);
+            assert_eq!(fresh.metrics["setup.initial_reused"], Metric::Bool(false));
+            let at_root = setup_solve(&mut session, 2.0, ReusePolicy::AllowRebuild);
+            assert_eq!(metric(&at_root, "setup.refreshes"), 0);
+            assert_eq!(metric(&at_root, "KINGetNumJacEvals"), 0);
+            assert_eq!(at_root.metrics["setup.initial_reused"], Metric::Bool(false));
+        }
+    }
+    #[test]
+    fn setup_reuse_preserves_monitoring_and_native_interval_can_refresh_stale_iteration_setup() {
+        let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut config = settings();
+        config.method.setup_interval = 2;
+        let stamp = crate::solver_tests::stamp(Backend::Kinsol);
+        let mut session = Session::new(
+            affine_function(1.0, &setups),
+            config.clone(),
+            execution(),
+            stamp.clone(),
+        )
+        .unwrap();
+        let cold = setup_solve(&mut session, 0.0, ReusePolicy::AllowRebuild);
+        assert_eq!(cold.termination.category, Termination::Success);
+        let mut changed = stamp.clone();
+        changed.data = pse_ids::ContentHash::from_bytes([52; 32]);
+        session
+            .replace(
+                Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
+                config.clone(),
+                changed,
+            )
+            .unwrap();
+        let monitored = setup_solve(&mut session, 0.25, ReusePolicy::AllowRebuild);
+        assert_eq!(monitored.termination.category, Termination::Success);
+        assert!(metric(&monitored, "setup.refreshes") > 0);
+        assert_eq!(
+            monitored.metrics["setup.initial_reused"],
+            Metric::Bool(true)
+        );
+        assert_eq!(
+            monitored.metrics["setup.monitoring"],
+            Metric::Text("native-residual".into())
+        );
+        assert_eq!(
+            monitored.metrics["setup.fresh_response_factor"],
+            Metric::Bool(false)
+        );
+        let mut profile = stamp.clone();
+        profile.profile = pse_ids::ContentHash::from_bytes([53; 32]);
+        assert!(!session.matches_layout(&profile));
+        assert!(
+            session
+                .replace(affine_function(1.0, &setups), config, profile)
+                .is_err()
+        );
+    }
+    #[derive(Debug)]
+    struct FaultOracle {
+        inner: crate::solver_tests::Polynomial,
+        calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        fail_at: usize,
+        reject_above: Option<f64>,
+    }
+    impl FaultOracle {
+        fn new(fail_at: usize) -> Self {
+            Self {
+                inner: crate::solver_tests::Polynomial::new(),
+                calls: Default::default(),
+                fail_at,
+                reject_above: None,
+            }
+        }
+        fn trial(&self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            if call == self.fail_at || self.reject_above.is_some_and(|limit| x[0] > limit) {
+                out[0] = 99.0; // Partial work must never reach the native output.
+                return Err(pse_math::MathError::Domain {
+                    source_id: self.inner.c.variables[0].id,
+                    requirement: "admitted trial",
+                }
+                .into());
+            }
+            Ok(())
+        }
+    }
+    impl NleOracle for FaultOracle {
+        fn contract(&self) -> &OracleContract {
+            &self.inner.c
+        }
+        fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.trial(x, out)?;
+            NleOracle::residual(&mut self.inner, x, out)
+        }
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.inner.matrix.symbolic()
+        }
+        fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            NleOracle::jacobian(&mut self.inner, x, out)
+        }
+        fn jacobian_product(
+            &mut self,
+            x: &[f64],
+            v: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), ProblemError> {
+            NleOracle::jacobian_product(&mut self.inner, x, v, out)
+        }
+    }
+    impl FixedPointOracle for FaultOracle {
+        fn contract(&self) -> &OracleContract {
+            &self.inner.c
+        }
+        fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.inner.matrix.symbolic()
+        }
+        fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.trial(x, out)?;
+            out[0] = 1.0;
+            Ok(())
+        }
+        fn original_residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            NleOracle::residual(self, x, out)
+        }
+    }
+    fn fault_session(strategy: Strategy, oracle: FaultOracle) -> Session {
+        let function = match strategy {
+            Strategy::FixedPoint => Function::FixedPoint(Box::new(oracle)),
+            Strategy::Picard => Function::Picard {
+                oracle: Box::new(oracle),
+                linear: faer::sparse::SparseColMat::try_new_from_triplets(
+                    1,
+                    1,
+                    &[faer::sparse::Triplet::new(0, 0, 3.0)],
+                )
+                .unwrap(),
+            },
+            _ => Function::Equations(Box::new(oracle)),
+        };
+        Session::new(
+            function,
+            Settings {
+                method: Method {
+                    strategy,
+                    ..Method::default()
+                },
+                ..settings()
+            },
+            execution(),
+            crate::solver_tests::stamp(Backend::Kinsol),
+        )
+        .unwrap()
+    }
+    fn solve_fault(session: &mut Session, start: f64) -> SolveReport {
+        session
+            .solve(
+                &[start],
+                &Controls::default(),
+                &ResolvedAccuracy::nominal(),
+                execution(),
+                &Tolerances {
+                    variables: vec![1e-8],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                None,
+            )
+            .unwrap()
+    }
+    #[test]
+    fn map_callbacks_latch_failed_trials_but_newton_can_recover() {
+        for strategy in [
+            Strategy::FixedPoint,
+            Strategy::Picard,
+            Strategy::Newton,
+            Strategy::LineSearch,
+        ] {
+            let oracle = FaultOracle::new(1);
+            let calls = oracle.calls.clone();
+            let mut session = fault_session(strategy, oracle);
+            // SAFETY: session vectors/context are live, correctly sized and exclusively borrowed.
+            {
+                // SAFETY: exclusively owned live serial solution vector has one coordinate.
+                unsafe { publish(session.x, &[1.0]) }.unwrap();
+                // SAFETY: exclusively owned live serial output vector has one coordinate.
+                unsafe { publish(session.fs, &[7.0]) }.unwrap();
+                let data = (&raw mut *session.callback).cast();
+                // SAFETY: live one-coordinate vectors and exclusive callback context belong to this session.
+                let first = unsafe { residual(session.x, session.fs, data) };
+                let map = matches!(strategy, Strategy::FixedPoint | Strategy::Picard);
+                assert_eq!(first, if map { -1 } else { 1 });
+                // SAFETY: this session's output is a live one-coordinate serial vector.
+                assert_eq!(unsafe { values(session.fs, 1) }.unwrap(), &[7.0]);
+                assert_eq!(session.callback.state.terminal.is_some(), map);
+                assert!(matches!(
+                    session.callback.state.last_failure,
+                    Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
+                ));
+                assert_eq!(
+                    // SAFETY: vectors/context remain exclusively session-owned through this second call.
+                    unsafe { residual(session.x, session.fs, data) },
+                    if map { -1 } else { 0 }
+                );
+                assert_eq!(
+                    calls.load(std::sync::atomic::Ordering::SeqCst),
+                    if map { 1 } else { 2 }
+                );
+                assert_eq!(
+                    // SAFETY: live one-coordinate output vector is read between native callbacks.
+                    unsafe { values(session.fs, 1) }.unwrap(),
+                    if map { &[7.0] } else { &[0.0] }
+                );
+                if map {
+                    assert!(matches!(
+                        session.callback.state.last_failure,
+                        Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
+                    ));
+                } else {
+                    assert!(session.callback.state.last_failure.is_none());
+                }
+            }
+        }
+    }
+    #[test]
+    fn native_failed_fp_and_picard_do_not_consume_previous_outputs() {
+        for strategy in [Strategy::FixedPoint, Strategy::Picard] {
+            let oracle = FaultOracle::new(2);
+            let calls = oracle.calls.clone();
+            let mut session = fault_session(strategy, oracle);
+            let report = solve_fault(
+                &mut session,
+                if strategy == Strategy::FixedPoint {
+                    0.0
+                } else {
+                    1.2
+                },
+            );
+            assert_eq!(report.termination.name, "KIN_SYSFUNC_FAIL", "{report:?}");
+            assert_eq!(report.termination.category, Termination::Evaluation);
+            assert_eq!(report.termination.assurance, Assurance::None);
+            assert!(report.evidence.callback.terminal_failure);
+            assert!(matches!(
+                report.callback_failure(),
+                Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
+            ));
+            assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+            assert!(report.quality.is_none());
+        }
+    }
+    #[test]
+    fn native_newton_line_search_recovers_domain_trial() {
+        let mut oracle = FaultOracle::new(usize::MAX);
+        oracle.reject_above = Some(1.5);
+        let mut session = fault_session(Strategy::LineSearch, oracle);
+        let report = solve_fault(&mut session, 0.5);
+        solved(&report);
+        assert!(report.evidence.callback.trial_rejections > 0);
+        assert!(!report.evidence.callback.terminal_failure);
+        assert!(report.callback_failure().is_none());
+    }
+    #[test]
+    fn native_step_tolerance_exit_is_a_limit_with_independent_quality() {
+        let mut session = fault_session(Strategy::Newton, FaultOracle::new(usize::MAX));
+        session.settings.step_tolerance = 1.0;
+        let report = solve_fault(&mut session, 2.0);
+        assert_eq!(report.termination.name, "KIN_STEP_LT_STPTOL");
+        assert_eq!(report.termination.category, Termination::Limit);
+        assert_eq!(report.termination.assurance, Assurance::None);
+        assert!(!report.quality.as_ref().unwrap().feasible());
+        assert_eq!(
+            termination(ffi::KIN_STEP_LT_STPTOL).category,
+            Termination::Limit
+        );
+    }
+    #[test]
+    fn method_controls_must_act_under_the_selected_strategy() {
+        let c = crate::solver_tests::Polynomial::new().c;
+        for strategy in [Strategy::Newton, Strategy::LineSearch] {
+            for method in [
+                Method {
+                    strategy,
+                    anderson: 1,
+                    ..Method::default()
+                },
+                Method {
+                    strategy,
+                    damping: fraction(0.5),
+                    ..Method::default()
+                },
+                Method {
+                    strategy,
+                    anderson: 1,
+                    anderson_delay: 1,
+                    ..Method::default()
+                },
+                Method {
+                    strategy,
+                    anderson: 1,
+                    orthogonalization: Orthogonalization::InverseCompactWy,
+                    ..Method::default()
+                },
+            ] {
+                assert!(
+                    matches!(
+                        Settings {
+                            method,
+                            ..settings()
+                        }
+                        .validate_contract(
+                            &c,
+                            Strategy::LineSearch,
+                            &Default::default()
+                        ),
+                        Err(ProblemError::Unsupported(_))
+                    ),
+                    "{method:?}"
+                );
+            }
+        }
+        for strategy in [Strategy::FixedPoint, Strategy::Picard] {
+            let active = Method {
+                strategy,
+                anderson: 1,
+                damping: fraction(0.5),
+                anderson_delay: 1,
+                orthogonalization: Orthogonalization::InverseCompactWy,
+                ..Method::default()
+            };
+            assert!(
+                Settings {
+                    method: active,
+                    ..settings()
+                }
+                .validate_contract(&c, strategy, &Default::default())
+                .is_ok()
+            );
+            assert!(matches!(
+                Settings {
+                    method: Method {
+                        max_newton_step: Some(1.0),
+                        ..active
+                    },
+                    ..settings()
+                }
+                .validate_contract(&c, strategy, &Default::default()),
+                Err(ProblemError::Unsupported(_))
+            ));
+        }
+        for method in [
+            Method {
+                linear: Linear::Dense { limit: positive(4) },
+                ..Method::default()
+            },
+            Method {
+                setup_interval: 4,
+                ..Method::default()
+            },
+            Method {
+                linear: Linear::Spgmr {
+                    dimension: positive(4),
+                },
+                eta: Eta::Constant {
+                    value: fraction(0.1),
+                },
+                ..Method::default()
+            },
+            Method {
+                linear: Linear::Spgmr {
+                    dimension: positive(4),
+                },
+                preconditioner: Preconditioner::Jacobi,
+                ..Method::default()
+            },
+        ] {
+            let method = Method {
+                strategy: Strategy::FixedPoint,
+                ..method
+            };
+            assert!(matches!(
+                Settings {
+                    method,
+                    ..settings()
+                }
+                .validate_contract(&c, Strategy::FixedPoint, &Default::default()),
+                Err(ProblemError::Unsupported(_))
+            ));
+        }
+        let active_picard = Method {
+            strategy: Strategy::Picard,
+            setup_interval: 4,
+            linear: Linear::Spgmr {
+                dimension: positive(4),
+            },
+            eta: Eta::Constant {
+                value: fraction(0.1),
+            },
+            preconditioner: Preconditioner::Jacobi,
+            ..Method::default()
+        };
+        assert!(
+            Settings {
+                method: active_picard,
+                ..settings()
+            }
+            .validate_contract(&c, Strategy::Picard, &Default::default())
+            .is_ok()
+        );
+    }
     #[test]
     fn native_allocation_reuses_checked_patterns_and_refuses_arbitrary_boxes() {
         let f = Function::Equations(Box::new(crate::solver_tests::Polynomial::new()));
         let mut s = Session::new(
             f,
             settings(),
-            crate::solver_tests::execution(),
+            execution(),
             crate::solver_tests::stamp(Backend::Kinsol),
         )
         .unwrap();
@@ -1376,7 +2450,6 @@ mod tests {
         updated.method.strategy = Strategy::Newton;
         updated.variable_scales = vec![2.0];
         updated.residual_scales = vec![3.0];
-        updated.method.damping = fraction(0.7);
         updated.method.setup_interval = 4;
         updated.method.max_newton_step = Some(5.0);
         updated.step_tolerance = 2e-7;
@@ -1419,6 +2492,7 @@ mod tests {
         };
         let feasibility = 1e-7;
         let method = Method {
+            strategy: Strategy::Picard,
             linear: Linear::Dense { limit: positive(8) },
             anderson: 1,
             ..Method::default()
@@ -1475,7 +2549,7 @@ mod tests {
             let mut session = Session::new(
                 function,
                 settings,
-                crate::solver_tests::execution(),
+                execution(),
                 crate::solver_tests::stamp(Backend::Kinsol),
             )
             .unwrap();
@@ -1484,7 +2558,7 @@ mod tests {
                     &[start],
                     &Controls::default(),
                     &ResolvedAccuracy::nominal(),
-                    crate::solver_tests::execution(),
+                    execution(),
                     &Tolerances {
                         variables: vec![1e-8],
                         rows: vec![1e-8],
@@ -1581,7 +2655,7 @@ mod tests {
         let _s = Session::new(
             f,
             profile.clone(),
-            crate::solver_tests::execution(),
+            execution(),
             crate::solver_tests::stamp(Backend::Kinsol),
         )
         .unwrap();
@@ -1607,7 +2681,7 @@ mod tests {
                 method,
                 ..settings()
             },
-            crate::solver_tests::execution(),
+            execution(),
             crate::solver_tests::stamp(Backend::Kinsol),
         )
         .unwrap();
@@ -1616,7 +2690,7 @@ mod tests {
                 &[start],
                 &Controls::default(),
                 &ResolvedAccuracy::nominal(),
-                crate::solver_tests::execution(),
+                execution(),
                 &Tolerances {
                     variables: vec![1e-8],
                     rows: vec![1e-8],
@@ -1642,6 +2716,104 @@ mod tests {
         let x = report.candidate.as_ref().unwrap().primal[0];
         assert!((x - 1.0).abs() < 1e-7, "{x}");
         x
+    }
+    #[test]
+    fn directional_only_source_solves_without_claiming_an_assembled_jacobian() {
+        #[derive(Debug)]
+        struct Directional(crate::solver_tests::Polynomial);
+        impl NleOracle for Directional {
+            fn contract(&self) -> &OracleContract {
+                &self.0.c
+            }
+            fn operations(&self) -> crate::RootOperations {
+                crate::RootOperations {
+                    jacobian: false,
+                    jacobian_product: true,
+                }
+            }
+            fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+                NleOracle::residual(&mut self.0, x, out)
+            }
+            fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+                NleOracle::jacobian_pattern(&self.0)
+            }
+            fn jacobian(&mut self, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> {
+                panic!("directional-only source requested a full Jacobian")
+            }
+            fn jacobian_product(
+                &mut self,
+                x: &[f64],
+                v: &[f64],
+                out: &mut [f64],
+            ) -> Result<(), ProblemError> {
+                NleOracle::jacobian_product(&mut self.0, x, v, out)
+            }
+        }
+        let source = || {
+            let mut o = crate::solver_tests::Polynomial::new();
+            o.c.derivatives = pse_kernels::DerivativeOrder::Value;
+            Directional(o)
+        };
+        let settings = Settings {
+            method: Method {
+                linear: Linear::Spgmr {
+                    dimension: positive(3),
+                },
+                ..Method::default()
+            },
+            ..settings()
+        };
+        assert!(
+            settings
+                .validate(&Function::Equations(Box::new(source())))
+                .is_ok()
+        );
+        let assembled = Settings {
+            method: Method::default(),
+            ..settings.clone()
+        };
+        assert!(
+            assembled
+                .validate(&Function::Equations(Box::new(source())))
+                .is_err()
+        );
+        for preconditioner in [Preconditioner::Jacobi, Preconditioner::BlockFactor] {
+            let assembled = Settings {
+                method: Method {
+                    preconditioner,
+                    ..settings.method
+                },
+                ..settings.clone()
+            };
+            assert!(
+                assembled
+                    .validate(&Function::Equations(Box::new(source())))
+                    .is_err()
+            );
+        }
+        let mut session = Session::new(
+            Function::Equations(Box::new(source())),
+            settings,
+            execution(),
+            crate::solver_tests::stamp(Backend::Kinsol),
+        )
+        .unwrap();
+        let report = session
+            .solve(
+                &[2.0],
+                &Controls::default(),
+                &ResolvedAccuracy::nominal(),
+                execution(),
+                &Tolerances {
+                    variables: vec![1e-8],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                None,
+            )
+            .unwrap();
+        solved(&report);
+        assert!(metric(&report, "KINGetNumJtimesEvals") > 0);
     }
     /// L-D6: every matrix-free Krylov route solves `x^3 = 1` over the analytic JVP, with
     /// and without the right Jacobi preconditioner and under each forcing-term form; the
@@ -1715,7 +2887,7 @@ mod tests {
                 &[10.0],
                 &Controls::default(),
                 &ResolvedAccuracy::nominal(),
-                crate::solver_tests::execution(),
+                execution(),
                 &Tolerances {
                     variables: vec![1e-8],
                     rows: vec![1e-8],
@@ -1756,7 +2928,7 @@ mod tests {
                     method,
                     ..settings()
                 },
-                crate::solver_tests::execution(),
+                execution(),
                 crate::solver_tests::stamp(Backend::Kinsol),
             )
             .unwrap();
@@ -1775,7 +2947,7 @@ mod tests {
                     &[1.2],
                     &Controls::default(),
                     &ResolvedAccuracy::nominal(),
-                    crate::solver_tests::execution(),
+                    execution(),
                     &Tolerances {
                         variables: vec![1e-8],
                         rows: vec![1e-8],

@@ -2223,6 +2223,326 @@ class RuntimeParametricSensitivitiesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem:
+    """Declared relation row or nested value."""
+
+    bound_index: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem:
+    """Declared relation row or nested value."""
+
+    quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indices: b.tuple[RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemObservationsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.DiagnosticObservationKind = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticObservationKind))
+    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingRealValueKind)))
+    integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    quantity: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    unit: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    contracts: b.tuple[RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemLocationsItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemValidity:
+    """Declared relation row or nested value."""
+
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    form_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    coverage: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    owner: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    owner_lineage: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    evidence: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    form: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    call: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    records: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependencies: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
+    reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
+    quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scope: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.ModelingPermissionTarget = attrs.field(validator=attrs.validators.instance_of(e.ModelingPermissionTarget))
+    targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemApplicabilityItem:
+    """Declared relation row or nested value."""
+
+    claim: RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim = attrs.field(validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemApplicabilityItemClaim))
+    instance: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    inputs: b.tuple[RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemApplicabilityItemInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    outcome: e.ModelingApplicabilityOutcome = attrs.field(validator=attrs.validators.instance_of(e.ModelingApplicabilityOutcome))
+    required: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    permissions: b.tuple[RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemApplicabilityItemPermissionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unknown_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem:
+    """Declared relation row or nested value."""
+
+    bound_index: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem:
+    """Declared relation row or nested value."""
+
+    quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indices: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.DiagnosticObservationKind = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticObservationKind))
+    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingRealValueKind)))
+    integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    quantity: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    unit: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    contracts: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemValidity:
+    """Declared relation row or nested value."""
+
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    form_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    coverage: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    owner: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    owner_lineage: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    evidence: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    form: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    call: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    records: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependencies: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
+    reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
+    quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scope: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.ModelingPermissionTarget = attrs.field(validator=attrs.validators.instance_of(e.ModelingPermissionTarget))
+    targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem:
+    """Declared relation row or nested value."""
+
+    claim: RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim = attrs.field(validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemClaim))
+    instance: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    inputs: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    outcome: e.ModelingApplicabilityOutcome = attrs.field(validator=attrs.validators.instance_of(e.ModelingApplicabilityOutcome))
+    required: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    permissions: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unknown_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItemCausesItem:
+    """Declared relation row or nested value."""
+
+    tree_path: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    code: e.DiagnosticCode = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticCode))
+    class_: e.NativeBoundaryClass = attrs.field(validator=attrs.validators.instance_of(e.NativeBoundaryClass), metadata={v.FIELD_NAME_METADATA: "class"})
+    severity: e.DiagnosticSeverity = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticSeverity))
+    stage: e.DiagnosticStage = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticStage))
+    rule: e.DiagnosticRule = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticRule))
+    sources: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    observations: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemObservationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    locations: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemLocationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    validity: RuntimeProfilePointsFieldFailuresItemCausesItemValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemValidity)))
+    applicability: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItemApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.tree_path), v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeProfilePointsFieldFailuresItem:
+    """Declared relation row or nested value."""
+
+    code: e.DiagnosticCode = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticCode))
+    class_: e.NativeBoundaryClass = attrs.field(validator=attrs.validators.instance_of(e.NativeBoundaryClass), metadata={v.FIELD_NAME_METADATA: "class"})
+    severity: e.DiagnosticSeverity = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticSeverity))
+    stage: e.DiagnosticStage = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticStage))
+    rule: e.DiagnosticRule = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticRule))
+    sources: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    observations: b.tuple[RuntimeProfilePointsFieldFailuresItemObservationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemObservationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    locations: b.tuple[RuntimeProfilePointsFieldFailuresItemLocationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemLocationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    validity: RuntimeProfilePointsFieldFailuresItemValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemValidity)))
+    applicability: b.tuple[RuntimeProfilePointsFieldFailuresItemApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    causes: b.tuple[RuntimeProfilePointsFieldFailuresItemCausesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItemCausesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeProfilePointsRow:
     """Declared relation row or nested value."""
 
@@ -2233,13 +2553,16 @@ class RuntimeProfilePointsRow:
     value: b.float = attrs.field(validator=v.finite_float)
     seed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
     qualification: e.NativeQualification | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeQualification)))
+    termination: e.NativeTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeTermination)))
+    callback_terminal_failure: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    failures: b.tuple[RuntimeProfilePointsFieldFailuresItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     objective: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     statistic: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     accepted: b.bool = attrs.field(validator=v.exact_type(b.bool))
     detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.end), v.scalar_key(self.point), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.statistic), v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.detail),))
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.end), v.scalar_key(self.point), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.termination), v.optional_key(v.scalar_key)(self.callback_terminal_failure), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.statistic), v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.detail),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2584,6 +2907,416 @@ class RuntimeSolveRunsRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.revision), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.native_code), v.optional_key(v.scalar_key)(self.native_status), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.termination), v.scalar_key(self.assurance), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.candidate_kind), v.optional_key(v.scalar_key)(self.feasible), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.objective_sense), v.optional_key(v.scalar_key)(self.objective_quantity_id), v.optional_key(v.scalar_key)(self.validation_error), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.transformation), v.optional_key(v.sequence_key(v.record_key))(self.commitment),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldPathEventsItemLocalization:
+    """Declared relation row or nested value."""
+
+    left: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    right: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    lower: b.float = attrs.field(validator=v.finite_float)
+    upper: b.float = attrs.field(validator=v.finite_float)
+    at: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.left), v.scalar_key(self.right), v.scalar_key(self.lower), v.scalar_key(self.upper), v.scalar_key(self.at),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldPathEventsItem:
+    """Declared relation row or nested value."""
+
+    kind: e.NumericalPathEventKind = attrs.field(validator=attrs.validators.instance_of(e.NumericalPathEventKind))
+    source: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    family: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    point: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    localization: RuntimeSolveStrategyEventsFieldPathEventsItemLocalization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldPathEventsItemLocalization)))
+    state_rank: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    augmented_rank: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    state_singular_values: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    augmented_singular_values: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+    rank_threshold: b.float = attrs.field(validator=v.finite_float)
+    transversality: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    curvature: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    curvature_source: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    nondegeneracy_threshold: b.float = attrs.field(validator=v.finite_float)
+    values: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    state_actions: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    parameter_actions: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    curvature_actions: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    factorizations: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    backsolves: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    rank_probes: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.source), v.scalar_key(self.family), v.sequence_key(v.scalar_key)(self.point), v.optional_key(v.record_key)(self.localization), v.scalar_key(self.state_rank), v.scalar_key(self.augmented_rank), v.sequence_key(v.scalar_key)(self.state_singular_values), v.sequence_key(v.scalar_key)(self.augmented_singular_values), v.scalar_key(self.rank_threshold), v.optional_key(v.scalar_key)(self.transversality), v.optional_key(v.scalar_key)(self.curvature), v.optional_key(v.scalar_key)(self.curvature_source), v.scalar_key(self.nondegeneracy_threshold), v.scalar_key(self.values), v.scalar_key(self.state_actions), v.scalar_key(self.parameter_actions), v.scalar_key(self.curvature_actions), v.scalar_key(self.factorizations), v.scalar_key(self.backsolves), v.scalar_key(self.rank_probes),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItemIndicesItem:
+    """Declared relation row or nested value."""
+
+    bound_index: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItem:
+    """Declared relation row or nested value."""
+
+    quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indices: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemObservationsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.DiagnosticObservationKind = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticObservationKind))
+    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingRealValueKind)))
+    integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    quantity: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    unit: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    contracts: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemValidity:
+    """Declared relation row or nested value."""
+
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    form_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemClaim:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    coverage: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    owner: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    owner_lineage: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    evidence: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    form: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    call: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    records: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependencies: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
+    reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemInputsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
+    quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemPermissionsItem:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scope: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.ModelingPermissionTarget = attrs.field(validator=attrs.validators.instance_of(e.ModelingPermissionTarget))
+    targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItem:
+    """Declared relation row or nested value."""
+
+    claim: RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemClaim = attrs.field(validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemClaim))
+    instance: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    inputs: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    outcome: e.ModelingApplicabilityOutcome = attrs.field(validator=attrs.validators.instance_of(e.ModelingApplicabilityOutcome))
+    required: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    permissions: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemPermissionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItemPermissionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unknown_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem:
+    """Declared relation row or nested value."""
+
+    bound_index: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    domain: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bound_index), v.scalar_key(self.domain), v.scalar_key(self.kind),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItem:
+    """Declared relation row or nested value."""
+
+    quantity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indices: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItemIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity), v.sequence_key(v.record_key)(self.indices),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.DiagnosticObservationKind = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticObservationKind))
+    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingRealValueKind)))
+    integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    quantity: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    unit: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    contracts: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItemContractsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.real), v.optional_key(v.scalar_key)(self.real_kind), v.optional_key(v.scalar_key)(self.integer), v.optional_key(v.scalar_key)(self.boolean), v.optional_key(v.scalar_key)(self.text), v.optional_key(v.scalar_key)(self.quantity), v.optional_key(v.scalar_key)(self.unit), v.optional_key(v.scalar_key)(self.context), v.sequence_key(v.record_key)(self.contracts),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    start: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    end: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.start), v.optional_key(v.scalar_key)(self.end),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemValidity:
+    """Declared relation row or nested value."""
+
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    form_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    set_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    variables: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    member_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.layer), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.form_id), v.sequence_key(v.scalar_key)(self.set_ids), v.sequence_key(v.scalar_key)(self.variables), v.sequence_key(v.scalar_key)(self.member_ids),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemClaim:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    coverage: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    owner: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    owner_lineage: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    evidence: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    form: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    call: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    records: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependencies: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    layer: e.ModelingValidityLayer = attrs.field(validator=attrs.validators.instance_of(e.ModelingValidityLayer))
+    basis: e.ModelingApplicabilityBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingApplicabilityBasis)))
+    reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.id), v.optional_key(v.scalar_key)(self.coverage), v.scalar_key(self.owner), v.sequence_key(v.scalar_key)(self.owner_lineage), v.optional_key(v.scalar_key)(self.evidence), v.scalar_key(self.form), v.scalar_key(self.call), v.sequence_key(v.scalar_key)(self.records), v.sequence_key(v.scalar_key)(self.dependencies), v.scalar_key(self.layer), v.optional_key(v.scalar_key)(self.basis), v.optional_key(v.scalar_key)(self.reason),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemInputsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    real_kind: e.ModelingRealValueKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingRealValueKind))
+    quantity_type: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.real_kind), v.scalar_key(self.quantity_type),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scope: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.ModelingPermissionTarget = attrs.field(validator=attrs.validators.instance_of(e.ModelingPermissionTarget))
+    targets: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    allow_unknown: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    allow_extrapolation: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets), v.scalar_key(self.allow_unknown), v.scalar_key(self.allow_extrapolation),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItem:
+    """Declared relation row or nested value."""
+
+    claim: RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemClaim = attrs.field(validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemClaim))
+    instance: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    inputs: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    outcome: e.ModelingApplicabilityOutcome = attrs.field(validator=attrs.validators.instance_of(e.ModelingApplicabilityOutcome))
+    required: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    permissions: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItemPermissionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unknown_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    extrapolation_allowed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    admitted: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.claim), v.optional_key(v.scalar_key)(self.instance), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.outcome), v.scalar_key(self.required), v.sequence_key(v.record_key)(self.permissions), v.scalar_key(self.unknown_allowed), v.scalar_key(self.extrapolation_allowed), v.scalar_key(self.admitted),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItemCausesItem:
+    """Declared relation row or nested value."""
+
+    tree_path: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    code: e.DiagnosticCode = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticCode))
+    class_: e.NativeBoundaryClass = attrs.field(validator=attrs.validators.instance_of(e.NativeBoundaryClass), metadata={v.FIELD_NAME_METADATA: "class"})
+    severity: e.DiagnosticSeverity = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticSeverity))
+    stage: e.DiagnosticStage = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticStage))
+    rule: e.DiagnosticRule = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticRule))
+    sources: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    observations: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemObservationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    locations: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemLocationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    validity: RuntimeSolveStrategyEventsFieldFailuresItemCausesItemValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemValidity)))
+    applicability: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItemApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.tree_path), v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsFieldFailuresItem:
+    """Declared relation row or nested value."""
+
+    code: e.DiagnosticCode = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticCode))
+    class_: e.NativeBoundaryClass = attrs.field(validator=attrs.validators.instance_of(e.NativeBoundaryClass), metadata={v.FIELD_NAME_METADATA: "class"})
+    severity: e.DiagnosticSeverity = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticSeverity))
+    stage: e.DiagnosticStage = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticStage))
+    rule: e.DiagnosticRule = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticRule))
+    sources: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    observations: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemObservationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemObservationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    locations: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemLocationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    validity: RuntimeSolveStrategyEventsFieldFailuresItemValidity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemValidity)))
+    applicability: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemApplicabilityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    causes: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItemCausesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItemCausesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.scalar_key(self.class_), v.scalar_key(self.severity), v.scalar_key(self.stage), v.scalar_key(self.rule), v.sequence_key(v.scalar_key)(self.sources), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.record_key)(self.locations), v.optional_key(v.record_key)(self.validity), v.sequence_key(v.record_key)(self.applicability), v.sequence_key(v.record_key)(self.causes),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyEventsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    event: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    strategy_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    mechanism: e.NumericalMechanism = attrs.field(validator=attrs.validators.instance_of(e.NumericalMechanism))
+    kind: e.NumericalEventKind = attrs.field(validator=attrs.validators.instance_of(e.NumericalEventKind))
+    phase: e.NumericalPhase = attrs.field(validator=attrs.validators.instance_of(e.NumericalPhase))
+    scope: e.NumericalScope = attrs.field(validator=attrs.validators.instance_of(e.NumericalScope))
+    charging_owner: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    original_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    derived_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    profile_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
+    start_origin: e.NumericalStartOrigin | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NumericalStartOrigin)))
+    start_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    transport_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    accuracy_class: e.NumericalAccuracyClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NumericalAccuracyClass)))
+    accuracy_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    fidelity_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    surrogate_task_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    infill_statistic: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    surrogate_radius: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    surrogate_global_iterations: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    surrogate_local_iterations: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    surrogate_coordinates: b.tuple[b.float, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple))))
+    surrogate_model_values: b.tuple[b.float, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple))))
+    path_events: b.tuple[RuntimeSolveStrategyEventsFieldPathEventsItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldPathEventsItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
+    observation: e.NumericalAttemptObservation | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NumericalAttemptObservation)))
+    transition: e.NumericalTransition | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NumericalTransition)))
+    permission: e.CandidateUse | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.CandidateUse)))
+    attempts: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    evaluations: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    iterations: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    factorizations: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    proof_steps: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    failures: b.tuple[RuntimeSolveStrategyEventsFieldFailuresItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolveStrategyEventsFieldFailuresItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.event), v.scalar_key(self.strategy_identity), v.scalar_key(self.mechanism), v.scalar_key(self.kind), v.scalar_key(self.phase), v.scalar_key(self.scope), v.optional_key(v.scalar_key)(self.charging_owner), v.scalar_key(self.original_identity), v.optional_key(v.scalar_key)(self.derived_identity), v.optional_key(v.scalar_key)(self.profile_identity), v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.scalar_key)(self.start_origin), v.optional_key(v.scalar_key)(self.start_identity), v.optional_key(v.scalar_key)(self.transport_identity), v.optional_key(v.scalar_key)(self.accuracy_class), v.optional_key(v.scalar_key)(self.accuracy_identity), v.optional_key(v.scalar_key)(self.fidelity_identity), v.optional_key(v.scalar_key)(self.surrogate_task_identity), v.optional_key(v.scalar_key)(self.infill_statistic), v.optional_key(v.scalar_key)(self.surrogate_radius), v.optional_key(v.scalar_key)(self.surrogate_global_iterations), v.optional_key(v.scalar_key)(self.surrogate_local_iterations), v.optional_key(v.sequence_key(v.scalar_key))(self.surrogate_coordinates), v.optional_key(v.sequence_key(v.scalar_key))(self.surrogate_model_values), v.optional_key(v.sequence_key(v.record_key))(self.path_events), v.optional_key(v.scalar_key)(self.observation), v.optional_key(v.scalar_key)(self.transition), v.optional_key(v.scalar_key)(self.permission), v.optional_key(v.scalar_key)(self.attempts), v.optional_key(v.scalar_key)(self.evaluations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.factorizations), v.optional_key(v.scalar_key)(self.proof_steps), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.detail),))
 
 
 @attrs.frozen(kw_only=True)

@@ -34,8 +34,8 @@ struct Manifest {
 struct Settings {
     memory_limit_bytes: usize,
     threads: usize,
-    expansion_items: usize,
-    body_occurrences: usize,
+    math_worker_bytes: usize,
+    preparation: crate::workflow::PreparationSettings,
 }
 #[derive(Deserialize)]
 struct SourceRun {
@@ -95,7 +95,10 @@ async fn package(
         },
         execution: Default::default(),
         cache: crate::DeltaCacheBudget::for_memory(settings.memory_limit_bytes),
-        math: Default::default(),
+        math: crate::math::MathPolicy {
+            worker_bytes: settings.math_worker_bytes,
+            ..Default::default()
+        },
         hashing_may_use_pool: false,
     })?;
     let registry = pse_schema::shared_registry()?;
@@ -257,7 +260,6 @@ fn weighted_gradients(
 fn gradient_difference(
     worker: &mut CaseWorker,
     base: &CaseValues,
-    initial: &[Vec<f64>],
     weights: &[Vec<f64>],
     id: SemanticId,
     step: f64,
@@ -266,37 +268,97 @@ fn gradient_difference(
     let x = base.scalars[&id];
     let mut plus = base.clone();
     plus.scalars.insert(id, x + step);
-    let upper = weighted_gradients(worker, &plus, weights)?;
-    let (lower, divisor) = if central {
+    let upper = worker.jacobian(&plus)?.clone();
+    let (lower_values, divisor) = if central {
         let mut minus = base.clone();
         minus.scalars.insert(id, x - step);
-        (
-            weighted_gradients(worker, &minus, weights)?,
-            (x + step) - (x - step),
-        )
+        (minus, (x + step) - (x - step))
     } else {
-        (initial.to_vec(), (x + step) - x)
+        (base.clone(), (x + step) - x)
     };
+    let lower = worker.jacobian(&lower_values)?;
+    weighted_jacobian_difference(upper.as_ref(), lower.as_ref(), weights, divisor)
+}
+
+fn weighted_jacobian_difference(
+    upper: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    lower: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    weights: &[Vec<f64>],
+    divisor: f64,
+) -> Result<Vec<Vec<f64>>, MathRuntimeError> {
     if divisor == 0.
         || !divisor.is_finite()
-        || upper.len() != lower.len()
-        || upper.iter().zip(&lower).any(|(a, b)| a.len() != b.len())
+        || upper.nrows() != lower.nrows()
+        || upper.ncols() != lower.ncols()
+        || weights.iter().any(|w| w.len() != upper.nrows())
     {
         return Err(pse_math::MathError::Contract(
             "representable PR gradient difference step".into(),
         )
         .into());
     }
-    Ok(upper
-        .into_iter()
-        .zip(lower)
-        .map(|(a, b)| {
-            a.into_iter()
-                .zip(b)
-                .map(|(a, b)| (a - b) / divisor)
-                .collect()
-        })
-        .collect())
+    let mut result = vec![vec![0.; upper.ncols()]; weights.len()];
+    let mut differences = vec![0.; upper.nrows()];
+    for column in 0..upper.ncols() {
+        differences.fill(0.);
+        // Align original row identities, including structural zeros. Subtract before
+        // weighting: a large unchanged row must not erase another row's small change.
+        for (row, value) in upper.row_idx_of_col(column).zip(upper.val_of_col(column)) {
+            differences[row] += value;
+        }
+        for (row, value) in lower.row_idx_of_col(column).zip(lower.val_of_col(column)) {
+            differences[row] -= value;
+        }
+        for (group, weights) in weights.iter().enumerate() {
+            result[group][column] = weights
+                .iter()
+                .zip(&differences)
+                .map(|(weight, difference)| weight * difference)
+                .sum::<f64>()
+                / divisor;
+        }
+    }
+    Ok(result)
+}
+
+#[test]
+fn weighted_jacobian_difference_preserves_changes_beside_large_unchanged_rows() {
+    use faer::sparse::{SparseColMat, Triplet};
+    let upper = SparseColMat::try_new_from_triplets(
+        4,
+        1,
+        &[
+            Triplet::new(0, 0, 1e20),
+            Triplet::new(1, 0, 0.25),
+            Triplet::new(2, 0, 0.5),
+        ],
+    )
+    .unwrap();
+    let lower = SparseColMat::try_new_from_triplets(
+        4,
+        1,
+        &[
+            Triplet::new(0, 0, 1e20),
+            Triplet::new(1, 0, 0.125),
+            Triplet::new(3, 0, 0.0625),
+        ],
+    )
+    .unwrap();
+    let weights = vec![vec![2., 3., 4., 8.]];
+    let weighted = |matrix: &SparseColMat<usize, f64>| {
+        matrix
+            .row_idx_of_col(0)
+            .zip(matrix.val_of_col(0))
+            .map(|(row, value)| weights[0][row] * value)
+            .sum::<f64>()
+    };
+    assert_eq!(weighted(&upper) - weighted(&lower), 0.);
+    for divisor in [0.25, 0.125] {
+        let actual =
+            weighted_jacobian_difference(upper.as_ref(), lower.as_ref(), &weights, divisor)
+                .unwrap();
+        assert_eq!(actual, vec![vec![1.875 / divisor]]);
+    }
 }
 
 /// Finite differences use only Value results; actual representable offsets set the divisor.
@@ -448,14 +510,10 @@ async fn original_pr_case_jacobian_matches_stable_value_differences() -> TestRes
     let declared = package
         .declared_execution(
             fixture,
-            Default::default(),
+            manifest.settings.preparation.compiler,
             solver,
             Default::default(),
-            Limits {
-                items: manifest.settings.expansion_items,
-                body_occurrences: Some(manifest.settings.body_occurrences),
-                ..Default::default()
-            },
+            manifest.settings.preparation.limits,
             &cancel,
         )
         .await?;
@@ -730,19 +788,11 @@ async fn original_pr_case_jacobian_matches_stable_value_differences() -> TestRes
                         full_difference[row * DIMENSION + column] = coarse[row];
                         half_difference[row * DIMENSION + column] = fine[row];
                     }
-                    let coarse_gradients = gradient_difference(
-                        worker,
-                        &base,
-                        &initial_gradients,
-                        &weights,
-                        member.id,
-                        step,
-                        central,
-                    )?;
+                    let coarse_gradients =
+                        gradient_difference(worker, &base, &weights, member.id, step, central)?;
                     let fine_gradients = gradient_difference(
                         worker,
                         &base,
-                        &initial_gradients,
                         &weights,
                         member.id,
                         step / 2.,

@@ -159,7 +159,7 @@ fn native_refusal(error: &WorkflowError) -> String {
                 diagnostic.stage,
                 pse_diagnostics::DiagnosticStage::ModelingAdmission
             );
-            cause
+            cause.as_ref()
         }
         other => panic!("expected a typed routing refusal, got {other}"),
     };

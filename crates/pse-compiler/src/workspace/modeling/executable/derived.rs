@@ -108,6 +108,7 @@ impl Derivation {
         model: &PreparedModeling,
         structure: &CaseStructure,
         quantities: &QuantityRegistry,
+        assembly: AssemblyLimits,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Self> {
         let variables = structure.variables();
@@ -169,7 +170,7 @@ impl Derivation {
                 .collect(),
             quantities,
             DerivativeOrder::Value,
-            AssemblyLimits::default(),
+            assembly,
             cancel,
         )?);
         let (lower, upper) = plan

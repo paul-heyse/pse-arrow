@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Original process state correspondence and explicit composition responsibilities.
+use crate::specialize::{ExpectedLineage, Value};
 use crate::{
     Bindings, InstanceId, Limits, ModelingError, PhysicalScope, SpecializedModel, TypeContext,
     check, kernel_types, specialize,
@@ -46,6 +47,341 @@ fn process_contract_unannotated_children_retain_nominal_connection_contracts() {
     );
     let error = checked(&text.replace("b.inlet", "b.missing")).unwrap_err();
     assert!(error.to_string().contains("member"));
+}
+
+fn connection_failure_fixture(model: &str, members: &str) -> String {
+    let mut source =
+        model
+            .trim_end()
+            .strip_suffix('}')
+            .unwrap()
+            .replacen("def Root {", "def Network {", 1);
+    source.push_str(&format!(
+        "test Root fixture {{dof 0;route steady;procedure solve;failure trial_rejected members({members});}} {{child root:Network=Network();}} }}"
+    ));
+    source
+}
+
+fn connection_failure_members(
+    model: &SpecializedModel,
+) -> std::collections::BTreeSet<pse_ids::SemanticId> {
+    let failure = model
+        .fixtures
+        .values()
+        .next()
+        .unwrap()
+        .expected_failure
+        .as_ref()
+        .unwrap();
+    let ExpectedLineage::Members(members) = &failure.lineage else {
+        panic!("expected exact member lineage");
+    };
+    members.clone()
+}
+
+const INDEXED_SCALAR_CONNECTION: &str = r#"package p {
+ entity kind species {} entity species a {} entity species b {} entity species absent {}
+ set members:Set<species>={a,b};
+ def Root {
+  var x[j in members]:Scalar;var y[j in members]:Scalar;var z[j in members]:Scalar;
+  port output[j in members]:Scalar=x[j];port input[j in members]:Scalar=y[j];
+  port alternate[j in members]:Scalar=z[j];
+  annotation connectivity output(0,1);annotation connectivity input(1,0);annotation connectivity alternate(1,0);
+  connect streams:[j in members] output[j]->input[j];
+  stage "tear" {override connect streams:[k in members] output[k]->alternate[k];}
+ }
+}"#;
+
+#[test]
+fn process_contract_connection_failure_scalar_names_the_actual_equality_row() {
+    let source = connection_failure_fixture(
+        "package p {def Root {var x:Scalar;var y:Scalar;port output:Scalar=x;port input:Scalar=y;annotation connectivity output(0,1);annotation connectivity input(1,0);connect stream:output->input;}}",
+        "root.stream",
+    );
+    let model = run(&source).unwrap();
+    let connection = model.connections.values().next().unwrap();
+    assert_eq!(connection.rows, vec![connection.id]);
+    assert_eq!(
+        connection_failure_members(&model),
+        connection.rows.iter().copied().collect()
+    );
+    assert!(
+        model
+            .equations
+            .iter()
+            .any(|row| row.id == connection.rows[0])
+    );
+}
+
+#[test]
+fn process_contract_connection_failure_material_requires_every_actual_equality_row() {
+    use pse_model::diagnostic::{
+        BoundaryClass, BoundaryDiagnostic, DiagnosticRule, DiagnosticStage,
+    };
+    let model = run(&connection_failure_fixture(CORRESPONDENCE, "root.stream")).unwrap();
+    let connection = model.connections.values().next().unwrap();
+    assert_eq!(connection.rows.len(), 2);
+    assert!(!connection.rows.contains(&connection.id));
+    let expected = connection_failure_members(&model);
+    assert_eq!(expected, connection.rows.iter().copied().collect());
+    assert!(
+        expected
+            .iter()
+            .all(|id| model.equations.iter().any(|row| row.id == *id))
+    );
+    let failure = model
+        .fixtures
+        .values()
+        .next()
+        .unwrap()
+        .expected_failure
+        .as_ref()
+        .unwrap();
+    let observed = |sources: Vec<_>| {
+        BoundaryDiagnostic::new(
+            BoundaryClass::TrialRejected,
+            DiagnosticStage::Evaluation,
+            sources,
+            DiagnosticRule::MathValidity,
+        )
+    };
+    assert!(failure.matches(&observed(connection.rows.clone())));
+    assert!(!failure.matches(&observed(vec![connection.rows[0]])));
+    assert!(!failure.matches(&observed(vec![connection.id])));
+    assert!(!failure.matches(&observed(Vec::new())));
+    let unrelated = model
+        .equations
+        .iter()
+        .find(|row| !expected.contains(&row.id))
+        .unwrap()
+        .id;
+    assert!(!failure.matches(&observed(vec![connection.rows[0], unrelated])));
+    let mut wrong_class = observed(connection.rows.clone());
+    wrong_class.class = BoundaryClass::Numerical;
+    assert!(!failure.matches(&wrong_class));
+}
+
+#[test]
+fn process_contract_connection_failure_indexed_family_and_selection_use_exact_occurrences() {
+    let family = run(&connection_failure_fixture(
+        INDEXED_SCALAR_CONNECTION,
+        "root.streams",
+    ))
+    .unwrap();
+    assert_eq!(family.connections.len(), 2);
+    assert_eq!(
+        connection_failure_members(&family),
+        family
+            .connections
+            .values()
+            .flat_map(|connection| connection.rows.iter().copied())
+            .collect()
+    );
+    let selected_a = run(&connection_failure_fixture(
+        INDEXED_SCALAR_CONNECTION,
+        "root.streams[a]",
+    ))
+    .unwrap();
+    let selected_b = run(&connection_failure_fixture(
+        INDEXED_SCALAR_CONNECTION,
+        "root.streams[b]",
+    ))
+    .unwrap();
+    let a = connection_failure_members(&selected_a);
+    let b = connection_failure_members(&selected_b);
+    assert_eq!(a.len(), 1);
+    assert_eq!(b.len(), 1);
+    assert!(a.is_disjoint(&b));
+    assert_eq!(
+        a.union(&b)
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>(),
+        connection_failure_members(&family)
+    );
+    assert!(
+        selected_a
+            .connections
+            .values()
+            .any(|connection| a == connection.rows.iter().copied().collect())
+    );
+}
+
+#[test]
+fn process_contract_connection_failure_indexed_stage_override_preserves_occurrence_identity() {
+    for member in ["root.streams", "root.streams[a]"] {
+        let source = connection_failure_fixture(INDEXED_SCALAR_CONNECTION, member);
+        let original = run(&source).unwrap();
+        let package = checked(&source).unwrap();
+        let mut bindings = Bindings::default();
+        bindings.facts.insert(
+            crate::analysis::Fact::Stage("tear".into()),
+            Value::Boolean(true),
+        );
+        let staged = specialize(
+            &package,
+            package.entry("p.Root").unwrap(),
+            InstanceId::from_bytes([7; 16]),
+            &bindings,
+            Limits::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            connection_failure_members(&staged),
+            connection_failure_members(&original)
+        );
+        assert_eq!(
+            staged.connections.keys().collect::<Vec<_>>(),
+            original.connections.keys().collect::<Vec<_>>()
+        );
+        for (id, replacement) in &staged.connections {
+            let source = &original.connections[id];
+            assert_ne!(replacement.to, source.to);
+            assert_ne!(replacement.lineage.declaration, source.lineage.declaration);
+            assert_eq!(replacement.rows, source.rows);
+        }
+    }
+}
+
+#[test]
+fn process_contract_connection_failure_indexed_material_selects_every_row_and_keeps_stage_identity()
+{
+    let model = r#"package p {
+     entity kind species {} entity species a {} entity species b {}
+     set members:Set<species>={a,b};
+     def Root {
+      var x[j in members]:Scalar;var xx[j in members]:Scalar;
+      var y[j in members]:Scalar;var yy[j in members]:Scalar;
+      var z[j in members]:Scalar;var zz[j in members]:Scalar;
+      state outgoing[j in members] supplied(true) {
+       coordinate first=x[j];coordinate second=xx[j];
+       transport first=x[j] tolerance 1e-8;transport second=xx[j] tolerance 1e-8;
+      }
+      state incoming[j in members] supplied(false) {
+       coordinate first=y[j];coordinate second=yy[j];
+       transport first=y[j] tolerance 1e-8;transport second=yy[j] tolerance 1e-8;
+      }
+      state alternative[j in members] supplied(false) {
+       coordinate first=z[j];coordinate second=zz[j];
+       transport first=z[j] tolerance 1e-8;transport second=zz[j] tolerance 1e-8;
+      }
+      material port output[j in members]=outgoing[j];material port input[j in members]=incoming[j];
+      material port alternate[j in members]=alternative[j];
+      annotation connectivity output(0,1);annotation connectivity input(1,0);annotation connectivity alternate(1,0);
+      connect streams:[j in members] output[j]->input[j];
+      stage "tear" {override connect streams:[k in members] output[k]->alternate[k];}
+     }
+    }"#;
+    for (member, expected_count) in [
+        ("root.streams", 4),
+        ("root.streams[a]", 2),
+        ("root.streams[b]", 2),
+    ] {
+        let source = connection_failure_fixture(model, member);
+        let original = run(&source).unwrap();
+        let expected = connection_failure_members(&original);
+        assert_eq!(expected.len(), expected_count);
+        assert!(
+            original
+                .connections
+                .values()
+                .all(|connection| connection.rows.len() == 2)
+        );
+        assert!(
+            expected
+                .iter()
+                .all(|id| original.equations.iter().any(|row| row.id == *id))
+        );
+        if expected_count == 4 {
+            assert_eq!(
+                expected,
+                original
+                    .connections
+                    .values()
+                    .flat_map(|connection| connection.rows.iter().copied())
+                    .collect()
+            );
+        } else {
+            assert!(
+                original
+                    .connections
+                    .values()
+                    .any(|connection| expected == connection.rows.iter().copied().collect())
+            );
+        }
+        let package = checked(&source).unwrap();
+        let mut bindings = Bindings::default();
+        bindings.facts.insert(
+            crate::analysis::Fact::Stage("tear".into()),
+            Value::Boolean(true),
+        );
+        let staged = specialize(
+            &package,
+            package.entry("p.Root").unwrap(),
+            InstanceId::from_bytes([7; 16]),
+            &bindings,
+            Limits::default(),
+        )
+        .unwrap();
+        assert_eq!(connection_failure_members(&staged), expected);
+        for (id, replacement) in &staged.connections {
+            let source = &original.connections[id];
+            assert_ne!(replacement.to, source.to);
+            assert_ne!(replacement.lineage.declaration, source.lineage.declaration);
+            assert_eq!(replacement.rows, source.rows);
+        }
+    }
+}
+
+#[test]
+fn process_contract_connection_failure_refuses_absent_coordinate_and_wrong_arity() {
+    let absent = connection_failure_fixture(INDEXED_SCALAR_CONNECTION, "root.streams[absent]");
+    assert!(
+        run(&absent)
+            .unwrap_err()
+            .to_string()
+            .contains("coordinate outside declared membership")
+    );
+    let arity = connection_failure_fixture(INDEXED_SCALAR_CONNECTION, "root.streams[a,b]");
+    assert!(
+        run(&arity)
+            .unwrap_err()
+            .to_string()
+            .contains("member index arity differs")
+    );
+}
+
+#[test]
+fn process_contract_connection_failure_keeps_variable_and_equation_targets() {
+    let source = connection_failure_fixture(
+        "package p {def Root {var x:Scalar;var y:Scalar;port output:Scalar=x;port input:Scalar=y;annotation connectivity output(0,1);annotation connectivity input(1,0);connect stream:output->input;eq balance:x==1;}}",
+        "root.x,root.balance",
+    );
+    let model = run(&source).unwrap();
+    let expected = connection_failure_members(&model);
+    assert_eq!(expected.len(), 2);
+    assert_eq!(
+        model
+            .symbols
+            .keys()
+            .filter(|id| expected.contains(*id))
+            .count(),
+        1
+    );
+    assert_eq!(
+        model
+            .equations
+            .iter()
+            .filter(|row| expected.contains(&row.id))
+            .count(),
+        1
+    );
+    assert!(
+        model
+            .connections
+            .values()
+            .flat_map(|connection| &connection.rows)
+            .all(|id| !expected.contains(id))
+    );
 }
 
 #[test]

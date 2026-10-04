@@ -203,8 +203,37 @@ async fn limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal
     assert!(native.candidate.is_some());
     assert_eq!(
         native.candidate.as_ref().unwrap().kind,
-        pse_backend_native::solve::CandidateKind::FeasiblePoint
+        pse_backend_native::solve::CandidateKind::FinalIterate,
+        "source={:?}, quality={:?}, qualification={:?}, resolve={:?}",
+        native
+            .evidence
+            .global
+            .as_ref()
+            .map(|evidence| evidence.primal),
+        native.quality,
+        native.qualification,
+        native
+            .metrics
+            .iter()
+            .filter(|(name, _)| name.starts_with("resolve."))
+            .collect::<Vec<_>>()
     );
+    assert_eq!(
+        native.evidence.global.as_ref().unwrap().primal,
+        pse_backend_native::solve::PrimalSource::FixedAssignment
+    );
+    assert!(
+        !native
+            .candidate
+            .as_ref()
+            .unwrap()
+            .commitment
+            .as_ref()
+            .unwrap()
+            .columns
+            .is_empty()
+    );
+    assert!(native.quality.as_ref().unwrap().feasible());
     assert_eq!(native.qualification, Qualification::Feasible);
     assert!(result.accepted, "{:?}", result.validation_error);
     assert_eq!(result.completion.decision.usability, CandidateUse::Usable);

@@ -559,21 +559,54 @@ impl CheckedPackage {
         }
     }
 
+    // The trailing dot distinguishes lexical descendants from packages or names
+    // with the same leading characters (for example, a and ab).
+    fn names_below<'a>(
+        &'a self,
+        scope: &'a str,
+    ) -> impl Iterator<Item = (&'a String, &'a DeclarationId)> {
+        let prefix = format!("{scope}.");
+        self.names
+            .range(prefix.clone()..)
+            .take_while(move |(name, _)| name.starts_with(&prefix))
+    }
+
     pub(crate) fn named_types(&self, owner: DeclarationId) -> BTreeMap<String, Type> {
-        let mut names = self
-            .names
-            .iter()
-            // Untyped declarations cannot contribute to this environment. Avoid
-            // resolving their names again for every declaration in the closure.
-            .filter(|(_, id)| self.types.contains_key(*id))
-            .filter(|(name, id)| self.resolve(owner, name) == Some(**id))
-            .filter_map(|(name, id)| self.types.get(id).map(|ty| (name.clone(), ty.clone())))
-            .collect::<BTreeMap<_, _>>();
         let mut chain = Vec::new();
         let mut node = Some(owner);
         while let Some(id) = node {
             chain.push(id);
             node = self.declarations[&id].parent_id;
+        }
+        // Absolute lookup is admitted only within the owning package, or through
+        // an import alias visible on the actual lexical chain. Enumerate these
+        // candidate prefixes; resolve remains the visibility/shadowing authority.
+        let mut prefixes = BTreeSet::new();
+        if let Some(package) = chain.last().and_then(|id| self.declarations.get(id)) {
+            prefixes.insert(package.name.clone());
+        }
+        for scope in &chain {
+            for child in self.children.get(scope).into_iter().flatten() {
+                let row = &self.declarations[child];
+                if let Some(import) = &row.value.import {
+                    prefixes.insert(import.alias.as_deref().unwrap_or(&row.name).to_owned());
+                }
+            }
+        }
+        let mut names = BTreeMap::new();
+        for prefix in prefixes {
+            for (name, id) in self
+                .names
+                .get_key_value(&prefix)
+                .into_iter()
+                .chain(self.names_below(&prefix))
+            {
+                if let Some(ty) = self.types.get(id)
+                    && self.resolve(owner, name) == Some(*id)
+                {
+                    names.insert(name.clone(), ty.clone());
+                }
+            }
         }
         // ADR-0123 Outcome 6: a package whose manifest depends on the declaring package
         // sees the physical names unqualified and as `<package>.<Name>`.
@@ -596,12 +629,11 @@ impl CheckedPackage {
         for owner in chain.into_iter().rev() {
             // A nominal coordinate slot is addressed relative to every visible lexical
             // owner exactly as ordinary declaration lookup addresses it.
-            if let Some(prefix) = self
-                .names
-                .iter()
-                .find_map(|(name, id)| (*id == owner).then(|| format!("{name}.")))
+            if let Some(scope) = self.qualified_name(owner)
+                && self.names.get(&scope) == Some(&owner)
             {
-                for (name, id) in &self.names {
+                let prefix = format!("{scope}.");
+                for (name, id) in self.names_below(&scope) {
                     if let Some(relative) = name.strip_prefix(&prefix)
                         && self.resolve(owner, relative) == Some(*id)
                         && let Some(ty) = self.types.get(id)
@@ -615,7 +647,7 @@ impl CheckedPackage {
                 if let Some(import) = &row.value.import {
                     let alias = import.alias.as_deref().unwrap_or(&row.name);
                     let prefix = format!("{}.", row.name);
-                    for (name, id) in &self.names {
+                    for (name, id) in self.names_below(&row.name) {
                         if let Some(tail) = name.strip_prefix(&prefix)
                             && let Some(ty) = self.types.get(id)
                         {
@@ -2478,3 +2510,6 @@ fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+mod named_types_tests;

@@ -62,7 +62,7 @@ fn covering(cover: &str) -> String {
         annotation start x(0.5); annotation start y(0.5); }} }}"
     )
 }
-async fn run(text: &str, selection: SolverSelection) -> std::sync::Arc<crate::workflow::RunResult> {
+async fn run(text: &str, selection: SolverSelection) -> Arc<crate::workflow::RunResult> {
     let (package, root) = package(text);
     let prepared = package
         .prepare_analysis(&analysis(root, selection), &crate::CancelSource::new())

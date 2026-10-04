@@ -7,6 +7,7 @@ use crate::workflow::tests::{compiler_profile, id};
 use native::solve::{Backend, Controls, SolverSelection};
 use pse_backend_native::dynamics::{Method, ScheduledInput};
 use pse_modeling::{Bindings, Limits};
+use std::time::Instant;
 
 /// A tracking problem: `x' = (u − x)/1 s` from `x(0) = 0` with the algebraic `y = x²`
 /// (the states are ordered y, x),
@@ -150,6 +151,28 @@ fn report_of(result: &crate::workflow::RunResult) -> &ShootingReport {
     let crate::workflow::RunReport::Shooting(report) = result.report().unwrap() else {
         panic!("shooting report expected");
     };
+    let trace = report
+        .strategy
+        .as_ref()
+        .expect("joined shooting strategy trace");
+    assert!(trace.owner.is_some());
+    use pse_relations::columnar::RelationRow;
+    let rows = pse_relations::generated::runtime::solve_strategy_events::Row::rows(
+        &result.table("runtime.solve_strategy_events").unwrap(),
+    )
+    .unwrap();
+    assert_eq!(rows.len(), trace.events.len());
+    assert_eq!(
+        rows.iter()
+            .filter(|row| row.kind == pse_model::generated::enums::NumericalEventKind::Started)
+            .count(),
+        1
+    );
+    let final_row = rows.last().unwrap();
+    assert_eq!(final_row.phase, pse_model::strategy::Phase::Assessment);
+    assert_eq!(final_row.attempts, Some(1));
+    assert_eq!(final_row.evaluations, None);
+    assert_eq!(final_row.factorizations, None);
     report
 }
 

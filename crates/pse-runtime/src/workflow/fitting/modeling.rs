@@ -618,6 +618,10 @@ impl ModelingPackage {
                 if profile.simulations.contains_key(&e.experiment_id) {
                     return Err(contract("algebraic experiment has a dynamic profile"));
                 }
+                // The experiment supplies objective-free feasibility callbacks. The
+                // outer fit owns the least-squares objective and its optimization intent.
+                let mut experiment_solver = profile.solver.clone();
+                experiment_solver.intent = SolveIntent::FeasiblePoint;
                 let resolved = self
                     .resolve_case(
                         e.case_id,
@@ -627,7 +631,7 @@ impl ModelingPackage {
                         case,
                         order,
                         compiler,
-                        profile.solver.clone(),
+                        experiment_solver,
                         Default::default(),
                         Default::default(),
                         false,
@@ -960,21 +964,69 @@ impl PreparedFit {
     pub(crate) fn execute(
         &self,
         run_id: RunId,
-        flag: Arc<std::sync::atomic::AtomicBool>,
+        scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        let started = std::time::Instant::now();
+        let problem = &self.problem;
+        let backend = match self.route {
+            native::routing::Route::Native(backend) => Some(backend),
+            native::routing::Route::Constant => None,
+        };
+        let (mut report, trace) = crate::math::opaque_strategy::direct(
+            problem.runtime.shared.math(),
+            crate::math::opaque_strategy::Source {
+                original: problem.source_identity,
+                preparation: problem.key,
+                profile: problem.profile_key.as_id(),
+                backend,
+                controls: &problem.profile.solver.controls,
+                start: pse_model::strategy::StartOrigin::Specification,
+                start_identity: Some(crate::math::opaque_strategy::point_identity(
+                    problem.source_identity,
+                    &problem.initial,
+                )),
+            },
+            &scope,
+            || self.execute_original(run_id, scope.clone(), progress, workers),
+            |report| report.solve.as_ref(),
+            |report| self.assess_completion(report).decision,
+            |report| {
+                report
+                    .validation_error
+                    .as_ref()
+                    .map(crate::math::opaque_strategy::assessment_failure)
+                    .or_else(|| {
+                        report
+                            .diagnostic
+                            .as_ref()
+                            .filter(|d| {
+                                matches!(
+                                    d.rule,
+                                    FitRule::FinalEvaluation | FitRule::ObjectiveOverflow
+                                )
+                            })
+                            .map(|d| d.cause.clone())
+                    })
+            },
+        )?;
+        report.strategy = Some(trace);
+        Ok(report)
+    }
+    fn execute_original(
+        &self,
+        run_id: RunId,
+        scope: pse_kernels::ExecutionScope,
+        progress: Arc<native::solve::Progress>,
+        workers: usize,
+    ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let mut report = self
             .problem
-            .execute(self.route, flag.clone(), progress, workers)?;
+            .execute(self.route, scope.clone(), progress, workers)?;
         let Some(candidate) = report.candidate.as_ref() else {
             return Ok(report);
         };
         let assess=|| -> Result<(Vec<super::super::ModelingCheck>,Vec<super::super::ModelingReport>),WorkflowError> {
-            let deadline = started.checked_add(self.problem.profile.solver.controls.time_limit)
-                .ok_or_else(|| contract("fit assessment deadline extent"))?;
-            let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
             let checkpoint=|| scope.check().map_err(|error| WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(error))));
             checkpoint()?;
             let mut rows=Vec::new(); let mut reports=Vec::new();

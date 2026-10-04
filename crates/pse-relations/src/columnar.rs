@@ -47,10 +47,23 @@ pub struct ColumnReference {
 pub struct FieldCheckedBatch {
     relation_id: SemanticId,
     contract: pse_schema::resolved_contract::RelationContractHandle,
+    storage: Arc<CheckedStorage>,
+    export_owner: Option<Arc<pse_columnar::AllocationLease>>,
+}
+
+/// Clones share the actual column vectors as well as their native buffers.
+#[derive(Debug)]
+struct CheckedStorage {
     batch: RecordBatch,
     // Actual allocation provenance is independent of the local field contract.
     owned: Option<pse_columnar::owned_buffer::OwnedRecordBatch>,
+    metadata: Option<Arc<pse_columnar::AllocationLease>>,
+    pool: Option<std::sync::Weak<dyn pse_columnar::MemoryPool>>,
 }
+type StorageMetadata = (
+    Arc<pse_columnar::AllocationLease>,
+    std::sync::Weak<dyn pse_columnar::MemoryPool>,
+);
 
 #[cfg(test)]
 mod foundation_unit {
@@ -172,6 +185,80 @@ mod foundation_unit {
 }
 
 impl FieldCheckedBatch {
+    fn from_parts(
+        relation_id: SemanticId,
+        contract: pse_schema::resolved_contract::RelationContractHandle,
+        batch: RecordBatch,
+        owned: Option<pse_columnar::owned_buffer::OwnedRecordBatch>,
+    ) -> Self {
+        Self::from_parts_with_metadata(relation_id, contract, batch, owned, None)
+    }
+
+    fn from_parts_with_metadata(
+        relation_id: SemanticId,
+        contract: pse_schema::resolved_contract::RelationContractHandle,
+        batch: RecordBatch,
+        owned: Option<pse_columnar::owned_buffer::OwnedRecordBatch>,
+        metadata: Option<StorageMetadata>,
+    ) -> Self {
+        let (metadata, pool) =
+            metadata.map_or((None, None), |(lease, pool)| (Some(lease), Some(pool)));
+        Self {
+            relation_id,
+            contract,
+            storage: Arc::new(CheckedStorage {
+                batch,
+                owned,
+                metadata,
+                pool,
+            }),
+            export_owner: None,
+        }
+    }
+
+    /// Retain a pre-admitted container's metadata with its checked exports.
+    /// Cloning the checked batch shares its storage and this owner without allocating
+    /// another column vector. The caller reserves the container before constructing it.
+    pub fn with_export_owner(mut self, owner: Arc<pse_columnar::AllocationLease>) -> Self {
+        self.export_owner = Some(owner);
+        self
+    }
+
+    fn transform_metadata(
+        &self,
+        columns: usize,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<Option<StorageMetadata>, RelationError> {
+        self.storage
+            .pool
+            .as_ref()
+            .and_then(std::sync::Weak::upgrade)
+            .map(|pool| Self::reserve_metadata(&pool, columns, 4, cancel))
+            .transpose()
+    }
+
+    fn reserve_metadata(
+        pool: &Arc<dyn pse_columnar::MemoryPool>,
+        columns: usize,
+        vectors: usize,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<StorageMetadata, RelationError> {
+        let bytes = columns
+            .checked_mul(vectors * size_of::<arrow_array::ArrayRef>())
+            .and_then(|n| n.checked_add(size_of::<CheckedStorage>() + 256))
+            .ok_or_else(|| mismatch("checked storage metadata extent"))?;
+        let metadata =
+            pse_columnar::MemoryConsumer::new("relations:checked-storage").register(pool);
+        metadata
+            .try_grow(bytes)
+            .map_err(pse_columnar::CanonError::from)?;
+        cancel.checkpoint()?;
+        Ok((
+            pse_columnar::AllocationLease::new(metadata),
+            Arc::downgrade(pool),
+        ))
+    }
+
     /// Admit through the actual immutable native function/configuration owner.
     /// This carries the same local certificate as `admit`, without substituting
     /// a registry-default SQL environment for the selected session.
@@ -191,12 +278,7 @@ impl FieldCheckedBatch {
             .relation(registry, spec)?
             .evaluate(&batch, 256, cancel)?
             .require_valid()?;
-        Ok(Self {
-            relation_id: spec.id,
-            contract,
-            batch,
-            owned: None,
-        })
+        Ok(Self::from_parts(spec.id, contract, batch, None))
     }
     /// Transfer native allocation ownership while admitting in the exact selected context.
     /// # Errors
@@ -208,9 +290,13 @@ impl FieldCheckedBatch {
         context: &crate::validate::ValidationContext,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
-        let mut checked = Self::admit(registry, spec, batch.batch().clone(), context, cancel)?;
-        checked.owned = Some(batch);
-        Ok(checked)
+        let checked = Self::admit(registry, spec, batch.batch().clone(), context, cancel)?;
+        Ok(Self::from_parts(
+            spec.id,
+            checked.contract,
+            batch.batch().clone(),
+            Some(batch),
+        ))
     }
     /// Select ordered, possibly repeated rows with Arrow's bounds-checked take.
     /// Local field evidence survives; uniqueness and completeness do not.
@@ -226,7 +312,7 @@ impl FieldCheckedBatch {
         if indices.null_count() != 0 {
             return Err(mismatch("nonnull take indices"));
         }
-        let extent = pse_columnar::allocation_extent::algorithm_decode_extent(&self.batch)?
+        let extent = pse_columnar::allocation_extent::algorithm_decode_extent(&self.storage.batch)?
             .checked_mul(indices.len().max(1))
             .ok_or_else(|| mismatch("bounded take extent"))?;
         let reservation =
@@ -235,6 +321,7 @@ impl FieldCheckedBatch {
             .try_grow(extent)
             .map_err(pse_columnar::CanonError::from)?;
         let columns = self
+            .storage
             .batch
             .columns()
             .iter()
@@ -247,21 +334,23 @@ impl FieldCheckedBatch {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let batch = RecordBatch::try_new_with_options(
-            self.batch.schema(),
+            self.storage.batch.schema(),
             columns,
             &RecordBatchOptions::new().with_row_count(Some(indices.len())),
         )?;
         cancel.checkpoint()?;
         let scope = pse_columnar::owned_buffer::AllocationScope::default();
-        if let Some(owned) = &self.owned {
+        if let Some(owned) = &self.storage.owned {
             scope.import(owned)?;
         }
         let owned = scope.attach_reserved(batch, reservation)?;
-        Ok(Self {
-            batch: owned.batch().clone(),
-            owned: Some(owned),
-            ..self.clone()
-        })
+        Self::from_parts(
+            self.relation_id,
+            self.contract.clone(),
+            owned.batch().clone(),
+            Some(owned),
+        )
+        .retained(pool, cancel)
     }
     /// Apply an explicitly requested Arrow type conversion, then fully re-admit
     /// the target's fields and local values. Cast failure is an error, never a new null.
@@ -279,6 +368,7 @@ impl FieldCheckedBatch {
         cancel.checkpoint()?;
         let schema = pse_schema::arrow::relation_schema_ref(registry, spec)?;
         if !schema.fields().iter().map(|field| field.name()).eq(self
+            .storage
             .batch
             .schema()
             .fields()
@@ -291,7 +381,7 @@ impl FieldCheckedBatch {
             pse_columnar::MemoryConsumer::new("relations:cast-readmission").register(pool);
         reservation
             .try_grow(pse_columnar::allocation_extent::algorithm_decode_extent(
-                &self.batch,
+                &self.storage.batch,
             )?)
             .map_err(pse_columnar::CanonError::from)?;
         let options = arrow::compute::CastOptions {
@@ -299,6 +389,7 @@ impl FieldCheckedBatch {
             ..Default::default()
         };
         let columns = self
+            .storage
             .batch
             .columns()
             .iter()
@@ -310,11 +401,11 @@ impl FieldCheckedBatch {
         let batch = RecordBatch::try_new_with_options(
             schema,
             columns,
-            &RecordBatchOptions::new().with_row_count(Some(self.batch.num_rows())),
+            &RecordBatchOptions::new().with_row_count(Some(self.storage.batch.num_rows())),
         )?;
         cancel.checkpoint()?;
         let scope = pse_columnar::owned_buffer::AllocationScope::default();
-        if let Some(owned) = &self.owned {
+        if let Some(owned) = &self.storage.owned {
             scope.import(owned)?;
         }
         Self::admit_owned(
@@ -323,26 +414,28 @@ impl FieldCheckedBatch {
             scope.attach_reserved(batch, reservation)?,
             context,
             cancel,
-        )
+        )?
+        .retained(pool, cancel)
     }
     /// Compare the exact checked row domain and retained semantic authority.
     /// Equal values in different arrays are not the same source owner.
     pub fn same_source(&self, other: &Self) -> bool {
         self.contract.require_equivalent(&other.contract).is_ok()
-            && self.batch.schema() == other.batch.schema()
-            && self.batch.num_rows() == other.batch.num_rows()
-            && self.batch.num_columns() == other.batch.num_columns()
+            && self.storage.batch.schema() == other.storage.batch.schema()
+            && self.storage.batch.num_rows() == other.storage.batch.num_rows()
+            && self.storage.batch.num_columns() == other.storage.batch.num_columns()
             && self
+                .storage
                 .batch
                 .columns()
                 .iter()
-                .zip(other.batch.columns())
+                .zip(other.storage.batch.columns())
                 .all(|(left, right)| Arc::ptr_eq(left, right))
     }
 
     /// Actual owned storage, when allocation admission has completed.
-    pub const fn owned(&self) -> Option<&pse_columnar::owned_buffer::OwnedRecordBatch> {
-        self.owned.as_ref()
+    pub fn owned(&self) -> Option<&pse_columnar::owned_buffer::OwnedRecordBatch> {
+        self.storage.owned.as_ref()
     }
 
     /// Filter checked rows with native Arrow selection, preserving local evidence.
@@ -356,15 +449,25 @@ impl FieldCheckedBatch {
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
         cancel.checkpoint()?;
-        if mask.len() != self.batch.num_rows() {
+        if mask.len() != self.storage.batch.num_rows() {
             return Err(mismatch("a filter mask in the checked row domain"));
         }
         let extent = self
+            .storage
             .batch
             .get_array_memory_size()
             .checked_mul(8)
             .and_then(|n| n.checked_add(mask.len().checked_mul(16)?))
-            .and_then(|n| n.checked_add(self.batch.schema().fields().len().checked_mul(256)?))
+            .and_then(|n| {
+                n.checked_add(
+                    self.storage
+                        .batch
+                        .schema()
+                        .fields()
+                        .len()
+                        .checked_mul(256)?,
+                )
+            })
             .ok_or_else(|| mismatch("a representable filter allocation extent"))?;
         let reservation =
             pse_columnar::MemoryConsumer::new("relations:checked-filter").register(pool);
@@ -372,18 +475,20 @@ impl FieldCheckedBatch {
             .try_grow(extent)
             .map_err(pse_columnar::CanonError::from)?;
         let predicate = arrow::compute::FilterBuilder::new(mask).build();
-        let batch = predicate.filter_record_batch(&self.batch)?;
+        let batch = predicate.filter_record_batch(&self.storage.batch)?;
         cancel.checkpoint()?;
         let scope = pse_columnar::owned_buffer::AllocationScope::default();
-        if let Some(owned) = &self.owned {
+        if let Some(owned) = &self.storage.owned {
             scope.import(owned)?;
         }
         let owned = scope.attach_reserved(batch, reservation)?;
-        Ok(Self {
-            batch: owned.batch().clone(),
-            owned: Some(owned),
-            ..self.clone()
-        })
+        Self::from_parts(
+            self.relation_id,
+            self.contract.clone(),
+            owned.batch().clone(),
+            Some(owned),
+        )
+        .retained(pool, cancel)
     }
 
     /// Project unchanged fields into an exact target declaration. Only missing
@@ -401,7 +506,10 @@ impl FieldCheckedBatch {
         cancel.checkpoint()?;
         registry.admit_contract(&self.contract)?;
         let contract = registry.contract(spec)?;
-        let projected = self.batch.project(positions)?;
+        // Admission overlaps the native projection scratch and precedes every new
+        // column vector, including the owned projection's metadata reconstruction.
+        let metadata = self.transform_metadata(positions.len(), cancel)?;
+        let projected = self.storage.batch.project(positions)?;
         exact_fields(projected.schema().fields(), contract.schema().fields())?;
         let batch = RecordBatch::try_new_with_options(
             contract.schema().clone(),
@@ -428,20 +536,23 @@ impl FieldCheckedBatch {
                 .evaluate_missing_checks(&batch, &missing, cancel)?
                 .require_valid()?;
         }
-        Ok(Self {
-            relation_id: spec.id,
-            contract: contract.clone(),
-            batch,
-            owned: self
-                .owned
-                .as_ref()
-                .map(|owned| {
-                    owned.project(positions).and_then(|owned| {
-                        owned.with_schema_metadata(contract.schema().metadata().clone())
-                    })
+        let owned = self
+            .storage
+            .owned
+            .as_ref()
+            .map(|owned| {
+                owned.project(positions).and_then(|owned| {
+                    owned.with_schema_metadata(contract.schema().metadata().clone())
                 })
-                .transpose()?,
-        })
+            })
+            .transpose()?;
+        Ok(Self::from_parts_with_metadata(
+            spec.id,
+            contract.clone(),
+            batch,
+            owned,
+            metadata,
+        ))
     }
 
     /// Isolate raw buffers and admit through the selected immutable engine context.
@@ -463,7 +574,8 @@ impl FieldCheckedBatch {
             .map_err(pse_columnar::CanonError::from)?;
         cancel.checkpoint()?;
         let isolated = pse_columnar::owned_buffer::OwnedRecordBatch::copy(batch, pool, cancel)?;
-        let input = Self::admit_owned(registry, spec, isolated, context, cancel)?;
+        let input =
+            Self::admit_owned(registry, spec, isolated, context, cancel)?.retained(pool, cancel)?;
         cancel.checkpoint()?;
         Ok(input)
     }
@@ -512,15 +624,10 @@ impl FieldCheckedBatch {
         let schema = pse_schema::arrow::relation_schema_ref(registry, actual)?;
         for input in inputs {
             input.contract.require_equivalent(&contract)?;
-            exact_fields(input.batch.schema().fields(), schema.fields())?;
+            exact_fields(input.storage.batch.schema().fields(), schema.fields())?;
         }
         let batch = arrow::compute::concat_batches(&schema, inputs.iter().map(Self::batch))?;
-        Ok(Self {
-            relation_id: spec.id,
-            contract,
-            batch,
-            owned: None,
-        })
+        Ok(Self::from_parts(spec.id, contract, batch, None))
     }
 
     /// Concatenate checked Arrow inputs while retaining the shared allocation claim.
@@ -548,7 +655,7 @@ impl FieldCheckedBatch {
         let arrays = inputs
             .iter()
             .try_fold(0usize, |bytes, input| {
-                bytes.checked_add(input.batch.get_array_memory_size())
+                bytes.checked_add(input.storage.batch.get_array_memory_size())
             })
             .and_then(|bytes| bytes.checked_mul(8))
             .ok_or_else(|| mismatch("a representable concatenation extent"))?;
@@ -570,41 +677,52 @@ impl FieldCheckedBatch {
                     .ok_or_else(|| mismatch("a representable concatenation extent"))?,
             )
             .map_err(pse_columnar::CanonError::from)?;
-        let mut result = Self::concat(registry, spec, inputs)?;
+        let result = Self::concat(registry, spec, inputs)?;
         cancel.checkpoint()?;
         let scope = pse_columnar::owned_buffer::AllocationScope::default();
         for input in inputs {
-            if let Some(owned) = &input.owned {
+            if let Some(owned) = &input.storage.owned {
                 scope.import(owned)?;
             }
         }
-        let owned = scope.attach_reserved(result.batch, reservation)?;
-        result.batch = owned.batch().clone();
-        result.owned = Some(owned);
-        Ok(result)
+        let owned = scope.attach_reserved(result.into_batch(), reservation)?;
+        Self::from_parts(
+            spec.id,
+            registry.contract(spec)?,
+            owned.batch().clone(),
+            Some(owned),
+        )
+        .retained(pool, cancel)
     }
 
     /// Retains a checked subset of rows without copying or rescanning their values.
     ///
     /// # Errors
-    /// The requested row range lies outside this batch.
+    /// The requested row range lies outside this batch or retained metadata is refused.
     pub fn slice(&self, offset: usize, length: usize) -> Result<Self, RelationError> {
         if offset
             .checked_add(length)
-            .is_none_or(|end| end > self.batch.num_rows())
+            .is_none_or(|end| end > self.storage.batch.num_rows())
         {
             return Err(mismatch("a slice within the checked batch"));
         }
-        Ok(Self {
-            relation_id: self.relation_id,
-            contract: self.contract.clone(),
-            batch: self.batch.slice(offset, length),
-            owned: self
-                .owned
-                .as_ref()
-                .map(|owned| owned.slice(offset, length))
-                .transpose()?,
-        })
+        let metadata = self.transform_metadata(
+            self.storage.batch.num_columns(),
+            &pse_columnar::CancellationToken::new(),
+        )?;
+        let owned = self
+            .storage
+            .owned
+            .as_ref()
+            .map(|owned| owned.slice(offset, length))
+            .transpose()?;
+        Ok(Self::from_parts_with_metadata(
+            self.relation_id,
+            self.contract.clone(),
+            self.storage.batch.slice(offset, length),
+            owned,
+            metadata,
+        ))
     }
 
     /// Checks the retained complete declaration against the receiving registry.
@@ -633,16 +751,29 @@ impl FieldCheckedBatch {
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
         cancel.checkpoint()?;
-        if self.owned.is_some() {
+        if self.storage.owned.is_some() && self.storage.metadata.is_some() {
             return Ok(self.clone());
         }
-        let owned =
-            pse_columnar::owned_buffer::OwnedRecordBatch::export(self.batch.clone(), pool, cancel)?;
+        let (metadata, pool_owner) =
+            Self::reserve_metadata(pool, self.storage.batch.num_columns(), 2, cancel)?;
+        let owned = match &self.storage.owned {
+            Some(owned) => owned.clone(),
+            None => pse_columnar::owned_buffer::OwnedRecordBatch::export(
+                self.storage.batch.clone(),
+                pool,
+                cancel,
+            )?,
+        };
         Ok(Self {
             relation_id: self.relation_id,
             contract: self.contract.clone(),
-            batch: owned.batch().clone(),
-            owned: Some(owned),
+            storage: Arc::new(CheckedStorage {
+                batch: owned.batch().clone(),
+                owned: Some(owned),
+                metadata: Some(metadata),
+                pool: Some(pool_owner),
+            }),
+            export_owner: self.export_owner.clone(),
         })
     }
 
@@ -666,7 +797,7 @@ impl FieldCheckedBatch {
         options.keep_sorted = true;
         let mut output = pse_columnar::canonicalize(
             &contract,
-            std::slice::from_ref(&self.batch),
+            std::slice::from_ref(&self.storage.batch),
             pool,
             options,
         )?;
@@ -678,12 +809,13 @@ impl FieldCheckedBatch {
                 reason: "canonicalizer did not return the requested sorted values".into(),
             })?;
         Ok((
-            Self {
-                relation_id: self.relation_id,
-                contract: self.contract.clone(),
-                batch: batch.batch().clone(),
-                owned: Some(batch),
-            },
+            Self::from_parts(
+                self.relation_id,
+                self.contract.clone(),
+                batch.batch().clone(),
+                Some(batch),
+            )
+            .retained(pool, &pse_columnar::CancellationToken::new())?,
             output,
         ))
     }
@@ -694,13 +826,19 @@ impl FieldCheckedBatch {
     }
 
     /// Borrows the immutable Arrow columns, retaining their owners.
-    pub const fn batch(&self) -> &RecordBatch {
-        &self.batch
+    pub fn batch(&self) -> &RecordBatch {
+        &self.storage.batch
     }
 
-    /// Extracts a raw candidate batch; relational admission remains an explicit boundary.
+    /// Extracts a raw, unadmitted interoperability candidate. Checked storage and
+    /// container metadata leases are relinquished; the receiver owns admission and
+    /// accounting for the raw column vectors. Existing backing-buffer leases remain.
+    /// This is not the checked-export boundary; use checked clones to retain it.
     pub fn into_batch(self) -> RecordBatch {
-        self.batch
+        match Arc::try_unwrap(self.storage) {
+            Ok(storage) => storage.batch,
+            Err(storage) => storage.batch.clone(),
+        }
     }
 
     /// Bind an already checked batch to an equivalent independent registry.
@@ -723,7 +861,7 @@ impl FieldCheckedBatch {
             return Err(mismatch("the requested generated relation identity"));
         }
         self.contract.require_generated(expected)?;
-        Ok(&self.batch)
+        Ok(&self.storage.batch)
     }
 }
 
@@ -910,12 +1048,12 @@ impl BatchBuilder {
         self.prepared
             .evaluate(&batch, 256, &pse_columnar::CancellationToken::new())?
             .require_valid()?;
-        Ok(FieldCheckedBatch {
-            relation_id: self.relation_id,
-            contract: self.contract,
+        Ok(FieldCheckedBatch::from_parts(
+            self.relation_id,
+            self.contract,
             batch,
-            owned: None,
-        })
+            None,
+        ))
     }
 }
 
@@ -1042,6 +1180,143 @@ mod integrated_performance_unit {
             );
         }
         registry.build().unwrap()
+    }
+
+    #[test]
+    fn shared_checked_storage_and_export_metadata_follow_last_reader() {
+        let registry = registry();
+        let spec = registry.relation("authored.values").unwrap();
+        let context =
+            crate::validate::ValidationContext::new(&registry, SessionContext::new().state());
+        let cancel = pse_columnar::CancellationToken::new();
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let raw = RecordBatch::try_new(
+            pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+            vec![Arc::new(Int64Array::from(vec![1, 2]))],
+        )
+        .unwrap();
+        let checked = FieldCheckedBatch::admit(&registry, spec, raw, &context, &cancel)
+            .unwrap()
+            .retained(&pool, &cancel)
+            .unwrap();
+        let storage_bytes = checked.storage.metadata.as_ref().unwrap().size();
+        let container =
+            pse_columnar::MemoryConsumer::new("checked-export:test-container").register(&pool);
+        container.try_grow(4096).unwrap();
+        let checked = checked.with_export_owner(pse_columnar::AllocationLease::new(container));
+        let retained = pool.reserved();
+        let reader = checked.clone();
+        assert!(Arc::ptr_eq(&checked.storage, &reader.storage));
+        assert_eq!(pool.reserved(), retained);
+        let selected = checked.slice(0, 1).unwrap();
+        assert!(
+            selected.export_owner.is_none(),
+            "new storage does not retain the obsolete container grant"
+        );
+        let selected_storage = selected.storage.metadata.as_ref().unwrap().size();
+        drop(checked);
+        assert!(pool.reserved() >= 4096 + storage_bytes + selected_storage);
+        drop(reader);
+        assert_eq!(
+            pool.reserved(),
+            retained - 4096 - storage_bytes + selected_storage
+        );
+        assert_eq!(selected.batch().num_rows(), 1);
+        drop(selected);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn exhausted_pool_refuses_checked_slice_and_projection_before_new_storage() {
+        let registry = registry();
+        let spec = registry.relation("authored.values").unwrap();
+        let context =
+            crate::validate::ValidationContext::new(&registry, SessionContext::new().state());
+        let cancel = pse_columnar::CancellationToken::new();
+        let limit = 1 << 20;
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(limit));
+        let raw = RecordBatch::try_new(
+            pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+            vec![Arc::new(Int64Array::from(vec![1, 2]))],
+        )
+        .unwrap();
+        let checked = FieldCheckedBatch::admit(&registry, spec, raw, &context, &cancel)
+            .unwrap()
+            .retained(&pool, &cancel)
+            .unwrap();
+        let occupied =
+            pse_columnar::MemoryConsumer::new("checked-transform:test-occupied").register(&pool);
+        occupied.try_grow(limit - pool.reserved()).unwrap();
+        let calls = context
+            .relation(&registry, spec)
+            .unwrap()
+            .evaluation_count();
+        assert!(checked.slice(0, 1).is_err());
+        assert!(
+            checked
+                .project_exact(&registry, spec, &[0], &cancel, &context)
+                .is_err()
+        );
+        assert_eq!(
+            context
+                .relation(&registry, spec)
+                .unwrap()
+                .evaluation_count(),
+            calls
+        );
+        assert_eq!(pool.reserved(), limit);
+        assert_eq!(checked.batch().num_rows(), 2);
+        drop(occupied);
+        let selected = checked.slice(0, 1).unwrap();
+        let projected = checked
+            .project_exact(&registry, spec, &[0], &cancel, &context)
+            .unwrap();
+        drop((checked, selected, projected));
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn raw_candidates_relinquish_checked_metadata_but_keep_buffer_owners() {
+        let registry = registry();
+        let spec = registry.relation("authored.values").unwrap();
+        let context =
+            crate::validate::ValidationContext::new(&registry, SessionContext::new().state());
+        let cancel = pse_columnar::CancellationToken::new();
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        for shared in [false, true] {
+            let raw = RecordBatch::try_new(
+                pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+                vec![Arc::new(Int64Array::from(vec![1, 2]))],
+            )
+            .unwrap();
+            let checked = FieldCheckedBatch::admit(&registry, spec, raw, &context, &cancel)
+                .unwrap()
+                .retained(&pool, &cancel)
+                .unwrap();
+            let buffers = checked.owned().unwrap().retained_bytes().unwrap();
+            let container =
+                pse_columnar::MemoryConsumer::new("raw-candidate:test-container").register(&pool);
+            container.try_grow(4096).unwrap();
+            let checked = checked.with_export_owner(pse_columnar::AllocationLease::new(container));
+            let raw = if shared {
+                let raw = checked.clone().into_batch();
+                drop(checked);
+                raw
+            } else {
+                checked.into_batch()
+            };
+            // The raw Vec belongs to destination admission, not checked export accounting.
+            assert_eq!(pool.reserved(), buffers);
+            assert_eq!(
+                raw.column(0).as_any().downcast_ref::<Int64Array>().unwrap(),
+                &Int64Array::from(vec![1, 2])
+            );
+            drop(raw);
+            assert_eq!(pool.reserved(), 0);
+        }
     }
 
     #[test]

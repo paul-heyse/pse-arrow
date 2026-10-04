@@ -1,0 +1,374 @@
+--- a/uno/ingredients/subproblem_solvers/HiGHS/HiGHSSolver.cpp
++++ b/uno/ingredients/subproblem_solvers/HiGHS/HiGHSSolver.cpp
+@@ -2,18 +2,125 @@
+ // Licensed under the MIT license. See LICENSE file in the project directory for details.
+ 
+ #include <stdexcept>
++#include <cstdint>
++#include <limits>
++#include <algorithm>
++#include <new>
++#include <utility>
+ #include "HiGHSSolver.hpp"
+ #include "HiGHSQuadraticProgram.hpp"
+ #include "ingredients/subproblem/Subproblem.hpp"
+ #include "optimization/Direction.hpp"
+ #include "options/Options.hpp"
+ #include "tools/Logger.hpp"
++#include "tools/Statistics.hpp"
++
++// Scoped callback installed by the exception-shielded integration bridge.
++// It is thread-local because a solver may run on any admitted worker thread.
++namespace {
++   thread_local void (*pse_scope_callback)(int32_t, void*) = nullptr;
++   thread_local void* pse_scope_data = nullptr;
++   thread_local double pse_accuracy[4];
++   thread_local uint64_t pse_feasibility_calls = 0, pse_feasibility_iterations = 0;
++   thread_local int32_t pse_feasibility_status = 0, pse_feasibility_status_available = 0;
++   thread_local int32_t pse_feasibility_iterations_available = 1, pse_qp_hot_start = -1;
++   thread_local double pse_feasibility_tolerance;
++   thread_local uint64_t pse_materialization_limit = 0;
++   thread_local uint64_t pse_materialization_count = 0;
++   thread_local uint64_t pse_materialization_columns = 0;
++   thread_local uint64_t pse_materialization_numeric_bytes = 0;
++   void pse_check_scope(int32_t reason) {
++      if (pse_scope_callback) pse_scope_callback(reason, pse_scope_data);
++      if (reason == 1) throw std::runtime_error("HiGHS exhausted Uno time limit");
++      if (reason == 2) throw std::bad_alloc();
++   }
++}
++extern "C" void uno_pse_set_scope_callback(void (*callback)(int32_t, void*), void* data) {
++   pse_scope_callback = callback; pse_scope_data = data;
++   if (callback) {
++      std::fill_n(pse_accuracy, 4, std::numeric_limits<double>::quiet_NaN());
++      pse_feasibility_calls = pse_feasibility_iterations = 0;
++      pse_feasibility_status = pse_feasibility_status_available = 0;
++      pse_feasibility_iterations_available = 1; pse_qp_hot_start = -1;
++      pse_feasibility_tolerance = std::numeric_limits<double>::quiet_NaN();
++   }
++}
++
++extern "C" void uno_pse_get_feasibility(uint64_t* calls, uint64_t* iterations, int32_t* status,
++      int32_t* status_available, int32_t* iterations_available, int32_t* hot_start, double* tolerance) {
++   *calls = pse_feasibility_calls; *iterations = pse_feasibility_iterations;
++   *status = pse_feasibility_status; *status_available = pse_feasibility_status_available;
++   *iterations_available = pse_feasibility_iterations_available; *hot_start = pse_qp_hot_start;
++   *tolerance = pse_feasibility_tolerance;
++}
++extern "C" double uno_pse_minimum_tolerance() { return kMinimumKktTolerance; }
++extern "C" void uno_pse_get_accuracy(double* accuracy) { std::copy_n(pse_accuracy, 4, accuracy); }
++
++// Mechanical foreign representation lowering; the Hessian action remains Uno-owned.
++extern "C" void uno_pse_set_materialization_limit(uint64_t bytes) {
++   pse_materialization_limit = bytes;
++   pse_materialization_count = pse_materialization_columns = pse_materialization_numeric_bytes = 0;
++}
++extern "C" void uno_pse_materialization_begin(uint64_t n) {
++   pse_check_scope(0);
++   if (n > static_cast<uint64_t>(std::numeric_limits<int32_t>::max())) pse_check_scope(2);
++   const uint64_t count = n * (n + 1) / 2;
++   if (count > static_cast<uint64_t>(std::numeric_limits<int32_t>::max())) pse_check_scope(2);
++   // COO indices/value/permutation, CSC indices/value, passModel copy, and two
++   // action vectors. This is an allowance projection, not a measured allocator total.
++   const uint64_t storage_allowance = count * 64 + n * 16;
++   if (!pse_materialization_limit || storage_allowance > pse_materialization_limit) pse_check_scope(2);
++}
++extern "C" void uno_pse_materialization_poll() { pse_check_scope(0); }
++extern "C" void uno_pse_materialization_memory_failure() { pse_check_scope(2); }
++extern "C" void uno_pse_materialization_column() { pse_check_scope(0); ++pse_materialization_columns; }
++extern "C" void uno_pse_materialization_complete(uint64_t numeric_bytes) {
++   ++pse_materialization_count;
++   pse_materialization_numeric_bytes = std::max(pse_materialization_numeric_bytes, numeric_bytes);
++}
++extern "C" void uno_pse_get_materialization(uint64_t* count, uint64_t* columns, uint64_t* numeric_bytes) {
++   *count = pse_materialization_count; *columns = pse_materialization_columns; *numeric_bytes = pse_materialization_numeric_bytes;
++}
+ 
+ namespace uno {
+    HiGHSSolver::HiGHSSolver(const Options& options):
+-         QPSolver(), print_subproblem(options.get_bool("print_subproblem")) {
++         QPSolver(), print_subproblem(options.get_bool("print_subproblem")),
++         time_limit(options.get_double("time_limit")) {
+       INFO << "Running HiGHS v" << highsVersion() << '\n';
+-      this->highs_solver.setOptionValue("output_flag", "false");
++      if (this->highs_solver.setOptionValue("output_flag", false) != HighsStatus::kOk ||
++            this->highs_solver.setOptionValue("threads", 1) != HighsStatus::kOk ||
++            this->highs_solver.setOptionValue("parallel", "off") != HighsStatus::kOk) {
++         throw std::runtime_error("HiGHS refused the admitted serial controls");
++      }
++      // Consume the required outer accuracy at the native LP/QP boundary. HiGHS
++      // 1.15.0 admits these tolerances down to 1e-10. The admitted SQP Hessian
++      // is positive definite; remove HiGHS' additional 1e-7 diagonal perturbation
++      // instead of solving a different, accuracy-limited quadratic model.
++      const double primal_tolerance = options.get_double("primal_tolerance");
++      const double dual_tolerance = options.get_double("dual_tolerance");
++      if (this->highs_solver.setOptionValue("primal_feasibility_tolerance", primal_tolerance) != HighsStatus::kOk ||
++            this->highs_solver.setOptionValue("dual_feasibility_tolerance", dual_tolerance) != HighsStatus::kOk ||
++            this->highs_solver.setOptionValue("optimality_tolerance", dual_tolerance) != HighsStatus::kOk ||
++            this->highs_solver.setOptionValue("qp_regularization_value", 0.) != HighsStatus::kOk) {
++         throw std::runtime_error("HiGHS refused required subproblem accuracy");
++      }
++      const char* accuracy_options[] = {"primal_feasibility_tolerance", "dual_feasibility_tolerance",
++         "optimality_tolerance", "qp_regularization_value"};
++      for (size_t i = 0; i < 4; ++i) {
++         if (this->highs_solver.getOptionValue(accuracy_options[i], pse_accuracy[i]) != HighsStatus::kOk) {
++            throw std::runtime_error("HiGHS refused effective accuracy readback");
++         }
++      }
++      bool hot_start = false;
++      if (this->highs_solver.setOptionValue("qp_allow_hot_start", true) != HighsStatus::kOk ||
++            this->highs_solver.getOptionValue("qp_allow_hot_start", hot_start) != HighsStatus::kOk || !hot_start ||
++            this->feasibility_solver.passOptions(this->highs_solver.getOptions()) != HighsStatus::kOk ||
++            this->feasibility_solver.setOptionValue("solver", "simplex") != HighsStatus::kOk ||
++            this->feasibility_solver.setOptionValue("primal_feasibility_tolerance", std::min(primal_tolerance, dual_tolerance)) != HighsStatus::kOk ||
++            this->feasibility_solver.getOptionValue("primal_feasibility_tolerance", pse_feasibility_tolerance) != HighsStatus::kOk) {
++         throw std::runtime_error("HiGHS refused current-subproblem feasible-start controls");
++      }
++      pse_qp_hot_start = hot_start ? 1 : 0;
+       // construct an empty HiGHS-native quadratic program so that get_quadratic_program() can be used to
+       // build it directly from data (no Subproblem); the full solver instead calls initialize_memory(subproblem)
+       this->quadratic_program = std::make_unique<HiGHSQuadraticProgram>();
+@@ -29,7 +136,7 @@
+       return *this->quadratic_program;
+    }
+ 
+-   void HiGHSSolver::solve(Statistics& /*statistics*/, const Vector<double>& /*initial_point*/, Direction& direction,
++   void HiGHSSolver::solve(Statistics& statistics, const Vector<double>& /*initial_point*/, Direction& direction,
+          const WarmstartInformation& /*warmstart_information*/) {
+       if (this->print_subproblem) {
+          DEBUG << "Subproblem:\n";
+@@ -45,7 +152,7 @@
+                this->quadratic_program->model.lp_.row_upper_[constraint_index]<< "]\n";
+          }
+       }
+-      this->solve_subproblem(direction);
++      this->solve_subproblem(direction, statistics);
+    }
+ 
+    SolverWorkspace& HiGHSSolver::get_workspace() {
+@@ -54,13 +161,67 @@
+ 
+    // protected member functions
+ 
+-   void HiGHSSolver::solve_subproblem(Direction& direction) {
++   void HiGHSSolver::set_remaining_time(Highs& solver, const Statistics& statistics) const {
++      pse_check_scope(0);
++      const double remaining = this->time_limit - statistics.timers.wallclock.get_elapsed_time();
++      if (remaining <= 0.) pse_check_scope(1);
++      // Each retained native owner has its own cumulative run clock.
++      if (solver.setOptionValue("time_limit", solver.getRunTime() + remaining) != HighsStatus::kOk) {
++         throw std::runtime_error("HiGHS refused remaining task time");
++      }
++   }
++
++   bool HiGHSSolver::seed_feasible_point(Direction& direction, const Statistics& statistics) try {
++      pse_check_scope(0);
++      HighsLp feasibility = this->quadratic_program->model.lp_;
++      feasibility.col_cost_.assign(feasibility.num_col_, 0.);
++      feasibility.offset_ = 0.;
++      if (this->feasibility_solver.passModel(std::move(feasibility)) != HighsStatus::kOk) {
++         throw std::runtime_error("HiGHS refused current-subproblem feasibility LP");
++      }
++      this->set_remaining_time(this->feasibility_solver, statistics);
++      if (pse_feasibility_calls == std::numeric_limits<uint64_t>::max()) pse_check_scope(2);
++      ++pse_feasibility_calls;
++      const HighsStatus result = this->feasibility_solver.run();
++      const HighsModelStatus status = this->feasibility_solver.getModelStatus();
++      pse_feasibility_status = static_cast<int32_t>(status); pse_feasibility_status_available = 1;
++      const HighsInfo& info = this->feasibility_solver.getInfo();
++      if (info.valid && info.simplex_iteration_count >= 0) {
++         const uint64_t iterations = static_cast<uint64_t>(info.simplex_iteration_count);
++         if (iterations > std::numeric_limits<uint64_t>::max() - pse_feasibility_iterations) pse_check_scope(2);
++         pse_feasibility_iterations += iterations;
++      }
++      else pse_feasibility_iterations_available = 0;
++      if (status == HighsModelStatus::kTimeLimit) pse_check_scope(1);
++      pse_check_scope(0);
++      if (status == HighsModelStatus::kInfeasible || status == HighsModelStatus::kUnboundedOrInfeasible) {
++         direction.status = SubproblemStatus::INFEASIBLE; return false;
++      }
++      if (result == HighsStatus::kError || status != HighsModelStatus::kOptimal) {
++         direction.status = SubproblemStatus::ERROR; return false;
++      }
++      // The current LP produces both native objects; no previous task start or
++      // custom feasibility/curvature iteration enters the QP hot-start contract.
++      if (this->highs_solver.setSolution(this->feasibility_solver.getSolution()) != HighsStatus::kOk ||
++            this->highs_solver.setBasis(this->feasibility_solver.getBasis(), "Uno current-subproblem feasibility LP") != HighsStatus::kOk) {
++         throw std::runtime_error("HiGHS refused its current feasible point and basis");
++      }
++      pse_check_scope(0);
++      return true;
++   }
++   catch (const std::bad_alloc&) { pse_check_scope(2); throw; }
++
++   void HiGHSSolver::solve_subproblem(Direction& direction, const Statistics& statistics) {
++      pse_check_scope(0);
+       // solve the subproblem
+       HighsStatus return_status = this->highs_solver.passModel(this->quadratic_program->model);
+       if (return_status == HighsStatus::kError) {
+          throw std::runtime_error("HiGHS could not read the model.");
+       }
+ 
++      if (this->quadratic_program->model.isQp() && this->quadratic_program->model.lp_.num_row_ > 0 &&
++            !this->seed_feasible_point(direction, statistics)) return;
++      this->set_remaining_time(this->highs_solver, statistics);
+       DEBUG2 << "Running HiGHS\n";
+       return_status = this->highs_solver.run(); // solve
+       DEBUG2 << "Ran HiGHS\n";
+@@ -71,6 +232,8 @@
+          throw std::runtime_error("HiGHS encountered negative curvature, which it cannot handle. Terminating.");
+       }
+       HighsModelStatus model_status = highs_solver.getModelStatus();
++      if (model_status == HighsModelStatus::kTimeLimit) pse_check_scope(1);
++      pse_check_scope(0);
+       DEBUG << "HiGHS model status: " << static_cast<int>(model_status) << '\n';
+ 
+       if (model_status == HighsModelStatus::kInfeasible || model_status == HighsModelStatus::kUnboundedOrInfeasible) {
+--- a/uno/ingredients/subproblem_solvers/HiGHS/HiGHSSolver.hpp
++++ b/uno/ingredients/subproblem_solvers/HiGHS/HiGHSSolver.hpp
+@@ -32,10 +32,14 @@
+       // HiGHS-native quadratic program (built by IQPSolver before each solve)
+       std::unique_ptr<HiGHSQuadraticProgram> quadratic_program{};
+       Highs highs_solver;
++      Highs feasibility_solver;
+ 
+       const bool print_subproblem;
++      const double time_limit;
+ 
+-      void solve_subproblem(Direction& direction);
++      void solve_subproblem(Direction& direction, const Statistics& statistics);
++      void set_remaining_time(Highs& solver, const Statistics& statistics) const;
++      bool seed_feasible_point(Direction& direction, const Statistics& statistics);
+    };
+ } // namespace
+ 
+--- a/uno/ingredients/subproblem_solvers/HiGHS/HiGHSQuadraticProgram.cpp
++++ b/uno/ingredients/subproblem_solvers/HiGHS/HiGHSQuadraticProgram.cpp
+@@ -2,6 +2,14 @@
+ // Licensed under the MIT license. See LICENSE file in the project directory for details.
+ 
+ #include "HiGHSQuadraticProgram.hpp"
++#include <cstdint>
++#include <new>
++#include <cmath>
++extern "C" void uno_pse_materialization_begin(uint64_t);
++extern "C" void uno_pse_materialization_column();
++extern "C" void uno_pse_materialization_poll();
++extern "C" void uno_pse_materialization_memory_failure();
++extern "C" void uno_pse_materialization_complete(uint64_t);
+ #include "ingredients/subproblem/Subproblem.hpp"
+ #include "linear_algebra/Indexing.hpp"
+ #include "linear_algebra/Vector.hpp"
+@@ -10,7 +18,7 @@
+ #include "symbolic/Range.hpp"
+ 
+ namespace uno {
+-   void HiGHSQuadraticProgram::initialize_memory(const Subproblem& subproblem) {
++   void HiGHSQuadraticProgram::initialize_memory(const Subproblem& subproblem) try {
+       this->number_variables = subproblem.number_variables;
+       this->number_constraints = subproblem.number_constraints;
+       this->number_jacobian_nonzeros = subproblem.number_jacobian_nonzeros();
+@@ -33,6 +41,7 @@
+       this->compute_jacobian_sparsity(subproblem);
+       this->compute_hessian_sparsity(subproblem);
+    }
++   catch (const std::bad_alloc&) { uno_pse_materialization_memory_failure(); throw; }
+ 
+    void HiGHSQuadraticProgram::fill(Statistics& statistics, const Subproblem& subproblem, const Iterate& current_iterate,
+          double trust_region_radius, Evaluations& current_evaluations, const WarmstartInformation& warmstart_information) {
+@@ -117,16 +126,32 @@
+ 
+    // column-wise lower triangular Lagrangian Hessian
+    void HiGHSQuadraticProgram::compute_hessian_sparsity(const Subproblem& subproblem) {
+-      if (!subproblem.has_hessian_matrix()) {
+-         throw std::runtime_error("The subproblem does not have an explicit Hessian matrix and cannot be solved with HiGHS");
+-      }
+-      const size_t number_regularized_hessian_nonzeros = subproblem.number_regularized_hessian_nonzeros();
++      const bool materialize = !subproblem.has_hessian_matrix();
++      if (materialize && (!subproblem.has_hessian_operator() || !subproblem.is_hessian_positive_definite())) {
++         throw std::runtime_error("HiGHS requires an explicit matrix or an admitted positive Hessian operator");
++      }
++      if (materialize) uno_pse_materialization_begin(subproblem.number_variables);
++      const size_t number_regularized_hessian_nonzeros = materialize
++         ? subproblem.number_variables * (subproblem.number_variables + 1) / 2
++         : subproblem.number_regularized_hessian_nonzeros();
+       // get the Hessian sparsity in COO format
+       this->hessian_row_indices.resize(number_regularized_hessian_nonzeros);
+       this->hessian_column_indices.resize(number_regularized_hessian_nonzeros);
+       this->hessian_values.resize(number_regularized_hessian_nonzeros);
+-      subproblem.compute_regularized_hessian_sparsity(this->hessian_row_indices.view(),
+-         this->hessian_column_indices.view(), Indexing::C_indexing);
++      if (materialize) {
++         size_t entry = 0;
++         for (size_t column = 0; column < subproblem.number_variables; ++column) {
++            uno_pse_materialization_poll();
++            for (size_t row = column; row < subproblem.number_variables; ++row) {
++               this->hessian_row_indices[entry] = static_cast<uno_int>(row);
++               this->hessian_column_indices[entry++] = static_cast<uno_int>(column);
++            }
++         }
++      }
++      else {
++         subproblem.compute_regularized_hessian_sparsity(this->hessian_row_indices.view(),
++            this->hessian_column_indices.view(), Indexing::C_indexing);
++      }
+       // convert COO -> HiGHS' lower-triangular CSC layout
+       this->build_csc_hessian_from_coo(subproblem.number_variables);
+    }
+@@ -170,7 +195,7 @@
+    }
+ 
+    void HiGHSQuadraticProgram::evaluate_functions(Statistics& statistics, const Subproblem& subproblem, const Iterate& current_iterate,
+-         Evaluations& current_evaluations, const WarmstartInformation& warmstart_information) {
++         Evaluations& current_evaluations, const WarmstartInformation& warmstart_information) try {
+       // evaluate the functions based on warmstart information
+       if (warmstart_information.new_iterate) {
+          for (size_t index: Range(subproblem.number_variables)) {
+@@ -180,11 +205,33 @@
+          subproblem.problem.evaluate_constraints(current_iterate, this->constraints.view(), current_evaluations);
+          this->evaluate_jacobian(subproblem.problem, current_iterate.primals, current_evaluations);
+          // evaluate the Hessian and regularize it
+-         subproblem.evaluate_lagrangian_hessian(statistics, current_iterate, this->hessian_values.view());
++         if (subproblem.has_hessian_matrix()) {
++            subproblem.evaluate_lagrangian_hessian(statistics, current_iterate, this->hessian_values.view());
++         }
++         else {
++            // Apply the library-owned positive operator to coordinate columns;
++            // no quasi-Newton update, curvature rule or optimizer lives here.
++            uno_pse_materialization_begin(subproblem.number_variables);
++            Vector<double> basis(subproblem.number_variables), action(subproblem.number_variables);
++            basis.fill(0.);
++            size_t entry = 0;
++            for (size_t column = 0; column < subproblem.number_variables; ++column) {
++               uno_pse_materialization_column();
++               basis[column] = 1.;
++               subproblem.compute_hessian_vector_product(current_iterate, current_iterate.primals.view(), basis.view(), action.view());
++               basis[column] = 0.;
++               for (size_t row = column; row < subproblem.number_variables; ++row) {
++                  if (!std::isfinite(action[row])) throw std::runtime_error("nonfinite library Hessian action");
++                  this->hessian_values[entry++] = action[row];
++               }
++            }
++            uno_pse_materialization_complete(this->hessian_values.size() * sizeof(double));
++         }
+          this->scatter_hessian_values(); // copy the Hessian with permutation into this->model.hessian_.value_
+          subproblem.regularize_lagrangian_hessian(statistics, view(this->model.hessian_.value_));
+       }
+    }
++   catch (const std::bad_alloc&) { uno_pse_materialization_memory_failure(); throw; }
+ 
+    void HiGHSQuadraticProgram::evaluate_jacobian(const OptimizationProblem& problem, const Vector<double>& primals,
+          Evaluations& evaluations) {
+--- a/uno/ingredients/constraint_relaxation_strategies/NoRelaxation.cpp
++++ b/uno/ingredients/constraint_relaxation_strategies/NoRelaxation.cpp
+@@ -26,6 +26,10 @@
+ 
+    void NoRelaxation::initialize(Statistics& statistics, Iterate& initial_iterate, bool uses_trust_region,
+          EvaluationCache& evaluation_cache, const Options& options, std::vector<OptionOverride>& option_overrides) {
++      // NoRelaxation owns merit globalization regardless of the constrained preset.
++      // Publish that actual selection through the existing C option readback route.
++      option_overrides.emplace_back("globalization_strategy", options.get_string("globalization_strategy"),
++         "merit_function", "unconstrained problem");
+       this->initial_point.resize(this->original_problem.number_variables);
+ 
+       // reformulation of the original problem

@@ -18,6 +18,7 @@ import pyarrow.parquet as pq
 import pse
 from pse import conformance
 from pse.contracts.documents import (
+    AssemblyLimits,
     BindingAssignment,
     BindingQuantity,
     BindingTargetPath,
@@ -100,6 +101,12 @@ def measure(output: Path, selected: str) -> None:
         # Campaign-owned bounds are explicit inputs to admission, not production defaults.
         preparation = PreparationSettings(
             compiler=StudyCompilerProfile(
+                class_proof_work=1_000_000,
+                assembly=AssemblyLimits(
+                    contributions=1_000_000,
+                    native_index=2_147_483_647,
+                    worker_bytes=2 << 30,
+                ),
                 optimization=Optimization(
                     cores=1, horner_iterations=10, cpe_iterations=10
                 ),

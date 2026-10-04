@@ -1,0 +1,47 @@
+{
+  "invariant": "runtime.solve_strategy_events:unique:pk",
+  "rows": {
+    "runtime.solve_strategy_events": [
+      {
+        "accuracy_class": "[\"enum\",\"certified\"]",
+        "accuracy_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "attempts": "[\"i64\",1]",
+        "backend": "[\"enum\",\"ipopt\"]",
+        "charging_owner": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "derived_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "detail": "[\"text\",\"value-1\"]",
+        "evaluations": "[\"i64\",1]",
+        "event": "[\"i64\",1]",
+        "factorizations": "[\"i64\",1]",
+        "failures": "[\"list\",[]]",
+        "fidelity_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "infill_statistic": "[\"f64\",\"3ff0000000000000\"]",
+        "iterations": "[\"i64\",1]",
+        "kind": "[\"enum\",\"planned\"]",
+        "mechanism": "[\"enum\",\"direct\"]",
+        "observation": "[\"enum\",\"converged\"]",
+        "original_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "path_events": "[\"list\",[]]",
+        "permission": "[\"enum\",\"usable\"]",
+        "phase": "[\"enum\",\"preparation\"]",
+        "profile_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "proof_steps": "[\"i64\",1]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope": "[\"enum\",\"task\"]",
+        "start_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "start_origin": "[\"enum\",\"specification\"]",
+        "step": "[\"i64\",1]",
+        "strategy_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "surrogate_coordinates": "[\"list\",[]]",
+        "surrogate_global_iterations": "[\"i64\",1]",
+        "surrogate_local_iterations": "[\"i64\",1]",
+        "surrogate_model_values": "[\"list\",[]]",
+        "surrogate_radius": "[\"f64\",\"3ff0000000000000\"]",
+        "surrogate_task_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "transition": "[\"enum\",\"finish\"]",
+        "transport_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

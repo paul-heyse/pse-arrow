@@ -660,6 +660,39 @@ pub fn root_isolation_program(
     cancel: &Arc<AtomicBool>,
     max_nodes: usize,
 ) -> Result<Option<RootIsolationProgram>, FactorableError> {
+    root_isolation_program_for_outputs(
+        instance,
+        residual,
+        &(0..residual.output_count()).collect::<Vec<_>>(),
+        eligibility,
+        criterion,
+        cancel,
+        max_nodes,
+    )
+}
+/// Project explicitly selected compiler-owned residual outputs. All original value
+/// and derivative guard obligations of that demanded source remain represented.
+/// # Errors
+/// Invalid output selection, interruption, bounds or unsupported exact projection.
+pub fn root_isolation_program_for_outputs(
+    instance: SemanticId,
+    residual: &PreparedBody,
+    residual_outputs: &[usize],
+    eligibility: &PreparedBody,
+    criterion: &PreparedBody,
+    cancel: &Arc<AtomicBool>,
+    max_nodes: usize,
+) -> Result<Option<RootIsolationProgram>, FactorableError> {
+    if residual_outputs.is_empty()
+        || residual_outputs
+            .iter()
+            .any(|i| *i >= residual.output_count())
+        || residual_outputs.iter().collect::<BTreeSet<_>>().len() != residual_outputs.len()
+    {
+        return fail(MathError::Contract(
+            "selected residual output layout".into(),
+        ));
+    }
     if cancel.load(Ordering::Relaxed) {
         return fail(MathError::Cancelled);
     }
@@ -684,7 +717,7 @@ pub fn root_isolation_program(
     let inputs = (0..residual.input_count())
         .map(|column| Input::Column(column, 1.0, 0.0))
         .collect::<Vec<_>>();
-    let outputs = (0..residual.output_count()).collect::<Vec<_>>();
+    let outputs = residual_outputs.to_vec();
     let projected = builder.instance(instance, residual, &inputs, &outputs)?;
     let residuals = outputs.iter().map(|o| projected[o]).collect();
     // Preserve branch predicates symbolically: materializing an indicator would
@@ -718,6 +751,7 @@ pub fn root_isolation_program(
     };
     let projected_criterion = builder.instance(instance, criterion, &inputs, &[0, 1])?;
     let criterion = [projected_criterion[&0], projected_criterion[&1]];
+    builder.establish_unconditional_obligations()?;
     if !builder.auxiliaries.is_empty()
         || !builder.implicit.is_empty()
         || builder
@@ -952,6 +986,23 @@ impl CasePlan {
         limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<FactorableProgram, FactorableError> {
+        self.factorable_program_core(values, request, limit, cancel, false)
+            .map(|(program, _)| program)
+    }
+    fn factorable_program_core(
+        &self,
+        values: &CaseValues,
+        request: &FactorableRequest,
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+        exact_real: bool,
+    ) -> Result<
+        (
+            FactorableProgram,
+            Vec<(DerivativeOrder, ProjectedObligation)>,
+        ),
+        FactorableError,
+    > {
         if limit == 0 {
             return fail(MathError::Limit(EXTENT));
         }
@@ -971,9 +1022,23 @@ impl CasePlan {
             .columns()
             .iter()
             .map(|id| {
-                let v = declared
-                    .get(id)
-                    .ok_or_else(|| MathError::Contract("column without a declaration".into()))?;
+                let Some(v) = declared.get(id) else {
+                    if self
+                        .structure()
+                        .parameters()
+                        .iter()
+                        .any(|parameter| parameter.id == *id)
+                    {
+                        return Ok(ProjectedVariable {
+                            id: *id,
+                            domain: ModelingVariableDomain::Continuous,
+                            lower: f64::NEG_INFINITY,
+                            upper: f64::INFINITY,
+                            active_lower: None,
+                        });
+                    }
+                    return Err(MathError::Contract("column without a declaration".into()));
+                };
                 Ok(ProjectedVariable {
                     id: *id,
                     domain: v.domain,
@@ -1004,6 +1069,7 @@ impl CasePlan {
             .max()
             .unwrap_or(0);
         let mut builder = Builder::new(request, cancel, limit, slots)?;
+        builder.exact_real = exact_real;
         let mut terms: Vec<Vec<NodeId>> = vec![vec![]; rows.len()];
         let mut unavailable = vec![false; rows.len()];
         let mut objective_terms = vec![];
@@ -1152,6 +1218,10 @@ impl CasePlan {
             h.str("checked-selected-graph");
             block.selection.frame(&mut h);
         }
+        if exact_real {
+            h.str("actual-root-real-constants-and-derivative-guards");
+        }
+        let derivative_obligations = builder.derivative_obligations;
         let mut program = FactorableProgram {
             key: h.finish_hash(),
             require_exact: request.require_exact,
@@ -1173,7 +1243,113 @@ impl CasePlan {
                 fidelity: program.fidelity(),
             });
         }
-        Ok(program)
+        Ok((program, derivative_obligations))
+    }
+    /// Project a genuine scalar root family using the same exact-real Builder as
+    /// selected-root isolation. Original states retain their contiguous prefix;
+    /// the declared external parameter follows them for the library adapter. A singleton zero-score
+    /// union can establish regular RootSheet transport, never selector-minimum meaning.
+    /// # Errors
+    /// Invalid scalar inventory or finite interval, source/resource errors. Unsupported
+    /// original domains/guards/relaxations return None rather than inventing proof support.
+    pub fn root_path_isolation_program(
+        &self,
+        values: &CaseValues,
+        parameter: SemanticId,
+        interval: (f64, f64),
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Option<(ContentHash, RootIsolationProgram)>, FactorableError> {
+        let n =
+            self.columns().len().checked_sub(1).ok_or_else(|| {
+                MathError::Contract("empty root path coordinate inventory".into())
+            })?;
+        if self.columns()[n] != parameter
+            || !self
+                .structure()
+                .parameters()
+                .iter()
+                .any(|p| p.id == parameter)
+            || !interval.0.is_finite()
+            || !interval.1.is_finite()
+            || interval.0 >= interval.1
+        {
+            return fail(MathError::Contract(
+                "root path requires its declared last scalar and finite physical interval".into(),
+            ));
+        }
+        let request = FactorableRequest::default();
+        let (mut program, derivative_obligations) =
+            self.factorable_program_core(values, &request, limit, cancel, true)?;
+        let valid_guard = |g: &ProjectedObligation| {
+            g.represented
+                && g.fidelity == Fidelity::Exact
+                && g.scope == ObligationScope::Unconditional
+        };
+        if program.rows.len() != n
+            || program.objective.is_some()
+            || !program.auxiliaries.is_empty()
+            || !program.implicit.is_empty()
+            || !program.native.is_empty()
+            || program.fidelity() != Fidelity::Exact
+            || program.variables[..n].iter().any(|v| {
+                v.domain != ModelingVariableDomain::Continuous
+                    || !v.lower.is_finite()
+                    || !v.upper.is_finite()
+                    || v.lower >= v.upper
+            })
+            || program
+                .rows
+                .iter()
+                .any(|r| r.expression.is_none() || !r.lower.is_finite() || r.lower != r.upper)
+            || program.obligations.iter().any(|g| !valid_guard(g))
+            || derivative_obligations
+                .iter()
+                .any(|(order, g)| *order <= DerivativeOrder::First && !valid_guard(g))
+        {
+            return Ok(None);
+        }
+        if program
+            .nodes
+            .iter()
+            .any(|node| matches!(node,Node::Var(column) if *column>n))
+        {
+            return fail(MathError::Contract(
+                "root path factorable coordinate outside actual source".into(),
+            ));
+        }
+        let mut residuals = Vec::with_capacity(n);
+        for row in &program.rows {
+            let expression = row
+                .expression
+                .ok_or_else(|| MathError::Contract("root path row expression missing".into()))?;
+            if row.lower == 0. {
+                residuals.push(expression);
+            } else {
+                let constant = program.nodes.len();
+                program.nodes.push(Node::Const(Constant::Float(-row.lower)));
+                let residual = program.nodes.len();
+                program.nodes.push(Node::Sum(vec![expression, constant]));
+                residuals.push(residual);
+            }
+        }
+        let zero = program.nodes.len();
+        program.nodes.push(Node::Const(Constant::integer(0)));
+        if program.nodes.len() > limit {
+            return fail(MathError::Limit(EXTENT));
+        }
+        Ok(Some((
+            program.key,
+            RootIsolationProgram {
+                inputs: n + 1,
+                nodes: program.nodes,
+                residuals,
+                eligibility: vec![],
+                criterion: [zero, zero],
+                obligations: program.obligations,
+                derivative_obligations,
+            },
+        )))
     }
 }
 
@@ -1381,6 +1557,7 @@ pse_diagnostics::impl_diagnostic! {
     forward(this) { match this { Self::Math(e) => Some(e), Self::DisjunctiveBranch { .. } | Self::ExactRequired { .. } => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
+impl pse_model::diagnostic::DiagnosticProjection for FactorableError {}
 fn fail<T>(error: MathError) -> Result<T, FactorableError> {
     Err(FactorableError::Math(error))
 }
@@ -1562,6 +1739,44 @@ impl<'a> Builder<'a> {
             Ok(())
         }
     }
+    /// A branch-local guard is unconditional only when the same complete guard is
+    /// already enforced at every evaluation, at no later derivative order. Preserve
+    /// each authored occurrence; equal closed bounds alone do not cover a different
+    /// Require kind or argument (notably the constraint-free nonzero condition).
+    fn establish_unconditional_obligations(&mut self) -> Result<(), FactorableError> {
+        let covers = |guard: &ProjectedObligation, other: &ProjectedObligation| {
+            guard.represented
+                && other.represented
+                && other.scope == ObligationScope::Unconditional
+                && guard.instance == other.instance
+                && guard.kind == other.kind
+                && guard.argument == other.argument
+                && guard.constraints == other.constraints
+        };
+        for index in 0..self.obligations.len() {
+            self.check()?;
+            let guard = &self.obligations[index];
+            if guard.scope == ObligationScope::Conditional
+                && self.obligations.iter().any(|other| covers(guard, other))
+            {
+                self.obligations[index].scope = ObligationScope::Unconditional;
+            }
+        }
+        for index in 0..self.derivative_obligations.len() {
+            self.check()?;
+            let (minimum, guard) = &self.derivative_obligations[index];
+            if guard.scope == ObligationScope::Conditional
+                && (self.obligations.iter().any(|other| covers(guard, other))
+                    || self
+                        .derivative_obligations
+                        .iter()
+                        .any(|(order, other)| order <= minimum && covers(guard, other)))
+            {
+                self.derivative_obligations[index].1.scope = ObligationScope::Unconditional;
+            }
+        }
+        Ok(())
+    }
     fn constant_of(&self, node: NodeId) -> Option<Constant> {
         match self.nodes.get(node) {
             Some(Node::Const(c)) => Some(c.clone()),
@@ -1667,6 +1882,56 @@ impl<'a> Builder<'a> {
                 .map(Constant::Rational);
         }
         constant(view)
+    }
+    fn constant_power(
+        &mut self,
+        base: NodeId,
+        exponent: Constant,
+        cx: Context,
+    ) -> Result<NodeId, FactorableError> {
+        if self.exact_real
+            && let Constant::Rational(rational) = &exponent
+            && !rational.is_integer()
+            && rational != &Rational::new(1, 2)
+        {
+            // General real powers already require a strictly positive base in typed
+            // source programs. Use that actual retained value guard, never a new
+            // assumption, to project arbitrary rational powers through exp/log.
+            let positive = self.obligations.iter().any(|guard| {
+                guard.instance == cx.instance
+                    && guard.represented
+                    && guard.scope == ObligationScope::Unconditional
+                    && guard.kind == ObligationKind::Require(Condition::Positive)
+                    && guard.argument == Some(base)
+            });
+            if positive {
+                let log = self.push(Node::Log(base))?;
+                let exponent = self.constant(exponent)?;
+                let product = self.push(Node::Product(vec![exponent, log]))?;
+                return self.push(Node::Exp(product));
+            }
+            // A raw dyadic power may also admit zero. Repeated square roots followed
+            // by the exact integer numerator retain that boundary; negative powers
+            // retain their pole. Other unguarded rational domains remain unchanged.
+            if let (Ok(denominator), Ok(numerator)) = (
+                u64::try_from(rational.denominator()),
+                i32::try_from(rational.numerator()),
+            ) && denominator.is_power_of_two()
+            {
+                let mut root = base;
+                for _ in 0..denominator.trailing_zeros() {
+                    root = self.push(Node::Pow {
+                        base: root,
+                        exponent: Constant::Rational(Rational::new(1, 2)),
+                    })?;
+                }
+                return self.push(Node::Pow {
+                    base: root,
+                    exponent: Constant::integer(i64::from(numerator)),
+                });
+            }
+        }
+        self.push(Node::Pow { base, exponent })
     }
     fn value_is_zero(&self, value: &Value) -> bool {
         if !self.exact_real {
@@ -2127,10 +2392,7 @@ impl<'a> Builder<'a> {
                 let b = self.atom(base, env, cx, depth + 1)?;
                 if let AtomView::Num(n) = exponent {
                     return match self.coefficient(n.get_coeff_view()) {
-                        Some(c) => self.push(Node::Pow {
-                            base: b,
-                            exponent: c,
-                        }),
+                        Some(c) => self.constant_power(b, c, cx),
                         None => self.opaque(cx, Opacity::Constant),
                     };
                 }

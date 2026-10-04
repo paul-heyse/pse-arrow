@@ -21,6 +21,8 @@ workspace = true
 [features]
 default = []
 ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
+uno = ["dep:pse-uno-sys", "pse-uno-sys/link", "dep:highs-sys"]
+petsc = ["dep:pse-petsc-sys", "pse-petsc-sys/link"]
 highs = ["dep:highs", "dep:highs-sys"]
 pounce = ["dep:pounce-rs", "dep:rayon", "pounce-nlp/serde"]
 kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
@@ -35,11 +37,13 @@ sdp = ["clarabel/sdp", "clarabel/blas-src", "clarabel/lapack-src"]
 # which exports every symbol it resolves: the process keeps one oneMKL (ADR-0108 item 5).
 # `clarabel/faer-sparse` is not used: it pulls a second faer beside the pinned one.
 clarabel-pardiso = ["clarabel/pardiso-mkl"]
-diffsol = ["dep:diffsol", "dep:diffsol-la", "dep:suitesparse_sys"]
+diffsol = ["dep:diffsol-la", "dep:suitesparse_sys"]
 idas = ["dep:sundials-sys", "sundials-sys/idas", "dep:suitesparse_sys"]
 scip = ["dep:scip-sys"]
 native-solvers = [
   "ipopt",
+  "uno",
+  "petsc",
   "highs",
   "pounce",
   "kinsol",
@@ -53,7 +57,7 @@ native-solvers = [
 
 [dependencies]
 pse-model.workspace = true
-diffsol = { workspace = true, optional = true }
+diffsol.workspace = true
 diffsol-la = { workspace = true, optional = true }
 pounce-nlp.workspace = true
 pounce-common.workspace = true
@@ -73,14 +77,18 @@ serde_json.workspace = true
 serde.workspace = true
 schemars.workspace = true
 pse-ipopt-sys = { workspace = true, optional = true }
+pse-uno-sys = { workspace = true, optional = true }
+pse-petsc-sys = { workspace = true, optional = true }
 highs = { workspace = true, optional = true }
 highs-sys = { workspace = true, optional = true }
 pounce-rs = { workspace = true, optional = true }
 # The FERAL configuration of the POUNCE settings document, compiled in every build (Plan 22 B5).
 pounce-feral.workspace = true
+pounce-linsol.workspace = true
 feral.workspace = true
 # The backsolver contract of the KKT-point analysis (Plan 22 S0).
 pounce-sens-core.workspace = true
+pounce-qp.workspace = true
 rayon = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }
 suitesparse_sys = { workspace = true, optional = true }

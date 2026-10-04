@@ -62,6 +62,9 @@ pub struct Report {
     pub rejected_evaluations: usize,
     /// Termination that interrupted sampling, if any.
     pub terminal: Option<crate::solve::Termination>,
+    /// Original typed callback witness when sampling cannot continue.
+    /// A rejected sample must not erase its domain, selector or task-scope cause.
+    pub failure: Option<ProblemError>,
 }
 impl Report {
     /// Whether the sample completed with at least one comparison and no suspicious entry.
@@ -75,7 +78,16 @@ impl Report {
     /// Library comparison details retain the analytic and sampled values, not just counts.
     pub fn summary(&self) -> String {
         self.sample.as_ref().map_or_else(
-            || "no completed derivative sample".into(),
+            || {
+                let cause = self.failure.as_ref().map_or_else(
+                    || "no callback cause".into(),
+                    ToString::to_string,
+                );
+                format!(
+                    "no completed derivative sample; {} rejected evaluations; termination {:?}; {cause}",
+                    self.rejected_evaluations, self.terminal,
+                )
+            },
             |sample| format!(
                 "{} comparisons; {} suspicious entries; {} missing sparsity entries; {} rejected evaluations\n{}",
                 sample.checked, sample.suspicious, sample.missing_structure,
@@ -141,6 +153,10 @@ pub fn analyze(
         .map(|v| v.0)
         .or_else(|| execution.stopped());
     let rejected_evaluations = adapter.state.rejected_evaluations;
+    let failure = adapter
+        .state
+        .terminal_error()
+        .or_else(|| adapter.state.last_failure.take());
     let complete = terminal.is_none()
         && rejected_evaluations == 0
         && expected > 0
@@ -150,6 +166,7 @@ pub fn analyze(
         complete,
         rejected_evaluations,
         terminal,
+        failure,
     })
 }
 
@@ -393,6 +410,13 @@ mod tests {
         assert!(!failed.complete);
         assert!(!failed.passed());
         assert!(failed.rejected_evaluations > 0);
+        assert!(failed.failure.is_some());
+        assert!(failed.summary().contains("rejected evaluations"));
+        assert!(
+            failed
+                .summary()
+                .contains(&failed.failure.as_ref().unwrap().to_string())
+        );
         let mut fixed = crate::solver_tests::Polynomial::new();
         fixed.c.variables[0].lower = 2.;
         fixed.c.variables[0].upper = 2.;
@@ -400,6 +424,7 @@ mod tests {
         let stopped = run(crate::solver_tests::Polynomial::new(), true);
         assert!(!stopped.complete);
         assert_eq!(stopped.terminal, Some(crate::solve::Termination::Cancelled));
+        assert!(matches!(stopped.failure, Some(ProblemError::Cancelled)));
     }
     /// `min x₀² + x₁²` subject to `x₀·x₁ = 1`, with the box of `x₁` given per case.
     #[derive(Debug)]
