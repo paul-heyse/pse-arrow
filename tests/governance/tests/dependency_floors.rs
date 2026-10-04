@@ -53,8 +53,9 @@ fn no_dependency_declares_a_higher_msrv_than_the_workspace() {
     assert!(
         offenders.is_empty(),
         "packages in the resolved graph declare a rust-version above ours ({ours}):\n  {}\n\
-         Either pin the dependency back, or raise [workspace.package].rust-version, \
-         keeping the pinned nightly in rust-toolchain.toml at or above it (ADR-0122).",
+         Raise [workspace.package].rust-version, keeping the pinned nightly in \
+         rust-toolchain.toml at or above it (ADR-0122); hold the dependency back only with a \
+         recorded reason in [workspace.metadata.pse.pins] (ADR-0159).",
         offenders.join("\n  ")
     );
 }
