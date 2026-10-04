@@ -1,13 +1,13 @@
 ---
 id: ADR-0159
 title: Dependencies float; exact pins need a recorded reason
-status: proposed
+status: accepted
 date: 2026-10-04
 deciders: [paul-heyse]
 level: decision
 principles: [DP-14, DP-15]
 blueprint: [§3.1, §3.3.2]
-review: not-required: proposed record; the governance-tier design review that acceptance requires has not run (maintainer policy decision of 2026-10-04, Status history)
+review: docs/design_review/reviews/design_review_dependency-float-policy_2026-10-04.md#9-decision
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -122,7 +122,8 @@ on the committed lock.
 
 Implemented: `tests/governance/tests/dependency_pins.rs` and its unit cases; `cargo metadata
 --locked` and `uv lock --check` pass on the converted manifests; `just governance` passes.
-Architectural acceptance: the governance-tier design review.
+Architectural acceptance: the governance-tier design review, verdict Accept-scoped, findings
+F01–F07 resolved in commit `b8ddd5412`.
 
 ## Pros and cons
 
@@ -146,3 +147,6 @@ qualifies behaviour at the resolved version.
   shift"); implemented in the same change. Acceptance waits for the governance-tier design
   review (`needs-review`). Initially recorded as superseding ADR-0122; changed before
   acceptance to amend ADR-0122 and ADR-0066 and retain both (review F01).
+- 2026-10-04 — accepted on the governance-tier design review
+  (`design_review_dependency-float-policy_2026-10-04.md`, verdict Accept-scoped); findings
+  F01–F07 resolved in commit `b8ddd5412`.
