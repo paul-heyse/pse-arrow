@@ -394,28 +394,35 @@ impl PreparedPath {
     pub(crate) fn worker_bytes(&self) -> usize {
         self.workspace_bytes
     }
-    /// Conservative copied report/proposal allowance for this complete bounded operation.
-    pub(crate) fn result_bytes(&self) -> Result<usize, MathRuntimeError> {
+    /// Inclusive native call allowance from the immutable authored path operation.
+    pub(crate) fn attempt_capacity(&self) -> Result<usize, MathRuntimeError> {
         let event_calls = self
             .request
             .policy
             .events
             .as_ref()
             .map(|e| {
-                e.observations
+                // At most one localization bracket per accepted segment; an event
+                // observation budget does not bound the preceding corrector calls.
+                self.request
+                    .policy
+                    .steps
                     .checked_mul(e.localization_steps)
                     .ok_or(MathRuntimeError::Limit("path event call extent"))
             })
             .transpose()?
             .unwrap_or(0);
-        let count = self
-            .request
+        self.request
             .policy
             .steps
             .checked_add(self.request.policy.subdivisions)
             .and_then(|n| n.checked_add(usize::from(self.branch.connected.is_some())))
             .and_then(|n| n.checked_add(event_calls))
-            .ok_or(MathRuntimeError::Limit("path attempt count"))?;
+            .ok_or(MathRuntimeError::Limit("path attempt count"))
+    }
+    /// Conservative copied report/proposal allowance for this complete bounded operation.
+    pub(crate) fn result_bytes(&self) -> Result<usize, MathRuntimeError> {
+        let count = self.attempt_capacity()?;
         let event_bytes = self
             .request
             .policy
@@ -2661,7 +2668,7 @@ pub(crate) fn run_path(
         source_key.branch = path.branch.connected.map(|_| transport);
         outcome.proposal =
             Some(
-                Proposal::path(
+                Proposal::auxiliary_path(
                     path.case.prepared.compiled().plan.columns().to_vec(),
                     point[..n].to_vec(),
                     source_key,

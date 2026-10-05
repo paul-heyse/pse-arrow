@@ -53,8 +53,8 @@ third-party = [
   { name = "highs-sys" },
   # Hakari matches the Git request, including its revision.
   # Cargo.toml owns the pin; these exclusion selectors must follow that request.
-  { name = "pounce-nlp", git = "https://github.com/paul-heyse/pounce", rev = "1c3ad80911e3d94702c54f7259aa9659adee4706" },
-  { name = "pounce-rs", git = "https://github.com/paul-heyse/pounce", rev = "1c3ad80911e3d94702c54f7259aa9659adee4706" },
+  { name = "pounce-nlp", git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3" },
+  { name = "pounce-rs", git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3" },
   { name = "scip-sys" },
   { name = "suitesparse_sys" },
   { name = "sundials-sys" },

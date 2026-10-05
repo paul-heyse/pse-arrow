@@ -457,6 +457,7 @@ impl PreparedSurrogate {
         let mut outcome = SurrogatePhaseOutcome {
             statistical: None,
             proposal: None,
+            screened: None,
             work: pse_model::strategy::WorkObservation {
                 attempts: 0,
                 evaluations: None,
@@ -536,12 +537,14 @@ impl PreparedSurrogate {
                     &self.0.target,
                     source,
                     pse_model::strategy::BranchPolicy::any_qualified(),
-                    scope.clone(),
+                    active.clone(),
                     budget,
                     &mut evaluations,
                 ) {
                     Ok(screened) => {
-                        outcome.proposal = Some(screened.proposal().clone().with_owner(owner))
+                        outcome.proposal =
+                            Some(screened.proposal().clone().with_owner(owner.clone()));
+                        outcome.screened = Some(screened.with_owner(owner));
                     }
                     Err(error) => outcome.terminal = Some(Arc::new(error.into_problem())),
                 }
@@ -557,6 +560,7 @@ impl PreparedSurrogate {
         if let Err(error) = result {
             outcome.terminal = Some(Arc::new(error.into_problem()));
             outcome.proposal = None;
+            outcome.screened = None;
         }
         outcome
     }
@@ -568,6 +572,7 @@ pub struct SurrogatePhaseOutcome {
     pub statistical: Option<Arc<SurrogateProposal>>,
     /// Independently original-screened physical start, never original result permission.
     pub proposal: Option<super::prediction::Proposal>,
+    pub(crate) screened: Option<super::prediction::Screened>,
     /// Atomic actual work delta including partial failed model evaluations.
     pub work: pse_model::strategy::WorkObservation,
     /// Original retained typed cause, including callback panic/deadline/contract stops.
@@ -898,6 +903,16 @@ mod tests {
     #[tokio::test]
     async fn retained_surrogate_phase_runs_in_shared_driver_then_original_correction_grants_permission()
      {
+        retained_surrogate_corrector(false).await;
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn automatic_supplied_surrogate_runs_original_corrector_and_preserves_phase_permissions()
+    {
+        retained_surrogate_corrector(true).await;
+    }
+    #[cfg(feature = "solver-kinsol")]
+    async fn retained_surrogate_corrector(automatic: bool) {
         use super::super::solves::{NumericalInputs, PreparedRung, SolverProfile};
         use crate::workflow::tests as workflow_fixture;
         use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection, StartPolicy};
@@ -907,7 +922,7 @@ mod tests {
         };
         let runtime = workflow_fixture::runtime_with(128 << 20, 1 << 20, 512 << 20);
         let rows = pse_authoring::language::parse(
-            "package p { def Root { var x:Scalar; annotation start x(0); eq balance:x==0.8; } }",
+            "package p { def Root { var x:Scalar; annotation start x(0); eq balance:x==0.8; } def Other { var x:Scalar; annotation start x(0); eq balance:x==0.7; } }",
             SemanticId::NIL,
             pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
@@ -918,6 +933,11 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
+        let other = rows
+            .iter()
+            .find(|row| row.name == "Other")
+            .unwrap()
+            .declaration_id;
         let package = runtime
             .modeling_package(rows, workflow_fixture::physical())
             .unwrap();
@@ -925,6 +945,10 @@ mod tests {
         let profile = SolverProfile {
             intent: SolveIntent::Root,
             selection: SolverSelection::Explicit(Backend::Kinsol),
+            composition: pse_model::strategy::CompositionRequest {
+                recovery: vec![StartOrigin::Surrogate],
+                ..Default::default()
+            },
             ..Default::default()
         };
         let mut prepared = package
@@ -943,6 +967,7 @@ mod tests {
             .await
             .unwrap();
         let original = prepared.solve.clone();
+        let original_profile = original.strategy_profile().unwrap();
         let (mut evaluator, mut options, threads, destroyed) = fixture();
         options.stack_bytes = runtime.native().stack_bytes();
         let identity = original.original_identity().unwrap();
@@ -968,7 +993,7 @@ mod tests {
                 .prepare_surrogate_phase(
                     handle.clone(),
                     original.clone(),
-                    unrelated,
+                    unrelated.clone(),
                     std::time::Duration::from_secs(10)
                 )
                 .is_err()
@@ -1005,6 +1030,7 @@ mod tests {
         declaration.start.recovery = vec![StartOrigin::Surrogate];
         declaration.mechanisms = vec![
             Mechanism {
+                operation: Default::default(),
                 kind: MechanismKind::Surrogate,
                 position: Position::Preparation,
                 required: true,
@@ -1015,6 +1041,7 @@ mod tests {
                 transitions: vec![Transition::Continue, Transition::Stop],
             },
             Mechanism {
+                operation: Default::default(),
                 kind: MechanismKind::Direct,
                 position: Position::Execution,
                 required: true,
@@ -1028,23 +1055,131 @@ mod tests {
                 transitions: vec![Transition::Finish, Transition::Stop],
             },
         ];
-        prepared.solve = original
-            .clone()
-            .within_task(scope)
-            .unwrap()
-            .with_strategy(
-                declaration,
-                vec![PreparedRung::Surrogate(phase), original.into()],
-            )
-            .unwrap();
+        if automatic {
+            let denied_profile = SolverProfile {
+                intent: SolveIntent::Root,
+                selection: SolverSelection::Explicit(Backend::Kinsol),
+                ..Default::default()
+            };
+            let denied = package
+                .prepare_solve(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    pse_kernels::DerivativeOrder::First,
+                    workflow_fixture::compiler_profile(),
+                    denied_profile,
+                    NumericalInputs::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            assert!(
+                denied
+                    .solve
+                    .clone()
+                    .within_task(scope.clone())
+                    .unwrap()
+                    .with_automatic_products(vec![PreparedRung::Surrogate(phase.clone())])
+                    .is_err(),
+                "producer-bound proposal requires declared recovery permission"
+            );
+            let mismatch = package
+                .prepare_solve(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    pse_kernels::DerivativeOrder::First,
+                    workflow_fixture::compiler_profile(),
+                    SolverProfile {
+                        intent: SolveIntent::Root,
+                        selection: SolverSelection::Explicit(Backend::Kinsol),
+                        composition: pse_model::strategy::CompositionRequest {
+                            recovery: vec![StartOrigin::Surrogate],
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    NumericalInputs::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            // A different task has no authority to consume this actual actor.
+            assert!(
+                mismatch
+                    .solve
+                    .within_task(unrelated.clone())
+                    .unwrap()
+                    .with_automatic_products(vec![PreparedRung::Surrogate(phase.clone())])
+                    .is_err()
+            );
+            let wrong_original = package
+                .prepare_solve(
+                    other,
+                    pse_modeling::specialize::root_instance(other),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    pse_kernels::DerivativeOrder::First,
+                    workflow_fixture::compiler_profile(),
+                    SolverProfile {
+                        intent: SolveIntent::Root,
+                        selection: SolverSelection::Explicit(Backend::Kinsol),
+                        composition: pse_model::strategy::CompositionRequest {
+                            recovery: vec![StartOrigin::Surrogate],
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    NumericalInputs::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            assert!(
+                wrong_original
+                    .solve
+                    .within_task(scope.clone())
+                    .unwrap()
+                    .with_automatic_products(vec![PreparedRung::Surrogate(phase.clone())])
+                    .is_err()
+            );
+            prepared.solve = original
+                .clone()
+                .within_task(scope)
+                .unwrap()
+                .with_automatic_products(vec![PreparedRung::Surrogate(phase)])
+                .unwrap();
+        } else {
+            prepared.solve = original
+                .clone()
+                .within_task(scope)
+                .unwrap()
+                .with_strategy(
+                    declaration,
+                    vec![PreparedRung::Surrogate(phase), original.into()],
+                )
+                .unwrap();
+        }
         let result = package
             .solve_case(prepared, workflow_fixture::compiler_profile(), &cancel)
             .await
             .unwrap();
-        assert!(result.accepted);
+        assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
         assert_eq!(handle.work().unwrap().evaluations, 3);
         assert_eq!(handle.work().unwrap().initializations, 1);
         let trace = result.strategy.as_ref().unwrap();
+        assert_eq!(trace.declaration.start.policy, StartPolicy::NoPriorStart);
+        assert_eq!(trace.starts[1], StartOrigin::Surrogate);
+        assert!(
+            matches!(&trace.products[1].provider,Some(crate::math::strategy::ProviderEvidence::Native(profile)) if profile.key==original_profile),
+            "corrector retains its frozen native profile and entry policy"
+        );
         let rows = trace.rows(result.run_id, 0).unwrap();
         let statistical = rows
             .iter()
@@ -1052,6 +1187,24 @@ mod tests {
                 row.mechanism == MechanismKind::Surrogate && row.surrogate_coordinates.is_some()
             })
             .unwrap();
+        if automatic {
+            assert_eq!(trace.declaration.mechanisms.len(), 2);
+            assert_eq!(
+                trace.declaration.mechanisms[0].kind,
+                MechanismKind::Surrogate
+            );
+            assert_eq!(trace.declaration.mechanisms[1].kind, MechanismKind::Direct);
+            assert!(trace.events.iter().any(|event| event.mechanism == 0
+                && event.permission == Some(pse_model::generated::enums::CandidateUse::SeedOnly)));
+            assert!(trace.events.iter().any(|event| {
+                event.mechanism == 1
+                    && event
+                        .original
+                        .as_ref()
+                        .is_some_and(crate::math::strategy::OriginalConclusion::satisfied)
+            }));
+            assert_eq!(trace.starts[1], StartOrigin::Surrogate);
+        }
         let sample = handle.proposal().unwrap().unwrap();
         assert_eq!(statistical.backend, None);
         assert_eq!(statistical.evaluations, Some(5));

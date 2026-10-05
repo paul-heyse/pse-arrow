@@ -165,6 +165,8 @@ pub mod r#solve_runs;
 ///Generated relation contract.
 pub mod r#solve_strategy_events;
 ///Generated relation contract.
+pub mod r#solve_strategy_products;
+///Generated relation contract.
 pub mod r#solve_variables;
 ///Generated relation contract.
 pub mod r#solver_capabilities;

@@ -1340,10 +1340,13 @@ unknown; a complete unreconciled reservation retains its allowance. Native obser
 reports actual failed work and reserves complete simultaneously live storage through teardown.
 Resource/cancellation/contract abort is distinct from numerical fallback.
 
-The source-owned bounded FERAL profile covers complete linear storage for serial dense factors
-of dimension 1–7. Application heap storage remains opaque and deployment-owned; larger ordinary
-factors do not inherit this strict linear bound. Runtime admission and retained reservations must
-consume the hook through teardown before task-level strict-cap support can be claimed. The
+The source-owned bounded FERAL profile covers complete linear storage for the actual serial AMD
+factor geometry, including MC64 ordering/scaling, Schur coupling and refinement, monolithic fallback
+and restoration/low-rank wrapper storage. Its optional dimension constraint is a caller limit;
+absence derives the actual classified native geometry rather than selecting another numerical path.
+Application heap storage remains opaque and deployment-owned. Retained storage transfers to its
+resource owner; completing a task releases its ledger and foreign allowance while resource tokens
+remain until teardown. The
 [25n checkpoint](../../plans/25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
 owns the partial integration and validation state.
 

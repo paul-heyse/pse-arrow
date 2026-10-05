@@ -1435,19 +1435,23 @@ impl Session {
         if let Ok(method) = serde_json::to_string(&self.settings.method) {
             report.provenance.insert("settings".into(), method);
         }
-        self.callback.state.finish(&mut report);
         // SAFETY: the session's live iterate vector of the `n` coordinates.
         let x = shifted(unsafe { values(self.x, n) }?, &self.callback.offsets, 1.0);
         if x.iter().all(|v| v.is_finite()) {
             if self.callback.state.terminal.is_none() {
                 let mut f = vec![0.0; n];
-                let evaluation = crate::quality::contained(|| match &mut self.callback.function {
-                    Function::Equations(o) => o.residual(&x, &mut f),
-                    Function::Picard { oracle, .. } => oracle.residual(&x, &mut f),
-                    Function::FixedPoint(o) => o.original_residual(&x, &mut f),
-                });
+                let evaluation = self
+                    .callback
+                    .state
+                    .evaluate("native.validation.residual", || {
+                        match &mut self.callback.function {
+                            Function::Equations(o) => o.residual(&x, &mut f),
+                            Function::Picard { oracle, .. } => oracle.residual(&x, &mut f),
+                            Function::FixedPoint(o) => o.original_residual(&x, &mut f),
+                        }
+                    });
                 match evaluation {
-                    Ok(()) => {
+                    Some(()) => {
                         let c = self.callback.function.contract();
                         let rows = c
                             .rows
@@ -1505,7 +1509,15 @@ impl Session {
                             }
                         }
                     }
-                    Err(e) => {
+                    None => {
+                        let e = self
+                            .callback
+                            .state
+                            .terminal_error()
+                            .or_else(|| self.callback.state.last_failure.take())
+                            .unwrap_or_else(|| {
+                                ProblemError::Internal("native residual validation failed".into())
+                            });
                         report.record_validation_failure(e);
                         report.termination.assurance = Assurance::None
                     }
@@ -1529,6 +1541,8 @@ impl Session {
         } else {
             report.termination.assurance = Assurance::None
         }
+        // Final original residual validation belongs to this same inclusive owner.
+        self.callback.state.finish(&mut report);
         let iterations = report
             .metrics
             .get("KINGetNumNonlinSolvIters")
@@ -2188,6 +2202,28 @@ mod tests {
                 None,
             )
             .unwrap()
+    }
+    #[test]
+    fn final_residual_validation_is_inclusive_even_when_it_fails() {
+        for fail in [false, true] {
+            let oracle = FaultOracle::new(if fail { 2 } else { usize::MAX });
+            let calls = oracle.calls.clone();
+            let mut session = fault_session(Strategy::Newton, oracle);
+            let report = solve_fault(&mut session, 1.0);
+            assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+            assert_eq!(report.evidence.work.evaluations, Some(2));
+            assert_eq!(
+                report.metrics["callback.native.validation.residual.calls"],
+                Metric::Integer(1)
+            );
+            assert_eq!(report.validation_failure().is_some(), fail);
+            if fail {
+                assert!(matches!(
+                    report.validation_failure(),
+                    Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
+                ));
+            }
+        }
     }
     #[test]
     fn map_callbacks_latch_failed_trials_but_newton_can_recover() {

@@ -119,6 +119,7 @@ fn failed_trajectory_can_run_declared_same_backend_profile_and_only_original_per
         |index, _| {
             visited.push(index);
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: if index == 0 {
                     Observation::NumericalFailure
@@ -194,14 +195,33 @@ fn failed_screening_keeps_actual_partial_callback_count() {
 fn declared_accuracy_is_consumed_and_an_estimate_cannot_establish_certification() {
     use pse_model::strategy::{AccuracyClass, AccuracyDemand, AccuracyEvidence};
     let mut declaration = strategy();
-    declaration.accuracy.push(AccuracyDemand {
+    let demand = AccuracyDemand {
         product: hash(7),
         normalization: hash(8),
         allowance: 1e-6,
         class: AccuracyClass::Certified,
-    });
+    };
+    declaration.mechanisms[0]
+        .operation
+        .inputs
+        .push(pse_model::strategy::ProductDemand {
+            source: pse_model::strategy::SemanticProductKey {
+                structure: hash(1),
+                binding: hash(2),
+                numerical_policy: None,
+                normalization: Some(hash(8)),
+                point: Some(hash(3)),
+                parameters: None,
+                derivation: None,
+                branch: None,
+                accuracy: Some(hash(7)),
+            },
+            derivative_order: 0,
+            branch: pse_model::strategy::BranchPolicy::any_qualified(),
+            accuracy: demand,
+        });
     let mut supplied = facts(0);
-    supplied.consumption = declaration.accuracy.clone();
+    supplied.consumption = vec![demand];
     assert!(matches!(
         admit(&declaration, 0, true, &supplied),
         Admission::RequiredRefusal(_)
@@ -242,6 +262,7 @@ fn optional_capability_refusal_preserves_base_required_contract_failure_does_not
         |_| facts(0),
         |index, _| {
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Converged,
                 work: charge(index),
@@ -272,6 +293,7 @@ fn limited_without_stagnation_does_not_invent_failure_or_recovery() {
         facts,
         |index, _| {
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Limited,
                 work: charge(index),
@@ -295,6 +317,7 @@ fn native_success_and_auxiliary_success_cannot_bypass_original_permission() {
             facts,
             |index, _| {
                 Ok(Attempt {
+                    evidence: Vec::new(),
                     value: index,
                     observation: Observation::Converged,
                     work: charge(index),
@@ -391,6 +414,7 @@ fn optional_slice_refusal_keeps_base_admitted_and_charges_only_actual_work() {
                 "the optional complete reservation cannot fit its slice"
             );
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Converged,
                 work: charge(index),
@@ -444,6 +468,7 @@ fn late_native_batch_member_keeps_actual_work_and_cannot_grant_original_permissi
         |_| facts(0),
         |_, _| {
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: 7,
                 observation: Observation::Converged,
                 work: charge(0),
@@ -471,6 +496,7 @@ fn indivisible_assessment_cannot_authorize_a_result_after_the_original_deadline(
         facts,
         |index, _| {
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Converged,
                 work: charge(index),
@@ -512,6 +538,7 @@ fn preparation_first_uses_entry_then_auxiliary_correction_requires_declared_reco
         |index, _| {
             visited.push(index);
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: if index == 0 {
                     Observation::Auxiliary
@@ -530,9 +557,17 @@ fn preparation_first_uses_entry_then_auxiliary_correction_requires_declared_reco
         Some(Transition::Finish)
     );
     assert_eq!(result.work.attempts, 2);
-    // A preparation does not gain an exemption from the task's entry policy.
+    // Fresh declared recovery is lawful; incoming Explicit keeps hard precedence.
     let mut auxiliary = facts(0);
     auxiliary.start = StartOrigin::Auxiliary;
+    declaration.mechanisms[0]
+        .starts
+        .push(StartOrigin::Auxiliary);
+    assert!(matches!(
+        admit(&declaration, 0, true, &auxiliary),
+        Admission::Ready
+    ));
+    declaration.start.policy = pse_model::strategy::StartPolicy::Explicit;
     assert!(matches!(
         admit(&declaration, 0, true, &auxiliary),
         Admission::RequiredRefusal(_)
@@ -545,6 +580,7 @@ fn preparation_first_uses_entry_then_auxiliary_correction_requires_declared_reco
         |index, _| {
             assert_eq!(index, 0);
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Auxiliary,
                 work: charge(index),
@@ -573,6 +609,7 @@ fn optional_preparation_refusal_preserves_specification_entry_for_first_dispatch
         |index, _| {
             assert_eq!(index, 1);
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Converged,
                 work: charge(index),
@@ -648,6 +685,7 @@ fn tagged_native_report_failures_are_terminal_under_declared_recovery() {
             facts,
             |index, _| {
                 Ok(Attempt {
+                    evidence: Vec::new(),
                     value: (),
                     observation: expected,
                     work: charge(index),
@@ -683,6 +721,7 @@ fn native_convergence_retains_original_refusal_and_terminal_assessor_cause() {
         facts,
         |index, _| {
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Converged,
                 work: charge(index),
@@ -748,6 +787,7 @@ fn disjoint_scientific_assessment_work_is_charged_after_failed_original_check() 
         },
         |index, _| {
             Ok(Attempt {
+                evidence: Vec::new(),
                 value: index,
                 observation: Observation::Converged,
                 work: charge(index),
@@ -814,84 +854,47 @@ fn actual_producer_state_consumes_exact_point_source_order_normalization_and_cla
         class: AccuracyClass::Certified,
         allowance: 1e-6,
     };
+    let contract = OperationContract {
+        inputs: vec![ProductDemand {
+            source,
+            derivative_order: 0,
+            branch: actual.branch,
+            accuracy: demand,
+        }],
+        outputs: Vec::new(),
+    };
     let mut state = ProductState::default();
-    assert!(
-        state
-            .bind_inputs(
-                &[demand],
-                hash(2),
-                hash(5),
-                BranchPolicy::any_qualified(),
-                0
-            )
-            .is_err()
-    );
+    assert!(state.consume(&contract).is_err());
     state.publish(actual.clone()).unwrap();
-    let contract = state
-        .bind_inputs(
-            &[demand],
-            hash(2),
-            hash(5),
-            BranchPolicy::any_qualified(),
-            0,
-        )
-        .unwrap();
     assert_eq!(state.consume(&contract).unwrap(), vec![accuracy]);
-    assert!(
-        state
-            .bind_inputs(
-                &[demand],
-                hash(2),
-                hash(9),
-                BranchPolicy::any_qualified(),
-                0
-            )
-            .is_err()
-    );
-    assert!(
-        state
-            .bind_inputs(
-                &[demand],
-                hash(9),
-                hash(5),
-                BranchPolicy::any_qualified(),
-                0
-            )
-            .is_err()
-    );
-    assert!(
-        state
-            .bind_inputs(
-                &[demand],
-                hash(2),
-                hash(5),
-                BranchPolicy::any_qualified(),
-                1
-            )
-            .is_err()
-    );
-    let mut wrong = demand;
-    wrong.normalization = hash(9);
-    assert!(
-        state
-            .bind_inputs(&[wrong], hash(2), hash(5), BranchPolicy::any_qualified(), 0)
-            .is_err()
-    );
-    let mut estimate = actual;
-    estimate.accuracy.class = AccuracyClass::Estimated;
+    let reject = |dependency: ProductDemand| {
+        assert!(
+            state
+                .consume(&OperationContract {
+                    inputs: vec![dependency],
+                    outputs: Vec::new()
+                })
+                .is_err()
+        );
+    };
+    let original = contract.inputs[0].clone();
+    let mut wrong = original.clone();
+    wrong.source.point = Some(hash(9));
+    reject(wrong);
+    let mut wrong = original.clone();
+    wrong.source.binding = hash(9);
+    reject(wrong);
+    let mut wrong = original.clone();
+    wrong.derivative_order = 1;
+    reject(wrong);
+    let mut wrong = original.clone();
+    wrong.accuracy.normalization = hash(9);
+    reject(wrong);
+    let mut estimated = actual;
+    estimated.accuracy.class = AccuracyClass::Estimated;
     let mut estimated_state = ProductState::default();
-    estimated_state.publish(estimate).unwrap();
-    assert!(
-        estimated_state
-            .bind_inputs(
-                &[demand],
-                hash(2),
-                hash(5),
-                BranchPolicy::any_qualified(),
-                0
-            )
-            .is_err()
-    );
+    estimated_state.publish(estimated).unwrap();
+    assert!(estimated_state.consume(&contract).is_err());
 }
 
 #[test]
@@ -1054,4 +1057,313 @@ fn automatic_preparation_is_named_and_its_execution_requires_remaining_allowance
         ),
         AutoDecision::Stop { .. }
     ));
+}
+
+#[test]
+fn optional_component_numerical_failure_retains_observation_and_charges_before_direct() {
+    for observed in [
+        Observation::NumericalFailure,
+        Observation::Stalled,
+        Observation::Limited,
+        Observation::ContractFailure,
+        Observation::Cancelled,
+        Observation::ResourceExhausted,
+    ] {
+        let mut declaration = strategy();
+        declaration.start.recovery.push(StartOrigin::Specification);
+        declaration.mechanisms[0].required = false;
+        declaration.mechanisms[0]
+            .transitions
+            .push(Transition::Continue);
+        declaration.mechanisms[1].starts = vec![StartOrigin::Specification];
+        let mut visited = Vec::new();
+        let result = run(
+            &declaration,
+            &scope(),
+            |_| facts(0),
+            |index, _| {
+                visited.push(index);
+                if index == 0 {
+                    return Err(EffectFailure::component(
+                        Arc::new(ProblemError::Unsupported(
+                            "incomplete optional component".into(),
+                        )),
+                        charge(index).observed,
+                        observed,
+                    ));
+                }
+                Ok(Attempt {
+                    evidence: Vec::new(),
+                    value: index,
+                    observation: Observation::Converged,
+                    work: charge(index),
+                })
+            },
+            |_, observation| assessment(true, false, observation),
+        );
+        assert_eq!(
+            result
+                .events
+                .iter()
+                .find(|event| event.work.is_some())
+                .unwrap()
+                .observation,
+            Some(observed)
+        );
+        if permits_numerical_continuation(observed) {
+            assert_eq!(visited, vec![0, 1]);
+            assert_eq!(result.value, Some(1));
+            assert_eq!(result.work.attempts, 2);
+            assert_eq!(result.work.evaluations, Some(6));
+        } else {
+            assert_eq!(visited, vec![0]);
+            assert!(result.terminal.is_some());
+        }
+    }
+}
+
+#[test]
+fn product_refinement_reuses_capacity_and_exact_dependencies_keep_other_consumers_valid() {
+    use pse_model::strategy::{
+        AccuracyClass, AccuracyDemand, AccuracyEvidence, BranchPolicy, OperationContract,
+        ProductDemand, ProductEvidence, SemanticProductKey,
+    };
+    let source = SemanticProductKey {
+        structure: hash(1),
+        binding: hash(2),
+        numerical_policy: Some(hash(3)),
+        normalization: Some(hash(4)),
+        point: Some(hash(5)),
+        parameters: Some(hash(6)),
+        derivation: Some(hash(7)),
+        branch: None,
+        accuracy: Some(hash(8)),
+    };
+    let mut evidence = ProductEvidence {
+        source,
+        derivative_order: 1,
+        branch: BranchPolicy::any_qualified(),
+        accuracy: AccuracyEvidence {
+            product: hash(8),
+            normalization: hash(4),
+            class: AccuracyClass::Certified,
+            error: Some(1e-4),
+        },
+    };
+    let mut state = ProductState {
+        capacity: Some(1),
+        ..Default::default()
+    };
+    state.publish(evidence.clone()).unwrap();
+    evidence.accuracy.error = Some(1e-8);
+    state.publish(evidence.clone()).unwrap();
+    let demand = ProductDemand {
+        source,
+        derivative_order: 1,
+        branch: BranchPolicy::any_qualified(),
+        accuracy: AccuracyDemand {
+            product: hash(8),
+            normalization: hash(4),
+            allowance: 1e-7,
+            class: AccuracyClass::Certified,
+        },
+    };
+    let mut contract = OperationContract {
+        inputs: vec![demand],
+        outputs: vec![],
+    };
+    assert_eq!(state.consume(&contract).unwrap(), vec![evidence.accuracy]);
+    contract.inputs[0].source.parameters = Some(hash(9));
+    assert!(state.consume(&contract).is_err());
+    contract.inputs[0].source.parameters = source.parameters;
+    assert!(
+        state.consume(&contract).is_ok(),
+        "a changed consumer binding does not invalidate independent immutable products"
+    );
+    contract.inputs[0].derivative_order = 0;
+    assert!(state.consume(&contract).is_err());
+}
+
+#[test]
+fn effective_output_obligations_precede_permission_and_preserve_dispatched_work() {
+    use pse_model::strategy::{
+        AccuracyClass, AccuracyEvidence, BranchPolicy, ProductEvidence, ProductionDemand,
+        SemanticProductKey,
+    };
+    let actual = ProductEvidence {
+        source: SemanticProductKey {
+            structure: hash(1),
+            binding: hash(2),
+            numerical_policy: Some(hash(3)),
+            normalization: Some(hash(4)),
+            point: Some(hash(5)),
+            parameters: Some(hash(6)),
+            derivation: Some(hash(7)),
+            branch: None,
+            accuracy: Some(hash(8)),
+        },
+        derivative_order: 1,
+        branch: BranchPolicy::any_qualified(),
+        accuracy: AccuracyEvidence {
+            product: hash(8),
+            normalization: hash(4),
+            class: AccuracyClass::Certified,
+            error: Some(1e-8),
+        },
+    };
+    let demand = ProductionDemand {
+        source: actual.source,
+        derivative_order: 1,
+        branch: actual.branch,
+        allowance: 1e-7,
+        class: AccuracyClass::Certified,
+    };
+    for case in 0..5 {
+        let mut declaration = strategy();
+        declaration.mechanisms.truncate(1);
+        let mut output = demand.clone();
+        let evidence = match case {
+            0 => vec![actual.clone()],
+            1 => Vec::new(),
+            2 => {
+                output.source.point = Some(hash(9));
+                vec![actual.clone()]
+            }
+            3 => {
+                output.allowance = 1e-9;
+                vec![actual.clone()]
+            }
+            _ => {
+                output.derivative_order = 0;
+                vec![actual.clone()]
+            }
+        };
+        declaration.mechanisms[0].operation.outputs.push(output);
+        let mut assessed = 0;
+        let result = run(
+            &declaration,
+            &scope(),
+            facts,
+            |_, _| {
+                Ok(Attempt {
+                    value: 42,
+                    evidence: evidence.clone(),
+                    observation: Observation::Converged,
+                    work: charge(0),
+                })
+            },
+            |_, observation| {
+                assessed += 1;
+                assessment(true, false, observation)
+            },
+        );
+        assert_eq!(result.work.attempts, 1);
+        assert_eq!(result.work.evaluations, Some(3));
+        if case == 0 {
+            assert_eq!(result.value, Some(42));
+            assert_eq!(assessed, 1);
+        } else {
+            assert!(matches!(
+                result.terminal.as_deref(),
+                Some(ProblemError::Unsupported(_))
+            ));
+            assert!(result.value.is_none());
+            assert_eq!(assessed, 0);
+            assert!(result.events.iter().any(|event| event.work.is_some()
+                && event.observation == Some(Observation::Converged)
+                && event.permission.is_none()));
+        }
+    }
+}
+
+#[test]
+fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_binding_hits_cap() {
+    use pse_model::strategy::{CompositionRequest, StartPolicy, StartRules};
+    let request = CompositionRequest {
+        limits: Some(WorkLimits {
+            attempts: 1,
+            evaluations: None,
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
+        }),
+        ..Default::default()
+    };
+    let start = StartRules {
+        policy: StartPolicy::NoPriorStart,
+        recovery: Vec::new(),
+    };
+    let candidate = AutoCandidate {
+        identity: hash(1),
+        kind: MechanismKind::Direct,
+        start: StartOrigin::Specification,
+        replacement: false,
+        support: Default::default(),
+        reservation: None,
+        prepared: true,
+    };
+    let cause = Arc::new(ProblemError::numerical("actual limited original candidate"));
+    let last = AutoObservation {
+        awaiting_assessment: false,
+        native: Observation::Limited,
+        original: Some(OriginalConclusion::Refused {
+            cause: cause.clone(),
+        }),
+        permission: Some(CandidateUse::Unusable),
+    };
+    let mut work = charge(0).observed;
+    work.attempts = 1;
+    assert!(
+        matches!(next_automatic(&request,&start,&[candidate.clone()],&BTreeSet::from([0]),Some(&last),work,false),AutoDecision::Exhausted {cause:Some(actual)} if Arc::ptr_eq(&actual,&cause))
+    );
+    assert!(
+        matches!(next_automatic(&request,&start,&[candidate],&BTreeSet::new(),Some(&last),work,false),AutoDecision::Stop {cause:Some(actual)} if matches!(actual.as_ref(),ProblemError::Limit {..}))
+    );
+    let qualified = AutoObservation {
+        awaiting_assessment: false,
+        native: Observation::Converged,
+        original: Some(OriginalConclusion::Satisfied),
+        permission: Some(CandidateUse::SeedOnly),
+    };
+    assert!(matches!(
+        next_automatic(
+            &request,
+            &start,
+            &[],
+            &BTreeSet::new(),
+            Some(&qualified),
+            work,
+            false
+        ),
+        AutoDecision::Finish
+    ));
+    let seed = numerics::auxiliary_start(true);
+    let qualified = Assessment {
+        auxiliary: false,
+        original: OriginalConclusion::Satisfied,
+        retention: StepRetention {
+            candidate: seed.clone(),
+            session: SessionDisposition::Discard,
+        },
+        work: Vec::new(),
+        observation: Observation::Converged,
+        cause: None,
+    };
+    assert_eq!(
+        transition(&strategy().mechanisms[0], &qualified),
+        Transition::Finish
+    );
+    assert_eq!(
+        qualified.retention.candidate.usability,
+        CandidateUse::SeedOnly
+    );
+    let auxiliary = Assessment {
+        auxiliary: true,
+        ..qualified
+    };
+    assert_eq!(
+        transition(&strategy().mechanisms[0], &auxiliary),
+        Transition::Stop,
+        "an auxiliary seed cannot finish original correction"
+    );
 }

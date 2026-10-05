@@ -220,6 +220,7 @@
 | `runtime.solve_metrics` | `unique:pk` | `SELECT s."run_id", s."step", s."namespace", s."name" FROM "runtime"."solve_metrics" s GROUP BY s."run_id", s."step", s."namespace", s."name" HAVING COUNT(*) > 1` |
 | `runtime.solve_runs` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."solve_runs" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.solve_strategy_events` | `unique:pk` | `SELECT s."run_id", s."step", s."event" FROM "runtime"."solve_strategy_events" s GROUP BY s."run_id", s."step", s."event" HAVING COUNT(*) > 1` |
+| `runtime.solve_strategy_products` | `unique:pk` | `SELECT s."run_id", s."step", s."mechanism", s."product" FROM "runtime"."solve_strategy_products" s GROUP BY s."run_id", s."step", s."mechanism", s."product" HAVING COUNT(*) > 1` |
 | `runtime.solve_variables` | `unique:pk` | `SELECT s."run_id", s."step", s."symbol_id" FROM "runtime"."solve_variables" s GROUP BY s."run_id", s."step", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.solver_capabilities` | `unique:pk` | `SELECT s."backend" FROM "runtime"."solver_capabilities" s GROUP BY s."backend" HAVING COUNT(*) > 1` |
 | `runtime.structural_assessments` | `unique:pk` | `SELECT s."request_identity", s."step" FROM "runtime"."structural_assessments" s GROUP BY s."request_identity", s."step" HAVING COUNT(*) > 1` |

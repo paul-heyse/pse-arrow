@@ -3322,6 +3322,37 @@ class RuntimeSolveStrategyEventsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeSolveStrategyProductsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    mechanism: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    product: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    product_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    source_structure: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    source_binding: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    numerical_policy: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    normalization: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    point: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    parameters: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    derivation: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    source_branch: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    source_accuracy: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    derivative_order: b.int = attrs.field(validator=v.integer_range(0, 255))
+    accuracy_class: e.NumericalAccuracyClass = attrs.field(validator=attrs.validators.instance_of(e.NumericalAccuracyClass))
+    error: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    branch_policy: e.NumericalBranchPolicy = attrs.field(validator=attrs.validators.instance_of(e.NumericalBranchPolicy))
+    path: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    sheet: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    transport: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    orientation: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.mechanism), v.scalar_key(self.product), v.scalar_key(self.product_identity), v.scalar_key(self.source_structure), v.scalar_key(self.source_binding), v.optional_key(v.scalar_key)(self.numerical_policy), v.scalar_key(self.normalization), v.scalar_key(self.point), v.optional_key(v.scalar_key)(self.parameters), v.optional_key(v.scalar_key)(self.derivation), v.optional_key(v.scalar_key)(self.source_branch), v.optional_key(v.scalar_key)(self.source_accuracy), v.scalar_key(self.derivative_order), v.scalar_key(self.accuracy_class), v.optional_key(v.scalar_key)(self.error), v.scalar_key(self.branch_policy), v.optional_key(v.scalar_key)(self.path), v.optional_key(v.scalar_key)(self.sheet), v.optional_key(v.scalar_key)(self.transport), v.optional_key(v.scalar_key)(self.orientation),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeSolveVariablesRow:
     """Declared relation row or nested value."""
 

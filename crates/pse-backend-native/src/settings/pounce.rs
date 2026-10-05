@@ -146,18 +146,20 @@ impl Settings {
         {
             return Err(ProblemError::Unsupported("POUNCE active-set SQP does not consume partitioned or finite-difference IPM curvature".into()));
         }
-        if let Some(maximum) = self.linear.bounded_dense_max_dimension
-            && (!(1..=7).contains(&maximum)
+        if let Some(maximum) = self.linear.bounded_storage_max_dimension
+            && (maximum == 0
                 || !matches!(self.linear.ordering, OrderingMethod::Amd)
                 || self.linear.parallel == Some(true)
                 || !matches!(
                     self.linear.scaling,
-                    ScalingStrategy::Auto | ScalingStrategy::InfNorm | ScalingStrategy::Identity
+                    ScalingStrategy::Auto
+                        | ScalingStrategy::InfNorm
+                        | ScalingStrategy::Identity
+                        | ScalingStrategy::Mc64Symmetric
                 )
-                || self.method != Method::InteriorPoint
-                || mode == HessianMode::LimitedMemory)
+                || self.method != Method::InteriorPoint)
         {
-            return Err(ProblemError::Unsupported("bounded POUNCE linear storage requires IPM, assembled curvature, serial AMD, Auto/InfNorm/Identity scaling and maximum dimension 1..=7".into()));
+            return Err(ProblemError::Unsupported("bounded POUNCE linear storage requires IPM, assembled curvature, serial AMD, supported scaling and a positive geometry maximum".into()));
         }
         let mut options = Options::new();
         match mode {
@@ -241,7 +243,7 @@ impl Settings {
 )]
 #[schemars(rename = "FeralSettings")]
 pub(super) struct FeralIdentity {
-    bounded_dense_max_dimension: Option<usize>,
+    bounded_storage_max_dimension: Option<usize>,
     cascade_break: Option<bool>,
     fma: bool,
     refine: bool,
@@ -357,7 +359,7 @@ pub(crate) fn record(config: &LinearSettings) -> Result<serde_json::Value, serde
 /// that the serde remote above does not frame.
 const _: fn(&LinearSettings) = |c| {
     let pounce_feral::FeralConfig {
-        bounded_dense_max_dimension: _,
+        bounded_storage_max_dimension: _,
         cascade_break: _,
         fma: _,
         refine: _,

@@ -6087,6 +6087,70 @@ fn increment_guards_its_integration_interval() {
 }
 
 #[test]
+fn original_supplier_projection_preserves_mixed_ledger_scatter_contracts() {
+    for (mixed, ledger) in [
+        (
+            false,
+            "var x:Scalar;var y:Scalar;accumulate total:Scalar conservation tolerance 0.01;contribute total role inflow=x;contribute total role outflow=y;",
+        ),
+        (
+            true,
+            "boundary wall;var x:Power;var y:Transfer<EnergyTransferRate,wall,Into>;accumulate total:Power boundary wall conservation tolerance 0.01{W};contribute total role inflow=x;contribute total role directed=y;",
+        ),
+    ] {
+        let text = format!(
+            "package p {{def Root {{param p:Scalar=2;implicit a {{var selected_value:Scalar;eq selected:selected_value==p;annotation start selected_value(1);annotation bounds selected_value(0,4);}}realize ra on a using nested;{ledger}}}}}"
+        );
+        let (mut workspace, _, _, root) = setup(&text);
+        let prepared = workspace
+            .prepare_modeling_cancellable(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        let original = prepared.original_equations().unwrap();
+        let selected = original
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".a.selected_value"))
+            .unwrap()
+            .id;
+        assert!(original.admitted.inputs.contains(&selected));
+        for view in [&prepared, &original] {
+            let equation = view
+                .admitted
+                .outputs
+                .iter()
+                .find_map(|output| {
+                    if let ModelingOutput::Equation { id, .. } = output {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap();
+            let scatter = view
+                .admitted
+                .case
+                .instances()
+                .iter()
+                .filter(|instance| {
+                    instance
+                        .contributions
+                        .iter()
+                        .any(|contribution| contribution.target == Target::Row(equation))
+                })
+                .count();
+            assert_eq!(scatter, if mixed { 1 } else { 2 });
+        }
+    }
+}
+
+#[test]
 fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control() {
     for (mixed, text) in [
         (

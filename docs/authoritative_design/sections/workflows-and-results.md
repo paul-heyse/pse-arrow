@@ -471,6 +471,16 @@ Modeling, studies, fitting, shooting, horizons and applicable dynamic initializa
 mathematical target and original assessor to one numerical binder. Sampling, statistical stopping,
 control application, scientific time/events and durable occurrence policy retain their owners.
 Preparation inspection may be conditional; execution traces contain actual decisions and products.
+`runtime.solve_strategy_products` retains every actual point/action receipt with consumed source,
+normalization, original-space point, derivative/action order, branch and error class; capability
+declarations create no rows. Effective caller output obligations are checked before original
+permission; rejected evidence remains traceable without becoming a consumable product. A later
+modeling or horizon failure retains completed targets and the actual failed target trace. Plant/task
+failures name no solve target, and unattempted targets receive no invented failure trace.
+A fresh study batch is eligible only when each member needs the same lawful direct operation;
+otherwise members use the common automatic binder individually under their own original scope.
+Screened proposals retain their actual producer origin and separately granted recovery permission;
+they do not rewrite an original start policy to Explicit.
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
@@ -955,9 +965,9 @@ does not prove the consumer registered the extension types.
 > generated msgspec types; validated scalar settings (Plan 22 B5, implemented). As built, the
 > job payload carries the typed `SolveSettings` document and a `JobStart` policy; the
 > `JobProfile` that ADR-0116 Outcome 6 names was deleted with payload version 1, and the
-> payload is at version 6 (`JobPayload`, including admitted study operations and finalization).
-> Complete nested preparation contracts use study operation/request version 2 and stored
-> study definition version 4. Durable readers check envelope versions before nested decoding;
+> current payload is at version 8 (`JobPayload`, including admitted study operations and finalization).
+> Complete nested preparation contracts use study operation/request version 4 and stored
+> study definition version 6, with SolveSettings v3 (ADR-0155's authorized automatic cutover). Durable readers check envelope versions before nested decoding;
 > unsupported historical readmission preserves the recorded bytes and refuses explicitly.
 > [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration crossing the boundary is a registry enum with one Rust type
 > (Plan 22 B4, implemented).

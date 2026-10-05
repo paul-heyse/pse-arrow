@@ -56,8 +56,8 @@ IR is introduced. Actual evidence binds source, original coordinates/point or co
 derivative/action order, normalization, branch, allowance and evidence class; preparation support
 cannot certify its future output. Product state and trace consume the same owned observations.
 
-The coordinated current cutover uses SolveSettings v2, NumericalStrategyDocument v2 (version and
-body), StudyOperation/StudyRequest v3, StudyDefinition v5 and JobPayload v7; the corresponding
+The coordinated current cutover uses SolveSettings v3, NumericalStrategyDocument v3 (version and
+body), StudyOperation/StudyRequest v4, StudyDefinition v6 and JobPayload v8; the corresponding
 strategy/request/preparation and durable request identities receive new frames. Header checks
 precede current nested decoding. Historical bytes/readability stay intact; execution requires
 explicit current readmission or typed refusal through the same executor, never implicit new Auto

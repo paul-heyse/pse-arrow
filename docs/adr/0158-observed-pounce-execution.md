@@ -62,8 +62,11 @@ Other adapters act on these modes or refuse them. One typed lowering owns reserv
 Publish an addressable immutable source commit and pin the complete resolved family coherently,
 including internal edges, preserving QP/convex features and FERAL 0.18.0. Native build identity names
 the revision. The same immutable artifact contains a source extension of FERAL 0.18 for an
-explicit bounded serial dense factor profile. Its complete linear allowance covers Schur and
-simultaneous fallback lifetimes; opaque application storage remains separately deployment-owned.
+complete serial AMD sparse factor storage bound for actual classified dimensions, including MC64,
+Schur/refinement, simultaneous fallback and restoration/low-rank wrappers. Its optional dimension
+constraint limits actual geometry without changing library arithmetic. Resource-owned retained
+storage outlives completed task ledgers without accumulating full historical foreign allowances;
+opaque application storage remains separately deployment-owned.
 Profiles outside the proved extent refuse strict linear admission, while ordinary library profiles
 retain their supported execution. These are conditional capabilities, not a full native-heap bound.
 No registry edits, Cargo patch/replace, unconfirmed-release wait or project Schur engine.

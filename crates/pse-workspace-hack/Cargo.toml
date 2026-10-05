@@ -156,8 +156,8 @@ serde_core = { version = "1", default-features = false, features = ["alloc", "rc
 serde_json = { version = "1", features = ["alloc"] }
 serde_spanned = { version = "1", default-features = false, features = ["alloc", "serde"] }
 smallvec = { version = "1", default-features = false, features = ["const_generics"] }
-syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "full", "visit", "visit-mut"] }
-syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit-mut"] }
 tinystr = { version = "0.8", default-features = false, features = ["zerovec"] }
 toml = { version = "1", default-features = false, features = ["display", "parse", "serde"] }
 toml_datetime = { version = "1", default-features = false, features = ["alloc", "serde"] }

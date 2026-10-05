@@ -728,12 +728,22 @@ pub struct ReconstructionUncertainty<'a> {
 /// Inner observations consumed by an outer value/action. They retain their original
 /// products and numerical class; outer forward accuracy requires its own propagated
 /// control (for example `ErrorAmplification`) and original supplier observations.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ConsumedReconstruction {
+    /// Full original coordinates actually consumed by this value/action, in the
+    /// original contract order. This moves the existing reconstructed point storage.
+    pub original_point: Vec<f64>,
     /// Actual reconstructed point accuracy.
     pub point: AccuracyEvidence,
     /// Actual reconstruction action accuracy, when an action was consumed.
     pub action: Option<AccuracyEvidence>,
+}
+impl ConsumedReconstruction {
+    /// Owned receipt extent. Coordinates reuse the reconstruction's admitted storage;
+    /// callers retaining the receipt keep this existing allocation charged.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>() + self.original_point.capacity() * size_of::<f64>()
+    }
 }
 /// Pseudo-time construction declares how mass depends on the current trial state.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2002,6 +2012,7 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
         finite(&values)?;
         self.project_rows(&values, out);
         Ok(ConsumedReconstruction {
+            original_point: point.values,
             point: point.accuracy,
             action: None,
         })
@@ -2038,6 +2049,7 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
         finite(&values)?;
         self.project_rows(&values, out);
         Ok(ConsumedReconstruction {
+            original_point: point.values,
             point: point.accuracy,
             action: Some(action.accuracy),
         })
@@ -2072,6 +2084,7 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
             .jacobian_product(&point.values, &action.values, &mut values)?;
         finite(&values)?;
         let consumed = ConsumedReconstruction {
+            original_point: point.values,
             point: point.accuracy,
             action: Some(action.accuracy),
         };
@@ -2091,6 +2104,7 @@ impl<O: Oracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced<O, R> {
         self.oracle.values(&point.values, out)?;
         finite(out)?;
         Ok(ConsumedReconstruction {
+            original_point: point.values,
             point: point.accuracy,
             action: None,
         })
@@ -2117,6 +2131,7 @@ impl<O: ObjectiveOracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced
         Ok((
             value,
             ConsumedReconstruction {
+                original_point: point.values,
                 point: point.accuracy,
                 action: None,
             },
@@ -2149,6 +2164,7 @@ impl<O: ObjectiveOracle, R: ReconstructionOracle<Error = O::Error>> BoundReduced
         Ok((
             value,
             ConsumedReconstruction {
+                original_point: point.values,
                 point: point.accuracy,
                 action: Some(action.accuracy),
             },
@@ -4062,6 +4078,10 @@ mod tests {
             .values(&[0.5], &point_demand, refinement(), &mut out)
             .unwrap();
         assert_eq!(out, [0.375]);
+        assert_eq!(consumed.original_point, point.values);
+        assert!(
+            consumed.retained_bytes() >= size_of::<ConsumedReconstruction>() + 2 * size_of::<f64>()
+        );
         assert_eq!(consumed.point.error, Some(1e-9));
         assert!(consumed.action.is_none());
         let consumed = bound
@@ -4075,15 +4095,18 @@ mod tests {
             )
             .unwrap();
         assert_eq!(out, [0.5]);
+        assert_eq!(consumed.original_point, point.values);
         assert_eq!(consumed.action.unwrap().error, Some(2e-9));
         let (objective, _) = bound
             .original_objective(&[0.5], &point_demand, refinement())
             .unwrap();
         assert_eq!(objective, 0.0625);
-        let (derivative, _) = bound
+        let (derivative, consumed) = bound
             .original_objective_product(&[0.5], &[2.0], &point_demand, &action_demand, refinement())
             .unwrap();
         assert_eq!(derivative, -2.0);
+        assert_eq!(consumed.original_point, point.values);
+        assert_eq!(consumed.action.unwrap().product, action_demand.product);
         let mut all = [99.0; 2];
         bound
             .original_values(&[0.5], &point_demand, refinement(), &mut all)

@@ -5,8 +5,56 @@ mod equalities;
 mod observed;
 mod profiles;
 mod records;
-pub use profiles::{SecondOpinionProfile, second_opinion_capacity, second_opinion_profiles};
+pub use profiles::{
+    SecondOpinionProfile, StartPerturbation, second_opinion_capacity, second_opinion_profiles,
+};
 mod retained;
+/// Actual library-generated replacement point, before scientific screening.
+#[derive(Clone, Debug)]
+pub struct PerturbedStart {
+    /// Coordinates in the same original layout as the input.
+    pub coordinates: Vec<f64>,
+    /// Actual maximum absolute displacement after bound clipping.
+    pub displacement: f64,
+}
+/// Materialize the library's deterministic jitter without a native solve.
+/// The task must screen this proposal and establish its start/branch permission.
+pub fn perturb_start(
+    point: &[f64],
+    bounds: &[(f64, f64)],
+    perturbation: StartPerturbation,
+) -> Result<PerturbedStart, ProblemError> {
+    finite(point)?;
+    if point.len() != bounds.len() || !perturbation.scale.is_finite() || perturbation.scale <= 0.0 {
+        return Err(ProblemError::Contract(
+            "start perturbation dimensions or scale".into(),
+        ));
+    }
+    for &(lower, upper) in bounds {
+        crate::settings::pounce::admit_bound(lower)?;
+        crate::settings::pounce::admit_bound(upper)?;
+        if lower > upper {
+            return Err(ProblemError::Contract("start perturbation bounds".into()));
+        }
+    }
+    let mut coordinates = point.to_vec();
+    let lower: Vec<_> = bounds.iter().map(|pair| pair.0).collect();
+    let upper: Vec<_> = bounds.iter().map(|pair| pair.1).collect();
+    let report = pounce_nlp::start_conditioner::jitter_start(
+        &mut coordinates,
+        &lower,
+        &upper,
+        perturbation.seed,
+        perturbation.scale,
+        -1e19,
+        1e19,
+    );
+    finite(&coordinates)?;
+    Ok(PerturbedStart {
+        coordinates,
+        displacement: report.max_shift,
+    })
+}
 pub use crate::settings::pounce::{LinearSettings, Method, Settings};
 use crate::tnlp::{Adapter, finite};
 use crate::{
@@ -151,9 +199,9 @@ pub struct Session {
     stamp: Option<Compatibility>,
     factors: Option<Rc<RefCell<retained::Pool>>>,
     foreign_allowance: Option<usize>,
-    // Dropped after the app and factor pool; prior attempt reservations stay
-    // retained while any compatible source-owned factor can remain live.
-    storage_admissions: Vec<Arc<dyn WorkAdmission>>,
+    // Allocation-only token, dropped after the app and factor pool. The completed
+    // task ledger must not retain every historical attempt's foreign allowance.
+    storage_owner: Option<Arc<dyn std::any::Any + Send + Sync>>,
 }
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -360,8 +408,20 @@ impl Session {
                 "option_file_name",
                 "nlp_lower_bound_inf",
                 "nlp_upper_bound_inf",
+                "start_point_perturbation",
+                "start_point_perturbation_seed",
+                "start_point_conditioner",
             ],
         )?;
+        if controls.options.keys().any(|key| {
+            key.rsplit('.')
+                .next()
+                .is_some_and(|key| key.starts_with("adam_warmup_"))
+        }) {
+            return Err(ProblemError::Contract(
+                "starting-point conditioning requires a screened task proposal".into(),
+            ));
+        }
         if controls.options.keys().any(|k| {
             k.rsplit('.')
                 .next()
@@ -525,7 +585,7 @@ impl Session {
         self.factors = Some(pool.clone());
         // Both replaced native owners have now dropped; earlier leases may be released.
         if !reused && !factor_reused {
-            self.storage_admissions.clear();
+            self.storage_owner = None;
         }
         self.foreign_allowance = controls.foreign_bytes.or(execution.memory);
         let before_factors = pool.borrow().counts();
@@ -571,14 +631,6 @@ impl Session {
         } else {
             adapter.clone()
         };
-        if let Some(admission) = &execution.work_admission
-            && !self
-                .storage_admissions
-                .iter()
-                .any(|owner| Arc::ptr_eq(owner, admission))
-        {
-            self.storage_admissions.push(admission.clone());
-        }
         let observation = Rc::new(observed::Observation::new(
             execution.clone(),
             separator,
@@ -590,6 +642,12 @@ impl Session {
         }))
         .map_err(|_| ProblemError::Internal("panic during native optimization".into()));
         observation.finish_operations();
+        // The new admitted extent covers retained factors and their simultaneous
+        // replacement. Transfer only its allocation owner, after source admissions.
+        self.storage_owner = execution
+            .work_admission
+            .as_ref()
+            .and_then(|owner| owner.retain_storage());
         let mut a = adapter.borrow_mut();
         let status = match status {
             Ok(status) => status,
@@ -620,7 +678,13 @@ impl Session {
                 a.state.finish(&mut report);
                 observation.record(&mut report);
                 report.record_validation_failure(error);
+                drop(observation_scope);
+                a.state.execution.work_admission = None;
+                drop(a);
                 self.factors = None;
+                drop(app);
+                drop(pool);
+                self.storage_owner = None;
                 self.foreign_allowance = None;
                 return Ok(report);
             }
@@ -879,6 +943,8 @@ impl Session {
             report.termination.assurance = Assurance::None;
         }
         drop(observation_scope);
+        // A retained native application must not retain a completed task ledger.
+        a.state.execution.work_admission = None;
         drop(a);
         if !matches!(
             report.termination.category,
@@ -891,6 +957,9 @@ impl Session {
             self.stamp = Some(compatibility);
         } else {
             self.factors = None;
+            drop(app);
+            drop(pool);
+            self.storage_owner = None;
             self.foreign_allowance = None;
         }
         Ok(report)
@@ -1166,7 +1235,7 @@ mod tests {
     #[test]
     fn bounded_schur_consumer_reports_complete_linear_reservation_and_unknown_heap() {
         let mut settings = Settings::default();
-        settings.linear.bounded_dense_max_dimension = Some(7);
+        settings.linear.bounded_storage_max_dimension = Some(7);
         settings.linear.ordering = feral::symbolic::OrderingMethod::Amd;
         let report = first_run(
             HessianMode::FiniteDifference,
@@ -1449,6 +1518,42 @@ mod tests {
         assert!(report.options.len() >= report.native_defaults.len());
     }
     #[test]
+    fn perturbation_producer_is_actual_bounded_and_hidden_conditioners_are_reserved() {
+        let point = [0.0, 1.0, 2.0];
+        let bounds = [(-1.0, 1.0), (1.0, 1.0), (-3.0, 3.0)];
+        let spec = StartPerturbation {
+            seed: 7,
+            scale: 1e-2,
+        };
+        let first = perturb_start(&point, &bounds, spec).unwrap();
+        assert_eq!(
+            first.coordinates,
+            perturb_start(&point, &bounds, spec).unwrap().coordinates
+        );
+        assert_ne!(first.coordinates[0], point[0]);
+        assert_eq!(first.coordinates[1], 1.0);
+        assert!(first.displacement > 0.0 && first.displacement <= 0.03);
+        for (value, (lower, upper)) in first.coordinates.iter().zip(bounds) {
+            assert!(*value >= lower && *value <= upper);
+        }
+        for key in [
+            "start_point_perturbation",
+            "start_point_perturbation_seed",
+            "start_point_conditioner",
+            "adam_warmup_steps",
+        ] {
+            assert!(
+                run(
+                    &mut Session::new(),
+                    Options::from([(key.into(), OptionValue::Real(0.01))]),
+                    1
+                )
+                .is_err(),
+                "{key}"
+            );
+        }
+    }
+    #[test]
     fn library_rungs_act_on_typed_factories_without_accumulating_options() {
         let mut report = run(&mut Session::new(), Options::new(), 1).unwrap();
         report.termination.code =
@@ -1474,6 +1579,13 @@ mod tests {
             feral::scaling::ScalingStrategy::Auto
         ));
         let perturbed = rungs.iter().find(|rung| rung.replaces_start).unwrap();
+        assert!(perturbed.perturbation.is_some());
+        assert!(
+            !perturbed
+                .controls
+                .options
+                .contains_key("start_point_perturbation")
+        );
         assert!(!perturbed.controls.options.contains_key("mu_strategy"));
         assert!(
             second_opinion_profiles(&baseline, &settings, &report, false)

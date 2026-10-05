@@ -123,6 +123,56 @@ impl ReconstructionFactory {
             })
             .ok_or(MathError::Limit("reconstruction source metadata extent"))
     }
+    /// Bind the producer's hint-based domain to the complete original case. Every
+    /// later trial must resolve precisely that frozen box before proof is consumed.
+    pub fn bind_original_bounds(&self, unknowns: Vec<super::Unknown>) -> Result<Self, MathError> {
+        fn bind(
+            factory: &mut super::Factory,
+            unknowns: &[super::Unknown],
+        ) -> Result<(), MathError> {
+            if factory.unknowns.len() != unknowns.len()
+                || factory.unknowns.iter().zip(unknowns).any(|(a, b)| {
+                    a.id != b.id || b.lower.is_nan() || b.upper.is_nan() || b.lower > b.upper
+                })
+            {
+                return Err(MathError::Contract(
+                    "original supplier bound identity/extent".into(),
+                ));
+            }
+            match &factory.configuration {
+                super::Configuration::Hints(source) => {
+                    factory.configuration =
+                        super::Configuration::Hints(Arc::new(OriginalBoundsHints {
+                            source: source.clone(),
+                            unknowns: unknowns.to_vec(),
+                        }));
+                }
+                super::Configuration::Fixed(existing, _)
+                    if existing.iter().zip(unknowns).any(|(a, b)| {
+                        a.lower.to_bits() != b.lower.to_bits()
+                            || a.upper.to_bits() != b.upper.to_bits()
+                    }) =>
+                {
+                    return Err(MathError::Contract(
+                        "fixed supplier domain differs from original".into(),
+                    ));
+                }
+                super::Configuration::Fixed(_, _) => {}
+            }
+            factory.unknowns = unknowns.to_vec();
+            Ok(())
+        }
+        let mut source = self.clone();
+        match &mut source.factory {
+            super::ImplicitFactory::Root(factory) => bind(factory, &unknowns)?,
+            super::ImplicitFactory::Regimes(factory) => {
+                for branch in &mut factory.alternatives {
+                    bind(&mut branch.residual, &unknowns)?;
+                }
+            }
+        }
+        Ok(source)
+    }
     /// Native proof storage admitted only by an actual reconstruction operation.
     pub fn reconstruction_workspace_bytes(&self, max_cells: u64) -> Result<usize, MathError> {
         let (Some(verifier), Some(program)) = (&self.root_verifier, &self.root_isolation) else {
@@ -173,6 +223,50 @@ impl ReconstructionFactory {
         providers: std::collections::BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     ) {
         self.factory.set_providers(providers);
+    }
+}
+#[derive(Debug)]
+struct OriginalBoundsHints {
+    source: Arc<dyn super::HintResolver>,
+    unknowns: Vec<super::Unknown>,
+}
+impl super::HintResolver for OriginalBoundsHints {
+    fn identity(&self) -> ContentHash {
+        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+        h.str("original-case-bound-supplier-hints")
+            .hash(&self.source.identity());
+        for u in &self.unknowns {
+            h.id(&u.id).f64(u.lower).f64(u.upper);
+        }
+        h.finish_hash()
+    }
+    fn retained_bytes(&self) -> usize {
+        self.source.retained_bytes()
+            + size_of::<Self>()
+            + self.unknowns.capacity() * size_of::<super::Unknown>()
+    }
+    fn time_limit(&self) -> std::time::Duration {
+        self.source.time_limit()
+    }
+    fn resolve(
+        &self,
+        values: &[f64],
+        terms: Option<&[f64]>,
+        anchor: Option<&[f64]>,
+    ) -> Result<(Vec<super::Unknown>, super::Options), MathError> {
+        let (unknowns, options) = self.source.resolve(values, terms, anchor)?;
+        if unknowns.len() != self.unknowns.len()
+            || unknowns.iter().zip(&self.unknowns).any(|(a, b)| {
+                a.id != b.id
+                    || a.lower.to_bits() != b.lower.to_bits()
+                    || a.upper.to_bits() != b.upper.to_bits()
+            })
+        {
+            return Err(MathError::Contract(
+                "supplier trial domain differs from frozen original case".into(),
+            ));
+        }
+        Ok((unknowns, options))
     }
 }
 impl ProviderFactory for ReconstructionFactory {

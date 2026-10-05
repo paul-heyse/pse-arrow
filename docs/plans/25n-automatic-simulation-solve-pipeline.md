@@ -321,11 +321,11 @@ cutover uses these next versions, with version checks preceding nested current d
 
 | Current owner | Planned current contract | Required meaning |
 |---|---|---|
-| SolveSettings v1 | v2 | Versioned composition policy, constraints and resolved automatic default; existing backend/settings/start remain authoritative |
-| Unversioned NumericalStrategy JSON; strategy/request/preparation frames v1 | NumericalStrategyDocument v2 envelope; v2 strategy/request/preparation frames plus distinct resolution identity | Check document version before body decoding; operation-bound evidence and actual decisions; retain historical frame bytes |
-| StudyOperation/StudyRequest v2 | v3 | Reconstruct the same requested numerical policy under the new settings |
-| StudyDefinition v4; JobPayload v6 | v5; v7 | Stored execution interpretation admitted before nested inputs |
-| DurableJobRequestV3 / DurableModelingRequestV1 / DurableStudyRequestV2 | V4 / V2 / V3 | Changed requested execution semantics have new identity, not rewritten historical hashes |
+| SolveSettings v2 | v3 | Versioned composition policy, constraints and resolved automatic default; existing backend/settings/start remain authoritative |
+| NumericalStrategyDocument v2; strategy/request/preparation frames v2 | NumericalStrategyDocument v3 envelope; v3 strategy/request/preparation frames and NumericalDecisionV2 | Check document version before body decoding; operation-bound evidence and actual decisions; retain historical frame bytes |
+| StudyOperation/StudyRequest v3 | v4 | Reconstruct the same requested numerical policy under the new settings |
+| StudyDefinition v5; JobPayload v7 | v6; v8 | Stored execution interpretation admitted before nested inputs |
+| DurableJobRequestV4 / DurableModelingRequestV2 / DurableStudyRequestV3 | V5 / V3 / V4 | Changed requested execution semantics have new identity, not rewritten historical hashes |
 
 Expose requested composition and inspectable resolved decisions for each applicable prepared
 numerical target in Rust/Python. Before execution, inspection may show conditional prerequisites;
@@ -368,16 +368,16 @@ obligations pass. Static checks and assembled integration wait until all functio
 | Packet | Actual prerequisite | Result and responsible boundary | Closeout state |
 |---|---|---|---|
 | <a id="n0"></a>N0 Decisions and shared contracts | Current review and confirmed Auto default | Decision proposals/owner amendment route; exact request, dependency, assessment, product and observation meanings. Coordinator owns shared contracts and identities. | Proposed decisions amended and bounded target review Accept; ADR acceptance remains separate. |
-| <a id="n1"></a>N1 Mathematical fidelity and demand | N0 dependency/reconstruction contracts | Compiler/math projections, valid block scheduling, original block completion, local consumer demand and empty-row reduction. | Done: distinct dependency/coupling projections, demand controls and actual automatic block completion pass. |
-| <a id="n2"></a>N2 Assessment and inclusive work | N0 assessment/observation contract | Runtime/native/workflow assessor transport; actual original cause and disjoint accounting, including failed/final checks. | Done: shared task/native admission and inclusive owner accounting; failed/final checks retain typed causes and unknown composed work. |
-| <a id="n3"></a>N3 Conditional capabilities and actual products | N0 product/request contract; N2 charges | Common producer binder, operation-bound accuracy and one owned execution product state; existing real reduced/root producer consumed. | Done: actual producer evidence and allocation-owned product state are consumed under operation-bound accuracy and the original scope. |
-| <a id="n4"></a>N4 Derived decomposition and reconstruction | N1 complete projections; N3 producer admission | Compiler-derived causal/block/reduced candidates, composite supplier and full non-port original-state reconstruction. | Done: genuine Root/Regimes suppliers, bounded proofs, nonzero offsets/chained actions, automatic causal/blocks and complete original assessment pass. |
-| <a id="n5"></a>N5 Native profiles and visible recovery | N2 original cause/work; N3 demand contract | Native POUNCE second-opinion profiles, typed partitioned/FD support and actual compiler/oracle consumers. | Done: actual typed second opinions, First-only compiler partitioned/FD execution, degradation, reuse and terminal probe controls pass. |
-| <a id="n6"></a>N6 Observed solve Schur | N0 binding contract; N2/N3 admission; N4 semantic separator slice | Source-owned observer artifact, coherent pins, actual native layout/lowering/use/fallback and complete storage/work. Source seam can proceed before final partition consumer. | Done: source-owned native observation is consumed by task work/storage admission; actual Schur use/fallback and retained-owner controls pass. |
-| <a id="n7"></a>N7 Qualified proposal selection | N3 product state; existing predictor/transport interfaces | Common KKT/activity/QP/root/secant selector and real related-target/horizon consumers, with source/branch/start screening. | Done: common Root/KKT/Activity/QP/secant selection is consumed by modeling, related-case studies and advanced-step horizons. |
-| <a id="n8"></a>N8 Automatic resolution and driver | N2/N3 working semantics; N4–N7 applicability/production contracts | Pure deterministic next decisions, demand binding, observation-conditioned finite execution and explicit declaration binding on one path. | Done: pure next decisions drive lazy finite composition, shared admission, actual assessment and explicit constrained execution. |
-| <a id="n9"></a>N9 Scientific consumer migration | N8 real target execution; relevant N4/N7 products | Modeling/init/recycle, studies, fitting, shooting, horizons and dynamic initialization use the common target contract while retaining scientific policy. | Done: fitting, shooting, declared roots, consistent initialization and automatic recycle consume the shared target; the opaque binder is deleted. |
-| <a id="n10"></a>N10 Public and durable cutover | N8/N9 actual target binders; N0 version contract | Generated Rust/Python requests/inspection/trace, current versions/identity/readmission and coordinated activation of Auto default. | Done: current request/payload and historical admission controls pass; linked Python boundary/study units pass 47/47 after native rebuild. |
+| <a id="n1"></a>N1 Mathematical fidelity and demand | N0 dependency/reconstruction contracts | Compiler/math projections, valid block scheduling, original block completion, local consumer demand and empty-row reduction. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n2"></a>N2 Assessment and inclusive work | N0 assessment/observation contract | Runtime/native/workflow assessor transport; actual original cause and disjoint accounting, including failed/final checks. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n3"></a>N3 Conditional capabilities and actual products | N0 product/request contract; N2 charges | Common producer binder, operation-bound accuracy and one owned execution product state; existing real reduced/root producer consumed. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n4"></a>N4 Derived decomposition and reconstruction | N1 complete projections; N3 producer admission | Compiler-derived causal/block/reduced candidates, composite supplier and full non-port original-state reconstruction. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n5"></a>N5 Native profiles and visible recovery | N2 original cause/work; N3 demand contract | Native POUNCE second-opinion profiles, typed partitioned/FD support and actual compiler/oracle consumers. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n6"></a>N6 Observed solve Schur | N0 binding contract; N2/N3 admission; N4 semantic separator slice | Source-owned observer artifact, coherent pins, actual native layout/lowering/use/fallback and complete storage/work. Source seam can proceed before final partition consumer. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n7"></a>N7 Qualified proposal selection | N3 product state; existing predictor/transport interfaces | Common KKT/activity/QP/root/secant selector and real related-target/horizon consumers, with source/branch/start screening. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n8"></a>N8 Automatic resolution and driver | N2/N3 working semantics; N4–N7 applicability/production contracts | Pure deterministic next decisions, demand binding, observation-conditioned finite execution and explicit declaration binding on one path. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n9"></a>N9 Scientific consumer migration | N8 real target execution; relevant N4/N7 products | Modeling/init/recycle, studies, fitting, shooting, horizons and dynamic initialization use the common target contract while retaining scientific policy. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
+| <a id="n10"></a>N10 Public and durable cutover | N8/N9 actual target binders; N0 version contract | Generated Rust/Python requests/inspection/trace, current versions/identity/readmission and coordinated activation of Auto default. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
 | <a id="n11"></a>N11 Functional handoff and retention | N1–N10 integrated and targeted checks complete | Delete replaced paths, reconcile evidence/status, register assembled fixtures and hand readiness/static refresh to 25k. | Functional fixtures and deletion are integrated; selected assembled journeys and scope-end static checks are running before final handoff. |
 
 N1/N2 and native source work can overlap after their shared contract slices are settled. Logical
@@ -590,187 +590,79 @@ acceptance, coordinated current public/durable interpretation, coherent decision
 implementation mistakes/corrections and deliberate deviations in the Outcome at implementation
 closure; do not prefill them with hypothetical success.
 
-## Authoring checkpoint
-
-The review findings and confirmed Auto-default choice are incorporated. The composite reconstruction
-and native observer routes were assessed with focused read-only advice and reconciled here. Source
-inspection cannot establish their execution; their actual producer/consumer controls are packet
-acceptance. No implementation, campaigns, pin changes or worktree cleanup were performed during
-plan creation. The next executable work, after production authorization, is N0 shared decision
-contracts, then N1/N2 fidelity and assessment foundations and N3 actual evidence admission.
-
 ## Execution checkpoint
 
-Continuation authorized, 2026-10-04. The maintainer waived the preliminary review and instructed
-implementation of the remaining plan. Work continues in the existing main checkout; the earlier
-closeout below retains its historical scope. No new review is a prerequisite to this continuation.
-The continuation has integrated shared pre-operation work/storage admission and retained native
-ownership, pure preparation/assessment decisions, compiler-issued complete block execution,
-producer-issued Root reconstruction metadata and bounded verifier workspace, common
-Activity/QP/secant selection with actual study/horizon consumers, and the callable target binder
-for fitting, shooting, declared roots and consistent initialization. The separate opaque binder
-has been deleted. Automatic causal composition and its complete original reconstruction,
-native profile/Schur controls, public request/result inspection and recorded-payload controls
-now pass. Selected assembled native and Python journeys also pass. N11 is awaiting the last
-scope-end native lint and feature-powerset results; full 25k qualification remains separate.
+The maintainer committed and pushed the preceding implementation; the clean audit baseline is
+`72e589a27447a23b8fb2f485cf083418de1da74c`. The maintainer authorized a deep audit and repair of
+misalignment before final signoff and waived an additional formal review. This continuation uses
+that baseline plus the maintainer's dependency update. Earlier receipts retain their original
+scope in Git history and do not establish the current audit's acceptance.
 
-Historical maintainer-directed pause, 2026-10-04 (superseded by the continuation above).
+The audit repairs now cover normal authored supplier discovery and complete original-case replay;
+optional preparation and scientific consumers under one task's work/storage admission; actual
+operation output obligations; original-point action receipts; typed screened recovery without
+rewriting the declared entry policy; related-target and horizon scope propagation; native final
+validation and source-owned bounded storage; and publication of completed and failed-attempt
+traces when a later modeling or horizon target fails. The separate opaque target binder and raw
+recovery-point bypass have been deleted. An independent static recheck of the repaired product,
+identity, recovery and failure-publication seams found no further concrete misalignment.
 
-The maintainer requested current tasks conclude, integration into main, compile and recent-change
-focused test repair, worktree removal and documentation reconciliation, followed by a pause.
-The next review’s structure will come from the maintainer; no review or comprehensive campaign
-is started by this closeout. All worker source changes are integrated directly in the existing main
-checkout and remain uncommitted for review. This is not completion of N0–N11 or a 25k functional handoff.
+Current public versions and identity frames are declared above. Historical bytes remain unchanged;
+header-first readmission refuses historical execution before decoding the current nested body.
+The complete POUNCE family and FERAL use the corrective source artifact
+`ff6386944421e8037069e521222ada9f22d457e3`. Dependency discovery follows the resolved graph;
+KLU preparation no longer requires offline availability or a hardcoded SuiteSparse crate version.
 
-**Implemented:** proposed ADR-0154/0155 amendments, ADR-0158 and corresponding proposed architecture
-contracts; a bounded target-decision review returned Accept, distinct from implementation acceptance.
-Compiler numerical/dependency/coupling projections, retained-environment block preparation,
-composite selected-provider reconstruction and incoming-neighborhood checks are integrated.
-Automatic supplier discovery currently admits zero-offset equality realizations where the retained
-factory’s value interpretation is unambiguous; nonzero offsets need actual producer-issued realization
-metadata before automatic admission. Explicit admitted supplier realization remains supported.
-Complete reconstruction with no retained coordinates yields an original candidate without a fictitious
-zero-variable native attempt. Original scientific conclusions/cause, disjoint charges and an owned
-product state are transported independently of native termination.
+Next: finish linked positive/refusal controls, regenerate after the dependency update, refresh the
+Python extension, perform selected assembled journeys and scope-end checks, then settle AF-01–AF-08
+and the N11 functional handoff. Full 25k scientific and performance qualification remains separate.
+This checkpoint is not final signoff.
 
-**Implemented:** the public maintainer POUNCE fork supplies typed, source-owned post-classification
-separator/configuration, attempted work and fallible storage/operation hooks. The complete POUNCE
-family and FERAL 0.18 come from one immutable artifact; native build identity includes its revision.
-The bounded serial dense profile supports dimensions 1–7 and separately labels complete linear
-storage versus opaque application storage. Larger ordinary routes remain supported under deployment
-memory scope; a complete strict bound for those factors is unavailable. The runtime work-admission
-bridge and retained reservation lifetime have **not** been integrated, so source/adapter controls do
-not establish N6 task-level strict-cap closure.
+The earlier authorized stale-worktree assessment found ten obsolete secondary trees with no commits
+outside main. Their changes were integrated or superseded; all ten trees and their two obsolete local
+branch refs were removed. Only the main checkout remains. No source transplant was needed.
 
-**Implemented:** typed Hessian modes and immutable noncumulative POUNCE recovery profiles; shared
-qualified Root/KKT prediction selection in root/study/horizon source; lazy automatic direct/reduced/POUNCE
-binding on the retained native session with a shared task scope, ledger, product state and no-repeat
-binding identity. Initialization/causal inventories are inspectable/preparable, but they are not yet
-automatic dispatched operations. Opaque fitting/shooting still use their direct binder; its removal,
-complete scientific consumer migration and non-modeling strategy inspection remain open. Shared
-Activity/QP/secant selection is not implemented; unused selector scaffolding was removed during
-closeout, while existing standalone library/product capabilities remain.
+## Outcome
 
-**Implemented:** SolveSettings v2, NumericalStrategyDocument v2, StudyOperation/StudyRequest v3,
-StudyDefinition v5, JobPayload v7 and new request/preparation/profile/durable identity frames.
-Header-first decoding refuses historical execution before current nested interpretation. Historical
-frames and bytes remain retained. Registry declarations include independent original conclusion and
-actual decision identity. These source changes and selected controls do not establish durable restart or complete public Python
-round-trip qualification.
+**Implemented:** the deep-audit corrections described in the execution checkpoint. Packet and finding
+closure await the current linked and scope-end evidence.
 
-### Focused closeout verification
+**Tested:** on the repository's pinned nightly, dev/test profile and updated locked dependency graph,
+with explicit `pse-relations/force-validate`, `just unit-package pse-math 'package(pse-math)' --test-threads 2`
+passed 219/219 against a zero-failure baseline. `just unit-package pse-compiler 'package(pse-compiler)' --test-threads 2`
+passed 211/212 initially; after fixing the new fixture's qualified-symbol lookup, its failed scope
+`test(original_supplier_projection_preserves_mixed_ledger_scatter_contracts)` passed 1/1. This is
+composite compiler evidence with zero remaining failures, not an initially clean run.
+The first `just unit-native-selected` audit selection recorded 233 passes and 24 failures out of
+257 completed controls. Its reporter was stopped after a regression failure attempted an
+unbounded retained-model diagnostic; the assertion now uses a bounded message. These failures
+are being repaired and do not establish linked acceptance.
 
-**Interface-checked:** `just check` (default workspace, all targets), `just check-solver-contracts`
-(linked native library/test source graph with force-validation) and `just check-native-python`
-completed without compile errors or warnings. **Implemented:** `just codegen` completed all six
-schema targets, Ipopt bindings and Hakari generation/dependency management; `just py-sync-native`
-built the dev-profile editable extension and regenerated the actual compiled Python API stub.
-The complete resolved POUNCE family plus FERAL comprises 16 packages from the same
-[corrective source artifact](https://github.com/paul-heyse/pounce/commit/1c3ad80911e3d94702c54f7259aa9659adee4706).
+**Interface-checked:** the independent source recheck found effective output demands enforced before
+permission, action receipts bound to the consumed original point, failed-run prefix retention with
+true target attribution, and typed correction preserving the declared start policy. This static
+result does not replace runtime controls.
 
-**Tested:** the following focused controls passed against a zero-failure baseline on the pinned
-dev/test profile. Rust test recipes explicitly enable `pse-relations/force-validate`; native
-recipes use the memory cap. Symbolic/native runs load the repository Symbolica license.
+### Mistakes corrected
 
-| Actual command and selected scope | Final result |
-|---|---|
-| `just unit-package pse-model 'test(version_admission_precedes_current_body)'` | 1/1 passed; historical header admission precedes current nested decoding |
-| `just unit-package pse-compiler 'test(conditional_source_branch_cycle_is_execution_coupling_without_numerical_rank) \| test(fixed_parameter_branch_is_retained_in_execution_projection) \| test(conditional_locality_refuses_objective_coupling)'` | 3/3 passed; execution/validity/coupling projections and retained-environment automatic block preparation |
-| `just unit-package pse-math 'test(composite_) \| test(reduced_zero_row)'` | 4/4 passed; disjoint/chain reconstruction, uncertainty refusal/amplification and empty retained rows |
-| `just unit-native-package pse-backend-native kinsol,root-isolation 'package(pse-backend-native) & (test(actual_ibex_incoming_neighborhood) \| test(causal))' --test-threads 1` | 2/2 passed; actual IBEX incoming uncertainty and complete non-port causal state |
-| `just unit-native-package pse-backend-native pse-backend-native/pounce 'test(pounce::tests)'` | 13/13 passed on the corrective artifact; actual typed profiles, stationary objective support, Schur use/admission and retained factories |
-| `just unit-native-package pse-runtime pse-runtime/native-solvers` with the exact filter below | 46/46 passed; strategy/assessment/work/product controls, actual Root/KKT/occurrence consumers, codecs, fitting curvature and zero-native original reconstruction |
-| `just py-unit` with the three exact node IDs below, after `just py-sync-native` | 3/3 passed; declared envelope/request inspection, original permission and unique charges, duplicate-ID refusal and document-key semantics |
+The preceding implementation exposed automatic suppliers without preserving the complete original
+case and promoted restricted peers alongside eligible suppliers. Projection replay now shares the
+ordinary physical ledger scatter rules and promotes only eligible suppliers. Output publication
+previously validated only the producer's own default obligations; it now validates every effective
+caller obligation before permission while retaining actual failed work and receipts. Reduced action
+receipts previously used a different point universe from the original consumer; both now use the
+actual consumed original point. Failed modeling and horizon runs previously lost completed traces;
+publication now retains the prefix and attributes errors only to targets that actually failed.
 
-The runtime filter was:
+### Deliberate limits and handoff
 
-```text
-test(math::strategy::tests) | test(math::opaque_strategy::tests) | test(math::prediction::tests) | test(advanced_step) | test(retained_root_action_screens_target_then_original_corrector_qualifies) | test(occurrence_execution_tests) | test(actual_full_reconstruction_uses_direct_original_outcome_without_native_attempt) | test(current_request_admits_version) | test(solve_settings_enum_types) | test(study_definition_historical_readmission_codec_unit) | test(job_request_identity_independent_of_key_order) | test(study_job_) | test(gauss_newton_hessian_matches_jtwj) | test(compiled_weighted_loss_gradient_and_exact_hessian)
-```
+Opaque native iteration counts remain unknown and are incompatible with a strict iteration cap
+unless an actual pre-operation hook or complete bound exists. Reservations are not measurements.
+No unrequested global initialization counter is invented: explicit composition caps aggregate under
+one owner, while default local catalogs retain the enclosing authored task clock. A complete original
+reconstruction can qualify without a redundant outer native solve; positive-dimensional Root
+remainders still refuse. The dependency update is preserved, and code is adapted to the resolved
+versions rather than holding back ordinary libraries.
 
-The Python node IDs were:
-
-```text
-python/pse/tests/test_native_workflow.py::test_declared_numerical_strategy_uses_original_permission_and_stops_unused_rung
-python/pse/tests/test_native_boundary_contracts.py::test_strategy_document_constructor_and_decoder_refuse_duplicate_selected_ids
-python/pse/tests/test_native_boundary_contracts.py::test_generated_document_keys_preserve_mapping_and_signed_zero_equality
-```
-
-This is composite focused evidence. Earlier native 12/13, runtime 41/46 and Python 2/3 results
-were repaired and their selected scopes rerun. Compile repairs added required fields/imports and
-correct feature gates. A bounded original fixture now uses a lawful Ipopt initialization route;
-its actual KINSOL/IBEX reconstruction still bypasses outer native execution. Strategy controls now
-retain scientific refusal without inventing numerical recovery and test strict-cap refusal before
-dispatch. The Schur source bug rebuilt its sparsity pattern when finite-difference support changed
-at unchanged dimensions. Generation now validates documents with the same candidate registry enums;
-Hakari exclusions match the typed Git revision request. These repairs preserve the requested
-contracts, rather than weakening original bounds or scientific criteria.
-
-The source artifact's corrective bounded-factor regressions (2/2) and observed Schur application
-corpus (3/3) also passed. They are source-level controls, not runtime admission-bridge acceptance.
-No comprehensive hygiene, integration, performance campaign, full durable restart, 25k K3/K4/K5
-or new design review was run during closeout. No assembled qualification or measurement is claimed.
-
-### Maintainer-requested failure repair
-
-After the pause, the maintainer authorized repair of the six reported non-timeout failures and
-workspace Clippy findings. This bounded repair does not resume the remaining implementation or
-start the proposed review.
-
-**Implemented:** the identity control freezes the historical typed POUNCE document under V4,
-preserving its golden, and captures the expanded current settings under V5. Each new control
-remains identity-bearing. The approved frame additions retain all historical spellings. The
-closed Python document probe consumes the registry-owned Hessian vocabulary, and the invariant
-fixture recipe regenerates the two strategy-event row fixtures with the declared conclusion and
-decision columns. The shared acceptance profile supplies the current composition/reconstruction
-fields.
-
-**Implemented:** the declared-rung control separately exercises unsupported strict-work refusal
-before dispatch and actual Clarabel execution under its unchanged native iteration controls.
-Transition-bearing completion events remain separate from assessment charges. Clippy repairs use
-owned indirection for retained proposal/binding payloads, preserve move and lease ownership, and
-simplify conditions and test helpers without lint suppressions or a second execution path.
-
-**Implemented:** an adjacent selected-supplier control exposed a genuine producer bug:
-composite admission checked extents without establishing its selected sheets, so the first
-evaluation changed realization identity after consumer demand capture. Reconstruction admission
-now returns a typed, unqualified actual point. Composite admission transports these points in
-dependency order and establishes every supplier before capture. The actual selected-supplier
-readout owns this transport. Certified evaluation and the strict consumed-parameter/sheet guard
-remain required; the admission point supplies no accuracy certificate.
-
-**Tested:** `just native-test` with the focused selection and `--test-threads 4` passed 27/27 against a
-zero-failure baseline with native solver features, explicit force-validation and the memory cap.
-The selection includes all six reported failures; actual reconstruction/refinement and original
-correction; disjoint/chained admission and uncertainty controls; initialization; Root/KKT prediction;
-Ipopt/POUNCE/SCIP root responses; strict declared-rung admission; and the weighted Jacobian control.
-`just unit-package pse-math 'test(derived::tests)'` separately passed 19/19 with force-validation:
-retained identity, consumed-product accuracy, missing-action refusal, ill-conditioning, zero-row
-reconstruction and terminal original obligations. This is composite focused evidence after the
-adjacent producer failure was repaired, not a full-suite rerun. The two reported publication
-timeouts remain outside this task. The maintainer requested closeout followed by a stop; remaining
-25n implementation and the proposed review remain paused.
-
-**Interface-checked:** final `just clippy` completed both workspace/all-target modes (default and
-no-default-features), and `just lint-solver-contracts` completed the linked native/all-target graph,
-including conformance and benchmark consumers with force-validation. All use keep-going and
-`-D warnings`; final results are zero errors and warnings against the zero baseline. Earlier
-blocked consumers were rechecked after their prerequisite repairs. No comprehensive hygiene or
-full scientific/durable qualification is claimed by this bounded closeout.
-
-### Remaining implementation and validation
-
-The maintainer has resumed implementation without the preliminary review. Resolve the outstanding packet obligations
-in the table: common runtime native work/storage admission and teardown ownership; automatic
-initialization/causal binding and full original correction/product contracts; complete strict-work,
-branch and optional/required controls; opaque scientific target migration; generated/public/durable
-round trips; and N11 deletion/fixture handoff. Then 25k owns the affected static refresh, assembled
-scientific/durable journeys, dev-profile reuse/resource measurements and final assessment. All AF-01–08
-remain open pending their complete stated evidence. ADR status changes retain their decision route.
-
-The maintainer’s latest instruction explicitly moves stale-worktree assessment/removal into this
-closeout, superseding the earlier post-qualification timing. The assessment found ten old
-25a/25b/25d/25e secondary trees with no commits outside main. Their product changes are integrated
-or superseded; old helpers, changed authored IDs and patch fragments do not warrant transplantation
-or indefinite retention. All ten obsolete worktrees and their two obsolete local branch refs were removed.
-`git worktree list` now contains only the main checkout; no source transplant was needed.
+No full 25k K3/K4/K5 campaign, performance comparison, complete durable restart qualification or
+additional formal design review is claimed by this checkpoint. ADR acceptance remains separate.

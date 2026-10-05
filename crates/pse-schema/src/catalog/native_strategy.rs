@@ -9,6 +9,38 @@ use crate::{
 use arrow_schema::DataType as D;
 
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    relation(
+        b,
+        N::Runtime,
+        "solve_strategy_products",
+        S::Derived,
+        &["run_id", "step", "mechanism", "product"],
+        vec![
+            run_id(),
+            column("step", T::nonnegative(i64::from(u32::MAX))),
+            column("mechanism", T::nonnegative(i64::from(u32::MAX))),
+            column("product", T::nonnegative(i64::from(u32::MAX))),
+            column("product_identity", T::hash()),
+            column("source_structure", T::hash()),
+            column("source_binding", T::hash()),
+            column("numerical_policy", T::hash()).optional(),
+            column("normalization", T::hash()),
+            column("point", T::hash()),
+            column("parameters", T::hash()).optional(),
+            column("derivation", T::hash()).optional(),
+            column("source_branch", T::hash()).optional(),
+            column("source_accuracy", T::hash()).optional(),
+            column("derivative_order", T::nonnegative(i64::from(u8::MAX))),
+            column("accuracy_class", T::enumeration("NumericalAccuracyClass")),
+            column("error", T::native(D::Float64)).optional(),
+            column("branch_policy", T::enumeration("NumericalBranchPolicy")),
+            column("path", T::hash()).optional(),
+            column("sheet", T::hash()).optional(),
+            column("transport", T::hash()).optional(),
+            column("orientation", T::hash()).optional(),
+        ],
+        "Actual produced point and action accuracy receipts, retaining every derivative order and complete consumed source dependencies. Preparation support and future output demands create no rows.",
+    );
     enumeration(b, "NumericalCompositionPolicy", ["auto", "declared"]);
     enumeration(
         b,

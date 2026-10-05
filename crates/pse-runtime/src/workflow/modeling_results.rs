@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Original-space authored solves use the same retained result and publication boundary.
-use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
+use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use crate::math::solves::Outcome;
 use pse_ids::SemanticId;
 use pse_relations::{
@@ -76,6 +76,9 @@ impl RunResult {
         collection
             .ensure::<solve_strategy_events::Row>()
             .map_err(relation)?;
+        collection
+            .ensure::<pse_model::generated::runtime::solve_strategy_products::Row>()
+            .map_err(relation)?;
         let mut variable_rows =
             variables::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
         let mut constraint_rows =
@@ -118,11 +121,20 @@ impl RunResult {
         for (ordinal, request) in requests.iter().enumerate() {
             let declaration = request.model.case.compiled().plan.structure();
             let step = ordinal as i64;
-            let result = match &self.report {
-                Ok(RunReport::Modeling(r)) => r.get(ordinal),
-                _ => None,
-            };
-            if let Some(trace) = result.and_then(|result| result.strategy.as_ref()) {
+            let result = self.modeling_result(ordinal);
+            let trace = result
+                .and_then(|result| result.strategy.as_ref())
+                .or_else(|| {
+                    self.modeling_error(ordinal)
+                        .and_then(WorkflowError::strategy_trace)
+                });
+            if let Some(trace) = trace {
+                for row in trace
+                    .product_rows(self.run_id, ordinal)
+                    .map_err(crate::math::MathRuntimeError::from)?
+                {
+                    collection.push(row).map_err(relation)?;
+                }
                 for row in trace
                     .rows(self.run_id, ordinal)
                     .map_err(crate::math::MathRuntimeError::from)?

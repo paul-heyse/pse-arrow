@@ -453,6 +453,7 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
     strategy.start.recovery = vec![StartOrigin::Auxiliary];
     strategy.mechanisms = vec![
         Mechanism {
+            operation: Default::default(),
             kind: MechanismKind::Continuation,
             position: Position::Preparation,
             required: true,
@@ -466,6 +467,7 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
             transitions: vec![Transition::Continue, Transition::Stop],
         },
         Mechanism {
+            operation: Default::default(),
             kind: MechanismKind::Direct,
             position: Position::Execution,
             required: true,
@@ -594,6 +596,7 @@ async fn actual_path_rung_transfers_start_to_shared_original_correction_and_perm
     };
     strategy.mechanisms = vec![
         Mechanism {
+            operation: Default::default(),
             kind: MechanismKind::Continuation,
             position: Position::Preparation,
             required: true,
@@ -607,6 +610,7 @@ async fn actual_path_rung_transfers_start_to_shared_original_correction_and_perm
             transitions: vec![Transition::Continue, Transition::Stop],
         },
         Mechanism {
+            operation: Default::default(),
             kind: MechanismKind::Direct,
             position: Position::Execution,
             required: true,
@@ -681,6 +685,7 @@ async fn actual_compiled_second_curvature_localizes_fold_and_first_only_keeps_it
         .native()
         .prepare_path(original.clone(), requested.clone(), task.clone(), &cancel)
         .unwrap();
+    let attempt_capacity = path.attempt_capacity().unwrap();
     let outcome = runtime
         .native()
         .path_task(path, start.clone(), &cancel)
@@ -704,6 +709,7 @@ async fn actual_compiled_second_curvature_localizes_fold_and_first_only_keeps_it
     let localized = fold.localization.unwrap();
     assert!(localized.interval.1 - localized.interval.0 <= event_policy().localization_tolerance);
     assert!(outcome.native_calls > 4);
+    assert!(outcome.native_calls <= attempt_capacity as u64);
     assert!(outcome.auxiliary_evaluations > 0);
     let shared = outcome.events.clone();
     assert!(pse_math::SharedAllocation::ptr_eq(&shared, &outcome.events));
@@ -793,6 +799,7 @@ async fn shared_driver_retains_actual_localized_fold_event_under_original_comple
     declaration.start.recovery = vec![StartOrigin::Auxiliary];
     declaration.mechanisms = vec![
         Mechanism {
+            operation: Default::default(),
             kind: MechanismKind::Continuation,
             position: Position::Preparation,
             required: true,
@@ -806,6 +813,7 @@ async fn shared_driver_retains_actual_localized_fold_event_under_original_comple
             transitions: vec![Transition::Continue, Transition::Stop],
         },
         Mechanism {
+            operation: Default::default(),
             kind: MechanismKind::Direct,
             position: Position::Execution,
             required: true,

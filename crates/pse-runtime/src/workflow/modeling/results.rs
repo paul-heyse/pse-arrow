@@ -251,45 +251,12 @@ impl ModelingResult {
         branch: pse_model::strategy::BranchPolicy,
         execution: &pse_backend_native::solve::Execution,
     ) -> Result<crate::math::prediction::Proposal, WorkflowError> {
-        let changed = self
-            .prepared
-            .model
-            .case
-            .compiled()
-            .plan
-            .structure()
-            .parameters()
-            .iter()
-            .filter_map(|parameter| {
-                let new = self.prepared.model.values.scalars.get(&parameter.id)?;
-                let old = older.prepared.model.values.scalars.get(&parameter.id)?;
-                (new != old).then_some((parameter.id, *old, *new))
-            })
-            .collect::<Vec<_>>();
-        let [(parameter, old, new)] = changed.as_slice() else {
-            return Err(contract(
-                "secant requires exactly one changing authored parameter",
-            ));
-        };
-        self.prepared
-            .solve
-            .related_target_parameters(&older.prepared.solve, &[(*parameter, *old)])
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let values = target
-            .solve
-            .related_target_parameters(&self.prepared.solve, &[(*parameter, *new)])
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let history = crate::math::prediction::SecantHistory::new(
-            older.prediction_anchor(*old)?,
-            self.prediction_anchor(*new)?,
-            (new - old).abs(),
-        )
-        .map_err(crate::math::MathRuntimeError::from)?;
+        let (history, parameter) = self.secant_product(older, target)?;
         let selected = crate::math::prediction::select(
             crate::math::prediction::SelectionRequest {
                 mechanism: crate::math::prediction::ProposalMechanism::Secant {
                     history: &history,
-                    parameter: values[0].1,
+                    parameter,
                     scaled_step_limit: 1.,
                 },
                 permission: &self.completion.decision,
@@ -308,6 +275,184 @@ impl ModelingResult {
         };
         let owner = self.runtime.native().reserve(
             "modeling:secant-proposal",
+            proposal
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok(proposal.with_owner(owner))
+    }
+    fn secant_product(
+        &self,
+        older: &Self,
+        target: &ModelingSolvePreparation,
+    ) -> Result<(crate::math::prediction::SecantHistory, f64), WorkflowError> {
+        let changed = self
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .parameters()
+            .iter()
+            .filter_map(|parameter| {
+                let new = self.prepared.model.values.scalars.get(&parameter.id)?;
+                let old = older.prepared.model.values.scalars.get(&parameter.id)?;
+                (new != old).then_some((parameter.id, *old, *new))
+            })
+            .collect::<Vec<_>>();
+        let [(parameter, old, new)] = changed.as_slice() else {
+            return Err(crate::math::MathRuntimeError::from(
+                pse_backend_native::ProblemError::Unsupported(
+                    "secant requires exactly one changing authored parameter".into(),
+                ),
+            )
+            .into());
+        };
+        self.prepared
+            .solve
+            .related_target_parameters(&older.prepared.solve, &[(*parameter, *old)])
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let values = target
+            .solve
+            .related_target_parameters(&self.prepared.solve, &[(*parameter, *new)])
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let history = crate::math::prediction::SecantHistory::new(
+            older.prediction_anchor(*old)?,
+            self.prediction_anchor(*new)?,
+            (new - old).abs(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        Ok((history, values[0].1))
+    }
+    /// Select only actually qualified original products for a related Study target.
+    /// The shared selector owns preference; every selected endpoint remains a screened start.
+    pub(crate) fn available_prediction(
+        &self,
+        older: Option<&Self>,
+        target: &ModelingSolvePreparation,
+        branch: pse_model::strategy::BranchPolicy,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<crate::math::prediction::Proposal, WorkflowError> {
+        use crate::math::prediction::{ProposalMechanism, SelectedProposal, SelectionRequest};
+        let recoverable = |error: &WorkflowError| {
+            matches!(
+                error.boundary_diagnostic().class,
+                pse_model::diagnostic::BoundaryClass::Unsupported
+                    | pse_model::diagnostic::BoundaryClass::Incompatible
+                    | pse_model::diagnostic::BoundaryClass::Numerical
+            )
+        };
+        let root = match self.root_predictor() {
+            Ok(predictor) => Some(predictor),
+            Err(pse_backend_native::square_response::Withheld::Cause(cause)) => {
+                let error: WorkflowError = crate::math::MathRuntimeError::from(
+                    pse_backend_native::ProblemError::Math(pse_math::MathError::Typed {
+                        retained: cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                    }),
+                )
+                .into();
+                if !recoverable(&error) {
+                    return Err(error);
+                }
+                None
+            }
+            Err(_) => None,
+        };
+        let root_parameters = root
+            .as_ref()
+            .map(|predictor| {
+                target
+                    .solve
+                    .related_target_parameters(&self.prepared.solve, predictor.parameters())
+            })
+            .transpose()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let secant = match older
+            .map(|older| self.secant_product(older, target))
+            .transpose()
+        {
+            Ok(product) => product,
+            Err(error) if recoverable(&error) => None,
+            Err(error) => return Err(error),
+        };
+        // Zeroth reuse still validates every changed authored parameter and fixed dependency.
+        let parameters = self
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .parameters()
+            .iter()
+            .filter_map(|parameter| {
+                self.prepared
+                    .model
+                    .values
+                    .scalars
+                    .get(&parameter.id)
+                    .map(|value| (parameter.id, *value))
+            })
+            .collect::<Vec<_>>();
+        target
+            .solve
+            .related_target_parameters(&self.prepared.solve, &parameters)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let anchor = self.prediction_anchor(0.)?;
+        let identity = target
+            .solve
+            .original_identity()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let mut available = Vec::new();
+        let permission = &self.completion.decision;
+        if let (Some(predictor), Some(parameters)) = (root.as_ref(), root_parameters.as_ref()) {
+            available.push(SelectionRequest {
+                mechanism: ProposalMechanism::Root {
+                    predictor,
+                    parameters,
+                },
+                permission,
+                source: predictor.factor().key(),
+                target: identity,
+                branch,
+            });
+        }
+        if let Some((history, parameter)) = secant.as_ref() {
+            available.push(SelectionRequest {
+                mechanism: ProposalMechanism::Secant {
+                    history,
+                    parameter: *parameter,
+                    scaled_step_limit: 1.,
+                },
+                permission,
+                source: history.source(),
+                target: identity,
+                branch,
+            });
+        }
+        available.push(SelectionRequest {
+            mechanism: ProposalMechanism::Zeroth { anchor: &anchor },
+            permission,
+            source: anchor.source(),
+            target: identity,
+            branch,
+        });
+        let selected = crate::math::prediction::select_available(available, execution)
+            .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
+        let proposal = match selected {
+            SelectedProposal::Root { proposal, .. }
+            | SelectedProposal::Secant { proposal }
+            | SelectedProposal::Zeroth { proposal } => *proposal,
+            _ => {
+                return Err(contract(
+                    "Study proposal selection returned an unavailable producer",
+                ));
+            }
+        };
+        let owner = self.runtime.native().reserve(
+            "modeling:selected-proposal",
             proposal
                 .retained_bytes()
                 .map_err(crate::math::MathRuntimeError::from)?,
@@ -421,6 +566,217 @@ impl ModelingResult {
             .candidate
             .as_ref()
             .ok_or_else(|| contract("QP prediction requires a candidate"))?;
+        execution
+            .check()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let (mut previous, _previous_owner) = self
+            .prepared
+            .solve
+            .convex_qp_problem(self.runtime.native(), execution)?;
+        let (next, _next_owner) = target.convex_qp_problem(self.runtime.native(), execution)?;
+        // The library QP objective excludes authored constants. Use the native evaluator
+        // in that convention directly, avoiding cancellation from subtracting a constant.
+        previous.objective_constant = 0.0;
+        if previous
+            .contract
+            .variables
+            .iter()
+            .map(|v| v.id)
+            .ne(report.variables.iter().copied())
+            || previous.contract.variables.iter().map(|v| v.id).ne(next
+                .contract
+                .variables
+                .iter()
+                .map(|v| v.id))
+            || previous.contract.rows != next.contract.rows
+            || request.source.x.len() != candidate.primal.len()
+            || request
+                .source
+                .x
+                .iter()
+                .zip(&candidate.primal)
+                .any(|(a, b)| a.to_bits() != b.to_bits())
+            || !request.source.obj.is_finite()
+            || request.source.obj
+                != previous.sense.sign() * previous.objective_at(&candidate.primal)
+        {
+            return Err(contract(
+                "QP prediction source must be the actual original candidate in the same named original coordinates",
+            ));
+        }
+        let triplets = request
+            .previous
+            .h
+            .values()
+            .len()
+            .checked_add(request.previous.a.values().len())
+            .and_then(|n| n.checked_add(request.target.h.values().len()))
+            .and_then(|n| n.checked_add(request.target.a.values().len()))
+            .ok_or_else(|| contract("QP projection comparison extent"))?;
+        let comparison_bytes = triplets
+            .checked_mul(256)
+            .and_then(|n| {
+                request
+                    .previous
+                    .n
+                    .checked_add(request.previous.m)
+                    .and_then(|extent| extent.checked_mul(64))
+                    .and_then(|extent| n.checked_add(extent))
+            })
+            .ok_or_else(|| contract("QP projection comparison bytes"))?;
+        let _comparison_owner = self
+            .runtime
+            .native()
+            .reserve("modeling:qp-coefficient-comparison", comparison_bytes)?;
+        fn sparse_value(
+            matrix: &faer::sparse::SparseColMat<usize, f64>,
+            row: usize,
+            col: usize,
+        ) -> f64 {
+            let pattern = matrix.symbolic();
+            let start = pattern.col_ptr()[col];
+            let end = pattern.col_ptr()[col + 1];
+            pattern.row_idx()[start..end]
+                .binary_search(&row)
+                .map_or(0.0, |index| matrix.val()[start + index])
+        }
+        fn same_sparse(
+            actual: &faer::sparse::SparseColMat<usize, f64>,
+            expected: &faer::sparse::SparseColMat<usize, f64>,
+            sign: f64,
+        ) -> bool {
+            let all = |matrix: &faer::sparse::SparseColMat<usize, f64>,
+                       other: &faer::sparse::SparseColMat<usize, f64>,
+                       factor: f64| {
+                (0..matrix.ncols()).all(|col| {
+                    (matrix.symbolic().col_ptr()[col]..matrix.symbolic().col_ptr()[col + 1]).all(
+                        |index| {
+                            matrix.val()[index]
+                                == factor * sparse_value(other, matrix.row_idx()[index], col)
+                        },
+                    )
+                })
+            };
+            all(actual, expected, sign) && all(expected, actual, sign)
+        }
+        fn matches_projection(
+            submitted: &pse_backend_native::kkt::path::qp::QpProblem<'_>,
+            original: &pse_backend_native::CoefficientProblem,
+        ) -> bool {
+            use pse_backend_native::kkt::path::qp::{lower_bound_present, upper_bound_present};
+            if submitted.validate().is_err()
+                || submitted.n != original.contract.variables.len()
+                || submitted.m != original.contract.rows.len()
+            {
+                return false;
+            }
+            let lower = |actual: f64, expected: f64| {
+                if expected.is_finite() {
+                    lower_bound_present(actual) && actual == expected
+                } else {
+                    !actual.is_nan() && !lower_bound_present(actual)
+                }
+            };
+            let upper = |actual: f64, expected: f64| {
+                if expected.is_finite() {
+                    upper_bound_present(actual) && actual == expected
+                } else {
+                    !actual.is_nan() && !upper_bound_present(actual)
+                }
+            };
+            if submitted
+                .g
+                .iter()
+                .zip(&original.objective)
+                .any(|(actual, expected)| *actual != original.sense.sign() * expected)
+                || original.bounds.iter().enumerate().any(|(index, (l, u))| {
+                    !lower(submitted.bl[index], *l) || !upper(submitted.bu[index], *u)
+                })
+                || original
+                    .contract
+                    .variables
+                    .iter()
+                    .enumerate()
+                    .any(|(index, v)| {
+                        !lower(submitted.xl[index], v.lower) || !upper(submitted.xu[index], v.upper)
+                    })
+            {
+                return false;
+            }
+            // Faer canonicalizes the caller's triplet storage, including duplicates.
+            // Mathematical expression extraction and row-bound shifting remain compiler/native owned.
+            let index = |value: i32| {
+                value
+                    .checked_sub(1)
+                    .and_then(|value| usize::try_from(value).ok())
+            };
+            let mut h = Vec::with_capacity(submitted.h.values().len().saturating_mul(2));
+            for ((row, col), value) in submitted
+                .h
+                .irows()
+                .iter()
+                .zip(submitted.h.jcols())
+                .zip(submitted.h.values())
+            {
+                let Some((row, col)) = index(*row).zip(index(*col)) else {
+                    return false;
+                };
+                if row >= submitted.n || col >= submitted.n || !value.is_finite() {
+                    return false;
+                }
+                h.push(faer::sparse::Triplet::new(row, col, *value));
+                if row != col {
+                    h.push(faer::sparse::Triplet::new(col, row, *value));
+                }
+            }
+            let Ok(h) =
+                faer::sparse::SparseColMat::try_new_from_triplets(submitted.n, submitted.n, &h)
+            else {
+                return false;
+            };
+            if let Some(expected) = &original.hessian {
+                if !same_sparse(&h, expected, original.sense.sign()) {
+                    return false;
+                }
+            } else if h.val().iter().any(|value| *value != 0.0) {
+                return false;
+            }
+            let mut a = Vec::with_capacity(submitted.a.values().len());
+            for ((row, col), value) in submitted
+                .a
+                .irows()
+                .iter()
+                .zip(submitted.a.jcols())
+                .zip(submitted.a.values())
+            {
+                let Some((row, col)) = index(*row).zip(index(*col)) else {
+                    return false;
+                };
+                if row >= submitted.m || col >= submitted.n || !value.is_finite() {
+                    return false;
+                }
+                a.push(faer::sparse::Triplet::new(row, col, *value));
+            }
+            let Ok(a) =
+                faer::sparse::SparseColMat::try_new_from_triplets(submitted.m, submitted.n, &a)
+            else {
+                return false;
+            };
+            same_sparse(&a, &original.constraints, 1.0)
+        }
+        execution
+            .check()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        if !matches_projection(request.previous, &previous)
+            || !matches_projection(request.target, &next)
+        {
+            return Err(contract(
+                "QP path matrices, objective coefficients or bounds differ from the compiler's actual source or target projection",
+            ));
+        }
+        execution
+            .check()
+            .map_err(crate::math::MathRuntimeError::from)?;
         let source = self
             .prepared
             .solve
@@ -1290,7 +1646,16 @@ impl ModelingResult {
         columns
             .ensure::<pse_model::generated::runtime::solve_strategy_events::Row>()
             .map_err(relation)?;
+        columns
+            .ensure::<pse_model::generated::runtime::solve_strategy_products::Row>()
+            .map_err(relation)?;
         if let Some(strategy) = &self.strategy {
+            for row in strategy
+                .product_rows(self.run_id, 0)
+                .map_err(crate::math::MathRuntimeError::from)?
+            {
+                columns.push(row).map_err(relation)?;
+            }
             for row in strategy
                 .rows(self.run_id, 0)
                 .map_err(crate::math::MathRuntimeError::from)?

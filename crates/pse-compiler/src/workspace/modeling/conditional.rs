@@ -29,22 +29,17 @@ impl PreparedModeling {
     /// Inventory existing authored selected suppliers without creating regimes or
     /// inferring a regular sheet from equality matching. Descriptors that are already
     /// provider projections, rather than free original coordinates, stay explicit refusals.
+    /// Fixed descriptor inputs are supplied by the bound original case.
     pub fn automatic_reduced_suppliers(
         &self,
-        source: &PreparedCase,
+        source: &CasePlan,
     ) -> Result<Vec<Alternative<pse_math::SharedAllocation<AdmittedImplicit>>>> {
-        let rows: BTreeSet<_> = source
-            .plan
-            .structure()
-            .rows()
-            .iter()
-            .map(|r| r.id)
-            .collect();
+        let rows: BTreeSet<_> = source.structure().rows().iter().map(|r| r.id).collect();
         self.implicit_order()?.into_iter().map(|supplier| {
             if matches!(supplier.selection.meaning, ImplicitMeaning::Relation)
                 || supplier.selection.neighborhood_evidence == SelectionNeighborhood::Unestablished {
                 Ok(Alternative::Unavailable("selected regular supplier correspondence is unestablished".into()))
-            } else if supplier.unknowns.iter().any(|id| !source.plan.columns().contains(id))
+            } else if supplier.unknowns.iter().any(|id| !source.columns().contains(id))
                 || supplier.residuals.iter().any(|r| r.rows.iter().any(|id| !rows.contains(id))) {
                 Ok(Alternative::Unavailable("authored implicit supplier is not a free-coordinate original equality region".into()))
             } else {

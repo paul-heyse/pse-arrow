@@ -4,8 +4,9 @@
 use super::super::activity::Limits;
 use crate::{
     NativeStatus, ProblemError,
-    solve::{Backend, Execution},
+    solve::{Backend, Execution, WorkEvidence},
 };
+pub use pounce_common::types::{lower_bound_present, upper_bound_present};
 pub use pounce_feral::FeralConfig;
 use pounce_feral::FeralSolverInterface;
 use pounce_linsol::{
@@ -66,6 +67,112 @@ struct State {
     failure: RefCell<Option<Arc<ProblemError>>>,
     summary: RefCell<LinearSolverSummary>,
 }
+/// Observe actual source primitives, including quality-triggered replacement factors.
+struct Observation {
+    execution: Execution,
+    limits: Limits,
+    state: Rc<State>,
+    storage: RefCell<std::collections::BTreeMap<(&'static str, usize), usize>>,
+}
+impl Observation {
+    fn fail(&self, error: ProblemError) -> pounce_common::observed::Abort {
+        let abort = if matches!(error, ProblemError::Cancelled) {
+            pounce_common::observed::Abort::Cancelled
+        } else {
+            pounce_common::observed::Abort::Resource(error.to_string())
+        };
+        if self.state.failure.borrow().is_none() {
+            *self.state.failure.borrow_mut() = Some(Arc::new(error));
+        }
+        abort
+    }
+}
+fn factor_unit() -> WorkEvidence {
+    WorkEvidence {
+        evaluations: Some(0),
+        iterations: Some(0),
+        factorizations: Some(1),
+        proof_steps: Some(0),
+    }
+}
+impl pounce_common::observed::Observer for Observation {
+    fn bind_layout(
+        &self,
+        _: &pounce_common::observed::Layout,
+    ) -> Result<Option<Vec<usize>>, pounce_common::observed::Abort> {
+        Ok(None)
+    }
+    fn event(
+        &self,
+        event: &pounce_common::observed::Event,
+    ) -> Result<(), pounce_common::observed::Abort> {
+        use pounce_common::observed::{Event, Primitive};
+        if !matches!(event, Event::End { .. }) {
+            self.execution.check().map_err(|e| self.fail(e))?;
+        }
+        match event {
+            Event::Begin {
+                primitive: Primitive::Factor,
+                ..
+            } => {
+                let count = self.state.attempted_factors.get();
+                if count >= self.limits.refactorizations {
+                    return Err(self.fail(ProblemError::Limit {
+                        kind: crate::LimitKind::Work,
+                        detail: "QP actual factor allowance exhausted".into(),
+                    }));
+                }
+                if let Some(owner) = &self.execution.work_admission {
+                    crate::quality::contained(|| owner.admit(factor_unit()))
+                        .map_err(|e| self.fail(e))?;
+                }
+                self.state.attempted_factors.set(count + 1);
+            }
+            Event::End {
+                primitive: Primitive::Factor,
+                ..
+            } => {
+                if let Some(owner) = &self.execution.work_admission {
+                    crate::quality::contained(|| owner.observe(factor_unit()))
+                        .map_err(|e| self.fail(e))?;
+                }
+            }
+            Event::Storage {
+                scope,
+                owner,
+                instance,
+                known_bytes,
+                opaque,
+            } => {
+                let previous = self
+                    .storage
+                    .borrow()
+                    .get(&(*owner, *instance))
+                    .copied()
+                    .unwrap_or(0);
+                if let Some(admission) = &self.execution.work_admission {
+                    let scope = match scope {
+                        pounce_common::observed::StorageScope::Application => {
+                            crate::solve::NativeStorageScope::Application
+                        }
+                        pounce_common::observed::StorageScope::Linear => {
+                            crate::solve::NativeStorageScope::Linear
+                        }
+                    };
+                    admission
+                        .admit_storage(scope, owner, known_bytes.saturating_sub(previous), *opaque)
+                        .map_err(|e| self.fail(e))?;
+                }
+                self.storage
+                    .borrow_mut()
+                    .insert((*owner, *instance), previous.max(*known_bytes));
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
 struct Scoped {
     backend: FeralSolverInterface,
     execution: Execution,
@@ -156,22 +263,34 @@ impl SparseSymLinearSolverInterface for Scoped {
             return ESymSolverStatus::FatalError;
         }
         let calls = self.state.calls.get();
-        let factors = self.state.attempted_factors.get();
-        if calls >= self.limits.backsolves || new_matrix && factors >= self.limits.refactorizations
-        {
+        if calls >= self.limits.backsolves {
             self.fail(ProblemError::Limit {
                 kind: crate::LimitKind::Work,
                 detail: "QP linear work allowance exhausted".into(),
             });
             return ESymSolverStatus::FatalError;
         }
-        self.state.calls.set(calls + 1);
-        if new_matrix {
-            self.state.attempted_factors.set(factors + 1);
-        }
-        let status = self
-            .backend
-            .multi_solve(new_matrix, ia, ja, nrhs, rhs, check, negative);
+        let work = WorkEvidence {
+            evaluations: Some(0),
+            // The source QP/refinement loops do not expose iteration admission here.
+            iterations: None,
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        let execution = self.execution.clone();
+        let status = match execution.counted(work, || {
+            self.state.calls.set(calls + 1);
+            let status = self
+                .backend
+                .multi_solve(new_matrix, ia, ja, nrhs, rhs, check, negative);
+            Ok(self.status(status))
+        }) {
+            Ok(status) => status,
+            Err(error) => {
+                self.fail(error);
+                return ESymSolverStatus::FatalError;
+            }
+        };
         *self.state.summary.borrow_mut() = self.backend.summary();
         if !self.checkpoint() {
             return ESymSolverStatus::FatalError;
@@ -312,12 +431,31 @@ pub fn predict(request: Request<'_>, execution: Execution) -> Result<Outcome, Ar
         limits: request.limits,
         state: state.clone(),
     };
+    let _observation = pounce_common::observed::Scope::enter(Rc::new(Observation {
+        execution: execution.clone(),
+        limits: request.limits,
+        state: state.clone(),
+        storage: RefCell::default(),
+    }));
+    pounce_common::observed::set_linear_bounded(pounce_feral::complete_storage_profile(
+        request.linear,
+    ));
+    pounce_common::observed::set_linear_maximum(request.linear.bounded_storage_max_dimension);
     let mut solver = ParametricActiveSetSolver::new(Box::new(backend));
-    let result = crate::quality::contained(|| {
-        solver
-            .solve_parametric(previous, request.source, target, &options)
-            .map_err(error)
-    });
+    // Refuse an unobserved capped QP iteration count before entering its loop.
+    let result = execution.counted(
+        WorkEvidence {
+            evaluations: Some(0),
+            iterations: None,
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        },
+        || {
+            solver
+                .solve_parametric(previous, request.source, target, &options)
+                .map_err(error)
+        },
+    );
     if let Some(cause) = state.failure.borrow().clone() {
         return Err(cause);
     }
@@ -396,6 +534,181 @@ mod tests {
             limits,
             Execution::new(Arc::default(), &controls),
         )
+    }
+    #[derive(Debug, Default)]
+    struct Admission {
+        seen: std::sync::Mutex<Vec<WorkEvidence>>,
+        factor_cap: Option<u64>,
+        iterations: Option<u64>,
+    }
+    impl crate::solve::WorkAdmission for Admission {
+        fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            let factors: u64 = self
+                .seen
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|w| w.factorizations.unwrap())
+                .sum();
+            if self
+                .factor_cap
+                .is_some_and(|cap| factors + work.factorizations.unwrap() > cap)
+                || self.iterations.is_some() && work.iterations.is_none()
+            {
+                return Err(ProblemError::Limit {
+                    kind: crate::LimitKind::Work,
+                    detail: "QP task test cap".into(),
+                });
+            }
+            Ok(())
+        }
+        fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.seen.lock().unwrap().push(work);
+            Ok(())
+        }
+    }
+    fn scoped(admission: Arc<Admission>) -> (Scoped, pounce_common::observed::Scope) {
+        let (mut linear, _, limits, mut execution) = configuration();
+        linear.scaling = feral::scaling::ScalingStrategy::Identity;
+        linear.increase_quality = true;
+        execution.work_admission = Some(admission);
+        let state = Rc::new(State::default());
+        let scope = pounce_common::observed::Scope::enter(Rc::new(Observation {
+            execution: execution.clone(),
+            limits,
+            state: state.clone(),
+            storage: RefCell::default(),
+        }));
+        (
+            Scoped {
+                backend: FeralSolverInterface::with_config(linear),
+                execution,
+                limits,
+                state,
+            },
+            scope,
+        )
+    }
+    #[test]
+    fn shared_factor_cap_covers_actual_quality_retry_without_charging_reused_actions() {
+        let admission = Arc::new(Admission {
+            factor_cap: Some(1),
+            ..Default::default()
+        });
+        let (mut backend, _scope) = scoped(admission.clone());
+        assert_eq!(
+            backend.initialize_structure(1, 1, &[1], &[1]),
+            ESymSolverStatus::Success
+        );
+        backend.values_array_mut()[0] = 2.;
+        assert_eq!(
+            backend.multi_solve(true, &[1], &[1], 1, &mut [1.], false, 0),
+            ESymSolverStatus::Success
+        );
+        assert_eq!(
+            backend.multi_solve(false, &[1], &[1], 1, &mut [2.], false, 0),
+            ESymSolverStatus::Success
+        );
+        assert_eq!(backend.state.attempted_factors.get(), 1);
+        assert_eq!(
+            admission
+                .seen
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|w| w.factorizations.unwrap())
+                .sum::<u64>(),
+            1
+        );
+        assert!(backend.increase_quality());
+        assert_eq!(
+            backend.multi_solve(false, &[1], &[1], 1, &mut [1.], false, 0),
+            ESymSolverStatus::CallAgain
+        );
+        backend.values_array_mut()[0] = 2.;
+        assert_eq!(
+            backend.multi_solve(false, &[1], &[1], 1, &mut [1.], false, 0),
+            ESymSolverStatus::FatalError
+        );
+        assert_eq!(backend.state.attempted_factors.get(), 1);
+        assert!(matches!(
+            backend.state.failure.borrow().as_deref(),
+            Some(ProblemError::Limit { .. })
+        ));
+    }
+    #[test]
+    fn failed_qp_factor_is_counted_and_strict_opaque_iteration_cap_refuses_before_dispatch() {
+        let admission = Arc::new(Admission::default());
+        {
+            let (mut backend, _scope) = scoped(admission.clone());
+            assert_eq!(
+                backend.initialize_structure(1, 1, &[1], &[1]),
+                ESymSolverStatus::Success
+            );
+            backend.values_array_mut()[0] = f64::NAN;
+            assert_eq!(
+                backend.multi_solve(true, &[1], &[1], 1, &mut [1.], false, 0),
+                ESymSolverStatus::FatalError
+            );
+            assert_eq!(backend.state.attempted_factors.get(), 1);
+            assert!(backend.state.failure.borrow().is_some());
+        }
+        assert_eq!(
+            admission
+                .seen
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|w| w.factorizations.unwrap())
+                .sum::<u64>(),
+            1
+        );
+        let capped = Arc::new(Admission {
+            iterations: Some(0),
+            ..Default::default()
+        });
+        let (mut backend, _scope) = scoped(capped.clone());
+        assert_eq!(
+            backend.initialize_structure(1, 1, &[1], &[1]),
+            ESymSolverStatus::Success
+        );
+        backend.values_array_mut()[0] = 2.;
+        assert_eq!(
+            backend.multi_solve(true, &[1], &[1], 1, &mut [1.], false, 0),
+            ESymSolverStatus::FatalError
+        );
+        assert_eq!(backend.state.calls.get(), 0);
+        assert_eq!(backend.state.attempted_factors.get(), 0);
+        assert!(capped.seen.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn strict_qp_iteration_cap_refuses_before_the_native_path_loop() {
+        let (h, a) = matrices();
+        let previous = qp(&h, &a, &[1.]);
+        let target = qp(&h, &a, &[-1.]);
+        let (linear, options, limits, mut execution) = configuration();
+        let mut cold = ParametricActiveSetSolver::new(Box::new(FeralSolverInterface::with_config(
+            linear.clone(),
+        )));
+        let source = cold.solve(&previous, None, &options).unwrap();
+        let admission = Arc::new(Admission {
+            iterations: Some(0),
+            ..Default::default()
+        });
+        execution.work_admission = Some(admission.clone());
+        let refused = predict(
+            Request {
+                previous: &previous,
+                source: &source,
+                target: &target,
+                options: &options,
+                linear: &linear,
+                limits,
+            },
+            execution,
+        );
+        assert!(matches!(refused,Err(cause) if matches!(&*cause,ProblemError::Limit{..})));
+        assert!(admission.seen.lock().unwrap().is_empty());
     }
     #[test]
     fn actual_convex_qp_homotopy_runs_library_corrector_and_records_real_source() {

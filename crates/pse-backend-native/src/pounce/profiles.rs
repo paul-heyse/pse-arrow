@@ -9,6 +9,14 @@ use crate::{
 use pounce_rs::pounce_algorithm::second_opinion::{
     SecondOpinionAvailability, SecondOpinionTrigger, second_opinion_rungs,
 };
+/// Library-owned deterministic displacement, materialized and screened by the task.
+#[derive(Clone, Copy, Debug)]
+pub struct StartPerturbation {
+    /// Seed of the library's displacement generator.
+    pub seed: u64,
+    /// Relative displacement scale.
+    pub scale: f64,
+}
 /// One noncumulative native profile. Every member is derived from the baseline.
 #[derive(Clone, Debug)]
 pub struct SecondOpinionProfile {
@@ -20,6 +28,8 @@ pub struct SecondOpinionProfile {
     pub settings: Settings,
     /// Whether this rung requires explicitly permitted replacement-start recovery.
     pub replaces_start: bool,
+    /// A proposal producer; never a hidden native starting-point option.
+    pub perturbation: Option<StartPerturbation>,
 }
 /// Lower the library's finite ladder without invoking its private retry driver.
 /// The common driver admits and assesses every returned profile separately.
@@ -58,6 +68,7 @@ pub fn second_opinion_profiles(
         let mut controls = baseline.clone();
         let mut settings = settings.clone();
         let mut replaces_start = false;
+        let mut perturbation = None;
         match rung.label {
             "feral_scaling=mc64" => {
                 settings.linear.scaling = feral::scaling::ScalingStrategy::Mc64Symmetric
@@ -69,9 +80,10 @@ pub fn second_opinion_profiles(
             }
             "start_point_perturbation=1e-2" => {
                 replaces_start = true;
-                controls
-                    .options
-                    .insert("start_point_perturbation".into(), OptionValue::Real(1e-2));
+                perturbation = Some(StartPerturbation {
+                    seed: 0,
+                    scale: 1e-2,
+                });
             }
             "feral_increase_quality=no" => settings.linear.increase_quality = false,
             _ => {
@@ -86,6 +98,7 @@ pub fn second_opinion_profiles(
             controls,
             settings,
             replaces_start,
+            perturbation,
         });
     }
     Ok(profiles)

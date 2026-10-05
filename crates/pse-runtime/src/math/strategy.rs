@@ -41,6 +41,7 @@ pub(crate) enum AutoDecision {
     Dispatch { candidate: usize },
     Assess,
     Finish,
+    Exhausted { cause: Option<Arc<ProblemError>> },
     Stop { cause: Option<Arc<ProblemError>> },
 }
 pub(crate) struct AutoObservation {
@@ -76,6 +77,7 @@ pub(crate) fn next_automatic(
                     permission,
                     pse_model::generated::enums::CandidateUse::Usable
                         | pse_model::generated::enums::CandidateUse::QualifiedUnclosed
+                        | pse_model::generated::enums::CandidateUse::SeedOnly
                 )
             })
         {
@@ -113,11 +115,6 @@ pub(crate) fn next_automatic(
         factorizations: None,
         proof_steps: None,
     });
-    if work.attempts >= limits.attempts {
-        return AutoDecision::Stop {
-            cause: Some(Arc::new(limit("automatic task execution allowance"))),
-        };
-    }
     for (index, candidate) in candidates.iter().enumerate() {
         if attempted.contains(&index) {
             continue;
@@ -131,16 +128,23 @@ pub(crate) fn next_automatic(
         } else if !start.permits_entry(candidate.start, inherited) {
             continue;
         }
+        if work.attempts >= limits.attempts {
+            return AutoDecision::Stop {
+                cause: Some(Arc::new(limit("automatic task execution allowance"))),
+            };
+        }
         return if candidate.prepared {
             AutoDecision::Dispatch { candidate: index }
         } else {
             AutoDecision::Prepare { candidate: index }
         };
     }
-    AutoDecision::Stop {
-        cause: last
-            .and_then(|last| last.original.as_ref())
-            .and_then(OriginalConclusion::cause),
+    if let Some(last) = last {
+        AutoDecision::Exhausted {
+            cause: last.original.as_ref().and_then(OriginalConclusion::cause),
+        }
+    } else {
+        AutoDecision::Stop { cause: None }
     }
 }
 
@@ -151,7 +155,7 @@ pub(crate) fn automatic_decision_key(
     last: Option<&AutoObservation>,
     work: WorkObservation,
 ) -> Result<ContentHash, ProblemError> {
-    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV1);
+    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV2);
     h.part(
         &serde_json::to_vec(request).map_err(|error| ProblemError::Contract(error.to_string()))?,
     );
@@ -181,6 +185,12 @@ pub(crate) fn automatic_decision_key(
         }
         AutoDecision::Assess => {
             h.str("assess-original");
+        }
+        AutoDecision::Exhausted { cause } => {
+            h.str("exhausted-owned-catalog");
+            if let Some(cause) = cause {
+                h.str(&cause.to_string());
+            }
         }
         AutoDecision::Stop { cause } => {
             h.str("stop");
@@ -255,6 +265,22 @@ impl ProductState {
                 "unestablished produced accuracy cannot enter product state".into(),
             ));
         }
+        if let Some(prior) = self.actual.iter_mut().find(|prior| {
+            prior.source == evidence.source
+                && prior.derivative_order == evidence.derivative_order
+                && prior.branch == evidence.branch
+        }) {
+            let prior_demand = pse_model::strategy::AccuracyDemand {
+                product: prior.accuracy.product,
+                normalization: prior.accuracy.normalization,
+                allowance: prior.accuracy.error.unwrap_or(f64::NAN),
+                class: prior.accuracy.class,
+            };
+            if evidence.accuracy.satisfies(&prior_demand) {
+                *prior = evidence;
+            }
+            return Ok(());
+        }
         if self
             .capacity
             .is_some_and(|capacity| self.actual.len() >= capacity)
@@ -270,25 +296,6 @@ impl ProductState {
     ) -> Result<Vec<pse_model::strategy::AccuracyEvidence>, ProblemError> {
         contract.inputs.iter().map(|demand| self.actual.iter().find(|actual|actual.satisfies(demand)).map(|actual|actual.accuracy)
             .ok_or_else(||ProblemError::Unsupported("operation input accuracy is not established at the required source/point/order/branch".into()))).collect()
-    }
-    /// Bind request demands to the actual original point about to be consumed.
-    pub(crate) fn bind_inputs(
-        &self,
-        demands: &[pse_model::strategy::AccuracyDemand],
-        binding: ContentHash,
-        point: ContentHash,
-        branch: pse_model::strategy::BranchPolicy,
-        derivative_order: u8,
-    ) -> Result<pse_model::strategy::OperationContract, ProblemError> {
-        let inputs=demands.iter().map(|demand| {
-            let evidence=self.actual.iter().find(|actual| actual.source.binding==binding && actual.source.point==Some(point) && actual.derivative_order==derivative_order && actual.branch==branch && actual.accuracy.satisfies(demand))
-                .ok_or_else(||ProblemError::Unsupported("requested accuracy is unavailable for the actual source/point/order/branch".into()))?;
-            Ok(pse_model::strategy::ProductDemand { source:evidence.source,derivative_order,branch,accuracy:*demand })
-        }).collect::<Result<Vec<_>,ProblemError>>()?;
-        Ok(pse_model::strategy::OperationContract {
-            inputs,
-            outputs: Vec::new(),
-        })
     }
 }
 
@@ -449,7 +456,7 @@ pub(crate) fn transition(mechanism: &Mechanism, assessment: &Assessment) -> Tran
     ) {
         return Transition::Stop;
     }
-    if assessment.retention.candidate.permits_use()
+    if assessment.retention.candidate.permits_seed()
         && assessment.original.satisfied()
         && !assessment.auxiliary
     {
@@ -676,10 +683,26 @@ pub(crate) struct Event {
     pub(crate) work: Option<WorkCharge>,
     pub(crate) cause: Option<Arc<ProblemError>>,
 }
+pub(crate) fn validate_outputs(
+    contract: &pse_model::strategy::OperationContract,
+    evidence: &[pse_model::strategy::ProductEvidence],
+) -> Result<(), ProblemError> {
+    if contract.outputs.iter().any(|demand| {
+        !evidence.iter().any(|actual| {
+            actual.source.point.is_some()
+                && actual.source.normalization == Some(actual.accuracy.normalization)
+                && demand.admits(actual)
+        })
+    }) {
+        return Err(ProblemError::Unsupported("operation did not establish every frozen output source/point/order/branch/accuracy obligation".into()));
+    }
+    Ok(())
+}
 pub(crate) struct Attempt<T> {
     pub(crate) value: T,
     pub(crate) observation: Observation,
     pub(crate) work: WorkCharge,
+    pub(crate) evidence: Vec<pse_model::strategy::ProductEvidence>,
 }
 /// A dispatched effect that failed still owns its actual work. A local clock is
 /// supplied only by the producer that narrowed it; ordinary resource errors never
@@ -689,6 +712,8 @@ pub(crate) struct EffectFailure {
     pub(crate) observed: WorkObservation,
     local_expiry: Option<std::time::Instant>,
     local_refinement: bool,
+    /// Actual unsuccessful component observation, supplied only by its native owner.
+    observation: Option<Observation>,
 }
 impl From<Arc<ProblemError>> for EffectFailure {
     fn from(cause: Arc<ProblemError>) -> Self {
@@ -703,16 +728,31 @@ impl From<Arc<ProblemError>> for EffectFailure {
             },
             local_expiry: None,
             local_refinement: false,
+            observation: None,
         }
     }
 }
 impl EffectFailure {
+    pub(crate) fn component(
+        cause: Arc<ProblemError>,
+        observed: WorkObservation,
+        observation: Observation,
+    ) -> Self {
+        Self {
+            cause,
+            observed,
+            local_expiry: None,
+            local_refinement: false,
+            observation: Some(observation),
+        }
+    }
     pub(crate) fn observed(cause: Arc<ProblemError>, observed: WorkObservation) -> Self {
         Self {
             cause,
             observed,
             local_expiry: None,
             local_refinement: false,
+            observation: None,
         }
     }
     /// Bind actual producer-issued time exhaustion to its local scope. The producer
@@ -735,6 +775,7 @@ impl EffectFailure {
             observed,
             local_expiry,
             local_refinement: false,
+            observation: None,
         }
     }
     /// Bind a producer-validated refusal of this operation's exact consumed product.
@@ -757,6 +798,7 @@ impl EffectFailure {
             observed,
             local_expiry: None,
             local_refinement,
+            observation: None,
         }
     }
 }
@@ -790,7 +832,7 @@ pub(crate) struct RungProducts {
     pub(crate) start: Option<ContentHash>,
     pub(crate) transport: Option<ContentHash>,
     pub(crate) accuracy: Option<pse_model::strategy::AccuracyEvidence>,
-    pub(crate) evidence: Option<pse_model::strategy::ProductEvidence>,
+    pub(crate) evidence: Vec<pse_model::strategy::ProductEvidence>,
     pub(crate) path_events:
         Option<pse_math::SharedAllocation<Vec<pse_backend_native::kkt::path::arclength::Event>>>,
 }
@@ -800,6 +842,8 @@ pub(crate) struct RungProducts {
 pub(crate) enum ProviderEvidence {
     Native(pse_model::strategy::ProfileRef),
     Library(ContentHash),
+    /// An actual original evaluation/reconstruction without a native adapter or profile.
+    NonNative,
 }
 impl Trace {
     pub(crate) fn retained_bytes(&self) -> Result<usize, ProblemError> {
@@ -824,6 +868,17 @@ impl Trace {
                 )
             })
             .ok_or_else(|| limit("strategy trace extent"))?;
+        let initial = self.products.iter().try_fold(initial, |bytes, product| {
+            bytes
+                .checked_add(
+                    product
+                        .evidence
+                        .capacity()
+                        .checked_mul(size_of::<pse_model::strategy::ProductEvidence>())
+                        .ok_or_else(|| limit("strategy product evidence extent"))?,
+                )
+                .ok_or_else(|| limit("strategy product evidence extent"))
+        })?;
         self.events.iter().try_fold(initial, |bytes, event| {
             bytes
                 .checked_add(
@@ -838,6 +893,72 @@ impl Trace {
     pub(crate) fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
         self.owner = Some(owner);
         self
+    }
+    /// Publish every actual point/action receipt separately from event summaries.
+    pub fn product_rows(
+        &self,
+        run_id: pse_model::generated::identities::RunId,
+        step: usize,
+    ) -> Result<Vec<pse_model::generated::runtime::solve_strategy_products::Row>, ProblemError>
+    {
+        use pse_model::generated::runtime::solve_strategy_products::Row;
+        let ordinal = |value: usize| {
+            i64::try_from(value).map_err(|_| limit("strategy product ordinal extent"))
+        };
+        let mut rows = Vec::new();
+        for (mechanism, products) in self.products.iter().enumerate() {
+            for (product, evidence) in products.evidence.iter().enumerate() {
+                let source = evidence.source;
+                let normalization = source.normalization.ok_or_else(|| {
+                    ProblemError::Contract("published product normalization missing".into())
+                })?;
+                let point = source.point.ok_or_else(|| {
+                    ProblemError::Contract("published product exact point missing".into())
+                })?;
+                evidence
+                    .branch
+                    .validate()
+                    .map_err(|error| ProblemError::Contract(error.to_string()))?;
+                let accuracy = evidence.accuracy;
+                let demand = pse_model::strategy::AccuracyDemand {
+                    product: accuracy.product,
+                    normalization,
+                    allowance: accuracy.error.unwrap_or(f64::NAN),
+                    class: accuracy.class,
+                };
+                if source.accuracy != Some(accuracy.product) || !accuracy.satisfies(&demand) {
+                    return Err(ProblemError::Contract(
+                        "published product source/order accuracy is not established".into(),
+                    ));
+                }
+                let connected = evidence.branch.connected;
+                rows.push(Row {
+                    run_id,
+                    step: ordinal(step)?,
+                    mechanism: ordinal(mechanism)?,
+                    product: ordinal(product)?,
+                    derivative_order: i64::from(evidence.derivative_order),
+                    product_identity: accuracy.product,
+                    source_structure: source.structure,
+                    source_binding: source.binding,
+                    normalization,
+                    point,
+                    numerical_policy: source.numerical_policy,
+                    parameters: source.parameters,
+                    derivation: source.derivation,
+                    source_branch: source.branch,
+                    source_accuracy: source.accuracy,
+                    path: connected.map(|path| path.path),
+                    sheet: connected.map(|path| path.sheet),
+                    transport: connected.map(|path| path.transport),
+                    orientation: connected.map(|path| path.orientation),
+                    accuracy_class: accuracy.class,
+                    error: accuracy.error,
+                    branch_policy: evidence.branch.kind,
+                });
+            }
+        }
+        Ok(rows)
     }
     /// Project ordered events without reconstructing numerical decisions from metrics.
     pub fn rows(
@@ -882,14 +1003,15 @@ impl Trace {
                     decision_identity:event.decision,
                     original_conclusion:event.original.as_ref().map(|conclusion|match conclusion {OriginalConclusion::Satisfied=>pse_model::generated::enums::NumericalOriginalConclusion::Satisfied,OriginalConclusion::Refused{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Refused,OriginalConclusion::Unavailable{..}=>pse_model::generated::enums::NumericalOriginalConclusion::Unavailable}),
                     derived_identity: product.and_then(|p| p.derived),
-                    profile_identity: actual.then_some(match product.and_then(|p| p.provider) {
-                        Some(ProviderEvidence::Library(key)) => key,
-                        Some(ProviderEvidence::Native(profile)) => profile.key,
-                        None => mechanism.profile.map_or(self.profile, |p| p.key),
-                    }),
+                    profile_identity: actual.then(|| match product.and_then(|p| p.provider) {
+                        Some(ProviderEvidence::Library(key)) => Some(key),
+                        Some(ProviderEvidence::Native(profile)) => Some(profile.key),
+                        Some(ProviderEvidence::NonNative) => None,
+                        None => Some(mechanism.profile.map_or(self.profile, |p| p.key)),
+                    }).flatten(),
                     backend: if let Some(provider) = product.and_then(|p| p.provider) {
                         match provider {
-                            ProviderEvidence::Library(_) => None,
+                            ProviderEvidence::Library(_) | ProviderEvidence::NonNative => None,
                             ProviderEvidence::Native(profile) => Some(profile.backend),
                         }
                     } else if actual {
@@ -1141,7 +1263,15 @@ fn run_inner<T>(
             break;
         }
         let actual_facts = facts(index);
-        let admission = match admit(strategy, index, !dispatched, &actual_facts) {
+        let trusted_recovery = ledger.entry_dispatched()
+            && strategy.start.recovery.contains(&actual_facts.start)
+            && actual_facts.start != StartOrigin::Explicit;
+        let admission = match admit(
+            strategy,
+            index,
+            !dispatched && !trusted_recovery,
+            &actual_facts,
+        ) {
             Admission::Ready => match ledger.reserve(
                 mechanism.limits,
                 actual_facts.reservation,
@@ -1180,6 +1310,7 @@ fn run_inner<T>(
             }
         }
         dispatched = true;
+        ledger.mark_entry_dispatched();
         result.events.push(Event {
             mechanism: index,
             kind: EventKind::Started,
@@ -1221,8 +1352,13 @@ fn run_inner<T>(
                     .check()
                     .map_err(ProblemError::Provider)
                     .and(accounting);
+                let observation = failed.observation.unwrap_or_else(|| failure(&failed.cause));
                 let can_continue = enclosing.is_ok()
-                    && (failed.local_expiry.is_some() || failed.local_refinement)
+                    && (failed.local_expiry.is_some()
+                        || failed.local_refinement
+                        || failed
+                            .observation
+                            .is_some_and(permits_numerical_continuation))
                     && !mechanism.required
                     && mechanism.transitions.contains(&Transition::Continue);
                 let cause = failed.cause;
@@ -1236,7 +1372,7 @@ fn run_inner<T>(
                     phase,
                     original: None,
                     decision: None,
-                    observation: Some(failure(&cause)),
+                    observation: Some(observation),
                     transition: Some(if can_continue {
                         Transition::Continue
                     } else {
@@ -1336,6 +1472,33 @@ fn run_inner<T>(
             }
             continue;
         }
+        if let Err(cause) = validate_outputs(&mechanism.operation, &attempt.evidence) {
+            let cause = Arc::new(cause);
+            let can_continue = !mechanism.required
+                && mechanism.transitions.contains(&Transition::Continue)
+                && permits_numerical_continuation(attempt.observation);
+            result.events.push(Event {
+                mechanism: index,
+                kind: EventKind::Finished,
+                phase,
+                original: None,
+                decision: None,
+                observation: Some(attempt.observation),
+                transition: Some(if can_continue {
+                    Transition::Continue
+                } else {
+                    Transition::Stop
+                }),
+                permission: None,
+                work: Some(attempt.work),
+                cause: Some(cause.clone()),
+            });
+            if !can_continue {
+                result.terminal = Some(cause);
+                break;
+            }
+            continue;
+        }
         let pending = AutoObservation {
             awaiting_assessment: true,
             native: attempt.observation,
@@ -1373,7 +1536,7 @@ fn run_inner<T>(
         let assessment_decision =
             match automatic_decision_key(&request, &[], &decision, Some(&pending), work) {
                 Ok(key) => {
-                    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV1);
+                    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV2);
                     h.hash(&attempt.work.charging_owner).hash(&key);
                     Some(h.finish_hash())
                 }

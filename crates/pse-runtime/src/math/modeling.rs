@@ -103,6 +103,13 @@ impl ModelingPreparation {
     pub fn compiled(&self) -> &PreparedModeling {
         &self.product
     }
+    /// The admitted selected-supplier equation view, retaining the same product owner.
+    pub(crate) fn original_equations(&self) -> Option<Self> {
+        Some(Self {
+            product: self.product.original_equations()?,
+            ..self.clone()
+        })
+    }
     /// The model, case and instance this preparation specialized: what its lineage,
     /// solve rows and numerical requirements name.
     pub const fn solved(&self) -> Solved {

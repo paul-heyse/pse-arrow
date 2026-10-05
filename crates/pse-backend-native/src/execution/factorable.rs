@@ -1528,6 +1528,7 @@ fn fixed_assignment(
             {
                 Ok(oracle) => (
                     Some(crate::kkt::Sensitivity {
+                        source: None,
                         oracle,
                         parameters: request.parameters,
                         reduced_hessian: request.reduced_hessian,

@@ -636,15 +636,23 @@ async fn antiwindup_with_activity(
     advanced: Option<AdvancedStep>,
     activity: bool,
 ) -> Arc<RunResult> {
-    const STEPS: usize = 20;
+    antiwindup_with_start_policy(advanced, activity, StartPolicy::PreviousAccepted, 20).await
+}
+async fn antiwindup_with_start_policy(
+    advanced: Option<AdvancedStep>,
+    activity: bool,
+    start: StartPolicy,
+    steps: usize,
+) -> Arc<RunResult> {
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     let (package, [root, whole, _]) = package(runtime.clone());
-    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
-    let setpoints = (0..STEPS)
+    let (plant, actuator, x) = plant(&package, whole, 0., steps).await;
+    let setpoints = (0..steps)
         .map(|k| if k < 12 { 1. } else { 0.6 })
         .collect::<Vec<_>>();
     let mut controller = controller(&package, root, x, setpoints);
     controller.advanced = advanced;
+    controller.analysis.solver.controls.start = start;
     if activity {
         controller
             .analysis
@@ -662,7 +670,7 @@ async fn antiwindup_with_activity(
         Horizon {
             plant,
             period: PERIOD,
-            steps: STEPS,
+            steps,
             inputs: vec![HorizonInput {
                 parameter: actuator,
                 initial: 0.,
@@ -808,4 +816,234 @@ async fn advanced_step_activity_start_is_corrected_before_move_authorization() {
         // A start-only tracked/partial endpoint never authorizes a move itself.
         assert_ne!(step.decision, HorizonDecision::Predicted);
     }
+}
+
+#[tokio::test]
+async fn advanced_no_prior_start_consumes_fresh_screened_activity_with_one_task_owner() {
+    let advanced = antiwindup_with_start_policy(
+        Some(AdvancedStep::default()),
+        true,
+        StartPolicy::NoPriorStart,
+        4,
+    )
+    .await;
+    let horizon = advanced.horizon().unwrap();
+    let results = modeling(&advanced);
+    for result in results {
+        assert!(
+            result
+                .prepared
+                .starts
+                .values()
+                .all(|source| *source != StartSource::Predecessor)
+        );
+    }
+    let corrected = horizon
+        .steps
+        .iter()
+        .filter(|step| step.activity.is_some())
+        .collect::<Vec<_>>();
+    assert!(!corrected.is_empty(), "{:?}", horizon.steps);
+    for step in corrected {
+        assert_eq!(step.decision, HorizonDecision::Fallback);
+        let result = &results[step.controller.unwrap()];
+        assert!(result.completion.decision.permits_use());
+        let target = &result.prepared.solve;
+        assert_eq!(target.controls().start, StartPolicy::NoPriorStart);
+        let scope = target.task_scope().unwrap();
+        assert!(scope.deadline().is_some());
+        let owner = target.task_admission().unwrap();
+        assert!(owner.matches_scope(&scope));
+        assert!(owner.entry_dispatched());
+        assert!(step.activity.as_ref().unwrap().work.backsolves > 0);
+    }
+}
+#[tokio::test]
+async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_owner() {
+    use std::{
+        sync::atomic::{AtomicBool, Ordering},
+        time::{Duration, Instant},
+    };
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let staged = crate::workflow::staged::Staged::open(&runtime, None).unwrap();
+    let cancel = crate::CancelSource::new();
+    let flag = Arc::new(AtomicBool::new(false));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+    let original = scope.clone();
+    let same_owner = flag.clone();
+    let observed = staged
+        .native_in_task(1, scope, &cancel, move |_, flag, _| {
+            assert!(Arc::ptr_eq(flag, &same_owner));
+            let execution = pse_backend_native::solve::Execution::within(
+                flag.clone(),
+                &pse_backend_native::solve::Controls::default(),
+                original,
+            )?;
+            Ok(execution.scope()?.deadline())
+        })
+        .await
+        .unwrap();
+    assert_eq!(observed, Some(deadline));
+    assert!(!flag.load(Ordering::Acquire));
+    let dispatched = Arc::new(AtomicBool::new(false));
+    let effect = dispatched.clone();
+    let expired = pse_kernels::ExecutionScope::new(flag.clone(), Some(Instant::now()));
+    let refused = staged
+        .native_in_task(1, expired, &cancel, move |_, _, _| {
+            effect.store(true, Ordering::Release);
+            Ok(())
+        })
+        .await;
+    assert!(refused.is_err());
+    assert!(!dispatched.load(Ordering::Acquire));
+    assert!(!flag.load(Ordering::Acquire));
+    assert!(!cancel.token().is_cancelled());
+    staged.close().await;
+}
+
+#[tokio::test]
+async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_failed_target() {
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::runtime::{
+            solve_runs, solve_strategy_events, solve_strategy_products, solve_variables,
+        },
+    };
+    let completed =
+        antiwindup_with_start_policy(None, false, StartPolicy::PreviousAccepted, 1).await;
+    let first = modeling(&completed)[0].clone();
+    assert!(matches!(&first.outcome, Outcome::Native(_)) && first.accepted);
+    let original_tables = completed.tables().unwrap();
+    let original_events =
+        solve_strategy_events::Row::rows(&original_tables[&solve_strategy_events::RELATION_ID])
+            .unwrap();
+    let original_products =
+        solve_strategy_products::Row::rows(&original_tables[&solve_strategy_products::RELATION_ID])
+            .unwrap();
+    let original_variables =
+        solve_variables::Row::rows(&original_tables[&solve_variables::RELATION_ID]).unwrap();
+    assert!(!original_events.is_empty());
+    assert!(
+        original_variables
+            .iter()
+            .any(|row| !row.fixed && !row.parameter && row.value.is_some())
+    );
+    let runtime = completed.runtime.clone();
+    let good = first.prepared.clone();
+    let mut bad = good.clone();
+    let scope = pse_kernels::ExecutionScope::new(
+        Arc::default(),
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
+    );
+    let admission = crate::math::strategy::admission::TaskAdmission::new(
+        pse_model::strategy::WorkLimits {
+            attempts: 4,
+            evaluations: Some(0),
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
+        },
+        scope.clone(),
+        None,
+        false,
+    );
+    bad.solve = bad.solve.within_admitted_task(scope, admission).unwrap();
+    let failed = runtime
+        .start_modeling(vec![bad.clone()], false, &crate::CancelSource::new())
+        .await
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    let cause = failed
+        .report
+        .as_ref()
+        .err()
+        .expect("zero evaluation cap must refuse the actual target")
+        .clone();
+    assert!(cause.strategy_trace().is_some());
+    let (report, failure) = driver::joined_modeling(
+        Err(crate::workflow::WorkflowError::Shared(cause)),
+        vec![first.clone()],
+        Some(1),
+    );
+    let mut joined = RunResult::joined(
+        completed.run_id,
+        runtime.clone(),
+        crate::workflow::RunRequest::Modeling(vec![good.clone(), bad]),
+        None,
+        report,
+    );
+    joined.modeling_failure = failure;
+    let joined = joined.finished(None, false).await;
+    assert!(!joined.usable());
+    assert!(joined.modeling_result(0).unwrap().accepted);
+    assert!(joined.modeling_error(0).is_none());
+    assert!(joined.modeling_error(1).unwrap().strategy_trace().is_some());
+    let tables = joined.tables().unwrap();
+    let events =
+        solve_strategy_events::Row::rows(&tables[&solve_strategy_events::RELATION_ID]).unwrap();
+    assert!(events.iter().any(|row| row.step == 0));
+    assert!(events.iter().any(|row| row.step == 1));
+    assert_eq!(
+        events
+            .iter()
+            .filter(|row| row.step == 0)
+            .collect::<Vec<_>>(),
+        original_events.iter().collect::<Vec<_>>()
+    );
+    let products =
+        solve_strategy_products::Row::rows(&tables[&solve_strategy_products::RELATION_ID]).unwrap();
+    // An ordinary native rung has no composed product receipt. Preserve its actual
+    // receipt inventory rather than inventing one because a later target failed.
+    assert_eq!(
+        products
+            .iter()
+            .filter(|row| row.step == 0)
+            .collect::<Vec<_>>(),
+        original_products.iter().collect::<Vec<_>>()
+    );
+    let variables = solve_variables::Row::rows(&tables[&solve_variables::RELATION_ID]).unwrap();
+    assert!(variables.iter().any(|row| row.step == 0));
+    assert_eq!(
+        variables
+            .iter()
+            .filter(|row| row.step == 0)
+            .collect::<Vec<_>>(),
+        original_variables.iter().collect::<Vec<_>>()
+    );
+    let runs = solve_runs::Row::rows(&tables[&solve_runs::RELATION_ID]).unwrap();
+    assert!(runs[0].error.is_none());
+    assert!(runs[1].error.is_some());
+
+    let (report, failure) = driver::joined_modeling(
+        Err(crate::workflow::contract("later plant task failure")),
+        vec![first],
+        None,
+    );
+    let mut plant = RunResult::joined(
+        completed.run_id,
+        runtime,
+        crate::workflow::RunRequest::Modeling(vec![good]),
+        None,
+        report,
+    );
+    plant.modeling_failure = failure;
+    let plant = plant.finished(None, false).await;
+    assert!(!plant.usable());
+    assert!(plant.modeling_result(0).unwrap().accepted);
+    assert!(plant.modeling_error(0).is_none());
+    let tables = plant.tables().unwrap();
+    let events =
+        solve_strategy_events::Row::rows(&tables[&solve_strategy_events::RELATION_ID]).unwrap();
+    assert_eq!(events, original_events);
+    let products =
+        solve_strategy_products::Row::rows(&tables[&solve_strategy_products::RELATION_ID]).unwrap();
+    assert_eq!(products, original_products);
+    let variables = solve_variables::Row::rows(&tables[&solve_variables::RELATION_ID]).unwrap();
+    assert_eq!(variables, original_variables);
+    let runs = solve_runs::Row::rows(&tables[&solve_runs::RELATION_ID]).unwrap();
+    assert_eq!(runs.len(), 1);
+    assert!(runs[0].error.is_none());
 }

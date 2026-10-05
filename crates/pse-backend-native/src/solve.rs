@@ -656,6 +656,11 @@ pub enum NativeStorageScope {
 /// Task-owned pre-operation admission for disjoint native work. Reservations and
 /// actual observations remain distinct, and an absent counter is unknown.
 pub trait WorkAdmission: std::fmt::Debug + Send + Sync {
+    /// Transfer allocation leases independently of the completed task's work ledger.
+    /// A retained native owner replaces this token only after its replacement is admitted.
+    fn retain_storage(&self) -> Option<Arc<dyn std::any::Any + Send + Sync>> {
+        None
+    }
     /// Reserve the next operation before it starts, including failed operations.
     fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError>;
     /// Reconcile work that actually ran; the enclosing driver must not charge it again.

@@ -32,19 +32,28 @@ pub struct ProfileRef {
 pub struct StartRules {
     /// Existing request's entry policy; a strategy cannot reinterpret its precedence.
     pub policy: StartPolicy,
-    /// Permitted later origins, after entry. Empty grants no replacement start.
+    /// Permitted replacement origins. A fresh task-produced proposal may precede
+    /// a non-explicit entry; inherited products still obey the entry policy.
     pub recovery: Vec<StartOrigin>,
 }
 impl StartRules {
     /// Origin permission only. Compatibility, result permission and explicit identity are
     /// independently checked by the start owner; an accepted label cannot establish them.
-    pub const fn permits_entry(&self, origin: StartOrigin, inherited: bool) -> bool {
+    pub fn permits_entry(&self, origin: StartOrigin, inherited: bool) -> bool {
         match self.policy {
-            StartPolicy::NoPriorStart => !inherited && matches!(origin, StartOrigin::Specification),
             StartPolicy::Explicit => matches!(origin, StartOrigin::Explicit),
+            StartPolicy::NoPriorStart => {
+                !inherited
+                    && (matches!(origin, StartOrigin::Specification)
+                        || self.recovery.contains(&origin)
+                            && !matches!(origin, StartOrigin::Explicit))
+            }
             StartPolicy::PreviousAccepted => {
                 matches!(origin, StartOrigin::Accepted)
-                    || !inherited && matches!(origin, StartOrigin::Specification)
+                    || !inherited
+                        && (matches!(origin, StartOrigin::Specification)
+                            || self.recovery.contains(&origin)
+                                && !matches!(origin, StartOrigin::Explicit))
             }
         }
     }
@@ -271,7 +280,8 @@ pub struct ProductEvidence {
     pub accuracy: AccuracyEvidence,
 }
 /// The consumer's exact dependency contract. No field is inferred from capabilities.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ProductDemand {
     /// The immutable dependencies and actual point the consumer requires.
     pub source: SemanticProductKey,
@@ -281,6 +291,60 @@ pub struct ProductDemand {
     pub branch: BranchPolicy,
     /// Required product/error normalization and evidence class.
     pub accuracy: AccuracyDemand,
+}
+/// A producer's finite output obligation, before the output point or receipt exists.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProductionDemand {
+    /// Frozen producer dependencies. An absent point names a point selected during execution.
+    pub source: SemanticProductKey,
+    /// The action order this producer must actually establish.
+    pub derivative_order: u8,
+    /// Original branch permission required of the output.
+    pub branch: BranchPolicy,
+    /// Finite error allowance in the source's declared normalization.
+    pub allowance: f64,
+    /// Required evidence class; support never supplies the future receipt.
+    pub class: AccuracyClass,
+}
+impl ProductionDemand {
+    /// Validate production permission independently of a future output certificate.
+    pub fn validate(&self) -> Result<(), ModelError> {
+        self.branch.validate()?;
+        if self.source.normalization.is_none()
+            || !self.allowance.is_finite()
+            || self.allowance < 0.0
+            || self.class == AccuracyClass::Unresolved
+        {
+            return Err(crate::malformed(
+                "production requires normalization, finite allowance and established evidence class",
+            ));
+        }
+        Ok(())
+    }
+    /// Check actual evidence after production without loosening its frozen dependencies.
+    pub fn admits(&self, evidence: &ProductEvidence) -> bool {
+        let mut source = self.source;
+        if source.point.is_none() {
+            source.point = evidence.source.point;
+        }
+        if source.accuracy.is_none() {
+            source.accuracy = evidence.source.accuracy;
+        }
+        self.validate().is_ok()
+            && source == evidence.source
+            && self.derivative_order == evidence.derivative_order
+            && self.branch == evidence.branch
+            && evidence.accuracy.satisfies(&AccuracyDemand {
+                product: evidence.accuracy.product,
+                normalization: self
+                    .source
+                    .normalization
+                    .unwrap_or(evidence.accuracy.normalization),
+                allowance: self.allowance,
+                class: self.class,
+            })
+    }
 }
 impl ProductEvidence {
     /// Exact dependency match followed by the owned accuracy check.
@@ -296,12 +360,15 @@ impl ProductEvidence {
 }
 /// Input requirements are consumed before use; output contracts grant bounded production,
 /// never possession of the future output's certificate.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(
+    Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct OperationContract {
     /// Actual prerequisites consumed by this particular operation.
     pub inputs: Vec<ProductDemand>,
     /// Products this operation may attempt to refine under the supplied demands.
-    pub outputs: Vec<AccuracyDemand>,
+    pub outputs: Vec<ProductionDemand>,
 }
 
 /// A native payload needs stronger compatibility than its semantic point.
@@ -323,9 +390,7 @@ pub struct NativeProductKey {
 }
 /// One operation description. Applicability, supplied derivatives and method mathematics
 /// remain with its support producers; this declaration owns bounded composition only.
-#[derive(
-    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Mechanism {
     /// Declared numerical operation, from the shared registry vocabulary.
@@ -338,6 +403,9 @@ pub struct Mechanism {
     pub profile: Option<ProfileRef>,
     /// Exact producer-owned support contracts required by this operation.
     pub support: Vec<ContentHash>,
+    /// Exact prerequisites and bounded production obligations of this operation only.
+    #[serde(default)]
+    pub operation: OperationContract,
     /// Additional local finite allowances under the enclosing task scope.
     pub limits: WorkLimits,
     /// Permitted proposal origins for this mechanism; entry rules still take precedence.
@@ -394,15 +462,13 @@ pub struct NumericalStrategy {
     pub mechanisms: Vec<Mechanism>,
     /// Existing admitted task/occurrence finite limits, never refreshed at a new rung.
     pub limits: WorkLimits,
-    /// Consumed accuracy contracts; original physical tolerances stay with their owner.
-    pub accuracy: Vec<AccuracyDemand>,
 }
 /// Current strategy wire document. Historical bodies are not silently reinterpreted.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NumericalStrategyDocument {
     /// Exact current document version, checked before decoding its body.
-    pub version: crate::document::Version<2>,
+    pub version: crate::document::Version<3>,
     /// Validated finite operation declaration.
     pub strategy: NumericalStrategy,
 }
@@ -439,12 +505,12 @@ impl NumericalStrategy {
                 required: true,
                 profile: None,
                 support: Vec::new(),
+                operation: OperationContract::default(),
                 limits,
                 starts,
                 transitions: vec![Transition::Finish, Transition::Stop],
             }],
             limits,
-            accuracy: Vec::new(),
         }
     }
     /// Validate declaration meaning only; resolution binds actual support and scoped resources.
@@ -476,16 +542,27 @@ impl NumericalStrategy {
                     "execution mechanism has no admitted start origins",
                 ));
             }
-        }
-        for demand in &self.accuracy {
-            demand.validate()?;
+            for input in &mechanism.operation.inputs {
+                input.accuracy.validate()?;
+                input.branch.validate()?;
+                if input.source.point.is_none()
+                    || input.source.normalization != Some(input.accuracy.normalization)
+                {
+                    return Err(crate::malformed(
+                        "operation input must name its actual point and normalization",
+                    ));
+                }
+            }
+            for output in &mechanism.operation.outputs {
+                output.validate()?;
+            }
         }
         Ok(())
     }
     /// Complete declaration identity; invalid declarations never receive an admitted key.
     pub fn key(&self) -> Result<ContentHash, ModelError> {
         self.validate()?;
-        pse_ids::document::of(pse_ids::Frame::NumericalStrategyV2, self)
+        pse_ids::document::of(pse_ids::Frame::NumericalStrategyV3, self)
             .map_err(|error| ModelError::Malformed(error.to_string()))
     }
 }
@@ -505,17 +582,26 @@ impl HeapUsage for NumericalStrategy {
             .capacity()
             .saturating_mul(size_of::<StartOrigin>())
             .saturating_add(
-                self.accuracy
-                    .capacity()
-                    .saturating_mul(size_of::<AccuracyDemand>()),
-            )
-            .saturating_add(
                 self.mechanisms.iter().fold(
                     self.mechanisms
                         .capacity()
                         .saturating_mul(size_of::<Mechanism>()),
                     |bytes, mechanism| {
                         bytes
+                            .saturating_add(
+                                mechanism
+                                    .operation
+                                    .inputs
+                                    .capacity()
+                                    .saturating_mul(size_of::<ProductDemand>()),
+                            )
+                            .saturating_add(
+                                mechanism
+                                    .operation
+                                    .outputs
+                                    .capacity()
+                                    .saturating_mul(size_of::<ProductionDemand>()),
+                            )
                             .saturating_add(
                                 mechanism
                                     .support
@@ -575,11 +661,17 @@ mod tests {
             assert_eq!(strategy.limits, limits());
             assert!(strategy.start.recovery.is_empty());
             assert!(strategy.mechanisms[0].profile.is_none());
-            assert!(strategy.accuracy.is_empty());
+            assert!(
+                strategy
+                    .mechanisms
+                    .iter()
+                    .all(|mechanism| mechanism.operation.inputs.is_empty()
+                        && mechanism.operation.outputs.is_empty())
+            );
         }
     }
     #[test]
-    fn entry_start_precedence_excludes_inherited_and_predicted_substitution() {
+    fn entry_start_precedence_excludes_inherited_and_explicit_substitution() {
         let mut rules = StartRules {
             policy: StartPolicy::NoPriorStart,
             recovery: vec![StartOrigin::Accepted, StartOrigin::Predicted],
@@ -587,7 +679,9 @@ mod tests {
         assert!(rules.permits_entry(StartOrigin::Specification, false));
         assert!(!rules.permits_entry(StartOrigin::Specification, true));
         assert!(!rules.permits_entry(StartOrigin::Accepted, true));
-        assert!(!rules.permits_entry(StartOrigin::Predicted, false));
+        assert!(rules.permits_entry(StartOrigin::Predicted, false));
+        assert!(!rules.permits_entry(StartOrigin::Predicted, true));
+        assert!(!rules.permits_entry(StartOrigin::Auxiliary, false));
         assert!(rules.permits_recovery(StartOrigin::Accepted, false));
         assert!(!rules.permits_recovery(StartOrigin::Accepted, true));
         assert!(!rules.permits_recovery(StartOrigin::Surrogate, false));
@@ -730,5 +824,39 @@ mod tests {
             serde_json::from_value(serde_json::to_value(&strategy).unwrap()).unwrap();
         assert_eq!(strategy, decoded);
         assert_eq!(key, decoded.key().unwrap());
+    }
+}
+
+#[cfg(test)]
+mod recovery_entry_tests {
+    use super::*;
+    #[test]
+    fn fresh_declared_recovery_origin_can_enter_without_rewriting_explicit_precedence() {
+        for policy in [
+            StartPolicy::NoPriorStart,
+            StartPolicy::PreviousAccepted,
+            StartPolicy::Explicit,
+        ] {
+            let rules = StartRules {
+                policy,
+                recovery: vec![
+                    StartOrigin::Predicted,
+                    StartOrigin::Auxiliary,
+                    StartOrigin::ModifiedSpecification,
+                    StartOrigin::Surrogate,
+                ],
+            };
+            for origin in &rules.recovery {
+                assert_eq!(
+                    rules.permits_entry(*origin, false),
+                    policy != StartPolicy::Explicit
+                );
+                assert!(!rules.permits_entry(*origin, true));
+            }
+            assert_eq!(
+                rules.permits_entry(StartOrigin::Explicit, false),
+                policy == StartPolicy::Explicit
+            );
+        }
     }
 }

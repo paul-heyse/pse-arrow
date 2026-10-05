@@ -272,7 +272,7 @@ def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_r
         ),
     )
     direct = prepared.numerical_strategy
-    assert direct.version == 2
+    assert direct.version == 3
     assert prepared.composition_request.policy == NumericalCompositionPolicy.AUTO
     assert not prepared.composition_request.recovery
     limits = msgspec.structs.replace(direct.strategy.limits, attempts=2)
@@ -581,7 +581,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         ),
     )
     direct = prepared.numerical_strategy
-    assert direct.version == 2
+    assert direct.version == 3
     assert prepared.composition_request.policy == NumericalCompositionPolicy.AUTO
     assert codec.decode_json(codec.encode_json(direct), type(direct)) == direct
     assert len(direct.strategy.mechanisms) == 1

@@ -183,7 +183,7 @@ def test_solve_settings_enum_types() -> None:
         default.controls.reuse,
         default.controls.start,
     ) == (
-        HessianMode.EXACT,
+        HessianMode.AUTO,
         ReusePolicy.FRESH,
         NativeStartPolicy.NO_PRIOR_START,
     )

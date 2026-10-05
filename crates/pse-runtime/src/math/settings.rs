@@ -22,7 +22,7 @@ use std::collections::BTreeSet;
 #[serde(deny_unknown_fields)]
 pub struct SolveSettings {
     /// Document version.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Requested composition; omission chooses automatic resolution without replacement starts.
     #[serde(default)]
     pub composition: pse_model::strategy::CompositionRequest,
@@ -268,10 +268,10 @@ mod tests {
     #[test]
     fn current_request_admits_version_before_body_and_preserves_start_grants() {
         let old = br#"{"settings":{"backend":"retired"},"version":1}"#;
-        let error = pse_model::document::decode_versioned::<SolveSettings, 2>(old).unwrap_err();
+        let error = pse_model::document::decode_versioned::<SolveSettings, 3>(old).unwrap_err();
         assert!(error.to_string().contains("explicit readmission"));
         let current =
-            pse_model::document::decode_versioned::<SolveSettings, 2>(br#"{"version":2}"#).unwrap();
+            pse_model::document::decode_versioned::<SolveSettings, 3>(br#"{"version":3}"#).unwrap();
         assert_eq!(
             current.composition.policy,
             pse_model::strategy::CompositionPolicy::Auto
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn solve_settings_enum_types() {
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 2,
+            "version": 3,
             "intent": "root",
             "backend": "kinsol",
             "presolve": "explicit",
@@ -315,10 +315,10 @@ mod tests {
         assert_eq!(settings.presolve, PolicyKind::Explicit);
         assert_eq!(settings.required_passes, BTreeSet::from([Pass::Fbbt]));
         for misspelled in [
-            json!({"version": 2, "intent": "rooot"}),
-            json!({"version": 2, "presolve": "magic"}),
-            json!({"version": 2, "controls": {"reuse": "sometimes"}}),
-            json!({"version": 2, "settings": {"backend": "gurobi"}}),
+            json!({"version": 3, "intent": "rooot"}),
+            json!({"version": 3, "presolve": "magic"}),
+            json!({"version": 3, "controls": {"reuse": "sometimes"}}),
+            json!({"version": 3, "settings": {"backend": "gurobi"}}),
             json!({"version": 1}),
             json!({"intent": "root"}),
         ] {
@@ -348,7 +348,7 @@ mod tests {
             pse_ids::SemanticId::from_bytes([2; 16]),
         );
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 2,
+            "version": 3,
             "sensitivity": {"parameters": [a, b], "reduced_hessian": true},
         }))
         .unwrap();
@@ -366,21 +366,21 @@ mod tests {
             super::super::solves::profile_key(&plain).unwrap()
         );
         let root: SolveSettings = serde_json::from_value(
-            json!({"version":2,"intent":"root","sensitivity":{"parameters":[a]}}),
+            json!({"version":3,"intent":"root","sensitivity":{"parameters":[a]}}),
         )
         .unwrap();
         assert!(root.profile().is_ok());
         for refused in [
-            json!({"version": 2, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
-            json!({"version": 2, "sensitivity": {"parameters": [a, a]}}),
-            json!({"version": 2, "sensitivity": {"parameters": []}}),
+            json!({"version": 3, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
+            json!({"version": 3, "sensitivity": {"parameters": [a, a]}}),
+            json!({"version": 3, "sensitivity": {"parameters": []}}),
         ] {
             let settings: SolveSettings = serde_json::from_value(refused.clone()).unwrap();
             assert!(settings.profile().is_err(), "{refused}");
         }
         assert!(
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 2,
+                "version": 3,
                 "sensitivity": {"parameters": [a], "gradient": true},
             }))
             .is_err()
@@ -393,7 +393,7 @@ mod tests {
                            values: serde_json::Value,
                            outputs: serde_json::Value| {
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 2,
+                "version": 3,
                 "sensitivity": {"parameters": [a, b], "propagation": {
                     "covariance": {"run_id": run, "parameters": parameters, "values": values},
                     "outputs": outputs,
@@ -426,19 +426,19 @@ mod tests {
     fn invalid_tolerance_refused_at_decode() {
         for (document, cause) in [
             (
-                json!({"version": 2, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
+                json!({"version": 3, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
                 "Tolerance",
             ),
             (
-                json!({"version": 2, "settings": {"backend": "kinsol", "damping": 1.5}}),
+                json!({"version": 3, "settings": {"backend": "kinsol", "damping": 1.5}}),
                 "Fraction",
             ),
             (
-                json!({"version": 2, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
+                json!({"version": 3, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
                 "PositiveCount",
             ),
             (
-                json!({"version": 2, "controls": {"time_limit": -3.0}}),
+                json!({"version": 3, "controls": {"time_limit": -3.0}}),
                 "seconds",
             ),
         ] {
@@ -453,7 +453,7 @@ mod tests {
         );
         // Cross-field rules stay admission rules with typed reasons.
         let options = serde_json::from_value::<SolveSettings>(json!({
-            "version": 2,
+            "version": 3,
             "presolve_options": {"max_passes": 3},
         }))
         .unwrap();
@@ -462,7 +462,7 @@ mod tests {
             Err(MathRuntimeError::Solve(ProblemError::Contract(_)))
         ));
         let one_budget = serde_json::from_value::<SolveSettings>(json!({
-            "version": 2,
+            "version": 3,
             "convexity_absolute": 1e-9,
         }))
         .unwrap();

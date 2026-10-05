@@ -258,7 +258,8 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
         let progress = Arc::new(native::solve::Progress::new(16));
         prepared
             .problem
-            .execute(
+            .execute_profile(
+                &prepared.problem.profile.solver,
                 prepared.route(),
                 pse_kernels::ExecutionScope::new(
                     Arc::default(),

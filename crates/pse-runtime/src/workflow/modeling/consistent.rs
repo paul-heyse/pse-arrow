@@ -345,17 +345,19 @@ impl ModelingSimulation {
                         preparation: prepared.contract.identity,
                         profile: profile_identity(&request, &controls)?,
                         backend: None,
+                        solver: None,
                         controls: &controls,
                         request: &composition,
                         start: pse_model::strategy::StartOrigin::Specification,
                         start_identity: None,
                     },
                     &scope,
-                    |admission| {
-                        let mut execution = Execution::within(flag, &controls, scope.clone())?;
+                    |_, admission| {
+                        let mut execution =
+                            Execution::within(flag.clone(), &controls, scope.clone())?;
                         execution.work_admission = Some(admission);
                         execution.memory = Some(foreign);
-                        execution.progress = progress;
+                        execution.progress = progress.clone();
                         let attempt_scope = execution.scope()?;
                         let parameters = prepared
                             .profile
@@ -414,6 +416,7 @@ impl ModelingSimulation {
                         observed.check_after_join();
                         Ok(observed)
                     },
+                    |_| None,
                     classify,
                     assess_consistent,
                 )?;

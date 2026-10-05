@@ -377,6 +377,7 @@ impl ModelingPackage {
             .admitted
             .implicit_systems()
             .flat_map(|i| i.unknowns.iter().copied())
+            .filter(|id| !product.admitted.inputs.contains(id))
             .collect::<BTreeSet<_>>();
         let mut values = CaseValues {
             scalars: BTreeMap::new(),
@@ -841,6 +842,26 @@ impl ModelingPackage {
         let model = self
             .prepare(root, instance, bindings, limits, cancel)
             .await?;
+        let model = if (solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto
+            || solver.reconstruction.is_some())
+            && solver.sensitivity.is_none()
+            && model
+                .compiled()
+                .admitted
+                .implicit_systems()
+                .any(|supplier| {
+                    supplier.selection.neighborhood_evidence
+                        != pse_compiler::workspace::SelectionNeighborhood::Unestablished
+                        && !matches!(
+                            supplier.selection.meaning,
+                            pse_compiler::workspace::ImplicitMeaning::Relation
+                        )
+                        && supplier.selection.restriction.is_none()
+                }) {
+            model.original_equations().unwrap_or(model)
+        } else {
+            model
+        };
         let inner = Inner::of(model.compiled());
         let (values, starts) = self
             .resolve_starts(
@@ -874,6 +895,19 @@ impl ModelingPackage {
             .declarations
             .retain(|r| !inner.contains(&r.declaration.target_id));
         numerical.implicit = implicit::factorable_definitions(&model, &case);
+        numerical.implicit.retain(|key, _| {
+            model
+                .compiled()
+                .admitted
+                .implicit_systems()
+                .find(|supplier| supplier.descriptor.spec().key() == *key)
+                .is_some_and(|supplier| {
+                    supplier
+                        .unknowns
+                        .iter()
+                        .all(|id| inner.unknowns.contains(id))
+                })
+        });
         let mut solver = solver;
         solver
             .numerics
@@ -1498,11 +1532,20 @@ impl Inner {
                 .admitted
                 .implicit_systems()
                 .flat_map(|i| i.unknowns.iter().copied())
+                .filter(|id| !product.admitted.inputs.contains(id))
                 .collect(),
             rows: product
                 .admitted
                 .implicit_systems()
                 .flat_map(|i| i.residuals.iter().flat_map(|r| r.rows.iter().copied()))
+                .filter(|id| {
+                    !product
+                        .admitted
+                        .case()
+                        .rows()
+                        .iter()
+                        .any(|row| row.id == *id)
+                })
                 .collect(),
         }
     }
@@ -1660,6 +1703,705 @@ mod tests {
     use super::*;
     use crate::math::solves::Outcome;
     use std::sync::Arc;
+    fn authored_symbol(
+        product: &pse_compiler::workspace::PreparedModeling,
+        path: &str,
+    ) -> SemanticId {
+        let suffix = format!(".{path}");
+        product
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path == path || symbol.lineage.path.ends_with(&suffix))
+            .unwrap()
+            .id
+    }
+    #[cfg(all(
+        feature = "solver-kinsol",
+        feature = "solver-ipopt",
+        feature = "solver-root-isolation"
+    ))]
+    #[tokio::test]
+    async fn automatic_authored_suppliers_preserve_complete_original_case() {
+        use super::super::super::tests as fixture;
+        use pse_math::implicit::reconstruction::ReconstructionFactory;
+        let runtime = fixture::runtime_on(
+            512 << 20,
+            crate::math::MathPolicy {
+                worker_bytes: 128 << 20,
+                workspace_bytes: 128 << 20,
+                foreign_bytes: 32 << 20,
+                ..Default::default()
+            },
+        );
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {param p:Scalar=1;var x:Scalar;annotation start x(1.5);annotation bounds x(0.5,3);implicit a {var y:Scalar;eq ey:y==2*x+p;annotation start y(4);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==3*x-p;annotation start z(3.5);annotation bounds z(0.1,9);}realize rb on b using nested;eq floor:a.y+b.z>=3;let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);annotation report a.y(\"y\");annotation report b.z(\"z\");}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        let mut solver = SolverProfile::default();
+        solver.presolve = pse_backend_native::presolve::Policy::Off;
+        solver.controls.time_limit = std::time::Duration::from_secs(30);
+        assert!(solver.reconstruction.is_none());
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver,
+                NumericalInputs::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let product = prepared.model.model.compiled();
+        let x = authored_symbol(product, "x");
+        let y = authored_symbol(product, "a.y");
+        let z = authored_symbol(product, "b.z");
+        let p = authored_symbol(product, "p");
+        let plan = &prepared.model.case.compiled().plan;
+        assert_eq!(plan.columns().len(), 3);
+        assert!(plan.columns().contains(&y) && plan.columns().contains(&z));
+        assert_eq!(plan.structure().rows().len(), 3);
+        assert!(!plan.columns().contains(&p));
+        assert_eq!(prepared.model.values.scalars[&p], 1.0);
+        assert_eq!(
+            product
+                .automatic_reduced_suppliers(plan)
+                .unwrap()
+                .iter()
+                .filter(|s| matches!(s, pse_compiler::workspace::Alternative::Available(_)))
+                .count(),
+            2
+        );
+        assert_eq!(
+            prepared
+                .providers
+                .values()
+                .filter(|registration| registration
+                    .source::<ReconstructionFactory>()
+                    .is_some_and(|source| source.supports_reconstruction()))
+                .count(),
+            2
+        );
+        // Compare the original coupled equations/actions directly at the ordinary authored start.
+        let assembly = runtime
+            .shared
+            .math()
+            .assemble(prepared.model.case.clone())
+            .await
+            .unwrap();
+        let start = prepared.model.values.clone();
+        let (values, jacobian, objective) = runtime
+            .shared
+            .math()
+            .with_worker(
+                assembly,
+                prepared.providers.clone(),
+                &cancel,
+                move |worker| {
+                    Ok((
+                        worker.constraints(&start)?,
+                        worker.jacobian(&start)?.val().to_vec(),
+                        worker.objective(&start)?,
+                    ))
+                },
+            )
+            .await
+            .unwrap();
+        assert!(values.iter().filter(|v| v.abs() < 1e-9).count() >= 2);
+        assert!(jacobian.iter().any(|v| *v == -2.0));
+        assert!(jacobian.iter().any(|v| *v == -3.0));
+        assert!((objective - 0.25).abs() < 1e-12);
+        let result = package
+            .solve_case(prepared, fixture::compiler_profile(), &cancel)
+            .await
+            .unwrap();
+        assert!(result.accepted, "{result:?}");
+        assert!((result.values.scalars[&x] - 2.0).abs() < 1e-5);
+        assert!((result.values.scalars[&y] - 5.0).abs() < 1e-5);
+        assert!((result.values.scalars[&z] - 5.0).abs() < 1e-5);
+        assert!(result.values.scalars[&y] + result.values.scalars[&z] >= 3.0);
+        let trace = result.strategy.as_ref().unwrap();
+        assert!(
+            trace
+                .declaration
+                .mechanisms
+                .iter()
+                .any(|m| m.kind == pse_model::strategy::MechanismKind::ReducedSpace),
+            "{trace:?}"
+        );
+        assert!(
+            trace.products.iter().any(|p| p.accuracy.is_some()),
+            "{trace:?}"
+        );
+        assert!(
+            trace
+                .products
+                .iter()
+                .flat_map(|p| &p.evidence)
+                .any(|e| e.derivative_order == 1),
+            "actual composed action must be published: {trace:?}"
+        );
+        use pse_relations::columnar::RelationRow;
+        use pse_relations::generated::runtime::solve_strategy_products;
+        let tables = result.tables().unwrap();
+        let rows =
+            solve_strategy_products::Row::rows(&tables[&solve_strategy_products::RELATION_ID])
+                .unwrap();
+        let actual = trace
+            .products
+            .iter()
+            .flat_map(|products| &products.evidence)
+            .find(|evidence| evidence.derivative_order == 1)
+            .unwrap();
+        assert!(
+            rows.iter().any(|row| row.derivative_order == 1
+                && row.product_identity == actual.accuracy.product
+                && row.source_structure == actual.source.structure
+                && row.source_binding == actual.source.binding
+                && Some(row.point) == actual.source.point
+                && row.accuracy_class == actual.accuracy.class
+                && row.error == actual.accuracy.error),
+            "public rows must retain actual action provenance"
+        );
+        assert!(rows.iter().any(|row| row.derivative_order == 0));
+    }
+    #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
+    #[tokio::test]
+    async fn automatic_complete_authored_reconstruction_uses_no_outer_kinsol() {
+        use super::super::super::tests as fixture;
+        let runtime = fixture::runtime_on(
+            512 << 20,
+            crate::math::MathPolicy {
+                worker_bytes: 128 << 20,
+                workspace_bytes: 128 << 20,
+                foreign_bytes: 32 << 20,
+                ..Default::default()
+            },
+        );
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(2.5);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==2*p;annotation start z(3.5);annotation bounds z(1,9);}realize rb on b using nested;}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        for selection in [
+            pse_backend_native::solve::SolverSelection::Explicit(
+                pse_backend_native::solve::Backend::Kinsol,
+            ),
+            pse_backend_native::solve::SolverSelection::Auto,
+        ] {
+            let mut solver = fixture::profile();
+            solver.selection = selection;
+            solver.presolve = pse_backend_native::presolve::Policy::Off;
+            let cancel = crate::CancelSource::new();
+            let prepared = package
+                .prepare_solve(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    DerivativeOrder::First,
+                    fixture::compiler_profile(),
+                    solver,
+                    NumericalInputs::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            assert_eq!(prepared.model.case.compiled().plan.columns().len(), 2);
+            let y = authored_symbol(prepared.model.model.compiled(), "a.y");
+            let z = authored_symbol(prepared.model.model.compiled(), "b.z");
+            if selection
+                == pse_backend_native::solve::SolverSelection::Explicit(
+                    pse_backend_native::solve::Backend::Kinsol,
+                )
+            {
+                let decision = prepared.solve.route_decision().unwrap();
+                assert_eq!(
+                    decision.state,
+                    pse_backend_native::routing::AssessmentState::Refused
+                );
+                assert!(
+                    decision.selected.is_none(),
+                    "complete reconstruction must not fabricate native admission"
+                );
+                let mut declaration = prepared.solve.numerical_strategy();
+                declaration.mechanisms[0].profile = Some(pse_model::strategy::ProfileRef {
+                    backend: pse_backend_native::solve::Backend::Kinsol,
+                    key: prepared.solve.strategy_profile().unwrap(),
+                });
+                let direct = prepared
+                    .solve
+                    .clone()
+                    .with_strategy(declaration, vec![prepared.solve.clone().into()])
+                    .unwrap();
+                let refused = runtime
+                    .native()
+                    .solve(direct)
+                    .unwrap()
+                    .finish()
+                    .await
+                    .unwrap();
+                assert!(
+                    matches!(refused.outcome, Outcome::Rejected(ref cause)
+                if matches!(cause.as_ref(), crate::math::MathRuntimeError::Solve(
+                    pse_backend_native::ProblemError::RouteRefused(_)))),
+                    "the refused original route cannot dispatch a native attempt"
+                );
+            }
+            let result = package
+                .solve_case(prepared, fixture::compiler_profile(), &cancel)
+                .await
+                .unwrap();
+            assert!(result.accepted, "{result:?}");
+            assert!(matches!(result.outcome, Outcome::Constant(_)), "{result:?}");
+            assert!((result.values.scalars[&y] - 3.0).abs() < 1e-7);
+            assert!((result.values.scalars[&z] - 4.0).abs() < 1e-7);
+            assert!(
+                result
+                    .strategy
+                    .as_ref()
+                    .unwrap()
+                    .declaration
+                    .mechanisms
+                    .iter()
+                    .any(|m| m.kind == pse_model::strategy::MechanismKind::ReducedSpace)
+            );
+            let actual = result
+                .strategy
+                .as_ref()
+                .unwrap()
+                .rows(result.run_id, 0)
+                .unwrap();
+            let completed = actual
+                .iter()
+                .find(|row| {
+                    row.mechanism == pse_model::strategy::MechanismKind::ReducedSpace
+                        && row.kind == pse_model::generated::enums::NumericalEventKind::Finished
+                })
+                .unwrap();
+            assert!(completed.backend.is_none());
+            assert!(
+                completed.profile_identity.is_none(),
+                "complete reconstruction has no outer native execution profile"
+            );
+        }
+    }
+    #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
+    #[tokio::test]
+    async fn automatic_complete_authored_reconstruction_refuses_eliminated_original_bounds() {
+        use super::super::super::tests as fixture;
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(1);annotation bounds y(0,2);}realize ra on a using nested;}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut solver = fixture::profile();
+        solver.presolve = pse_backend_native::presolve::Policy::Off;
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver,
+                NumericalInputs::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let y = authored_symbol(prepared.model.model.compiled(), "a.y");
+        let variable = prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .variables()
+            .iter()
+            .find(|variable| variable.port.id == y)
+            .unwrap();
+        assert_eq!(variable.upper, Some(2.0));
+        match package
+            .solve_case(prepared, fixture::compiler_profile(), &cancel)
+            .await
+        {
+            Err(_) => {}
+            Ok(result) => assert!(
+                !result.accepted,
+                "a complete supplied root outside the original bound cannot be accepted: {result:?}"
+            ),
+        }
+    }
+    #[cfg(all(
+        feature = "solver-kinsol",
+        feature = "solver-ipopt",
+        feature = "solver-root-isolation"
+    ))]
+    #[tokio::test]
+    async fn automatic_authored_supplier_empty_original_rows_preserves_optimize_and_feasibility() {
+        use super::super::super::tests as fixture;
+        for objective in [true, false] {
+            let cost = if objective {
+                "let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);"
+            } else {
+                ""
+            };
+            let source = format!(
+                "package p {{def Root {{var x:Scalar;annotation start x(1.5);annotation bounds x(0.5,3);implicit a {{var y:Scalar;eq ey:y==2*x;annotation start y(3);annotation bounds y(1,8);}}realize ra on a using nested;{cost}}}}}"
+            );
+            let declarations = pse_authoring::language::parse(
+                &source,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap();
+            let root = declarations
+                .iter()
+                .find(|r| r.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let runtime = fixture::runtime_on(
+                512 << 20,
+                crate::math::MathPolicy {
+                    worker_bytes: 128 << 20,
+                    workspace_bytes: 128 << 20,
+                    foreign_bytes: 32 << 20,
+                    ..Default::default()
+                },
+            );
+            let package = runtime
+                .modeling_package(declarations, fixture::physical())
+                .unwrap();
+            let cancel = crate::CancelSource::new();
+            let mut solver = SolverProfile::default();
+            if !objective {
+                solver.intent = pse_backend_native::solve::SolveIntent::Initialize;
+            }
+            solver.presolve = pse_backend_native::presolve::Policy::Off;
+            solver.controls.time_limit = std::time::Duration::from_secs(30);
+            let prepared = package
+                .prepare_solve(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    DerivativeOrder::First,
+                    fixture::compiler_profile(),
+                    solver,
+                    NumericalInputs::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let product = prepared.model.model.compiled();
+            let x = authored_symbol(product, "x");
+            let y = authored_symbol(product, "a.y");
+            let plan = &prepared.model.case.compiled().plan;
+            let suppliers = product.automatic_reduced_suppliers(plan).unwrap();
+            let supplier = suppliers
+                .iter()
+                .find_map(|supplier| {
+                    if let pse_compiler::workspace::Alternative::Available(supplier) = supplier {
+                        Some(supplier)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap();
+            assert_eq!(plan.structure().rows().len(), 1);
+            assert_eq!(
+                supplier.residuals[0].rows.len(),
+                1,
+                "every original row is supplied; only the original objective and coordinate bounds remain"
+            );
+            let result = package
+                .solve_case(prepared, fixture::compiler_profile(), &cancel)
+                .await
+                .unwrap();
+            assert!(result.accepted, "{result:?}");
+            let actual_x = result.values.scalars[&x];
+            let actual_y = result.values.scalars[&y];
+            assert!((actual_y - 2.0 * actual_x).abs() < 1e-6);
+            assert!((0.5..=3.0).contains(&actual_x));
+            assert!((1.0..=8.0).contains(&actual_y));
+            if objective {
+                assert!((actual_x - 2.0).abs() < 1e-5);
+            }
+            assert!(
+                result
+                    .strategy
+                    .as_ref()
+                    .unwrap()
+                    .declaration
+                    .mechanisms
+                    .iter()
+                    .any(|mechanism| mechanism.kind
+                        == pse_model::strategy::MechanismKind::ReducedSpace),
+                "{result:?}"
+            );
+        }
+    }
+    #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
+    #[tokio::test]
+    async fn automatic_supplier_promotion_preserves_restricted_peer() {
+        use super::super::super::tests as fixture;
+        let runtime = fixture::runtime_on(
+            512 << 20,
+            crate::math::MathPolicy {
+                worker_bytes: 128 << 20,
+                workspace_bytes: 128 << 20,
+                foreign_bytes: 32 << 20,
+                ..Default::default()
+            },
+        );
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {param p:Scalar=2;var z:Scalar;annotation start z(1);implicit a {var y:Scalar;eq ey:y==2*p;annotation start y(3);annotation bounds y(1,8);}realize ra on a using nested;implicit restricted select branch(y>0) {var y:Scalar;eq ey:y*y==p;annotation start y(1);annotation bounds y(-3,3);}realize rb on restricted using nested;eq pin:z==restricted.y;}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut solver = fixture::profile();
+        solver.presolve = pse_backend_native::presolve::Policy::Off;
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver.clone(),
+                NumericalInputs::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let product = prepared.model.model.compiled();
+        let a = authored_symbol(product, "a.y");
+        let restricted = authored_symbol(product, "restricted.y");
+        let plan = &prepared.model.case.compiled().plan;
+        assert!(plan.columns().contains(&a));
+        assert!(
+            !plan.columns().contains(&restricted),
+            "selected restricted peer must retain its nested authority"
+        );
+        assert_eq!(
+            product
+                .automatic_reduced_suppliers(plan)
+                .unwrap()
+                .iter()
+                .filter(|supplier| matches!(
+                    supplier,
+                    pse_compiler::workspace::Alternative::Available(_)
+                ))
+                .count(),
+            1
+        );
+        let restricted_path = product.model.symbols[&restricted].lineage.path.clone();
+        let negative = ModelingCaseBindings {
+            values: BTreeMap::from([(restricted_path.clone(), -1.0)]),
+            variables: BTreeMap::from([(
+                restricted_path,
+                ModelingVariableState {
+                    lower: Some(Some(-3.0)),
+                    upper: Some(Some(-0.1)),
+                    ..Default::default()
+                },
+            )]),
+            ..Default::default()
+        };
+        let forced = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                negative,
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver,
+                NumericalInputs::default(),
+                &cancel,
+            )
+            .await;
+        match forced {
+            Err(_) => {}
+            Ok(prepared) => match package
+                .solve_case(prepared, fixture::compiler_profile(), &cancel)
+                .await
+            {
+                Err(_) => {}
+                Ok(result) => assert!(
+                    !result.accepted,
+                    "negative raw branch cannot bypass the restricted peer: {result:?}"
+                ),
+            },
+        }
+    }
+    #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
+    #[tokio::test]
+    async fn automatic_supplier_promotion_preserves_actual_regime_peer() {
+        use super::super::super::tests as fixture;
+        let runtime = fixture::runtime_on(
+            512 << 20,
+            crate::math::MathPolicy {
+                worker_bytes: 128 << 20,
+                workspace_bytes: 128 << 20,
+                foreign_bytes: 32 << 20,
+                ..Default::default()
+            },
+        );
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {param target:Scalar=2;var z:Scalar;annotation start z(0.5);implicit a {var y:Scalar;eq ey:y==2*target;annotation start y(3);annotation bounds y(1,8);}realize ra on a using nested;implicit roots select minimum((y-target)*(y-target),1e-8) {var y:Scalar;regime negative eligible(y<0) {eq ey:y==-1;annotation start y(-0.5);annotation bounds y(-2,-0.1);}regime positive eligible(y>0) {eq ey:y==1;annotation start y(0.5);annotation bounds y(0.1,2);}}realize rb on roots using nested;eq pin:z==roots.y;annotation report roots.y(\"selected\");}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut solver = fixture::profile();
+        solver.presolve = pse_backend_native::presolve::Policy::Off;
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver,
+                NumericalInputs::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let product = prepared.model.model.compiled();
+        let plan = &prepared.model.case.compiled().plan;
+        assert!(plan.columns().contains(&authored_symbol(product, "a.y")));
+        assert!(
+            !plan
+                .columns()
+                .contains(&authored_symbol(product, "roots.y"))
+        );
+        assert_eq!(
+            product
+                .automatic_reduced_suppliers(plan)
+                .unwrap()
+                .iter()
+                .filter(|supplier| matches!(
+                    supplier,
+                    pse_compiler::workspace::Alternative::Available(_)
+                ))
+                .count(),
+            1
+        );
+        assert!(
+            product
+                .admitted
+                .implicit_systems()
+                .any(|supplier| supplier.residuals.len() == 2)
+        );
+        let result = package
+            .solve_case(prepared, fixture::compiler_profile(), &cancel)
+            .await
+            .unwrap();
+        assert!(result.accepted, "{result:?}");
+        assert!(
+            (result
+                .reports
+                .iter()
+                .find(|report| report.label == "selected")
+                .unwrap()
+                .value
+                - 1.0)
+                .abs()
+                < 1e-7
+        );
+    }
+    #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
+    #[tokio::test]
+    async fn automatic_authored_suppliers_refuse_positive_dimensional_root_remainder() {
+        use super::super::super::tests as fixture;
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {param p:Scalar=2;var x:Scalar;annotation start x(1);implicit a {var y:Scalar;eq ey:y==p;annotation start y(1);annotation bounds y(0,4);}realize ra on a using nested;}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        let result = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await;
+        assert!(
+            result.is_err(),
+            "underdetermined original root cannot acquire a selected inverse"
+        );
+    }
     #[tokio::test]
     #[cfg(feature = "solver-kinsol")]
     async fn conservation_tolerance_reaches_native_accuracy_and_original_quality() {

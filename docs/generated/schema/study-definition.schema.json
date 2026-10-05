@@ -388,7 +388,7 @@
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
-                "bounded_dense_max_dimension": null,
+                "bounded_storage_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -861,7 +861,7 @@
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
-                "bounded_dense_max_dimension": null,
+                "bounded_storage_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -1689,7 +1689,7 @@
     "FeralSettings": {
       "additionalProperties": false,
       "properties": {
-        "bounded_dense_max_dimension": {
+        "bounded_storage_max_dimension": {
           "default": null,
           "format": "uint",
           "minimum": 0,
@@ -4097,8 +4097,8 @@
           "description": "Typed settings of one backend; absent is the routed backend's native defaults."
         },
         "version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "description": "Document version.",
           "type": "integer"
         }
@@ -4274,8 +4274,8 @@
           "description": "Exact source/context reconstruction precondition."
         },
         "version": {
-          "const": 3,
-          "default": 3,
+          "const": 4,
+          "default": 4,
           "description": "Interpretation of this operation descriptor.",
           "type": "integer"
         }
@@ -4514,7 +4514,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 5 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
+  "description": "Version 6 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
   "properties": {
     "modeling": {
       "description": "The source bundles of the modeling package closure, in load order.",
@@ -4537,8 +4537,8 @@
       "type": "array"
     },
     "version": {
-      "const": 5,
-      "default": 5,
+      "const": 6,
+      "default": 6,
       "description": "Document version.",
       "type": "integer"
     }

@@ -196,6 +196,7 @@ const H: [f64; 4] = [2.0 / 3.0, -2.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0];
 
 fn request(parametric: Analytic, reduced_hessian: bool) -> Sensitivity {
     Sensitivity {
+        source: None,
         parameters: vec![(id(50), parametric.p[0]), (id(51), parametric.p[1])],
         oracle: Box::new(parametric),
         reduced_hessian,

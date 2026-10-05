@@ -636,7 +636,7 @@ impl NativeModelingPackage {
     }
     /// Admit the generated request once under this immutable selected revision.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<Vec<u8>> {
-        let request: native::StudyRequest = documents::decode(
+        let request = documents::decode_versioned::<native::StudyRequest, 4>(
             py,
             "operation",
             request,
@@ -673,7 +673,7 @@ impl NativeModelingPackage {
             controls,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let definition: native::StudyDefinition = documents::decode(
+        let definition = documents::decode_versioned::<native::StudyDefinition, 6>(
             py,
             "operation",
             definition,
@@ -722,7 +722,7 @@ impl NativeModelingPackage {
             workspace,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let definition: native::StudyDefinition = documents::decode(
+        let definition = documents::decode_versioned::<native::StudyDefinition, 6>(
             py,
             "operation",
             definition,

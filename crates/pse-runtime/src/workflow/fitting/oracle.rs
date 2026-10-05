@@ -640,8 +640,9 @@ impl NlpOracle for FitOracle {
 impl FitProblem {
     /// Run the fit, then derive its covariance and requested intervals, solving up to
     /// `workers` profile chains at once.
-    pub(crate) fn execute(
+    pub(crate) fn execute_profile(
         self: &Arc<Self>,
+        solver: &SolverProfile,
         route: native::routing::Route,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
@@ -654,24 +655,22 @@ impl FitProblem {
         };
         native::execution::scoped(
             &adapters,
-            self.profile.solver.controls.threads,
+            solver.controls.threads,
             self.runtime.native().stack_bytes(),
-            || self.execute_inner(route, scope, progress, workers, admission),
+            || self.execute_inner(solver, route, scope, progress, workers, admission),
         )
     }
     fn execute_inner(
         self: &Arc<Self>,
+        solver: &SolverProfile,
         route: native::routing::Route,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        let mut execution = Execution::within(
-            scope.cancellation().clone(),
-            &self.profile.solver.controls,
-            scope,
-        )?;
+        let mut execution =
+            Execution::within(scope.cancellation().clone(), &solver.controls, scope)?;
         execution.progress = progress;
         execution.work_admission =
             admission.map(|admission| -> Arc<dyn native::solve::WorkAdmission> { admission });
@@ -680,7 +679,7 @@ impl FitProblem {
                 .shared
                 .budget()
                 .math
-                .foreign_allowance(&self.profile.solver.controls),
+                .foreign_allowance(&solver.controls),
         );
         let mut oracle = FitOracle::new(self.clone(), execution.clone())?;
         let (solve, candidate) = if self.initial.is_empty() {
@@ -696,15 +695,15 @@ impl FitProblem {
                     adapter: native::execution::adapter(backend),
                     snapshot: &self.snapshot,
                     structure: self.structural_assessment.as_ref(),
-                    settings: &self.profile.solver.backend,
-                    controls: &self.profile.solver.controls,
+                    settings: &solver.backend,
+                    controls: &solver.controls,
                     accuracy: &self.accuracy,
                     execution: execution.clone(),
                     tolerances: &self.tolerances,
                     normalization: &self.normalization,
                     compatibility: Compatibility {
                         layout: self.key,
-                        profile: self.profile_key.as_id(),
+                        profile: crate::math::solves::profile_key(solver)?.as_id(),
                         data: self.source_identity,
                         backend,
                     },
@@ -714,18 +713,17 @@ impl FitProblem {
                 native::execution::Nlp {
                     oracle: Box::new(oracle),
                     initial: &self.initial,
-                    presolve: &self.profile.solver.presolve,
-                    intent: self.profile.solver.intent,
+                    presolve: &solver.presolve,
+                    intent: solver.intent,
                     sense: pse_math::binding::ObjectiveSense::Minimize,
                     limit: self.profile.max_cells,
                     // An exact-Hessian fit reads its covariance from its own KKT analysis:
                     // the inverse reduced Hessian over its parameter columns (ADR-0118 item 8).
                     analysis: native::execution::Analysis {
-                        inverse_reduced_hessian: (self.profile.solver.controls.hessian
-                            == HessianMode::Exact)
+                        inverse_reduced_hessian: (solver.controls.hessian == HessianMode::Exact)
                             .then(|| self.free().map(|(_, col)| col).collect::<Vec<_>>())
                             .filter(|columns| !columns.is_empty()),
-                        ..native::execution::Analysis::for_intent(self.profile.solver.intent)
+                        ..native::execution::Analysis::for_intent(solver.intent)
                     },
                 },
             )?;
@@ -739,7 +737,7 @@ impl FitProblem {
             checks_complete: false,
             validation_error: None,
             solve,
-            hessian: self.profile.solver.controls.hessian,
+            hessian: solver.controls.hessian,
             derivatives: self.profile.derivatives,
             candidate,
             quality: None,

@@ -51,6 +51,8 @@ use pse_math::{binding::ObjectiveSense, index::OriginalCol};
 /// alive, and drops the factor with the step unless it is kept.
 #[derive(Debug)]
 pub struct Sensitivity {
+    /// Immutable scientific source supplied by the producer; the actual candidate point is filled after execution.
+    pub source: Option<pse_model::strategy::SemanticProductKey>,
     /// Callbacks over the solve's columns followed by one column per parameter, in the
     /// order of `parameters`, with the solve's rows and row bounds and the normalization
     /// of every column. The parameter columns may be unbounded: the analysis pins them.
@@ -262,6 +264,7 @@ pub(crate) fn derive(
 ) -> Option<super::Advance> {
     let parameters: Vec<SemanticId> = request.parameters.iter().map(|(id, _)| *id).collect();
     let values = request.parameters.clone();
+    let source = request.source;
     let (reduced, retain) = (request.reduced_hessian, request.retain);
     let (point, result, advance) = match analysed(report, request, tolerances, budget) {
         Ok(analysed) => {
@@ -275,7 +278,7 @@ pub(crate) fn derive(
                 )
             });
             let advance = (retain && result.is_ok())
-                .then(|| super::Advance::new(report, &analysed, values, tolerances))
+                .then(|| super::Advance::new(report, &analysed, values, tolerances, source))
                 .flatten();
             (Some(analysed.point), result, advance)
         }

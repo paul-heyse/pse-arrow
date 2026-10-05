@@ -150,6 +150,8 @@ pub struct RunResult {
     pub(crate) request: RunRequest,
     pub(crate) _owner: Option<Arc<pse_columnar::AllocationLease>>,
     pub(crate) report: Result<RunReport, Arc<WorkflowError>>,
+    /// Completed modeling steps retained when a later step fails.
+    pub(super) modeling_failure: Option<ModelingFailure>,
     pub(crate) assessments: Vec<pse_relations::generated::runtime::candidate_assessments::Row>,
     pub(crate) completion: Result<super::completion::Completion, Arc<WorkflowError>>,
     pub(crate) batches: OnceLock<
@@ -162,6 +164,11 @@ pub struct RunResult {
     pub(crate) durability: RunDurability,
     /// What a rolling horizon did at each sample (Plan 22 Y5c); `None` for any other run.
     pub(crate) horizon: Option<Arc<super::HorizonReport>>,
+}
+#[derive(Debug)]
+pub(super) struct ModelingFailure {
+    pub(super) completed: Vec<super::ModelingResult>,
+    pub(super) step: Option<usize>,
 }
 impl RunResult {
     /// A joined result before completion capture and durable recording.
@@ -178,6 +185,7 @@ impl RunResult {
             request,
             _owner: owner,
             report,
+            modeling_failure: None,
             assessments: vec![],
             completion: Err(Arc::new(contract("completion has not been captured"))),
             batches: OnceLock::new(),
@@ -192,7 +200,25 @@ impl RunResult {
     /// Every requested candidate is a result under the requested usability policy.
     /// Seed-only and diagnostic-only candidates are never results (ADR-0106).
     pub fn usable(&self) -> bool {
-        !self.assessments.is_empty() && self.assessments.iter().all(|a| a.permits_result)
+        self.report.is_ok()
+            && !self.assessments.is_empty()
+            && self.assessments.iter().all(|a| a.permits_result)
+    }
+    pub(super) fn modeling_result(&self, step: usize) -> Option<&super::ModelingResult> {
+        match &self.report {
+            Ok(RunReport::Modeling(results)) => results.get(step),
+            Err(_) => self.modeling_failure.as_ref()?.completed.get(step),
+            _ => None,
+        }
+    }
+    pub(super) fn modeling_error(&self, step: usize) -> Option<&WorkflowError> {
+        let failed = self
+            .modeling_failure
+            .as_ref()
+            .map_or(Some(0), |failure| failure.step);
+        (Some(step) == failed)
+            .then(|| self.report.as_ref().err().map(AsRef::as_ref))
+            .flatten()
     }
     fn completed(mut self) -> Self {
         if let Ok(RunReport::Fit(r)) = &mut self.report
@@ -851,24 +877,150 @@ impl Runtime {
                         }
                     }
                     Err(error) => {
-                        failure = Some(error);
+                        failure = Some((attempt, error));
                         break;
                     }
                 }
             }
             staged.close().await;
-            let report = match failure {
-                Some(error) => Err(error),
-                None => Ok(RunReport::Modeling(results)),
+            let (report, modeling_failure) = match failure {
+                Some((step, error)) => (
+                    Err(error),
+                    Some(ModelingFailure {
+                        completed: results,
+                        step: Some(step),
+                    }),
+                ),
+                None => (Ok(RunReport::Modeling(results)), None),
             };
             let cancelled = cancel.token().is_cancelled();
-            let result = RunResult::joined(run_id, runtime, request, None, report)
-                .finished(durable, cancelled)
-                .await;
+            let mut result = RunResult::joined(run_id, runtime, request, None, report);
+            result.modeling_failure = modeling_failure;
+            let result = result.finished(durable, cancelled).await;
             sender.send_replace(Some(Arc::new(result)));
         });
         Ok(RunHandle::staged(
             checks, receiver, progress, run_id, attempt_id,
         ))
+    }
+}
+
+#[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
+mod modeling_failure_tests {
+    use super::*;
+    use crate::workflow::tests as fixture;
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::runtime::{solve_runs, solve_strategy_events, solve_strategy_products},
+    };
+
+    #[tokio::test]
+    async fn failed_modeling_sequence_publishes_completed_products_and_failed_attempt_trace() {
+        let runtime = fixture::runtime_on(
+            512 << 20,
+            crate::math::MathPolicy {
+                worker_bytes: 128 << 20,
+                workspace_bytes: 128 << 20,
+                foreign_bytes: 32 << 20,
+                ..Default::default()
+            },
+        );
+        let declarations = pse_authoring::language::parse(
+            "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(2.5);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==2*p;annotation start z(3.5);annotation bounds z(1,9);}realize rb on b using nested;}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut solver = fixture::profile();
+        solver.presolve = pse_backend_native::presolve::Policy::Off;
+        let good = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                pse_kernels::DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver.clone(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+            attempts: 4,
+            evaluations: Some(0),
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
+        });
+        let bad = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                pse_kernels::DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver,
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let result = runtime
+            .start_modeling(vec![good.clone(), bad, good], false, &cancel)
+            .await
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        assert!(
+            result.report().is_err(),
+            "zero evaluation cap must stop the failed target"
+        );
+        assert!(!result.usable());
+        assert!(result.modeling_result(0).unwrap().accepted);
+        let trace = result.modeling_error(1).unwrap().strategy_trace().unwrap();
+        assert!(!trace.events.is_empty());
+        let tables = result.tables().unwrap();
+        let events =
+            solve_strategy_events::Row::rows(&tables[&solve_strategy_events::RELATION_ID]).unwrap();
+        assert!(events.iter().any(|row| row.step == 0));
+        assert!(events.iter().any(|row| row.step == 1));
+        assert!(events.iter().all(|row| row.step < 2));
+        let products =
+            solve_strategy_products::Row::rows(&tables[&solve_strategy_products::RELATION_ID])
+                .unwrap();
+        assert!(
+            products
+                .iter()
+                .any(|row| row.step == 0 && row.derivative_order == 0)
+        );
+        assert!(products.iter().all(|row| row.step < 2));
+        let runs = solve_runs::Row::rows(&tables[&solve_runs::RELATION_ID]).unwrap();
+        assert_eq!(
+            runs[0].state,
+            pse_model::generated::enums::NativeRunState::ConstantEvaluation
+        );
+        assert!(runs[0].error.is_none());
+        assert_eq!(
+            runs[1].state,
+            pse_model::generated::enums::NativeRunState::Rejected
+        );
+        assert!(runs[1].error.is_some());
+        assert_eq!(
+            runs[2].state,
+            pse_model::generated::enums::NativeRunState::Unattempted
+        );
+        assert!(runs[2].error.is_none());
     }
 }

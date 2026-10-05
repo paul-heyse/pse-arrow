@@ -1144,6 +1144,7 @@ async fn actual_derived_callback_local_expiry_continues_with_charged_work_but_ot
                         NlpOracle::constraints(&mut oracle, &[3.], &mut rows).unwrap();
                         assert_eq!(rows, [0.]);
                         Ok(strategy::Attempt {
+                            evidence: Vec::new(),
                             value: rows[0],
                             observation: O::Converged,
                             work: WorkCharge {
@@ -1709,6 +1710,8 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     prep.support = vec![auxiliary.family().key()];
     prep.transitions.push(Transition::Continue);
     declaration.mechanisms.insert(0, prep);
+    let output_producer = auxiliary.clone();
+    let output_declaration = declaration.clone();
     prepared.solve = original
         .clone()
         .with_strategy(declaration, vec![auxiliary.into(), original.clone().into()])
@@ -1751,6 +1754,81 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
             .cancellation()
             .load(std::sync::atomic::Ordering::Acquire)
     );
+    assert_eq!(trace.declaration.start.policy, StartPolicy::NoPriorStart);
+    assert_eq!(trace.starts[1], StartOrigin::Auxiliary);
+    assert!(
+        matches!(trace.products[1].provider,Some(strategy::ProviderEvidence::Native(profile)) if profile.key==original.strategy_profile().unwrap()),
+        "actual derived correction preserves the original native profile"
+    );
+    let point_receipt = trace.products[0]
+        .evidence
+        .iter()
+        .find(|receipt| receipt.derivative_order == 0)
+        .expect("actual reconstructed point receipt");
+    assert!(
+        point_receipt
+            .accuracy
+            .error
+            .is_some_and(|error| error > 0.0),
+        "actual nonzero certified reconstruction error required by tighter-output control"
+    );
+    for wrong_point in [false, true] {
+        let mut demanded = output_declaration.clone();
+        let mut output = PreparedRung::Derived(output_producer.clone())
+            .operation_contract()
+            .unwrap()
+            .outputs
+            .into_iter()
+            .find(|output| output.derivative_order == 0)
+            .unwrap();
+        if wrong_point {
+            output.source.point = Some(pse_ids::ContentHash::from_bytes([221; 32]));
+        } else {
+            output.allowance = 0.0;
+        }
+        demanded.mechanisms[0].operation.outputs.push(output);
+        let mut rejected = plain.clone();
+        rejected.solve = original
+            .clone()
+            .with_strategy(
+                demanded,
+                vec![output_producer.clone().into(), original.clone().into()],
+            )
+            .unwrap();
+        let rejected = package.solve_case(rejected, compiler, &cancel).await;
+        let trace = match &rejected {
+            Ok(result) => {
+                assert!(
+                    !result.accepted,
+                    "unmet caller output cannot grant original permission"
+                );
+                result
+                    .strategy
+                    .as_ref()
+                    .expect("failed dispatch retains trace")
+            }
+            Err(error) => error
+                .strategy_trace()
+                .expect("typed failure retains actual numerical trace"),
+        };
+        assert!(trace.events.iter().any(|event| {
+            event.mechanism == 0
+                && event.work.is_some_and(|work| work.observed.attempts == 1)
+                && event
+                    .cause
+                    .as_deref()
+                    .is_some_and(|cause| matches!(cause, ProblemError::Unsupported(_)))
+        }));
+        assert!(!trace.events.iter().any(|event| event.mechanism == 1
+            && event.kind == pse_model::generated::enums::NumericalEventKind::Started));
+        assert!(
+            trace.products[0]
+                .evidence
+                .iter()
+                .any(|receipt| receipt.derivative_order == 0),
+            "valid actual receipt remains available in failure trace"
+        );
+    }
     let auxiliary = service
         .prepare_derived(
             original.clone(),
@@ -2330,7 +2408,7 @@ async fn full_reconstruction_kind(single_root: bool) {
         },
     };
     let mut profile = original.profile.clone();
-    profile.selection = SolverSelection::Explicit(Backend::Ipopt);
+    profile.selection = SolverSelection::Explicit(Backend::Kinsol);
     profile.controls.hessian = HessianMode::LimitedMemory;
     let prepared = service
         .prepare_derived(
@@ -3013,4 +3091,179 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
     )
     .unwrap();
     assert_eq!(budget.used(), 0);
+}
+
+#[cfg(all(
+    feature = "solver-kinsol",
+    feature = "solver-ipopt",
+    feature = "solver-root-isolation"
+))]
+#[tokio::test]
+async fn automatic_authored_supplier_actions_match_complete_original_equations() {
+    use pse_math::derived::ReconstructionOracle;
+    use pse_model::strategy::{AccuracyClass, AccuracyDemand};
+    let runtime = crate::workflow::tests::runtime_on(
+        512 << 20,
+        crate::math::MathPolicy {
+            worker_bytes: 128 << 20,
+            workspace_bytes: 128 << 20,
+            foreign_bytes: 32 << 20,
+            ..Default::default()
+        },
+    );
+    let (runtime, original) = original_order_on(runtime,
+        "package p {def Root {param p:Scalar=1;var x:Scalar;annotation start x(1.5);annotation bounds x(0.5,3);implicit a {var y:Scalar;eq ey:y==2*x+p;annotation start y(4);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==3*x-p;annotation start z(3.5);annotation bounds z(0.1,9);}realize rb on b using nested;eq floor:a.y+b.z>=3;let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);}}",
+        DerivativeOrder::First, SolverProfile { presolve: native::presolve::Policy::Off,
+            intent: SolveIntent::Optimize, selection: SolverSelection::Explicit(Backend::Ipopt),
+            controls: Controls { hessian: HessianMode::LimitedMemory, ..Default::default() },
+            ..Default::default() }).await;
+    let service = runtime.shared.math();
+    let accuracy = ReconstructionAccuracy {
+        point: original
+            .tolerances
+            .variables
+            .iter()
+            .zip(&original.normalization.variables)
+            .map(|(budget, scale)| budget / scale)
+            .fold(f64::INFINITY, f64::min),
+        action: original.numerics.policy.kkt.stationarity,
+        class: AccuracyClass::Certified,
+        refinement: math::RefinementLimits {
+            rounds: 16,
+            proof_cells: 256,
+        },
+    };
+    let request = service
+        .automatic_reduced_request(&original, accuracy)
+        .unwrap()
+        .unwrap();
+    let DerivedRequest::Reduced {
+        suppliers,
+        retained,
+        ..
+    } = &request
+    else {
+        panic!("actual reduced request");
+    };
+    assert_eq!(suppliers.len(), 2);
+    assert_eq!(retained.len(), 1);
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let scope = ExecutionScope::new(
+        flag.clone(),
+        Some(Instant::now() + std::time::Duration::from_secs(30)),
+    );
+    let profile = original.profile.clone();
+    let prepared = service
+        .prepare_derived(
+            original,
+            request,
+            profile,
+            scope.clone(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+    execution::scoped(&[execution::adapter(Backend::Kinsol)], 1, service.policy.stack_bytes, || {
+        let p = &prepared;
+        let local = p.reduced.as_ref().unwrap();
+        let DerivedRequest::Reduced { suppliers, .. } = &p.request else { panic!("selected request"); };
+        let workers = suppliers.iter().zip(&local.suppliers).map(|(source, local)| {
+            SelectedImplicitReconstruction::<ProblemError>::new_with_binding(source.factory.as_ref(),
+                local.contract.clone(), local.normalization.clone(), scope.clone(), &local.binding)?
+                .with_proof_cell_limit(accuracy.refinement.proof_cells)
+        }).collect::<Result<Vec<_>, pse_math::MathError>>()?;
+        let mut reconstruction = CompositeReconstruction::new_normalized(local.contract.clone(), workers,
+            &p.original.normalization, &local.suppliers.iter().map(|p|p.normalization.clone()).collect::<Vec<_>>())?;
+        reconstruction.admit(&[1.5])?;
+        let demand = AccuracyDemand { product: p.family.key(), normalization: p.physical.normalization(),
+            allowance: accuracy.point, class: accuracy.class };
+        let point = reconstruction.point(&[1.5], &demand, accuracy.refinement)?;
+        let action = reconstruction.jacobian_product(&[1.5], &[2.0],
+            &AccuracyDemand { allowance: accuracy.action, ..demand }, accuracy.refinement)?;
+        assert!(point.accuracy.satisfies(&demand));
+        let (mut oracle, _owner) = service.derived_original_oracle(p, &scope, &budget)?;
+        let mut rows = vec![0.0; p.physical.constraints().len()];
+        oracle.constraints(&point.values, &mut rows)?;
+        for (value, row) in rows.iter().zip(p.physical.constraints()) {
+            if row.lower == row.upper { assert!(value.abs() < 1e-8); }
+            else {
+                // The compiler retains the authored lhs-minus-rhs residual:
+                // (2*x+p)+(3*x-p)-3 >= 0, rather than the left side alone.
+                assert_eq!((row.lower, row.upper), (0.0, f64::INFINITY));
+                let original_floor = (2.0 * 1.5 + 1.0) + (3.0 * 1.5 - 1.0) - 3.0;
+                assert!((*value - original_floor).abs() < 1e-8);
+                assert!(*value >= row.lower);
+            }
+        }
+        assert!((oracle.objective(&point.values)? - 0.25).abs() < 1e-10);
+        let mut gradient = vec![0.0; point.values.len()];
+        oracle.gradient(&point.values, &mut gradient)?;
+        assert!((gradient.iter().zip(&action.values).map(|(g,v)|g*v).sum::<f64>() + 2.0).abs() < 1e-8);
+        let pattern = oracle.jacobian_pattern();
+        let mut values = vec![0.0; pattern.compute_nnz()];
+        oracle.jacobian(&point.values, &mut values)?;
+        let pattern = oracle.jacobian_pattern();
+        let mut applied = vec![0.0; rows.len()];
+        for (column, value) in action.values.iter().enumerate() {
+            for index in pattern.col_ptr()[column]..pattern.col_ptr()[column+1] {
+                applied[pattern.row_idx()[index]] += values[index] * value;
+            }
+        }
+        for (value, row) in applied.iter().zip(p.physical.constraints()) {
+            if row.lower == row.upper { assert!(value.abs() < 1e-8); }
+            else { assert!((*value - 10.0).abs() < 1e-8); }
+        }
+        // Native action receipts name the actual full original point consumed by
+        // the action, while their accuracy identity still binds its exact direction.
+        let bound = p.family.general()?.bind_reduced(
+            NlpBridge::new(Box::new(oracle), p.physical.clone())?, reconstruction,
+            p.original_identity)?;
+        let other_direction = bound.action_product(&[1.5], &[2.0])?.key()?;
+        let mut native = ReducedOracle::new(bound, &[1.5], accuracy,
+            p.source.prepared.prepared.plan.available_order(), isize::MAX as usize)?;
+        let mut actual_gradient = [0.0];
+        native.gradient(&[1.5], &mut actual_gradient)?;
+        let receipt = native.applied_action().copied().unwrap();
+        let original_point = p.original.semantic_point_key(&point.values)?.point.unwrap();
+        assert_eq!(receipt.0, original_point);
+        assert_ne!(receipt.1.product, other_direction);
+        let source = pse_model::strategy::SemanticProductKey {
+            point: Some(receipt.0), accuracy: Some(receipt.1.product), ..p.product_source()?
+        };
+        let evidence = pse_model::strategy::ProductEvidence {
+            source, derivative_order: 1, branch: p.original.profile.composition.branch,
+            accuracy: receipt.1,
+        };
+        assert!(p.operation_contract()?.outputs.iter().any(|output| output.admits(&evidence)));
+        let mut state = crate::math::strategy::ProductState::owned(1,
+            service.reserve("test:actual-reconstruction-action", crate::math::strategy::ProductState::extent(1)?)?);
+        state.publish(evidence)?;
+        let demand = pse_model::strategy::ProductDemand {
+            source: pse_model::strategy::SemanticProductKey { point: Some(original_point), ..source },
+            derivative_order: 1, branch: p.original.profile.composition.branch,
+            accuracy: AccuracyDemand { product: receipt.1.product,
+                normalization: receipt.1.normalization, allowance: accuracy.action, class: accuracy.class },
+        };
+        let operation = |demand| pse_model::strategy::OperationContract { inputs: vec![demand], outputs: Vec::new() };
+        assert_eq!(state.consume(&operation(demand.clone()))?, vec![receipt.1]);
+        let mut wrong_point = point.values.clone();
+        wrong_point[0] += 0.1;
+        let mut mismatched = demand.clone();
+        mismatched.source.point = p.original.semantic_point_key(&wrong_point)?.point;
+        assert!(state.consume(&operation(mismatched)).is_err());
+        let mut mismatched = demand;
+        mismatched.source.accuracy = Some(other_direction);
+        mismatched.accuracy.product = other_direction;
+        assert!(state.consume(&operation(mismatched)).is_err(),
+            "one actual directional action cannot certify another direction or the whole Jacobian");
+        let later = native.original_proposal(&[2.0])?;
+        assert_ne!(p.original.semantic_point_key(&later.values)?.point, Some(receipt.0));
+        assert_eq!(native.applied_action().copied(), Some(receipt),
+            "a later value-only proposal cannot relabel the last actual action point");
+        let mut actual_jacobian = vec![0.0; native.jacobian_pattern().compute_nnz()];
+        native.jacobian(&[1.5], &mut actual_jacobian)?;
+        assert_eq!(native.applied_action().unwrap().0, original_point);
+        Ok::<_, MathRuntimeError>(())
+    }).unwrap();
 }

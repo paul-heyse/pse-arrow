@@ -981,7 +981,17 @@ impl PreparedFit {
             problem.runtime.shared.math(),
             self.callable_source(),
             &scope,
-            |admission| self.execute_original(run_id, scope.clone(), progress, workers, admission),
+            |solver, admission| {
+                self.execute_original(
+                    run_id,
+                    scope.clone(),
+                    progress.clone(),
+                    workers,
+                    solver.unwrap_or(&problem.profile.solver),
+                    admission,
+                )
+            },
+            |report| report.solve.as_ref(),
             |report| {
                 report.solve.as_ref().map_or(
                     pse_model::generated::enums::NumericalAttemptObservation::Converged,
@@ -1025,9 +1035,11 @@ impl PreparedFit {
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
+        solver: &SolverProfile,
         admission: Arc<crate::math::strategy::admission::TaskAdmission>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        let mut report = self.problem.execute(
+        let mut report = self.problem.execute_profile(
+            solver,
             self.route,
             scope.clone(),
             progress,

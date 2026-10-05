@@ -273,7 +273,7 @@ impl ModelingPackage {
             ProviderDemand::Observations(rows) => rows,
             ProviderDemand::Case(_) => None,
         };
-        let provider_demands = match demand {
+        let mut provider_demands = match demand {
             ProviderDemand::Observations(rows) => product
                 .admitted
                 .provider_demands_for(rows, requested_output),
@@ -282,6 +282,21 @@ impl ModelingPackage {
                 .provider_demands_for_plan(plan, requested_output),
         }
         .map_err(crate::math::MathRuntimeError::from)?;
+        if let ProviderDemand::Case(plan) = demand {
+            for supplier in product
+                .automatic_reduced_suppliers(plan)
+                .map_err(crate::math::MathRuntimeError::from)?
+            {
+                if let pse_compiler::workspace::Alternative::Available(supplier) = supplier {
+                    provider_demands
+                        .entry(supplier.descriptor.spec().key())
+                        .and_modify(|order| {
+                            *order = (*order).max(pse_kernels::DerivativeOrder::First)
+                        })
+                        .or_insert(pse_kernels::DerivativeOrder::First);
+                }
+            }
+        }
         let mut inputs = Vec::new();
         for inner in product
             .implicit_order_for(rows)

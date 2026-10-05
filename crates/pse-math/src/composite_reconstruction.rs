@@ -23,7 +23,7 @@ use std::{
 pub struct CompositeReconstruction<R> {
     contract: Arc<ReconstructionContract>,
     suppliers: Vec<R>,
-    columns: Vec<Vec<usize>>,
+    columns: Vec<Vec<Option<usize>>>,
 }
 
 impl<R: ReconstructionOracle> CompositeReconstruction<R> {
@@ -111,10 +111,9 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
             let columns = local_columns(&original, supplier)?;
             if scales.key() != supplier.original().normalization()
                 || scales.objective != normalization.objective
-                || columns
-                    .iter()
-                    .enumerate()
-                    .any(|(i, c)| scales.variables[i] != normalization.variables[*c])
+                || columns.iter().enumerate().any(|(i, c)| {
+                    c.is_some_and(|c| scales.variables[i] != normalization.variables[c])
+                })
                 || supplier
                     .original()
                     .constraints()
@@ -177,7 +176,11 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 .iter()
                 .map(|c| columns[c.get()])
                 .collect();
-            if inputs.iter().any(|c| !dependencies.contains_key(c)) {
+            if inputs
+                .iter()
+                .flatten()
+                .any(|c| !dependencies.contains_key(c))
+            {
                 return Err(MathError::Contract(
                     "composite predecessor input unavailable".into(),
                 ));
@@ -187,7 +190,12 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 .enumerate()
                 .filter(|(local, _)| !supplier.retained().contains(&GlobalCol::new(*local)))
             {
-                if dependencies.contains_key(global) {
+                let global = global.ok_or_else(|| {
+                    MathError::Contract(
+                        "fixed supplier coordinate must remain a retained input".into(),
+                    )
+                })?;
+                if dependencies.contains_key(&global) {
                     return Err(MathError::Contract(
                         "overlapping composite supplier output".into(),
                     ));
@@ -196,9 +204,13 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                     .incidence()
                     .iter()
                     .filter(|edge| edge.row.get() == local)
-                    .flat_map(|edge| dependencies[&inputs[edge.col.get()]].iter().copied())
+                    .flat_map(|edge| {
+                        inputs[edge.col.get()]
+                            .into_iter()
+                            .flat_map(|input| dependencies[&input].iter().copied())
+                    })
                     .collect();
-                dependencies.insert(*global, support);
+                dependencies.insert(global, support);
             }
             for row in supplier.eliminated() {
                 let constraint = &supplier.original().constraints()[row.get()];
@@ -302,10 +314,28 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 .iter()
                 .map(|c| columns[c.get()])
                 .collect();
-            let local_x: Vec<_> = inputs.iter().map(|c| values[*c]).collect();
-            let local_v: Vec<_> = inputs.iter().map(|c| actions[*c]).collect();
-            let incoming_point: Vec<_> = inputs.iter().map(|c| point_errors[*c]).collect();
-            let incoming_action: Vec<_> = inputs.iter().map(|c| action_errors[*c]).collect();
+            let local_x: Vec<_> = inputs
+                .iter()
+                .zip(supplier.contract().retained())
+                .map(|(c, local)| {
+                    c.map_or(
+                        supplier.contract().original().coordinates()[local.get()].lower,
+                        |c| values[c],
+                    )
+                })
+                .collect();
+            let local_v: Vec<_> = inputs
+                .iter()
+                .map(|c| c.map_or(0.0, |c| actions[c]))
+                .collect();
+            let incoming_point: Vec<_> = inputs
+                .iter()
+                .map(|c| c.map_or(0.0, |c| point_errors[c]))
+                .collect();
+            let incoming_action: Vec<_> = inputs
+                .iter()
+                .map(|c| c.map_or(0.0, |c| action_errors[c]))
+                .collect();
             if !supplier.supports_uncertainty()
                 && incoming_point
                     .iter()
@@ -430,10 +460,12 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 {
                     continue;
                 }
-                values[*global] = point.values[local_col];
-                actions[*global] = observation.values[local_col];
-                point_errors[*global] = point.accuracy.error.unwrap_or(f64::INFINITY);
-                action_errors[*global] = observation.accuracy.error.unwrap_or(f64::INFINITY);
+                let global =
+                    global.ok_or_else(|| MathError::Contract("unmapped supplier output".into()))?;
+                values[global] = point.values[local_col];
+                actions[global] = observation.values[local_col];
+                point_errors[global] = point.accuracy.error.unwrap_or(f64::INFINITY);
+                action_errors[global] = observation.accuracy.error.unwrap_or(f64::INFINITY);
             }
         }
         let error = if direction.is_some() {
@@ -488,7 +520,12 @@ impl<R: ReconstructionOracle> ReconstructionOracle for CompositeReconstruction<R
                 .contract()
                 .retained()
                 .iter()
-                .map(|c| values[columns[c.get()]])
+                .map(|c| {
+                    columns[c.get()].map_or(
+                        supplier.contract().original().coordinates()[c.get()].lower,
+                        |global| values[global],
+                    )
+                })
                 .collect();
             let admitted = supplier.admit(&local_x)?;
             if admitted.values.len() != columns.len()
@@ -508,7 +545,9 @@ impl<R: ReconstructionOracle> ReconstructionOracle for CompositeReconstruction<R
                 }
             }
             for (local, global) in columns.iter().enumerate() {
-                values[*global] = admitted.values[local];
+                if let Some(global) = global {
+                    values[*global] = admitted.values[local];
+                }
             }
         }
         Ok(ReconstructionAdmission { values })
@@ -534,16 +573,24 @@ impl<R: ReconstructionOracle> ReconstructionOracle for CompositeReconstruction<R
 fn local_columns(
     original: &OriginalContract,
     supplier: &ReconstructionContract,
-) -> Result<Vec<usize>, MathError> {
+) -> Result<Vec<Option<usize>>, MathError> {
     supplier
         .original()
         .coordinates()
         .iter()
-        .map(|coordinate| {
+        .enumerate()
+        .map(|(local, coordinate)| {
             original
                 .coordinates()
                 .iter()
                 .position(|c| c == coordinate)
+                .map(Some)
+                .or_else(|| {
+                    (coordinate.lower.is_finite()
+                        && coordinate.lower.to_bits() == coordinate.upper.to_bits()
+                        && supplier.retained().contains(&GlobalCol::new(local)))
+                    .then_some(None)
+                })
                 .ok_or_else(|| {
                     MathError::Contract("composite original coordinate correspondence".into())
                 })

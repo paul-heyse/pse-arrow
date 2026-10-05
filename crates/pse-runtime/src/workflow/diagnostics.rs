@@ -8,6 +8,16 @@ use pse_diagnostics::TypedDiagnostic;
 use pse_model::diagnostic::{DiagnosticProjection, DiagnosticRule, DiagnosticStage, project_facts};
 
 impl super::WorkflowError {
+    pub(crate) fn strategy_trace(&self) -> Option<&std::sync::Arc<crate::math::strategy::Trace>> {
+        match self {
+            Self::Math(cause) => cause.strategy_trace(),
+            Self::ConditionalAdmission { cause, .. } | Self::ModelingAdmission { cause, .. } => {
+                cause.strategy_trace()
+            }
+            Self::Shared(cause) => cause.strategy_trace(),
+            _ => None,
+        }
+    }
     /// The source owner supplies typed facts and scientific evidence.
     pub fn boundary_diagnostic(&self) -> BoundaryDiagnostic {
         DiagnosticProjection::boundary_diagnostic(self, DiagnosticStage::Workflow)
@@ -90,7 +100,17 @@ pub(super) fn observed(
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
         match &self.report {
-            Err(error) => vec![error.boundary_diagnostic()],
+            Err(error) => self
+                .modeling_failure
+                .iter()
+                .flat_map(|failure| {
+                    failure
+                        .completed
+                        .iter()
+                        .filter_map(|result| result.diagnostic())
+                })
+                .chain(std::iter::once(error.boundary_diagnostic()))
+                .collect(),
             Ok(RunReport::Modeling(r)) => r.iter().filter_map(|r| r.diagnostic()).collect(),
             Ok(RunReport::Simulation(r)) => r.diagnostic().into_iter().collect(),
             #[cfg(feature = "solver-diffsol")]

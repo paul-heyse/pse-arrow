@@ -103,6 +103,14 @@
           "$ref": "#/$defs/WorkLimits",
           "description": "Additional local finite allowances under the enclosing task scope."
         },
+        "operation": {
+          "$ref": "#/$defs/OperationContract",
+          "default": {
+            "inputs": [],
+            "outputs": []
+          },
+          "description": "Exact prerequisites and bounded production obligations of this operation only."
+        },
         "position": {
           "$ref": "#/$defs/NumericalPosition",
           "description": "Preparation, execution or a later recovery rung."
@@ -250,13 +258,6 @@
       "additionalProperties": false,
       "description": "Immutable ordered declaration. Ordering affects composition and identity; no backend\nranking or universal direct-first escalation is implied. With no request, the runtime\nconstructs direct(start, limits) from its existing admitted controls and enclosing scope.",
       "properties": {
-        "accuracy": {
-          "description": "Consumed accuracy contracts; original physical tolerances stay with their owner.",
-          "items": {
-            "$ref": "#/$defs/AccuracyDemand"
-          },
-          "type": "array"
-        },
         "branch": {
           "$ref": "#/$defs/BranchPolicy",
           "description": "Original root-selection contract."
@@ -281,8 +282,7 @@
         "start",
         "branch",
         "mechanisms",
-        "limits",
-        "accuracy"
+        "limits"
       ],
       "type": "object"
     },
@@ -295,6 +295,101 @@
         "stop"
       ],
       "type": "string"
+    },
+    "OperationContract": {
+      "additionalProperties": false,
+      "description": "Input requirements are consumed before use; output contracts grant bounded production,\nnever possession of the future output's certificate.",
+      "properties": {
+        "inputs": {
+          "description": "Actual prerequisites consumed by this particular operation.",
+          "items": {
+            "$ref": "#/$defs/ProductDemand"
+          },
+          "type": "array"
+        },
+        "outputs": {
+          "description": "Products this operation may attempt to refine under the supplied demands.",
+          "items": {
+            "$ref": "#/$defs/ProductionDemand"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "inputs",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "ProductDemand": {
+      "additionalProperties": false,
+      "description": "The consumer's exact dependency contract. No field is inferred from capabilities.",
+      "properties": {
+        "accuracy": {
+          "$ref": "#/$defs/AccuracyDemand",
+          "description": "Required product/error normalization and evidence class."
+        },
+        "branch": {
+          "$ref": "#/$defs/BranchPolicy",
+          "description": "Required branch meaning."
+        },
+        "derivative_order": {
+          "description": "Required derivative order.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/SemanticProductKey",
+          "description": "The immutable dependencies and actual point the consumer requires."
+        }
+      },
+      "required": [
+        "source",
+        "derivative_order",
+        "branch",
+        "accuracy"
+      ],
+      "type": "object"
+    },
+    "ProductionDemand": {
+      "additionalProperties": false,
+      "description": "A producer's finite output obligation, before the output point or receipt exists.",
+      "properties": {
+        "allowance": {
+          "description": "Finite error allowance in the source's declared normalization.",
+          "format": "double",
+          "type": "number"
+        },
+        "branch": {
+          "$ref": "#/$defs/BranchPolicy",
+          "description": "Original branch permission required of the output."
+        },
+        "class": {
+          "$ref": "#/$defs/NumericalAccuracyClass",
+          "description": "Required evidence class; support never supplies the future receipt."
+        },
+        "derivative_order": {
+          "description": "The action order this producer must actually establish.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/SemanticProductKey",
+          "description": "Frozen producer dependencies. An absent point names a point selected during execution."
+        }
+      },
+      "required": [
+        "source",
+        "derivative_order",
+        "branch",
+        "allowance",
+        "class"
+      ],
+      "type": "object"
     },
     "ProfileRef": {
       "additionalProperties": false,
@@ -316,6 +411,83 @@
       ],
       "type": "object"
     },
+    "SemanticProductKey": {
+      "additionalProperties": false,
+      "description": "Actual consumed dependencies of a semantic product. Omitted fields were not consumed;\nproducer ownership determines compatibility, including lawful transport between values.",
+      "properties": {
+        "accuracy": {
+          "description": "Accuracy/order/source demand actually consumed.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "binding": {
+          "description": "Bound original problem identity.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        },
+        "branch": {
+          "description": "Actual selected sheet/branch evidence, when consumed.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "derivation": {
+          "description": "Original/derived correspondence, when consumed.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "normalization": {
+          "description": "Coordinate normalization, when consumed.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "numerical_policy": {
+          "description": "Frozen numerical policy, when consumed.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parameters": {
+          "description": "Parameter values actually consumed.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "point": {
+          "description": "Point actually consumed, distinct from a future proposal's target.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "structure": {
+          "description": "Original immutable structural identity.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "structure",
+        "binding"
+      ],
+      "type": "object"
+    },
     "StartRules": {
       "additionalProperties": false,
       "description": "Entry intent and separately declared permissions for later starts in this task.",
@@ -325,7 +497,7 @@
           "description": "Existing request's entry policy; a strategy cannot reinterpret its precedence."
         },
         "recovery": {
-          "description": "Permitted later origins, after entry. Empty grants no replacement start.",
+          "description": "Permitted replacement origins. A fresh task-produced proposal may precede\na non-explicit entry; inherited products still obey the entry policy.",
           "items": {
             "$ref": "#/$defs/NumericalStartOrigin"
           },
@@ -400,8 +572,8 @@
       "description": "Validated finite operation declaration."
     },
     "version": {
-      "const": 2,
-      "default": 2,
+      "const": 3,
+      "default": 3,
       "description": "Exact current document version, checked before decoding its body.",
       "type": "integer"
     }

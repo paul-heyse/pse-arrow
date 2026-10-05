@@ -3,7 +3,11 @@
 //! Fresh sparse response actions. Numerical LU/backward error is estimated evidence,
 //! not a numerical-rank certificate or a forward-error bound on a nonlinear root.
 use super::{SquareScope, Withheld};
-use crate::{ProblemError, quality::Tolerances, solve::Execution};
+use crate::{
+    ProblemError,
+    quality::Tolerances,
+    solve::{Execution, WorkEvidence},
+};
 use faer::{
     Accum, Conj, Mat, Par,
     dyn_stack::{MemBuffer, MemStack},
@@ -156,64 +160,74 @@ impl SparseFactor {
                 "fresh factor differs from admitted complete original support".into(),
             ));
         }
-        let pattern = physical
-            .symbolic()
-            .to_owned()
-            .map_err(|e| partial(sparse_failure(e)))?;
-        let mut values = physical.val().to_vec();
-        for column in 0..n {
-            for entry in physical.symbolic().col_range(column) {
-                values[entry] *= request.normalization.variables[column]
-                    / request.normalization.rows[physical.symbolic().row_idx()[entry]];
-            }
-        }
-        let matrix = SparseColMat::new(pattern, values);
-        let symbolic = lu::factorize_symbolic_lu(matrix.symbolic(), Default::default())
-            .map_err(|e| partial(sparse_failure(e)))?;
-        let scratch = symbolic.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default());
-        if scratch.size_bytes() > request.bytes.saturating_sub(allowance / 2) {
-            return Err(Withheld::Memory);
-        }
-        let mut memory = MemBuffer::try_new(scratch).map_err(|_| Withheld::Memory)?;
-        let mut numeric = NumericLu::new();
-        symbolic
-            .factorize_numeric_lu(
-                &mut numeric,
-                matrix.as_ref(),
-                Par::Seq,
-                MemStack::new(&mut memory),
-                Default::default(),
-            )
-            .map_err(|e| {
-                partial(match e {
-                    faer::sparse::linalg::LuError::Generic(error) => sparse_failure(error),
-                    faer::sparse::linalg::LuError::SymbolicSingular { index } => {
-                        ProblemError::numerical(format!(
-                            "fresh sparse factor rank loss at pivot {index}"
-                        ))
+        // One construction includes the symbolic and numeric LU. The scientific
+        // evaluation above is charged by its original worker callback owner.
+        execution
+            .counted(work_unit(0, 1), || {
+                let pattern = physical.symbolic().to_owned().map_err(sparse_failure)?;
+                let mut values = physical.val().to_vec();
+                for column in 0..n {
+                    for entry in physical.symbolic().col_range(column) {
+                        values[entry] *= request.normalization.variables[column]
+                            / request.normalization.rows[physical.symbolic().row_idx()[entry]];
                     }
+                }
+                if values.iter().any(|value| !value.is_finite()) {
+                    return Err(ProblemError::numerical(
+                        "nonfinite normalized fresh sparse Jacobian",
+                    ));
+                }
+                let matrix = SparseColMat::new(pattern, values);
+                let symbolic = lu::factorize_symbolic_lu(matrix.symbolic(), Default::default())
+                    .map_err(sparse_failure)?;
+                let scratch =
+                    symbolic.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default());
+                if scratch.size_bytes() > request.bytes.saturating_sub(allowance / 2) {
+                    return Err(ProblemError::memory(
+                        "fresh sparse factor scratch allowance",
+                    ));
+                }
+                let mut memory = MemBuffer::try_new(scratch)
+                    .map_err(|_| ProblemError::memory("fresh sparse factor scratch allocation"))?;
+                let mut numeric = NumericLu::new();
+                symbolic
+                    .factorize_numeric_lu(
+                        &mut numeric,
+                        matrix.as_ref(),
+                        Par::Seq,
+                        MemStack::new(&mut memory),
+                        Default::default(),
+                    )
+                    .map_err(|e| match e {
+                        faer::sparse::linalg::LuError::Generic(error) => sparse_failure(error),
+                        faer::sparse::linalg::LuError::SymbolicSingular { index } => {
+                            ProblemError::numerical(format!(
+                                "fresh sparse factor rank loss at pivot {index}"
+                            ))
+                        }
+                    })?;
+                execution.check()?;
+                Ok(Self {
+                    held: Arc::new(Owned {
+                        symbolic,
+                        numeric,
+                        matrix,
+                        states: request
+                            .scope
+                            .contract
+                            .variables
+                            .iter()
+                            .map(|v| v.id)
+                            .collect(),
+                        point: request.point.to_vec(),
+                        scales: request.normalization.clone(),
+                        key: request.key,
+                        allowance,
+                    }),
+                    owner: None,
                 })
-            })?;
-        execution.check().map_err(partial)?;
-        Ok(Self {
-            held: Arc::new(Owned {
-                symbolic,
-                numeric,
-                matrix,
-                states: request
-                    .scope
-                    .contract
-                    .variables
-                    .iter()
-                    .map(|v| v.id)
-                    .collect(),
-                point: request.point.to_vec(),
-                scales: request.normalization.clone(),
-                key: request.key,
-                allowance,
-            }),
-            owner: None,
-        })
+            })
+            .map_err(partial)
     }
     /// Conservative opaque-library allowance. Dense response matrices are not allocated.
     pub fn allowance(n: usize) -> Option<usize> {
@@ -272,7 +286,10 @@ impl SparseFactor {
         let mut x = b.clone();
         // Numeric/symbolic fields are private, installed together by the constructor.
         let lu = LuRef::new_unchecked(&self.held.symbolic, &self.held.numeric);
-        lu.solve_in_place_with_conj(Conj::No, x.as_mut(), Par::Seq, MemStack::new(&mut memory));
+        execution.counted(work_unit(0, 0), || {
+            lu.solve_in_place_with_conj(Conj::No, x.as_mut(), Par::Seq, MemStack::new(&mut memory));
+            Ok(())
+        })?;
         let limit = 64. * n.max(1) as f64 * f64::EPSILON;
         let mut backsolves = 1;
         loop {
@@ -318,17 +335,31 @@ impl SparseFactor {
                     "sparse response action backward-error allowance",
                 ));
             }
-            lu.solve_in_place_with_conj(
-                Conj::No,
-                residual.as_mut(),
-                Par::Seq,
-                MemStack::new(&mut memory),
-            );
-            for i in 0..n {
-                x[(i, 0)] += residual[(i, 0)];
-            }
-            backsolves += 1;
+            // Refinement is an actual solver iteration. A reused-factor action is
+            // neither another factor construction nor a proof operation.
+            execution.counted(work_unit(1, 0), || {
+                lu.solve_in_place_with_conj(
+                    Conj::No,
+                    residual.as_mut(),
+                    Par::Seq,
+                    MemStack::new(&mut memory),
+                );
+                for i in 0..n {
+                    x[(i, 0)] += residual[(i, 0)];
+                }
+                backsolves += 1;
+                Ok(())
+            })?;
         }
+    }
+}
+
+fn work_unit(iterations: u64, factorizations: u64) -> WorkEvidence {
+    WorkEvidence {
+        evaluations: Some(0),
+        iterations: Some(iterations),
+        factorizations: Some(factorizations),
+        proof_steps: Some(0),
     }
 }
 
@@ -491,6 +522,14 @@ mod tests {
         point: &[f64],
         execution: &Execution,
     ) -> Result<SparseFactor, Withheld> {
+        factor_values(bytes, point, execution, vec![4., 1., 3., 1.])
+    }
+    fn factor_values(
+        bytes: usize,
+        point: &[f64],
+        execution: &Execution,
+        values: Vec<f64>,
+    ) -> Result<SparseFactor, Withheld> {
         let scope = super::super::tests::scope();
         let scales = Normalization {
             variables: vec![100., 0.01],
@@ -524,14 +563,126 @@ mod tests {
                 key,
                 bytes,
             },
-            || {
-                Ok(SparseColMat::new(
-                    scope.pattern.clone(),
-                    vec![4., 1., 3., 1.],
-                ))
-            },
+            || Ok(SparseColMat::new(scope.pattern.clone(), values)),
             execution,
         )
+    }
+    #[derive(Debug, Default)]
+    struct Admission {
+        seen: std::sync::Mutex<Vec<WorkEvidence>>,
+        factors: Option<u64>,
+        iterations: Option<u64>,
+    }
+    impl crate::solve::WorkAdmission for Admission {
+        fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            let seen = self.seen.lock().unwrap();
+            let factors: u64 = seen.iter().map(|w| w.factorizations.unwrap()).sum();
+            let iterations: u64 = seen.iter().map(|w| w.iterations.unwrap()).sum();
+            if self
+                .factors
+                .is_some_and(|cap| factors + work.factorizations.unwrap() > cap)
+                || self
+                    .iterations
+                    .is_some_and(|cap| iterations + work.iterations.unwrap() > cap)
+            {
+                return Err(ProblemError::Limit {
+                    kind: crate::LimitKind::Work,
+                    detail: "fresh sparse test work allowance".into(),
+                });
+            }
+            Ok(())
+        }
+        fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.seen.lock().unwrap().push(work);
+            Ok(())
+        }
+    }
+    fn admitted(admission: Arc<Admission>) -> Execution {
+        let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        execution.work_admission = Some(admission);
+        execution
+    }
+    #[test]
+    fn fresh_factor_admission_counts_failed_construction_and_never_recharges_actions() {
+        let refused = Arc::new(Admission {
+            factors: Some(0),
+            ..Default::default()
+        });
+        assert!(
+            matches!(factor(1 << 20, &[2., 1.], &admitted(refused.clone())),
+            Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Limit { .. }))
+        );
+        assert!(refused.seen.lock().unwrap().is_empty());
+
+        let admission = Arc::new(Admission {
+            factors: Some(1),
+            ..Default::default()
+        });
+        let execution = admitted(admission.clone());
+        let failure = factor_values(1 << 20, &[2., 1.], &execution, vec![f64::MAX; 4]);
+        assert!(matches!(failure, Err(Withheld::Cause(cause))
+            if matches!(&*cause, ProblemError::Numerical { .. })));
+        assert_eq!(*admission.seen.lock().unwrap(), [work_unit(0, 1)]);
+        assert!(factor(1 << 20, &[2., 1.], &execution).is_err());
+        assert_eq!(admission.seen.lock().unwrap().len(), 1);
+
+        let successful = Arc::new(Admission {
+            factors: Some(1),
+            ..Default::default()
+        });
+        let execution = admitted(successful.clone());
+        let held = factor(1 << 20, &[2., 1.], &execution).unwrap();
+        let (_, first) = held.action(&[-1., 1.], &execution).unwrap();
+        let (_, second) = held.action(&[0., 0.], &execution).unwrap();
+        assert_eq!((first.backsolves, second.backsolves), (1, 1));
+        assert_eq!(
+            *successful.seen.lock().unwrap(),
+            [work_unit(0, 1), work_unit(0, 0), work_unit(0, 0)]
+        );
+    }
+    #[test]
+    fn refinement_iterations_admit_before_work_and_preserve_failed_observations() {
+        let base = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        let mut held = factor(1 << 20, &[2., 1.], &base).unwrap();
+        // A deliberately inconsistent residual operator makes both corrections
+        // unavoidable, independently of platform rounding or refinement heuristics.
+        let owned = Arc::get_mut(&mut held.held).unwrap();
+        for value in owned.matrix.val_mut() {
+            *value *= 2.;
+        }
+        let refusal = Arc::new(Admission {
+            iterations: Some(0),
+            ..Default::default()
+        });
+        assert!(matches!(
+            held.action(&[-1., 1.], &admitted(refusal.clone())),
+            Err(ProblemError::Limit { .. })
+        ));
+        assert_eq!(*refusal.seen.lock().unwrap(), [work_unit(0, 0)]);
+
+        let one_step = Arc::new(Admission {
+            iterations: Some(1),
+            ..Default::default()
+        });
+        assert!(matches!(
+            held.action(&[-1., 1.], &admitted(one_step.clone())),
+            Err(ProblemError::Limit { .. })
+        ));
+        assert_eq!(
+            *one_step.seen.lock().unwrap(),
+            [work_unit(0, 0), work_unit(1, 0)]
+        );
+
+        let admitted_steps = Arc::new(Admission {
+            iterations: Some(2),
+            ..Default::default()
+        });
+        let failed = held.action(&[-1., 1.], &admitted(admitted_steps.clone()));
+        assert!(matches!(failed, Err(ProblemError::Numerical { .. })));
+        assert_eq!(
+            *admitted_steps.seen.lock().unwrap(),
+            [work_unit(0, 0), work_unit(1, 0), work_unit(1, 0)]
+        );
     }
     #[test]
     fn fresh_sparse_actions_reuse_factor_and_match_independent_perturbed_roots() {

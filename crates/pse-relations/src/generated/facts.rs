@@ -1463,6 +1463,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            190u8, 50u8, 236u8, 168u8, 123u8, 190u8, 22u8, 99u8, 71u8, 240u8, 130u8,
+            176u8, 182u8, 69u8, 62u8, 226u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeSolveStrategyProducts(
+                super::r#runtime::r#solve_strategy_products::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             150u8, 121u8, 31u8, 89u8, 86u8, 198u8, 129u8, 141u8, 73u8, 124u8, 125u8,
             206u8, 153u8, 203u8, 152u8, 115u8,
         ])
@@ -1909,6 +1921,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveStrategyEvents(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeSolveStrategyProducts(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveVariables(rows) => {

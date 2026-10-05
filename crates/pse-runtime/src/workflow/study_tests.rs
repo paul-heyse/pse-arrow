@@ -148,7 +148,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 5);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 6);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -763,16 +763,25 @@ async fn related_case_study_uses_secant_then_original_correction() {
             &execution,
         )
         .unwrap();
-    let expected = third
-        .prepared
-        .solve
-        .clone()
-        .with_primal_start(proposal.values().collect())
-        .unwrap();
     assert_eq!(
-        third.prepared.solve.request_identity().unwrap(),
-        expected.request_identity().unwrap(),
+        third.prepared.solve.source_start(None).unwrap(),
+        proposal
+            .values()
+            .map(|(_, value)| value)
+            .collect::<Vec<_>>(),
         "actual third occurrence consumed the shared secant endpoint"
+    );
+    assert_eq!(
+        third.prepared.solve.numerical_strategy().start.policy,
+        pse_backend_native::solve::StartPolicy::PreviousAccepted
+    );
+    assert_eq!(
+        third.prepared.solve.entry_origin(false),
+        pse_model::strategy::StartOrigin::Predicted
+    );
+    assert_eq!(
+        third.strategy.as_ref().unwrap().starts[0],
+        pse_model::strategy::StartOrigin::Predicted
     );
     let crate::math::solves::Outcome::Native(report) = &third.outcome else {
         panic!("original native correction expected");

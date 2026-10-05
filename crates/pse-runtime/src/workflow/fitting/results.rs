@@ -378,10 +378,7 @@ impl RunResult {
         let trace = report
             .and_then(|r| r.strategy.as_ref())
             .or_else(|| match &self.report {
-                Err(error) => match error.as_ref() {
-                    WorkflowError::Math(error) => error.strategy_trace(),
-                    _ => None,
-                },
+                Err(error) => error.strategy_trace(),
                 _ => None,
             });
         use pse_relations::generated::runtime::solve_strategy_events;
@@ -399,6 +396,22 @@ impl RunResult {
         batches.insert(
             solve_strategy_events::RELATION_ID,
             strategy_events.finish().map_err(relation)?,
+        );
+        use pse_relations::generated::runtime::solve_strategy_products;
+        let mut products =
+            solve_strategy_products::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                .map_err(relation)?;
+        if let Some(trace) = trace {
+            for row in trace
+                .product_rows(self.run_id, 0)
+                .map_err(crate::math::MathRuntimeError::from)?
+            {
+                products.push(row).map_err(relation)?;
+            }
+        }
+        batches.insert(
+            solve_strategy_products::RELATION_ID,
+            products.finish().map_err(relation)?,
         );
         self.retain_sources(&mut batches)?;
         batches.extend(source.source_tables()?);

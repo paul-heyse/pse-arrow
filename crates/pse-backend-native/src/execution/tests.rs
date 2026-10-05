@@ -880,7 +880,7 @@ fn settings_identity_is_type_name_independent() {
         json!({"finite_difference": {"pattern": "jacobian"}}),
         json!({"finite_difference": {"coloring": "star"}}),
         json!({"finite_difference": {"reuse_tolerance": 0.001}}),
-        json!({"linear": {"bounded_dense_max_dimension": 7}}),
+        json!({"linear": {"bounded_storage_max_dimension": 7}}),
     ] {
         let mut document = fields;
         document["backend"] = json!("pounce");

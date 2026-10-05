@@ -828,22 +828,195 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
     analysis.case.values.insert("p".into(), 2.);
     let cancel = crate::CancelSource::new();
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-    let execution = Execution::new(Arc::default(), &Controls::default());
-    let (proposal, outcome) = base
+    let mut execution = Execution::new(Arc::default(), &Controls::default());
+    let request = qp::Request {
+        previous: &previous,
+        source: &source,
+        target: &target_qp,
+        options: &options,
+        linear: &linear,
+        limits: pse_backend_native::kkt::activity::Limits {
+            backsolves: 1000,
+            refactorizations: 200,
+            bytes: 1 << 20,
+        },
+    };
+    let limits = pse_model::strategy::WorkLimits {
+        attempts: 1,
+        evaluations: None,
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    };
+    let uncapped = crate::math::strategy::admission::TaskAdmission::new(
+        limits,
+        execution.scope().unwrap(),
+        None,
+        false,
+    );
+    execution.work_admission = Some(uncapped.clone());
+    let capped = crate::math::strategy::admission::TaskAdmission::new(
+        pse_model::strategy::WorkLimits {
+            proof_steps: Some(0),
+            ..limits
+        },
+        execution.scope().unwrap(),
+        None,
+        false,
+    );
+    let mut capped_execution = execution.clone();
+    capped_execution.work_admission = Some(capped.clone());
+    let refusal = base
+        .qp_prediction(
+            &target.solve,
+            request,
+            BranchPolicy::any_qualified(),
+            &capped_execution,
+        )
+        .unwrap_err();
+    assert!(
+        refusal.to_string().contains("known operation count"),
+        "{refusal}"
+    );
+    let no_work = capped.observation().unwrap();
+    assert_eq!(no_work.factorizations, Some(0));
+    assert_eq!(no_work.proof_steps, Some(0));
+    // The unchanged library family alone cannot establish original-model provenance.
+    let mut wrong_h = qp::SymTMatrix::new(qp::SymTMatrixSpace::new(1, vec![1], vec![1]));
+    wrong_h.set_values(&[2.]);
+    let wrong_previous = qp::QpProblem {
+        h: &wrong_h,
+        ..previous
+    };
+    let wrong_target = qp::QpProblem {
+        h: &wrong_h,
+        ..target_qp
+    };
+    let refusal = base
         .qp_prediction(
             &target.solve,
             qp::Request {
-                previous: &previous,
-                source: &source,
-                target: &target_qp,
-                options: &options,
-                linear: &linear,
-                limits: pse_backend_native::kkt::activity::Limits {
-                    backsolves: 1000,
-                    refactorizations: 200,
-                    bytes: 1 << 20,
-                },
+                previous: &wrong_previous,
+                target: &wrong_target,
+                ..request
             },
+            BranchPolicy::any_qualified(),
+            &execution,
+        )
+        .unwrap_err();
+    assert!(
+        refusal.to_string().contains("compiler's actual"),
+        "{refusal}"
+    );
+    let mut wrong_a = qp::GenTMatrix::new(qp::GenTMatrixSpace::new(1, 1, vec![1], vec![1]));
+    wrong_a.set_values(&[2.]);
+    let wrong_previous = qp::QpProblem {
+        a: &wrong_a,
+        ..previous
+    };
+    let wrong_target = qp::QpProblem {
+        a: &wrong_a,
+        ..target_qp
+    };
+    assert!(
+        base.qp_prediction(
+            &target.solve,
+            qp::Request {
+                previous: &wrong_previous,
+                target: &wrong_target,
+                ..request
+            },
+            BranchPolicy::any_qualified(),
+            &execution
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("compiler's actual")
+    );
+    let wrong_target = qp::QpProblem {
+        g: &[-3.],
+        ..target_qp
+    };
+    assert!(
+        base.qp_prediction(
+            &target.solve,
+            qp::Request {
+                target: &wrong_target,
+                ..request
+            },
+            BranchPolicy::any_qualified(),
+            &execution
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("compiler's actual")
+    );
+    let wrong_previous = qp::QpProblem {
+        g: &[-2.],
+        ..previous
+    };
+    assert!(
+        base.qp_prediction(
+            &target.solve,
+            qp::Request {
+                previous: &wrong_previous,
+                ..request
+            },
+            BranchPolicy::any_qualified(),
+            &execution
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("compiler's actual")
+    );
+    let mut wrong_source = source.clone();
+    wrong_source.x[0] += 1.;
+    assert!(
+        base.qp_prediction(
+            &target.solve,
+            qp::Request {
+                source: &wrong_source,
+                ..request
+            },
+            BranchPolicy::any_qualified(),
+            &execution
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("actual original candidate")
+    );
+    let unrelated_rows = pse_authoring::language::parse("package other { def Qp { param p:Scalar=2; var x:Scalar; eq floor:x>=0; let cost:Scalar=0.5*x*x-p*x; annotation objective cost(minimize); annotation start x(1); } }",
+        SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+    let unrelated_root = unrelated_rows
+        .iter()
+        .find(|r| r.name == "Qp")
+        .unwrap()
+        .declaration_id;
+    let unrelated_package = runtime
+        .modeling_package(unrelated_rows, fixture::physical())
+        .unwrap();
+    let mut unrelated_analysis = analysis.clone();
+    unrelated_analysis.root = unrelated_root;
+    unrelated_analysis.instance = pse_modeling::specialize::root_instance(unrelated_root);
+    let unrelated = unrelated_package
+        .prepare_analysis(&unrelated_analysis, &cancel)
+        .await
+        .unwrap();
+    assert!(
+        base.qp_prediction(
+            &unrelated.solve,
+            request,
+            BranchPolicy::any_qualified(),
+            &execution
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("same named original coordinates")
+    );
+    let (proposal, outcome) = base
+        .qp_prediction(
+            &target.solve,
+            request,
             BranchPolicy::any_qualified(),
             &execution,
         )
@@ -851,6 +1024,11 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
     assert_eq!(outcome.solution.status, qp::QpStatus::Optimal);
     assert!(outcome.linear_calls > 0);
     assert!(outcome.solution.stats.parametric_source.is_some());
+    assert_eq!(
+        uncapped.observation().unwrap().proof_steps,
+        None,
+        "actual class production cannot be relabeled as zero proof work"
+    );
     assert!((proposal.values().next().unwrap().1 - 2.).abs() < 1e-8);
     let screened = runtime
         .native()

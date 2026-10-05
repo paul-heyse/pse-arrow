@@ -497,28 +497,31 @@ impl RunResult {
                                 p.assess_completion(r),
                             )
                         }
-                        (RunRequest::Modeling(p), Ok(RunReport::Modeling(results)))
-                            if results.get(step).is_some() =>
-                        {
-                            let r = &results[step];
-                            let (report, numerical, constant) = match &r.outcome {
-                                crate::math::solves::Outcome::Native(n) => (
-                                    Some(n.as_ref()),
-                                    n.quality.as_ref().map(|q| q.feasible()),
-                                    false,
-                                ),
-                                crate::math::solves::Outcome::Constant(c) => {
-                                    (None, Some(c.quality.feasible()), true)
-                                }
-                                crate::math::solves::Outcome::Rejected(_) => (None, None, false),
-                            };
-                            (
-                                report,
-                                numerical,
-                                constant,
-                                &p[step].solve.numerics().policy,
-                                r.completion.clone(),
-                            )
+                        (RunRequest::Modeling(p), _) => {
+                            if let Some(r) = self.modeling_result(step) {
+                                let (report, numerical, constant) = match &r.outcome {
+                                    crate::math::solves::Outcome::Native(n) => (
+                                        Some(n.as_ref()),
+                                        n.quality.as_ref().map(|q| q.feasible()),
+                                        false,
+                                    ),
+                                    crate::math::solves::Outcome::Constant(c) => {
+                                        (None, Some(c.quality.feasible()), true)
+                                    }
+                                    crate::math::solves::Outcome::Rejected(_) => {
+                                        (None, None, false)
+                                    }
+                                };
+                                (
+                                    report,
+                                    numerical,
+                                    constant,
+                                    &p[step].solve.numerics().policy,
+                                    r.completion.clone(),
+                                )
+                            } else {
+                                (None, None, false, &default, unavailable())
+                            }
                         }
                         (RunRequest::Simulation(p), Ok(RunReport::Simulation(r))) => (
                             None,

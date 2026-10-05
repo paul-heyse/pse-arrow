@@ -3016,6 +3016,37 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, event`.
 | `failures.item.causes.item.applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
 | `detail` | `Utf8` | true | `payload` | — | — |
 
+## `solve_strategy_products`
+
+Actual produced point and action accuracy receipts, retaining every derivative order and complete consumed source dependencies. Preparation support and future output demands create no rows.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, mechanism, product`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `mechanism` | `Int64` | false | `key` | — | — |
+| `product` | `Int64` | false | `key` | — | — |
+| `product_identity` | `content_hash` | false | `payload` | — | — |
+| `source_structure` | `content_hash` | false | `payload` | — | — |
+| `source_binding` | `content_hash` | false | `payload` | — | — |
+| `numerical_policy` | `content_hash` | true | `payload` | — | — |
+| `normalization` | `content_hash` | false | `payload` | — | — |
+| `point` | `content_hash` | false | `payload` | — | — |
+| `parameters` | `content_hash` | true | `payload` | — | — |
+| `derivation` | `content_hash` | true | `payload` | — | — |
+| `source_branch` | `content_hash` | true | `payload` | — | — |
+| `source_accuracy` | `content_hash` | true | `payload` | — | — |
+| `derivative_order` | `Int64` | false | `payload` | — | — |
+| `accuracy_class` | `enum:NumericalAccuracyClass` | false | `payload` | — | — |
+| `error` | `Float64` | true | `payload` | — | — |
+| `branch_policy` | `enum:NumericalBranchPolicy` | false | `payload` | — | — |
+| `path` | `content_hash` | true | `payload` | — | — |
+| `sheet` | `content_hash` | true | `payload` | — | — |
+| `transport` | `content_hash` | true | `payload` | — | — |
+| `orientation` | `content_hash` | true | `payload` | — | — |
+
 ## `solve_variables`
 
 Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate. Every variable row states its declared domain (ADR-0103); parameter rows carry none.

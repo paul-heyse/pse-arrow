@@ -604,6 +604,13 @@ preparation and durable frames. Version checks precede current-body decoding. Hi
 result readability stay intact; execution requires explicit current readmission or typed refusal.
 Native source/build identity names the immutable revision without invalidating unrelated evaluators.
 
+The current operation-specific contract uses SolveSettings v3, NumericalStrategyDocument v3,
+StudyOperation/StudyRequest v4, StudyDefinition v6 and JobPayload v8. Strategy, preparation and
+request frames use their v3 forms; NumericalDecisionV2 and durable request frames V5/V3/V4
+record the corresponding changed interpretation. Historical frames retain their original bytes.
+The strategy's individual operations declare exact input demands and finite output obligations;
+there is no task-global accuracy list or preparation-time output certificate.
+
 > Supplement: [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md) (proposed; authorized implementation) replaces normal reset recovery from ADR-0114. Fresh stores are created from generated declarations. Existing stores open read-only after exact support/readiness validation; `just db-migrate` explicitly transitions the supported predecessor while retaining records. Unknown source, conflicting immutable history, incompatible layout or active generations refuse before mutation. Namespace ownership spans separately recorded catalog/control and operations histories. Readiness precedes changed schema, each transition commits with its checksum history, and matching committed progress can resume. Runtime generations hold schema admission until their connections close; current statements are unavailable without verified readiness. Destructive reset is separate maintenance. Historical records retain their recorded contract and never infer new qualification facts from absent fields. Plan 25g implements the directional recorded-contract and retirement protocols below; their focused evidence is owned by that plan and integrated recovery qualification remains Plan 25k.
 
 **Recorded meaning and capabilities.** The portable `pse.semantic-contract.v2` witness
@@ -753,12 +760,12 @@ ADR-0114 Outcome 22's single `TerminationCode` enumeration; `TerminationCode` su
 the Rust type over those columns (`pse-operations::attempts`).
 
 **Queue and workers.** A job names its current try's attempt and a typed, versioned
-payload (`JobPayload` version 6): a `ModelingJob` (content-addressed source bundles keyed
+payload (`JobPayload` version 8): a `ModelingJob` (content-addressed source bundles keyed
 by the §6.1 package content hash, the case, route, typed `SolveSettings` and a `JobStart`
 policy), a `StudyOperationJob` (source bundles and the immutable `StudyPointBinding`,
 including its admitted operation and occurrence policy), or a study's finalization. An
-unknown version is refused (`UnknownPayloadVersion`). Current study operation descriptors and public study requests use version 2;
-stored study definitions use version 4. Decode the version boundary before nested current
+unknown version is refused (`UnknownPayloadVersion`). Current study operation descriptors and public study requests use version 4;
+stored study definitions use version 6. Decode the version boundary before nested current
 preparation and library profiles. Unsupported historical readmission refuses explicitly
 without changing stored bytes or inventing missing policy. Operational readiness fingerprints
 cover SQL declarations; opaque JSON values require their own version boundaries. `Operations::enqueue` takes the typed

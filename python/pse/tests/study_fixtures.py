@@ -131,4 +131,4 @@ def point(
 
 
 def request(*points: StudyPoint) -> StudyRequest:
-    return StudyRequest(version=3, points=points)
+    return StudyRequest(version=4, points=points)

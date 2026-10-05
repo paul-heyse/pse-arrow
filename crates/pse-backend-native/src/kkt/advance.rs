@@ -24,6 +24,7 @@ use pse_ids::SemanticId;
 /// the worker's retained state and charged to the job's allowance.
 #[derive(Clone, Debug)]
 pub struct Advance {
+    source: Option<pse_model::strategy::SemanticProductKey>,
     factor: KktFactor,
     /// The KKT rows of the pins, in parameter order.
     pins: Vec<i32>,
@@ -129,6 +130,7 @@ impl Advance {
         analysed: &super::sensitivity::Analysed,
         parameters: Vec<(SemanticId, f64)>,
         tolerances: &Tolerances,
+        source: Option<pse_model::strategy::SemanticProductKey>,
     ) -> Option<Self> {
         let candidate = report.candidate.as_ref()?;
         let observation = report.observation.as_ref()?;
@@ -136,6 +138,10 @@ impl Advance {
         let pins = super::sensitivity::pin_rows(&analysed.factor, n, np)?;
         let (lower, upper) = candidate.bound_dual.clone()?;
         Some(Self {
+            source: source.map(|mut key| {
+                key.point = Some(crate::square_response::point_key(&candidate.primal));
+                key
+            }),
             factor: analysed.factor.clone(),
             pins,
             parameters,
@@ -188,6 +194,10 @@ impl Advance {
             + self.parameters.len() * size_of::<(SemanticId, f64)>()
             + self.pins.len() * size_of::<i32>();
         self.factor.bytes().saturating_add(vectors)
+    }
+    /// Exact immutable scientific source consumed to produce this retained factor.
+    pub fn source(&self) -> Option<pse_model::strategy::SemanticProductKey> {
+        self.source
     }
     /// Original solve-variable identities in the source prediction order.
     pub fn variables(&self) -> &[SemanticId] {

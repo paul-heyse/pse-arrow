@@ -6,7 +6,7 @@ use pse_backend_native::{
     OracleContract, ProblemError, kkt, solve::Execution, square_response::SparseFactor,
 };
 use pse_ids::{ContentHash, SemanticId};
-use pse_model::strategy::{BranchPolicy, SemanticProductKey};
+use pse_model::strategy::{BranchPolicy, SemanticProductKey, StartOrigin};
 
 /// Original-coordinate numerical proposal. Its source point/parameters are distinct from
 /// the bound target; neither endpoint feasibility nor an origin label proves sheet transport.
@@ -17,6 +17,7 @@ pub struct Proposal {
     source: SemanticProductKey,
     target: ContentHash,
     branch: BranchPolicy,
+    origin: StartOrigin,
     owner: Option<std::sync::Arc<dyn pse_math::AllocationOwner>>,
 }
 impl Proposal {
@@ -60,6 +61,7 @@ impl Proposal {
             source,
             target,
             branch,
+            origin: StartOrigin::ModifiedSpecification,
             owner: None,
         })
     }
@@ -92,8 +94,39 @@ impl Proposal {
             source,
             target,
             branch,
+            origin: StartOrigin::Predicted,
             owner: None,
         })
+    }
+    #[cfg(any(feature = "solver-pounce", test))]
+    pub(crate) fn auxiliary(
+        coordinates: Vec<SemanticId>,
+        values: Vec<f64>,
+        mut source: SemanticProductKey,
+        target: ContentHash,
+        branch: BranchPolicy,
+        derivation: ContentHash,
+    ) -> Result<Self, ProblemError> {
+        if source.point.is_none() || source.binding != target || branch.connected.is_some() {
+            return Err(ProblemError::Contract(
+                "auxiliary perturbation needs exact original source and an unconstrained branch"
+                    .into(),
+            ));
+        }
+        source.derivation = Some(derivation);
+        source.accuracy = None;
+        Self::auxiliary_path(coordinates, values, source, target, branch)
+    }
+    pub(crate) fn auxiliary_path(
+        coordinates: Vec<SemanticId>,
+        values: Vec<f64>,
+        source: SemanticProductKey,
+        target: ContentHash,
+        branch: BranchPolicy,
+    ) -> Result<Self, ProblemError> {
+        let mut proposal = Self::path(coordinates, values, source, target, branch)?;
+        proposal.origin = StartOrigin::Auxiliary;
+        Ok(proposal)
     }
     pub(crate) fn surrogate(
         point: &pse_math::surrogate::SurrogateProposal,
@@ -127,6 +160,7 @@ impl Proposal {
             source,
             target,
             branch,
+            origin: StartOrigin::Surrogate,
             owner: None,
         })
     }
@@ -154,6 +188,10 @@ impl Proposal {
             .iter()
             .copied()
             .zip(self.values.iter().copied())
+    }
+    /// Actual producer meaning, retained independently from the original entry policy.
+    pub const fn origin(&self) -> StartOrigin {
+        self.origin
     }
     /// Exact fresh source dependencies; transported target values need not equal base values.
     pub fn source(&self) -> SemanticProductKey {
@@ -212,6 +250,7 @@ impl Proposal {
         execution.check()?;
         Ok(Screened {
             proposal: self.clone(),
+            scope: execution.scope()?,
             owner: None,
         })
     }
@@ -220,6 +259,7 @@ impl Proposal {
 #[derive(Clone, Debug)]
 pub struct Screened {
     proposal: Proposal,
+    scope: pse_kernels::ExecutionScope,
     owner: Option<std::sync::Arc<dyn pse_math::AllocationOwner>>,
 }
 impl Screened {
@@ -230,6 +270,9 @@ impl Screened {
     /// Provenance for the consumed start operation.
     pub fn proposal(&self) -> &Proposal {
         &self.proposal
+    }
+    pub(crate) fn scope(&self) -> &pse_kernels::ExecutionScope {
+        &self.scope
     }
     pub(crate) fn retained_bytes(&self) -> Result<usize, ProblemError> {
         size_of::<Self>()
@@ -300,6 +343,7 @@ pub fn root(
             source: factor.key(),
             target,
             branch,
+            origin: StartOrigin::Predicted,
             owner: None,
         },
         evidence,
@@ -349,6 +393,7 @@ pub fn parameter_root(
             source: factor.key(),
             target,
             branch,
+            origin: StartOrigin::Predicted,
             owner: None,
         },
         evidence,
@@ -369,6 +414,9 @@ pub fn kkt(
 /// One shared proposal producer selection. The caller supplies genuinely composed original
 /// permission and source dependencies; every produced endpoint still requires target screening.
 pub(crate) enum ProposalMechanism<'a> {
+    Zeroth {
+        anchor: &'a Anchor,
+    },
     Root {
         predictor: &'a pse_backend_native::square_response::SparsePredictor,
         parameters: &'a [(SemanticId, f64)],
@@ -405,6 +453,9 @@ pub(crate) struct SelectionRequest<'a> {
 /// Actual source-owned proposal and operation evidence. Partial activity coverage remains
 /// partial; every non-control endpoint has only start meaning.
 pub(crate) enum SelectedProposal {
+    Zeroth {
+        proposal: Box<Proposal>,
+    },
     Root {
         proposal: Box<Proposal>,
         work: pse_backend_native::square_response::ActionEvidence,
@@ -486,6 +537,24 @@ pub(crate) fn select(
         }
     };
     let selected = match request.mechanism {
+        ProposalMechanism::Zeroth { anchor } => {
+            if anchor.key != request.source {
+                return Err(ProblemError::Contract(
+                    "zeroth proposal anchor differs from the permitted source dependencies".into(),
+                )
+                .into());
+            }
+            verify_point(&anchor.values)?;
+            SelectedProposal::Zeroth {
+                proposal: Box::new(Proposal::path(
+                    anchor.coordinates.as_ref().clone(),
+                    anchor.values.as_ref().clone(),
+                    request.source,
+                    request.target,
+                    request.branch,
+                )?),
+            }
+        }
         ProposalMechanism::Root {
             predictor,
             parameters,
@@ -514,8 +583,23 @@ pub(crate) fn select(
             parameters,
             activity,
         } => {
+            if advance.source() != Some(request.source) {
+                return Err(ProblemError::Contract(
+                    "KKT proposal source dependencies differ from original permission".into(),
+                )
+                .into());
+            }
             verify_point(advance.point())?;
-            match kkt(advance, parameters) {
+            let prediction = execution.counted(
+                pse_backend_native::solve::WorkEvidence {
+                    evaluations: Some(0),
+                    iterations: None,
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                },
+                || Ok(kkt(advance, parameters)),
+            )?;
+            match prediction {
                 Ok(prediction) => SelectedProposal::Kkt { prediction },
                 Err(fallback @ kkt::Fallback::ActiveSet { .. }) => {
                     let Some((segments, limits)) = activity else {
@@ -576,6 +660,12 @@ pub(crate) fn select(
             segments,
             limits,
         } => {
+            if advance.source() != Some(request.source) {
+                return Err(ProblemError::Contract(
+                    "KKT proposal source dependencies differ from original permission".into(),
+                )
+                .into());
+            }
             verify_point(advance.point())?;
             let path =
                 kkt::path::predict(advance, parameters, segments, limits, execution.clone())?;
@@ -644,6 +734,52 @@ pub(crate) fn select(
     Ok(selected)
 }
 
+/// Select from actual owner-bound products. Preference belongs to this common consumer;
+/// source/permission failures stop immediately, while producer capability or numerical
+/// refusal permits the next available product. No unavailable producer is materialized.
+pub(crate) fn select_available(
+    mut available: Vec<SelectionRequest<'_>>,
+    execution: &Execution,
+) -> Result<SelectedProposal, SelectionFailure> {
+    available.sort_by_key(|request| match &request.mechanism {
+        ProposalMechanism::Root { .. } => 0,
+        #[cfg(feature = "solver-diffsol")]
+        ProposalMechanism::Kkt { .. } => 1,
+        ProposalMechanism::Activity { .. } => 2,
+        ProposalMechanism::Qp { .. } => 3,
+        ProposalMechanism::Secant { .. } => 4,
+        ProposalMechanism::Zeroth { .. } => 5,
+    });
+    let mut last = None;
+    for request in available {
+        match select(request, execution) {
+            Ok(selected) => return Ok(selected),
+            Err(error) => {
+                let cause = error.into_problem();
+                let class = pse_model::diagnostic::DiagnosticProjection::boundary_diagnostic(
+                    &cause,
+                    pse_diagnostics::DiagnosticStage::Native,
+                )
+                .class;
+                if !matches!(
+                    class,
+                    pse_model::diagnostic::BoundaryClass::Unsupported
+                        | pse_model::diagnostic::BoundaryClass::Incompatible
+                        | pse_model::diagnostic::BoundaryClass::Numerical
+                ) {
+                    return Err(cause.into());
+                }
+                last = Some(cause);
+            }
+        }
+    }
+    Err(last
+        .unwrap_or_else(|| {
+            ProblemError::Unsupported("no admitted proposal product is available".into())
+        })
+        .into())
+}
+
 /// Two original-permitted points in one scaled path coordinate. Source dependencies remain
 /// fixed while binding/point/parameter identities are allowed to change along that path.
 #[derive(Clone, Debug)]
@@ -662,6 +798,9 @@ pub struct Anchor {
     owner: Option<std::sync::Arc<dyn pse_math::AllocationOwner>>,
 }
 impl Anchor {
+    pub(crate) fn source(&self) -> SemanticProductKey {
+        self.key
+    }
     pub(crate) fn with_owner(
         mut self,
         owner: std::sync::Arc<dyn pse_math::AllocationOwner>,
@@ -766,11 +905,15 @@ impl SecantHistory {
         if !step.is_finite()
             || !scaled_step_limit.is_finite()
             || scaled_step_limit <= 0.
-            || step.abs() > scaled_step_limit
             || branch.connected.is_some()
         {
             return Err(ProblemError::Contract(
                 "secant extrapolation allowance or sheet mismatch".into(),
+            ));
+        }
+        if step.abs() > scaled_step_limit {
+            return Err(ProblemError::numerical(
+                "secant extrapolation exceeds the admitted history slice",
             ));
         }
         let fraction =
@@ -791,6 +934,7 @@ impl SecantHistory {
             source: self.newer.key,
             target,
             branch,
+            origin: StartOrigin::Predicted,
             owner: None,
         })
     }
@@ -831,6 +975,72 @@ mod tests {
                 bound: None,
             },
         )
+    }
+    #[test]
+    fn shared_selection_uses_actual_zeroth_after_bounded_secant_refusal_but_stops_wrong_source() {
+        let anchor = sample(4., 2., CandidateUse::Usable).unwrap();
+        let history = SecantHistory::new(
+            sample(2., 1., CandidateUse::Usable).unwrap(),
+            anchor.clone(),
+            1.,
+        )
+        .unwrap();
+        let permission = CandidateDecision {
+            usability: CandidateUse::Usable,
+            qualifiers: Vec::new(),
+            refusals: Vec::new(),
+            bound: None,
+        };
+        let execution = Execution::new(
+            std::sync::Arc::default(),
+            &pse_backend_native::solve::Controls::default(),
+        );
+        let target = ContentHash::from_bytes([9; 32]);
+        let candidates = |source| {
+            vec![
+                SelectionRequest {
+                    mechanism: ProposalMechanism::Zeroth { anchor: &anchor },
+                    permission: &permission,
+                    source: anchor.source(),
+                    target,
+                    branch: BranchPolicy::any_qualified(),
+                },
+                SelectionRequest {
+                    mechanism: ProposalMechanism::Secant {
+                        history: &history,
+                        parameter: 4.,
+                        scaled_step_limit: 1.,
+                    },
+                    permission: &permission,
+                    source,
+                    target,
+                    branch: BranchPolicy::any_qualified(),
+                },
+            ]
+        };
+        let selected = select_available(candidates(history.source()), &execution)
+            .unwrap_or_else(|error| panic!("{}", error.into_problem()));
+        let SelectedProposal::Zeroth { proposal } = selected else {
+            panic!("bounded secant must fall back to the actual point product")
+        };
+        assert_eq!(
+            proposal.values().collect::<Vec<_>>(),
+            vec![(SemanticId::NIL, 4.)]
+        );
+        let mut wrong = history.source();
+        wrong.binding = target;
+        let error = select_available(candidates(wrong), &execution)
+            .err()
+            .unwrap()
+            .into_problem();
+        assert_eq!(
+            pse_model::diagnostic::DiagnosticProjection::boundary_diagnostic(
+                &error,
+                pse_diagnostics::DiagnosticStage::Native
+            )
+            .class,
+            pse_model::diagnostic::BoundaryClass::InvalidModel
+        );
     }
     #[test]
     fn secant_transports_bound_values_with_fixed_dependencies_and_start_only_screening() {
@@ -1019,5 +1229,63 @@ mod tests {
                 )
                 .is_err()
         );
+    }
+    #[test]
+    fn screened_proposal_retains_producer_origin_and_original_scope() {
+        let hash = ContentHash::from_bytes([77; 32]);
+        let source = SemanticProductKey {
+            structure: hash,
+            binding: hash,
+            numerical_policy: Some(hash),
+            normalization: Some(hash),
+            point: Some(pse_backend_native::square_response::point_key(&[0.5])),
+            parameters: None,
+            derivation: None,
+            branch: None,
+            accuracy: None,
+        };
+        let branch = BranchPolicy::any_qualified();
+        let contract = OracleContract {
+            identity: hash,
+            derivatives: pse_kernels::DerivativeOrder::Value,
+            smoothness: pse_kernels::DerivativeOrder::Value,
+            variables: vec![pse_backend_native::Variable {
+                id: SemanticId::NIL,
+                lower: -1.,
+                upper: 1.,
+            }],
+            rows: vec![],
+        };
+        let execution = Execution::new(
+            std::sync::Arc::default(),
+            &pse_backend_native::solve::Controls::default(),
+        );
+        let producers = [
+            Proposal::path(vec![SemanticId::NIL], vec![0.5], source, hash, branch).unwrap(),
+            Proposal::modified_specification(
+                vec![SemanticId::NIL],
+                vec![0.5],
+                source,
+                hash,
+                branch,
+            )
+            .unwrap(),
+            Proposal::auxiliary(vec![SemanticId::NIL], vec![0.6], source, hash, branch, hash)
+                .unwrap(),
+        ];
+        for (proposal, origin) in producers.into_iter().zip([
+            StartOrigin::Predicted,
+            StartOrigin::ModifiedSpecification,
+            StartOrigin::Auxiliary,
+        ]) {
+            let screened = proposal
+                .screen(&contract, hash, branch, &execution, |_| Ok(()))
+                .unwrap();
+            assert_eq!(screened.proposal().origin(), origin);
+            assert!(std::sync::Arc::ptr_eq(
+                screened.scope().cancellation(),
+                execution.scope().unwrap().cancellation()
+            ));
+        }
     }
 }

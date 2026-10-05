@@ -14,10 +14,12 @@ pub(crate) struct TaskAdmission {
     scope: pse_kernels::ExecutionScope,
     pool: Option<Arc<dyn MemoryPool>>,
     strict_storage: bool,
+    entry_dispatched: std::sync::atomic::AtomicBool,
 }
 struct State {
     ledger: Ledger,
     pending: WorkObservation,
+    unknown_pending: [u64; 4],
     unreported: WorkObservation,
     storage: Vec<Arc<pse_columnar::AllocationLease>>,
     storage_allowance: Option<(Arc<pse_columnar::AllocationLease>, usize)>,
@@ -63,6 +65,7 @@ impl TaskAdmission {
             state: Mutex::new(State {
                 ledger: Ledger::new(limits),
                 pending: zero(),
+                unknown_pending: [0; 4],
                 unreported: zero(),
                 storage: Vec::new(),
                 storage_allowance: None,
@@ -75,7 +78,20 @@ impl TaskAdmission {
             scope,
             pool,
             strict_storage,
+            entry_dispatched: std::sync::atomic::AtomicBool::new(false),
         })
+    }
+    pub(crate) fn matches_scope(&self, scope: &pse_kernels::ExecutionScope) -> bool {
+        Arc::ptr_eq(self.scope.cancellation(), scope.cancellation())
+            && self.scope.deadline() == scope.deadline()
+    }
+    pub(crate) fn entry_dispatched(&self) -> bool {
+        self.entry_dispatched
+            .load(std::sync::atomic::Ordering::Acquire)
+    }
+    pub(crate) fn mark_entry_dispatched(&self) {
+        self.entry_dispatched
+            .store(true, std::sync::atomic::Ordering::Release);
     }
     fn state(&self) -> Result<std::sync::MutexGuard<'_, State>, ProblemError> {
         self.state
@@ -98,7 +114,15 @@ impl TaskAdmission {
             return Ok(());
         }
         let mut state = self.state()?;
-        state.storage.push(owner.clone());
+        if state
+            .storage_allowance
+            .as_ref()
+            .is_some_and(|(held, _)| Arc::ptr_eq(held, &owner))
+        {
+            return Ok(());
+        }
+        // Native owners hold detached lease tokens for still-live prior storage.
+        // The task keeps only the current allowance, rather than a per-step history.
         state.storage_allowance = Some((owner, 0));
         Ok(())
     }
@@ -223,44 +247,136 @@ impl TaskAdmission {
     }
 }
 impl WorkAdmission for TaskAdmission {
+    fn retain_storage(&self) -> Option<Arc<dyn std::any::Any + Send + Sync>> {
+        let mut state = self.state.lock().ok()?;
+        // Transfer these actual reservations to the native owner. The task must not
+        // keep a second historical ownership list after the native owner takes them.
+        let mut leases = std::mem::take(&mut state.storage);
+        if let Some((owner, _)) = &state.storage_allowance
+            && !leases.iter().any(|held| Arc::ptr_eq(held, owner))
+        {
+            leases.push(owner.clone());
+        }
+        Some(Arc::new(leases))
+    }
     fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
         self.scope.check().map_err(ProblemError::Provider)?;
         let mut state = self.state()?;
-        let pending = add_work(state.pending, observation(work))?;
-        check_limits(
-            state.ledger.limits,
-            add_work(state.current_budget()?, pending)?,
-        )?;
+        let actual = observation(work);
+        let global = state.ledger.limits;
+        let local = state.local.map(|(limits, _)| limits);
+        let mut known = actual;
+        let mut unknown = state.unknown_pending;
+        for (index, (unit, global_cap, local_cap)) in [
+            (
+                &mut known.evaluations,
+                global.evaluations,
+                local.and_then(|limits| limits.evaluations),
+            ),
+            (
+                &mut known.iterations,
+                global.iterations,
+                local.and_then(|limits| limits.iterations),
+            ),
+            (
+                &mut known.factorizations,
+                global.factorizations,
+                local.and_then(|limits| limits.factorizations),
+            ),
+            (
+                &mut known.proof_steps,
+                global.proof_steps,
+                local.and_then(|limits| limits.proof_steps),
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            if unit.is_none() {
+                if global_cap.is_some() || local_cap.is_some() {
+                    return Err(ProblemError::Unsupported(
+                        "hard work allowance requires a known operation count before dispatch"
+                            .into(),
+                    ));
+                }
+                unknown[index] = unknown[index]
+                    .checked_add(1)
+                    .ok_or_else(|| ProblemError::memory("unknown work span counter"))?;
+                *unit = Some(0);
+            }
+        }
+        let pending = add_work(state.pending, known)?;
+        check_limits(global, add_work(state.current_budget()?, pending)?)?;
         if let Some((limits, _)) = state.local {
             check_limits(limits, add_work(state.budget_local, pending)?)?;
         }
         state.pending = pending;
+        state.unknown_pending = unknown;
         Ok(())
     }
     fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
         let mut state = self.state()?;
         let actual = observation(work);
-        fn release(pending: &mut Option<u64>, actual: Option<u64>) -> Result<(), ProblemError> {
+        fn release(
+            pending: &mut Option<u64>,
+            unknown: &mut u64,
+            actual: Option<u64>,
+            capped: bool,
+        ) -> Result<(), ProblemError> {
             match (*pending, actual) {
                 (Some(p), Some(a)) => {
                     *pending = Some(p.checked_sub(a).ok_or_else(|| {
                         ProblemError::Contract("work observation exceeds its admission".into())
                     })?)
                 }
+                (_, None) if !capped => {
+                    *unknown = unknown.checked_sub(1).ok_or_else(|| {
+                        ProblemError::Contract(
+                            "unknown work observation has no admitted span".into(),
+                        )
+                    })?
+                }
                 _ => {
                     return Err(ProblemError::Unsupported(
-                        "native operation has unknown inclusive work".into(),
+                        "native operation has unknown inclusive work under a hard cap".into(),
                     ));
                 }
             }
             Ok(())
         }
         let mut pending = state.pending;
-        release(&mut pending.evaluations, actual.evaluations)?;
-        release(&mut pending.iterations, actual.iterations)?;
-        release(&mut pending.factorizations, actual.factorizations)?;
-        release(&mut pending.proof_steps, actual.proof_steps)?;
+        let mut unknown = state.unknown_pending;
+        let global = state.ledger.limits;
+        let local = state.local.map(|(limits, _)| limits);
+        release(
+            &mut pending.evaluations,
+            &mut unknown[0],
+            actual.evaluations,
+            global.evaluations.is_some()
+                || local.is_some_and(|limits| limits.evaluations.is_some()),
+        )?;
+        release(
+            &mut pending.iterations,
+            &mut unknown[1],
+            actual.iterations,
+            global.iterations.is_some() || local.is_some_and(|limits| limits.iterations.is_some()),
+        )?;
+        release(
+            &mut pending.factorizations,
+            &mut unknown[2],
+            actual.factorizations,
+            global.factorizations.is_some()
+                || local.is_some_and(|limits| limits.factorizations.is_some()),
+        )?;
+        release(
+            &mut pending.proof_steps,
+            &mut unknown[3],
+            actual.proof_steps,
+            global.proof_steps.is_some()
+                || local.is_some_and(|limits| limits.proof_steps.is_some()),
+        )?;
         state.pending = pending;
+        state.unknown_pending = unknown;
         state.ledger.total = add_work(state.ledger.total, actual)?;
         state.unreported = add_work(state.unreported, actual)?;
         state.budget_local = add_work(state.budget_local, actual)?;
@@ -513,6 +629,156 @@ mod tests {
         drop(owner);
         drop(task);
         assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn proposal_and_screen_work_reduce_later_native_room_on_the_same_owner() {
+        let task = TaskAdmission::new(
+            WorkLimits {
+                evaluations: Some(3),
+                ..limits()
+            },
+            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            None,
+            false,
+        );
+        task.admit(unit()).unwrap();
+        task.observe(unit()).unwrap();
+        task.admit(unit()).unwrap();
+        task.observe(unit()).unwrap();
+        assert_eq!(task.observation().unwrap().evaluations, Some(2));
+        task.reserve(limits(), None, true).unwrap();
+        task.admit(unit()).unwrap();
+        task.observe(unit()).unwrap();
+        assert!(
+            task.admit(unit()).is_err(),
+            "native dispatch cannot obtain fresh counters after proposal screening"
+        );
+        task.complete_charge(charge(Some(1))).unwrap();
+        assert_eq!(
+            task.observation().unwrap().evaluations,
+            Some(3),
+            "inclusive hook reconciliation charges each actual evaluation once"
+        );
+    }
+    #[test]
+    fn detached_storage_token_releases_completed_ledger_and_replaces_old_allowance() {
+        use datafusion::execution::memory_pool::GreedyMemoryPool;
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128));
+        let task = TaskAdmission::new(
+            limits(),
+            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            Some(pool.clone()),
+            true,
+        );
+        let weak = Arc::downgrade(&task);
+        let reserve = || {
+            let reservation = MemoryConsumer::new("foreign").register(&pool);
+            reservation.try_grow(64).unwrap();
+            pse_columnar::AllocationLease::new(reservation)
+        };
+        task.retain_storage_allowance(reserve()).unwrap();
+        let old = task.retain_storage().unwrap();
+        task.retain_storage_allowance(reserve()).unwrap();
+        assert_eq!(
+            pool.reserved(),
+            128,
+            "old and replacement storage overlap before native retirement"
+        );
+        let current = task.retain_storage().unwrap();
+        drop(old);
+        assert_eq!(
+            pool.reserved(),
+            64,
+            "completed allowance is not accumulated in task storage history"
+        );
+        drop(task);
+        assert!(
+            weak.upgrade().is_none(),
+            "native storage token does not retain the task ledger"
+        );
+        assert_eq!(pool.reserved(), 64);
+        drop(current);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn uncapped_unknown_nested_iterations_remain_unknown_and_caps_refuse_before_work() {
+        let task = TaskAdmission::new(
+            limits(),
+            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            None,
+            false,
+        );
+        let unknown = WorkEvidence {
+            evaluations: Some(0),
+            iterations: None,
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        let known = WorkEvidence {
+            iterations: Some(1),
+            ..unknown
+        };
+        task.admit(unknown).unwrap();
+        task.admit(known).unwrap();
+        task.observe(unknown).unwrap();
+        task.observe(known).unwrap();
+        task.admit(known).unwrap();
+        task.observe(known).unwrap();
+        assert_eq!(
+            task.observation().unwrap().iterations,
+            None,
+            "unknown inclusive iterations never become observed zero"
+        );
+        let capped = TaskAdmission::new(
+            WorkLimits {
+                iterations: Some(10),
+                ..limits()
+            },
+            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            None,
+            false,
+        );
+        assert!(capped.admit(unknown).is_err());
+        assert_eq!(capped.observation().unwrap().iterations, Some(0));
+        task.reserve(
+            WorkLimits {
+                iterations: Some(10),
+                ..limits()
+            },
+            None,
+            true,
+        )
+        .unwrap();
+        assert!(
+            task.admit(unknown).is_err(),
+            "local hard caps refuse before effect too"
+        );
+    }
+    #[test]
+    fn native_token_takes_individual_reservations_without_task_history() {
+        use datafusion::execution::memory_pool::GreedyMemoryPool;
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128));
+        let task = TaskAdmission::new(
+            limits(),
+            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            Some(pool.clone()),
+            false,
+        );
+        task.admit_storage(NativeStorageScope::Linear, "owner1", 64, false)
+            .unwrap();
+        let old = task.retain_storage().unwrap();
+        task.admit_storage(NativeStorageScope::Linear, "owner2", 64, false)
+            .unwrap();
+        let current = task.retain_storage().unwrap();
+        assert_eq!(pool.reserved(), 128);
+        drop(old);
+        assert_eq!(pool.reserved(), 64);
+        drop(current);
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "task retains no historical native storage owners"
+        );
     }
     #[test]
     fn unknown_completed_work_keeps_its_bound_and_later_hooks_consume_room() {

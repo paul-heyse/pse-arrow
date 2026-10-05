@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Persistent, identity-keyed preparation of the existing pinned native inputs."""
+"""Persistent, identity-keyed preparation of the resolved native inputs."""
 
 from __future__ import annotations
 
@@ -189,7 +189,6 @@ def klu(base: Path, env: dict[str, str]) -> Path:
             [
                 "cargo",
                 "metadata",
-                "--offline",
                 "--locked",
                 "--features",
                 "pse-backend-native/native-solvers",
@@ -200,13 +199,11 @@ def klu(base: Path, env: dict[str, str]) -> Path:
             env=env,
         )
     )
-    packages = [
-        p
-        for p in graph["packages"]
-        if p["name"] == "suitesparse_sys" and p["version"] == "0.1.4"
-    ]
+    packages = [p for p in graph["packages"] if p["name"] == "suitesparse_sys"]
     if len(packages) != 1:
-        raise ValueError("expected pinned suitesparse_sys 0.1.4")
+        raise ValueError(
+            "expected one resolved suitesparse_sys source for the native build"
+        )
     source = Path(packages[0]["manifest_path"]).parent / "vendor"
     source_hash = hashlib.sha256()
     for path in sorted(source.rglob("*")):

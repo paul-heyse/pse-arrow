@@ -324,6 +324,12 @@ struct Projection {
     local_quantities: BTreeMap<String, QuantityTypeId>,
     declarations: Vec<DeclarationId>,
     implicit: Vec<implicit::Projection>,
+    original: Option<Arc<OriginalProjection>>,
+}
+#[derive(Clone, Debug, PartialEq)]
+struct OriginalProjection {
+    projection: Projection,
+    bindings: Vec<(String, Expr)>,
 }
 impl Projection {
     /// The objective member whose value the case structure optimizes, with its
@@ -466,6 +472,7 @@ fn projection(
         local_quantities: BTreeMap::new(),
         declarations: Vec::new(),
         implicit: Vec::new(),
+        original: None,
     };
     let mut graph = DiGraph::<SemanticId, ()>::new();
     let nodes = model
@@ -1100,7 +1107,24 @@ fn projection(
                 .map_err(|e| CompileError::Missing(e.to_string()))?,
         );
     }
+    // Preserve the input to the existing lowering. Preparation replays that lowering
+    // for peers whose selected meaning must remain an opaque provider operation.
+    let original = OriginalProjection {
+        projection: p.clone(),
+        bindings: bindings.clone(),
+    };
     implicit::project(&model, registry, &mut p, &mut bindings)?;
+    if !p.implicit.is_empty() {
+        p.original = Some(Arc::new(original));
+    }
+    finish_projection(&mut p, &bindings, registry)?;
+    Ok(Arc::new(p))
+}
+fn finish_projection(
+    p: &mut Projection,
+    bindings: &[(String, Expr)],
+    registry: &QuantityRegistry,
+) -> Result<()> {
     // Scatter addition has no authority to convert between physical contracts. A
     // mixed ledger keeps its complete typed expression, whose declared operations
     // consume the individual payloads; contribution observations remain separate.
@@ -1133,6 +1157,10 @@ fn projection(
                 })
         })
     });
+    bind_members(p, bindings);
+    Ok(())
+}
+fn bind_members(p: &mut Projection, bindings: &[(String, Expr)]) {
     let members = MemberReads::new(&bindings, &p.validity);
     for expression in &mut p.expressions {
         let needed = members.closure(expression);
@@ -1147,7 +1175,6 @@ fn projection(
         }
         expression.strip_spans();
     }
-    Ok(Arc::new(p))
 }
 /// The expression members an output reads, transitively and through the validity guards
 /// of what it reads. Each output carries only these, in their topological order: wrapping
@@ -1265,6 +1292,10 @@ pub struct PreparedModeling {
     semantic: SemanticModeling,
     projection: Arc<Projection>,
     owned_implicit_view: Option<pse_math::SharedAllocation<AdmittedModeling>>,
+    original: Option<(
+        Arc<Projection>,
+        pse_math::SharedAllocation<AdmittedModeling>,
+    )>,
     /// Instantiated members, demand chains, values and original closure terms.
     pub model: pse_math::SharedAllocation<SpecializedModel>,
     /// Typed finite math with stable semantic input/output coordinates.
@@ -1281,6 +1312,17 @@ impl AdmittedModeling {
     }
 }
 impl PreparedModeling {
+    /// Original coordinates and equations for eligible selected suppliers. Other
+    /// selected operations retain their existing nested guards, regimes and descriptors.
+    pub fn original_equations(&self) -> Option<Self> {
+        let (projection, admitted) = self.original.as_ref()?;
+        let mut model = self.clone();
+        model.projection = projection.clone();
+        model.admitted = admitted.clone();
+        model.owned_implicit_view = None;
+        model.original = None;
+        Some(model)
+    }
     /// Semantic process meaning with no dependency on numerical projection.
     pub fn semantic(&self) -> SemanticModeling {
         self.semantic.clone()
@@ -1321,6 +1363,15 @@ impl PreparedModeling {
         }
         self.model = self.model.with_owner(owner.clone());
         self.semantic = self.semantic.with_owner(owner.clone());
+        if let Some((_, original)) = &mut self.original {
+            let mut view = original.as_ref().clone();
+            for implicit in view.implicit.values_mut() {
+                *implicit = Arc::new(implicit.as_ref().clone().with_owner(owner.clone()));
+            }
+            *original = original
+                .share_child(Arc::new(view))
+                .with_owner(owner.clone());
+        }
         self.admitted = self.admitted.with_owner(owner);
         self
     }
@@ -1350,9 +1401,53 @@ impl CompilerWorkspace {
                 self.inventory.preconditions(&self.db),
             )?;
             let admitted = admitted(&self.db, self.inventory, catalog, request)?;
+            let projection = projection(&self.db, self.inventory, catalog, request)?;
+            let promoted: BTreeSet<_> = admitted
+                .implicit
+                .values()
+                .filter(|supplier| {
+                    supplier.selection.neighborhood_evidence != SelectionNeighborhood::Unestablished
+                        && !matches!(supplier.selection.meaning, ImplicitMeaning::Relation)
+                        && supplier.selection.restriction.is_none()
+                        && supplier.residuals.len() == 1
+                        && supplier.residuals[0].assessment.is_none()
+                        && matches!(
+                            supplier.algorithm,
+                            ImplicitAlgorithm::Native | ImplicitAlgorithm::Accelerator(_)
+                        )
+                })
+                .map(|supplier| supplier.descriptor.spec().id)
+                .collect();
+            let original = projection
+                .original
+                .as_ref()
+                .filter(|_| !promoted.is_empty())
+                .map(|raw| -> Result<_> {
+                    let mut remaining = model.as_ref().clone();
+                    remaining
+                        .implicit
+                        .retain(|instance, _| !promoted.contains(&instance.as_id()));
+                    let mut p = raw.projection.clone();
+                    let mut bindings = raw.bindings.clone();
+                    implicit::project(&remaining, &self.inputs.quantities, &mut p, &mut bindings)?;
+                    finish_projection(&mut p, &bindings, &self.inputs.quantities)?;
+                    let mut source = grouped::admit(&self.db, self.inventory, &p)?
+                        .as_ref()
+                        .clone();
+                    source.implicit.extend(
+                        admitted
+                            .implicit
+                            .iter()
+                            .filter(|(id, _)| promoted.contains(id))
+                            .map(|(id, supplier)| (*id, supplier.clone())),
+                    );
+                    Ok((Arc::new(p), Arc::new(source).into()))
+                })
+                .transpose()?;
             Ok(PreparedModeling {
                 semantic,
-                projection: projection(&self.db, self.inventory, catalog, request)?,
+                original,
+                projection,
                 owned_implicit_view: None,
                 model: model.into(),
                 admitted: admitted.into(),
@@ -1375,6 +1470,9 @@ impl PreparedModeling {
             + projection_heap(&Ok(self.projection.clone()))
             + admitted_allocation_bytes(&self.admitted)
             + admitted_owner_attachment_bytes(&self.admitted)
+            + self.original.as_ref().map_or(0, |(p, a)| {
+                projection_heap(&Ok(p.clone())) + admitted_allocation_bytes(a)
+            })
     }
 }
 
@@ -1484,66 +1582,79 @@ impl CompilerWorkspace {
 }
 
 fn projection_heap(value: &Result<Arc<Projection>>) -> usize {
-    value.as_ref().map_or(0, |p| {
-        size_of::<Projection>()
-            + p.objectives.members.capacity()
-                * (size_of::<pse_modeling::specialize::ObjectiveMember>() + 256)
-            + p.objectives.levels.capacity()
-                * (size_of::<pse_modeling::specialize::ObjectiveLevel>() + 64)
-            + p.conservation
-                .values()
-                .map(|terms| 128 + terms.capacity() * size_of::<(SemanticId, f64)>())
-                .sum::<usize>()
-            + p.inputs.capacity() * size_of::<SemanticId>()
-            + p.free.len() * (size_of::<SemanticId>() + 64)
-            + p.unit_interval.len() * (size_of::<SemanticId>() + 64)
-            + p.native
-                .iter()
-                .map(|c| 64 + c.identities().len() * (size_of::<SemanticId>() + 16))
-                .sum::<usize>()
-            + p.validity
-                .iter()
-                .map(|(name, v)| {
-                    name.capacity()
-                        + 128
-                        + pse_modeling::expression::retained_bytes(&v.lower)
-                        + pse_modeling::expression::retained_bytes(&v.upper)
-                })
-                .sum::<usize>()
-            + p.nonnegative.len() * (size_of::<SemanticId>() + 64)
-            + p.formals.capacity() * size_of::<Formal>()
-            + p.formals.iter().map(|f| f.path.capacity()).sum::<usize>()
-            + p.outputs.capacity() * size_of::<ModelingOutput>()
-            + p.outputs
-                .iter()
-                .map(|o| match o {
-                    ModelingOutput::DynamicRate { equations, .. } => {
-                        equations.capacity() * size_of::<SemanticId>()
-                    }
-                    _ => 0,
-                })
-                .sum::<usize>()
-            + p.expressions.capacity() * size_of::<Expr>()
-            + p.expressions
-                .iter()
-                .map(pse_modeling::expression::retained_bytes)
-                .sum::<usize>()
-            + p.functions
-                .iter()
-                .map(|(n, f)| n.capacity() + f.retained_bytes() + 64)
-                .sum::<usize>()
-            + p.implicit
-                .iter()
-                .map(implicit::Projection::retained_bytes)
-                .sum::<usize>()
-            + p.declarations.capacity() * size_of::<DeclarationId>()
-            + p.quantities.capacity() * size_of::<QuantityTypeId>()
-            + p.local_quantities
-                .keys()
-                .map(|n| n.capacity() + 128)
-                .sum::<usize>()
-    })
+    value.as_ref().map_or(0, |p| projection_body_bytes(p))
 }
+fn projection_body_bytes(p: &Projection) -> usize {
+    size_of::<Projection>()
+        + p.objectives.members.capacity()
+            * (size_of::<pse_modeling::specialize::ObjectiveMember>() + 256)
+        + p.objectives.levels.capacity()
+            * (size_of::<pse_modeling::specialize::ObjectiveLevel>() + 64)
+        + p.conservation
+            .values()
+            .map(|terms| 128 + terms.capacity() * size_of::<(SemanticId, f64)>())
+            .sum::<usize>()
+        + p.inputs.capacity() * size_of::<SemanticId>()
+        + p.free.len() * (size_of::<SemanticId>() + 64)
+        + p.unit_interval.len() * (size_of::<SemanticId>() + 64)
+        + p.native
+            .iter()
+            .map(|c| 64 + c.identities().len() * (size_of::<SemanticId>() + 16))
+            .sum::<usize>()
+        + p.validity
+            .iter()
+            .map(|(name, v)| {
+                name.capacity()
+                    + 128
+                    + pse_modeling::expression::retained_bytes(&v.lower)
+                    + pse_modeling::expression::retained_bytes(&v.upper)
+            })
+            .sum::<usize>()
+        + p.nonnegative.len() * (size_of::<SemanticId>() + 64)
+        + p.formals.capacity() * size_of::<Formal>()
+        + p.formals.iter().map(|f| f.path.capacity()).sum::<usize>()
+        + p.outputs.capacity() * size_of::<ModelingOutput>()
+        + p.outputs
+            .iter()
+            .map(|o| match o {
+                ModelingOutput::DynamicRate { equations, .. } => {
+                    equations.capacity() * size_of::<SemanticId>()
+                }
+                _ => 0,
+            })
+            .sum::<usize>()
+        + p.expressions.capacity() * size_of::<Expr>()
+        + p.expressions
+            .iter()
+            .map(pse_modeling::expression::retained_bytes)
+            .sum::<usize>()
+        + p.functions
+            .iter()
+            .map(|(n, f)| n.capacity() + f.retained_bytes() + 64)
+            .sum::<usize>()
+        + p.original.as_ref().map_or(0, |raw| {
+            projection_body_bytes(&raw.projection)
+                + raw.bindings.capacity() * size_of::<(String, Expr)>()
+                + raw
+                    .bindings
+                    .iter()
+                    .map(|(name, expression)| {
+                        name.capacity() + pse_modeling::expression::retained_bytes(expression)
+                    })
+                    .sum::<usize>()
+        })
+        + p.implicit
+            .iter()
+            .map(implicit::Projection::retained_bytes)
+            .sum::<usize>()
+        + p.declarations.capacity() * size_of::<DeclarationId>()
+        + p.quantities.capacity() * size_of::<QuantityTypeId>()
+        + p.local_quantities
+            .keys()
+            .map(|n| n.capacity() + 128)
+            .sum::<usize>()
+}
+
 fn admitted_allocation_bytes(p: &AdmittedModeling) -> usize {
     size_of::<AdmittedModeling>()
         + p.inputs.capacity() * size_of::<SemanticId>()

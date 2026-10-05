@@ -548,6 +548,24 @@ impl Staged {
     ) -> Result<T, crate::math::MathRuntimeError> {
         self.session.run(cores, None, cancel, work).await
     }
+    /// Run proposal work under the original target's cancellation owner and deadline,
+    /// including the wait for CPU admission and the native session reply.
+    #[cfg(feature = "solver-diffsol")]
+    pub(in crate::workflow) async fn native_in_task<T: Send + 'static>(
+        &self,
+        cores: usize,
+        scope: pse_kernels::ExecutionScope,
+        cancel: &crate::CancelSource,
+        work: impl FnOnce(
+            &mut pse_backend_native::execution::Retained,
+            &Arc<std::sync::atomic::AtomicBool>,
+            &Arc<crate::math::WorkerBudget>,
+        ) -> Result<T, crate::math::MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<T, crate::math::MathRuntimeError> {
+        self.session.run_in_task(cores, scope, cancel, work).await
+    }
     /// Close the native session and wait for its thread to join.
     pub(in crate::workflow) async fn close(self) {
         self.session.close().await;

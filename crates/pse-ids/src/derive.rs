@@ -105,18 +105,26 @@ frames! {
         NumericalStrategyV1 => "pse:numerical-strategy:v1",
         /// Current operation-bound composition declaration; historical V1 remains frozen.
         NumericalStrategyV2 => "pse:numerical-strategy:v2",
+        /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        NumericalStrategyV3 => "pse:numerical-strategy:v3",
         /// One resolved next operation and its consumed products/constraints.
         NumericalDecisionV1 => "pse:numerical-decision:v1",
+        /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        NumericalDecisionV2 => "pse:numerical-decision:v2",
         /// One actual numerical charging operation within a task's attempt/mechanism.
         NumericalWorkV1 => "pse:numerical-work:v1",
         /// Resolved strategy and all admitted original/derived prepared rungs.
         SolveStrategyPreparationV1 => "pse:solve-strategy-preparation:v1",
         /// Current preparation bound to requested composition and actual products.
         SolveStrategyPreparationV2 => "pse:solve-strategy-preparation:v2",
+        /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        SolveStrategyPreparationV3 => "pse:solve-strategy-preparation:v3",
         /// Complete declared strategy request and admitted starts.
         SolveStrategyRequestV1 => "pse:solve-strategy-request:v1",
         /// Current requested automatic/declared composition interpretation.
         SolveStrategyRequestV2 => "pse:solve-strategy-request:v2",
+        /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        SolveStrategyRequestV3 => "pse:solve-strategy-request:v3",
         /// Frozen original equations, binding, bounds, objective and final numerical policy.
         OriginalSolveContractV1 => "pse:original-solve-contract:v1",
         /// Qualified Uno source, native inputs and project foreign bridge.
@@ -475,16 +483,22 @@ frames! {
         DurableJobRequestV3 => "pse.durable.job_request.v3",
         /// Operational job with current automatic composition interpretation.
         DurableJobRequestV4 => "pse.durable.job_request.v4",
+        /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        DurableJobRequestV5 => "pse.durable.job_request.v5",
         /// A durable modeling request.
         DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
         /// Modeling request with current automatic composition interpretation.
         DurableModelingRequestV2 => "pse.durable.modeling_request.v2",
+        /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        DurableModelingRequestV3 => "pse.durable.modeling_request.v3",
         /// A durable study's request: its definition (Plan 22 O7).
         DurableStudyRequestV1 => "pse.durable.study_request.v1",
         /// Canonical study request including unrestricted submitted numerical settings.
         DurableStudyRequestV2 => "pse.durable.study_request.v2",
         /// Study request with current automatic composition interpretation.
         DurableStudyRequestV3 => "pse.durable.study_request.v3",
+        /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        DurableStudyRequestV4 => "pse.durable.study_request.v4",
         /// The value bindings of one durable study point (Plan 22 O7).
         DurableStudyPointBindingV1 => "pse.durable.study_point_binding.v1",
         /// A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its

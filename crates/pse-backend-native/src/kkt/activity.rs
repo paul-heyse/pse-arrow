@@ -8,7 +8,10 @@
 //! is applied again. Releases remove a named constraint coupling and retain an
 //! independent -1 multiplier row, using a fresh FERAL factor of that operator.
 use super::{KktFactor, Side};
-use crate::{ProblemError, solve::Execution};
+use crate::{
+    ProblemError,
+    solve::{Execution, WorkEvidence},
+};
 use pounce_sens_core::{SensBacksolver, backsolver::BoundRow};
 use std::{
     cell::{Cell, RefCell},
@@ -157,24 +160,29 @@ impl Factor {
                 detail: "activity backsolve allowance exhausted".into(),
             });
         }
-        self.state.backsolves.set(count + 1);
         let rhs = rhs
             .iter()
             .zip(&self.signs)
             .zip(factor.scales.iter())
             .map(|((r, s), p)| r * s * p / factor.objective)
             .collect::<Vec<_>>();
-        let output = match factor.solver.solve_refined(&factor.matrix, &rhs) {
+        let output = match self.execution.counted(work_unit(None, 0), || {
+            self.state.backsolves.set(count + 1);
+            factor
+                .solver
+                .solve_refined(&factor.matrix, &rhs)
+                .map_err(crate::conditioning::native)
+        }) {
             Ok(output) => output,
-            Err(
-                error @ (feral::FeralError::NumericallyRankDeficient
-                | feral::FeralError::SingularBasis { .. }),
-            ) => {
-                *self.state.numerical.borrow_mut() =
-                    Some(Arc::new(crate::conditioning::native(error)));
+            Err(error)
+                if matches!(&error, ProblemError::Linear { cause, .. }
+                if matches!(cause.as_ref(), feral::FeralError::NumericallyRankDeficient
+                    | feral::FeralError::SingularBasis { .. })) =>
+            {
+                *self.state.numerical.borrow_mut() = Some(Arc::new(error));
                 return false;
             }
-            Err(error) => return self.stop(crate::conditioning::native(error)),
+            Err(error) => return self.stop(error),
         };
         if output.len() != self.dim() {
             return self.stop(ProblemError::internal(
@@ -247,63 +255,76 @@ impl Factor {
                 "activity release matrix exceeds admitted storage allowance",
             ));
         }
-        let mut matrix = (*self.source.matrix).clone();
-        let stiffness = matrix.values.iter().fold(1_f64, |a, v| a.max(v.abs()));
-        for column in 0..matrix.n {
-            for slot in matrix.col_ptr[column]..matrix.col_ptr[column + 1] {
-                let row = matrix.row_idx[slot];
-                if released.binary_search(&row).is_ok() || released.binary_search(&column).is_ok() {
-                    matrix.values[slot] = if row == column { -1. } else { 0. };
-                }
-                if row == column && pinned.binary_search(&row).is_ok() {
-                    matrix.values[slot] += stiffness;
+        self.execution.counted(work_unit(Some(0), 1), || {
+            let mut matrix = (*self.source.matrix).clone();
+            let stiffness = matrix.values.iter().fold(1_f64, |a, v| a.max(v.abs()));
+            for column in 0..matrix.n {
+                for slot in matrix.col_ptr[column]..matrix.col_ptr[column + 1] {
+                    let row = matrix.row_idx[slot];
+                    if released.binary_search(&row).is_ok()
+                        || released.binary_search(&column).is_ok()
+                    {
+                        matrix.values[slot] = if row == column { -1. } else { 0. };
+                    }
+                    if row == column && pinned.binary_search(&row).is_ok() {
+                        matrix.values[slot] += stiffness;
+                    }
                 }
             }
-        }
-        // Replace, rather than accumulate, mutable released systems.
-        self.state.cache.borrow_mut().take();
-        self.state.refactorizations.set(count + 1);
-        let mut solver = feral::Solver::new().with_parallel(false);
-        match solver.factor(&matrix, None) {
-            feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
-            feral::FactorStatus::Singular => return Ok(None),
-            feral::FactorStatus::FatalError(error) => {
-                return Err(crate::conditioning::native(error));
+            // Replace, rather than accumulate, mutable released systems.
+            self.state.cache.borrow_mut().take();
+            self.state.refactorizations.set(count + 1);
+            let mut solver = feral::Solver::new().with_parallel(false);
+            match solver.factor(&matrix, None) {
+                feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
+                feral::FactorStatus::Singular => return Ok(None),
+                feral::FactorStatus::FatalError(error) => {
+                    return Err(crate::conditioning::native(error));
+                }
             }
-        }
-        let inertia = solver
-            .inertia()
-            .ok_or_else(|| ProblemError::internal("activity factor omitted inertia"))?;
-        if inertia.total() != matrix.n {
-            return Err(ProblemError::internal("activity factor inertia extent"));
-        }
-        if inertia.zero > 0 {
-            return Ok(None);
-        }
-        self.execution.check()?;
-        let factor = KktFactor {
-            solver: Arc::new(solver),
-            matrix: Arc::new(matrix),
-            layout: self.source.layout.clone(),
-            scales: self.source.scales.clone(),
-            objective: self.source.objective,
-            bound_rows: self.source.bound_rows.clone(),
-        };
-        let bytes = factor.bytes();
-        self.state.bytes.set(self.state.bytes.get().max(bytes));
-        if bytes > self.limits.bytes {
-            return Err(ProblemError::memory(
-                "activity release factor exceeds admitted storage allowance",
-            ));
-        }
-        *self.state.cache.borrow_mut() = Some(ReleasedFactor {
-            released,
-            pinned,
-            factor: factor.clone(),
-        });
-        Ok(Some(factor))
+            let inertia = solver
+                .inertia()
+                .ok_or_else(|| ProblemError::internal("activity factor omitted inertia"))?;
+            if inertia.total() != matrix.n {
+                return Err(ProblemError::internal("activity factor inertia extent"));
+            }
+            if inertia.zero > 0 {
+                return Ok(None);
+            }
+            self.execution.check()?;
+            let factor = KktFactor {
+                solver: Arc::new(solver),
+                matrix: Arc::new(matrix),
+                layout: self.source.layout.clone(),
+                scales: self.source.scales.clone(),
+                objective: self.source.objective,
+                bound_rows: self.source.bound_rows.clone(),
+            };
+            let bytes = factor.bytes();
+            self.state.bytes.set(self.state.bytes.get().max(bytes));
+            if bytes > self.limits.bytes {
+                return Err(ProblemError::memory(
+                    "activity release factor exceeds admitted storage allowance",
+                ));
+            }
+            *self.state.cache.borrow_mut() = Some(ReleasedFactor {
+                released,
+                pinned,
+                factor: factor.clone(),
+            });
+            Ok(Some(factor))
+        })
     }
 }
+fn work_unit(iterations: Option<u64>, factors: u64) -> WorkEvidence {
+    WorkEvidence {
+        evaluations: Some(0),
+        iterations,
+        factorizations: Some(factors),
+        proof_steps: Some(0),
+    }
+}
+
 impl SensBacksolver for Factor {
     fn dim(&self) -> usize {
         self.source.dim()
@@ -347,5 +368,131 @@ impl SensBacksolver for Factor {
             Ok(None) => false,
             Err(error) => self.stop(error),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::kkt::{Layout, OriginalCol};
+    #[derive(Debug, Default)]
+    struct Admission {
+        seen: std::sync::Mutex<Vec<WorkEvidence>>,
+        factor_cap: Option<u64>,
+        iteration_cap: Option<u64>,
+    }
+    impl crate::solve::WorkAdmission for Admission {
+        fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            let factors: u64 = self
+                .seen
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|w| w.factorizations.unwrap())
+                .sum();
+            if self
+                .factor_cap
+                .is_some_and(|cap| factors + work.factorizations.unwrap() > cap)
+                || self.iteration_cap.is_some() && work.iterations.is_none()
+            {
+                return Err(ProblemError::Limit {
+                    kind: crate::LimitKind::Work,
+                    detail: "activity test task cap".into(),
+                });
+            }
+            Ok(())
+        }
+        fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.seen.lock().unwrap().push(work);
+            Ok(())
+        }
+    }
+    fn source() -> KktFactor {
+        let matrix = feral::CscMatrix {
+            n: 2,
+            col_ptr: vec![0, 2, 3],
+            row_idx: vec![0, 1, 1],
+            values: vec![1., 1., 0.],
+        };
+        let mut solver = feral::Solver::new().with_parallel(false);
+        assert!(matches!(
+            solver.factor(&matrix, None),
+            feral::FactorStatus::Success
+        ));
+        KktFactor {
+            solver: Arc::new(solver),
+            matrix: Arc::new(matrix),
+            layout: Arc::new(Layout {
+                variables: 1,
+                rows: vec![],
+                bounds: vec![(OriginalCol::new(0), Side::Lower)],
+            }),
+            scales: Arc::from([1., 1.]),
+            objective: 1.,
+            bound_rows: Arc::from([]),
+        }
+    }
+    fn activity(source: KktFactor, admission: Arc<Admission>) -> Factor {
+        let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        execution.work_admission = Some(admission);
+        Factor::new(
+            source,
+            1,
+            execution,
+            Limits {
+                backsolves: 8,
+                refactorizations: 8,
+                bytes: 1 << 20,
+            },
+        )
+        .unwrap()
+    }
+    #[test]
+    fn release_factors_use_shared_task_cap_and_reused_backsolves_are_separate() {
+        let admission = Arc::new(Admission {
+            factor_cap: Some(1),
+            ..Default::default()
+        });
+        let factor = activity(source(), admission.clone());
+        assert!(factor.solve_released(&[1], &[1., 0.], &mut [0.; 2]));
+        assert!(factor.solve_released(&[1], &[2., 0.], &mut [0.; 2]));
+        assert_eq!(factor.work().refactorizations, 1);
+        assert_eq!(factor.work().backsolves, 2);
+        assert_eq!(
+            *admission.seen.lock().unwrap(),
+            [
+                work_unit(Some(0), 1),
+                work_unit(None, 0),
+                work_unit(None, 0)
+            ]
+        );
+        assert!(!factor.solve_released_pinned(&[1], &[0], &[1., 0.], &mut [0.; 2]));
+        assert_eq!(factor.work().refactorizations, 1);
+        assert!(matches!(
+            factor.failure().as_deref(),
+            Some(ProblemError::Limit { .. })
+        ));
+    }
+    #[test]
+    fn failed_release_is_observed_and_opaque_refinement_refuses_strict_iterations() {
+        let admission = Arc::new(Admission::default());
+        let mut invalid = source();
+        Arc::get_mut(&mut invalid.matrix).unwrap().values[0] = f64::NAN;
+        let failed = activity(invalid, admission.clone());
+        assert!(!failed.solve_released(&[1], &[1., 0.], &mut [0.; 2]));
+        assert_eq!(*admission.seen.lock().unwrap(), [work_unit(Some(0), 1)]);
+        assert!(failed.failure().is_some());
+        let capped = Arc::new(Admission {
+            iteration_cap: Some(0),
+            ..Default::default()
+        });
+        let factor = activity(source(), capped.clone());
+        assert!(!factor.solve(&[1., 0.], &mut [0.; 2]));
+        assert_eq!(factor.work().backsolves, 0);
+        assert!(capped.seen.lock().unwrap().is_empty());
+        assert!(matches!(
+            factor.failure().as_deref(),
+            Some(ProblemError::Limit { .. })
+        ));
     }
 }

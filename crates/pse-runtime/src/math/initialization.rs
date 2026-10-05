@@ -814,77 +814,89 @@ impl MathService {
                     let start_identity =
                         super::strategy::target::point_identity(original, &initial);
                     let request = pse_model::strategy::CompositionRequest::default();
-                    let (result, trace) = super::strategy::target::callable(
-                        &worker_service,
-                        super::strategy::target::Source {
-                            original,
-                            preparation: original,
-                            profile,
-                            backend: Some(Backend::Kinsol),
-                            controls: &controls,
-                            request: &request,
-                            start: pse_model::strategy::StartOrigin::Specification,
-                            start_identity: Some(start_identity),
-                        },
-                        &scope,
-                        |admission| {
-                            let mut execution = Execution::within(flag, &controls, scope.clone())?;
-                            let budget = budget.with_admission(admission.clone());
-                            execution.work_admission = Some(admission);
-                            execution.progress = events;
-                            execution.memory = Some(foreign_bytes);
-                            let function = factory(execution.clone(), budget)?;
-                            let actual = function.contract();
-                            if actual.identity != contract.identity
-                                || actual.rows != contract.rows
-                                || actual.variables.len() != n
-                                || actual
-                                    .variables
-                                    .iter()
-                                    .zip(&contract.variables)
-                                    .any(|(a, b)| {
-                                        a.id != b.id
-                                            || a.lower.to_bits() != b.lower.to_bits()
-                                            || a.upper.to_bits() != b.upper.to_bits()
-                                    })
-                            {
-                                return Err(native::ProblemError::Internal(
-                                    "root factory differs from admitted source contract".into(),
-                                )
-                                .into());
-                            }
-                            let stamp = Compatibility {
-                                layout: contract.identity,
+                    let mut factory = Some(factory);
+                    let (result, trace) =
+                        super::strategy::target::callable(
+                            &worker_service,
+                            super::strategy::target::Source {
+                                original,
+                                preparation: original,
                                 profile,
-                                data: contract.identity,
-                                backend: Backend::Kinsol,
-                            };
-                            let mut session =
-                                kinsol::Session::new(function, settings, execution.clone(), stamp)?;
-                            // The declared root runs and qualifies with the budgets its caller
-                            // resolved from the numerical policy (F20).
-                            let mut report = session.solve(
-                                &initial,
-                                &controls,
-                                &accuracy,
-                                execution,
-                                &tolerances,
-                                None,
-                            )?;
-                            native::quality::qualify(&mut report, &accuracy);
-                            drop(session);
-                            Ok(report.with_owner(owner.clone()))
-                        },
-                        super::strategy::observe_native,
-                        |report, observed| {
-                            super::strategy::target::original_assessment(
-                                crate::workflow::numerics::native_use(report, &policy),
-                                super::strategy::cause_native(report),
-                                None,
-                                observed,
-                            )
-                        },
-                    )?;
+                                backend: Some(Backend::Kinsol),
+                                solver: None,
+                                controls: &controls,
+                                request: &request,
+                                start: pse_model::strategy::StartOrigin::Specification,
+                                start_identity: Some(start_identity),
+                            },
+                            &scope,
+                            |_, admission| {
+                                let mut execution =
+                                    Execution::within(flag.clone(), &controls, scope.clone())?;
+                                let budget = budget.with_admission(admission.clone());
+                                execution.work_admission = Some(admission);
+                                execution.progress = events.clone();
+                                execution.memory = Some(foreign_bytes);
+                                let producer = factory.take().ok_or_else(|| {
+                                    native::ProblemError::Internal(
+                                        "one-shot declared root producer dispatched twice".into(),
+                                    )
+                                })?;
+                                let function = producer(execution.clone(), budget)?;
+                                let actual = function.contract();
+                                if actual.identity != contract.identity
+                                    || actual.rows != contract.rows
+                                    || actual.variables.len() != n
+                                    || actual.variables.iter().zip(&contract.variables).any(
+                                        |(a, b)| {
+                                            a.id != b.id
+                                                || a.lower.to_bits() != b.lower.to_bits()
+                                                || a.upper.to_bits() != b.upper.to_bits()
+                                        },
+                                    )
+                                {
+                                    return Err(native::ProblemError::Internal(
+                                        "root factory differs from admitted source contract".into(),
+                                    )
+                                    .into());
+                                }
+                                let stamp = Compatibility {
+                                    layout: contract.identity,
+                                    profile,
+                                    data: contract.identity,
+                                    backend: Backend::Kinsol,
+                                };
+                                let mut session = kinsol::Session::new(
+                                    function,
+                                    settings.clone(),
+                                    execution.clone(),
+                                    stamp,
+                                )?;
+                                // The declared root runs and qualifies with the budgets its caller
+                                // resolved from the numerical policy (F20).
+                                let mut report = session.solve(
+                                    &initial,
+                                    &controls,
+                                    &accuracy,
+                                    execution,
+                                    &tolerances,
+                                    None,
+                                )?;
+                                native::quality::qualify(&mut report, &accuracy);
+                                drop(session);
+                                Ok(report.with_owner(owner.clone()))
+                            },
+                            |report| Some(report),
+                            super::strategy::observe_native,
+                            |report, observed| {
+                                super::strategy::target::original_assessment(
+                                    crate::workflow::numerics::native_use(report, &policy),
+                                    super::strategy::cause_native(report),
+                                    None,
+                                    observed,
+                                )
+                            },
+                        )?;
                     let decision = crate::workflow::numerics::native_use(&result, &policy);
                     // The trace owns its independent allocation; native result ownership
                     // survives the joined worker without cloning evaluator storage.
@@ -1050,6 +1062,14 @@ impl MathService {
         let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
         let run_id = pse_operations::mint_id();
         let session = self.open_session()?;
+        let admission = profile.solver.composition.limits.map(|limits| {
+            super::strategy::admission::TaskAdmission::new(
+                limits,
+                scope.clone(),
+                Some(self.pool.clone()),
+                false,
+            )
+        });
         let service = self.clone();
         let events = progress.clone();
         Ok(SolveHandle::supervise(progress, move |cancel| async move {
@@ -1065,6 +1085,7 @@ impl MathService {
                 owner: &owner,
                 cancel: &cancel,
                 scope,
+                admission,
                 control,
                 run_id,
                 bound: vec![None; prepared.blocks.len()],
@@ -1089,6 +1110,7 @@ struct Blocks<'a> {
     owner: &'a Arc<pse_columnar::AllocationLease>,
     cancel: &'a crate::CancelSource,
     scope: pse_kernels::ExecutionScope,
+    admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
     control: FlightCancellation,
     run_id: pse_model::generated::identities::RunId,
     /// Each block's view as last bound; later stages rebind its values (A6).
@@ -1167,6 +1189,8 @@ impl Blocks<'_> {
                 let values = values.clone();
                 let numerics = self.numerics.clone();
                 let structure = original_case.assembly.structure().clone();
+                let admission = self.admission.clone();
+                let validation_scope = self.scope.clone();
                 self.scope.check().map_err(native::ProblemError::Provider)?;
                 completed = self
                     .service
@@ -1176,7 +1200,22 @@ impl Blocks<'_> {
                         self.cancel,
                         Some((self.scope.clone(), self.control.clone())),
                         move |mut worker| {
-                            let rows = worker.constraints(&values)?;
+                            let mut execution = Execution::within(
+                                validation_scope.cancellation().clone(),
+                                &Controls::default(),
+                                validation_scope,
+                            )?;
+                            execution.work_admission =
+                                admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
+                            let rows = execution.counted(
+                                WorkEvidence {
+                                    evaluations: Some(1),
+                                    iterations: Some(0),
+                                    factorizations: Some(0),
+                                    proof_steps: Some(0),
+                                },
+                                || worker.constraints(&values).map_err(Into::into),
+                            )?;
                             let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
                             let tolerances = Tolerances::from_policy(
                                 &numerics,
@@ -1304,7 +1343,10 @@ impl Blocks<'_> {
             .await?;
         // The block starts from its staged values. Only a predecessor stage's committed
         // values make that start a seed; the authored initial point is not a warm start (F25).
-        let step = step.within_task(self.scope.clone())?;
+        let step = match &self.admission {
+            Some(admission) => step.within_admitted_task(self.scope.clone(), admission.clone())?,
+            None => step.within_task(self.scope.clone())?,
+        };
         let previous = previous
             .map(|attempt| step.primal_seed().map(|seed| Predecessor { attempt, seed }))
             .transpose()?;

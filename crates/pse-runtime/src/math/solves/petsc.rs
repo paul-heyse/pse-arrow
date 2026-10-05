@@ -1596,6 +1596,7 @@ impl MathService {
             }
         }
         Ok(DerivedAttempt {
+            applied_action: None,
             outcome: Outcome::Native(Box::new(report)),
             proposal,
             screening_failure,

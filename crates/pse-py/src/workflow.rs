@@ -1252,7 +1252,7 @@ impl NativePreparedOperation {
             ));
         };
         let declaration =
-            documents::decode_versioned::<pse_model::strategy::NumericalStrategyDocument, 2>(
+            documents::decode_versioned::<pse_model::strategy::NumericalStrategyDocument, 3>(
                 py,
                 "numerical strategy",
                 declaration,

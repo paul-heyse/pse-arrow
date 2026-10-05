@@ -388,7 +388,7 @@
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
-                "bounded_dense_max_dimension": null,
+                "bounded_storage_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -861,7 +861,7 @@
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
-                "bounded_dense_max_dimension": null,
+                "bounded_storage_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -1689,7 +1689,7 @@
     "FeralSettings": {
       "additionalProperties": false,
       "properties": {
-        "bounded_dense_max_dimension": {
+        "bounded_storage_max_dimension": {
           "default": null,
           "format": "uint",
           "minimum": 0,
@@ -4261,8 +4261,8 @@
           "description": "Typed settings of one backend; absent is the routed backend's native defaults."
         },
         "version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "description": "Document version.",
           "type": "integer"
         }
@@ -4438,8 +4438,8 @@
           "description": "Exact source/context reconstruction precondition."
         },
         "version": {
-          "const": 3,
-          "default": 3,
+          "const": 4,
+          "default": 4,
           "description": "Interpretation of this operation descriptor.",
           "type": "integer"
         }
@@ -4691,15 +4691,15 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 6 of a durable job's payload: the one task a job runs. Unknown fields, tasks\nand versions are refused.",
+  "description": "Version 8 of a durable job's payload: the one task a job runs. Unknown fields, tasks\nand versions are refused.",
   "properties": {
     "task": {
       "$ref": "#/$defs/JobTask",
       "description": "The task."
     },
     "version": {
-      "const": 7,
-      "default": 7,
+      "const": 8,
+      "default": 8,
       "description": "Document version.",
       "type": "integer"
     }

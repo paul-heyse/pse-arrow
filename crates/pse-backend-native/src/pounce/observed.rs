@@ -18,6 +18,7 @@ struct State {
     failed_solves: [u64; 3],
     path: Option<(bool, &'static str)>,
     known_storage: usize,
+    storage_owners: std::collections::BTreeMap<(String, usize), usize>,
     opaque_storage: bool,
     application_opaque: bool,
     linear_seen: bool,
@@ -216,6 +217,7 @@ impl Observer for Observation {
             Event::Storage {
                 scope,
                 owner,
+                instance,
                 known_bytes,
                 opaque,
             } => {
@@ -228,7 +230,16 @@ impl Observer for Observation {
                     }
                 };
                 if scope == crate::solve::NativeStorageScope::Linear && !opaque {
-                    let retained = self.state.borrow().known_storage.checked_add(*known_bytes);
+                    let state = self.state.borrow();
+                    let previous = state
+                        .storage_owners
+                        .get(&(owner.to_string(), *instance))
+                        .copied()
+                        .unwrap_or(0);
+                    let retained = state
+                        .known_storage
+                        .checked_add(known_bytes.saturating_sub(previous));
+                    drop(state);
                     let retained = retained.ok_or_else(|| {
                         self.fail(ProblemError::memory("linear reservation overflow"))
                     })?;
@@ -238,16 +249,29 @@ impl Observer for Observation {
                         ))));
                     }
                 }
+                let previous = self
+                    .state
+                    .borrow()
+                    .storage_owners
+                    .get(&(owner.to_string(), *instance))
+                    .copied()
+                    .unwrap_or(0);
+                let delta = known_bytes.saturating_sub(previous);
                 if let Some(admission) = &self.execution.work_admission {
                     admission
-                        .admit_storage(scope, owner, *known_bytes, *opaque)
+                        .admit_storage(scope, &format!("{owner}@{instance}"), delta, *opaque)
                         .map_err(|e| self.fail(e))?;
                 }
 
                 let mut state = self.state.borrow_mut();
                 if scope == crate::solve::NativeStorageScope::Linear {
                     state.linear_seen = true;
-                    state.known_storage = state.known_storage.saturating_add(*known_bytes);
+                    let key = (owner.to_string(), *instance);
+                    let previous = state.storage_owners.get(&key).copied().unwrap_or(0);
+                    state.known_storage = state
+                        .known_storage
+                        .saturating_add(known_bytes.saturating_sub(previous));
+                    state.storage_owners.insert(key, previous.max(*known_bytes));
                     state.opaque_storage |= *opaque;
                 } else {
                     state.application_opaque |= *opaque;

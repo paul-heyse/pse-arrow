@@ -275,7 +275,7 @@
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
-                "bounded_dense_max_dimension": null,
+                "bounded_storage_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -748,7 +748,7 @@
             "linear": {
               "$ref": "#/$defs/FeralSettings",
               "default": {
-                "bounded_dense_max_dimension": null,
+                "bounded_storage_max_dimension": null,
                 "cascade_break": null,
                 "fma": false,
                 "increase_quality": true,
@@ -1595,7 +1595,7 @@
     "FeralSettings": {
       "additionalProperties": false,
       "properties": {
-        "bounded_dense_max_dimension": {
+        "bounded_storage_max_dimension": {
           "default": null,
           "format": "uint",
           "minimum": 0,
@@ -3958,8 +3958,8 @@
           "description": "Typed settings of one backend; absent is the routed backend's native defaults."
         },
         "version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "description": "Document version.",
           "type": "integer"
         }
@@ -4369,8 +4369,8 @@
       "type": "array"
     },
     "version": {
-      "const": 3,
-      "default": 3,
+      "const": 4,
+      "default": 4,
       "description": "Document version.",
       "type": "integer"
     }

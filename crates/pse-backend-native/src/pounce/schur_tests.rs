@@ -24,9 +24,12 @@ struct Quadratic {
 }
 impl Quadratic {
     fn new(mode: HessianMode, singular_ff: bool, fixed: bool) -> Self {
-        let mut variables: Vec<_> = (0..4)
+        Self::sized(mode, singular_ff, fixed, 4)
+    }
+    fn sized(mode: HessianMode, singular_ff: bool, fixed: bool, n: usize) -> Self {
+        let mut variables: Vec<_> = (0..n)
             .map(|index| crate::Variable {
-                id: crate::solver_tests::id(index + 1),
+                id: crate::solver_tests::id(u8::try_from(index + 1).unwrap()),
                 lower: -1.,
                 upper: 1.,
             })
@@ -43,7 +46,7 @@ impl Quadratic {
             contract: crate::OracleContract {
                 identity: pse_ids::ContentHash::from_bytes([91; 32]),
                 variables,
-                rows: vec![crate::solver_tests::id(5)],
+                rows: vec![crate::solver_tests::id(u8::try_from(n + 1).unwrap())],
                 derivatives: if mode == HessianMode::Exact {
                     pse_kernels::DerivativeOrder::Second
                 } else {
@@ -53,16 +56,16 @@ impl Quadratic {
             },
             jac: faer::sparse::SparseColMat::try_new_from_triplets(
                 1,
-                4,
-                &(0..4)
+                n,
+                &(0..n)
                     .map(|col| faer::sparse::Triplet::new(0, col, 1.))
                     .collect::<Vec<_>>(),
             )
             .unwrap(),
             hess: faer::sparse::SparseColMat::try_new_from_triplets(
-                4,
-                4,
-                &(0..4)
+                n,
+                n,
+                &(0..n)
                     .map(|col| faer::sparse::Triplet::new(col, col, 1.))
                     .collect::<Vec<_>>(),
             )
@@ -161,7 +164,8 @@ impl NlpOracle for Quadratic {
 }
 fn bounded() -> Settings {
     let mut settings = Settings::default();
-    settings.linear.bounded_dense_max_dimension = Some(7);
+    settings.linear.bounded_storage_max_dimension = None;
+    settings.linear.scaling = feral::scaling::ScalingStrategy::Mc64Symmetric;
     settings.linear.ordering = feral::symbolic::OrderingMethod::Amd;
     settings
 }
@@ -175,17 +179,18 @@ fn run(
 ) -> SolveReport {
     controls.hessian = mode;
     controls.foreign_bytes = Some(64 << 20);
+    let n = oracle.contract.variables.len();
     session
         .solve(
             Box::new(oracle),
-            &[0.; 4],
+            &vec![0.; n],
             ObjectiveSense::Minimize,
             &controls,
             &ResolvedAccuracy::nominal(),
             settings,
             execution,
             &Tolerances {
-                variables: vec![1e-8; 4],
+                variables: vec![1e-8; n],
                 rows: vec![1e-8],
                 integrality: 1e-8,
             },
@@ -207,7 +212,7 @@ fn actual_schur_assembled_profiles_and_typed_mc64_quality_reach_factors() {
         HessianMode::Partitioned,
         HessianMode::FiniteDifference,
     ] {
-        let oracle = Quadratic::new(mode, false, false);
+        let oracle = Quadratic::sized(mode, false, false, 12);
         let hessian_calls = oracle.hessian_calls.clone();
         let report = run(
             &mut Session::new(),
@@ -237,7 +242,7 @@ fn actual_schur_assembled_profiles_and_typed_mc64_quality_reach_factors() {
             Metric::Bool(true)
         );
     }
-    let mut settings = Settings::default();
+    let mut settings = bounded();
     settings.linear.scaling = feral::scaling::ScalingStrategy::Mc64Symmetric;
     settings.linear.increase_quality = false;
     settings.linear.refine = false;
@@ -388,6 +393,7 @@ enum Gate {
 #[derive(Debug)]
 struct Admission {
     gate: Gate,
+    allocation: Arc<()>,
     storage: AtomicU64,
     factors: AtomicU64,
     observed: AtomicU64,
@@ -398,6 +404,7 @@ impl Admission {
     fn new(gate: Gate) -> Arc<Self> {
         Arc::new(Self {
             gate,
+            allocation: Arc::new(()),
             storage: 0.into(),
             factors: 0.into(),
             observed: 0.into(),
@@ -407,6 +414,9 @@ impl Admission {
     }
 }
 impl WorkAdmission for Admission {
+    fn retain_storage(&self) -> Option<Arc<dyn std::any::Any + Send + Sync>> {
+        Some(self.allocation.clone())
+    }
     fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
         self.factors
             .fetch_add(work.factorizations.unwrap(), Ordering::SeqCst);
@@ -494,9 +504,11 @@ fn actual_schur_storage_cancel_and_contract_abort_without_monolithic_fallback() 
 #[test]
 fn actual_native_storage_owner_is_deduplicated_and_retained_through_teardown() {
     let mut session = Session::new();
-    let admission = Admission::new(Gate::Allow);
-    let weak = Arc::downgrade(&admission);
-    for _ in 0..2 {
+    let mut previous = None;
+    for _ in 0..8 {
+        let admission = Admission::new(Gate::Allow);
+        let ledger = Arc::downgrade(&admission);
+        let token = Arc::downgrade(&admission.allocation);
         let mut execution = crate::solver_tests::execution();
         execution.work_admission = Some(admission.clone());
         let report = run(
@@ -510,33 +522,29 @@ fn actual_native_storage_owner_is_deduplicated_and_retained_through_teardown() {
             },
             execution,
         );
-        assert_eq!(report.termination.category, Termination::Success);
-        assert_eq!(session.storage_admissions.len(), 1);
+        assert_eq!(
+            report.termination.category,
+            Termination::Success,
+            "{report:?}"
+        );
+        drop(admission);
+        assert!(
+            ledger.upgrade().is_none(),
+            "completed task ledger must be released"
+        );
+        assert!(token.upgrade().is_some(), "actual allocation remains owned");
+        if let Some(old) = previous {
+            assert!(
+                std::sync::Weak::<()>::upgrade(&old).is_none(),
+                "replaced allocation owner must release"
+            );
+        }
+        previous = Some(token);
     }
-    drop(admission);
-    assert!(weak.upgrade().is_some());
     assert_eq!(session.retained_foreign_allowance(), Some(64 << 20));
-    let replacement = Admission::new(Gate::Allow);
-    let replacement_weak = Arc::downgrade(&replacement);
-    let mut execution = crate::solver_tests::execution();
-    execution.work_admission = Some(replacement.clone());
-    let report = run(
-        &mut session,
-        Quadratic::new(HessianMode::Exact, false, false),
-        HessianMode::Exact,
-        &bounded(),
-        Controls {
-            reuse: ReusePolicy::Fresh,
-            ..Default::default()
-        },
-        execution,
-    );
-    assert_eq!(report.termination.category, Termination::Success);
-    assert!(weak.upgrade().is_none());
-    drop(replacement);
-    assert!(replacement_weak.upgrade().is_some());
+    let last = previous.unwrap();
     drop(session);
-    assert!(replacement_weak.upgrade().is_none());
+    assert!(last.upgrade().is_none());
 }
 
 #[test]

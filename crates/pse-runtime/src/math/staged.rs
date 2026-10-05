@@ -260,6 +260,32 @@ impl NativeSession {
         self.run_scoped(cores, backend.into_iter().collect(), None, cancel, work)
             .await
     }
+    /// Queue native work under the already admitted task's cancellation owner and clock.
+    #[cfg(any(test, feature = "solver-diffsol"))]
+    pub(crate) async fn run_in_task<T: Send + 'static>(
+        &self,
+        cores: usize,
+        scope: pse_kernels::ExecutionScope,
+        cancel: &crate::CancelSource,
+        work: impl FnOnce(
+            &mut Retained,
+            &Arc<AtomicBool>,
+            &Arc<WorkerBudget>,
+        ) -> Result<T, MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<T, MathRuntimeError> {
+        scope.check().map_err(ProblemError::Provider)?;
+        self.run_task(
+            cores,
+            Vec::new(),
+            scope.deadline(),
+            Some(scope),
+            cancel,
+            work,
+        )
+        .await
+    }
     async fn run_scoped<T: Send + 'static>(
         &self,
         cores: usize,
@@ -437,14 +463,19 @@ impl NativeSession {
         if request.limits.is_none() {
             declaration.limits.attempts = step.automatic_attempt_capacity(scope.cancellation())?;
         }
-        let ledger = super::strategy::admission::TaskAdmission::new(
-            declaration.limits,
-            scope.clone(),
-            Some(self.service.pool.clone()),
-            step.declared_foreign_bytes() > 0,
-        );
+        let ledger = step.task_admission().unwrap_or_else(|| {
+            super::strategy::admission::TaskAdmission::new(
+                declaration.limits,
+                scope.clone(),
+                Some(self.service.pool.clone()),
+                step.declared_foreign_bytes() > 0,
+            )
+        });
+        let step = step.within_admitted_task(scope.clone(), ledger.clone())?;
         let capacity = usize::try_from(declaration.limits.attempts)
-            .map_err(|_| ProblemError::memory("automatic product state capacity"))?;
+            .map_err(|_| ProblemError::memory("automatic product state capacity"))?
+            .checked_mul(3)
+            .ok_or_else(|| ProblemError::memory("automatic product state capacity"))?;
         let product_owner = self.service.reserve(
             "math:automatic-product-state",
             super::strategy::ProductState::extent(capacity)?,
@@ -467,7 +498,8 @@ impl NativeSession {
         let mut attempted_bindings = std::collections::BTreeSet::new();
         let mut last_observation = None;
         let mut last_result = None;
-        let mut opinions_bound = false;
+        let mut current_assessment = false;
+        let mut terminal = None;
         let mut collected = super::strategy::Trace {
             owner: None,
             declaration: declaration.clone(),
@@ -505,7 +537,7 @@ impl NativeSession {
                 ledger.observation()?,
             )?;
             let mut decision_identity =
-                pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV1);
+                pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV2);
             decision_identity
                 .hash(&collected.original)
                 .hash(&step.preparation_identity()?)
@@ -513,6 +545,30 @@ impl NativeSession {
             let decision_key = decision_identity.finish_hash();
             match decision {
                 super::strategy::AutoDecision::Finish => break,
+                super::strategy::AutoDecision::Exhausted { cause } => {
+                    if current_assessment {
+                        if let Some(event) = collected.events.last_mut() {
+                            event.transition = Some(Transition::Stop);
+                            if event.cause.is_none() {
+                                event.cause = cause;
+                            }
+                        }
+                    } else {
+                        terminal = Some(
+                            collected
+                                .events
+                                .iter()
+                                .rev()
+                                .find_map(|event| event.cause.clone())
+                                .unwrap_or_else(|| {
+                                    Arc::new(ProblemError::Unsupported(
+                                        "catalog exhausted after an unassessed operation".into(),
+                                    ))
+                                }),
+                        );
+                    }
+                    break;
+                }
                 super::strategy::AutoDecision::Assess => {
                     return Err(ProblemError::Internal(
                         "original assessment must execute on its admitted worker".into(),
@@ -520,6 +576,7 @@ impl NativeSession {
                     .into());
                 }
                 super::strategy::AutoDecision::Stop { cause } => {
+                    terminal = cause.clone();
                     if let Some(cause) = cause
                         && let Some(index) = collected.declaration.mechanisms.len().checked_sub(1)
                     {
@@ -540,6 +597,7 @@ impl NativeSession {
                 }
                 super::strategy::AutoDecision::Prepare { candidate }
                 | super::strategy::AutoDecision::Dispatch { candidate } => {
+                    current_assessment = false;
                     let preparing =
                         matches!(decision, super::strategy::AutoDecision::Prepare { .. });
                     if !preparing {
@@ -557,13 +615,15 @@ impl NativeSession {
                         } else {
                             Position::Execution
                         },
-                        required: true,
+                        required: description.kind == pse_model::strategy::MechanismKind::Direct,
+                        operation: Default::default(),
                         profile: None,
                         support: description.support.iter().copied().collect(),
                         limits: declaration.limits,
                         starts: vec![description.start],
                         transitions: vec![
                             Transition::Finish,
+                            Transition::Continue,
                             Transition::Recover,
                             Transition::Stop,
                         ],
@@ -579,6 +639,8 @@ impl NativeSession {
                     } else {
                         Ok(())
                     };
+                    let preparation_dispatched =
+                        preparing && admitted.is_ok() && !bound_operations.contains_key(&candidate);
                     let prepared = match admitted {
                         Ok(()) if bound_operations.contains_key(&candidate) => {
                             Ok(bound_operations.remove(&candidate).ok_or_else(|| {
@@ -595,8 +657,27 @@ impl NativeSession {
                     let prepared = match prepared {
                         Ok(prepared) => prepared,
                         Err(error) => {
+                            let mut identity =
+                                pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
+                            identity.hash(&decision_key).str("automatic-preparation");
+                            let failed_work = if preparation_dispatched {
+                                Some(ledger.complete_charge(pse_model::strategy::WorkCharge {
+                                    phase: pse_model::strategy::Phase::Preparation,
+                                    scope: pse_model::strategy::Scope::Task,
+                                    charging_owner: identity.finish_hash(),
+                                    observed: pse_model::strategy::WorkObservation {
+                                        attempts: 1,
+                                        evaluations: None,
+                                        iterations: None,
+                                        factorizations: None,
+                                        proof_steps: None,
+                                    },
+                                })?)
+                            } else {
+                                None
+                            };
                             let observation = super::strategy::runtime_failure(&error);
-                            let recoverable=matches!(observation,pse_model::generated::enums::NumericalAttemptObservation::CapabilityRefusal);
+                            let recoverable = !mechanism.required && matches!(observation, pse_model::generated::enums::NumericalAttemptObservation::CapabilityRefusal);
                             let cause = Arc::new(error.into_problem());
                             collected.starts.push(description.start);
                             collected.products.push(Default::default());
@@ -612,7 +693,7 @@ impl NativeSession {
                                     Transition::Stop
                                 }),
                                 permission: None,
-                                work: None,
+                                work: failed_work,
                                 cause: Some(cause.clone()),
                                 decision: Some(decision_key),
                             });
@@ -715,22 +796,44 @@ impl NativeSession {
                             Some(ledger.clone()),
                         )
                         .await?;
-                    last_observation = one.2.events.iter().rev().find_map(|event| {
-                        event
-                            .observation
-                            .map(|native| super::strategy::AutoObservation {
-                                awaiting_assessment: false,
-                                native,
-                                original: event.original.clone(),
-                                permission: event.permission,
-                            })
-                    });
+                    if let Some(actual) = one.2.declaration.mechanisms.first() {
+                        collected.declaration.mechanisms[index] = actual.clone();
+                    }
+                    collected
+                        .declaration
+                        .mechanisms
+                        .extend(one.2.declaration.mechanisms.iter().skip(1).cloned());
+                    last_observation = one
+                        .2
+                        .events
+                        .iter()
+                        .rev()
+                        .filter(|event| {
+                            !(event.kind
+                                == pse_model::generated::enums::NumericalEventKind::Refused
+                                && event.transition == Some(Transition::Continue))
+                        })
+                        .find_map(|event| {
+                            event
+                                .observation
+                                .map(|native| super::strategy::AutoObservation {
+                                    awaiting_assessment: false,
+                                    native,
+                                    original: event.original.clone().or_else(|| {
+                                        event.cause.clone().map(|cause| {
+                                            super::strategy::OriginalConclusion::Unavailable {
+                                                cause,
+                                            }
+                                        })
+                                    }),
+                                    permission: event.permission,
+                                })
+                        });
                     let report = match &one.0 {
                         super::solves::Outcome::Native(report) => Some(report.as_ref()),
                         _ => None,
                     };
-                    if !opinions_bound
-                        && report.is_some()
+                    if report.is_some()
                         && last_observation.as_ref().is_some_and(|last| {
                             !last
                                 .original
@@ -738,10 +841,14 @@ impl NativeSession {
                                 .is_some_and(super::strategy::OriginalConclusion::satisfied)
                         })
                     {
-                        opinions_bound = true;
                         let more = step.automatic_operations(report, scope.cancellation())?;
+                        let mut known = operations
+                            .iter()
+                            .map(|operation| operation.candidate.identity)
+                            .collect::<std::collections::BTreeSet<_>>();
                         operations.extend(more.into_iter().filter(|operation| {
                             !attempted_bindings.contains(&operation.candidate.identity)
+                                && known.insert(operation.candidate.identity)
                         }));
                     }
                     collected.starts.extend(one.2.starts.iter().copied());
@@ -749,13 +856,14 @@ impl NativeSession {
                     collected
                         .events
                         .extend(one.2.events.iter().cloned().map(|mut event| {
-                            event.mechanism = index;
+                            event.mechanism += index;
                             if event.decision.is_none() {
                                 event.decision = Some(decision_key);
                             }
                             event
                         }));
                     last_result = Some(one);
+                    current_assessment = true;
                 }
             }
         }
@@ -766,6 +874,18 @@ impl NativeSession {
                     .reserve("math:automatic-strategy-trace", bytes)?,
             ),
         );
+        if let Some(cause) = terminal {
+            return Err(MathRuntimeError::Strategy {
+                cause: Arc::new(
+                    ProblemError::Math(pse_math::MathError::Typed {
+                        retained: cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                    })
+                    .into(),
+                ),
+                trace,
+            });
+        }
         match last_result {
             Some((outcome, product, _)) => Ok((outcome, product, trace)),
             None => Err(MathRuntimeError::Strategy {
@@ -824,6 +944,7 @@ impl NativeSession {
             .ok_or_else(|| ProblemError::Contract("task deadline extent".into()))?;
         let mut declaration = step.numerical_strategy();
         if let Some(mechanism) = mechanism {
+            declaration.limits = mechanism.limits;
             declaration.mechanisms = vec![mechanism];
             declaration.branch = step.composition_request().branch;
             declaration.start.recovery = step.composition_request().recovery.clone();
@@ -843,13 +964,51 @@ impl NativeSession {
             _ => pse_model::strategy::StartOrigin::Specification,
         };
 
-        let declared_foreign = step.declared_foreign_bytes();
+        let mut declared_foreign = step.declared_foreign_bytes();
         let composition = step.take_composition();
         use super::solves::PreparedRung;
-        let rungs = operation.map_or_else(
+        let paired_correction = original_completion
+            && operation.as_ref().is_some_and(|rung| match rung {
+                PreparedRung::Path { .. } | PreparedRung::Surrogate(_) => true,
+                #[cfg(feature = "solver-petsc")]
+                PreparedRung::Petsc(_) => true,
+                _ => false,
+            });
+        let mut rungs = operation.map_or_else(
             || composition.map_or_else(|| vec![step.clone().into()], |c| c.rungs.clone()),
             |operation| vec![operation],
         );
+        if paired_correction {
+            rungs.push(PreparedRung::Original(Box::new(step.clone())));
+            let mut correction = step.numerical_strategy().mechanisms[0].clone();
+            correction.required = true;
+            correction.limits = declaration.limits;
+            correction.starts = declaration.start.recovery.clone();
+            declaration.mechanisms.push(correction);
+        }
+        for (rung, mechanism) in rungs.iter().zip(&mut declaration.mechanisms) {
+            declared_foreign = declared_foreign.max(rung.declared_foreign_bytes());
+            if mechanism.profile.is_none() {
+                mechanism.profile = rung
+                    .backend()
+                    .map(|backend| {
+                        rung.strategy_profile()
+                            .map(|key| pse_model::strategy::ProfileRef { backend, key })
+                    })
+                    .transpose()?;
+            }
+            let supplied = rung.operation_contract()?;
+            for input in supplied.inputs {
+                if !mechanism.operation.inputs.contains(&input) {
+                    mechanism.operation.inputs.push(input);
+                }
+            }
+            for output in supplied.outputs {
+                if !mechanism.operation.outputs.contains(&output) {
+                    mechanism.operation.outputs.push(output);
+                }
+            }
+        }
         let start = rungs
             .first()
             .map_or(start, |rung| rung.entry_origin(previous.is_some()));
@@ -873,6 +1032,11 @@ impl NativeSession {
                 provider: match rung {
                     PreparedRung::Surrogate(p) => {
                         Some(super::strategy::ProviderEvidence::Library(p.key()))
+                    }
+                    PreparedRung::Derived(_) | PreparedRung::Original(_)
+                        if rung.backend().is_none() =>
+                    {
+                        Some(super::strategy::ProviderEvidence::NonNative)
                     }
                     _ => None,
                 },
@@ -918,23 +1082,36 @@ impl NativeSession {
         };
         let product_owner = service.reserve(
             "math:actual-product-state",
-            super::strategy::ProductState::extent(rungs.len())?,
+            super::strategy::ProductState::extent(
+                rungs
+                    .len()
+                    .checked_mul(3)
+                    .ok_or_else(|| ProblemError::memory("rung product state extent"))?,
+            )?,
         )?;
         let allowance = service.reserve("math:step-foreign", declared_foreign)?;
+        let product_capacity = rungs
+            .len()
+            .checked_mul(3)
+            .ok_or_else(|| ProblemError::memory("rung product state extent"))?;
+        let shared_admission = shared_admission.or_else(|| step.task_admission());
         self.run_task(threads, backends, Some(deadline), task_scope.clone(), cancel, move |retained, flag, budget| {
             enum RungOutcome { Original(Box<super::solves::ScopedOutcome>), Derived(Box<super::solves::DerivedAttempt>), Path(Box<super::solves::paths::PathOutcome>), Surrogate(Box<super::surrogate::SurrogatePhaseOutcome>) }
             let _allowance = allowance;
             let enclosing = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
             let admission=shared_admission.unwrap_or_else(||super::strategy::admission::TaskAdmission::new(declaration.limits,enclosing.clone(),Some(service.pool.clone()),declared_foreign>0));
+            if !admission.matches_scope(&enclosing) { return Err(ProblemError::Contract("bound operation differs from its task admission scope".into()).into()); }
             admission.retain_storage_allowance(_allowance.clone())?;
             let scoped_budget=budget.with_admission(admission.clone());
             let budget=&scoped_budget;
             let mut assessed = None;
-            let product_state=shared_products.unwrap_or_else(||Arc::new(std::sync::Mutex::new(super::strategy::ProductState::owned(rungs.len(),product_owner))));
+            let product_state=shared_products.unwrap_or_else(||Arc::new(std::sync::Mutex::new(super::strategy::ProductState::owned(product_capacity,product_owner))));
             let prepared=std::cell::RefCell::new(rungs.into_iter().map(Some).collect::<Vec<_>>());
             let mut previous = previous;
             let point=std::cell::RefCell::new(initial);
             let fresh_start=std::cell::Cell::new(None::<pse_model::strategy::StartOrigin>);
+            let screened_start=std::cell::RefCell::new(None::<super::prediction::Screened>);
+            let pending_screened=std::cell::RefCell::new(None::<super::prediction::Screened>);
             let connected=std::cell::Cell::new(false);
             let completion_witness=std::cell::RefCell::new(None::<super::solves::paths::PathCompletion>);
             let actual_starts=std::cell::RefCell::new(starts);
@@ -950,22 +1127,18 @@ impl NativeSession {
                     actual_starts.borrow_mut()[index]=actual;
                     let origin=prepared.borrow()[index].as_ref().and_then(|rung|match rung {PreparedRung::Path{prepared,start}=>Some(prepared.origin_connected(start)),_=>None});
                     let (bound,refusal)=match origin {Some(Ok(bound))=>(bound,None),Some(Err(error))=>(false,Some(Arc::new(error))),None=>(connected.get(),None)};
-                    let consumed=if matches!(prepared.borrow()[index].as_ref(),Some(PreparedRung::Original(_))) && !declaration.accuracy.is_empty() {
-                        let candidate=point.borrow();
-                        match candidate.as_ref() {
-                            Some(point)=>super::strategy::products(&product_state).and_then(|state|state.bind_inputs(&declaration.accuracy,original,pse_backend_native::square_response::point_key(point),declaration.branch,0).and_then(|contract|state.consume(&contract))),
-                            None=>Err(ProblemError::Unsupported("original correction lacks an accuracy-qualified point".into())),
-                        }
-                    } else {Ok(Vec::new())};
+                    let contract = &declaration.mechanisms[index].operation;
+                    let consumed = super::strategy::products(&product_state).and_then(|state| state.consume(contract));
                     let (accuracy,accuracy_refusal)=match consumed {Ok(accuracy)=>(accuracy,None),Err(error)=>(Vec::new(),Some(Arc::new(error)))};
                     let local_refusal=prepared.borrow()[index].as_ref().and_then(|rung|match rung {PreparedRung::Derived(p)=>p.local_scope_refusal(&enclosing),_=>None});
                     let work_admitted=prepared.borrow()[index].as_ref().is_some_and(|rung|match rung {PreparedRung::Original(target)=>target.work_admitted(declaration.limits,&enclosing,admission.clone()) && target.work_admitted(declaration.mechanisms[index].limits,&enclosing,admission.clone()),_=>false});
-                    super::strategy::Facts { support:supports[index].clone(), accuracy, consumption:if matches!(prepared.borrow()[index].as_ref(),Some(PreparedRung::Original(_))) { declaration.accuracy.clone() } else {Vec::new()}, reservation:None, work_admitted, start:actual, inherited:index==0 && inherited, connected:bound, refusal:refusal.or(local_refusal).or(accuracy_refusal) }
+                    super::strategy::Facts { support:supports[index].clone(), accuracy, consumption:contract.inputs.iter().map(|input|input.accuracy).collect(), reservation:None, work_admitted, start:actual, inherited:index==0 && inherited, connected:bound, refusal:refusal.or(local_refusal).or(accuracy_refusal) }
                 },
                 |index,mechanism| {
+                    *pending_screened.borrow_mut()=None;
                     let rung = prepared.borrow_mut()[index].take().ok_or_else(|| Arc::new(ProblemError::Internal("strategy mechanism executed twice".into())))?;
                     let input=match &rung {
-                        PreparedRung::Original(p)=>if matches!(actual_starts.borrow()[index],pse_model::strategy::StartOrigin::Auxiliary|pse_model::strategy::StartOrigin::Surrogate) {point.borrow().clone()} else {p.source_start(previous.as_ref()).ok()},
+                        PreparedRung::Original(p)=>if matches!(actual_starts.borrow()[index],pse_model::strategy::StartOrigin::Auxiliary|pse_model::strategy::StartOrigin::Surrogate) {point.borrow().clone().or_else(||p.source_start(previous.as_ref()).ok())} else {p.source_start(previous.as_ref()).ok()},
                         PreparedRung::Multistart(p)=>Some(p.point()),
                         PreparedRung::Surrogate(_)=>point.borrow().clone(),
                         PreparedRung::Derived(p)=>if Some(actual_starts.borrow()[index])==fresh_start.get() {point.borrow().clone()} else {Some(p.original().source_start(previous.as_ref()).map_err(Arc::new)?)},
@@ -987,8 +1160,11 @@ impl NativeSession {
                         PreparedRung::Original(step)=>{
                             let mut step=*step;
                             if matches!(actual_starts.borrow()[index],pse_model::strategy::StartOrigin::Auxiliary|pse_model::strategy::StartOrigin::Surrogate) {
-                                let current=point.borrow();
-                                step=step.with_recovery_point(current.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("screened auxiliary point absent".into())))?).map_err(Arc::new)?;
+                                if let Some(screened)=screened_start.borrow().as_ref() {
+                                    step=step.within_admitted_task(enclosing.clone(),admission.clone()).and_then(|step|step.with_composed_recovery_start(screened,&declaration.start,declaration.branch)).map_err(Arc::new)?;
+                                } else if !step.has_screened_start() {
+                                    return Err(Arc::new(ProblemError::Contract("original correction requires the actual screened producer receipt".into())).into());
+                                }
                             }
                             if let Some(backend)=step.backend() {
                                 actual_products.borrow_mut()[index].provider=Some(super::strategy::ProviderEvidence::Native(pse_model::strategy::ProfileRef {backend,key:step.strategy_profile().map_err(Arc::new)?}));
@@ -1032,7 +1208,7 @@ impl NativeSession {
                             let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.controls(),enclosing.clone()).map_err(Arc::new)?;
                             execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();
                             execution.memory=Some(service.policy.foreign_allowance(prepared.controls()));
-                            let value=match service.derived_step(&prepared,execution.clone(),retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("original source point absent".into())))?) {
+                            let mut value=match service.derived_step(&prepared,execution.clone(),retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("original source point absent".into())))?) {
                                 Ok(value)=>value,
                                 Err(error)=>{
                                     retained.clear();
@@ -1040,14 +1216,26 @@ impl NativeSession {
                                 }
                             };
                             if let Some(failed)=prepared.local_attempt_failure(&value,&enclosing) {retained.clear();return Err(failed);}
-                            if original_completion && value.proposal.is_some() {
-                                if let Some(proposal)=&value.proposal && let Some(accuracy)=proposal.reconstruction_accuracy {
-                                    let mut source=prepared.original().semantic_point_key(&proposal.coordinates).map_err(Arc::new)?;
-                                    source.normalization=Some(accuracy.normalization);source.derivation=Some(proposal.family);source.accuracy=Some(accuracy.product);
-                                    let evidence=pse_model::strategy::ProductEvidence {source,derivative_order:0,branch:declaration.branch,accuracy};
-                                    super::strategy::products(&product_state).and_then(|mut state|state.publish(evidence.clone())).map_err(Arc::new)?;
-                                    actual_products.borrow_mut()[index].accuracy=Some(accuracy);actual_products.borrow_mut()[index].evidence=Some(evidence);
+                            if !original_completion {
+                                if let Some(proposal)=&value.proposal {
+                                    let mut evaluations=0;
+                                    match service.screen_auxiliary_start_worker_observed(prepared.original(),proposal,declaration.branch,enclosing.clone(),budget,&mut evaluations) {
+                                        Ok(screened)=>*pending_screened.borrow_mut()=Some(screened),
+                                        Err(error)=>{value.screening_failure=Some(Arc::new(error.into_problem()));},
+                                    }
+                                    if let super::solves::Outcome::Native(report)=&mut value.outcome {report.evidence.work.evaluations=report.evidence.work.evaluations.and_then(|n|n.checked_add(evaluations));}
                                 }
+                            }
+                            let evidence=prepared.produced_evidence(&value,declaration.branch).map_err(|cause|super::strategy::EffectFailure::component(Arc::new(cause),value.work(),super::strategy::observe(&value.outcome)))?;
+                            for product in &evidence {
+                                if product.derivative_order == 0 {actual_products.borrow_mut()[index].accuracy=Some(product.accuracy);}
+                                actual_products.borrow_mut()[index].evidence.push(product.clone());
+                            }
+                            super::strategy::validate_outputs(&mechanism.operation,&evidence).map_err(|cause|super::strategy::EffectFailure::component(value.screening_failure.clone().or_else(||super::strategy::cause(&value.outcome)).unwrap_or_else(||Arc::new(cause)),value.work(),super::strategy::observe(&value.outcome)))?;
+                            for product in evidence {
+                                super::strategy::products(&product_state).and_then(|mut state|state.publish(product)).map_err(Arc::new)?;
+                            }
+                            if original_completion && value.proposal.is_some() {
                                 let outcome=service.derived_original_outcome(&prepared,&value,&execution,budget).map_err(|error|Arc::new(error.into_problem()))?;
                                 let observed=super::strategy::work(&outcome);
                                 let observation=super::strategy::observe(&outcome);
@@ -1074,6 +1262,8 @@ impl NativeSession {
                             execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
                             let phase_budget=phase_budget.with_admission(admission.clone());
                             let value=prepared.advance(&execution,&phase_budget,owner.clone());
+                            actual_products.borrow_mut()[index].statistical=value.statistical.clone();
+                            if let Some(screened)=&value.screened {*pending_screened.borrow_mut()=Some(screened.clone());}
                             let observed=value.work;
                             let observation=value.terminal.as_deref().map_or(pse_model::generated::enums::NumericalAttemptObservation::Auxiliary,super::strategy::failure);
                             (RungOutcome::Surrogate(Box::new(value)),observation,observed)
@@ -1088,11 +1278,13 @@ impl NativeSession {
                             if let Some(proposal)=value.proposal.take() {
                                 let mut screening_evaluations=0;
                                 match service.screen_start_worker_observed(prepared.original_target(),proposal.clone(),proposal.branch(),enclosing.clone(),budget,&mut screening_evaluations) {
-                                    Ok(screened)=>{value.proposal=Some(screened.proposal().clone());},
+                                    Ok(screened)=>{value.proposal=Some(screened.proposal().clone());*pending_screened.borrow_mut()=Some(screened);},
                                     Err(error)=>value.terminal=Some(Arc::new(error.into_problem())),
                                 }
                                 observed.evaluations=observed.evaluations.and_then(|n|n.checked_add(screening_evaluations));
                             }
+                            actual_products.borrow_mut()[index].path_events=Some(value.events.clone());
+                            actual_products.borrow_mut()[index].transport=value.connected.map(|proof|proof.transport);
                             let observation=value.terminal.as_deref().map_or(pse_model::generated::enums::NumericalAttemptObservation::Auxiliary,super::strategy::failure);
                             (RungOutcome::Path(Box::new(value)),observation,observed)
                         },
@@ -1100,16 +1292,34 @@ impl NativeSession {
                         PreparedRung::Petsc(prepared)=>{
                             let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.controls(),enclosing.clone()).map_err(Arc::new)?;
                             execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.controls()));
-                            let value=service.execute_petsc(&prepared,execution,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::internal("original PETSc start missing")))?).map_err(|error|Arc::new(error.into_problem()))?;
-                            let observed=value.work();
+                            let mut value=service.execute_petsc(&prepared,execution,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::internal("original PETSc start missing")))?).map_err(|error|Arc::new(error.into_problem()))?;
+                            let mut observed=value.work();
+                            if let Some(proposal)=&value.proposal {
+                                let mut evaluations=0;
+                                match service.screen_auxiliary_start_worker_observed(prepared.source().original(),proposal,declaration.branch,enclosing.clone(),budget,&mut evaluations) {
+                                    Ok(screened)=>*pending_screened.borrow_mut()=Some(screened),
+                                    Err(error)=>{value.screening_failure=Some(Arc::new(error.into_problem()));},
+                                }
+                                observed.evaluations=observed.evaluations.and_then(|n|n.checked_add(evaluations));
+                            }
                             let observation=super::strategy::observe(&value.outcome);
                             (RungOutcome::Derived(Box::new(value)),observation,observed)
                         },
                     };
+                    let evidence=actual_products.borrow()[index].evidence.clone();
+                    super::strategy::validate_outputs(&mechanism.operation,&evidence).map_err(|cause| {
+                        let actual_cause=match &value {
+                            RungOutcome::Original(value)=>super::strategy::cause(&value.0),
+                            RungOutcome::Derived(value)=>value.screening_failure.clone().or_else(||super::strategy::cause(&value.outcome)),
+                            RungOutcome::Surrogate(value)=>value.terminal.clone(),
+                            RungOutcome::Path(value)=>value.terminal.clone(),
+                        };
+                        super::strategy::EffectFailure::component(actual_cause.unwrap_or_else(||Arc::new(cause)),observed,observation)
+                    })?;
                     let mut charge=pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
                     charge.hash(&original).u64(attempt as u64).u64(index as u64);
                     let phase=if mechanism.position==pse_model::strategy::Position::Preparation {pse_model::strategy::Phase::Preparation} else {pse_model::strategy::Phase::Native};
-                    Ok(super::strategy::Attempt { value, observation, work:pse_model::strategy::WorkCharge {phase, scope:pse_model::strategy::Scope::Task, charging_owner:charge.finish_hash(), observed } })
+                    Ok(super::strategy::Attempt { value, observation, evidence, work:pse_model::strategy::WorkCharge {phase, scope:pse_model::strategy::Scope::Task, charging_owner:charge.finish_hash(), observed } })
                 },
                 |value,observation| match value {
                     RungOutcome::Original(value)=>{
@@ -1125,25 +1335,14 @@ impl NativeSession {
                     },
                     RungOutcome::Derived(value)=>{
                         let cause=value.screening_failure.clone().or_else(||super::strategy::cause(&value.outcome));
-                        if let Some(proposal)=&value.proposal {
+                        let screened=value.screening_failure.is_none() && pending_screened.borrow().is_some();
+                        if screened && let Some(proposal)=&value.proposal {
+                            *screened_start.borrow_mut()=pending_screened.borrow_mut().take();
                             *point.borrow_mut()=Some(proposal.coordinates.clone());
                             fresh_start.set(Some(pse_model::strategy::StartOrigin::Auxiliary));
-                            // This actual reconstruction accuracy belongs to the producing
-                            // family; immutable preparation supplied no point certificate.
-                            let product_index=actual_products.borrow().iter().position(|p|p.derived==Some(proposal.family));
-                            if let Some(index)=product_index
-                                && let Some(accuracy)=proposal.reconstruction_accuracy {
-                                    let source=pse_model::strategy::SemanticProductKey { structure:original,binding:proposal.original,numerical_policy:None,normalization:Some(accuracy.normalization),point:Some(pse_backend_native::square_response::point_key(&proposal.coordinates)),parameters:None,derivation:Some(proposal.family),branch:None,accuracy:Some(accuracy.product) };
-                                    let evidence=pse_model::strategy::ProductEvidence {source,derivative_order:0,branch:declaration.branch,accuracy};
-                                    if let Err(error)=super::strategy::products(&product_state).and_then(|mut state|state.publish(evidence.clone())) {
-                                        return super::strategy::Assessment {auxiliary:true,original:super::strategy::OriginalConclusion::Unavailable {cause:Arc::new(error)},work:Vec::new(),retention:StepRetention {candidate:crate::workflow::numerics::auxiliary_start(false),session:SessionDisposition::Discard},observation,cause:None};
-                                    }
-                                    actual_products.borrow_mut()[index].accuracy=Some(accuracy);
-                                    actual_products.borrow_mut()[index].evidence=Some(evidence);
-                            }
                         }
-                        let decision=crate::workflow::numerics::auxiliary_start(value.proposal.is_some());
-                        let observation=cause.as_deref().map_or_else(||if value.proposal.is_some() {pse_model::generated::enums::NumericalAttemptObservation::Auxiliary} else {observation},super::strategy::failure);
+                        let decision=crate::workflow::numerics::auxiliary_start(screened && value.proposal.is_some());
+                        let observation=cause.as_deref().map_or_else(||if screened && value.proposal.is_some() {pse_model::generated::enums::NumericalAttemptObservation::Auxiliary} else {observation},super::strategy::failure);
                         super::strategy::Assessment {auxiliary:true,original:super::strategy::OriginalConclusion::Unavailable {cause:Arc::new(ProblemError::Unsupported("auxiliary result requires original correction".into()))},work:Vec::new(),retention:StepRetention {candidate:decision,session:SessionDisposition::Discard},observation,cause}
                     },
                     RungOutcome::Surrogate(value)=>{
@@ -1152,6 +1351,7 @@ impl NativeSession {
                             if let Some(index)=product_index {actual_products.borrow_mut()[index].statistical=Some(statistical.clone());}
                         }
                         if let Some(proposal)=&value.proposal {
+                            *screened_start.borrow_mut()=pending_screened.borrow_mut().take();
                             *point.borrow_mut()=Some(proposal.values().map(|(_,v)|v).collect());
                             fresh_start.set(Some(pse_model::strategy::StartOrigin::Surrogate));
                         }
@@ -1164,6 +1364,7 @@ impl NativeSession {
                             if let Some(index)=product_index {actual_products.borrow_mut()[index].path_events=Some(value.events.clone());}
                         }
                         if let Some(proposal)=&value.proposal {
+                            *screened_start.borrow_mut()=pending_screened.borrow_mut().take();
                             *completion_witness.borrow_mut()=value.completion_witness();
                             connected.set(completion_witness.borrow().is_some());
                             *point.borrow_mut()=Some(proposal.values().map(|(_,v)|v).collect());fresh_start.set(Some(pse_model::strategy::StartOrigin::Auxiliary));
@@ -1222,13 +1423,105 @@ impl NativeSession {
         let Some(first) = members.first() else {
             return Ok(Vec::new());
         };
-        if members.iter().any(|member| {
+        // Batch only a composition the common resolver has admitted as one ready
+        // direct operation. Other members retain the exact individual task semantics,
+        // including hard caps, optional preparations and observation-dependent profiles.
+        let batch_profile = first.step.strategy_profile().ok();
+        let batch_threads = first.step.threads();
+        let mut direct_batch = batch_profile.is_some();
+        let mut decisions = Vec::with_capacity(members.len());
+        for member in &members {
             let request = member.step.composition_request();
-            request.policy == pse_model::strategy::CompositionPolicy::Declared
+            if request.policy != pse_model::strategy::CompositionPolicy::Auto
                 || request.limits.is_some()
                 || request.branch.connected.is_some()
-        }) {
-            return Err(ProblemError::Unsupported("constrained numerical composition requires individually admitted steps before native dispatch".into()).into());
+                || member.step.task_scope().is_some()
+                || member.step.composition_is_declared()
+            {
+                direct_batch = false;
+                continue;
+            }
+            let operations = match member.step.automatic_operations(
+                None,
+                &Arc::new(AtomicBool::new(cancel.token().is_cancelled())),
+            ) {
+                Ok(operations) => operations,
+                Err(_) => {
+                    direct_batch = false;
+                    continue;
+                }
+            };
+            direct_batch &= member.step.strategy_profile().ok() == batch_profile
+                && member.step.threads() == batch_threads
+                && member.step.task_scope().is_none()
+                && !member.step.composition_is_declared()
+                && request.policy == pse_model::strategy::CompositionPolicy::Auto
+                && request.limits.is_none()
+                && request.branch.connected.is_none()
+                && member.step.backend() != Some(Backend::Pounce)
+                && operations.len() == 1
+                && operations[0].candidate.kind == pse_model::strategy::MechanismKind::Direct
+                && operations[0].candidate.prepared;
+            let candidates = operations
+                .iter()
+                .map(|operation| operation.candidate.clone())
+                .collect::<Vec<_>>();
+            let declaration = member.step.numerical_strategy();
+            let work = pse_model::strategy::WorkObservation {
+                attempts: 0,
+                evaluations: Some(0),
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: Some(0),
+            };
+            let decision = super::strategy::next_automatic(
+                &request,
+                &declaration.start,
+                &candidates,
+                &Default::default(),
+                None,
+                work,
+                false,
+            );
+            direct_batch &= matches!(
+                decision,
+                super::strategy::AutoDecision::Dispatch { candidate: 0 }
+            );
+            match super::strategy::automatic_decision_key(
+                &request,
+                &candidates,
+                &decision,
+                None,
+                work,
+            ) {
+                Ok(key) => decisions.push(key),
+                Err(_) => direct_batch = false,
+            };
+        }
+        if !direct_batch {
+            let assessor = Arc::new(std::sync::Mutex::new(assess));
+            let mut outcomes = Vec::with_capacity(members.len());
+            for (index, member) in members.into_iter().enumerate() {
+                let assessor = assessor.clone();
+                outcomes.push(
+                    self.step(
+                        member.step,
+                        None,
+                        member.attempt,
+                        progress.clone(),
+                        member.owner,
+                        cancel,
+                        move |outcome, scope, budget| {
+                            let mut owner = assessor
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            owner(index, outcome, scope, budget)
+                        },
+                    )
+                    .await,
+                );
+            }
+            return Ok(outcomes);
         }
         let service = self.service.clone();
         let deadline = std::time::Instant::now()
@@ -1269,22 +1562,23 @@ impl NativeSession {
             let enclosing=pse_kernels::ExecutionScope::new(flag.clone(),Some(deadline));
             let outcomes=service.execute_batch(members,retained,flag,&progress,budget,&enclosing);
             let mut kept=true;
-            let assessed=outcomes.into_iter().zip(originals).enumerate().map(|(index,(outcome,(declaration,original,backend,profile,start,attempt)))| {
+            let assessed=outcomes.into_iter().zip(originals).zip(decisions).enumerate().map(|(index,((outcome,(declaration,original,backend,profile,start,attempt)),decision))| {
                 let mut value=Some(outcome.unwrap_or_else(|cause| (super::solves::Outcome::Rejected(Arc::new(cause)),Some(enclosing.clone()))));
                 let mut product=None;
-                let result=super::strategy::run_observed(&declaration,&enclosing,
+                let mut result=super::strategy::run_observed(&declaration,&enclosing,
                     |_|super::strategy::Facts {support:Default::default(),accuracy:Vec::new(),consumption:Vec::new(),reservation:None,work_admitted:false,start,inherited:false,connected:false,refusal:None},
                     |_,_| {
                         let value=value.take().ok_or_else(||Arc::new(ProblemError::Internal("batch outcome consumed twice".into())))?;
                         let mut charge=pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
                         charge.hash(&original).u64(attempt as u64).u64(index as u64);
-                        Ok(super::strategy::Attempt {observation:super::strategy::observe(&value.0),work:pse_model::strategy::WorkCharge {phase:pse_model::strategy::Phase::Native,scope:pse_model::strategy::Scope::Task,charging_owner:charge.finish_hash(),observed:super::strategy::work(&value.0)},value})
+                        Ok(super::strategy::Attempt {evidence:Vec::new(),observation:super::strategy::observe(&value.0),work:pse_model::strategy::WorkCharge {phase:pse_model::strategy::Phase::Native,scope:pse_model::strategy::Scope::Task,charging_owner:charge.finish_hash(),observed:super::strategy::work(&value.0)},value})
                     },
                     |(outcome,scope),observation| {
                         let assessment=assess(index,outcome,scope.as_ref(),budget);
                         product=Some(assessment.product);
                         super::strategy::Assessment {auxiliary:false,retention:assessment.retention,original:assessment.original,work:assessment.work,observation,cause:super::strategy::cause(outcome)}
                     });
+                for event in &mut result.events {if event.decision.is_none() {event.decision=Some(decision);}}
                 let trace=super::strategy::Trace {owner:None,declaration,original,backend,profile,start,starts:vec![start],products:vec![Default::default()],events:result.events};
                 let bytes=trace.retained_bytes()?;
                 let trace=Arc::new(trace.with_owner(service.reserve("math:strategy-trace",bytes)?));

@@ -177,6 +177,7 @@ impl Parameterized {
     }
     fn request(&self) -> Sensitivity {
         Sensitivity {
+            source: None,
             oracle: self.oracle(&self.parametric, false).unwrap(),
             parameters: self.parameters.clone(),
             reduced_hessian: true,

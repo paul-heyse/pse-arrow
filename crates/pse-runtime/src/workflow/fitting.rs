@@ -433,6 +433,7 @@ impl PreparedFit {
                 native::routing::Route::Native(backend) => Some(backend),
                 native::routing::Route::Constant => None,
             },
+            solver: Some(&problem.profile.solver),
             controls: &problem.profile.solver.controls,
             request: &problem.profile.solver.composition,
             start: pse_model::strategy::StartOrigin::Specification,

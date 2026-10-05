@@ -93,6 +93,7 @@ impl MathService {
         // The native map is a component, never a report over original coordinates.
         let mut work = WorkEvidence::default();
         let mut failure_cause = None;
+        let mut component_observation = None;
         retained.clear();
         let result = (|| -> Result<Outcome, MathRuntimeError> {
             execution.check()?;
@@ -141,6 +142,7 @@ impl MathService {
                 .permits_use()
                 || values.is_none()
             {
+                component_observation = Some(super::super::strategy::observe_native(&report));
                 failure_cause = report
                     .shared_callback_failure()
                     .or_else(|| report.shared_validation_failure());
@@ -225,16 +227,20 @@ impl MathService {
         })();
         retained.clear();
         result.map_err(|error| {
-            super::super::strategy::EffectFailure::observed(
-                failure_cause.unwrap_or_else(|| Arc::new(error.into_problem())),
-                WorkObservation {
-                    attempts: 1,
-                    evaluations: work.evaluations,
-                    iterations: work.iterations,
-                    factorizations: work.factorizations,
-                    proof_steps: work.proof_steps,
-                },
-            )
+            let cause = failure_cause.unwrap_or_else(|| Arc::new(error.into_problem()));
+            let observed = WorkObservation {
+                attempts: 1,
+                evaluations: work.evaluations,
+                iterations: work.iterations,
+                factorizations: work.factorizations,
+                proof_steps: work.proof_steps,
+            };
+            match component_observation {
+                Some(observation) => {
+                    super::super::strategy::EffectFailure::component(cause, observed, observation)
+                }
+                None => super::super::strategy::EffectFailure::observed(cause, observed),
+            }
         })
     }
 }

@@ -34,7 +34,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 /// The payload version this build executes: the store's `payload_version` column and the
 /// document's own `version` ([`JobPayload`]).
-pub const JOB_PAYLOAD_VERSION: i32 = 7;
+pub const JOB_PAYLOAD_VERSION: i32 = 8;
 
 /// Version admission precedes decoding any nested current scientific contract.
 #[derive(serde::Deserialize)]
@@ -69,7 +69,7 @@ pub enum JobStart {
     },
 }
 
-/// Version 6 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+/// Version 8 of a durable job's payload: the one task a job runs. Unknown fields, tasks
 /// and versions are refused.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -173,7 +173,7 @@ impl ModelingJob {
         idempotency_key: &str,
     ) -> Result<pse_ids::roles::OperationalJobHash, WorkflowError> {
         pse_ids::document::of(
-            pse_ids::Frame::DurableJobRequestV4,
+            pse_ids::Frame::DurableJobRequestV5,
             &(AttemptKind::Modeling, idempotency_key, self),
         )
         .map(pse_ids::roles::OperationalJobHash::from)
@@ -620,7 +620,7 @@ impl Runtime {
             policy: job.point.policy.clone(),
         };
         let checksum = |point: &super::StudyPointDefinition| {
-            pse_ids::document::of(pse_ids::Frame::DurableJobRequestV4, point)
+            pse_ids::document::of(pse_ids::Frame::DurableJobRequestV5, point)
                 .map_err(|error| contract(error.to_string()))
         };
         if checksum(defined)? != checksum(&replay)?

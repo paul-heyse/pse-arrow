@@ -16,13 +16,16 @@ from pse.contracts.documents import (
     ControllerOperation,
     ObservationContracts,
     StudyRequest,
+    WorkLimits,
 )
 from pse.contracts.enums import (
     AttemptState,
+    FeralOrdering,
     JobState,
     NativeBackend,
     NativeSolveIntent,
     NativeTermination,
+    NumericalStartOrigin,
     PresolvePolicyKind,
     StudyPointState,
     StudyState,
@@ -367,6 +370,25 @@ def test_study_controller_moves_preserve_exact_typed_tuple_positions() -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(("operation", "version"), [("admit_study", 2), ("study", 4)])
+def test_native_study_version_precedes_nested_current_decode(
+    inspection_settings: pse.EngineSettings, operation: str, version: int
+) -> None:
+    runtime = pse.Runtime(inspection_settings)
+    package, _case = _package(runtime)
+    # Malformed current fields precede the header at the actual native boundary.
+    historical = msgspec.json.encode({"points": "retired shape", "version": version})
+    handle = package._handle
+    pattern = "explicit readmission is required"
+    if operation == "admit_study":
+        with pytest.raises(pse.InspectionError, match=pattern):
+            handle.admit_study(historical)
+    else:
+        with pytest.raises(pse.InspectionError, match=pattern):
+            handle.study(historical)
+
+
+@pytest.mark.unit
 def test_study_request_excludes_owner_seed_capability(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -628,3 +650,102 @@ def test_flash_sweep_prepares_structure_once(
     preparations = study.preparations
     assert preparations.views == 0, preparations
     assert preparations.rebuilt + preparations.shared == len(temperatures), preparations
+
+
+@pytest.mark.unit
+def test_fresh_capped_study_preserves_individual_automatic_execution(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings)
+    package, case = _package(runtime)
+    native = pse.PounceSettings()
+    settings = pse.SolveSettings(
+        backend=NativeBackend.POUNCE,
+        intent=NativeSolveIntent.FEASIBLE_POINT,
+        presolve=PresolvePolicyKind.OFF,
+        settings=msgspec.structs.replace(
+            native,
+            linear=msgspec.structs.replace(native.linear, ordering=FeralOrdering.AMD),
+        ),
+    )
+    settings = msgspec.structs.replace(
+        settings,
+        composition=msgspec.structs.replace(
+            settings.composition,
+            limits=WorkLimits(
+                attempts=4, evaluations=500, iterations=500, factorizations=500
+            ),
+        ),
+    )
+    alone = package.study(package.admit_study(request(point(case, settings, 3))))
+    paired = package.study(
+        package.admit_study(
+            request(point(case, settings, 7), point(case, settings, 11))
+        )
+    )
+    assert alone.outcome(0).scientific.usable
+    for index in range(2):
+        assert paired.outcome(index).scientific.usable
+        result = paired.result(index)
+        assert result is not None
+        values = pa.table(result.table("runtime.solve_variables")).to_pylist()
+        assert [
+            row["value"] for row in values if not row["parameter"]
+        ] == pytest.approx([2.0])
+        events = pa.table(result.table("runtime.solve_strategy_events")).to_pylist()
+        assert any(
+            row["kind"] == "started" and row["decision_identity"] for row in events
+        )
+        assert all(row["observation"] != "contract_failure" for row in events)
+
+
+@pytest.mark.unit
+def test_capped_related_root_study_charges_prediction_and_screening(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings)
+    package, case = _package(runtime)
+    settings = pse.SolveSettings(
+        backend=NativeBackend.KINSOL,
+        intent=NativeSolveIntent.ROOT,
+        presolve=PresolvePolicyKind.OFF,
+    )
+    settings = msgspec.structs.replace(
+        settings,
+        composition=msgspec.structs.replace(
+            settings.composition,
+            limits=WorkLimits(attempts=4, evaluations=500),
+            recovery=(NumericalStartOrigin.PREDICTED,),
+        ),
+    )
+    scalar, one = _physical_ids("Scalar", "dimensionless")
+    study = package.study(
+        package.admit_study(
+            request(
+                point(case, settings, 0),
+                point(
+                    case,
+                    settings,
+                    1,
+                    predecessor=0,
+                    continuation=True,
+                    assignments=(assignment("a", 9.0, scalar, one),),
+                ),
+            )
+        )
+    )
+    assert all(study.outcome(index).scientific.usable for index in range(2))
+    result = study.result(1)
+    assert result is not None
+    events = pa.table(result.table("runtime.solve_strategy_events")).to_pylist()
+    assert any(
+        row["start_origin"] == "predicted" and row["kind"] == "started"
+        for row in events
+    )
+    charged = [
+        row["evaluations"] for row in events if row["charging_owner"] is not None
+    ]
+    assert charged
+    assert all(value is not None for value in charged)
+    # The target original-screening callbacks share its native task's finite counter.
+    assert 2 <= sum(value for value in charged if value is not None) <= 500

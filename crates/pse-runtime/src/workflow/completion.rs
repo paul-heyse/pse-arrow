@@ -47,10 +47,7 @@ impl RunResult {
                     let step = ordinal as i64;
                     let solved = request.model.model.solved();
                     let declaration = request.model.case.compiled().plan.structure();
-                    let outcome = match &self.report {
-                        Ok(RunReport::Modeling(r)) => r.get(ordinal).map(|r| &r.outcome),
-                        _ => None,
-                    };
+                    let outcome = self.modeling_result(ordinal).map(|result| &result.outcome);
                     let native = match outcome {
                         Some(Outcome::Native(r)) => Some(r.as_ref()),
                         _ => None,
@@ -66,8 +63,8 @@ impl RunResult {
                         .and_then(|r| r.observation.as_ref())
                         .or_else(|| constant.map(|r| &r.observation));
                     let candidate = native.and_then(|r| r.candidate.as_ref());
-                    let error = match (&self.report, outcome) {
-                        (Err(e), _) => Some(e.to_string()),
+                    let error = match (self.modeling_error(ordinal), outcome) {
+                        (Some(e), _) => Some(e.to_string()),
                         (_, Some(Outcome::Rejected(e))) => Some(e.to_string()),
                         _ => None,
                     };

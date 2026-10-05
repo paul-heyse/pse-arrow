@@ -133,13 +133,12 @@ impl Runtime {
                 durable,
                 requests,
                 results,
+                failed_solve,
                 steps,
                 ..
             } = run;
             staged.close().await;
-            let report = outcome
-                .map(|()| RunReport::Modeling(results))
-                .map_err(Arc::new);
+            let (report, modeling_failure) = joined_modeling(outcome, results, failed_solve);
             let mut result = RunResult::joined(
                 run_id,
                 runtime,
@@ -147,6 +146,7 @@ impl Runtime {
                 None,
                 report,
             );
+            result.modeling_failure = modeling_failure;
             result.horizon = Some(Arc::new(HorizonReport {
                 outputs: admitted.outputs.clone(),
                 inputs: admitted.inputs.clone(),
@@ -159,6 +159,28 @@ impl Runtime {
         Ok(RunHandle::staged(
             checks, receiver, progress, run_id, attempt_id,
         ))
+    }
+}
+
+/// Preserve the actual completed prefix on failure. A failed target ordinal is supplied
+/// only by dispatched solve handling; plant/task failures name no mathematical target.
+pub(super) fn joined_modeling(
+    outcome: Result<(), WorkflowError>,
+    completed: Vec<ModelingResult>,
+    failed_solve: Option<usize>,
+) -> (
+    Result<RunReport, Arc<WorkflowError>>,
+    Option<crate::workflow::run::ModelingFailure>,
+) {
+    match outcome {
+        Ok(()) => (Ok(RunReport::Modeling(completed)), None),
+        Err(error) => (
+            Err(Arc::new(error)),
+            Some(crate::workflow::run::ModelingFailure {
+                completed,
+                step: failed_solve,
+            }),
+        ),
     }
 }
 
@@ -896,6 +918,8 @@ struct Loop {
     /// the same steps, so a step's index is its record's.
     requests: Vec<ModelingSolvePreparation>,
     results: Vec<ModelingResult>,
+    /// An actually attempted solve that returned an error; absent for plant/task failure.
+    failed_solve: Option<usize>,
     steps: Vec<HorizonStep>,
     /// Plant outputs at every sample so far.
     measured: Vec<Vec<f64>>,
@@ -963,6 +987,7 @@ impl Loop {
             started: Instant::now(),
             requests: Vec::new(),
             results: Vec::new(),
+            failed_solve: None,
             steps: Vec::new(),
             measured: Vec::new(),
             history: Vec::new(),
@@ -1035,9 +1060,9 @@ impl Loop {
             })
             .await?)
     }
-    /// One step of `role`: its overlay of `values` over its specification, seeded from the
-    /// last accepted step of the role and offered its native seed (N2), executed and recorded
-    /// as the run's next modeling step.
+    /// One step of `role`: its overlay of `values` over its specification. Only
+    /// `PreviousAccepted` inherits the last accepted role's coordinate/native seed (N2).
+    /// The task runs as the next modeling step.
     /// A step that keeps its sensitivity factor for an advanced-step prediction `retain`s it.
     async fn solve(
         &mut self,
@@ -1061,9 +1086,14 @@ impl Loop {
         }
         .ok_or_else(|| contract("a horizon step of an undeclared stage"))?;
         let last = self.accepted[role as usize];
-        let seed = last
-            .and_then(|i| self.staged.seed(Start::Accepted(i)))
-            .unwrap_or_default();
+        let seed = if stage.analysis.solver.controls.start
+            == native::solve::StartPolicy::PreviousAccepted
+        {
+            last.and_then(|i| self.staged.seed(Start::Accepted(i)))
+                .unwrap_or_default()
+        } else {
+            BTreeMap::new()
+        };
         let specification = Overlay {
             values,
             ..Overlay::default()
@@ -1107,10 +1137,11 @@ impl Loop {
                 });
             durable.set_step(attempt, seed);
         }
-        let result = self
+        self.requests.push(prepared.clone());
+        let result = match self
             .staged
             .run(
-                prepared.clone(),
+                prepared,
                 Obligations::Final,
                 self.run_id,
                 attempt,
@@ -1118,11 +1149,16 @@ impl Loop {
                 &self.cancel,
             )
             .await
-            .map_err(WorkflowError::Shared)?;
+        {
+            Ok(result) => result,
+            Err(error) => {
+                self.failed_solve = Some(attempt);
+                return Err(WorkflowError::Shared(error));
+            }
+        };
         if result.accepted {
             self.accepted[role as usize] = Some(attempt);
         }
-        self.requests.push(prepared);
         self.results.push(result);
         Ok(attempt)
     }
@@ -1256,51 +1292,71 @@ impl Loop {
         let mut prepared = self
             .prepare_solve(Role::Controller, values.clone(), false)
             .await?;
+        let deadline = Instant::now()
+            .checked_add(prepared.solve.time_limit())
+            .ok_or_else(|| contract("advanced controller task deadline extent"))?;
+        let proposal_scope = prepared
+            .solve
+            .task_scope()
+            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline)));
+        prepared.solve = c
+            .stage
+            .package
+            .runtime
+            .native()
+            .admit_proposal_task(prepared.solve, proposal_scope.clone())
+            .map_err(MathRuntimeError::from)?;
         let proposal_target = prepared.solve.clone();
         // One backsolve against the background solve's retained factor at the actual state.
         // A factor predicts once: the next background solve replaces it.
-        let predicted = match self.background.take() {
-            None => None,
-            Some(from) => {
-                let permission = self.results[from].completion.decision.clone();
-                let source = match &self.results[from].outcome {
-                    crate::math::solves::Outcome::Native(report) => report
-                        .candidate
-                        .as_ref()
-                        .map(|candidate| {
-                            self.results[from]
-                                .prepared
-                                .solve
-                                .semantic_point_key(&candidate.primal)
-                        })
-                        .transpose()
-                        .map_err(MathRuntimeError::from)?,
-                    _ => None,
-                };
-                let time_limit = admitted.plant.time_limit;
-                let base = self.results[from].prepared.solve.clone();
-                let target = proposal_target.clone();
-                let parameters = advanced
-                    .parameters
-                    .iter()
-                    .map(|(path, id)| (*id, values[path]))
-                    .collect::<Vec<_>>();
-                let outcome = self
-                    .staged
-                    .native(admitted.threads, &self.cancel, move |retained, flag, _| {
-                        let outcome = match (retained.advance(), source) {
+        let predicted =
+            match self.background.take() {
+                None => None,
+                Some(from) => {
+                    let permission = self.results[from].completion.decision.clone();
+                    let source = match &self.results[from].outcome {
+                        crate::math::solves::Outcome::Native(report) => report
+                            .candidate
+                            .as_ref()
+                            .map(|candidate| {
+                                self.results[from]
+                                    .prepared
+                                    .solve
+                                    .semantic_point_key(&candidate.primal)
+                            })
+                            .transpose()
+                            .map_err(MathRuntimeError::from)?,
+                        _ => None,
+                    };
+                    let base = self.results[from].prepared.solve.clone();
+                    let target = proposal_target.clone();
+                    let parameters = advanced
+                        .parameters
+                        .iter()
+                        .map(|(path, id)| (*id, values[path]))
+                        .collect::<Vec<_>>();
+                    let outcome =
+                        self.staged
+                            .native_in_task(
+                                admitted.threads,
+                                proposal_scope.clone(),
+                                &self.cancel,
+                                move |retained, flag, _| {
+                                    let outcome = match (retained.advance(), source) {
                             (Some(advance), Some(source))
                                 if permission.permits_use()
                                     && target.numerical_strategy().start.policy
-                                        != native::solve::StartPolicy::NoPriorStart =>
+                                        != native::solve::StartPolicy::Explicit
+                                    && target.entry_origin(false)
+                                        != pse_model::strategy::StartOrigin::Explicit =>
                             {
                                 target.related_target_parameters(&base, advance.parameters())?;
                                 let binding = target.original_identity()?;
-                                let mut execution = native::solve::Execution::new(
-                                    flag.clone(),
-                                    &native::solve::Controls::default(),
-                                );
-                                execution.time_limit = time_limit;
+                                let mut execution = native::solve::Execution::within(
+                                    flag.clone(), target.controls(), proposal_scope.clone(),
+                                )?;
+                                execution.work_admission=target.task_admission()
+                                    .map(|owner| -> Arc<dyn native::solve::WorkAdmission> {owner});
                                 let segments = advance
                                     .variables()
                                     .len()
@@ -1311,12 +1367,17 @@ impl Loop {
                                     refactorizations: segments.saturating_mul(2),
                                     bytes: advance.bytes().saturating_mul(4),
                                 };
-                                let activity = target
-                                    .composition_request()
-                                    .recovery
+                                // The original target can still have a minimal direct
+                                // declaration here; its authored recovery origins live
+                                // in the composition request until the operation binds.
+                                let starts = pse_model::strategy::StartRules {
+                                    policy: target.controls().start,
+                                    recovery: target.composition_request().recovery.clone(),
+                                };
+                                let activity = starts.recovery
                                     .contains(&pse_model::strategy::StartOrigin::Predicted)
-                                    && target.numerical_strategy().start.policy
-                                        != native::solve::StartPolicy::NoPriorStart;
+                                    && starts.permits_entry(
+                                        pse_model::strategy::StartOrigin::Predicted, false);
                                 match crate::math::prediction::select(
                                     crate::math::prediction::SelectionRequest {
                                         mechanism:
@@ -1368,13 +1429,14 @@ impl Loop {
                             }
                             _ => Err(Fallback::NotRetained),
                         };
-                        retained.release();
-                        Ok(outcome)
-                    })
-                    .await?;
-                Some(outcome.map(|prediction| (from, prediction)))
-            }
-        };
+                                    retained.release();
+                                    Ok(outcome)
+                                },
+                            )
+                            .await?;
+                    Some(outcome.map(|prediction| (from, prediction)))
+                }
+            };
         let (mut control, source) = match predicted {
             Some(Ok((_, (_, Some((proposal, path, fallback)), scope)))) => {
                 let screened = admitted

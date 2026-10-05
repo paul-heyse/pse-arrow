@@ -319,6 +319,10 @@ pub enum FactBatch {
     r#RuntimeSolveRuns(Vec<super::r#runtime::r#solve_runs::Row>),
     #[doc = stringify!(r#RuntimeSolveStrategyEvents)]
     r#RuntimeSolveStrategyEvents(Vec<super::r#runtime::r#solve_strategy_events::Row>),
+    #[doc = stringify!(r#RuntimeSolveStrategyProducts)]
+    r#RuntimeSolveStrategyProducts(
+        Vec<super::r#runtime::r#solve_strategy_products::Row>,
+    ),
     #[doc = stringify!(r#RuntimeSolveVariables)]
     r#RuntimeSolveVariables(Vec<super::r#runtime::r#solve_variables::Row>),
     #[doc = stringify!(r#RuntimeSolverCapabilities)]
@@ -1062,6 +1066,12 @@ impl FactBatch {
                     246u8, 17u8, 202u8, 126u8, 33u8, 66u8,
                 ])
             }
+            Self::r#RuntimeSolveStrategyProducts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    190u8, 50u8, 236u8, 168u8, 123u8, 190u8, 22u8, 99u8, 71u8, 240u8,
+                    130u8, 176u8, 182u8, 69u8, 62u8, 226u8,
+                ])
+            }
             Self::r#RuntimeSolveVariables(_) => {
                 pse_ids::SemanticId::from_bytes([
                     150u8, 121u8, 31u8, 89u8, 86u8, 198u8, 129u8, 141u8, 73u8, 124u8,
@@ -1224,6 +1234,7 @@ impl FactBatch {
             Self::r#RuntimeSolveMetrics(rows) => rows.len(),
             Self::r#RuntimeSolveRuns(rows) => rows.len(),
             Self::r#RuntimeSolveStrategyEvents(rows) => rows.len(),
+            Self::r#RuntimeSolveStrategyProducts(rows) => rows.len(),
             Self::r#RuntimeSolveVariables(rows) => rows.len(),
             Self::r#RuntimeSolverCapabilities(rows) => rows.len(),
             Self::r#RuntimeStructuralAssessments(rows) => rows.len(),
@@ -1847,6 +1858,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeSolveStrategyProducts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeSolveVariables(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2393,6 +2409,10 @@ impl FactBatch {
             Self::r#RuntimeSolveStrategyEvents(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeSolveStrategyEvents(vec![row.clone()]))
+            }
+            Self::r#RuntimeSolveStrategyProducts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeSolveStrategyProducts(vec![row.clone()]))
             }
             Self::r#RuntimeSolveVariables(rows) => {
                 rows.get(index)
@@ -3686,6 +3706,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeSolveStrategyProducts(left),
+                Self::r#RuntimeSolveStrategyProducts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeSolveVariables(left),
                 Self::r#RuntimeSolveVariables(right),
             ) => {
@@ -4595,6 +4626,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeSolveStrategyEvents(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeSolveStrategyProducts(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -6519,6 +6557,29 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeSolveStrategyProducts(left),
+                Self::r#RuntimeSolveStrategyProducts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#mechanism,
+                                &right.r#mechanism,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#product,
+                                &right.r#product,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeSolveVariables(left),
                 Self::r#RuntimeSolveVariables(right),
             ) => {
@@ -7212,6 +7273,13 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
                 crate::SemanticFrame::frame(&row.r#event, &mut hash);
+            }
+            Self::r#RuntimeSolveStrategyProducts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#mechanism, &mut hash);
+                crate::SemanticFrame::frame(&row.r#product, &mut hash);
             }
             Self::r#RuntimeSolveVariables(rows) => {
                 let row = rows.get(index)?;
@@ -8063,6 +8131,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeSolveStrategyProducts(left),
+                Self::r#RuntimeSolveStrategyProducts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeSolveVariables(left),
                 Self::r#RuntimeSolveVariables(mut right),
             ) => {
@@ -8346,6 +8421,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeSolveMetrics(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveRuns(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveStrategyEvents(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeSolveStrategyProducts(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeSolveVariables(rows) => crate::HeapUsage::heap_bytes(rows),

@@ -27,6 +27,113 @@ use pse_math::{
 use pse_model::strategy::{AccuracyEvidence, MechanismKind, ProfileRef, WorkObservation};
 use std::{cell::RefCell, collections::BTreeSet, rc::Rc, time::Instant};
 
+impl PreparedSolve {
+    /// The actual current compiler coefficient projection, lowered by the native owner.
+    /// Its lease admits the copied coefficient buffers and native coordinate metadata.
+    pub(crate) fn convex_qp_problem(
+        &self,
+        service: &MathService,
+        execution: &Execution,
+    ) -> Result<
+        (
+            native::CoefficientProblem,
+            Arc<pse_columnar::AllocationLease>,
+        ),
+        MathRuntimeError,
+    > {
+        let Representation::Algebraic(case) = &self.representation else {
+            return Err(ProblemError::Contract(
+                "QP prediction requires an original algebraic coefficient source".into(),
+            )
+            .into());
+        };
+        // Coefficient extraction is demanded proposal production, including its
+        // original finite proof allowance. Unknown proof totals refuse a hard cap
+        // through the same execution owner before construction starts.
+        let source = &case.prepared.prepared;
+        let _class_owner = source
+            .coefficients
+            .is_none()
+            .then(|| service.reserve("math:qp-class-production", service.policy.workspace_bytes))
+            .transpose()?;
+        let classified = if source.coefficients.is_none() {
+            let product = execution.counted(
+                WorkEvidence {
+                    evaluations: Some(0),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: None,
+                },
+                || Ok(source.prepare_class(&case.values, &execution.cancel)),
+            )??;
+            if product.retained_bytes() > service.policy.workspace_bytes {
+                return Err(MathRuntimeError::Limit("QP class production workspace"));
+            }
+            Some(product)
+        } else {
+            None
+        };
+        let projection = classified.as_ref().unwrap_or(source);
+        let coefficients = projection.coefficients.as_ref().ok_or_else(|| {
+            ProblemError::Contract(
+                "QP prediction requires the compiler's exact quadratic coefficient projection"
+                    .into(),
+            )
+        })?;
+        if !coefficients.matches_values(&case.values) {
+            return Err(ProblemError::Contract(
+                "QP coefficient projection has different fixed or parameter values".into(),
+            )
+            .into());
+        }
+        let plan = &case.prepared.prepared.plan;
+        let entries = plan
+            .columns()
+            .len()
+            .checked_add(plan.structure().rows().len())
+            .ok_or(MathRuntimeError::Limit("QP coefficient coordinate extent"))?;
+        let bytes = coefficients
+            .retained_bytes()
+            .checked_add(
+                entries
+                    .checked_mul(
+                        size_of::<Variable>()
+                            + size_of::<pse_ids::SemanticId>()
+                            + 3 * size_of::<f64>(),
+                    )
+                    .ok_or(MathRuntimeError::Limit("QP coefficient coordinate bytes"))?,
+            )
+            .ok_or(MathRuntimeError::Limit("QP coefficient projection bytes"))?;
+        let owner = service.reserve("math:qp-coefficient-source", bytes)?;
+        let problem = native::CoefficientProblem::from_plan(plan, coefficients.as_ref().clone())?;
+        let certificate: Option<&dyn QuadraticEvidence> = classified
+            .as_ref()
+            .and_then(|product| product.facts.convexity.convex_quadratic())
+            .map(|certificate| -> &dyn QuadraticEvidence { certificate.as_ref() })
+            .or(case.certificate.as_deref());
+        execution.counted(
+            WorkEvidence {
+                evaluations: Some(0),
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: None,
+            },
+            || problem.validate_convex(certificate),
+        )?;
+        if !problem.objectives.is_empty()
+            || problem.domains.iter().any(|domain| {
+                *domain != pse_model::generated::enums::ModelingVariableDomain::Continuous
+            })
+        {
+            return Err(ProblemError::Contract(
+                "QP prediction requires one continuous convex objective".into(),
+            )
+            .into());
+        }
+        Ok((problem, owner))
+    }
+}
+
 /// One heterogeneous rung of the single declared strategy.
 #[derive(Clone, Debug)]
 pub enum PreparedRung {
@@ -240,6 +347,16 @@ impl PreparedRung {
             }
         }
     }
+    /// Owner-issued prerequisites and finite production permissions for this rung.
+    /// Native/source preparation is capability admission, never a future certificate.
+    pub fn operation_contract(
+        &self,
+    ) -> Result<pse_model::strategy::OperationContract, ProblemError> {
+        match self {
+            Self::Derived(prepared) => prepared.operation_contract(),
+            _ => Ok(pse_model::strategy::OperationContract::default()),
+        }
+    }
     /// Original caller task scope, when retained by an auxiliary preparation.
     pub fn task_scope(&self) -> Option<ExecutionScope> {
         match self {
@@ -438,8 +555,6 @@ struct ReducedPreparation {
 struct ReducedSupplierPreparation {
     contract: Arc<math::ReconstructionContract>,
     binding: SelectedResidualBinding,
-    columns: Vec<GlobalCol>,
-    rows: Vec<GlobalRow>,
     normalization: Normalization,
 }
 /// Actual immutable source/family/layout admission. No native session is built here.
@@ -534,6 +649,116 @@ impl PreparedDerived {
             result.insert(r.contract.support().source);
         }
         result
+    }
+    fn product_source(&self) -> Result<pse_model::strategy::SemanticProductKey, ProblemError> {
+        Ok(pse_model::strategy::SemanticProductKey {
+            structure: self.original.preparation_identity()?,
+            binding: self.original_identity,
+            numerical_policy: Some(self.original.numerics.policy.key()),
+            normalization: Some(self.physical.normalization()),
+            point: None,
+            parameters: None,
+            derivation: Some(self.family.key()),
+            branch: None,
+            accuracy: None,
+        })
+    }
+    fn operation_contract(&self) -> Result<pse_model::strategy::OperationContract, ProblemError> {
+        let DerivedRequest::Reduced { accuracy, .. } = &self.request else {
+            return Ok(pse_model::strategy::OperationContract::default());
+        };
+        accuracy.validate()?;
+        let source = self.product_source()?;
+        let point = pse_model::strategy::ProductionDemand {
+            source,
+            derivative_order: 0,
+            branch: self.original.profile.composition.branch,
+            allowance: accuracy.point,
+            class: accuracy.class,
+        };
+        point
+            .validate()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        let mut outputs = vec![point.clone()];
+        if !self.complete_reconstruction() {
+            outputs.push(pse_model::strategy::ProductionDemand {
+                derivative_order: 1,
+                allowance: accuracy.action,
+                ..point
+            });
+        }
+        Ok(pse_model::strategy::OperationContract {
+            inputs: Vec::new(),
+            outputs,
+        })
+    }
+    /// Publish only evidence actually returned by the applied reconstruction worker.
+    /// Point/order/class/dependencies remain independently checkable by each consumer.
+    pub(crate) fn produced_evidence(
+        &self,
+        attempt: &DerivedAttempt,
+        branch: pse_model::strategy::BranchPolicy,
+    ) -> Result<Vec<pse_model::strategy::ProductEvidence>, ProblemError> {
+        branch
+            .validate()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        if branch != self.original.profile.composition.branch {
+            return Err(ProblemError::Contract(
+                "derived product branch differs from original request".into(),
+            ));
+        }
+        let declared = self.operation_contract()?;
+        let source = self.product_source()?;
+        let mut products = Vec::new();
+        if let Some(proposal) = &attempt.proposal {
+            if proposal.original != self.original_identity || proposal.family != self.family.key() {
+                return Err(ProblemError::Contract(
+                    "derived product source correspondence".into(),
+                ));
+            }
+            if let Some(accuracy) = proposal.reconstruction_accuracy {
+                let point = self
+                    .original
+                    .semantic_point_key(&proposal.coordinates)?
+                    .point
+                    .ok_or_else(|| {
+                        ProblemError::Internal(
+                            "original point owner omitted reconstruction point identity".into(),
+                        )
+                    })?;
+                products.push(pse_model::strategy::ProductEvidence {
+                    source: pse_model::strategy::SemanticProductKey {
+                        point: Some(point),
+                        accuracy: Some(accuracy.product),
+                        ..source
+                    },
+                    derivative_order: 0,
+                    branch,
+                    accuracy,
+                });
+            }
+        }
+        if let Some((point, accuracy)) = attempt.applied_action {
+            products.push(pse_model::strategy::ProductEvidence {
+                source: pse_model::strategy::SemanticProductKey {
+                    point: Some(point),
+                    accuracy: Some(accuracy.product),
+                    ..source
+                },
+                derivative_order: 1,
+                branch,
+                accuracy,
+            });
+        }
+        if products
+            .iter()
+            .any(|product| !declared.outputs.iter().any(|demand| demand.admits(product)))
+        {
+            return Err(ProblemError::Contract(
+                "applied reconstruction product violates producer output allowance".into(),
+            ));
+        }
+        Ok(products)
     }
     /// Admission of the explicit auxiliary native operation.
     pub fn route_decision(&self) -> &routing::Decision {
@@ -811,6 +1036,8 @@ pub struct DerivedAttempt {
     /// Typed original-screen failure, preserving its full source cause.
     pub screening_failure: Option<Arc<ProblemError>>,
     pub(crate) refinement_product: Option<pse_ids::ContentHash>,
+    /// Shared original-coordinate point key and the exact directional action receipt.
+    pub(super) applied_action: Option<(pse_ids::ContentHash, AccuracyEvidence)>,
 }
 impl DerivedAttempt {
     /// Observed native work, retaining unavailable totals as unknown.
@@ -1044,6 +1271,27 @@ impl MathService {
             .into());
         }
         let columns = source.prepared.prepared.plan.columns();
+        let fixed: BTreeSet<_> = source
+            .prepared
+            .prepared
+            .plan
+            .structure()
+            .parameters()
+            .iter()
+            .map(|p| p.id)
+            .chain(
+                source
+                    .prepared
+                    .prepared
+                    .plan
+                    .structure()
+                    .variables()
+                    .iter()
+                    .filter(|v| v.fixed)
+                    .map(|v| v.port.id),
+            )
+            .filter(|id| source.values.scalars.get(id).is_some_and(|v| v.is_finite()))
+            .collect();
         let row_ids: BTreeSet<_> = source
             .prepared
             .prepared
@@ -1064,8 +1312,12 @@ impl MathService {
                 .spec()
                 .inputs
                 .iter()
-                .chain(&factory.spec().outputs)
-                .any(|p| !columns.contains(&p.id))
+                .any(|p| !columns.contains(&p.id) && !fixed.contains(&p.id))
+                || factory
+                    .spec()
+                    .outputs
+                    .iter()
+                    .any(|p| !columns.contains(&p.id))
                 || residuals.is_empty()
                 || residuals
                     .iter()
@@ -1102,10 +1354,34 @@ impl MathService {
             if !compatible {
                 continue;
             }
+            let unknowns = factory
+                .spec()
+                .outputs
+                .iter()
+                .map(|port| {
+                    let variable = source
+                        .prepared
+                        .prepared
+                        .plan
+                        .structure()
+                        .variables()
+                        .iter()
+                        .find(|v| v.port.id == port.id)
+                        .ok_or_else(|| {
+                            ProblemError::Contract("original supplier output bounds absent".into())
+                        })?;
+                    Ok(pse_math::implicit::Unknown {
+                        id: port.id,
+                        lower: variable.lower.unwrap_or(f64::NEG_INFINITY),
+                        upper: variable.upper.unwrap_or(f64::INFINITY),
+                    })
+                })
+                .collect::<Result<Vec<_>, ProblemError>>()?;
+            let factory = factory.bind_original_bounds(unknowns)?;
             let owner =
-                self.reserve("math:automatic-admitted-supplier", factory_bytes(factory)?)?;
+                self.reserve("math:automatic-admitted-supplier", factory_bytes(&factory)?)?;
             pending.push(ReducedSupplier {
-                factory: Arc::new(factory.clone()),
+                factory: Arc::new(factory),
                 factory_owner: owner,
                 validity: original.preparation_identity()?,
             });
@@ -1123,7 +1399,11 @@ impl MathService {
             .filter(|(_, id)| !outputs.contains(id))
             .map(|(i, _)| GlobalCol::new(i))
             .collect();
-        let mut available: BTreeSet<_> = retained.iter().map(|c| columns[c.get()]).collect();
+        let mut available: BTreeSet<_> = retained
+            .iter()
+            .map(|c| columns[c.get()])
+            .chain(fixed)
+            .collect();
         let mut suppliers = Vec::new();
         while !pending.is_empty() {
             let Some(index) = pending.iter().position(|s| {
@@ -1285,7 +1565,7 @@ impl MathService {
                 DerivedRequest::ShiftedPseudoTime {anchor,step,sign,pairing,mass}=>{if anchor.len()!=physical.coordinates().len()||anchor.iter().zip(physical.coordinates()).any(|(v,c)|!v.is_finite()||*v<c.lower||*v>c.upper)||!step.is_finite()||*step<=0.0||mass.matrix().nrows()!=physical.coordinates().len()||mass.matrix().ncols()!=physical.coordinates().len()||mass.matrix().val().iter().any(|v|!v.is_finite()) {return Err(ProblemError::Contract("shifted pseudo-time actual anchor/step/mass domain".into()).into());}PreparedFamily::General(Arc::new(DerivedFamily::shifted_pseudo_time(zero_contract(&physical)?,pairing.clone(),*sign,MassStructure::Frozen{incidence:mass_edges(mass)})?))},
                 DerivedRequest::Reduced {suppliers,retained,accuracy}=>{
                     accuracy.refinement.validate()?;if !accuracy.point.is_finite()||accuracy.point<=0.0||!accuracy.action.is_finite()||accuracy.action<=0.0 {return Err(ProblemError::Contract("explicit reconstruction consumer accuracy allowances".into()).into());}
-                    let prepared = suppliers.iter().map(|supplier| prepare_reduced_supplier(supplier, &physical, &original.normalization, worker_scope.cancellation())).collect::<Result<Vec<_>, MathRuntimeError>>()?;
+                    let prepared = suppliers.iter().map(|supplier| prepare_reduced_supplier(supplier, &physical, &original.normalization, &source.values, worker_scope.cancellation())).collect::<Result<Vec<_>, MathRuntimeError>>()?;
                     let contracts = prepared.iter().map(|p| p.contract.clone()).collect::<Vec<_>>();
                     let contract = CompositeReconstruction::<SelectedImplicitReconstruction<ProblemError>>::prepare_contract_normalized(physical.clone(), retained.clone(), &contracts, &original.normalization, &prepared.iter().map(|p| p.normalization.clone()).collect::<Vec<_>>())?;
                     let family=DerivedFamily::reduced_space(physical.clone(),contract.clone())?;reduced=Some(ReducedPreparation {contract,suppliers:prepared});PreparedFamily::General(Arc::new(family))
@@ -1415,6 +1695,7 @@ fn prepare_reduced_supplier(
     supplier: &ReducedSupplier,
     original: &Arc<OriginalContract>,
     normalization: &Normalization,
+    values: &CaseValues,
     cancel: &Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<ReducedSupplierPreparation, MathRuntimeError> {
     if supplier.factory_owner.size() < factory_bytes(&supplier.factory)? {
@@ -1423,22 +1704,52 @@ fn prepare_reduced_supplier(
         ));
     }
     let factory = supplier.factory.as_ref();
-    let columns: Vec<_> = factory
+    let ports: Vec<_> = factory
         .spec()
         .inputs
         .iter()
         .chain(&factory.spec().outputs)
+        .collect();
+    let columns: Vec<_> = ports
+        .iter()
         .map(|p| {
             original
                 .coordinates()
                 .iter()
                 .position(|c| c.id == p.id)
                 .map(GlobalCol::new)
-                .ok_or_else(|| {
-                    ProblemError::Contract("supplier coordinate absent from original".into())
-                })
         })
-        .collect::<Result<_, _>>()?;
+        .collect();
+    let coordinates = ports
+        .iter()
+        .zip(&columns)
+        .enumerate()
+        .map(|(index, (port, col))| {
+            if let Some(col) = col {
+                return Ok(original.coordinates()[col.get()].clone());
+            }
+            if index >= factory.spec().inputs.len() {
+                return Err(ProblemError::Contract(
+                    "supplier output absent from original".into(),
+                ));
+            }
+            let value = values
+                .scalars
+                .get(&port.id)
+                .filter(|v| v.is_finite())
+                .copied()
+                .ok_or_else(|| {
+                    ProblemError::Contract(
+                        "supplier fixed input absent from original binding".into(),
+                    )
+                })?;
+            Ok(math::Coordinate {
+                id: port.id,
+                lower: value,
+                upper: value,
+            })
+        })
+        .collect::<Result<Vec<_>, ProblemError>>()?;
     let residuals = factory.residuals();
     let branch = residuals
         .first()
@@ -1461,7 +1772,7 @@ fn prepare_reduced_supplier(
         .filter_map(|edge| {
             Some(Entry::new(
                 GlobalRow::new(rows.iter().position(|r| *r == edge.row)?),
-                GlobalCol::new(columns.iter().position(|c| *c == edge.col)?),
+                GlobalCol::new(columns.iter().position(|c| *c == Some(edge.col))?),
             ))
         })
         .collect();
@@ -1472,7 +1783,7 @@ fn prepare_reduced_supplier(
     let normalization = Normalization {
         variables: columns
             .iter()
-            .map(|c| normalization.variables[c.get()])
+            .map(|c| c.map_or(1.0, |c| normalization.variables[c.get()]))
             .collect(),
         rows: rows.iter().map(|r| normalization.rows[r.get()]).collect(),
         objective: normalization.objective,
@@ -1480,10 +1791,7 @@ fn prepare_reduced_supplier(
     let local = Arc::new(OriginalContract::new(
         h.finish_hash(),
         normalization.key(),
-        columns
-            .iter()
-            .map(|c| original.coordinates()[c.get()].clone())
-            .collect(),
+        coordinates,
         rows.iter()
             .map(|r| original.constraints()[r.get()].clone())
             .collect(),
@@ -1513,8 +1821,6 @@ fn prepare_reduced_supplier(
     Ok(ReducedSupplierPreparation {
         contract,
         binding,
-        columns,
-        rows,
         normalization,
     })
 }
@@ -2095,6 +2401,7 @@ impl MathService {
                 proposal: Some(proposal),
                 screening_failure: None,
                 refinement_product: None,
+                applied_action: None,
             });
         }
         let mut selected: Option<Rc<RefCell<ConcreteReduced>>> = None;
@@ -2245,19 +2552,7 @@ impl MathService {
                         .iter()
                         .zip(&prepared.suppliers)
                         .map(|(supplier, prepared)| {
-                            let normalization = Normalization {
-                                variables: prepared
-                                    .columns
-                                    .iter()
-                                    .map(|c| p.original.normalization.variables[c.get()])
-                                    .collect(),
-                                rows: prepared
-                                    .rows
-                                    .iter()
-                                    .map(|r| p.original.normalization.rows[r.get()])
-                                    .collect(),
-                                objective: p.original.normalization.objective,
-                            };
+                            let normalization = prepared.normalization.clone();
                             SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
                                 supplier.factory.as_ref(),
                                 prepared.contract.clone(),
@@ -2433,7 +2728,14 @@ impl MathService {
             .or_else(|| report.callback_failure());
         let refinement_product =
             recorded.and_then(|cause| issued_refinement(p, cause, selected.as_ref()));
+        let applied_action = selected.as_ref().and_then(|actual| {
+            actual
+                .try_borrow()
+                .ok()
+                .and_then(|oracle| oracle.applied_action().cloned())
+        });
         Ok(DerivedAttempt {
+            applied_action,
             outcome: Outcome::Native(Box::new(report)),
             proposal,
             screening_failure,

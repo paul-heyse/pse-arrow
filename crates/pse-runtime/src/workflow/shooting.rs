@@ -735,6 +735,7 @@ impl ShootingProblem {
                 native::routing::Route::Native(backend) => Some(backend),
                 native::routing::Route::Constant => None,
             },
+            solver: Some(solver),
             controls: &solver.controls,
             request: &solver.composition,
             start: if initial.is_some() {
@@ -1216,50 +1217,52 @@ impl ShootingProblem {
             native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
             native::routing::Route::Constant => vec![],
         };
-        native::execution::scoped(
-            &adapters,
-            solver.controls.threads,
-            self.runtime.native().stack_bytes(),
-            || {
-                let (mut report, trace) = crate::math::strategy::target::callable(
-                    self.runtime.shared.math(),
-                    self.callable_source(solver, initial)?,
-                    &scope,
-                    |admission| {
+        let (mut report, trace) = crate::math::strategy::target::callable(
+            self.runtime.shared.math(),
+            self.callable_source(solver, initial)?,
+            &scope,
+            |profile, admission| {
+                let profile = profile.unwrap_or(solver);
+                native::execution::scoped(
+                    &adapters,
+                    profile.controls.threads,
+                    self.runtime.native().stack_bytes(),
+                    || {
                         self.solve_inner(
                             run_id,
                             scope.clone(),
-                            progress,
+                            progress.clone(),
                             initial,
-                            solver,
+                            profile,
                             admission,
                         )
                     },
-                    |report| {
-                        report.solve.as_ref().map_or(
-                            pse_model::generated::enums::NumericalAttemptObservation::Converged,
-                            crate::math::strategy::observe_native,
-                        )
-                    },
-                    |report, observed| {
-                        crate::math::strategy::target::original_assessment(
-                            report.completion.decision.clone(),
-                            report
-                                .validation_error
-                                .as_ref()
-                                .map(crate::math::strategy::target::assessment_failure),
-                            report
-                                .solve
-                                .as_ref()
-                                .and_then(crate::math::strategy::cause_native),
-                            observed,
-                        )
-                    },
-                )?;
-                report.strategy = Some(trace);
-                Ok(report)
+                )
             },
-        )
+            |report| report.solve.as_ref(),
+            |report| {
+                report.solve.as_ref().map_or(
+                    pse_model::generated::enums::NumericalAttemptObservation::Converged,
+                    crate::math::strategy::observe_native,
+                )
+            },
+            |report, observed| {
+                crate::math::strategy::target::original_assessment(
+                    report.completion.decision.clone(),
+                    report
+                        .validation_error
+                        .as_ref()
+                        .map(crate::math::strategy::target::assessment_failure),
+                    report
+                        .solve
+                        .as_ref()
+                        .and_then(crate::math::strategy::cause_native),
+                    observed,
+                )
+            },
+        )?;
+        report.strategy = Some(trace);
+        Ok(report)
     }
     fn solve_inner(
         self: &Arc<Self>,

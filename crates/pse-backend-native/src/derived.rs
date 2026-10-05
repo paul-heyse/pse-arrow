@@ -310,6 +310,7 @@ pub struct ReducedOracle<O, R> {
     accuracy: ReconstructionAccuracy,
     last_point: Option<ContentHash>,
     last_action: Option<ContentHash>,
+    applied_action: Option<(ContentHash, pse_model::strategy::AccuracyEvidence)>,
 }
 impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = ProblemError>>
     ReducedOracle<O, R>
@@ -400,6 +401,7 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
             accuracy,
             last_point: None,
             last_action: None,
+            applied_action: None,
         })
     }
     /// Additional facade allocations; bound suppliers and their existing leases remain
@@ -415,6 +417,11 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
     /// Whether this worker actually issued the point/action demand most recently consumed.
     pub fn accepts_refinement_product(&self, product: ContentHash) -> bool {
         self.last_point == Some(product) || self.last_action == Some(product)
+    }
+    /// Last actual successful reconstruction action at the full original point it
+    /// consumed. The accuracy product additionally binds the exact reduced direction.
+    pub fn applied_action(&self) -> Option<&(ContentHash, pse_model::strategy::AccuracyEvidence)> {
+        self.applied_action.as_ref()
     }
     /// Native-to-original correspondence, including original reconstructed bounds.
     pub fn row_map(&self) -> &[ReducedRow] {
@@ -447,11 +454,10 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
         let point = self.point_demand(x)?;
-        let action = self
-            .accuracy
-            .demand(self.bound.action_product(x, direction)?, true)?;
+        let product = self.bound.action_product(x, direction)?;
+        let action = self.accuracy.demand(product, true)?;
         self.last_action = Some(action.product);
-        let (rows, reconstruction, _) = self.bound.original_composition_product(
+        let (rows, reconstruction, consumed) = self.bound.original_composition_product(
             x,
             direction,
             &point,
@@ -472,6 +478,10 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
             })
             .collect::<Vec<_>>();
         finite(&result)?;
+        self.applied_action = Some((
+            crate::square_response::point_key(&consumed.original_point),
+            reconstruction.accuracy,
+        ));
         out.copy_from_slice(&result);
         Ok(())
     }
@@ -542,6 +552,7 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
         }
         let mut result = vec![0.0; n];
         let mut direction = vec![0.0; n];
+        let mut applied_action = None;
         if self
             .bound
             .family()
@@ -552,24 +563,30 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
         {
             for (column, value) in result.iter_mut().enumerate() {
                 direction[column] = 1.0;
-                let action = self
-                    .accuracy
-                    .demand(self.bound.action_product(x, &direction)?, true)?;
+                let product = self.bound.action_product(x, &direction)?;
+                let action = self.accuracy.demand(product, true)?;
                 self.last_action = Some(action.product);
-                *value = self
-                    .bound
-                    .original_objective_product(
-                        x,
-                        &direction,
-                        &point,
-                        &action,
-                        self.accuracy.refinement,
-                    )?
-                    .0;
+                let (actual, consumed) = self.bound.original_objective_product(
+                    x,
+                    &direction,
+                    &point,
+                    &action,
+                    self.accuracy.refinement,
+                )?;
+                *value = actual;
+                if let Some(evidence) = consumed.action {
+                    applied_action = Some((
+                        crate::square_response::point_key(&consumed.original_point),
+                        evidence,
+                    ));
+                }
                 direction[column] = 0.0;
             }
         }
         finite(&result)?;
+        if applied_action.is_some() {
+            self.applied_action = applied_action;
+        }
         out.copy_from_slice(&result);
         Ok(())
     }
