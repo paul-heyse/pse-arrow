@@ -732,6 +732,7 @@ impl ModelingPackage {
             mut providers,
             numerical,
             solver,
+            numerics,
             parametric,
             ..
         } = resolution;
@@ -791,6 +792,14 @@ impl ModelingPackage {
         if let Some(program) = parametric {
             solve = solve.with_sensitivity(program)?;
         }
+        #[cfg(feature = "solver-kinsol")]
+        if let Some(supplier) = self
+            .automatic_causal_supplier(&model, &providers, &numerics, &solver, compiler, &solve)?
+        {
+            solve = solve.with_causal_supplier(supplier);
+        }
+        #[cfg(not(feature = "solver-kinsol"))]
+        let _ = numerics;
         Ok(ModelingSolvePreparation {
             source: self.clone(),
             compiler,

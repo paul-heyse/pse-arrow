@@ -52,23 +52,7 @@ pub fn second_opinion_profiles(
     let escalations = stats.map_or(0, |stats| {
         u64::try_from(stats.quality_escalations).unwrap_or(0)
     });
-    let already_adaptive = matches!(baseline.options.get("mu_strategy"),Some(OptionValue::Text(value)) if value=="adaptive");
-    let availability = SecondOpinionAvailability {
-        trigger,
-        scaling_retry_enabled: true,
-        mu_retry_enabled: true,
-        perturbed_start_retry_enabled: allow_replacement,
-        already_mc64: matches!(
-            settings.linear.scaling,
-            feral::scaling::ScalingStrategy::Mc64Symmetric
-        ),
-        already_adaptive,
-        already_perturbed: matches!(baseline.options.get("start_point_perturbation"),Some(OptionValue::Real(value)) if *value>0.0),
-        increase_quality_retry_enabled: true,
-        already_no_increase_quality: !settings.linear.increase_quality,
-        baseline_quality_escalations: escalations,
-        baseline_scaling: Some("typed"),
-    };
+    let availability = availability(baseline, settings, trigger, escalations, allow_replacement);
     let mut profiles = Vec::new();
     for rung in second_opinion_rungs(availability) {
         let mut controls = baseline.clone();
@@ -105,4 +89,57 @@ pub fn second_opinion_profiles(
         });
     }
     Ok(profiles)
+}
+
+fn availability(
+    baseline: &Controls,
+    settings: &Settings,
+    trigger: SecondOpinionTrigger,
+    quality_escalations: u64,
+    allow_replacement: bool,
+) -> SecondOpinionAvailability {
+    let already_adaptive = matches!(baseline.options.get("mu_strategy"),Some(OptionValue::Text(value)) if value=="adaptive");
+    SecondOpinionAvailability {
+        trigger,
+        scaling_retry_enabled: true,
+        mu_retry_enabled: true,
+        perturbed_start_retry_enabled: allow_replacement,
+        already_mc64: matches!(
+            settings.linear.scaling,
+            feral::scaling::ScalingStrategy::Mc64Symmetric
+        ),
+        already_adaptive,
+        already_perturbed: matches!(baseline.options.get("start_point_perturbation"),Some(OptionValue::Real(value)) if *value>0.0),
+        increase_quality_retry_enabled: true,
+        already_no_increase_quality: !settings.linear.increase_quality,
+        baseline_quality_escalations: quality_escalations,
+        baseline_scaling: Some("typed"),
+    }
+}
+/// Finite catalog allowance, independent of future trajectory observations.
+/// This does not claim that a quality escalation occurred or prepare a native profile.
+pub fn second_opinion_capacity(
+    baseline: &Controls,
+    settings: &Settings,
+    allow_replacement: bool,
+) -> usize {
+    [
+        SecondOpinionTrigger::LocalInfeasibility,
+        SecondOpinionTrigger::InvalidNumber,
+        SecondOpinionTrigger::RestorationFailure,
+        SecondOpinionTrigger::IterationLimit,
+    ]
+    .into_iter()
+    .flat_map(|trigger| {
+        second_opinion_rungs(availability(
+            baseline,
+            settings,
+            trigger,
+            1,
+            allow_replacement,
+        ))
+    })
+    .map(|rung| rung.label)
+    .collect::<std::collections::BTreeSet<_>>()
+    .len()
 }

@@ -22,9 +22,7 @@ use pse_backend_native::{
     dynamics::DynamicSensitivity,
     solve::{Compatibility, Execution, HessianMode},
 };
-#[cfg(test)]
-use pse_ids::ContentHash;
-use pse_ids::{FramedHasher, SemanticId};
+use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, Port};
 use pse_math::{normalization::Normalization, numerics::TargetSpec};
 use pse_model::generated::{enums::NumericalTarget, identities::RunId};
@@ -698,6 +696,65 @@ impl ShootingProblem {
     pub fn contract(&self) -> &OracleContract {
         &self.contract
     }
+    /// Immutable requested composition, independently of the integration controller.
+    pub fn composition_request(&self) -> &pse_model::strategy::CompositionRequest {
+        &self.solver.composition
+    }
+    /// Actual native callable profile identity.
+    pub fn strategy_profile(&self) -> Result<ContentHash, ProblemError> {
+        crate::math::solves::profile_key(&self.solver).map(|key| key.as_id())
+    }
+    fn data_identity(&self) -> ContentHash {
+        let mut identity = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
+        for value in &self.experiment.parameters {
+            identity.u64(value.to_bits());
+        }
+        for value in &self.start {
+            identity.u64(value.to_bits());
+        }
+        identity.finish_hash()
+    }
+    fn target_identity(&self) -> ContentHash {
+        let mut identity = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        identity
+            .str("shooting-callable-target")
+            .hash(&self.contract.identity)
+            .hash(&self.data_identity());
+        identity.finish_hash()
+    }
+    fn callable_source<'a>(
+        &self,
+        solver: &'a SolverProfile,
+        initial: Option<&[f64]>,
+    ) -> Result<crate::math::strategy::target::Source<'a>, ProblemError> {
+        Ok(crate::math::strategy::target::Source {
+            original: self.target_identity(),
+            preparation: self.contract.identity,
+            profile: crate::math::solves::profile_key(solver)?.as_id(),
+            backend: match self.route {
+                native::routing::Route::Native(backend) => Some(backend),
+                native::routing::Route::Constant => None,
+            },
+            controls: &solver.controls,
+            request: &solver.composition,
+            start: if initial.is_some() {
+                pse_model::strategy::StartOrigin::Explicit
+            } else {
+                pse_model::strategy::StartOrigin::Specification
+            },
+            start_identity: initial.map(|point| {
+                crate::math::strategy::target::point_identity(self.target_identity(), point)
+            }),
+        })
+    }
+    /// Frozen callable declaration from the same source/profile binding as execution.
+    pub fn numerical_strategy(
+        &self,
+    ) -> Result<pse_model::strategy::NumericalStrategy, ProblemError> {
+        Ok(crate::math::strategy::target::declaration(
+            &self.callable_source(&self.solver, None)?,
+        ))
+    }
     /// The fixed start of the first window: the anchored (differential) states in
     /// normalized coordinates, in state order.
     pub fn initial_state(&self) -> &[f64] {
@@ -1155,7 +1212,6 @@ impl ShootingProblem {
         initial: Option<&[f64]>,
         solver: &SolverProfile,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
-        let operation_profile = crate::math::solves::profile_key(solver)?;
         let adapters: Vec<&dyn native::execution::BackendExecution> = match self.route {
             native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
             native::routing::Route::Constant => vec![],
@@ -1165,39 +1221,39 @@ impl ShootingProblem {
             solver.controls.threads,
             self.runtime.native().stack_bytes(),
             || {
-                let backend = match self.route {
-                    native::routing::Route::Native(backend) => Some(backend),
-                    native::routing::Route::Constant => None,
-                };
-                let (mut report, trace) = crate::math::opaque_strategy::direct(
+                let (mut report, trace) = crate::math::strategy::target::callable(
                     self.runtime.shared.math(),
-                    crate::math::opaque_strategy::Source {
-                        original: self.contract.identity,
-                        preparation: self.contract.identity,
-                        profile: operation_profile.as_id(),
-                        backend,
-                        controls: &solver.controls,
-                        start: if initial.is_some() {
-                            pse_model::strategy::StartOrigin::Explicit
-                        } else {
-                            pse_model::strategy::StartOrigin::Specification
-                        },
-                        start_identity: initial.map(|point| {
-                            crate::math::opaque_strategy::point_identity(
-                                self.contract.identity,
-                                point,
-                            )
-                        }),
-                    },
+                    self.callable_source(solver, initial)?,
                     &scope,
-                    || self.solve_inner(run_id, scope.clone(), progress, initial, solver),
-                    |report| report.solve.as_ref(),
-                    |report| report.completion.decision.clone(),
+                    |admission| {
+                        self.solve_inner(
+                            run_id,
+                            scope.clone(),
+                            progress,
+                            initial,
+                            solver,
+                            admission,
+                        )
+                    },
                     |report| {
-                        report
-                            .validation_error
-                            .as_ref()
-                            .map(crate::math::opaque_strategy::assessment_failure)
+                        report.solve.as_ref().map_or(
+                            pse_model::generated::enums::NumericalAttemptObservation::Converged,
+                            crate::math::strategy::observe_native,
+                        )
+                    },
+                    |report, observed| {
+                        crate::math::strategy::target::original_assessment(
+                            report.completion.decision.clone(),
+                            report
+                                .validation_error
+                                .as_ref()
+                                .map(crate::math::strategy::target::assessment_failure),
+                            report
+                                .solve
+                                .as_ref()
+                                .and_then(crate::math::strategy::cause_native),
+                            observed,
+                        )
                     },
                 )?;
                 report.strategy = Some(trace);
@@ -1212,11 +1268,13 @@ impl ShootingProblem {
         progress: Arc<native::solve::Progress>,
         initial: Option<&[f64]>,
         solver: &SolverProfile,
+        admission: Arc<crate::math::strategy::admission::TaskAdmission>,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
         let operation_profile = crate::math::solves::profile_key(solver)?;
         let mut execution =
             Execution::within(scope.cancellation().clone(), &solver.controls, scope)?;
         execution.progress = progress;
+        execution.work_admission = Some(admission);
         execution.memory = Some(
             self.runtime
                 .shared
@@ -1237,13 +1295,6 @@ impl ShootingProblem {
             let native::routing::Route::Native(backend) = self.route else {
                 return Err(ProblemError::unsupported("shooting NLP has no native route").into());
             };
-            let mut h = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
-            for v in &self.experiment.parameters {
-                h.u64(v.to_bits());
-            }
-            for v in &self.start {
-                h.u64(v.to_bits());
-            }
             let report = native::execution::nlp(
                 native::execution::Step {
                     adapter: native::execution::adapter(backend),
@@ -1258,7 +1309,7 @@ impl ShootingProblem {
                     compatibility: Compatibility {
                         layout: self.contract.identity,
                         profile: operation_profile.as_id(),
-                        data: h.finish_hash(),
+                        data: self.data_identity(),
                         backend,
                     },
                     warm: None,

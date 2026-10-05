@@ -17,7 +17,9 @@ use pse_model::{
 };
 use std::{collections::BTreeSet, sync::Arc};
 
+pub(crate) mod admission;
 pub(crate) mod path_control;
+pub(crate) mod target;
 
 /// Cheap owner-issued applicability facts beside one immutable operation binding.
 #[derive(Clone, Debug)]
@@ -29,16 +31,20 @@ pub(crate) struct AutoCandidate {
     pub(crate) replacement: bool,
     pub(crate) support: BTreeSet<ContentHash>,
     pub(crate) reservation: Option<WorkObservation>,
+    pub(crate) prepared: bool,
 }
 
 /// One pure next decision. Candidate bindings remain with the effect owner until selected.
 #[derive(Clone, Debug)]
 pub(crate) enum AutoDecision {
+    Prepare { candidate: usize },
     Dispatch { candidate: usize },
+    Assess,
     Finish,
     Stop { cause: Option<Arc<ProblemError>> },
 }
 pub(crate) struct AutoObservation {
+    pub(crate) awaiting_assessment: bool,
     pub(crate) native: Observation,
     pub(crate) original: Option<OriginalConclusion>,
     pub(crate) permission: Option<pse_model::generated::enums::CandidateUse>,
@@ -58,6 +64,9 @@ pub(crate) fn next_automatic(
         };
     }
     if let Some(last) = last {
+        if last.awaiting_assessment {
+            return AutoDecision::Assess;
+        }
         if last
             .original
             .as_ref()
@@ -86,7 +95,19 @@ pub(crate) fn next_automatic(
         }
     }
     let limits = request.limits.unwrap_or(WorkLimits {
-        attempts: 1,
+        attempts: candidates
+            .iter()
+            .try_fold(0u64, |sum, candidate| {
+                sum.checked_add(
+                    if candidate.kind == pse_model::strategy::MechanismKind::Direct {
+                        1
+                    } else {
+                        2
+                    },
+                )
+            })
+            .unwrap_or(u64::MAX)
+            .max(1),
         evaluations: None,
         iterations: None,
         factorizations: None,
@@ -110,7 +131,11 @@ pub(crate) fn next_automatic(
         } else if !start.permits_entry(candidate.start, inherited) {
             continue;
         }
-        return AutoDecision::Dispatch { candidate: index };
+        return if candidate.prepared {
+            AutoDecision::Dispatch { candidate: index }
+        } else {
+            AutoDecision::Prepare { candidate: index }
+        };
     }
     AutoDecision::Stop {
         cause: last
@@ -135,6 +160,7 @@ pub(crate) fn automatic_decision_key(
             .str(candidate.kind.as_str())
             .str(candidate.start.as_str())
             .bool(candidate.replacement);
+        h.bool(candidate.prepared);
         for key in &candidate.support {
             h.hash(key);
         }
@@ -144,11 +170,17 @@ pub(crate) fn automatic_decision_key(
         );
     }
     match decision {
+        AutoDecision::Prepare { candidate } => {
+            h.str("prepare").u64(*candidate as u64);
+        }
         AutoDecision::Dispatch { candidate } => {
             h.str("dispatch").u64(*candidate as u64);
         }
         AutoDecision::Finish => {
             h.str("finish");
+        }
+        AutoDecision::Assess => {
+            h.str("assess-original");
         }
         AutoDecision::Stop { cause } => {
             h.str("stop");
@@ -158,6 +190,7 @@ pub(crate) fn automatic_decision_key(
         }
     }
     if let Some(last) = last {
+        h.bool(last.awaiting_assessment);
         h.str(last.native.as_str());
         if let Some(original) = &last.original {
             h.str(match original {
@@ -275,6 +308,8 @@ pub(crate) struct Facts {
     /// Complete inclusive bound, supplied by the operation owner before dispatch.
     pub(crate) reservation: Option<WorkObservation>,
     pub(crate) start: StartOrigin,
+    /// Producer-established complete hooks for every requested hard counter.
+    pub(crate) work_admitted: bool,
     pub(crate) inherited: bool,
     pub(crate) connected: bool,
     /// Contextual incompatibility of this operation/profile, not a numerical failure.
@@ -485,6 +520,15 @@ impl Ledger {
     pub(crate) fn observation(&self) -> WorkObservation {
         self.total
     }
+    pub(crate) fn effective(&self) -> WorkObservation {
+        WorkObservation {
+            attempts: self.total.attempts,
+            evaluations: self.total.evaluations.or(self.reserved.evaluations),
+            iterations: self.total.iterations.or(self.reserved.iterations),
+            factorizations: self.total.factorizations.or(self.reserved.factorizations),
+            proof_steps: self.total.proof_steps.or(self.reserved.proof_steps),
+        }
+    }
     pub(crate) fn reserve_attempt(&self) -> Result<(), ProblemError> {
         if self.total.attempts >= self.limits.attempts {
             Err(limit("task execution allowance"))
@@ -516,7 +560,10 @@ impl Ledger {
         }
         let bound = bound.ok_or_else(|| ProblemError::Unsupported("strict work allowance requires a complete inclusive operation bound before dispatch".into()))?;
         check_limits(local, bound)?;
-        let sum = add_work(self.reserved, bound)?;
+        // Known completed work replaces its conservative reservation. Unknown
+        // completed work retains the full bound, including prior known work.
+        let prior = self.effective();
+        let sum = add_work(prior, bound)?;
         check_limits(self.limits, sum)?;
         self.reserved = sum;
         self.has_reservation = true;
@@ -961,6 +1008,7 @@ fn path_event_row(event:&pse_backend_native::kkt::path::arclength::Event)->Resul
 }
 /// Execute a finite declaration. Every native/scientific effect is injected; the same
 /// operation is used by production and scripted policy controls.
+#[cfg(test)]
 pub(crate) fn run<T>(
     strategy: &NumericalStrategy,
     scope: &pse_kernels::ExecutionScope,
@@ -968,7 +1016,25 @@ pub(crate) fn run<T>(
     execute: impl FnMut(usize, &Mechanism) -> Result<Attempt<T>, EffectFailure>,
     assess: impl FnMut(&T, Observation) -> Assessment,
 ) -> DriverResult<T> {
-    run_inner(strategy, scope, facts, execute, assess, true)
+    run_inner(strategy, scope, facts, execute, assess, true, None)
+}
+pub(crate) fn run_admitted<T>(
+    strategy: &NumericalStrategy,
+    scope: &pse_kernels::ExecutionScope,
+    admission: Arc<admission::TaskAdmission>,
+    facts: impl FnMut(usize) -> Facts,
+    execute: impl FnMut(usize, &Mechanism) -> Result<Attempt<T>, EffectFailure>,
+    assess: impl FnMut(&T, Observation) -> Assessment,
+) -> DriverResult<T> {
+    run_inner(
+        strategy,
+        scope,
+        facts,
+        execute,
+        assess,
+        true,
+        Some(admission),
+    )
 }
 /// Classify a direct member already dispatched by the admitted native batch owner.
 /// Post-native work, deadline checks and original permission use the same driver.
@@ -996,7 +1062,7 @@ pub(crate) fn run_observed<T>(
             },
         };
     }
-    run_inner(strategy, scope, facts, execute, assess, false)
+    run_inner(strategy, scope, facts, execute, assess, false, None)
 }
 fn run_inner<T>(
     strategy: &NumericalStrategy,
@@ -1005,6 +1071,7 @@ fn run_inner<T>(
     mut execute: impl FnMut(usize, &Mechanism) -> Result<Attempt<T>, EffectFailure>,
     mut assess: impl FnMut(&T, Observation) -> Assessment,
     check_before_dispatch: bool,
+    shared_admission: Option<Arc<admission::TaskAdmission>>,
 ) -> DriverResult<T> {
     let mut result = DriverResult {
         value: None,
@@ -1019,7 +1086,9 @@ fn run_inner<T>(
             proof_steps: None,
         },
     };
-    let mut ledger = Ledger::new(strategy.limits);
+    let ledger = shared_admission.unwrap_or_else(|| {
+        admission::TaskAdmission::new(strategy.limits, scope.clone(), None, false)
+    });
     let strategy_identity = match strategy.key() {
         Ok(key) => key,
         Err(cause) => {
@@ -1073,7 +1142,11 @@ fn run_inner<T>(
         }
         let actual_facts = facts(index);
         let admission = match admit(strategy, index, !dispatched, &actual_facts) {
-            Admission::Ready => match ledger.reserve(mechanism.limits, actual_facts.reservation) {
+            Admission::Ready => match ledger.reserve(
+                mechanism.limits,
+                actual_facts.reservation,
+                actual_facts.work_admitted,
+            ) {
                 Ok(()) => Admission::Ready,
                 Err(cause) if mechanism.required => Admission::RequiredRefusal(Arc::new(cause)),
                 Err(cause) => Admission::OptionalRefusal(Arc::new(cause)),
@@ -1119,7 +1192,7 @@ fn run_inner<T>(
             work: None,
             cause: None,
         });
-        let attempt = match execute(index, mechanism) {
+        let mut attempt = match execute(index, mechanism) {
             Ok(attempt) => attempt,
             Err(failed) => {
                 let mut identity = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
@@ -1127,7 +1200,7 @@ fn run_inner<T>(
                     .hash(&strategy_identity)
                     .u64(index as u64)
                     .str("failed-dispatched-effect");
-                let work = WorkCharge {
+                let mut work = WorkCharge {
                     phase,
                     scope: if failed.local_expiry.is_some() || failed.local_refinement {
                         pse_model::strategy::Scope::Mechanism
@@ -1137,7 +1210,13 @@ fn run_inner<T>(
                     charging_owner: identity.finish_hash(),
                     observed: failed.observed,
                 };
-                let accounting = ledger.charge(work);
+                let accounting = match ledger.complete_charge(work) {
+                    Ok(emitted) => {
+                        work = emitted;
+                        Ok(())
+                    }
+                    Err(error) => Err(error),
+                };
                 let enclosing = scope
                     .check()
                     .map_err(ProblemError::Provider)
@@ -1191,7 +1270,13 @@ fn run_inner<T>(
                 break;
             }
         };
-        let accounting = ledger.charge(attempt.work);
+        let accounting = match ledger.complete_charge(attempt.work) {
+            Ok(work) => {
+                attempt.work = work;
+                Ok(())
+            }
+            Err(error) => Err(error),
+        };
         // The enclosing clock is checked after indivisible work and before assessment/use.
         if let Err(cause) = scope
             .check()
@@ -1251,28 +1336,77 @@ fn run_inner<T>(
             }
             continue;
         }
-        let assessment = assess(&attempt.value, attempt.observation);
-        let assessment_accounting = assessment.work.iter().try_for_each(|charge| {
-            let accounting = ledger.charge(*charge);
+        let pending = AutoObservation {
+            awaiting_assessment: true,
+            native: attempt.observation,
+            original: None,
+            permission: None,
+        };
+        let request = pse_model::strategy::CompositionRequest {
+            policy: pse_model::strategy::CompositionPolicy::Declared,
+            branch: strategy.branch,
+            limits: Some(strategy.limits),
+            recovery: strategy.start.recovery.clone(),
+        };
+        let work = match ledger.observation() {
+            Ok(work) => work,
+            Err(cause) => {
+                result.terminal = Some(Arc::new(cause));
+                break;
+            }
+        };
+        let decision = next_automatic(
+            &request,
+            &strategy.start,
+            &[],
+            &BTreeSet::new(),
+            Some(&pending),
+            work,
+            actual_facts.inherited,
+        );
+        if !matches!(decision, AutoDecision::Assess) {
+            result.terminal = Some(Arc::new(ProblemError::Internal(
+                "original assessment was not selected".into(),
+            )));
+            break;
+        }
+        let assessment_decision =
+            match automatic_decision_key(&request, &[], &decision, Some(&pending), work) {
+                Ok(key) => {
+                    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV1);
+                    h.hash(&attempt.work.charging_owner).hash(&key);
+                    Some(h.finish_hash())
+                }
+                Err(cause) => {
+                    result.terminal = Some(Arc::new(cause));
+                    break;
+                }
+            };
+        let mut assessment = assess(&attempt.value, attempt.observation);
+        let assessment_accounting = assessment.work.iter_mut().try_for_each(|charge| {
+            let accounting = match ledger.complete_charge(*charge) {
+                Ok(emitted) => {
+                    *charge = emitted;
+                    Ok(())
+                }
+                Err(error) => Err(Arc::new(error)),
+            };
             result.events.push(Event {
                 mechanism: index,
                 kind: EventKind::Finished,
                 phase: charge.phase,
                 original: None,
-                decision: None,
+                decision: assessment_decision,
                 observation: None,
                 transition: None,
                 permission: None,
                 work: Some(*charge),
-                cause: accounting
-                    .as_ref()
-                    .err()
-                    .map(|cause| Arc::new(ProblemError::Internal(cause.to_string()))),
+                cause: accounting.as_ref().err().cloned(),
             });
             accounting
         });
         if let Err(cause) = assessment_accounting {
-            result.terminal = Some(Arc::new(cause));
+            result.terminal = Some(cause);
             break;
         }
         if let Err(cause) = scope.check() {
@@ -1298,7 +1432,7 @@ fn run_inner<T>(
             kind: EventKind::Finished,
             phase: Phase::Assessment,
             original: Some(assessment.original.clone()),
-            decision: None,
+            decision: assessment_decision,
             observation: Some(assessment.observation),
             transition: Some(next),
             permission: Some(assessment.retention.candidate.usability),
@@ -1314,7 +1448,10 @@ fn run_inner<T>(
             break;
         }
     }
-    result.work = ledger.observation();
+    match ledger.observation() {
+        Ok(work) => result.work = work,
+        Err(error) => result.terminal = Some(Arc::new(error)),
+    }
     result
 }
 
@@ -1346,6 +1483,11 @@ pub(crate) fn observe_native(report: &pse_backend_native::solve::SolveReport) ->
     use pse_backend_native::solve::Termination as T;
     if let Some(abandoned) = report.evidence.abandoned {
         return abandoned;
+    }
+    // A contained native unwind is terminal even when the triggering callback
+    // carries a numerical domain refusal. Keep that source cause independently.
+    if report.termination.category == T::Panic {
+        return Observation::Panic;
     }
     if report.evidence.callback.terminal_failure {
         if let Some(cause) = report.callback_failure() {

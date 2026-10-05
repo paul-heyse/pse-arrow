@@ -48,8 +48,8 @@ assesses the committed 25m implementation and the requested automatic-compositio
 Its corrections are organized in
 [25n: Automatic simulation and solve pipeline](25n-automatic-simulation-solve-pipeline.md),
 which owns AF-01–AF-08 and the confirmed automatic-composition default for `Auto`.
-25n implementation is paused for a maintainer-directed review after current-task integration,
-focused compile/test repair and stale-worktree cleanup; its [checkpoint](25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
+The maintainer resumed 25n implementation on 2026-10-04 and waived the preliminary review;
+its [checkpoint](25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
 owns implemented slices and remaining scope.
 Full qualification resumes through 25k after the functional handoff.
 The series reserves full integration and qualification for 25k after all functional

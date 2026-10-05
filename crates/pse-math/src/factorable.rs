@@ -606,6 +606,96 @@ pub struct RootIsolationProgram {
     pub derivative_obligations: Vec<(DerivativeOrder, ProjectedObligation)>,
 }
 impl RootIsolationProgram {
+    /// Exact source identity, including guards and derivative obligations.
+    pub fn identity(&self) -> ContentHash {
+        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        h.str("exact-root-isolation-program")
+            .u64(self.inputs as u64)
+            .u64(self.nodes.len() as u64);
+        for node in &self.nodes {
+            match node {
+                Node::Var(i) => {
+                    h.str("var").u64(*i as u64);
+                }
+                Node::Aux(i) => {
+                    h.str("aux").u64(*i as u64);
+                }
+                Node::Const(v) => {
+                    h.str("constant");
+                    v.frame(&mut h);
+                }
+                Node::Sum(v) | Node::Product(v) => {
+                    h.str(if matches!(node, Node::Sum(_)) {
+                        "sum"
+                    } else {
+                        "product"
+                    })
+                    .u64(v.len() as u64);
+                    for i in v {
+                        h.u64(*i as u64);
+                    }
+                }
+                Node::Pow { base, exponent } => {
+                    h.str("power").u64(*base as u64);
+                    exponent.frame(&mut h);
+                }
+                Node::Exp(i) | Node::Log(i) | Node::Abs(i) | Node::Sin(i) | Node::Cos(i) => {
+                    h.str(match node {
+                        Node::Exp(_) => "exp",
+                        Node::Log(_) => "log",
+                        Node::Abs(_) => "abs",
+                        Node::Sin(_) => "sin",
+                        _ => "cos",
+                    })
+                    .u64(*i as u64);
+                }
+            }
+        }
+        h.u64(self.residuals.len() as u64);
+        for i in &self.residuals {
+            h.u64(*i as u64);
+        }
+        for i in self.criterion {
+            h.u64(i as u64);
+        }
+        fn constraints(v: &[Constraint], h: &mut FramedHasher) {
+            h.u64(v.len() as u64);
+            for c in v {
+                h.u64(c.expression as u64)
+                    .f64(c.lower)
+                    .f64(c.upper)
+                    .bool(c.strict);
+            }
+        }
+        constraints(&self.eligibility, &mut h);
+        fn obligation(o: &ProjectedObligation, h: &mut FramedHasher) {
+            h.id(&o.instance)
+                .id(&o.source)
+                .str(match o.kind {
+                    ObligationKind::Domain => "domain",
+                    ObligationKind::Require(Condition::Positive) => "positive",
+                    ObligationKind::Require(Condition::Nonnegative) => "nonnegative",
+                    ObligationKind::Require(Condition::Nonzero) => "nonzero",
+                })
+                .bool(o.scope == ObligationScope::Unconditional)
+                .bool(o.argument.is_some());
+            if let Some(a) = o.argument {
+                h.u64(a as u64);
+            }
+            h.bool(o.represented).u64(o.fidelity as u64);
+            constraints(&o.constraints, h);
+        }
+        h.u64(self.obligations.len() as u64);
+        for o in &self.obligations {
+            obligation(o, &mut h);
+        }
+        h.u64(self.derivative_obligations.len() as u64);
+        for (order, o) in &self.derivative_obligations {
+            h.u64(*order as u64);
+            obligation(o, &mut h);
+        }
+        h.finish_hash()
+    }
     /// Complete owned projection extent; native transient work is admitted separately.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
@@ -640,6 +730,64 @@ impl RootIsolationProgram {
                 .map(|obligation| obligation.constraints.capacity() * size_of::<Constraint>())
                 .sum::<usize>()
     }
+}
+
+/// Project a genuine single-root residual and its original guards for uniqueness
+/// evidence. Neutral criterion transport expresses root uniqueness only; it creates
+/// no numerical alternative, selection worker or approximation.
+pub fn single_root_isolation_program(
+    instance: SemanticId,
+    residual: &PreparedBody,
+    cancel: &Arc<AtomicBool>,
+    max_nodes: usize,
+) -> Result<Option<RootIsolationProgram>, FactorableError> {
+    if cancel.load(Ordering::Relaxed) {
+        return fail(MathError::Cancelled);
+    }
+    if max_nodes == 0 || residual.output_count() == 0 {
+        return fail(MathError::Limit(EXTENT));
+    }
+    let request = FactorableRequest::default();
+    let mut builder = Builder::new(&request, cancel, max_nodes, residual.slots)?;
+    builder.exact_real = true;
+    let inputs = (0..residual.input_count())
+        .map(|column| Input::Column(column, 1.0, 0.0))
+        .collect::<Vec<_>>();
+    let outputs = (0..residual.output_count()).collect::<Vec<_>>();
+    let projected = builder.instance(instance, residual, &inputs, &outputs)?;
+    let residuals = outputs.iter().map(|o| projected[o]).collect();
+    builder.establish_unconditional_obligations()?;
+    if !builder.auxiliaries.is_empty()
+        || !builder.implicit.is_empty()
+        || builder
+            .nodes
+            .iter()
+            .any(|n| matches!(n, Node::Aux(_) | Node::Abs(_)))
+        || builder
+            .obligations
+            .iter()
+            .chain(builder.derivative_obligations.iter().map(|(_, o)| o))
+            .any(|o| o.scope != ObligationScope::Unconditional || !o.represented)
+    {
+        return Ok(None);
+    }
+    for obligation in &mut builder.obligations {
+        obligation.fidelity = Fidelity::Exact;
+    }
+    for (_, obligation) in &mut builder.derivative_obligations {
+        obligation.fidelity = Fidelity::Exact;
+    }
+    let zero = builder.constant(Constant::integer(0))?;
+    builder.check()?;
+    Ok(Some(RootIsolationProgram {
+        inputs: residual.input_count(),
+        nodes: builder.nodes,
+        residuals,
+        eligibility: Vec::new(),
+        criterion: [zero, zero],
+        obligations: builder.obligations,
+        derivative_obligations: builder.derivative_obligations,
+    }))
 }
 
 /// Project residuals, eligibility and score/tolerance without introducing auxiliaries.

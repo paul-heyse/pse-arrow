@@ -391,9 +391,10 @@ impl Controls {
 /// Raw native termination and the adapter's conservative interpretation.
 #[derive(Clone, Debug)]
 pub struct NativeTermination {
-    /// Unmodified native numeric status.
+    /// Unmodified native numeric status, or `i64::MIN` when a contained Rust
+    /// unwind prevented the native algorithm from returning any status.
     pub code: i64,
-    /// Native symbolic status name.
+    /// Native symbolic status name, or `rust.unwind` when no native status returned.
     pub name: String,
     /// Native diagnostic, when available.
     pub message: Option<String>,
@@ -671,6 +672,28 @@ pub trait WorkAdmission: std::fmt::Debug + Send + Sync {
         Ok(())
     }
 }
+/// Complete source-owned pre-operation accounting for each requested counter.
+/// Observed native totals alone do not establish admission coverage.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WorkCoverage {
+    /// Every numeric callback, preparation and final observation has one admission owner.
+    pub evaluations: bool,
+    /// Every iteration admits before starting, including nested native attempts.
+    pub iterations: bool,
+    /// Every factor construction admits before starting, including postsolve factors.
+    pub factorizations: bool,
+    /// Every proof operation admits before starting.
+    pub proof_steps: bool,
+}
+impl WorkCoverage {
+    /// Cover exactly the supplied caps; uncapped unknown counters require no hook claim.
+    pub fn covers(self, limits: pse_model::strategy::WorkLimits) -> bool {
+        (limits.evaluations.is_none() || self.evaluations)
+            && (limits.iterations.is_none() || self.iterations)
+            && (limits.factorizations.is_none() || self.factorizations)
+            && (limits.proof_steps.is_none() || self.proof_steps)
+    }
+}
 /// Cancellation and deadline checkpoints are shared by every callback adapter.
 #[derive(Clone, Debug)]
 pub struct Execution {
@@ -691,6 +714,9 @@ pub struct Execution {
     pub abandonment: Arc<AttemptAbandonment>,
     /// Optional task-owned admission hook; native callbacks and primitives consume it.
     pub work_admission: Option<Arc<dyn WorkAdmission>>,
+    /// This callback boundary owns scientific callback charges. A transported adapter
+    /// disables forwarding here when its original TNLP already owns those same callbacks.
+    pub callback_work_owner: bool,
 }
 impl Execution {
     /// Construct at the admitted worker boundary.
@@ -704,6 +730,7 @@ impl Execution {
             enclosing_scope: None,
             abandonment: Arc::default(),
             work_admission: None,
+            callback_work_owner: true,
         }
     }
     /// Admit a native attempt within the original task scope, capping its local
@@ -732,6 +759,29 @@ impl Execution {
         execution.enclosing_scope = Some(scope);
         execution.check()?;
         Ok(execution)
+    }
+    /// Admit one actual operation, reconcile it even on failure or unwind, then apply the
+    /// original late-stop veto. The admission lock is never held during numerical work.
+    /// # Errors
+    /// Refused admission, operation failure/panic, reconciliation failure or task stop.
+    pub fn counted<T>(
+        &self,
+        work: WorkEvidence,
+        operation: impl FnOnce() -> Result<T, ProblemError>,
+    ) -> Result<T, ProblemError> {
+        self.check()?;
+        if let Some(admission) = &self.work_admission {
+            crate::quality::contained(|| admission.admit(work))?;
+        }
+        let result = crate::quality::contained(operation);
+        let reconciled = self.work_admission.as_ref().map_or(Ok(()), |admission| {
+            crate::quality::contained(|| admission.observe(work))
+        });
+        // Reconciliation still runs after a panic; it cannot erase the operation cause.
+        let value = result?;
+        reconciled?;
+        self.check()?;
+        Ok(value)
     }
     /// Abandon only this numerical attempt; never cancel the task or its siblings.
     pub fn abandon(
@@ -1764,7 +1814,7 @@ pub struct WorkEvidence {
     pub evaluations: Option<u64>,
     /// Actual native completed iterations; absent when the native API supplies none.
     pub iterations: Option<u64>,
-    /// Actual completed factorizations; absent when unobserved.
+    /// Actual factor invocations, including failed attempts; absent when unobserved.
     pub factorizations: Option<u64>,
     /// Actual proof steps; absent when unobserved.
     pub proof_steps: Option<u64>,

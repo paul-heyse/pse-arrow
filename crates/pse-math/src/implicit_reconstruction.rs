@@ -38,6 +38,949 @@ pub enum SelectedResidualRealization {
         authored_offsets: Vec<(pse_ids::SemanticId, f64)>,
     },
 }
+/// Producer-owned reconstruction interpretation of an actual implicit provider.
+/// The ordinary provider continues to execute the unchanged Root/Regimes factory.
+#[derive(Clone, Debug)]
+pub struct ReconstructionFactory {
+    factory: super::ImplicitFactory,
+    realization: SelectedResidualRealization,
+    root_isolation: Option<Arc<crate::factorable::RootIsolationProgram>>,
+    root_verifier: Option<Arc<dyn super::SelectionVerifier>>,
+}
+impl ReconstructionFactory {
+    /// Bind producer-issued source interpretation and optional exact single-root proof.
+    pub fn new(
+        factory: super::ImplicitFactory,
+        realization: SelectedResidualRealization,
+        root_isolation: Option<Arc<crate::factorable::RootIsolationProgram>>,
+        root_verifier: Option<Arc<dyn super::SelectionVerifier>>,
+    ) -> Self {
+        let (root_isolation, root_verifier) = if matches!(factory, super::ImplicitFactory::Root(_))
+        {
+            (root_isolation, root_verifier)
+        } else {
+            (None, None)
+        };
+        Self {
+            factory,
+            realization,
+            root_isolation,
+            root_verifier,
+        }
+    }
+    /// Bind an actual regime source with its producer-issued residual interpretation.
+    pub fn regimes(factory: RegimeFactory, realization: SelectedResidualRealization) -> Self {
+        Self::new(
+            super::ImplicitFactory::Regimes(factory),
+            realization,
+            None,
+            None,
+        )
+    }
+    /// Actual numerical factory, never a manufactured one-alternative regime.
+    pub fn factory(&self) -> &super::ImplicitFactory {
+        &self.factory
+    }
+    /// Producer-issued interpretation, checked again against original named rows.
+    pub fn realization(&self) -> &SelectedResidualRealization {
+        &self.realization
+    }
+    /// Whether original-coordinate regularity/accuracy evidence has a real producer.
+    pub fn supports_reconstruction(&self) -> bool {
+        self.spec().derivatives >= DerivativeOrder::First
+            && self.spec().smoothness >= DerivativeOrder::First
+            && self
+                .residuals()
+                .iter()
+                .all(|r| r.requirements.requested_output >= DerivativeOrder::First)
+            && match &self.factory {
+                super::ImplicitFactory::Root(_) => {
+                    self.root_isolation.is_some() && self.root_verifier.is_some()
+                }
+                super::ImplicitFactory::Regimes(f) => {
+                    f.verifier.is_some() && f.alternatives.iter().all(|b| b.isolation.is_some())
+                }
+            }
+    }
+    /// Immutable numerical source and producer-owned proof metadata. An ordinary
+    /// provider invokes the numerical source without allocating reconstruction proof work.
+    pub fn retained_bytes(&self) -> Result<usize, MathError> {
+        let offsets = match &self.realization {
+            SelectedResidualRealization::AuthoredValues => 0,
+            SelectedResidualRealization::ZeroResiduals { authored_offsets } => {
+                authored_offsets.capacity() * size_of::<(pse_ids::SemanticId, f64)>()
+            }
+        };
+        self.factory
+            .retained_bytes()?
+            .checked_add(size_of::<Self>() + offsets)
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    self.root_isolation
+                        .as_ref()
+                        .map_or(0, |program| program.retained_bytes()),
+                )
+            })
+            .ok_or(MathError::Limit("reconstruction source metadata extent"))
+    }
+    /// Native proof storage admitted only by an actual reconstruction operation.
+    pub fn reconstruction_workspace_bytes(&self, max_cells: u64) -> Result<usize, MathError> {
+        let (Some(verifier), Some(program)) = (&self.root_verifier, &self.root_isolation) else {
+            return Ok(0);
+        };
+        let roots = self.residuals();
+        let root = roots
+            .first()
+            .ok_or_else(|| MathError::Contract("root proof source absent".into()))?;
+        let certificate = size_of::<super::SelectionChart>()
+            + size_of::<super::SelectionScope>()
+            + root.spec.inputs.len() * size_of::<super::ProofInterval>()
+            + root.unknowns.len()
+                * (2 * size_of::<super::ProofInterval>() + size_of::<super::Unknown>());
+        // Nonzero original equalities add one constant and sum to each exact
+        // residual; admit that same transport extent before binding any offsets.
+        let mut proof_program = program.as_ref().clone();
+        for residual in &mut proof_program.residuals {
+            let constant = proof_program.nodes.len();
+            proof_program.nodes.push(crate::factorable::Node::Const(
+                crate::factorable::Constant::Float(0.0),
+            ));
+            let difference = proof_program.nodes.len();
+            proof_program
+                .nodes
+                .push(crate::factorable::Node::Sum(vec![*residual, constant]));
+            *residual = difference;
+        }
+        let proof_program = Arc::new(proof_program);
+        verifier
+            .bounded_workspace_bytes(std::slice::from_ref(&proof_program), max_cells)?
+            .checked_add(proof_program.retained_bytes())
+            .and_then(|bytes| bytes.checked_add(2 * certificate))
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    size_of::<RootSelection>() + root.spec.inputs.len() * size_of::<f64>(),
+                )
+            })
+            .ok_or(MathError::Limit("root reconstruction workspace extent"))
+    }
+    /// Preserve admission leases through the numerical producer's compiled programs.
+    pub fn retain(&mut self, owner: Arc<dyn crate::AllocationOwner>) {
+        self.factory.retain(owner);
+    }
+    /// Bind dependencies in the actual numerical producer graph.
+    pub fn set_providers(
+        &mut self,
+        providers: std::collections::BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    ) {
+        self.factory.set_providers(providers);
+    }
+}
+impl ProviderFactory for ReconstructionFactory {
+    fn source_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+    fn spec(&self) -> &pse_kernels::ProviderSpec {
+        self.factory.spec()
+    }
+    fn configuration_key(&self) -> ContentHash {
+        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        h.str("producer-issued-reconstruction-source")
+            .hash(&self.factory.configuration_key());
+        match &self.realization {
+            SelectedResidualRealization::AuthoredValues => {
+                h.str("authored-values");
+            }
+            SelectedResidualRealization::ZeroResiduals { authored_offsets } => {
+                h.str("zero-residuals").u64(authored_offsets.len() as u64);
+                for (id, value) in authored_offsets {
+                    h.id(id).f64(*value);
+                }
+            }
+        }
+        h.bool(self.root_isolation.is_some());
+        if let Some(program) = &self.root_isolation {
+            h.hash(&program.identity());
+        }
+        h.bool(self.root_verifier.is_some());
+        if let Some(verifier) = &self.root_verifier {
+            h.hash(&verifier.identity());
+        }
+        h.finish_hash()
+    }
+    fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+        self.factory.create()
+    }
+    fn create_scoped(
+        &self,
+        scope: ExecutionScope,
+    ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+        self.factory.create_scoped(scope)
+    }
+}
+/// Actual factory capabilities used by the common reconstruction contract binder.
+pub trait SupplierFactory: ProviderFactory {
+    /// Producer-issued residual interpretation, when this registration owns it.
+    fn declared_realization(&self) -> Option<&SelectedResidualRealization> {
+        None
+    }
+    /// Every original residual realization, preserving authored alternative order.
+    fn residuals(&self) -> Vec<&super::Factory>;
+    /// Bind the actual native worker with the same checked numerical/proof offsets.
+    fn reconstruction_worker(
+        &self,
+        scope: ExecutionScope,
+        offsets: Option<&[f64]>,
+    ) -> Result<SupplierSelection, pse_kernels::ProviderError>;
+}
+impl SupplierFactory for RegimeFactory {
+    fn residuals(&self) -> Vec<&super::Factory> {
+        self.alternatives.iter().map(|b| &b.residual).collect()
+    }
+    fn reconstruction_worker(
+        &self,
+        scope: ExecutionScope,
+        offsets: Option<&[f64]>,
+    ) -> Result<SupplierSelection, pse_kernels::ProviderError> {
+        self.prepare_selection_offsets(scope, offsets)
+            .map(|worker| SupplierSelection::Regimes(Box::new(worker)))
+    }
+}
+impl SupplierFactory for ReconstructionFactory {
+    fn declared_realization(&self) -> Option<&SelectedResidualRealization> {
+        Some(&self.realization)
+    }
+    fn residuals(&self) -> Vec<&super::Factory> {
+        match &self.factory {
+            super::ImplicitFactory::Root(f) => vec![f],
+            super::ImplicitFactory::Regimes(f) => f.residuals(),
+        }
+    }
+    fn reconstruction_worker(
+        &self,
+        scope: ExecutionScope,
+        offsets: Option<&[f64]>,
+    ) -> Result<SupplierSelection, pse_kernels::ProviderError> {
+        match &self.factory {
+            super::ImplicitFactory::Regimes(f) => f.reconstruction_worker(scope, offsets),
+            super::ImplicitFactory::Root(f) => {
+                let program = self.root_isolation.as_ref().ok_or_else(|| {
+                    pse_kernels::ProviderError::Contract(
+                        "single-root reconstruction exact projection unavailable".into(),
+                    )
+                })?;
+                let verifier = self.root_verifier.as_ref().ok_or_else(|| {
+                    pse_kernels::ProviderError::Contract(
+                        "single-root reconstruction verifier unavailable".into(),
+                    )
+                })?;
+                RootSelection::new(f, program.clone(), verifier.clone(), scope, offsets)
+                    .map(|worker| SupplierSelection::Root(Box::new(worker)))
+            }
+        }
+    }
+}
+/// Native reconstruction worker retaining its actual source kind.
+#[derive(Debug)]
+pub enum SupplierSelection {
+    /// Genuine single-root numerical worker and independent regularity proof.
+    Root(Box<RootSelection>),
+    /// Authored competitive regime selector.
+    Regimes(Box<RegimeSelection>),
+}
+impl SupplierSelection {
+    /// Observation from the actual admitted reconstruction producer.
+    pub fn sheet_identity(&self) -> Option<ContentHash> {
+        match self {
+            Self::Root(v) => v.sheet_identity(),
+            Self::Regimes(v) => v.sheet_identity(),
+        }
+    }
+    /// Observation from the actual admitted reconstruction producer.
+    pub fn selected_chart(&self) -> Option<&super::SelectionChart> {
+        match self {
+            Self::Root(v) => v.selected_chart(),
+            Self::Regimes(v) => v.selected_chart(),
+        }
+    }
+    /// Observation from the actual admitted reconstruction producer.
+    pub fn observed_point_cells(&self) -> u64 {
+        match self {
+            Self::Root(v) => v.observed_point_cells(),
+            Self::Regimes(v) => v.observed_point_cells(),
+        }
+    }
+    /// Observation from the actual admitted reconstruction producer.
+    pub fn observed_action_cells(&self) -> u64 {
+        match self {
+            Self::Root(v) => v.observed_action_cells(),
+            Self::Regimes(v) => v.observed_action_cells(),
+        }
+    }
+    fn evaluate(
+        &mut self,
+        parameters: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<super::SelectedRegime, MathError> {
+        match self {
+            Self::Root(v) => v.evaluate(parameters, order, cancel),
+            Self::Regimes(v) => v.evaluate(parameters, order, cancel),
+        }
+    }
+    fn refinement_deadline(&self) -> Result<std::time::Instant, MathError> {
+        match self {
+            Self::Root(v) => v.refinement_deadline(),
+            Self::Regimes(v) => v.refinement_deadline(),
+        }
+    }
+    fn refinement_checkpoint(
+        &self,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<(), MathError> {
+        match self {
+            Self::Root(v) => v.refinement_checkpoint(deadline, cancel),
+            Self::Regimes(v) => v.refinement_checkpoint(deadline, cancel),
+        }
+    }
+    fn refine_point(
+        &mut self,
+        parameters: &[f64],
+        unknown_scales: &[f64],
+        row_scales: &[f64],
+        max_cells: u64,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<super::RootPointEvidence, MathError> {
+        match self {
+            Self::Root(v) => v.refine_point(
+                parameters,
+                unknown_scales,
+                row_scales,
+                max_cells,
+                deadline,
+                cancel,
+            ),
+            Self::Regimes(v) => v.refine_point(
+                parameters,
+                unknown_scales,
+                row_scales,
+                max_cells,
+                deadline,
+                cancel,
+            ),
+        }
+    }
+    fn enclose_action_bounded(
+        &mut self,
+        parameters: &[f64],
+        direction: &[f64],
+        max_cells: u64,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<RootActionEvidence, MathError> {
+        match self {
+            Self::Root(v) => {
+                v.enclose_action_bounded(parameters, direction, max_cells, deadline, cancel)
+            }
+            Self::Regimes(v) => {
+                v.enclose_action_bounded(parameters, direction, max_cells, deadline, cancel)
+            }
+        }
+    }
+    fn enclose_neighborhood(
+        &mut self,
+        parameters: &[f64],
+        parameter_intervals: &[super::ProofInterval],
+        direction_intervals: Option<&[super::ProofInterval]>,
+        max_cells: u64,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<super::RootNeighborhoodEvidence, MathError> {
+        match self {
+            Self::Root(v) => v.enclose_neighborhood(
+                parameters,
+                parameter_intervals,
+                direction_intervals,
+                max_cells,
+                deadline,
+                cancel,
+            ),
+            Self::Regimes(v) => v.enclose_neighborhood(
+                parameters,
+                parameter_intervals,
+                direction_intervals,
+                max_cells,
+                deadline,
+                cancel,
+            ),
+        }
+    }
+    fn refine_numerical(
+        &mut self,
+        controls: crate::implicit::NumericalRefinement<'_>,
+    ) -> Result<super::SelectedRegime, MathError> {
+        match self {
+            Self::Root(v) => v.refine_numerical(controls),
+            Self::Regimes(v) => v.refine_numerical(controls),
+        }
+    }
+}
+/// Single-root worker. Numerical selection, original residual validation and IFT
+/// remain the actual Factory's contracts; interval evidence supplies no iteration.
+#[derive(Debug)]
+pub struct RootSelection {
+    problem: Arc<super::Problem>,
+    configuration: super::ConfigurationWorker,
+    selection: super::selection::SelectionWorker,
+    solver: Arc<dyn super::InnerSolver>,
+    program: Arc<crate::factorable::RootIsolationProgram>,
+    verifier: Arc<dyn super::SelectionVerifier>,
+    scope: ExecutionScope,
+    time_limit: std::time::Duration,
+    numerical: Option<(ContentHash, super::SelectedRegime, super::Options)>,
+    chart: Option<super::SelectionChart>,
+    sheet: Option<ContentHash>,
+    sheet_parameters: Vec<f64>,
+    proof_limit: u64,
+    proof_ceiling: u64,
+    point_cells: u64,
+    action_cells: u64,
+}
+impl RootSelection {
+    fn new(
+        factory: &super::Factory,
+        program: Arc<crate::factorable::RootIsolationProgram>,
+        verifier: Arc<dyn super::SelectionVerifier>,
+        scope: ExecutionScope,
+        offsets: Option<&[f64]>,
+    ) -> Result<Self, pse_kernels::ProviderError> {
+        scope.check()?;
+        let problem = factory.problem(scope.clone())?;
+        let problem = if let Some(offsets) = offsets {
+            let owned = Arc::try_unwrap(problem).map_err(|_| {
+                pse_kernels::ProviderError::Contract(
+                    "fresh root residual unexpectedly shared".into(),
+                )
+            })?;
+            Arc::new(
+                owned
+                    .with_residual_offsets(offsets)
+                    .map_err(super::provider_error)?,
+            )
+        } else {
+            problem
+        };
+        let program = if let Some(offsets) = offsets {
+            if program.residuals.len() != offsets.len() || offsets.iter().any(|v| !v.is_finite()) {
+                return Err(pse_kernels::ProviderError::Contract(
+                    "root proof offset extent/value".into(),
+                ));
+            }
+            let mut program = program.as_ref().clone();
+            for (residual, offset) in program.residuals.iter_mut().zip(offsets) {
+                let constant = program.nodes.len();
+                program.nodes.push(crate::factorable::Node::Const(
+                    crate::factorable::Constant::Float(-*offset),
+                ));
+                let difference = program.nodes.len();
+                program
+                    .nodes
+                    .push(crate::factorable::Node::Sum(vec![*residual, constant]));
+                *residual = difference;
+            }
+            Arc::new(program)
+        } else {
+            program
+        };
+        if program.inputs != factory.unknowns.len() + factory.spec.inputs.len()
+            || program.residuals.len() != factory.rows.len()
+        {
+            return Err(pse_kernels::ProviderError::Contract(
+                "single-root exact projection layout".into(),
+            ));
+        }
+        let time_limit = factory.configuration.time_limit();
+        Ok(Self {
+            problem,
+            configuration: super::ConfigurationWorker::new(
+                factory.configuration.clone(),
+                factory.hints.as_ref(),
+                factory.terms.as_ref(),
+            ),
+            selection: super::selection::SelectionWorker::new(&factory.selection),
+            solver: factory.solver.clone(),
+            program,
+            verifier,
+            scope,
+            time_limit,
+            numerical: None,
+            chart: None,
+            sheet: None,
+            sheet_parameters: Vec::new(),
+            proof_limit: 1,
+            proof_ceiling: u64::MAX,
+            point_cells: 0,
+            action_cells: 0,
+        })
+    }
+    fn refinement_deadline(&self) -> Result<std::time::Instant, MathError> {
+        let now = std::time::Instant::now();
+        let local = now.checked_add(self.time_limit);
+        match (local, self.scope.deadline()) {
+            (Some(a), Some(b)) => Ok(a.min(b)),
+            (Some(a), None) => Ok(a),
+            (None, Some(b)) => Ok(b),
+            (None, None) => Err(MathError::Limit("root refinement deadline unavailable")),
+        }
+    }
+    fn refinement_checkpoint(
+        &self,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<(), MathError> {
+        if !std::ptr::eq(self.scope.cancellation().as_ref(), cancel.as_ref()) {
+            return Err(MathError::Contract(
+                "root reconstruction cancellation owner".into(),
+            ));
+        }
+        self.scope.check().map_err(|cause| MathError::Provider {
+            source_id: self.problem.id,
+            provider: self.problem.id,
+            cause,
+        })?;
+        if std::time::Instant::now() >= deadline {
+            return Err(MathError::Limit("root refinement deadline"));
+        }
+        Ok(())
+    }
+    fn with_request<T>(
+        &self,
+        parameters: &[f64],
+        candidate: &[f64],
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+        operation: impl FnOnce(&super::SelectionProofRequest<'_>) -> Result<T, MathError>,
+    ) -> Result<T, MathError> {
+        self.refinement_checkpoint(deadline, cancel)?;
+        // A single exact residual source asks for uniqueness over its original domain.
+        // This transport does not create a Regime, criterion worker, or regime solver.
+        let alternatives = [super::SelectionAlternative {
+            id: self.problem.id,
+            program: &self.program,
+            residual_identity: self.problem.identity,
+            unknowns: &self.problem.unknowns,
+        }];
+        let request = super::SelectionProofRequest {
+            selection: self.problem.id,
+            alternatives: &alternatives,
+            winner: 0,
+            parameters,
+            candidate,
+            order: DerivativeOrder::First,
+            time_limit: deadline.saturating_duration_since(std::time::Instant::now()),
+            cancel,
+        };
+        operation(&request)
+    }
+    fn evaluate(
+        &mut self,
+        parameters: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<super::SelectedRegime, MathError> {
+        let started = std::time::Instant::now();
+        self.scope.check().map_err(|cause| MathError::Provider {
+            source_id: self.problem.id,
+            provider: self.problem.id,
+            cause,
+        })?;
+        let anchor = self.selection.anchor(&self.problem, parameters, cancel)?;
+        let mut options =
+            self.configuration
+                .resolve(&mut self.problem, parameters, cancel, anchor.as_deref())?;
+        self.time_limit = options.time_limit;
+        self.selection.configure(&mut self.problem, &options)?;
+        let key = super::numerical_product_key(
+            &self.problem,
+            parameters,
+            &options,
+            self.solver.identity(),
+        );
+        let deadline = self.refinement_deadline()?.min(
+            started
+                .checked_add(options.time_limit)
+                .ok_or(MathError::Limit("root deadline"))?,
+        );
+        self.refinement_checkpoint(deadline, cancel)?;
+        if let Some((cached, values, _)) = &self.numerical
+            && *cached == key
+        {
+            return Ok(values.clone());
+        }
+        options.time_limit = deadline.saturating_duration_since(std::time::Instant::now());
+        let point = self
+            .solver
+            .solve(self.problem.clone(), parameters, &options, cancel)?;
+        self.problem.verify(parameters, &point, &options, cancel)?;
+        self.selection
+            .verify(&self.problem, parameters, &point, order, cancel)?;
+        let jet = self.problem.derivatives(
+            parameters,
+            &point,
+            DerivativeOrder::First,
+            &options,
+            cancel,
+        )?;
+        let selected = super::SelectedRegime {
+            id: self.problem.id,
+            values: point,
+            jacobian: jet.jacobian,
+            hessians: Vec::new(),
+            examined: 1,
+            eligible: 1,
+        };
+        let chart =
+            self.with_request(parameters, &selected.values, deadline, cancel, |request| {
+                if let Some(chart) = &self.chart
+                    && chart.validate(request, self.verifier.identity()).is_ok()
+                {
+                    return Ok(chart.clone());
+                }
+                match self.verifier.certify_bounded(request, self.proof_limit)? {
+                    super::SelectionEvidence::Unique(chart) => {
+                        chart.validate(request, self.verifier.identity())?;
+                        Ok(chart)
+                    }
+                    super::SelectionEvidence::Incomplete(reason) => Err(MathError::Refinement {
+                        product: key,
+                        source_key: self.problem.identity,
+                        validity: key,
+                        reason: crate::derived::RefinementRefusal::Unavailable(reason),
+                    }),
+                    super::SelectionEvidence::Multiple => Err(MathError::Domain {
+                        source_id: self.problem.id,
+                        requirement: "single-root reconstruction uniqueness is unestablished",
+                    }),
+                }
+            })?;
+        if let Some(previous) = &self.chart
+            && (previous.parameters != chart.parameters || previous.uniqueness != chart.uniqueness)
+        {
+            self.with_request(parameters, &selected.values, deadline, cancel, |request| {
+                let chain = super::ChartChainRequest {
+                    endpoint: request,
+                    previous,
+                    next: &chart,
+                    origin: &self.sheet_parameters,
+                    coverage: super::ChartChainCoverage::RootSheet,
+                };
+                chain.validate(self.verifier.identity())?;
+                match self
+                    .verifier
+                    .connect_chain_bounded(&chain, self.proof_limit)?
+                {
+                    super::ChartChainEvidence::Connected(_) => Ok(()),
+                    super::ChartChainEvidence::Interrupted(_) => Err(MathError::Cancelled),
+                    _ => Err(MathError::Domain {
+                        source_id: self.problem.id,
+                        requirement: "single-root reconstruction sheet transport is unestablished",
+                    }),
+                }
+            })?;
+        }
+        self.refinement_checkpoint(deadline, cancel)?;
+        if self.sheet.is_none() {
+            let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+            h.str("actual-single-root-sheet")
+                .hash(&self.problem.identity)
+                .hash(&self.verifier.identity());
+            for p in parameters {
+                h.f64(*p);
+            }
+            for e in &chart.existence {
+                h.f64(e.lower).f64(e.upper);
+            }
+            self.sheet = Some(h.finish_hash());
+        }
+        self.chart = Some(chart);
+        self.sheet_parameters = parameters.to_vec();
+        self.numerical = Some((key, selected.clone(), options));
+        Ok(selected)
+    }
+    fn sheet_identity(&self) -> Option<ContentHash> {
+        self.sheet
+    }
+    fn selected_chart(&self) -> Option<&super::SelectionChart> {
+        self.chart.as_ref()
+    }
+    fn observed_point_cells(&self) -> u64 {
+        self.point_cells
+    }
+    fn observed_action_cells(&self) -> u64 {
+        self.action_cells
+    }
+    fn refine_point(
+        &mut self,
+        parameters: &[f64],
+        unknown_scales: &[f64],
+        row_scales: &[f64],
+        max_cells: u64,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<super::RootPointEvidence, MathError> {
+        let max_cells = max_cells.min(self.proof_ceiling);
+        let (_, selected, _) = self.numerical.as_ref().ok_or_else(|| {
+            MathError::Contract("root point requires actual numerical product".into())
+        })?;
+        let chart = self
+            .chart
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("root point requires actual chart".into()))?;
+        let result =
+            self.with_request(parameters, &selected.values, deadline, cancel, |request| {
+                chart.validate(request, self.verifier.identity())?;
+                self.verifier
+                    .refine_point(request, chart, unknown_scales, row_scales, max_cells)
+            })?;
+        let cells = match &result {
+            super::RootPointEvidence::Enclosed { proof_cells, .. }
+            | super::RootPointEvidence::Incomplete { proof_cells, .. }
+            | super::RootPointEvidence::Interrupted { proof_cells } => *proof_cells,
+        };
+        self.point_cells = self
+            .point_cells
+            .checked_add(cells)
+            .ok_or(MathError::Limit("root point proof work"))?;
+        if cells > max_cells {
+            return Err(MathError::Contract(
+                "root point verifier exceeded admitted cells".into(),
+            ));
+        }
+        self.refinement_checkpoint(deadline, cancel)?;
+        Ok(result)
+    }
+    fn enclose_action_bounded(
+        &mut self,
+        parameters: &[f64],
+        direction: &[f64],
+        max_cells: u64,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<RootActionEvidence, MathError> {
+        let max_cells = max_cells.min(self.proof_ceiling);
+        let (_, selected, _) = self
+            .numerical
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("root action requires actual product".into()))?;
+        let chart = self
+            .chart
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("root action requires actual chart".into()))?;
+        let result =
+            self.with_request(parameters, &selected.values, deadline, cancel, |request| {
+                chart.validate(request, self.verifier.identity())?;
+                self.verifier
+                    .enclose_action_bounded(request, chart, direction, max_cells)
+            })?;
+        let cells = match &result {
+            RootActionEvidence::Enclosed { proof_cells, .. }
+            | RootActionEvidence::Incomplete { proof_cells, .. }
+            | RootActionEvidence::Interrupted { proof_cells } => *proof_cells,
+        };
+        self.action_cells = self
+            .action_cells
+            .checked_add(cells)
+            .ok_or(MathError::Limit("root action proof work"))?;
+        if cells > max_cells {
+            return Err(MathError::Contract(
+                "root action verifier exceeded admitted cells".into(),
+            ));
+        }
+        self.refinement_checkpoint(deadline, cancel)?;
+        Ok(result)
+    }
+    fn enclose_neighborhood(
+        &mut self,
+        parameters: &[f64],
+        parameter_intervals: &[super::ProofInterval],
+        direction_intervals: Option<&[super::ProofInterval]>,
+        max_cells: u64,
+        deadline: std::time::Instant,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<super::RootNeighborhoodEvidence, MathError> {
+        let max_cells = max_cells.min(self.proof_ceiling);
+        let (_, selected, _) = self.numerical.as_ref().ok_or_else(|| {
+            MathError::Contract("root neighborhood requires actual product".into())
+        })?;
+        let chart = self
+            .chart
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("root neighborhood requires actual chart".into()))?;
+        let result =
+            self.with_request(parameters, &selected.values, deadline, cancel, |request| {
+                chart.validate(request, self.verifier.identity())?;
+                self.verifier.enclose_neighborhood(
+                    request,
+                    chart,
+                    parameter_intervals,
+                    direction_intervals,
+                    max_cells,
+                )
+            })?;
+        let cells = match &result {
+            super::RootNeighborhoodEvidence::Enclosed { proof_cells, .. }
+            | super::RootNeighborhoodEvidence::Incomplete { proof_cells, .. }
+            | super::RootNeighborhoodEvidence::Interrupted { proof_cells } => *proof_cells,
+        };
+        self.action_cells = self
+            .action_cells
+            .checked_add(cells)
+            .ok_or(MathError::Limit("root neighborhood proof work"))?;
+        if cells > max_cells {
+            return Err(MathError::Contract(
+                "root neighborhood verifier exceeded admitted cells".into(),
+            ));
+        }
+        self.refinement_checkpoint(deadline, cancel)?;
+        Ok(result)
+    }
+    fn refine_numerical(
+        &mut self,
+        controls: super::NumericalRefinement<'_>,
+    ) -> Result<super::SelectedRegime, MathError> {
+        let super::NumericalRefinement {
+            parameters,
+            unknown_scales,
+            row_scales,
+            root_allowance,
+            residual_allowance,
+            linear,
+            product,
+            deadline,
+            cancel,
+        } = controls;
+        self.refinement_checkpoint(deadline, cancel)?;
+        let (key, previous, mut options) = self
+            .numerical
+            .clone()
+            .ok_or_else(|| MathError::Contract("root refinement requires actual product".into()))?;
+        let precision = || MathError::Refinement {
+            product: product.0,
+            source_key: product.1,
+            validity: product.2,
+            reason: crate::derived::RefinementRefusal::Precision,
+        };
+        if unknown_scales.len() != options.variable_tolerance.len()
+            || row_scales.len() != options.residual_tolerance.len()
+            || !root_allowance.is_finite()
+            || root_allowance <= 0.0
+            || !residual_allowance.is_finite()
+            || residual_allowance <= 0.0
+        {
+            return Err(precision());
+        }
+        for (t, s) in options.variable_tolerance.iter_mut().zip(unknown_scales) {
+            *t = t.min(s * root_allowance);
+        }
+        for (t, s) in options.residual_tolerance.iter_mut().zip(row_scales) {
+            *t = t.min(s * residual_allowance);
+        }
+        if options
+            .variable_tolerance
+            .iter()
+            .chain(&options.residual_tolerance)
+            .any(|t| !t.is_finite() || *t <= 0.0)
+        {
+            return Err(precision());
+        }
+        if let Some((direction, allowance)) = linear {
+            if direction.len() != parameters.len() || !allowance.is_finite() || allowance <= 0.0 {
+                return Err(precision());
+            }
+            let jet = self.problem.evaluate(
+                parameters,
+                &previous.values,
+                DerivativeOrder::First,
+                cancel,
+            )?;
+            let n = previous.values.len();
+            let p = parameters.len();
+            let width = n + p;
+            let mut denominator = 0.0_f64;
+            for row in 0..n {
+                let mut weighted = 0.0;
+                for j in 0..p {
+                    let mut scale = jet.jacobian[row * width + n + j].abs();
+                    for k in 0..n {
+                        scale = (scale
+                            + (jet.jacobian[row * width + k] * previous.jacobian[k * p + j])
+                                .abs()
+                                .next_up())
+                        .next_up();
+                    }
+                    weighted = (weighted + (direction[j].abs() * scale).next_up()).next_up();
+                }
+                denominator = denominator.max((weighted / row_scales[row]).next_up());
+            }
+            if !denominator.is_finite() {
+                return Err(precision());
+            }
+            if denominator > 0.0 {
+                options.derivative_tolerance =
+                    options.derivative_tolerance.min(allowance / denominator);
+            }
+            if !options.derivative_tolerance.is_finite() || options.derivative_tolerance <= 0.0 {
+                return Err(precision());
+            }
+        }
+        options.start = previous.values.clone();
+        options.time_limit = options
+            .time_limit
+            .min(deadline.saturating_duration_since(std::time::Instant::now()));
+        let point = self
+            .solver
+            .solve(self.problem.clone(), parameters, &options, cancel)?;
+        self.problem.verify(parameters, &point, &options, cancel)?;
+        self.selection.verify(
+            &self.problem,
+            parameters,
+            &point,
+            DerivativeOrder::First,
+            cancel,
+        )?;
+        let chart = self
+            .chart
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("root refinement requires original chart".into()))?;
+        if point
+            .iter()
+            .zip(&chart.uniqueness)
+            .any(|(p, u)| !u.interior_contains(*p))
+        {
+            return Err(MathError::Domain {
+                source_id: self.problem.id,
+                requirement: "refined root left original uniqueness chart",
+            });
+        }
+        let jet = self.problem.derivatives(
+            parameters,
+            &point,
+            DerivativeOrder::First,
+            &options,
+            cancel,
+        )?;
+        self.refinement_checkpoint(deadline, cancel)?;
+        let selected = super::SelectedRegime {
+            values: point,
+            jacobian: jet.jacobian,
+            hessians: Vec::new(),
+            ..previous
+        };
+        self.numerical = Some((key, selected.clone(), options));
+        Ok(selected)
+    }
+}
 /// Checked source realization and exact named original equality correspondence.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SelectedResidualBinding {
@@ -50,7 +993,7 @@ pub struct SelectedResidualBinding {
 impl SelectedResidualBinding {
     /// Derive offsets mechanically from the actual original equality intervals.
     pub fn for_original(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         original: &OriginalContract,
         eliminated: &[GlobalRow],
     ) -> Result<Self, MathError> {
@@ -64,11 +1007,19 @@ impl SelectedResidualBinding {
     /// Bind an explicit compiler/producer realization, without inferring subtraction
     /// from equation IDs or applying an original offset twice.
     pub fn for_source(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         original: &OriginalContract,
         eliminated: &[GlobalRow],
         realization: SelectedResidualRealization,
     ) -> Result<Self, MathError> {
+        if factory
+            .declared_realization()
+            .is_some_and(|declared| declared != &realization)
+        {
+            return Err(MathError::Contract(
+                "residual binding differs from producer-issued realization".into(),
+            ));
+        }
         let rows = eliminated
             .iter()
             .map(|&row| {
@@ -92,10 +1043,9 @@ impl SelectedResidualBinding {
                 .collect::<BTreeSet<_>>()
                 .len()
                 != rows.len()
-            || factory.alternatives.iter().any(|b| {
-                b.residual.rows.len() != rows.len()
-                    || b.residual
-                        .rows
+            || factory.residuals().iter().any(|b| {
+                b.rows.len() != rows.len()
+                    || b.rows
                         .iter()
                         .zip(&rows)
                         .any(|(id, (_, expected, _))| id != expected)
@@ -170,7 +1120,7 @@ impl SelectedResidualBinding {
     }
     fn check(
         &self,
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         original: &OriginalContract,
         eliminated: &[GlobalRow],
     ) -> Result<(), MathError> {
@@ -189,7 +1139,7 @@ impl SelectedResidualBinding {
 #[derive(Debug)]
 pub struct SelectedImplicitReconstruction<E = MathError> {
     contract: Arc<ReconstructionContract>,
-    selection: RegimeSelection,
+    selection: SupplierSelection,
     unknown_columns: Vec<GlobalCol>,
     normalization: Normalization,
     cancel: Arc<AtomicBool>,
@@ -198,11 +1148,11 @@ pub struct SelectedImplicitReconstruction<E = MathError> {
 }
 impl<E> SelectedImplicitReconstruction<E> {
     /// Source identity of the actual factory's compiled interpretation/configuration.
-    pub fn source(factory: &RegimeFactory) -> ContentHash {
+    pub fn source(factory: &impl SupplierFactory) -> ContentHash {
         factory.configuration_key()
     }
     /// Actual numerical IFT/action-enclosure producer identity, separately framed.
-    pub fn derivative_source(factory: &RegimeFactory) -> ContentHash {
+    pub fn derivative_source(factory: &impl SupplierFactory) -> ContentHash {
         let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
         h.str("selected-implicit-ift-with-interval-action")
             .hash(&Self::source(factory));
@@ -213,7 +1163,7 @@ impl<E> SelectedImplicitReconstruction<E> {
     /// numerical rank, regularity, root selection and accuracy are established later.
     /// Every branch must represent the same declared original eliminated equalities.
     pub fn prepare_contract(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         original: Arc<OriginalContract>,
         retained: Vec<GlobalCol>,
         eliminated: Vec<GlobalRow>,
@@ -236,7 +1186,7 @@ impl<E> SelectedImplicitReconstruction<E> {
     }
     /// Prepare reconstruction with mechanically checked nonzero equality offsets.
     pub fn prepare_contract_with_binding(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         original: Arc<OriginalContract>,
         retained: Vec<GlobalCol>,
         eliminated: Vec<GlobalRow>,
@@ -256,7 +1206,7 @@ impl<E> SelectedImplicitReconstruction<E> {
         )
     }
     fn prepared_source(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         binding: Option<&SelectedResidualBinding>,
     ) -> ContentHash {
         match binding {
@@ -271,7 +1221,7 @@ impl<E> SelectedImplicitReconstruction<E> {
         }
     }
     fn prepared_derivative_source(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         binding: Option<&SelectedResidualBinding>,
     ) -> ContentHash {
         match binding {
@@ -285,7 +1235,7 @@ impl<E> SelectedImplicitReconstruction<E> {
         }
     }
     fn prepare_contract_inner(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         original: Arc<OriginalContract>,
         retained: Vec<GlobalCol>,
         eliminated: Vec<GlobalRow>,
@@ -301,11 +1251,11 @@ impl<E> SelectedImplicitReconstruction<E> {
             .enumerate()
             .map(|(j, &c)| Entry::new(c, GlobalCol::new(j)))
             .collect::<Vec<_>>();
-        for branch in &factory.alternatives {
+        for branch in factory.residuals() {
             if cancel.load(Ordering::Acquire) {
                 return Err(MathError::Cancelled);
             }
-            let structural = branch.residual.body.incidence(cancel)?;
+            let structural = branch.body.incidence(cancel)?;
             let mut unknown_support = Vec::with_capacity(n);
             let mut parameter_support = Vec::with_capacity(n);
             for output in structural.outputs() {
@@ -418,7 +1368,7 @@ impl<E> SelectedImplicitReconstruction<E> {
     /// Bind one existing factory worker to exact original maps and normalized error
     /// coordinates. A reconstruction cannot infer elimination from a matching alone.
     pub fn new(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         contract: Arc<ReconstructionContract>,
         normalization: Normalization,
         scope: ExecutionScope,
@@ -436,7 +1386,7 @@ impl<E> SelectedImplicitReconstruction<E> {
     }
     /// Bind the exact same checked offsets to actual native residual and verifier DAG.
     pub fn new_with_binding(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         contract: Arc<ReconstructionContract>,
         normalization: Normalization,
         scope: ExecutionScope,
@@ -446,7 +1396,7 @@ impl<E> SelectedImplicitReconstruction<E> {
         Self::new_inner(factory, contract, normalization, scope, Some(binding))
     }
     fn new_inner(
-        factory: &RegimeFactory,
+        factory: &impl SupplierFactory,
         contract: Arc<ReconstructionContract>,
         normalization: Normalization,
         scope: ExecutionScope,
@@ -475,10 +1425,10 @@ impl<E> SelectedImplicitReconstruction<E> {
         let cancel = scope.cancellation().clone();
         let offsets = binding.and_then(SelectedResidualBinding::offsets);
         let selection = factory
-            .prepare_selection_offsets(scope, offsets.as_deref())
+            .reconstruction_worker(scope, offsets.as_deref())
             .map_err(|cause| MathError::Provider {
-                source_id: factory.spec.id,
-                provider: factory.spec.id,
+                source_id: factory.spec().id,
+                provider: factory.spec().id,
                 cause,
             })?;
         Ok(Self {
@@ -490,6 +1440,18 @@ impl<E> SelectedImplicitReconstruction<E> {
             marker: PhantomData,
             last_refusal: None,
         })
+    }
+    /// Bind the finite proof workspace ceiling before initial composite admission.
+    /// Existing regime selection keeps its declared complete covering contract.
+    pub fn with_proof_cell_limit(mut self, max_cells: u64) -> Result<Self, MathError> {
+        if max_cells == 0 {
+            return Err(MathError::Limit("root initial proof cell allowance"));
+        }
+        if let SupplierSelection::Root(root) = &mut self.selection {
+            root.proof_limit = max_cells;
+            root.proof_ceiling = max_cells;
+        }
+        Ok(self)
     }
     /// Additional retained wrapper extent. Original contracts/factory programs and
     /// native verifier workspace remain charged by their existing owners, not twice.
@@ -510,7 +1472,7 @@ impl<E> SelectedImplicitReconstruction<E> {
             .ok_or(MathError::Limit("reconstruction wrapper extent"))
     }
     /// Actual selected worker for observational work accounting and final owner reuse.
-    pub fn selection(&self) -> &RegimeSelection {
+    pub fn selection(&self) -> &SupplierSelection {
         &self.selection
     }
     fn check_input(&self, x: &[f64]) -> Result<(), MathError> {
@@ -658,6 +1620,9 @@ impl<E> SelectedImplicitReconstruction<E> {
         let deadline = self.selection.refinement_deadline()?;
         self.selection
             .refinement_checkpoint(deadline, &self.cancel)?;
+        if let SupplierSelection::Root(root) = &mut self.selection {
+            root.proof_limit = limits.proof_cells.min(root.proof_ceiling);
+        }
         let mut selected = self
             .selection
             .evaluate(x, DerivativeOrder::First, &self.cancel)?;
@@ -1066,13 +2031,13 @@ impl<E: From<MathError> + std::fmt::Debug> ReconstructionOracle
     }
 }
 fn maps(
-    factory: &RegimeFactory,
+    factory: &impl SupplierFactory,
     original: &OriginalContract,
     retained: &[GlobalCol],
     eliminated: &[GlobalRow],
 ) -> Result<Vec<GlobalCol>, MathError> {
-    if factory.alternatives.is_empty()
-        || factory.spec.inputs.len() != retained.len()
+    if factory.residuals().is_empty()
+        || factory.spec().inputs.len() != retained.len()
         || retained
             .iter()
             .any(|c| c.get() >= original.coordinates().len())
@@ -1080,20 +2045,20 @@ fn maps(
             .iter()
             .any(|r| r.get() >= original.constraints().len())
         || factory
-            .spec
+            .spec()
             .inputs
             .iter()
             .zip(retained)
             .any(|(p, c)| p.id != original.coordinates()[c.get()].id)
-        || factory.spec.derivatives < DerivativeOrder::First
-        || factory.spec.smoothness < DerivativeOrder::First
+        || factory.spec().derivatives < DerivativeOrder::First
+        || factory.spec().smoothness < DerivativeOrder::First
     {
         return Err(MathError::Contract(
             "selected reconstruction actual input/support map".into(),
         ));
     }
     let unknown_columns = factory
-        .spec
+        .spec()
         .outputs
         .iter()
         .map(|p| {
@@ -1111,24 +2076,19 @@ fn maps(
     if unknown_columns.is_empty()
         || unknown_columns.iter().any(|c| !covered.insert(*c))
         || covered.len() != original.coordinates().len()
-        || factory.alternatives.iter().any(|b| {
-            b.residual.rows.len() != eliminated.len()
-                || b.residual
-                    .rows
+        || factory.residuals().iter().any(|b| {
+            b.rows.len() != eliminated.len()
+                || b.rows
                     .iter()
                     .zip(eliminated)
                     .any(|(id, r)| *id != original.constraints()[r.get()].id)
-                || b.residual.unknowns.len() != unknown_columns.len()
-                || b.residual
-                    .unknowns
-                    .iter()
-                    .zip(&unknown_columns)
-                    .any(|(u, c)| {
-                        u.id != original.coordinates()[c.get()].id
-                            || u.lower.to_bits() != original.coordinates()[c.get()].lower.to_bits()
-                            || u.upper.to_bits() != original.coordinates()[c.get()].upper.to_bits()
-                    })
-                || b.residual.requirements.requested_output < DerivativeOrder::First
+                || b.unknowns.len() != unknown_columns.len()
+                || b.unknowns.iter().zip(&unknown_columns).any(|(u, c)| {
+                    u.id != original.coordinates()[c.get()].id
+                        || u.lower.to_bits() != original.coordinates()[c.get()].lower.to_bits()
+                        || u.upper.to_bits() != original.coordinates()[c.get()].upper.to_bits()
+                })
+                || b.requirements.requested_output < DerivativeOrder::First
         })
     {
         return Err(MathError::Contract(
@@ -1136,4 +2096,279 @@ fn maps(
         ));
     }
     Ok(unknown_columns)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        derived::{Constraint, OriginalObligations},
+        implicit::{Configuration, Factory, ImplicitFactory, Options, Selection, Unknown},
+        typed::{Binary, BodyBuilder, BodyLimits},
+    };
+    use std::{collections::BTreeMap, time::Duration};
+
+    #[derive(Debug)]
+    struct CheckOffset;
+    impl super::super::SelectionVerifier for CheckOffset {
+        fn identity(&self) -> ContentHash {
+            ContentHash::from_bytes([92; 32])
+        }
+        fn workspace_bytes(
+            &self,
+            _: &[Arc<crate::factorable::RootIsolationProgram>],
+        ) -> Result<usize, MathError> {
+            Ok(0)
+        }
+        fn certify(
+            &self,
+            request: &super::super::SelectionProofRequest<'_>,
+        ) -> Result<super::super::SelectionEvidence, MathError> {
+            // Actual faer affine solve and original validation must precede this
+            // intentionally unavailable proof. Offsets are applied exactly once.
+            assert_eq!(request.candidate, &[5.0]);
+            assert_eq!(request.alternatives.len(), 1);
+            let program = request.alternatives[0].program;
+            assert!(matches!(
+                program.nodes[program.residuals[0]],
+                crate::factorable::Node::Sum(_)
+            ));
+            Ok(super::super::SelectionEvidence::Incomplete(
+                SelectionProofRefusal::Unsupported,
+            ))
+        }
+    }
+    fn source() -> (
+        Factory,
+        Arc<crate::factorable::RootIsolationProgram>,
+        Arc<OriginalContract>,
+        Normalization,
+    ) {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let id = pse_ids::SemanticId::from_bytes([91; 16]);
+        let parameter = pse_ids::named_id(id, "parameter");
+        let row = pse_ids::named_id(id, "row");
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            2,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let y = builder
+            .input(0, quantity, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let p = builder
+            .input(1, quantity, pse_quantity::IndexSet::new(), parameter)
+            .unwrap();
+        let value = builder.binary(Binary::Sub, y, p, None, row).unwrap();
+        let prepared = builder.prepare(&[value]).unwrap();
+        let proof = crate::factorable::single_root_isolation_program(row, &prepared, &cancel, 100)
+            .unwrap()
+            .unwrap();
+        let body = Arc::new(
+            prepared
+                .compile(
+                    &[0],
+                    &[0, 1],
+                    DerivativeOrder::First,
+                    crate::library::Optimization::default(),
+                    crate::jets::EvaluationLimits::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        );
+        let unknowns = vec![Unknown {
+            id,
+            lower: -10.0,
+            upper: 10.0,
+        }];
+        let port = |id| pse_kernels::Port { id, quantity, unit };
+        let factory = Factory {
+            selection: Selection::default(),
+            requirements: pse_kernels::DerivativeRequirements::new(
+                DerivativeOrder::Second,
+                DerivativeOrder::First,
+                DerivativeOrder::First,
+                DerivativeOrder::First,
+                DerivativeOrder::First,
+            )
+            .unwrap(),
+            spec: pse_kernels::ProviderSpec {
+                id,
+                revision: ContentHash::from_bytes([1; 32]),
+                data: ContentHash::from_bytes([2; 32]),
+                derivative_source: pse_kernels::DerivativeSource::Implicit,
+                shapes: Default::default(),
+                inputs: vec![port(parameter)],
+                outputs: vec![port(id)],
+                derivatives: DerivativeOrder::First,
+                smoothness: DerivativeOrder::First,
+            },
+            body,
+            unknowns: unknowns.clone(),
+            rows: vec![row],
+            configuration: Configuration::Fixed(
+                unknowns,
+                Options {
+                    start: vec![1.0],
+                    variable_nominals: vec![1.0],
+                    variable_tolerance: vec![1e-9],
+                    residual_tolerance: vec![1e-9],
+                    iterations: 20,
+                    time_limit: Duration::from_secs(10),
+                    derivative_tolerance: 1e-10,
+                },
+            ),
+            hints: None,
+            terms: None,
+            solver: Arc::new(super::super::Affine::new(&prepared, 1).unwrap()),
+            cancel,
+            max_entries: 100,
+            providers: BTreeMap::new(),
+        };
+        let normalization = Normalization {
+            variables: vec![1.0, 1.0],
+            rows: vec![1.0],
+            objective: 1.0,
+        };
+        let original = Arc::new(
+            OriginalContract::new(
+                factory.spec.identity(),
+                normalization.key(),
+                vec![
+                    Coordinate {
+                        id: parameter,
+                        lower: -10.0,
+                        upper: 10.0,
+                    },
+                    Coordinate {
+                        id,
+                        lower: -10.0,
+                        upper: 10.0,
+                    },
+                ],
+                vec![Constraint {
+                    id: row,
+                    lower: 3.0,
+                    upper: 3.0,
+                }],
+                vec![
+                    Entry::new(GlobalRow::new(0), GlobalCol::new(0)),
+                    Entry::new(GlobalRow::new(0), GlobalCol::new(1)),
+                ],
+                DerivativeSupport {
+                    order: DerivativeOrder::First,
+                    jacobian_product: true,
+                    source: factory.configuration_key(),
+                },
+                OriginalObligations {
+                    objective: None,
+                    guards: ContentHash::from_bytes([4; 32]),
+                    selection: ContentHash::from_bytes([5; 32]),
+                },
+            )
+            .unwrap(),
+        );
+        (factory, Arc::new(proof), original, normalization)
+    }
+    #[test]
+    fn genuine_root_reconstruction_applies_nonzero_authored_offset_before_actual_native_ift() {
+        let (factory, proof, original, normalization) = source();
+        let flag = factory.cancel.clone();
+        let supplier = ReconstructionFactory::new(
+            ImplicitFactory::Root(factory),
+            SelectedResidualRealization::AuthoredValues,
+            Some(proof),
+            Some(Arc::new(CheckOffset)),
+        );
+        let binding = SelectedResidualBinding::for_source(
+            &supplier,
+            &original,
+            &[GlobalRow::new(0)],
+            supplier.realization().clone(),
+        )
+        .unwrap();
+        let contract = SelectedImplicitReconstruction::<MathError>::prepare_contract_with_binding(
+            &supplier,
+            original,
+            vec![GlobalCol::new(0)],
+            vec![GlobalRow::new(0)],
+            ContentHash::from_bytes([3; 32]),
+            &flag,
+            &binding,
+        )
+        .unwrap();
+        let mut worker = SelectedImplicitReconstruction::<MathError>::new_with_binding(
+            &supplier,
+            contract,
+            normalization,
+            ExecutionScope::new(flag, None),
+            &binding,
+        )
+        .unwrap();
+        assert!(matches!(worker.selection(), SupplierSelection::Root(_)));
+        assert!(matches!(
+            worker.admit(&[2.0]),
+            Err(MathError::Refinement {
+                reason: crate::derived::RefinementRefusal::Unavailable(
+                    SelectionProofRefusal::Unsupported
+                ),
+                ..
+            })
+        ));
+    }
+    #[test]
+    fn root_supplier_requires_producer_metadata_and_preserves_its_identity() {
+        let (factory, proof, original, _) = source();
+        let absent = ReconstructionFactory::new(
+            ImplicitFactory::Root(factory.clone()),
+            SelectedResidualRealization::AuthoredValues,
+            None,
+            None,
+        );
+        assert!(!absent.supports_reconstruction());
+        let supplied = ReconstructionFactory::new(
+            ImplicitFactory::Root(factory),
+            SelectedResidualRealization::ZeroResiduals {
+                authored_offsets: vec![(original.constraints()[0].id, 3.0)],
+            },
+            Some(proof),
+            Some(Arc::new(CheckOffset)),
+        );
+        assert!(supplied.supports_reconstruction());
+        assert_ne!(absent.configuration_key(), supplied.configuration_key());
+        SelectedResidualBinding::for_source(
+            &supplied,
+            &original,
+            &[GlobalRow::new(0)],
+            supplied.realization().clone(),
+        )
+        .unwrap();
+        assert!(
+            SelectedResidualBinding::for_source(
+                &supplied,
+                &original,
+                &[GlobalRow::new(0)],
+                SelectedResidualRealization::AuthoredValues
+            )
+            .is_err(),
+            "consumer cannot change producer-issued subtraction"
+        );
+        assert!(
+            SelectedResidualBinding::for_source(
+                &supplied,
+                &original,
+                &[GlobalRow::new(0)],
+                SelectedResidualRealization::ZeroResiduals {
+                    authored_offsets: vec![(original.constraints()[0].id, 6.0)]
+                }
+            )
+            .is_err()
+        );
+    }
 }

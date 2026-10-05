@@ -259,6 +259,11 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     fn representation(&self) -> Representation;
     /// Whether this binary links the native implementation.
     fn linked(&self) -> bool;
+    /// Complete pre-operation counters for the numerical callback route. Coefficient and
+    /// factorable preparation must separately qualify their actual route.
+    fn work_coverage(&self, _execution: &Execution) -> crate::solve::WorkCoverage {
+        crate::solve::WorkCoverage::default()
+    }
     /// Automatic-selection preference among the eligible adapters automatic for one class
     /// (`Capability::automatic_classes`), lower first; `None` is explicit-only. It orders a
     /// choice and never grants eligibility.

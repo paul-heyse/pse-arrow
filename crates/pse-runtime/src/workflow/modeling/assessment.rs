@@ -33,7 +33,7 @@ impl AssessedPoint {
         use crate::math::strategy::OriginalConclusion;
         if let Some(error) = &self.error {
             OriginalConclusion::Unavailable {
-                cause: crate::math::opaque_strategy::assessment_failure(error),
+                cause: crate::math::strategy::target::assessment_failure(error),
             }
         } else if !self.complete {
             OriginalConclusion::Unavailable {
@@ -257,13 +257,18 @@ impl Assessment {
                 execution.clone(),
                 budget,
             )?;
-            *evaluations = evaluations
-                .checked_add(1)
-                .ok_or_else(|| contract("original assessment work counter overflow"))?;
-            let observed = evaluator
-                .worker()
-                .constraints(values)
-                .map_err(crate::math::MathRuntimeError::from)?;
+            let observed = budget.evaluate(|| {
+                *evaluations =
+                    evaluations
+                        .checked_add(1)
+                        .ok_or(crate::math::MathRuntimeError::Limit(
+                            "original assessment work counter overflow",
+                        ))?;
+                evaluator
+                    .worker()
+                    .constraints(values)
+                    .map_err(crate::math::MathRuntimeError::from)
+            })?;
             applicability = evaluator.worker().applicability_observations();
             self.rows.iter().copied().zip(observed).collect()
         } else {

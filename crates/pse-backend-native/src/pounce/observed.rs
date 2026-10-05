@@ -13,6 +13,7 @@ struct State {
     separator: Option<Vec<usize>>,
     factors: [u64; 3],
     failed_factors: [u64; 3],
+    pending_factors: [u64; 3],
     solves: [u64; 3],
     failed_solves: [u64; 3],
     path: Option<(bool, &'static str)>,
@@ -61,6 +62,30 @@ impl Observation {
     }
     pub(super) fn take_error(&self) -> Option<ProblemError> {
         self.state.borrow_mut().error.take()
+    }
+    /// Reconcile begun factors when native unwinding prevents the matching End event.
+    pub(super) fn finish_operations(&self) {
+        let pending = std::mem::take(&mut self.state.borrow_mut().pending_factors);
+        let count: u64 = pending.iter().sum();
+        if count == 0 {
+            return;
+        }
+        if let Some(admission) = &self.execution.work_admission
+            && let Err(error) = crate::quality::contained(|| {
+                admission.observe(WorkEvidence {
+                    evaluations: Some(0),
+                    iterations: Some(0),
+                    factorizations: Some(count),
+                    proof_steps: Some(0),
+                })
+            })
+        {
+            self.fail(error);
+        }
+        let mut state = self.state.borrow_mut();
+        for (failed, pending) in state.failed_factors.iter_mut().zip(pending) {
+            *failed += pending;
+        }
     }
     pub(super) fn record(&self, report: &mut SolveReport) {
         let state = self.state.borrow();
@@ -238,11 +263,15 @@ impl Observer for Observation {
                     proof_steps: Some(0),
                 };
                 if let Some(admission) = &self.execution.work_admission {
-                    admission.admit(work).map_err(|e| self.fail(e))?;
+                    crate::quality::contained(|| admission.admit(work))
+                        .map_err(|e| self.fail(e))?;
                 }
                 let mut state = self.state.borrow_mut();
                 match primitive {
-                    Primitive::Factor => state.factors[index(*path)] += 1,
+                    Primitive::Factor => {
+                        state.factors[index(*path)] += 1;
+                        state.pending_factors[index(*path)] += 1;
+                    }
                     Primitive::Backsolve => state.solves[index(*path)] += 1,
                 }
             }
@@ -251,15 +280,13 @@ impl Observer for Observation {
                 primitive,
                 succeeded,
             } => {
-                if let Some(admission) = &self.execution.work_admission {
-                    admission
-                        .observe(WorkEvidence {
-                            evaluations: Some(0),
-                            iterations: Some(0),
-                            factorizations: Some(u64::from(*primitive == Primitive::Factor)),
-                            proof_steps: Some(0),
-                        })
-                        .map_err(|e| self.fail(e))?;
+                if *primitive == Primitive::Factor {
+                    let mut state = self.state.borrow_mut();
+                    state.pending_factors[index(*path)] = state.pending_factors[index(*path)]
+                        .checked_sub(1)
+                        .ok_or_else(|| {
+                            Abort::Contract("factor End has no admitted Begin".into())
+                        })?;
                 }
                 if !succeeded {
                     let mut state = self.state.borrow_mut();
@@ -268,11 +295,88 @@ impl Observer for Observation {
                         Primitive::Backsolve => state.failed_solves[index(*path)] += 1,
                     }
                 }
+                if let Some(admission) = &self.execution.work_admission {
+                    crate::quality::contained(|| {
+                        admission.observe(WorkEvidence {
+                            evaluations: Some(0),
+                            iterations: Some(0),
+                            factorizations: Some(u64::from(*primitive == Primitive::Factor)),
+                            proof_steps: Some(0),
+                        })
+                    })
+                    .map_err(|e| self.fail(e))?;
+                }
             }
             Event::Selected { schur, reason } => {
                 self.state.borrow_mut().path = Some((*schur, *reason));
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    };
+    #[derive(Debug, Default)]
+    struct Count {
+        admitted: AtomicU64,
+        observed: AtomicU64,
+    }
+    impl crate::solve::WorkAdmission for Count {
+        fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.admitted
+                .fetch_add(work.factorizations.unwrap(), Ordering::SeqCst);
+            Ok(())
+        }
+        fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.observed
+                .fetch_add(work.factorizations.unwrap(), Ordering::SeqCst);
+            Ok(())
+        }
+        fn admit_storage(
+            &self,
+            _: crate::solve::NativeStorageScope,
+            _: &str,
+            _: usize,
+            _: bool,
+        ) -> Result<(), ProblemError> {
+            Ok(())
+        }
+    }
+    #[test]
+    fn failed_factor_and_missing_end_reconcile_once() {
+        let count = Arc::new(Count::default());
+        let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        execution.work_admission = Some(count.clone());
+        let observer = Observation::new(execution, None, None);
+        for end in [true, false] {
+            observer
+                .event(&Event::Begin {
+                    path: Path::Monolithic,
+                    primitive: Primitive::Factor,
+                    rhs: 0,
+                    refinement_bound: 0,
+                })
+                .unwrap();
+            if end {
+                observer
+                    .event(&Event::End {
+                        path: Path::Monolithic,
+                        primitive: Primitive::Factor,
+                        succeeded: false,
+                    })
+                    .unwrap();
+            }
+            observer.finish_operations();
+            observer.finish_operations();
+        }
+        assert_eq!(count.admitted.load(Ordering::SeqCst), 2);
+        assert_eq!(count.observed.load(Ordering::SeqCst), 2);
+        assert_eq!(observer.state.borrow().failed_factors[0], 2);
     }
 }

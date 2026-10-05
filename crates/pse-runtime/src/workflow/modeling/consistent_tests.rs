@@ -156,6 +156,22 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
         .await
         .unwrap();
     assert_eq!(result.report().termination.name, "IDA_SUCCESS");
+    let trace = result.strategy().unwrap();
+    let event = trace.events.last().unwrap();
+    assert!(matches!(
+        event.original,
+        Some(crate::math::strategy::OriginalConclusion::Satisfied)
+    ));
+    assert_eq!(
+        event.permission,
+        Some(pse_model::generated::enums::CandidateUse::SeedOnly)
+    );
+    assert_eq!(
+        event.transition,
+        Some(pse_model::strategy::Transition::Stop)
+    );
+    assert!(event.decision.is_some());
+    assert_eq!(event.work.unwrap().observed.evaluations, None);
     assert_eq!(result.report().time, prepared.profile.start);
     assert!(
         result
@@ -215,6 +231,16 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     );
     assert!(observed.report.assessment.is_none());
     assert!(!observed.checks_complete);
+    let event = observed.strategy.as_ref().unwrap().events.last().unwrap();
+    assert_eq!(
+        event.kind,
+        pse_model::generated::enums::NumericalEventKind::Abandoned
+    );
+    assert_eq!(
+        event.permission,
+        Some(pse_model::generated::enums::CandidateUse::Unusable)
+    );
+    assert!(event.original.is_none());
     drop(owner);
     let cancellation = FlightCancellation::default();
     let scope = ExecutionScope::new(
@@ -225,22 +251,35 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
         foreign_bytes: Some(1),
         ..Controls::default()
     };
+    let error = prepared
+        .initialize_consistent(
+            RunId::from_bytes([8; 16]),
+            request.clone(),
+            controls,
+            scope,
+            cancellation,
+        )
+        .await
+        .unwrap_err();
+    let WorkflowError::Math(MathRuntimeError::Strategy { cause, trace }) = error else {
+        panic!("IC failure must retain its actual cause and numerical decisions")
+    };
     assert!(matches!(
-        prepared
-            .initialize_consistent(
-                RunId::from_bytes([8; 16]),
-                request.clone(),
-                controls,
-                scope,
-                cancellation
-            )
-            .await,
-        Err(WorkflowError::Math(MathRuntimeError::Solve(
-            ProblemError::Limit {
-                kind: pse_backend_native::LimitKind::Memory,
-                ..
-            }
-        )))
+        cause.as_ref(),
+        MathRuntimeError::Solve(ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Memory,
+            ..
+        })
+    ));
+    let event = trace.events.last().unwrap();
+    assert!(event.decision.is_some());
+    assert_eq!(
+        event.observation,
+        Some(pse_model::generated::enums::NumericalAttemptObservation::ResourceExhausted)
+    );
+    assert!(matches!(
+        event.original,
+        Some(crate::math::strategy::OriginalConclusion::Unavailable { .. })
     ));
     let cancellation = FlightCancellation::default();
     let scope = ExecutionScope::new(

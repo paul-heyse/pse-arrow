@@ -747,3 +747,93 @@ async fn job_start_policies_applied_and_recorded() {
     drop((runtime, result));
     database.remove().await.unwrap();
 }
+
+#[test]
+fn automatic_job_payload_roundtrip_retains_constraints_and_typed_identity() {
+    use pse_model::strategy::{AccuracyClass, CompositionPolicy, StartOrigin, WorkLimits};
+    let mut settings = ipopt();
+    settings.composition.limits = Some(WorkLimits {
+        attempts: 4,
+        evaluations: Some(50),
+        iterations: Some(30),
+        factorizations: None,
+        proof_steps: Some(128),
+    });
+    settings.composition.recovery = vec![StartOrigin::Auxiliary];
+    settings.reconstruction = Some(pse_backend_native::derived::ReconstructionAccuracy {
+        point: 1e-8,
+        action: 1e-7,
+        class: AccuracyClass::Certified,
+        refinement: pse_math::derived::RefinementLimits {
+            rounds: 3,
+            proof_cells: 128,
+        },
+    });
+    let job = ModelingJob {
+        physical: pse_ids::ContentHash::from_bytes([1; 32]),
+        modeling: vec![pse_ids::ContentHash::from_bytes([2; 32])],
+        case: pse_model::generated::identities::DeclarationId::from_bytes([3; 16]),
+        route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+        settings,
+        start: JobStart::Fresh,
+    };
+    let payload = JobPayload::new(JobTask::Modeling(Box::new(job.clone())));
+    let encoded = serde_json::to_value(&payload).unwrap();
+    assert_eq!(encoded["version"], JOB_PAYLOAD_VERSION);
+    let decoded: JobPayload = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&decoded).unwrap(), encoded);
+    let JobTask::Modeling(decoded) = decoded.task else {
+        panic!("actual modeling payload required");
+    };
+    assert_eq!(decoded.settings.composition.policy, CompositionPolicy::Auto);
+    assert_eq!(decoded.settings.composition, job.settings.composition);
+    assert_eq!(
+        serde_json::to_value(decoded.settings.reconstruction).unwrap(),
+        serde_json::to_value(job.settings.reconstruction).unwrap()
+    );
+    assert_eq!(
+        decoded.operational_job_identity("automatic-case").unwrap(),
+        job.operational_job_identity("automatic-case").unwrap()
+    );
+    let mut changed = job.clone();
+    changed
+        .settings
+        .composition
+        .limits
+        .as_mut()
+        .unwrap()
+        .evaluations = Some(49);
+    assert_ne!(
+        changed.operational_job_identity("automatic-case").unwrap(),
+        job.operational_job_identity("automatic-case").unwrap()
+    );
+    let mut changed = job.clone();
+    changed
+        .settings
+        .reconstruction
+        .as_mut()
+        .unwrap()
+        .refinement
+        .proof_cells = 127;
+    assert_ne!(
+        changed.operational_job_identity("automatic-case").unwrap(),
+        job.operational_job_identity("automatic-case").unwrap()
+    );
+    let mut undeclared = job.clone();
+    undeclared.settings.composition = Default::default();
+    undeclared.settings.reconstruction = None;
+    assert_ne!(
+        undeclared
+            .operational_job_identity("automatic-case")
+            .unwrap(),
+        job.operational_job_identity("automatic-case").unwrap()
+    );
+    let encoded =
+        serde_json::to_value(JobPayload::new(JobTask::Modeling(Box::new(undeclared)))).unwrap();
+    let decoded: JobPayload = serde_json::from_value(encoded).unwrap();
+    let JobTask::Modeling(decoded) = decoded.task else {
+        panic!("modeling payload required");
+    };
+    assert_eq!(decoded.settings.composition, Default::default());
+    assert!(decoded.settings.reconstruction.is_none());
+}

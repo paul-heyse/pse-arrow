@@ -411,7 +411,7 @@ impl NativeSession {
             return self
                 .step_bound(
                     step, previous, attempt, progress, owner, cancel, assess, None, None, None,
-                    false,
+                    false, None,
                 )
                 .await;
         }
@@ -434,7 +434,15 @@ impl NativeSession {
         if let Some(limits) = request.limits {
             declaration.limits = limits;
         }
-        let mut ledger = super::strategy::Ledger::new(declaration.limits);
+        if request.limits.is_none() {
+            declaration.limits.attempts = step.automatic_attempt_capacity(scope.cancellation())?;
+        }
+        let ledger = super::strategy::admission::TaskAdmission::new(
+            declaration.limits,
+            scope.clone(),
+            Some(self.service.pool.clone()),
+            step.declared_foreign_bytes() > 0,
+        );
         let capacity = usize::try_from(declaration.limits.attempts)
             .map_err(|_| ProblemError::memory("automatic product state capacity"))?;
         let product_owner = self.service.reserve(
@@ -454,6 +462,7 @@ impl NativeSession {
             }
         }
         let mut operations = original_operations;
+        let mut bound_operations = std::collections::BTreeMap::new();
         let mut attempted = std::collections::BTreeSet::new();
         let mut attempted_bindings = std::collections::BTreeSet::new();
         let mut last_observation = None;
@@ -485,7 +494,7 @@ impl NativeSession {
                 &candidates,
                 &attempted,
                 last_observation.as_ref(),
-                ledger.observation(),
+                ledger.observation()?,
                 inherited,
             );
             let resolved = super::strategy::automatic_decision_key(
@@ -493,7 +502,7 @@ impl NativeSession {
                 &candidates,
                 &decision,
                 last_observation.as_ref(),
-                ledger.observation(),
+                ledger.observation()?,
             )?;
             let mut decision_identity =
                 pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV1);
@@ -504,6 +513,12 @@ impl NativeSession {
             let decision_key = decision_identity.finish_hash();
             match decision {
                 super::strategy::AutoDecision::Finish => break,
+                super::strategy::AutoDecision::Assess => {
+                    return Err(ProblemError::Internal(
+                        "original assessment must execute on its admitted worker".into(),
+                    )
+                    .into());
+                }
                 super::strategy::AutoDecision::Stop { cause } => {
                     if let Some(cause) = cause
                         && let Some(index) = collected.declaration.mechanisms.len().checked_sub(1)
@@ -523,16 +538,25 @@ impl NativeSession {
                     }
                     break;
                 }
-                super::strategy::AutoDecision::Dispatch { candidate } => {
-                    attempted.insert(candidate);
+                super::strategy::AutoDecision::Prepare { candidate }
+                | super::strategy::AutoDecision::Dispatch { candidate } => {
+                    let preparing =
+                        matches!(decision, super::strategy::AutoDecision::Prepare { .. });
+                    if !preparing {
+                        attempted.insert(candidate);
+                    }
                     let operation = operations[candidate].clone();
-                    if !attempted_bindings.insert(operation.candidate.identity) {
+                    if !preparing && !attempted_bindings.insert(operation.candidate.identity) {
                         continue;
                     }
                     let description = operation.candidate.clone();
                     let mechanism = Mechanism {
                         kind: description.kind,
-                        position: Position::Execution,
+                        position: if preparing {
+                            Position::Preparation
+                        } else {
+                            Position::Execution
+                        },
                         required: true,
                         profile: None,
                         support: description.support.iter().copied().collect(),
@@ -546,10 +570,21 @@ impl NativeSession {
                     };
                     let index = collected.declaration.mechanisms.len();
                     collected.declaration.mechanisms.push(mechanism.clone());
-                    let admitted = ledger
-                        .reserve_attempt()
-                        .and_then(|()| ledger.reserve(mechanism.limits, description.reservation));
+                    // Binding preparations reserve before effects; execution admission
+                    // belongs to run_admitted and must not reserve the same work twice.
+                    let admitted = if preparing {
+                        ledger.reserve_attempt().and_then(|()| {
+                            ledger.reserve(mechanism.limits, description.reservation, false)
+                        })
+                    } else {
+                        Ok(())
+                    };
                     let prepared = match admitted {
+                        Ok(()) if bound_operations.contains_key(&candidate) => {
+                            Ok(bound_operations.remove(&candidate).ok_or_else(|| {
+                                ProblemError::Internal("selected preparation disappeared".into())
+                            })?)
+                        }
                         Ok(()) => {
                             self.service
                                 .prepare_automatic_operation(operation, scope.clone(), cancel)
@@ -582,6 +617,8 @@ impl NativeSession {
                                 decision: Some(decision_key),
                             });
                             if recoverable {
+                                attempted.insert(candidate);
+                                attempted_bindings.insert(description.identity);
                                 continue;
                             } else {
                                 let bytes = collected.retained_bytes()?;
@@ -607,6 +644,43 @@ impl NativeSession {
                             }
                         }
                     };
+                    if preparing {
+                        let mut work_identity =
+                            pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
+                        work_identity
+                            .hash(&decision_key)
+                            .str("automatic-preparation");
+                        let work = pse_model::strategy::WorkCharge {
+                            phase: pse_model::strategy::Phase::Preparation,
+                            scope: pse_model::strategy::Scope::Task,
+                            charging_owner: work_identity.finish_hash(),
+                            observed: pse_model::strategy::WorkObservation {
+                                attempts: 1,
+                                evaluations: None,
+                                iterations: None,
+                                factorizations: None,
+                                proof_steps: None,
+                            },
+                        };
+                        let work = ledger.complete_charge(work)?;
+                        operations[candidate].candidate.prepared = true;
+                        bound_operations.insert(candidate, prepared);
+                        collected.starts.push(description.start);
+                        collected.products.push(Default::default());
+                        collected.events.push(super::strategy::Event {
+                            mechanism: index,
+                            kind: pse_model::generated::enums::NumericalEventKind::Finished,
+                            phase: pse_model::strategy::Phase::Preparation,
+                            original: None,
+                            observation: None,
+                            transition: Some(Transition::Continue),
+                            permission: None,
+                            work: Some(work),
+                            cause: None,
+                            decision: Some(decision_key),
+                        });
+                        continue;
+                    }
                     let assessor = assess.clone();
                     let one = self
                         .step_bound(
@@ -638,20 +712,14 @@ impl NativeSession {
                             Some(mechanism),
                             Some(shared_products.clone()),
                             true,
+                            Some(ledger.clone()),
                         )
                         .await?;
-                    let mut seen = std::collections::BTreeSet::new();
-                    for event in &one.2.events {
-                        if let Some(work) = event.work
-                            && seen.insert(work.charging_owner)
-                        {
-                            ledger.charge(work)?;
-                        }
-                    }
                     last_observation = one.2.events.iter().rev().find_map(|event| {
                         event
                             .observation
                             .map(|native| super::strategy::AutoObservation {
+                                awaiting_assessment: false,
                                 native,
                                 original: event.original.clone(),
                                 permission: event.permission,
@@ -682,7 +750,9 @@ impl NativeSession {
                         .events
                         .extend(one.2.events.iter().cloned().map(|mut event| {
                             event.mechanism = index;
-                            event.decision = Some(decision_key);
+                            if event.decision.is_none() {
+                                event.decision = Some(decision_key);
+                            }
                             event
                         }));
                     last_result = Some(one);
@@ -745,6 +815,7 @@ impl NativeSession {
         mechanism: Option<pse_model::strategy::Mechanism>,
         shared_products: Option<super::strategy::SharedProducts>,
         original_completion: bool,
+        shared_admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
     ) -> Result<(super::solves::Outcome, T, super::solves::StrategyTrace), MathRuntimeError> {
         let service = self.service.clone();
         let (threads, backend) = (step.threads(), step.backend());
@@ -809,6 +880,10 @@ impl NativeSession {
                     PreparedRung::Multistart(p) => Some(p.key()),
                     PreparedRung::Surrogate(p) => Some(p.key()),
                     PreparedRung::Derived(p) => Some(p.family().key()),
+                    #[cfg(feature = "solver-kinsol")]
+                    PreparedRung::Blocks(p) => Some(p.key()),
+                    #[cfg(feature = "solver-kinsol")]
+                    PreparedRung::Causal(p) => Some(p.key()),
                     PreparedRung::Path { prepared, .. } => Some(prepared.family().key()),
                     #[cfg(feature = "solver-petsc")]
                     PreparedRung::Petsc(p) => Some(p.key()),
@@ -850,6 +925,10 @@ impl NativeSession {
             enum RungOutcome { Original(Box<super::solves::ScopedOutcome>), Derived(Box<super::solves::DerivedAttempt>), Path(Box<super::solves::paths::PathOutcome>), Surrogate(Box<super::surrogate::SurrogatePhaseOutcome>) }
             let _allowance = allowance;
             let enclosing = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+            let admission=shared_admission.unwrap_or_else(||super::strategy::admission::TaskAdmission::new(declaration.limits,enclosing.clone(),Some(service.pool.clone()),declared_foreign>0));
+            admission.retain_storage_allowance(_allowance.clone())?;
+            let scoped_budget=budget.with_admission(admission.clone());
+            let budget=&scoped_budget;
             let mut assessed = None;
             let product_state=shared_products.unwrap_or_else(||Arc::new(std::sync::Mutex::new(super::strategy::ProductState::owned(rungs.len(),product_owner))));
             let prepared=std::cell::RefCell::new(rungs.into_iter().map(Some).collect::<Vec<_>>());
@@ -860,8 +939,8 @@ impl NativeSession {
             let completion_witness=std::cell::RefCell::new(None::<super::solves::paths::PathCompletion>);
             let actual_starts=std::cell::RefCell::new(starts);
             let actual_products=std::cell::RefCell::new(products);
-            let result = super::strategy::run(
-                &declaration, &enclosing,
+            let result = super::strategy::run_admitted(
+                &declaration, &enclosing, admission.clone(),
                 |index| {
                     let declared=actual_starts.borrow()[index];
                     let fresh=fresh_start.get().filter(|origin|index>0 && !matches!(prepared.borrow()[index].as_ref(),Some(PreparedRung::Multistart(_))) && declared!=pse_model::strategy::StartOrigin::Explicit
@@ -880,7 +959,8 @@ impl NativeSession {
                     } else {Ok(Vec::new())};
                     let (accuracy,accuracy_refusal)=match consumed {Ok(accuracy)=>(accuracy,None),Err(error)=>(Vec::new(),Some(Arc::new(error)))};
                     let local_refusal=prepared.borrow()[index].as_ref().and_then(|rung|match rung {PreparedRung::Derived(p)=>p.local_scope_refusal(&enclosing),_=>None});
-                    super::strategy::Facts { support:supports[index].clone(), accuracy, consumption:if matches!(prepared.borrow()[index].as_ref(),Some(PreparedRung::Original(_))) { declaration.accuracy.clone() } else {Vec::new()}, reservation:None, start:actual, inherited:index==0 && inherited, connected:bound, refusal:refusal.or(local_refusal).or(accuracy_refusal) }
+                    let work_admitted=prepared.borrow()[index].as_ref().is_some_and(|rung|match rung {PreparedRung::Original(target)=>target.work_admitted(declaration.limits,&enclosing,admission.clone()) && target.work_admitted(declaration.mechanisms[index].limits,&enclosing,admission.clone()),_=>false});
+                    super::strategy::Facts { support:supports[index].clone(), accuracy, consumption:if matches!(prepared.borrow()[index].as_ref(),Some(PreparedRung::Original(_))) { declaration.accuracy.clone() } else {Vec::new()}, reservation:None, work_admitted, start:actual, inherited:index==0 && inherited, connected:bound, refusal:refusal.or(local_refusal).or(accuracy_refusal) }
                 },
                 |index,mechanism| {
                     let rung = prepared.borrow_mut()[index].take().ok_or_else(|| Arc::new(ProblemError::Internal("strategy mechanism executed twice".into())))?;
@@ -889,6 +969,10 @@ impl NativeSession {
                         PreparedRung::Multistart(p)=>Some(p.point()),
                         PreparedRung::Surrogate(_)=>point.borrow().clone(),
                         PreparedRung::Derived(p)=>if Some(actual_starts.borrow()[index])==fresh_start.get() {point.borrow().clone()} else {Some(p.original().source_start(previous.as_ref()).map_err(Arc::new)?)},
+                        #[cfg(feature="solver-kinsol")]
+                        PreparedRung::Blocks(p)=>Some(p.original().source_start(previous.as_ref()).map_err(Arc::new)?),
+                        #[cfg(feature="solver-kinsol")]
+                        PreparedRung::Causal(p)=>Some(p.original().source_start(previous.as_ref()).map_err(Arc::new)?),
                         PreparedRung::Path{start,..}=>Some(start.point().to_vec()),
                         #[cfg(feature="solver-petsc")] PreparedRung::Petsc(p)=>if Some(actual_starts.borrow()[index])==fresh_start.get() {point.borrow().clone()} else {Some(p.source().original().source_start(previous.as_ref()).map_err(Arc::new)?)},
                     };
@@ -923,12 +1007,30 @@ impl NativeSession {
                                 }
                             }
                             let observation=super::strategy::observe(&value.0);
-                            let observed=super::strategy::work(&value.0);
+                            let observed=target.inclusive_work(&value.0);
                             (RungOutcome::Original(Box::new(value)),observation,observed)
+                        },
+                        #[cfg(feature="solver-kinsol")]
+                        PreparedRung::Blocks(prepared)=>{
+                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.original().controls(),enclosing.clone()).map_err(Arc::new)?;
+                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
+                            execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.original().controls()));
+                            let outcome=service.blocks_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original block start absent".into())))?)?;
+                            let observed=super::strategy::work(&outcome);let observation=super::strategy::observe(&outcome);
+                            (RungOutcome::Original(Box::new((outcome,Some(enclosing.clone())))),observation,observed)
+                        },
+                        #[cfg(feature="solver-kinsol")]
+                        PreparedRung::Causal(prepared)=>{
+                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.original().controls(),enclosing.clone()).map_err(Arc::new)?;
+                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
+                            execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.original().controls()));
+                            let outcome=service.causal_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original causal start absent".into())))?)?;
+                            let observed=super::strategy::work(&outcome);let observation=super::strategy::observe(&outcome);
+                            (RungOutcome::Original(Box::new((outcome,Some(enclosing.clone())))),observation,observed)
                         },
                         PreparedRung::Derived(prepared)=>{
                             let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.controls(),enclosing.clone()).map_err(Arc::new)?;
-                            execution.progress=progress.clone();
+                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();
                             execution.memory=Some(service.policy.foreign_allowance(prepared.controls()));
                             let value=match service.derived_step(&prepared,execution.clone(),retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("original source point absent".into())))?) {
                                 Ok(value)=>value,
@@ -967,8 +1069,10 @@ impl NativeSession {
                             (RungOutcome::Original(Box::new(value)),observation,observed)
                         },
                         PreparedRung::Surrogate(prepared)=>{
-                            let execution=pse_backend_native::solve::Execution::within(flag.clone(),&pse_backend_native::solve::Controls::default(),enclosing.clone()).map_err(Arc::new)?;
+                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),&pse_backend_native::solve::Controls::default(),enclosing.clone()).map_err(Arc::new)?;
                             let phase_budget=WorkerBudget::drawing(prepared.worker_bytes().max(service.policy.worker_bytes),&service.pool);
+                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
+                            let phase_budget=phase_budget.with_admission(admission.clone());
                             let value=prepared.advance(&execution,&phase_budget,owner.clone());
                             let observed=value.work;
                             let observation=value.terminal.as_deref().map_or(pse_model::generated::enums::NumericalAttemptObservation::Auxiliary,super::strategy::failure);
@@ -976,8 +1080,9 @@ impl NativeSession {
                         },
                         PreparedRung::Path{prepared,start}=>{
                             let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),&prepared.profile().controls,enclosing.clone()).map_err(Arc::new)?;
-                            execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(&prepared.profile().controls));
+                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(&prepared.profile().controls));
                             let path_budget=WorkerBudget::drawing(prepared.worker_bytes().max(service.policy.worker_bytes),&service.pool);
+                            let path_budget=path_budget.with_admission(admission.clone());
                             let mut value=super::solves::paths::run_path(&service,&prepared,*start,execution,&path_budget,owner.clone());
                             let mut observed=value.work();
                             if let Some(proposal)=value.proposal.take() {
@@ -994,7 +1099,7 @@ impl NativeSession {
                         #[cfg(feature="solver-petsc")]
                         PreparedRung::Petsc(prepared)=>{
                             let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.controls(),enclosing.clone()).map_err(Arc::new)?;
-                            execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.controls()));
+                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.controls()));
                             let value=service.execute_petsc(&prepared,execution,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::internal("original PETSc start missing")))?).map_err(|error|Arc::new(error.into_problem()))?;
                             let observed=value.work();
                             let observation=super::strategy::observe(&value.outcome);
@@ -1168,7 +1273,7 @@ impl NativeSession {
                 let mut value=Some(outcome.unwrap_or_else(|cause| (super::solves::Outcome::Rejected(Arc::new(cause)),Some(enclosing.clone()))));
                 let mut product=None;
                 let result=super::strategy::run_observed(&declaration,&enclosing,
-                    |_|super::strategy::Facts {support:Default::default(),accuracy:Vec::new(),consumption:Vec::new(),reservation:None,start,inherited:false,connected:false,refusal:None},
+                    |_|super::strategy::Facts {support:Default::default(),accuracy:Vec::new(),consumption:Vec::new(),reservation:None,work_admitted:false,start,inherited:false,connected:false,refusal:None},
                     |_,_| {
                         let value=value.take().ok_or_else(||Arc::new(ProblemError::Internal("batch outcome consumed twice".into())))?;
                         let mut charge=pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);

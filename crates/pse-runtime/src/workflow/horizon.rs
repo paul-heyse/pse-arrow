@@ -210,6 +210,9 @@ pub struct HorizonStep {
     /// Why an advanced-step controller did not predict at this sample; a full solve decided
     /// it instead.
     pub fallback: Option<pse_backend_native::kkt::Fallback>,
+    /// Actual activity tracking used only to seed an independently assessed full solve.
+    /// Segment-limited coverage remains partial in this evidence.
+    pub activity: Option<pse_backend_native::kkt::path::PathPrediction>,
     /// The run's modeling step of the background solve an advanced-step controller ran at
     /// this sample for the next one.
     pub advanced: Option<usize>,

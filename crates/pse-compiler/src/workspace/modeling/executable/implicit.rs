@@ -502,6 +502,68 @@ impl AdmittedImplicit {
                 })
                 .sum::<usize>()
     }
+    /// Retain the actual numerical source with producer-issued residual realization
+    /// and an exact single-root proof projection, when representable.
+    pub fn reconstruction_factory(
+        &self,
+        configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
+        capabilities: ImplicitCapabilities<'_>,
+        requested_output: DerivativeOrder,
+        cancel: Arc<AtomicBool>,
+        limits: EvaluationLimits,
+    ) -> Result<pse_math::implicit::reconstruction::ReconstructionFactory> {
+        use pse_math::implicit::{
+            ImplicitFactory,
+            reconstruction::{ReconstructionFactory, SelectedResidualRealization},
+        };
+        let verifier = capabilities.verifier.clone();
+        let factory = self.factory(
+            configurations,
+            capabilities,
+            requested_output,
+            cancel.clone(),
+            limits,
+        )?;
+        let isolation = match &factory {
+            ImplicitFactory::Root(root)
+                if requested_output >= DerivativeOrder::First
+                    && root.selection.restriction.is_none() =>
+            {
+                let residual = self
+                    .residuals
+                    .first()
+                    .ok_or_else(|| CompileError::Missing("single-root residual source".into()))?;
+                pse_math::factorable::single_root_isolation_program(
+                    residual.id,
+                    &residual.body.math,
+                    &cancel,
+                    limits.derivative_components,
+                )
+                .map_err(|error| match error {
+                    pse_math::factorable::FactorableError::Math(error) => CompileError::from(error),
+                    error => CompileError::Missing(error.to_string()),
+                })?
+                .map(Arc::new)
+            }
+            _ => None,
+        };
+        // ModelingOutput equality programs lower lhs-rhs with bounds [0,0].
+        // Record that producer fact explicitly; consumers never infer offsets from IDs.
+        let rows = self
+            .residuals
+            .first()
+            .ok_or_else(|| CompileError::Missing("implicit residual source".into()))?
+            .rows
+            .clone();
+        Ok(ReconstructionFactory::new(
+            factory,
+            SelectedResidualRealization::ZeroResiduals {
+                authored_offsets: rows.into_iter().map(|id| (id, 0.0)).collect(),
+            },
+            isolation,
+            verifier,
+        ))
+    }
     /// Every branch receives its own resolved physical hints. The selector has one total deadline.
     pub fn factory(
         &self,

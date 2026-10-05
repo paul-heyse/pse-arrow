@@ -10,6 +10,8 @@ fn native_report(outcome: &Outcome) -> &SolveReport {
 }
 
 use pse_ids::SemanticId;
+#[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
+use pse_math::implicit::RegimeFactory;
 
 #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
 #[tokio::test]
@@ -1096,6 +1098,7 @@ async fn actual_derived_callback_local_expiry_continues_with_charged_work_but_ot
         accuracy: Vec::new(),
         consumption: Vec::new(),
         reservation: None,
+        work_admitted: false,
         start: StartOrigin::Specification,
         inherited: false,
         connected: false,
@@ -1637,6 +1640,12 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         verifier: Some(Arc::new(native::root_isolation::Ibex)),
     });
     let service = runtime.native();
+    let factory = Arc::new(ReconstructionFactory::regimes(
+        factory.as_ref().clone(),
+        SelectedResidualRealization::ZeroResiduals {
+            authored_offsets: vec![(row, plan.structure().rows()[eliminated].lower)],
+        },
+    ));
     let owner = service
         .reserve(
             "test:actual-selected-source",
@@ -1648,9 +1657,6 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
             factory,
             factory_owner: owner,
             validity: source_key,
-            realization: SelectedResidualRealization::ZeroResiduals {
-                authored_offsets: vec![(row, plan.structure().rows()[eliminated].lower)],
-            },
         }],
         retained: vec![GlobalCol::new(retained_column)],
         accuracy: ReconstructionAccuracy {
@@ -1845,6 +1851,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 accuracy: vec![],
                 consumption: vec![],
                 reservation: None,
+                work_admitted: false,
                 connected: false,
                 refusal: None,
             },
@@ -1883,6 +1890,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
             accuracy: vec![],
             consumption: vec![],
             reservation: None,
+            work_admitted: false,
             connected: false,
             refusal: None,
         },
@@ -1993,19 +2001,48 @@ async fn composition_retains_boxed_rung_bodies_and_refuses_a_short_pool() {
 ))]
 #[tokio::test]
 async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_attempt() {
+    full_reconstruction_kind(false).await;
+}
+#[cfg(all(
+    feature = "solver-kinsol",
+    feature = "solver-ipopt",
+    feature = "solver-root-isolation"
+))]
+#[tokio::test]
+async fn actual_single_root_full_reconstruction_preserves_native_factory_and_original_assessment() {
+    full_reconstruction_kind(true).await;
+}
+#[cfg(all(
+    feature = "solver-kinsol",
+    feature = "solver-ipopt",
+    feature = "solver-root-isolation"
+))]
+async fn full_reconstruction_kind(single_root: bool) {
     use pse_math::implicit::reconstruction::SelectedResidualRealization;
     use pse_math::{
         implicit::{Configuration, Factory, Options, RegimeFactoryBranch, Selection, Unknown},
         typed::{Binary, BodyBuilder, BodyLimits},
     };
     use pse_model::strategy::AccuracyClass;
-    // IBEX's existing declared covering workspace is admitted even for this small
-    // chart; retain the same bounded pool used by other actual isolation tests.
+    // Regimes retain their existing covering contract. Genuine Root reconstruction
+    // admits only its requested 64-cell proof workspace, within the ordinary small pool.
     let runtime = crate::workflow::tests::runtime_on(
-        24usize << 30,
+        if single_root {
+            160usize << 20
+        } else {
+            24usize << 30
+        },
         crate::math::MathPolicy {
-            worker_bytes: 8usize << 30,
-            workspace_bytes: 8usize << 30,
+            worker_bytes: if single_root {
+                64usize << 20
+            } else {
+                8usize << 30
+            },
+            workspace_bytes: if single_root {
+                64usize << 20
+            } else {
+                8usize << 30
+            },
             foreign_bytes: 16usize << 20,
             ..Default::default()
         },
@@ -2164,6 +2201,111 @@ async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_
         cancel: flag.clone(),
         verifier: Some(Arc::new(native::root_isolation::Ibex)),
     });
+    let realization = SelectedResidualRealization::ZeroResiduals {
+        authored_offsets: vec![(row, plan.structure().rows()[0].lower)],
+    };
+    let factory = if single_root {
+        let root = factory.alternatives[0].residual.clone();
+        let proof =
+            pse_math::factorable::single_root_isolation_program(row, &residual, &flag, 10_000)
+                .unwrap()
+                .unwrap();
+        let proof = Arc::new(proof);
+        let alternatives = [pse_math::implicit::SelectionAlternative {
+            id: root.spec.id,
+            program: &proof,
+            residual_identity: root.spec.revision,
+            unknowns: &root.unknowns,
+        }];
+        let request = pse_math::implicit::SelectionProofRequest {
+            selection: root.spec.id,
+            alternatives: &alternatives,
+            winner: 0,
+            parameters: &[],
+            candidate: &[3.0],
+            order: DerivativeOrder::First,
+            time_limit: std::time::Duration::from_secs(10),
+            cancel: &flag,
+        };
+        let evidence = pse_math::implicit::SelectionVerifier::certify_bounded(
+            &native::root_isolation::Ibex,
+            &request,
+            64,
+        )
+        .unwrap();
+        assert!(
+            matches!(evidence, pse_math::implicit::SelectionEvidence::Unique(_)),
+            "actual single-root initial evidence: {evidence:?}; source: {proof:?}"
+        );
+        let source = ReconstructionFactory::new(
+            pse_math::implicit::ImplicitFactory::Root(root),
+            realization,
+            Some(proof),
+            Some(Arc::new(native::root_isolation::Ibex)),
+        );
+        assert!(matches!(
+            source.factory(),
+            pse_math::implicit::ImplicitFactory::Root(_)
+        ));
+        Arc::new(source)
+    } else {
+        Arc::new(ReconstructionFactory::regimes(
+            factory.as_ref().clone(),
+            realization,
+        ))
+    };
+    let accuracy = ReconstructionAccuracy {
+        point: 1e-10,
+        action: 1e-10,
+        class: AccuracyClass::Certified,
+        refinement: math::RefinementLimits {
+            rounds: 4,
+            proof_cells: 64,
+        },
+    };
+    let descriptor = pse_kernels::AdmittedProvider::new(factory.spec().clone(), registry).unwrap();
+    let mut discovered_original = original.clone();
+    let Representation::Algebraic(discovery) = &mut discovered_original.representation else {
+        panic!("original algebraic source")
+    };
+    let raw =
+        pse_kernels::Registration::bind(descriptor.clone(), Arc::new(factory.factory().clone()))
+            .unwrap();
+    discovery.providers.insert(factory.spec().key(), raw);
+    assert!(
+        service
+            .automatic_reduced_request(&discovered_original, accuracy)
+            .unwrap()
+            .is_none(),
+        "concrete source alone is not producer metadata"
+    );
+    let Representation::Algebraic(discovery) = &mut discovered_original.representation else {
+        panic!("original algebraic source")
+    };
+    let issued = pse_kernels::Registration::bind(descriptor, factory.clone()).unwrap();
+    discovery.providers.insert(factory.spec().key(), issued);
+    let discovered = service
+        .automatic_reduced_request(&discovered_original, accuracy)
+        .unwrap()
+        .unwrap();
+    let DerivedRequest::Reduced {
+        suppliers,
+        retained,
+        ..
+    } = discovered
+    else {
+        panic!("automatic reduced request")
+    };
+    assert!(retained.is_empty());
+    assert_eq!(suppliers.len(), 1);
+    assert_eq!(
+        matches!(
+            suppliers[0].factory.factory(),
+            pse_math::implicit::ImplicitFactory::Root(_)
+        ),
+        single_root
+    );
+    drop(suppliers);
     let owner = service
         .reserve(
             "test:complete-admitted-factory",
@@ -2175,9 +2317,6 @@ async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_
             factory,
             factory_owner: owner,
             validity: key,
-            realization: SelectedResidualRealization::ZeroResiduals {
-                authored_offsets: vec![(row, plan.structure().rows()[0].lower)],
-            },
         }],
         retained: vec![],
         accuracy: ReconstructionAccuracy {
@@ -2211,6 +2350,37 @@ async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_
         service.policy.stack_bytes,
         || {
             let mut retained = Retained::default();
+            if single_root {
+                let DerivedRequest::Reduced { suppliers, .. } = &prepared.request else {
+                    panic!("actual reduced source required");
+                };
+                let local = &prepared.reduced.as_ref().unwrap().suppliers[0];
+                let _charge = budget.charge(
+                    suppliers[0].factory.retained_bytes()?
+                        + suppliers[0].factory.reconstruction_workspace_bytes(1)?,
+                )?;
+                let mut limited = SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
+                    suppliers[0].factory.as_ref(),
+                    local.contract.clone(),
+                    local.normalization.clone(),
+                    execution.scope()?,
+                    &local.binding,
+                )?
+                .with_proof_cell_limit(1)?;
+                let refusal = math::ReconstructionOracle::admit(&mut limited, &[]).unwrap_err();
+                assert!(
+                    matches!(
+                        refusal,
+                        ProblemError::Math(pse_math::MathError::Refinement {
+                            reason: math::RefinementRefusal::Unavailable(
+                                pse_math::implicit::SelectionProofRefusal::Resource
+                            ),
+                            ..
+                        })
+                    ),
+                    "actual initial proof budget refusal: {refusal:?}"
+                );
+            }
             service.derived_step(&prepared, execution, &mut retained, &budget, &[2.5])
         },
     )
@@ -2232,5 +2402,615 @@ async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_
             .class
             == AccuracyClass::Certified
     );
+    assert_eq!(budget.used(), 0);
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn automatic_blocks_execute_complete_nonport_coupled_original_and_keep_actual_components() {
+    let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; var z:Scalar; annotation start x(0); annotation start y(0); annotation start z(0); eq first:x==1; eq second:y==x+1; eq third:z==2*y; } }").await;
+    let service = runtime.native();
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    assert_eq!(original.automatic_block_count(&flag).unwrap(), 3);
+    let offers = original.automatic_operations(None, &flag).unwrap();
+    assert!(
+        offers
+            .iter()
+            .any(|offer| offer.candidate.kind == MechanismKind::Block)
+    );
+    let scope = ExecutionScope::new(
+        flag.clone(),
+        Some(Instant::now() + std::time::Duration::from_secs(30)),
+    );
+    let prepared = service
+        .prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(prepared.block_count(), 3);
+    assert_eq!(
+        prepared.original().original_identity().unwrap(),
+        original.original_identity().unwrap()
+    );
+    let execution = Execution::within(flag, &original.profile.controls, scope).unwrap();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+    execution::scoped(
+        &[execution::adapter(Backend::Kinsol)],
+        1,
+        service.policy.stack_bytes,
+        || {
+            let outcome = service
+                .blocks_step(
+                    &prepared,
+                    execution.clone(),
+                    &mut Retained::default(),
+                    &budget,
+                    &[0., 0., 0.],
+                )
+                .unwrap_or_else(|failure| panic!("{}", failure.cause));
+            let Outcome::Constant(report) = outcome else {
+                panic!("fresh complete original report required");
+            };
+            assert!(report.quality.feasible());
+            assert_eq!(report.coordinates.len(), 3);
+            let mut coordinates: Vec<_> =
+                report.coordinates.iter().map(|(_, value)| *value).collect();
+            coordinates.sort_by(f64::total_cmp);
+            assert_eq!(coordinates, [1., 2., 4.]);
+            assert_eq!(report.component_reports().len(), 3);
+            let expected = report.component_reports().fold(1u64, |sum, component| {
+                sum + component.evidence.work.evaluations.unwrap()
+            });
+            assert_eq!(report.work.evaluations, Some(expected));
+            for component in report.component_reports() {
+                assert_eq!(component.variables.len(), 1);
+                assert!(
+                    crate::workflow::numerics::native_use(component, &original.numerics.policy)
+                        .permits_use()
+                );
+            }
+            assert_eq!(report.observation.values.len(), 3);
+            assert!(
+                report
+                    .observation
+                    .equality_residuals
+                    .iter()
+                    .all(|residual| residual.is_some_and(|residual| residual.abs() < 1e-8))
+            );
+            Ok::<_, ProblemError>(())
+        },
+    )
+    .unwrap();
+    let completed = service
+        .solve(original.clone())
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    assert!(
+        completed
+            .outcome
+            .candidate_use(&original.numerics.policy)
+            .permits_use()
+    );
+    let Outcome::Constant(report) = &completed.outcome else {
+        panic!("automatic block result must retain fresh original evaluation");
+    };
+    assert_eq!(report.component_reports().len(), 3);
+    assert!(
+        completed
+            .strategy
+            .declaration
+            .mechanisms
+            .iter()
+            .any(|mechanism| mechanism.kind == MechanismKind::Block)
+    );
+    let mut explicit = original.clone();
+    explicit.profile.controls.start = StartPolicy::Explicit;
+    assert_eq!(
+        explicit
+            .automatic_block_count(&Arc::new(std::sync::atomic::AtomicBool::new(false)))
+            .unwrap(),
+        0
+    );
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn automatic_blocks_merge_domain_control_cycle_and_refuse_single_block() {
+    // Cancellation of the arithmetic value leaves the log-domain dependency owned by
+    // original evaluation. It closes a cycle with the second equation.
+    let (_runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(1); annotation start y(2); eq first:x+log(y)-log(y)==1; eq second:y==x+1; } }").await;
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    assert_eq!(original.automatic_block_count(&flag).unwrap(), 0);
+    assert!(
+        !original
+            .automatic_operations(None, &flag)
+            .unwrap()
+            .iter()
+            .any(|offer| offer.candidate.kind == MechanismKind::Block)
+    );
+}
+
+#[cfg(all(feature = "solver-kinsol", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn automatic_blocks_refuse_original_objective_coupling() {
+    let runtime = crate::workflow::tests::runtime_with(128 << 20, 1 << 20, 512 << 20);
+    let (_runtime, original) = original_order_on(runtime, "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(1); annotation start y(2); eq first:x==1; eq second:y==x+1; let cost:Scalar=x*y; annotation objective cost(minimize); } }", DerivativeOrder::Second, SolverProfile { intent:SolveIntent::Optimize, selection:SolverSelection::Explicit(Backend::Ipopt), ..Default::default() }).await;
+    assert_eq!(
+        original
+            .automatic_block_count(&Arc::new(std::sync::atomic::AtomicBool::new(false)))
+            .unwrap(),
+        0
+    );
+}
+
+#[cfg(all(feature = "solver-kinsol", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn actual_zero_row_feasibility_retains_objective_and_objective_free_original_bounds() {
+    for with_objective in [true, false] {
+        let runtime = crate::workflow::tests::runtime_with(128 << 20, 1 << 20, 512 << 20);
+        let text = if with_objective {
+            "package p { def Root { var x:Scalar; annotation bounds x(1,5); annotation start x(4); let cost:Scalar=(x-2)*(x-2); annotation objective cost(minimize); } }"
+        } else {
+            "package p { def Root { var x:Scalar; annotation bounds x(1,5); annotation start x(4); } }"
+        };
+        let (runtime, original) = original_order_on(
+            runtime,
+            text,
+            DerivativeOrder::Second,
+            SolverProfile {
+                intent: if with_objective {
+                    SolveIntent::Optimize
+                } else {
+                    SolveIntent::Initialize
+                },
+                selection: SolverSelection::Explicit(Backend::Ipopt),
+                controls: Controls {
+                    hessian: HessianMode::LimitedMemory,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .await;
+        let service = runtime.native();
+        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let scope = ExecutionScope::new(
+            flag.clone(),
+            Some(Instant::now() + std::time::Duration::from_secs(30)),
+        );
+        let mut profile = original.profile.clone();
+        profile.intent = SolveIntent::Initialize;
+        let prepared = service
+            .prepare_derived(
+                original.clone(),
+                DerivedRequest::Feasibility,
+                profile,
+                scope.clone(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert!(prepared.physical.constraints().is_empty());
+        assert_eq!(
+            prepared.physical.obligations().objective.is_some(),
+            with_objective
+        );
+        assert_eq!(prepared.physical.coordinates()[0].lower, 1.);
+        assert_eq!(prepared.physical.coordinates()[0].upper, 5.);
+        let execution = Execution::within(flag, prepared.controls(), scope).unwrap();
+        let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+        execution::scoped(
+            &[execution::adapter(Backend::Ipopt)],
+            1,
+            service.policy.stack_bytes,
+            || {
+                let attempt = service
+                    .derived_step(
+                        &prepared,
+                        execution.clone(),
+                        &mut Retained::default(),
+                        &budget,
+                        &[4.],
+                    )
+                    .map_err(|failure| failure.cause)?;
+                let Outcome::Native(auxiliary) = &attempt.outcome else {
+                    panic!("actual zero-row native NLP required");
+                };
+                assert_eq!(auxiliary.backend, Backend::Ipopt);
+                assert!(auxiliary.quality.as_ref().unwrap().feasible());
+                let checked = service
+                    .derived_original_outcome(&prepared, &attempt, &execution, &budget)
+                    .unwrap();
+                let Outcome::Native(checked) = checked else {
+                    panic!("actual original assessment required");
+                };
+                assert!(checked.quality.as_ref().unwrap().feasible());
+                assert!(checked.observation.as_ref().unwrap().values.is_empty());
+                assert_eq!(
+                    checked.observation.as_ref().unwrap().objective.is_some(),
+                    with_objective
+                );
+                assert!((1. ..=5.).contains(&checked.candidate.as_ref().unwrap().primal[0]));
+                if with_objective {
+                    // Feasibility supplies an original-screened point; its constant auxiliary
+                    // objective does not establish original minimization stationarity.
+                    let x = checked.candidate.as_ref().unwrap().primal[0];
+                    assert!(
+                        (checked.observation.as_ref().unwrap().objective.unwrap()
+                            - (x - 2.).powi(2))
+                        .abs()
+                            < 1e-8
+                    );
+                    assert!(checked.evidence.local.is_none());
+                    assert!(checked.evidence.kkt.is_none());
+                }
+                assert_eq!(checked.qualification, Qualification::Feasible);
+                assert_eq!(checked.termination.assurance, Assurance::Feasible);
+                assert!(
+                    crate::workflow::numerics::native_use(&checked, &original.numerics.policy)
+                        .permits_use()
+                );
+                Ok::<_, Arc<ProblemError>>(())
+            },
+        )
+        .unwrap();
+    }
+}
+
+#[cfg(all(
+    feature = "solver-kinsol",
+    feature = "solver-ipopt",
+    feature = "solver-root-isolation"
+))]
+#[tokio::test]
+async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_chain_actions() {
+    use pse_math::{
+        composite_reconstruction::CompositeReconstruction,
+        derived::ReconstructionOracle,
+        implicit::reconstruction::{SelectedResidualBinding, SelectedResidualRealization},
+        implicit::{Configuration, Factory, ImplicitFactory, Options, Selection, Unknown},
+        normalization::Normalization,
+        typed::{Binary, BodyBuilder, BodyLimits},
+    };
+    use pse_model::strategy::{AccuracyClass, AccuracyDemand};
+    let runtime = crate::workflow::tests::runtime_on(
+        160usize << 20,
+        crate::math::MathPolicy {
+            worker_bytes: 64usize << 20,
+            workspace_bytes: 64usize << 20,
+            foreign_bytes: 16usize << 20,
+            ..Default::default()
+        },
+    );
+    let (runtime, original) = original_order_on(runtime, "package p { def Root { var y:Scalar; var z:Scalar; var p:Scalar; annotation bounds y(4,6); annotation bounds z(6,8); annotation bounds p(1,2); annotation start y(5); annotation start z(7); annotation start p(2); eq first:y-p==3; eq second:z-y==2; } }", DerivativeOrder::First, SolverProfile { intent:SolveIntent::Initialize, selection:SolverSelection::Explicit(Backend::Ipopt), controls:Controls { hessian:HessianMode::LimitedMemory, ..Default::default() }, ..Default::default() }).await;
+    let Representation::Algebraic(source) = &original.representation else {
+        panic!("compiled original source required");
+    };
+    let plan = &source.prepared.prepared.plan;
+    let registry = &source.prepared.prepared.quantities;
+    let port = |lower| {
+        plan.structure()
+            .variables()
+            .iter()
+            .find(|v| v.lower == Some(lower))
+            .unwrap()
+            .port
+            .clone()
+    };
+    let y = port(4.);
+    let z = port(6.);
+    let p = port(1.);
+    let coordinates = vec![
+        math::Coordinate {
+            id: y.id,
+            lower: 4.,
+            upper: 6.,
+        },
+        math::Coordinate {
+            id: z.id,
+            lower: 6.,
+            upper: 8.,
+        },
+        math::Coordinate {
+            id: p.id,
+            lower: 1.,
+            upper: 2.,
+        },
+    ];
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let scope = ExecutionScope::new(
+        flag.clone(),
+        Some(Instant::now() + std::time::Duration::from_secs(30)),
+    );
+    let key = pse_ids::ContentHash::from_bytes([92; 32]);
+    let scales = Normalization::identity(3, 2);
+    let first_rows = plan.incidence(&flag).unwrap();
+    let row_for = |parameter| {
+        plan.structure()
+            .instances()
+            .iter()
+            .zip(&first_rows)
+            .find_map(|(instance, support)| {
+                instance.contributions.iter().find_map(|contribution| {
+                    let pse_math::binding::Target::Row(row) = contribution.target else {
+                        return None;
+                    };
+                    support
+                        .first_for_output(contribution.output)
+                        .unwrap()
+                        .iter()
+                        .any(|column| instance.slots[*column].source() == parameter)
+                        .then_some(row)
+                })
+            })
+            .unwrap()
+    };
+    let rows = [row_for(p.id), row_for(z.id)];
+    assert_eq!(rows.len(), 2);
+    assert_ne!(rows[0], rows[1]);
+    // These exact typed source outputs are authored values. Their physical row
+    // bounds remain 3 and 2; the producer binds each offset to native and proof DAGs.
+    let global = Arc::new(
+        OriginalContract::new(
+            key,
+            scales.key(),
+            coordinates.clone(),
+            vec![
+                math::Constraint {
+                    id: rows[0],
+                    lower: 3.,
+                    upper: 3.,
+                },
+                math::Constraint {
+                    id: rows[1],
+                    lower: 2.,
+                    upper: 2.,
+                },
+            ],
+            vec![
+                Entry::new(GlobalRow::new(0), GlobalCol::new(0)),
+                Entry::new(GlobalRow::new(0), GlobalCol::new(2)),
+                Entry::new(GlobalRow::new(1), GlobalCol::new(1)),
+                Entry::new(GlobalRow::new(1), GlobalCol::new(0)),
+            ],
+            DerivativeSupport {
+                order: DerivativeOrder::First,
+                jacobian_product: true,
+                source: key,
+            },
+            OriginalObligations {
+                guards: key,
+                selection: key,
+                objective: None,
+            },
+        )
+        .unwrap(),
+    );
+    let mut factories = Vec::new();
+    let mut contracts = Vec::new();
+    let mut bindings = Vec::new();
+    let mut local_scales = Vec::new();
+    for (i, output, input, output_col, input_col, offset) in [
+        (0, y.clone(), p.clone(), 0, 2, 3.),
+        (1, z.clone(), y.clone(), 1, 0, 2.),
+    ] {
+        let row = rows[i];
+        let mut builder = BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            2,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let unknown = builder
+            .input(0, output.quantity, pse_quantity::IndexSet::new(), output.id)
+            .unwrap();
+        let parameter = builder
+            .input(1, input.quantity, pse_quantity::IndexSet::new(), input.id)
+            .unwrap();
+        let expression = builder
+            .binary(Binary::Sub, unknown, parameter, None, row)
+            .unwrap();
+        let body = builder.prepare(&[expression]).unwrap();
+        let compiled = Arc::new(
+            body.compile(
+                &[0],
+                &[0, 1],
+                DerivativeOrder::First,
+                pse_math::library::Optimization::default(),
+                pse_math::jets::EvaluationLimits::default(),
+                &flag,
+            )
+            .unwrap(),
+        );
+        let proof = Arc::new(
+            pse_math::factorable::single_root_isolation_program(row, &body, &flag, 10_000)
+                .unwrap()
+                .unwrap(),
+        );
+        let coordinate = &coordinates[output_col];
+        let unknowns = vec![Unknown {
+            id: output.id,
+            lower: coordinate.lower,
+            upper: coordinate.upper,
+        }];
+        let factory = ReconstructionFactory::new(
+            ImplicitFactory::Root(Factory {
+                spec: pse_kernels::ProviderSpec {
+                    id: row,
+                    revision: key,
+                    data: key,
+                    derivative_source: pse_kernels::DerivativeSource::Implicit,
+                    shapes: Default::default(),
+                    inputs: vec![input],
+                    outputs: vec![output],
+                    derivatives: DerivativeOrder::First,
+                    smoothness: DerivativeOrder::First,
+                },
+                body: compiled,
+                unknowns: unknowns.clone(),
+                rows: vec![row],
+                configuration: Configuration::Fixed(
+                    unknowns,
+                    Options {
+                        start: vec![coordinate.lower + 0.5],
+                        variable_nominals: vec![1.],
+                        variable_tolerance: vec![1e-8],
+                        residual_tolerance: vec![1e-8],
+                        iterations: 100,
+                        time_limit: std::time::Duration::from_secs(10),
+                        derivative_tolerance: 1e-8,
+                    },
+                ),
+                selection: Selection::default(),
+                requirements: pse_kernels::DerivativeRequirements::new(
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                    DerivativeOrder::First,
+                )
+                .unwrap(),
+                hints: None,
+                terms: None,
+                solver: Arc::new(native::implicit::Kinsol),
+                cancel: flag.clone(),
+                max_entries: 1000,
+                providers: Default::default(),
+            }),
+            SelectedResidualRealization::AuthoredValues,
+            Some(proof),
+            Some(Arc::new(native::root_isolation::Ibex)),
+        );
+        let normalization = Normalization::identity(2, 1);
+        let local = Arc::new(
+            OriginalContract::new(
+                key,
+                normalization.key(),
+                vec![
+                    coordinates[output_col].clone(),
+                    coordinates[input_col].clone(),
+                ],
+                vec![math::Constraint {
+                    id: row,
+                    lower: offset,
+                    upper: offset,
+                }],
+                vec![
+                    Entry::new(GlobalRow::new(0), GlobalCol::new(0)),
+                    Entry::new(GlobalRow::new(0), GlobalCol::new(1)),
+                ],
+                DerivativeSupport {
+                    order: DerivativeOrder::First,
+                    jacobian_product: true,
+                    source: key,
+                },
+                OriginalObligations {
+                    guards: key,
+                    selection: key,
+                    objective: None,
+                },
+            )
+            .unwrap(),
+        );
+        let binding =
+            SelectedResidualBinding::for_original(&factory, &local, &[GlobalRow::new(0)]).unwrap();
+        assert_eq!(
+            binding.realization(),
+            &SelectedResidualRealization::AuthoredValues
+        );
+        let contract =
+            SelectedImplicitReconstruction::<pse_math::MathError>::prepare_contract_with_binding(
+                &factory,
+                local,
+                vec![GlobalCol::new(1)],
+                vec![GlobalRow::new(0)],
+                key,
+                &flag,
+                &binding,
+            )
+            .unwrap();
+        factories.push(factory);
+        contracts.push(contract);
+        bindings.push(binding);
+        local_scales.push(normalization);
+    }
+    let combined = CompositeReconstruction::<SelectedImplicitReconstruction<pse_math::MathError>>::prepare_contract_normalized(global.clone(),vec![GlobalCol::new(2)],&contracts,&scales,&local_scales).unwrap();
+    assert_eq!(combined.eliminated().len(), 2);
+    let service = runtime.native();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+    execution::scoped(
+        &[execution::adapter(Backend::Kinsol)],
+        1,
+        service.policy.stack_bytes,
+        || {
+            let _charge = budget
+                .charge(
+                    factories
+                        .iter()
+                        .map(|f| {
+                            Ok::<_, pse_math::MathError>(
+                                f.retained_bytes()? + f.reconstruction_workspace_bytes(256)?,
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()?
+                        .iter()
+                        .sum(),
+                )
+                .map_err(MathRuntimeError::into_problem)?;
+            let workers = factories
+                .iter()
+                .zip(&contracts)
+                .zip(&bindings)
+                .zip(&local_scales)
+                .map(|(((factory, contract), binding), normalization)| {
+                    SelectedImplicitReconstruction::<pse_math::MathError>::new_with_binding(
+                        factory,
+                        contract.clone(),
+                        normalization.clone(),
+                        scope.clone(),
+                        binding,
+                    )?
+                    .with_proof_cell_limit(256)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut reconstruction =
+                CompositeReconstruction::new_normalized(combined, workers, &scales, &local_scales)?;
+            let admitted = reconstruction.admit(&[1.5])?;
+            assert_eq!(admitted.values, [4.5, 6.5, 1.5]);
+            let demand = AccuracyDemand {
+                product: key,
+                normalization: scales.key(),
+                allowance: 1e-7,
+                class: AccuracyClass::Certified,
+            };
+            let limits = math::RefinementLimits {
+                rounds: 16,
+                proof_cells: 1024,
+            };
+            let point = reconstruction.point(&[1.5], &demand, limits)?;
+            assert!(point.accuracy.satisfies(&demand));
+            assert_eq!(point.accuracy.class, AccuracyClass::Certified);
+            assert!(
+                (point.values[0] - point.values[2] - global.constraints()[0].lower).abs() < 1e-8
+            );
+            assert!(
+                (point.values[1] - point.values[0] - global.constraints()[1].lower).abs() < 1e-8
+            );
+            for (value, coordinate) in point.values.iter().zip(global.coordinates()) {
+                assert!((coordinate.lower..=coordinate.upper).contains(value));
+            }
+            let action = reconstruction.jacobian_product(&[1.5], &[2.], &demand, limits)?;
+            assert!(action.accuracy.satisfies(&demand));
+            assert_eq!(action.accuracy.class, AccuracyClass::Certified);
+            for value in action.values {
+                assert!((value - 2.).abs() < 1e-8);
+            }
+            Ok::<_, ProblemError>(())
+        },
+    )
+    .unwrap();
     assert_eq!(budget.used(), 0);
 }

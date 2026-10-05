@@ -6,13 +6,15 @@ use crate::{
     NativeStatus, ProblemError,
     solve::{Backend, Execution},
 };
-use pounce_feral::{FeralConfig, FeralSolverInterface};
+pub use pounce_feral::FeralConfig;
+use pounce_feral::FeralSolverInterface;
 use pounce_linsol::{
     EMatrixFormat, ESymSolverStatus, LinearSolverSummary, SparseSymLinearSolverInterface,
 };
-use pounce_qp::{
-    HessianInertia, ParametricActiveSetSolver, QpOptions, QpProblem, QpSolution, QpSolver, QpStatus,
-};
+pub use pounce_qp::{HessianInertia, QpOptions, QpProblem, QpSolution, QpStatus, WorkingSet};
+use pounce_qp::{ParametricActiveSetSolver, QpSolver};
+#[cfg(feature = "pounce")]
+pub use pounce_rs::qp::{GenTMatrix, GenTMatrixSpace, SymTMatrix, SymTMatrixSpace};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -344,7 +346,6 @@ pub fn predict(request: Request<'_>, execution: Execution) -> Result<Outcome, Ar
 #[cfg(all(test, feature = "pounce"))]
 mod tests {
     use super::*;
-    use pounce_rs::qp::{GenTMatrix, GenTMatrixSpace, SymTMatrix, SymTMatrixSpace};
     use std::time::Duration;
     fn matrices() -> (SymTMatrix, GenTMatrix) {
         let mut h = SymTMatrix::new(SymTMatrixSpace::new(1, vec![1], vec![1]));

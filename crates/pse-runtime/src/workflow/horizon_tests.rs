@@ -240,7 +240,12 @@ async fn nmpc_closed_loop_on_antiwindup() {
         },
     )
     .await;
-    assert!(result.usable(), "{:?}", result.assessments());
+    assert!(
+        result.usable(),
+        "{:?}; report={:?}",
+        result.assessments(),
+        result.report()
+    );
     let report = result.horizon().unwrap();
     assert_eq!(
         (report.outputs[0], report.inputs.as_slice()),
@@ -437,7 +442,12 @@ async fn mhe_recovers_initial_state() {
         },
     )
     .await;
-    assert!(result.usable(), "{:?}", result.assessments());
+    assert!(
+        result.usable(),
+        "{:?}; report={:?}",
+        result.assessments(),
+        result.report()
+    );
     let report = result.horizon().unwrap();
     let steps = modeling(&result);
     let truth = |t: f64| 1. - 0.2 * (-t).exp();
@@ -516,7 +526,12 @@ async fn horizon_records_one_durable_attempt() {
         .unwrap();
     let attempt = handle.attempt_id().unwrap();
     let result = handle.wait().await.unwrap();
-    assert!(result.usable(), "{:?}", result.assessments());
+    assert!(
+        result.usable(),
+        "{:?}; report={:?}",
+        result.assessments(),
+        result.report()
+    );
     let RunDurability::Durable(record) = result.durability() else {
         panic!("ephemeral horizon")
     };
@@ -615,6 +630,12 @@ async fn horizon_refuses_inconsistent_loops() {
 /// Its KKT budgets are tightened to 1e-12, so a prediction and a full solve at one state
 /// agree to far better than the comparison's tolerance of 1e-8.
 async fn antiwindup(advanced: Option<AdvancedStep>) -> Arc<RunResult> {
+    antiwindup_with_activity(advanced, false).await
+}
+async fn antiwindup_with_activity(
+    advanced: Option<AdvancedStep>,
+    activity: bool,
+) -> Arc<RunResult> {
     const STEPS: usize = 20;
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     let (package, [root, whole, _]) = package(runtime.clone());
@@ -624,6 +645,14 @@ async fn antiwindup(advanced: Option<AdvancedStep>) -> Arc<RunResult> {
         .collect::<Vec<_>>();
     let mut controller = controller(&package, root, x, setpoints);
     controller.advanced = advanced;
+    if activity {
+        controller
+            .analysis
+            .solver
+            .composition
+            .recovery
+            .push(pse_model::strategy::StartOrigin::Predicted);
+    }
     controller.analysis.solver.numerics.kkt = pse_model::numerics::KktTolerances {
         stationarity: 1e-12,
         complementarity: 1e-12,
@@ -643,7 +672,12 @@ async fn antiwindup(advanced: Option<AdvancedStep>) -> Arc<RunResult> {
         },
     )
     .await;
-    assert!(result.usable(), "{:?}", result.assessments());
+    assert!(
+        result.usable(),
+        "{:?}; report={:?}",
+        result.assessments(),
+        result.report()
+    );
     result
 }
 /// The advanced loop's applied moves and plant outputs against the fully re-solving loop's,
@@ -742,4 +776,36 @@ async fn advanced_step_falls_back_on_active_set_change() {
         decisions.contains(&HorizonDecision::Predicted),
         "{decisions:?}"
     );
+}
+
+#[tokio::test]
+async fn advanced_step_activity_start_is_corrected_before_move_authorization() {
+    let full = antiwindup(None).await;
+    let advanced = antiwindup_with_activity(Some(AdvancedStep::default()), true).await;
+    matches_full_resolve(&advanced, &full, 1e-8);
+    let report = advanced.horizon().unwrap();
+    let corrected = report
+        .steps
+        .iter()
+        .filter(|step| step.activity.is_some())
+        .collect::<Vec<_>>();
+    assert!(!corrected.is_empty());
+    let results = modeling(&advanced);
+    for step in corrected {
+        assert_eq!(step.decision, HorizonDecision::Fallback);
+        assert!(matches!(
+            step.fallback,
+            Some(pse_backend_native::kkt::Fallback::ActiveSet { .. })
+        ));
+        assert!(
+            results[step.controller.unwrap()]
+                .completion
+                .decision
+                .permits_use()
+        );
+        let activity = step.activity.as_ref().unwrap();
+        assert!(activity.work.backsolves > 0);
+        // A start-only tracked/partial endpoint never authorizes a move itself.
+        assert_ne!(step.decision, HorizonDecision::Predicted);
+    }
 }

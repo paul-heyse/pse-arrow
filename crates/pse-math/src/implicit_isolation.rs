@@ -417,6 +417,35 @@ pub trait SelectionVerifier: std::fmt::Debug + Send + Sync {
     fn identity(&self) -> ContentHash;
     /// Complete transient extent: all input transports and maximum sequential native work.
     fn workspace_bytes(&self, programs: &[Arc<RootIsolationProgram>]) -> Result<usize, MathError>;
+    /// Complete transient extent under an actual finite native proof-cell ceiling.
+    /// Suppliers without such a bound retain their complete declared workspace.
+    fn bounded_workspace_bytes(
+        &self,
+        programs: &[Arc<RootIsolationProgram>],
+        _max_cells: u64,
+    ) -> Result<usize, MathError> {
+        self.workspace_bytes(programs)
+    }
+    /// Establish initial regularity with the same finite native proof-cell ceiling.
+    fn certify_bounded(
+        &self,
+        _request: &SelectionProofRequest<'_>,
+        _max_cells: u64,
+    ) -> Result<SelectionEvidence, MathError> {
+        Ok(SelectionEvidence::Incomplete(
+            SelectionProofRefusal::Unsupported,
+        ))
+    }
+    /// Transport the actual root sheet under a finite native proof-cell ceiling.
+    fn connect_chain_bounded(
+        &self,
+        _chain: &ChartChainRequest<'_>,
+        _max_cells: u64,
+    ) -> Result<ChartChainEvidence, MathError> {
+        Ok(ChartChainEvidence::Incomplete(
+            SelectionProofRefusal::Unsupported,
+        ))
+    }
     /// Establish the unique minimum over the original eligible-root union or refuse.
     fn certify(&self, request: &SelectionProofRequest<'_>) -> Result<SelectionEvidence, MathError>;
     /// Establish newly demanded winning-chart guards on the unchanged uniform chart.

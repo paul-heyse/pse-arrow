@@ -187,6 +187,8 @@ pub fn nlp(
                 _ => Box::new(transport),
             };
             let tolerances = pipeline.tolerances(step.tolerances);
+            let mut transported_execution = step.execution.clone();
+            transported_execution.callback_work_owner = false;
             step.adapter.execute(
                 retained,
                 Input {
@@ -200,7 +202,7 @@ pub fn nlp(
                     settings: step.settings,
                     snapshot: step.snapshot,
                     structure: step.structure,
-                    execution: step.execution,
+                    execution: transported_execution,
                     tolerances: &tolerances,
                     warm: pipeline.warm(),
                     compatibility: pipeline.native_compatibility().clone(),
@@ -569,7 +571,11 @@ fn reobserve(
         return Ok(());
     };
     let validation = quality::contained(|| -> Result<_, ProblemError> {
-        let fresh = original.evaluate(&candidate.primal)?;
+        let fresh = step
+            .execution
+            .counted(crate::callback::evaluation_unit(), || {
+                original.evaluate(&candidate.primal)
+            })?;
         if fresh
             .constraints
             .iter()

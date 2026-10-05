@@ -392,12 +392,39 @@ impl ModelingPackage {
                                             .clone()
                                             .within_task(scope.clone())
                                             .map_err(crate::math::MathRuntimeError::from)?;
-                                        match point.root_prediction(
-                                            &target.solve,
-                                            branch,
-                                            &execution,
-                                        ) {
-                                            Ok((proposal, _)) => {
+                                        let proposal = point
+                                            .root_prediction(&target.solve, branch, &execution)
+                                            .map(|(proposal, _)| proposal)
+                                            .or_else(|error| {
+                                                if !matches!(
+                                                    error.boundary_diagnostic().class,
+                                                    BoundaryClass::Unsupported
+                                                        | BoundaryClass::Incompatible
+                                                        | BoundaryClass::Numerical
+                                                ) {
+                                                    return Err(error);
+                                                }
+                                                let StartPolicy::Continuation(edge) =
+                                                    &graph.points[positions[predecessor]].start
+                                                else {
+                                                    return Err(error);
+                                                };
+                                                let Some(RunReport::Modeling(older)) = results
+                                                    [positions[&edge.predecessor]]
+                                                    .as_deref()
+                                                    .and_then(|result| result.report().ok())
+                                                else {
+                                                    return Err(error);
+                                                };
+                                                let [older] = older.as_slice() else {
+                                                    return Err(error);
+                                                };
+                                                point.secant_prediction(
+                                                    older, target, branch, &execution,
+                                                )
+                                            });
+                                        match proposal {
+                                            Ok(proposal) => {
                                                 let screened = self
                                                     .runtime
                                                     .native()

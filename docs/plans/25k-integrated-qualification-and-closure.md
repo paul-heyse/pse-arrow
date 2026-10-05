@@ -325,6 +325,26 @@ structure the maintainer will provide. Its checkpoint owns landed work, focused 
 remaining scope. No 25n N11 handoff or resumed full K3/K4/K5 campaign is claimed. The latest
 maintainer instruction moves stale-worktree cleanup into that closeout.
 
+Continuation, 2026-10-04: the maintainer waived the preliminary review and resumed 25n
+implementation. Its checkpoint owns the remaining functional work and eventual N11 handoff.
+This instruction does not claim completed K3/K4/K5 qualification.
+
+The 25n continuation registers its functional fixtures in the existing native and Python
+harnesses for the resumed K3 campaign:
+
+| Journey | Existing harness/fixture | Qualification obligation retained here |
+|---|---|---|
+| Connected process topology and coupled original completion | Runtime `workflow::strategies::conditional::tests::automatic_workflow_causal_` and `math::solves::derived::tests::automatic_blocks_`; seed `campaign/models/recycle-flash.pse` | Successful and failed local sweeps, all non-port states, original residuals/bounds, no partial commit; topology does not establish connected-sheet transport |
+| Stiff/ill-conditioned reconstruction and supplier chains | Runtime `compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_native_reference`, `actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_chain_actions`, and full Root reconstruction controls | Actual consumed accuracy, chain actions, finite proof workspace and independent original comparison |
+| Original PR/CSTR science | Unchanged `campaign/models/bt-pr-formulations.pse`, `recycle-flash.pse`, `cstr-dynamics.pse` under `packages/reference/conformance.toml` | Original criteria and budgets remain binding; targeted mechanism controls do not qualify these fixtures |
+| Changed active set and related targets | Runtime `advanced_step_falls_back_on_active_set_change`, `advanced_step_activity_start_is_corrected_before_move_authorization`, `related_case_study_uses_secant_then_original_correction` | Proposal permission, original correction and separate control-move authorization |
+| Resource, terminal cause and accuracy refusals | Runtime `math::strategy::admission`, `workflow::modeling::work_admission_tests`, derived original/refinement controls; native `pounce::schur_tests` | Pre-operation admission, retained allocation lifetimes, truthful unknown composed work, terminal no-retry and wrong-point/class refusal |
+| Public/current recorded interpretation | Python `test_native_workflow.py`, `test_native_boundary_contracts.py`; runtime `workflow::worker_tests` and historical readmission controls | Inspection/request/result transport; full durable restart and mixed-operation lifecycle remain K3 journeys |
+
+These tests are automatically discovered by `just native-test` and the linked Python recipes;
+no parallel fixture registry is introduced. K4 still measures dev-profile reuse and resource
+lifetimes, and K5 still owns the assembled assessment and decision/architecture closure.
+
 ### K2/K3 — Recipe selection and reporting
 
 Execution checkpoint, 2026-10-02: static repairs are complete. Registry-owned enum defaults,

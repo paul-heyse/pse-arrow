@@ -274,6 +274,44 @@ impl OriginalContract {
     pub fn obligations(&self) -> OriginalObligations {
         self.obligations
     }
+    /// Exact numerical view obtained by subtracting each named original equality's
+    /// finite bound. Physical metadata stays with the original supplier.
+    /// # Errors
+    /// An original row is not a finite equality with one exact declared offset.
+    pub fn zero_residual_view(&self) -> Result<Arc<Self>, MathError> {
+        if self
+            .constraints
+            .iter()
+            .any(|row| !row.lower.is_finite() || row.lower.to_bits() != row.upper.to_bits())
+        {
+            return Err(MathError::Contract(
+                "zero residual view requires finite original equality bounds".into(),
+            ));
+        }
+        let mut identity = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+        identity
+            .str("explicit-authored-equality-residual-view")
+            .hash(&self.identity);
+        for row in &self.constraints {
+            identity.id(&row.id).f64(row.lower);
+        }
+        Ok(Arc::new(Self::new(
+            identity.finish_hash(),
+            self.normalization,
+            self.coordinates.clone(),
+            self.constraints
+                .iter()
+                .map(|row| Constraint {
+                    id: row.id,
+                    lower: 0.,
+                    upper: 0.,
+                })
+                .collect(),
+            self.incidence.clone(),
+            self.support,
+            self.obligations,
+        )?))
+    }
     pub(crate) fn frame(&self, h: &mut FramedHasher) {
         h.hash(&self.identity)
             .hash(&self.normalization)

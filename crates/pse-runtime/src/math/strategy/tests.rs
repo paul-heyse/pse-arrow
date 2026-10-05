@@ -45,6 +45,7 @@ fn facts(index: usize) -> Facts {
         accuracy: Vec::new(),
         consumption: Vec::new(),
         reservation: Some(charge(index).observed),
+        work_admitted: false,
         start: if index == 0 {
             StartOrigin::Specification
         } else {
@@ -338,6 +339,37 @@ fn actual_work_is_charged_once_unknown_is_not_zero_and_task_cap_is_terminal() {
     assert_eq!(result.work.evaluations, Some(0));
     assert!(result.assessment.is_none());
     assert!(result.terminal.is_some());
+}
+
+#[test]
+fn contained_native_panic_is_terminal_while_original_numerical_cause_is_retained() {
+    use pse_backend_native::solve::{
+        Assurance, Backend, Controls, Execution, NativeTermination, SolveReport, Termination,
+    };
+    let contract = pse_backend_native::OracleContract {
+        identity: hash(29),
+        derivatives: pse_kernels::DerivativeOrder::Value,
+        smoothness: pse_kernels::DerivativeOrder::Value,
+        variables: vec![],
+        rows: vec![],
+    };
+    let execution = Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default());
+    let mut report = SolveReport::new(
+        Backend::Pounce,
+        &contract,
+        NativeTermination {
+            code: i64::MIN,
+            name: "rust.unwind".into(),
+            message: None,
+            category: Termination::Panic,
+            assurance: Assurance::None,
+        },
+        &execution,
+    );
+    // An original numerical refusal cannot turn a contained unwind into recovery.
+    report.record_validation_failure(ProblemError::numerical("failed derivative probe"));
+    assert_eq!(observe_native(&report), Observation::Panic);
+    assert!(cause_native(&report).is_some());
 }
 
 #[test]
@@ -680,6 +712,7 @@ fn strict_unknown_inclusive_work_refuses_before_dispatch_and_keeps_complete_rese
             accuracy: Vec::new(),
             consumption: Vec::new(),
             reservation: None,
+            work_admitted: false,
             start: StartOrigin::Specification,
             inherited: false,
             connected: false,
@@ -880,6 +913,7 @@ fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal()
             replacement: true,
             support: BTreeSet::new(),
             reservation: None,
+            prepared: false,
         },
         AutoCandidate {
             identity: hash(2),
@@ -888,6 +922,7 @@ fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal()
             replacement: false,
             support: BTreeSet::new(),
             reservation: None,
+            prepared: true,
         },
     ];
     let work = WorkObservation {
@@ -910,6 +945,7 @@ fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal()
         AutoDecision::Dispatch { candidate: 1 }
     ));
     let refused = AutoObservation {
+        awaiting_assessment: false,
         native: Observation::Converged,
         original: Some(OriginalConclusion::Unavailable {
             cause: Arc::new(ProblemError::Internal(
@@ -945,4 +981,77 @@ fn preparation_refusal_does_not_consume_first_actual_execution_allowance() {
     ledger.reserve_attempt().unwrap();
     ledger.reserve_attempt().unwrap();
     assert_eq!(ledger.observation().attempts, 0);
+}
+#[test]
+fn automatic_preparation_is_named_and_its_execution_requires_remaining_allowance() {
+    let request = pse_model::strategy::CompositionRequest::default();
+    let start = pse_model::strategy::StartRules {
+        policy: pse_model::strategy::StartPolicy::NoPriorStart,
+        recovery: Vec::new(),
+    };
+    let mut candidates = [AutoCandidate {
+        identity: hash(1),
+        kind: MechanismKind::ReducedSpace,
+        start: StartOrigin::Specification,
+        replacement: false,
+        support: BTreeSet::new(),
+        reservation: None,
+        prepared: false,
+    }];
+    let mut work = WorkObservation {
+        attempts: 0,
+        evaluations: Some(0),
+        iterations: Some(0),
+        factorizations: Some(0),
+        proof_steps: Some(0),
+    };
+    let prepare = next_automatic(
+        &request,
+        &start,
+        &candidates,
+        &BTreeSet::new(),
+        None,
+        work,
+        false,
+    );
+    assert!(matches!(prepare, AutoDecision::Prepare { candidate: 0 }));
+    let before = automatic_decision_key(&request, &candidates, &prepare, None, work).unwrap();
+    candidates[0].prepared = true;
+    work.attempts = 1;
+    // The admitted catalog includes both the preparation and its execution.
+    let mut constrained = request.clone();
+    constrained.limits = Some(WorkLimits {
+        attempts: 2,
+        evaluations: None,
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    });
+    let dispatch = next_automatic(
+        &constrained,
+        &start,
+        &candidates,
+        &BTreeSet::new(),
+        None,
+        work,
+        false,
+    );
+    assert!(matches!(dispatch, AutoDecision::Dispatch { candidate: 0 }));
+    assert_ne!(
+        before,
+        automatic_decision_key(&constrained, &candidates, &dispatch, None, work).unwrap()
+    );
+    work.attempts = 2;
+    assert!(matches!(
+        next_automatic(
+            &constrained,
+            &start,
+            &candidates,
+            &BTreeSet::new(),
+            None,
+            work,
+            false
+        ),
+        AutoDecision::Stop { .. }
+    ));
 }

@@ -55,6 +55,7 @@ fn dimensions(
 }
 #[derive(Debug)]
 struct Mixed {
+    native_calls: Option<std::sync::Arc<std::sync::atomic::AtomicU64>>,
     contract: OracleContract,
     facts: Facts,
     j: AssemblyMatrix,
@@ -70,6 +71,7 @@ impl Mixed {
     fn new() -> Self {
         let key = ContentHash::from_bytes([1; 32]);
         Self {
+            native_calls: None,
             contract: OracleContract {
                 identity: key,
                 variables: vec![
@@ -156,9 +158,15 @@ impl NlpOracle for Mixed {
         Some(self.h.matrix().symbolic())
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
+        if let Some(count) = &self.native_calls {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         Ok(self.sign * (x[0] * x[0] + x[1] * x[1]))
     }
     fn constraints(&mut self, x: &[f64], g: &mut [f64]) -> Result<(), ProblemError> {
+        if let Some(count) = &self.native_calls {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         if self.fail_domain {
             return Err(pse_math::MathError::Domain {
                 source_id: id(3),
@@ -180,10 +188,16 @@ impl NlpOracle for Mixed {
         Ok(())
     }
     fn gradient(&mut self, x: &[f64], g: &mut [f64]) -> Result<(), ProblemError> {
+        if let Some(count) = &self.native_calls {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         g.copy_from_slice(&[self.sign * 2.0 * x[0], self.sign * 2.0 * x[1]]);
         Ok(())
     }
     fn jacobian(&mut self, x: &[f64], g: &mut [f64]) -> Result<(), ProblemError> {
+        if let Some(count) = &self.native_calls {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         g.copy_from_slice(&[
             1.0,
             if self.linear_second { 1.0 } else { 2.0 * x[0] },
@@ -193,6 +207,9 @@ impl NlpOracle for Mixed {
         Ok(())
     }
     fn hessian(&mut self, _: &[f64], w: f64, l: &[f64], g: &mut [f64]) -> Result<(), ProblemError> {
+        if let Some(count) = &self.native_calls {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         g.fill(2.0 * (self.sign * w + if self.linear_second { 0.0 } else { l[1] }));
         Ok(())
     }
@@ -1177,3 +1194,110 @@ fn automatic_presolve_propagates_an_affine_row_by_its_proof() {
 
 mod accuracy;
 mod bounds;
+
+#[cfg(feature = "pounce")]
+#[test]
+fn pipeline_original_callbacks_and_fresh_validation_are_charged_once() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    };
+    #[derive(Debug, Default)]
+    struct Count {
+        admitted: AtomicU64,
+        observed: AtomicU64,
+    }
+    impl WorkAdmission for Count {
+        fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.admitted
+                .fetch_add(work.evaluations.unwrap(), Ordering::SeqCst);
+            Ok(())
+        }
+        fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.observed
+                .fetch_add(work.evaluations.unwrap(), Ordering::SeqCst);
+            Ok(())
+        }
+        fn admit_storage(
+            &self,
+            _: NativeStorageScope,
+            _: &str,
+            _: usize,
+            _: bool,
+        ) -> Result<(), ProblemError> {
+            Ok(())
+        }
+    }
+    let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
+    let count = Arc::new(Count::default());
+    let mut original_execution = execution();
+    original_execution.work_admission = Some(count.clone());
+    let mut compatibility = stamp();
+    compatibility.backend = Backend::Pounce;
+    let source_calls = Arc::new(AtomicU64::new(0));
+    let mut source = Mixed::new();
+    source.native_calls = Some(source_calls.clone());
+    let mut pipeline = Pipeline::new(
+        Box::new(source),
+        &[1., 3.],
+        &Policy::Off,
+        &tolerances(),
+        &accuracy,
+        original_execution.clone(),
+        None,
+        compatibility,
+        1000,
+    )
+    .unwrap();
+    let oracle = pipeline.take_oracle().unwrap();
+    let mut forwarded = original_execution;
+    forwarded.callback_work_owner = false;
+    let report = crate::pounce::Session::new()
+        .solve(
+            Box::new(oracle),
+            pipeline.initial(),
+            ObjectiveSense::Minimize,
+            &controls,
+            &accuracy,
+            &Default::default(),
+            forwarded,
+            &pipeline.tolerances(&tolerances()),
+            None,
+            pipeline.native_compatibility().clone(),
+        )
+        .unwrap();
+    let native_count = count.observed.load(Ordering::SeqCst);
+    assert_eq!(
+        Some(native_count),
+        pipeline.original_callback_evaluations(),
+        "transported adapter does not charge original callbacks twice, including native final validation"
+    );
+    let before_source = source_calls.load(Ordering::SeqCst);
+    let (report, _) = pipeline.finish(
+        report,
+        &tolerances(),
+        ObjectiveSense::Minimize,
+        &Analysis::NONE,
+        UNUSED,
+    );
+    assert!(
+        report.quality.as_ref().is_some_and(|q| q.feasible()),
+        "{report:?}"
+    );
+    let final_count = count.observed.load(Ordering::SeqCst);
+    assert!(
+        final_count > native_count,
+        "fresh original Pipeline validation must execute under admission"
+    );
+    assert_eq!(
+        count.admitted.load(Ordering::SeqCst),
+        final_count,
+        "every original callback reconciled once"
+    );
+    assert_eq!(
+        final_count - native_count,
+        source_calls.load(Ordering::SeqCst) - before_source + 1,
+        "fresh original numeric calls plus one original coordinate recovery callback"
+    );
+}

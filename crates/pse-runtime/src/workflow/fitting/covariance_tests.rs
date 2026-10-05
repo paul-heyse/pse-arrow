@@ -267,6 +267,7 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
                 ),
                 progress,
                 workers,
+                None,
             )
             .unwrap()
             .profiles

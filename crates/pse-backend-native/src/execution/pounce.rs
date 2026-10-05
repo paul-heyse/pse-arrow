@@ -48,6 +48,14 @@ impl BackendExecution for Pounce {
     fn linked(&self) -> bool {
         cfg!(feature = "pounce")
     }
+    fn work_coverage(&self, execution: &crate::solve::Execution) -> crate::solve::WorkCoverage {
+        crate::solve::WorkCoverage {
+            evaluations: self.linked()
+                && execution.work_admission.is_some()
+                && execution.callback_work_owner,
+            ..Default::default()
+        }
+    }
     fn automatic(&self) -> Option<u8> {
         Some(3)
     }

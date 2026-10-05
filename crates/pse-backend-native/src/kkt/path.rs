@@ -219,6 +219,11 @@ fn track(
     let mut multipliers = Vec::new();
     let mut forced = Vec::new();
     for bound in factor.bound_rows().into_iter().flatten() {
+        // Parameter pins are prescribed equations. Their multipliers cannot release
+        // an authored parameter step as if it were a variable inequality.
+        if bound.var_row >= point.original_variables {
+            continue;
+        }
         let base = if bound.lower {
             point.lower[bound.var_row]
         } else {

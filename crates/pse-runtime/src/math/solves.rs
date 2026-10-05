@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One completion-owned solve lifecycle; finite batches never create persistent native sessions.
+#[cfg(feature = "solver-kinsol")]
+pub mod blocks;
+#[cfg(feature = "solver-kinsol")]
+pub mod causal;
 mod derived;
 pub mod multistart;
 pub mod paths;
@@ -234,6 +238,8 @@ pub struct PreparedSolve {
     /// Finite original-problem profiles resolved before entering the effectful driver.
     composition: Option<Arc<PreparedComposition>>,
     task_scope: Option<pse_kernels::ExecutionScope>,
+    #[cfg(feature = "solver-kinsol")]
+    causal_supplier: Option<Arc<dyn causal::CausalSupplier>>,
     pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
@@ -252,6 +258,13 @@ pub(crate) struct AutomaticOperation {
 }
 #[derive(Clone, Debug)]
 enum AutomaticBinding {
+    #[cfg(feature = "solver-kinsol")]
+    Causal {
+        original: Box<PreparedSolve>,
+        supplier: Arc<dyn causal::CausalSupplier>,
+    },
+    #[cfg(feature = "solver-kinsol")]
+    Blocks(Box<PreparedSolve>),
     Original(Box<PreparedSolve>),
     #[cfg(feature = "solver-pounce")]
     NativeProfile {
@@ -265,6 +278,139 @@ enum AutomaticBinding {
     },
 }
 impl PreparedSolve {
+    #[cfg(feature = "solver-kinsol")]
+    pub(crate) fn with_causal_supplier(
+        mut self,
+        supplier: Arc<dyn causal::CausalSupplier>,
+    ) -> Self {
+        self.causal_supplier = Some(supplier);
+        self
+    }
+    #[cfg(feature = "solver-kinsol")]
+    fn applicable_causal_supplier(&self) -> Option<&Arc<dyn causal::CausalSupplier>> {
+        (self.profile.controls.start == StartPolicy::NoPriorStart
+            && self.backend() == Some(Backend::Kinsol)
+            && self.profile.sensitivity.is_none()
+            && self.profile.intent == SolveIntent::Root
+            && self.profile.controls.threads == 1
+            && matches!(self.profile.backend, BackendSettings::Default))
+        .then_some(self.causal_supplier.as_ref())
+        .flatten()
+    }
+    pub(crate) fn controls(&self) -> &Controls {
+        &self.profile.controls
+    }
+    pub(crate) fn inclusive_work(&self, outcome: &Outcome) -> pse_model::strategy::WorkObservation {
+        let mut work = super::strategy::work(outcome);
+        if let Representation::Algebraic(source) = &self.representation
+            && (!source.providers.is_empty() || source.sensitivity.is_some())
+        {
+            // The component report retains actual native counters. Nested provider
+            // and response work does not yet have complete aggregate observations.
+            work.evaluations = None;
+            work.iterations = None;
+            work.factorizations = None;
+            work.proof_steps = None;
+        }
+        work
+    }
+    /// Complete accounting is a property of the actual frozen representation and
+    /// adapter, never inferred from a report's partial native counters.
+    pub(crate) fn work_admitted(
+        &self,
+        limits: pse_model::strategy::WorkLimits,
+        scope: &pse_kernels::ExecutionScope,
+        admission: Arc<super::strategy::admission::TaskAdmission>,
+    ) -> bool {
+        let Representation::Algebraic(source) = &self.representation else {
+            return false;
+        };
+        // Opaque/nested providers own additional work without this callback hook.
+        if !source.providers.is_empty() || self.profile.sensitivity.is_some() {
+            return false;
+        }
+        if self.route == Route::Constant {
+            return WorkCoverage {
+                evaluations: true,
+                iterations: true,
+                factorizations: true,
+                proof_steps: true,
+            }
+            .covers(limits);
+        }
+        let Some(backend) = self.backend() else {
+            return false;
+        };
+        let adapter = execution::adapter(backend);
+        if adapter.representation() != execution::Representation::Nlp {
+            return false;
+        }
+        // Library preprocessing has no primitive proof/work admission contract.
+        if !matches!(self.profile.presolve, native::presolve::Policy::Off) {
+            return false;
+        }
+        let Ok(mut execution) =
+            Execution::within(scope.cancellation().clone(), self.controls(), scope.clone())
+        else {
+            return false;
+        };
+        execution.work_admission = Some(admission);
+        adapter.work_coverage(&execution).covers(limits)
+    }
+    /// Finite owned catalog, not an enlarged native iteration or fixture budget.
+    pub(crate) fn automatic_attempt_capacity(
+        &self,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<u64, ProblemError> {
+        let count = 1usize
+            .checked_add(2 * usize::from(self.profile.reconstruction.is_some()))
+            .ok_or_else(|| ProblemError::memory("automatic catalog extent"))?;
+        #[cfg(feature = "solver-kinsol")]
+        let count = count
+            .checked_add(
+                2 * usize::from(
+                    self.automatic_block_count(cancel)
+                        .map_err(MathRuntimeError::into_problem)?
+                        > 0,
+                ),
+            )
+            .ok_or_else(|| ProblemError::memory("automatic block catalog extent"))?;
+        #[cfg(feature = "solver-kinsol")]
+        let count = count
+            .checked_add(2 * usize::from(self.applicable_causal_supplier().is_some()))
+            .ok_or_else(|| ProblemError::memory("automatic causal catalog extent"))?;
+        #[cfg(not(feature = "solver-kinsol"))]
+        let _ = cancel;
+        #[cfg(feature = "solver-pounce")]
+        let count = if self.backend() == Some(Backend::Pounce) {
+            let settings = match &self.profile.backend {
+                BackendSettings::Pounce(settings) => settings.clone(),
+                BackendSettings::Default => native::pounce::Settings::default(),
+                _ => {
+                    return Err(ProblemError::Contract(
+                        "POUNCE route settings differ".into(),
+                    ));
+                }
+            };
+            count
+                .checked_add(
+                    native::pounce::second_opinion_capacity(
+                        &self.profile.controls,
+                        &settings,
+                        self.profile
+                            .composition
+                            .recovery
+                            .contains(&pse_model::strategy::StartOrigin::Auxiliary),
+                    )
+                    .checked_mul(2)
+                    .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?,
+                )
+                .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?
+        } else {
+            count
+        };
+        u64::try_from(count).map_err(|_| ProblemError::memory("automatic catalog extent"))
+    }
     /// Produce descriptions only. Optional artifacts are prepared after one decision.
     pub(crate) fn automatic_operations(
         &self,
@@ -301,19 +447,31 @@ impl PreparedSolve {
                 replacement,
                 support: std::collections::BTreeSet::new(),
                 reservation: None,
+                prepared: kind == MechanismKind::Direct,
             })
         };
         if last.is_none() {
             let mut operations = Vec::new();
+            #[cfg(feature = "solver-kinsol")]
+            if let Some(supplier) = self.applicable_causal_supplier() {
+                let mut description = candidate(MechanismKind::MapsAnderson, false, &self.profile)?;
+                let mut identity = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+                identity.hash(&description.identity).hash(&supplier.key());
+                description.identity = identity.finish_hash();
+                operations.push(AutomaticOperation {
+                    candidate: description,
+                    binding: AutomaticBinding::Causal {
+                        original: Box::new(self.clone()),
+                        supplier: supplier.clone(),
+                    },
+                });
+            }
             if let Some(accuracy) = self.profile.reconstruction
                 && let Representation::Algebraic(source) = &self.representation
                 && source.providers.values().any(|registration| {
                     registration
-                        .source::<pse_math::implicit::RegimeFactory>()
-                        .is_some()
-                        || registration
-                            .source::<pse_math::implicit::ImplicitFactory>()
-                            .is_some()
+                        .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+                        .is_some_and(|factory| factory.supports_reconstruction())
                 })
                 && let Some(adapter) = execution::LINKED
                     .adapters()
@@ -347,6 +505,13 @@ impl PreparedSolve {
                         accuracy,
                         profile: Box::new(profile),
                     },
+                });
+            }
+            #[cfg(feature = "solver-kinsol")]
+            if self.automatic_block_count(cancel)? > 1 {
+                operations.push(AutomaticOperation {
+                    candidate: candidate(MechanismKind::Block, false, &self.profile)?,
+                    binding: AutomaticBinding::Blocks(Box::new(self.clone())),
                 });
             }
             operations.push(AutomaticOperation {
@@ -415,6 +580,18 @@ impl MathService {
             return Err(MathRuntimeError::Cancelled);
         }
         let prepared = match operation.binding {
+            #[cfg(feature = "solver-kinsol")]
+            AutomaticBinding::Causal { original, supplier } => {
+                return Ok(PreparedRung::Causal(
+                    supplier.prepare(*original, scope, cancel).await?,
+                ));
+            }
+            #[cfg(feature = "solver-kinsol")]
+            AutomaticBinding::Blocks(original) => {
+                return Ok(PreparedRung::Blocks(
+                    self.prepare_blocks(*original, scope, cancel).await?,
+                ));
+            }
             AutomaticBinding::Original(original) => (*original).within_task(scope)?,
             AutomaticBinding::Reduced {
                 original,
@@ -1195,9 +1372,9 @@ impl PreparedSolve {
             accuracy: Some(self.numerics.key),
         })
     }
-    /// Admit a related Root target by its actual fixed dependencies, allowing changes
-    /// only to the explicitly differentiated parameters and numerical starting point.
-    pub(crate) fn root_target_parameters(
+    /// Admit a related original target by its actual fixed dependencies, allowing changes
+    /// only to the declared transported parameters and numerical starting point.
+    pub(crate) fn related_target_parameters(
         &self,
         source: &Self,
         parameters: &[(pse_ids::SemanticId, f64)],
@@ -1206,7 +1383,7 @@ impl PreparedSolve {
             (&self.representation, &source.representation)
         else {
             return Err(ProblemError::Unsupported(
-                "root prediction requires related original algebraic cases".into(),
+                "prediction requires related original algebraic cases".into(),
             ));
         };
         let ids = parameters
@@ -1215,8 +1392,7 @@ impl PreparedSolve {
             .collect::<std::collections::BTreeSet<_>>();
         let plan = &target.prepared.compiled().plan;
         let original = &base.prepared.compiled().plan;
-        if self.profile.intent != SolveIntent::Root
-            || source.profile.intent != SolveIntent::Root
+        if self.profile.intent != source.profile.intent
             || self.numerics.key != source.numerics.key
             || self.normalization != source.normalization
             || plan.structure().key() != original.structure().key()
@@ -1237,7 +1413,7 @@ impl PreparedSolve {
                 .iter()
                 .any(|(id, value)| base.values.scalars.get(id) != Some(value))
         {
-            return Err(ProblemError::Contract("root predictor target changes an unconsumed parameter, authored structure, provider or frozen numerical policy".into()));
+            return Err(ProblemError::Contract("predictor target changes an unconsumed parameter, authored structure, provider or frozen numerical policy".into()));
         }
         parameters
             .iter()
@@ -1251,7 +1427,7 @@ impl PreparedSolve {
                     .map(|v| (*id, v))
                     .ok_or_else(|| {
                         ProblemError::Contract(
-                            "root predictor target parameter missing or nonfinite".into(),
+                            "prediction target parameter missing or nonfinite".into(),
                         )
                     })
             })
@@ -1351,9 +1527,14 @@ impl PreparedSolve {
         }
     }
 }
-/// Direct original-model validation when there are no free variables.
+/// Fresh complete original-model evaluation, independently of native components.
 #[derive(Clone, Debug)]
 pub struct ConstantReport {
+    #[expect(
+        clippy::vec_box,
+        reason = "retain actual independently owned native report allocations without moving their heap bodies"
+    )]
+    components: Vec<Box<SolveReport>>,
     owner: Option<Arc<pse_columnar::AllocationLease>>,
     /// Authored objective if declared.
     pub objective: Option<f64>,
@@ -1361,11 +1542,17 @@ pub struct ConstantReport {
     pub observation: quality::Observation,
     /// Source-space quality without a fake native attempt.
     pub quality: Quality,
-    /// Actual original free coordinates from a fully reconstructing supplier.
+    /// Actual original free coordinates from a complete reconstruction or block schedule.
     /// Empty for an all-fixed source.
     pub coordinates: Vec<(pse_ids::SemanticId, f64)>,
     /// Direct evaluation work; absent counters retain unavailable supplier totals.
     pub work: WorkEvidence,
+}
+impl ConstantReport {
+    /// Actual native component reports of a complete original structural schedule.
+    pub fn component_reports(&self) -> impl ExactSizeIterator<Item = &SolveReport> {
+        self.components.iter().map(Box::as_ref)
+    }
 }
 /// A step has either an actual native attempt or direct constant evaluation.
 #[derive(Clone, Debug)]
@@ -2248,6 +2435,8 @@ impl MathService {
             route_decision: Some(decision),
             composition: None,
             task_scope: None,
+            #[cfg(feature = "solver-kinsol")]
+            causal_supplier: None,
             pool: self.pool.clone(),
             _owner: owner,
         })
@@ -2430,6 +2619,8 @@ impl MathService {
             route_decision: Some(decision),
             composition: None,
             task_scope: None,
+            #[cfg(feature = "solver-kinsol")]
+            causal_supplier: None,
             pool: self.pool.clone(),
             _owner: self.reserve("math:prepared-block", bytes)?,
         })
@@ -2659,6 +2850,8 @@ impl MathService {
             route_decision: Some(decision),
             composition: None,
             task_scope: None,
+            #[cfg(feature = "solver-kinsol")]
+            causal_supplier: None,
             pool: self.pool.clone(),
             _owner: owner,
         })
@@ -2746,11 +2939,14 @@ impl MathService {
         owner: &Arc<pse_columnar::AllocationLease>,
         scope: &pse_kernels::ExecutionScope,
     ) -> Result<ScopedOutcome, MathRuntimeError> {
-        let admitted = match self.admit_step(step, previous, retained, flag, progress, Some(scope))
-        {
-            Ok(admitted) => admitted,
-            Err(refused) => return Ok((refused, None)),
-        };
+        let mut admitted =
+            match self.admit_step(step, previous, retained, flag, progress, Some(scope)) {
+                Ok(admitted) => admitted,
+                Err(refused) => return Ok((refused, None)),
+            };
+        admitted.execution.work_admission = budget
+            .admission()
+            .map(|owner| -> Arc<dyn WorkAdmission> { owner });
         let Admitted {
             step,
             chosen,
@@ -4021,6 +4217,7 @@ impl MathService {
                 ProblemError::Internal("constant route needs an algebraic case".into()).into(),
             );
         };
+        let complete_work = providers.is_empty();
         let ExecutionWorker {
             mut worker,
             _case,
@@ -4029,9 +4226,16 @@ impl MathService {
         let structure = prepared.prepared.plan.structure();
         let objective = structure
             .objective()
-            .map(|o| worker.objective(&values).map(|v| v * o.sense.sign()))
+            .map(|o| {
+                budget.evaluate(|| {
+                    worker
+                        .objective(&values)
+                        .map(|v| v * o.sense.sign())
+                        .map_err(Into::into)
+                })
+            })
             .transpose()?;
-        let constraints = worker.constraints(&values)?;
+        let constraints = budget.evaluate(|| worker.constraints(&values).map_err(Into::into))?;
         let rows = structure
             .rows()
             .iter()
@@ -4056,11 +4260,21 @@ impl MathService {
         observation.sources = sources;
         Ok(Outcome::Constant(Box::new(ConstantReport {
             owner: None,
+            components: Vec::new(),
             objective,
             observation,
             quality: Quality::new(rows, vec![], vec![])?,
             coordinates: vec![],
-            work: WorkEvidence::default(),
+            work: if complete_work {
+                WorkEvidence {
+                    evaluations: Some(1 + u64::from(objective.is_some())),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                }
+            } else {
+                WorkEvidence::default()
+            },
         })))
     }
 }

@@ -1190,13 +1190,18 @@ impl NativePreparedOperation {
     /// Exact effective profile identity used by declared numerical mechanisms.
     #[getter]
     fn strategy_profile(&self, py: Python<'_>) -> PyResult<String> {
-        let PreparedOperation::Modeling(p) = &self.inner else {
-            return Err(invalid(py, "numerical profile requires an algebraic solve"));
-        };
-        p.solve
-            .strategy_profile()
-            .map(|key| key.to_prefixed())
-            .map_err(|error| errors::diagnostic(py, &error))
+        match &self.inner {
+            PreparedOperation::Modeling(p) => p
+                .solve
+                .strategy_profile()
+                .map(|key| key.to_prefixed())
+                .map_err(|error| errors::diagnostic(py, &error)),
+            PreparedOperation::Fit(p) => Ok(p.strategy_profile().to_prefixed()),
+            PreparedOperation::Simulation(_) => Err(invalid(
+                py,
+                "numerical profile is inspected on prepared algebraic or fitting targets",
+            )),
+        }
     }
     /// Requested automatic/declared composition and preserved constraints.
     #[getter]
@@ -1219,15 +1224,18 @@ impl NativePreparedOperation {
     /// Mechanical document projection of the actual declared execution policy.
     #[getter]
     fn numerical_strategy(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        let PreparedOperation::Modeling(p) = &self.inner else {
-            return Err(invalid(
-                py,
-                "numerical strategy requires an algebraic solve",
-            ));
+        let strategy = match &self.inner {
+            PreparedOperation::Modeling(p) => p.solve.numerical_strategy(),
+            PreparedOperation::Fit(p) => p.numerical_strategy(),
+            PreparedOperation::Simulation(_) => {
+                return Err(invalid(
+                    py,
+                    "numerical strategy is inspected on prepared algebraic or fitting targets",
+                ));
+            }
         };
-        let document =
-            pse_model::strategy::NumericalStrategyDocument::new(p.solve.numerical_strategy())
-                .map_err(|error| invalid(py, error.to_string()))?;
+        let document = pse_model::strategy::NumericalStrategyDocument::new(strategy)
+            .map_err(|error| invalid(py, error.to_string()))?;
         documents::encode(py, &document)
     }
     /// Bind prepared original-system profiles to the validated numerical declaration.

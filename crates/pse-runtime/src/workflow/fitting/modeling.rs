@@ -977,33 +977,22 @@ impl PreparedFit {
         workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let problem = &self.problem;
-        let backend = match self.route {
-            native::routing::Route::Native(backend) => Some(backend),
-            native::routing::Route::Constant => None,
-        };
-        let (mut report, trace) = crate::math::opaque_strategy::direct(
+        let (mut report, trace) = crate::math::strategy::target::callable(
             problem.runtime.shared.math(),
-            crate::math::opaque_strategy::Source {
-                original: problem.source_identity,
-                preparation: problem.key,
-                profile: problem.profile_key.as_id(),
-                backend,
-                controls: &problem.profile.solver.controls,
-                start: pse_model::strategy::StartOrigin::Specification,
-                start_identity: Some(crate::math::opaque_strategy::point_identity(
-                    problem.source_identity,
-                    &problem.initial,
-                )),
-            },
+            self.callable_source(),
             &scope,
-            || self.execute_original(run_id, scope.clone(), progress, workers),
-            |report| report.solve.as_ref(),
-            |report| self.assess_completion(report).decision,
+            |admission| self.execute_original(run_id, scope.clone(), progress, workers, admission),
             |report| {
-                report
+                report.solve.as_ref().map_or(
+                    pse_model::generated::enums::NumericalAttemptObservation::Converged,
+                    crate::math::strategy::observe_native,
+                )
+            },
+            |report, observed| {
+                let original_failure = report
                     .validation_error
                     .as_ref()
-                    .map(crate::math::opaque_strategy::assessment_failure)
+                    .map(crate::math::strategy::target::assessment_failure)
                     .or_else(|| {
                         report
                             .diagnostic
@@ -1015,7 +1004,16 @@ impl PreparedFit {
                                 )
                             })
                             .map(|d| d.cause.clone())
-                    })
+                    });
+                crate::math::strategy::target::original_assessment(
+                    self.assess_completion(report).decision,
+                    original_failure,
+                    report
+                        .solve
+                        .as_ref()
+                        .and_then(crate::math::strategy::cause_native),
+                    observed,
+                )
             },
         )?;
         report.strategy = Some(trace);
@@ -1027,10 +1025,15 @@ impl PreparedFit {
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
+        admission: Arc<crate::math::strategy::admission::TaskAdmission>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        let mut report = self
-            .problem
-            .execute(self.route, scope.clone(), progress, workers)?;
+        let mut report = self.problem.execute(
+            self.route,
+            scope.clone(),
+            progress,
+            workers,
+            Some(admission),
+        )?;
         let Some(candidate) = report.candidate.as_ref() else {
             return Ok(report);
         };

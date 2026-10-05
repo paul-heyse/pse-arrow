@@ -17,16 +17,18 @@ use std::sync::{
 #[derive(Debug)]
 pub struct WorkerBudget {
     capacity: usize,
-    used: AtomicUsize,
-    pool: Option<datafusion::execution::memory_pool::MemoryReservation>,
+    used: Arc<AtomicUsize>,
+    pool: Option<Arc<datafusion::execution::memory_pool::MemoryReservation>>,
+    admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
 }
 impl WorkerBudget {
     /// A budget of `capacity` bytes, the worker share of the job's reservation.
     pub(crate) fn new(capacity: usize) -> Arc<Self> {
         Arc::new(Self {
             capacity,
-            used: AtomicUsize::new(0),
+            used: Arc::new(AtomicUsize::new(0)),
             pool: None,
+            admission: None,
         })
     }
     /// A budget of up to `capacity` bytes charged to `pool` as workers are built.
@@ -36,12 +38,59 @@ impl WorkerBudget {
     ) -> Arc<Self> {
         Arc::new(Self {
             capacity,
-            used: AtomicUsize::new(0),
-            pool: Some(
+            used: Arc::new(AtomicUsize::new(0)),
+            pool: Some(Arc::new(
                 datafusion::execution::memory_pool::MemoryConsumer::new("math:session-workers")
                     .register(pool),
-            ),
+            )),
+            admission: None,
         })
+    }
+    pub(crate) fn with_admission(
+        self: &Arc<Self>,
+        admission: Arc<super::strategy::admission::TaskAdmission>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            capacity: self.capacity,
+            used: self.used.clone(),
+            pool: self.pool.clone(),
+            admission: Some(admission),
+        })
+    }
+    pub(crate) fn admission(&self) -> Option<Arc<super::strategy::admission::TaskAdmission>> {
+        self.admission.clone()
+    }
+    /// Admit a scientific evaluation before entering its evaluator, preserving failed work.
+    pub(crate) fn evaluate<T>(
+        &self,
+        work: impl FnOnce() -> Result<T, MathRuntimeError>,
+    ) -> Result<T, MathRuntimeError> {
+        use pse_backend_native::solve::WorkAdmission;
+        let unit = pse_backend_native::solve::WorkEvidence {
+            evaluations: Some(1),
+            iterations: Some(0),
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        if let Some(admission) = &self.admission {
+            admission.admit(unit)?;
+        }
+        // Preserve an attempted evaluation even when the evaluator unwinds. The
+        // worker's enclosing panic boundary still owns conversion to a typed cause.
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work));
+        let observed = self
+            .admission
+            .as_ref()
+            .map(|admission| admission.observe(unit));
+        match result {
+            Ok(result) => {
+                if let Some(observed) = observed {
+                    observed?;
+                }
+                result
+            }
+            Err(panic) => std::panic::resume_unwind(panic),
+        }
     }
     /// Reserve `bytes` for one worker until the returned charge is dropped.
     ///

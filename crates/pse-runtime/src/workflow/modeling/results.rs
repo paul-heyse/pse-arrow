@@ -238,6 +238,221 @@ impl ModelingResult {
         )?;
         Ok(anchor.with_owner(owner))
     }
+    /// Produce a bounded secant start from two independently original-permitted samples.
+    /// Exactly one authored parameter may vary; fixed scientific and numerical meaning is
+    /// checked against both samples. The extrapolation is limited to one observed interval.
+    /// # Errors
+    /// Changed fixed dependencies, unrelated or coincident samples, unavailable permission,
+    /// a connected branch request without transport, or a nonfinite proposal.
+    pub fn secant_prediction(
+        &self,
+        older: &Self,
+        target: &ModelingSolvePreparation,
+        branch: pse_model::strategy::BranchPolicy,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<crate::math::prediction::Proposal, WorkflowError> {
+        let changed = self
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .parameters()
+            .iter()
+            .filter_map(|parameter| {
+                let new = self.prepared.model.values.scalars.get(&parameter.id)?;
+                let old = older.prepared.model.values.scalars.get(&parameter.id)?;
+                (new != old).then_some((parameter.id, *old, *new))
+            })
+            .collect::<Vec<_>>();
+        let [(parameter, old, new)] = changed.as_slice() else {
+            return Err(contract(
+                "secant requires exactly one changing authored parameter",
+            ));
+        };
+        self.prepared
+            .solve
+            .related_target_parameters(&older.prepared.solve, &[(*parameter, *old)])
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let values = target
+            .solve
+            .related_target_parameters(&self.prepared.solve, &[(*parameter, *new)])
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let history = crate::math::prediction::SecantHistory::new(
+            older.prediction_anchor(*old)?,
+            self.prediction_anchor(*new)?,
+            (new - old).abs(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let selected = crate::math::prediction::select(
+            crate::math::prediction::SelectionRequest {
+                mechanism: crate::math::prediction::ProposalMechanism::Secant {
+                    history: &history,
+                    parameter: values[0].1,
+                    scaled_step_limit: 1.,
+                },
+                permission: &self.completion.decision,
+                source: history.source(),
+                target: target
+                    .solve
+                    .original_identity()
+                    .map_err(crate::math::MathRuntimeError::from)?,
+                branch,
+            },
+            execution,
+        )
+        .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
+        let crate::math::prediction::SelectedProposal::Secant { proposal } = selected else {
+            return Err(contract("secant selector returned another producer"));
+        };
+        let owner = self.runtime.native().reserve(
+            "modeling:secant-proposal",
+            proposal
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok(proposal.with_owner(owner))
+    }
+    /// Track a genuinely demanded parameter change with a retained original KKT factor.
+    /// Coverage and work remain library observations; this endpoint needs original correction.
+    /// # Errors
+    /// Source permission, exact factor point, fixed meaning or bounded native operation refusal.
+    pub fn activity_prediction(
+        &self,
+        target: &crate::math::solves::PreparedSolve,
+        advance: &pse_backend_native::kkt::Advance,
+        segments: usize,
+        limits: pse_backend_native::kkt::activity::Limits,
+        branch: pse_model::strategy::BranchPolicy,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<
+        (
+            crate::math::prediction::Proposal,
+            pse_backend_native::kkt::path::PathPrediction,
+        ),
+        WorkflowError,
+    > {
+        let parameters = target
+            .related_target_parameters(&self.prepared.solve, advance.parameters())
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let Outcome::Native(report) = &self.outcome else {
+            return Err(contract(
+                "activity prediction requires an original native candidate",
+            ));
+        };
+        let candidate = report
+            .candidate
+            .as_ref()
+            .ok_or_else(|| contract("activity prediction requires a candidate"))?;
+        if report.variables != advance.variables() || report.rows != advance.rows() {
+            return Err(contract(
+                "activity factor original inventories differ from the permitted source",
+            ));
+        }
+        let source = self
+            .prepared
+            .solve
+            .semantic_point_key(&candidate.primal)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let selected = crate::math::prediction::select(
+            crate::math::prediction::SelectionRequest {
+                mechanism: crate::math::prediction::ProposalMechanism::Activity {
+                    advance,
+                    parameters: &parameters,
+                    segments,
+                    limits,
+                },
+                permission: &self.completion.decision,
+                source,
+                target: target
+                    .original_identity()
+                    .map_err(crate::math::MathRuntimeError::from)?,
+                branch,
+            },
+            execution,
+        )
+        .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
+        let crate::math::prediction::SelectedProposal::Activity {
+            proposal,
+            path,
+            fallback,
+        } = selected
+        else {
+            return Err(contract("activity selector returned another producer"));
+        };
+        if fallback.is_some() {
+            return Err(contract(
+                "explicit activity request unexpectedly selected a fallback",
+            ));
+        }
+        let owner = self.runtime.native().reserve(
+            "modeling:activity-proposal",
+            proposal
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok((proposal.with_owner(owner), path))
+    }
+    /// Consume an explicitly demanded convex QP path in named original coordinates.
+    /// The native producer admits the unchanged QP family; its endpoint remains a start
+    /// requiring target screening and independent original correction.
+    /// # Errors
+    /// Missing original permission, source/coordinates mismatch or native path refusal.
+    pub fn qp_prediction(
+        &self,
+        target: &crate::math::solves::PreparedSolve,
+        request: pse_backend_native::kkt::path::qp::Request<'_>,
+        branch: pse_model::strategy::BranchPolicy,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<
+        (
+            crate::math::prediction::Proposal,
+            pse_backend_native::kkt::path::qp::Outcome,
+        ),
+        WorkflowError,
+    > {
+        let Outcome::Native(report) = &self.outcome else {
+            return Err(contract(
+                "QP prediction requires an original native candidate",
+            ));
+        };
+        let candidate = report
+            .candidate
+            .as_ref()
+            .ok_or_else(|| contract("QP prediction requires a candidate"))?;
+        let source = self
+            .prepared
+            .solve
+            .semantic_point_key(&candidate.primal)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let selected = crate::math::prediction::select(
+            crate::math::prediction::SelectionRequest {
+                mechanism: crate::math::prediction::ProposalMechanism::Qp {
+                    request,
+                    coordinates: &report.variables,
+                },
+                permission: &self.completion.decision,
+                source,
+                target: target
+                    .original_identity()
+                    .map_err(crate::math::MathRuntimeError::from)?,
+                branch,
+            },
+            execution,
+        )
+        .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
+        let crate::math::prediction::SelectedProposal::Qp { proposal, outcome } = selected else {
+            return Err(contract("QP selector returned another producer"));
+        };
+        let owner = self.runtime.native().reserve(
+            "modeling:qp-proposal",
+            proposal
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok((proposal.with_owner(owner), *outcome))
+    }
     /// A fresh sparse Root predictor is exposed only under composed original permission.
     /// Its own numerical action remains estimated start evidence.
     /// # Errors
@@ -293,7 +508,7 @@ impl ModelingResult {
             ),
         })?;
         let parameters = target
-            .root_target_parameters(&self.prepared.solve, predictor.parameters())
+            .related_target_parameters(&self.prepared.solve, predictor.parameters())
             .map_err(crate::math::MathRuntimeError::from)?;
         let selected = crate::math::prediction::select(
             crate::math::prediction::SelectionRequest {
@@ -313,8 +528,7 @@ impl ModelingResult {
         .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
         let (proposal, work) = match selected {
             crate::math::prediction::SelectedProposal::Root { proposal, work } => (*proposal, work),
-            #[cfg(feature = "solver-diffsol")]
-            crate::math::prediction::SelectedProposal::Kkt { .. } => {
+            _ => {
                 return Err(contract("root selector returned a different producer"));
             }
         };

@@ -867,7 +867,7 @@ impl MathService {
         }
         let target_parameters = request
             .target
-            .root_target_parameters(&original, &program.parameters)?;
+            .related_target_parameters(&original, &program.parameters)?;
         if target_parameters[0].1 < request.interval.0
             || target_parameters[0].1 > request.interval.1
         {
@@ -2552,7 +2552,7 @@ pub(crate) fn run_path(
             let target = path
                 .request
                 .target
-                .root_target_parameters(&path.original, &path.program.parameters)?;
+                .related_target_parameters(&path.original, &path.program.parameters)?;
             if target[0].1.to_bits() != point[n].to_bits() {
                 execution.check()?;
                 outcome.native_calls += 1;

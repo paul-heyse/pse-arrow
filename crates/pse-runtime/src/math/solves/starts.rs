@@ -104,15 +104,23 @@ impl MathService {
             branch,
             &execution,
             |x| {
-                *evaluations = evaluations
-                    .checked_add(1)
-                    .ok_or_else(|| ProblemError::memory("original screening evaluation counter"))?;
-                let objective = oracle.objective(x)?;
-                *evaluations = evaluations
-                    .checked_add(1)
-                    .ok_or_else(|| ProblemError::memory("original screening evaluation counter"))?;
+                let objective = budget
+                    .evaluate(|| {
+                        *evaluations = evaluations.checked_add(1).ok_or(
+                            MathRuntimeError::Limit("original screening evaluation counter"),
+                        )?;
+                        oracle.objective(x).map_err(Into::into)
+                    })
+                    .map_err(MathRuntimeError::into_problem)?;
                 let mut values = vec![0.; rows];
-                oracle.constraints(x, &mut values)?;
+                budget
+                    .evaluate(|| {
+                        *evaluations = evaluations.checked_add(1).ok_or(
+                            MathRuntimeError::Limit("original screening evaluation counter"),
+                        )?;
+                        oracle.constraints(x, &mut values).map_err(Into::into)
+                    })
+                    .map_err(MathRuntimeError::into_problem)?;
                 if !objective.is_finite() || values.iter().any(|v| !v.is_finite()) {
                     return Err(ProblemError::numerical(
                         "nonfinite original start evaluation",

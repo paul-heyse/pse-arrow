@@ -154,6 +154,11 @@ impl Advance {
     }
     /// Source data in the physical active-set layout consumed by the activity adapter.
     pub(super) fn activity_point(&self) -> super::path::Point {
+        let mut bounds = self.bounds.clone();
+        bounds.extend(std::iter::repeat_n(
+            (f64::NEG_INFINITY, f64::INFINITY),
+            self.parameters.len(),
+        ));
         super::path::Point {
             factor: self.factor.clone(),
             original_variables: self.primal.len(),
@@ -167,7 +172,7 @@ impl Advance {
             upper: self.upper.clone(),
             values: self.values.clone(),
             row_bounds: self.row_bounds.clone(),
-            bounds: self.bounds.clone(),
+            bounds,
             jacobian: self.jacobian.clone(),
         }
     }

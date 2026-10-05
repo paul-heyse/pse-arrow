@@ -25,6 +25,7 @@ pub(crate) struct ConsistentObservation {
     pub(crate) checks: Vec<ModelingCheck>,
     pub(crate) checks_complete: bool,
     scope: ExecutionScope,
+    strategy: Option<Arc<crate::math::strategy::Trace>>,
 }
 impl ConsistentObservation {
     /// Reject late publication after thread-local destruction and join, retaining the
@@ -46,10 +47,34 @@ impl ConsistentObservation {
             } else if self.report.validation_error.is_none() {
                 self.report.validation_error = Some(error);
             }
+            // This trace is still private until joining publishes OwnedConsistent.
+            // Update existing fields only: no new unreserved diagnostic/vector payload.
+            if let Some(trace) = self.strategy.as_mut().and_then(Arc::get_mut)
+                && let Some(event) = trace.events.last_mut()
+            {
+                event.kind = pse_model::generated::enums::NumericalEventKind::Abandoned;
+                event.original = None;
+                event.decision = None;
+                event.observation = Some(
+                    if self.report.termination.category
+                        == pse_backend_native::solve::Termination::Cancelled
+                    {
+                        pse_model::generated::enums::NumericalAttemptObservation::Cancelled
+                    } else {
+                        pse_model::generated::enums::NumericalAttemptObservation::ResourceExhausted
+                    },
+                );
+                event.transition = Some(pse_model::strategy::Transition::Stop);
+                event.permission = Some(pse_model::generated::enums::CandidateUse::Unusable);
+            }
         }
     }
 }
 impl ConsistentInitializationResult {
+    /// Actual numerical decisions; IC observations confer no scientific use permission.
+    pub fn strategy(&self) -> Option<&Arc<crate::math::strategy::Trace>> {
+        self.inner.observed.strategy.as_ref()
+    }
     /// Actual native termination, work and original residual/role assessment.
     pub fn report(&self) -> &native::ConsistentStateReport {
         &self.inner.observed.report
@@ -125,6 +150,103 @@ fn original_initial_checks(
     }
     scope.check()?;
     Ok(checks)
+}
+fn classify(
+    observed: &ConsistentObservation,
+) -> pse_model::generated::enums::NumericalAttemptObservation {
+    use pse_backend_native::solve::Termination as T;
+    use pse_model::generated::enums::NumericalAttemptObservation as O;
+    let report = &observed.report;
+    if let Some(abandoned) = report.evidence.abandoned {
+        return abandoned;
+    }
+    if let Some(error) = report.validation_error.as_ref().or(report.error.as_ref()) {
+        return crate::math::strategy::failure(error);
+    }
+    match report.termination.category {
+        T::Success | T::Acceptable => O::Converged,
+        T::Cancelled => O::Cancelled,
+        T::TimeLimit | T::ResourceExhausted => O::ResourceExhausted,
+        T::Numerical | T::Evaluation => O::NumericalFailure,
+        T::Panic => O::Panic,
+        T::Invalid => O::ContractFailure,
+        _ => O::Limited,
+    }
+}
+fn assess_consistent(
+    observed: &ConsistentObservation,
+    observation: pse_model::generated::enums::NumericalAttemptObservation,
+) -> crate::math::strategy::Assessment {
+    use pse_model::diagnostic::DiagnosticProjection;
+    use pse_model::generated::enums::{CandidateRefusal, CandidateUse};
+    let original_failure = observed
+        .report
+        .validation_error
+        .as_ref()
+        .or(observed.report.error.as_ref())
+        .map(|error| {
+            crate::math::strategy::target::assessment_failure(
+                &error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native),
+            )
+        });
+    let satisfied = original_failure.is_none()
+        && !observed.report.evidence.callback.terminal_failure
+        && observed
+            .report
+            .assessment
+            .as_ref()
+            .is_some_and(|assessment| {
+                assessment.residual_satisfied
+                    && assessment.roles_preserved
+                    && assessment.signs_satisfied
+            })
+        && observed.checks_complete
+        && observed.checks.iter().all(|check| check.satisfied);
+    let decision = if satisfied {
+        crate::workflow::numerics::CandidateDecision {
+            usability: CandidateUse::SeedOnly,
+            qualifiers: Vec::new(),
+            refusals: Vec::new(),
+            bound: None,
+        }
+    } else {
+        crate::workflow::numerics::refused(CandidateRefusal::ValidationFailed)
+    };
+    let mut assessment = crate::math::strategy::target::original_assessment(
+        decision,
+        original_failure,
+        None,
+        observation,
+    );
+    if satisfied {
+        assessment.original = crate::math::strategy::OriginalConclusion::Satisfied;
+    }
+    assessment
+}
+fn profile_identity(
+    request: &native::ConsistentInitialization,
+    controls: &Controls,
+) -> Result<ContentHash, ProblemError> {
+    let mut identity = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+    identity
+        .str("idas-consistent-callable-profile")
+        .hash(&controls.identity()?);
+    pse_ids::document::frame(
+        &mut identity,
+        &(
+            request.time,
+            request.toward,
+            request.rtol,
+            &request.atol,
+            &request.residual_tolerances,
+            request.mode,
+            &request.linear,
+            &request.controls,
+            request.trial_failures,
+        ),
+    )
+    .map_err(|error| ProblemError::Contract(error.to_string()))?;
+    Ok(identity.finish_hash())
 }
 impl ModelingSimulation {
     /// Execute only authored consistent initialization at the declared initial time.
@@ -215,64 +337,87 @@ impl ModelingSimulation {
             bytes,
             submission,
             move |flag, progress| {
-                let mut execution = Execution::within(flag, &controls, scope.clone())?;
-                execution.memory = Some(foreign);
-                execution.progress = progress;
-                let attempt_scope = execution.scope()?;
-                let parameters = prepared
-                    .profile
-                    .parameters_at(&prepared.parameters, request.time);
-                let mut worker = prepared.worker(attempt_scope.clone())?;
-                let mut report = native::initialize_consistent(
-                    &mut worker,
-                    &parameters,
-                    &request,
-                    execution.clone(),
-                )?;
-                // No callback or new mathematical assessment follows a terminal latch.
-                // The native IC owner has already assessed the actual original RHS/guard,
-                // residual, signs and state roles. These additional rows are physical
-                // authored initial obligations, not replacement residuals.
-                let can_check = !report.evidence.callback.terminal_failure
-                    && report.validation_error.is_none()
-                    && report.assessment.is_some();
-                let checks = if can_check {
-                    match report
-                        .candidate
-                        .as_ref()
-                        .map(|point| {
-                            original_initial_checks(
-                                run_id,
-                                request.time,
-                                &point.state,
-                                &prepared.coordinates.state,
-                                &prepared.modes[0].original_initial_conditions,
-                                &attempt_scope,
-                            )
-                        })
-                        .transpose()
-                    {
-                        Ok(checks) => checks.unwrap_or_default(),
-                        Err(error) => {
-                            report.validation_error = Some(error);
+                let composition = pse_model::strategy::CompositionRequest::default();
+                let (mut observed, trace) = crate::math::strategy::target::callable(
+                    prepared.runtime.shared.math(),
+                    crate::math::strategy::target::Source {
+                        original: prepared.contract.identity,
+                        preparation: prepared.contract.identity,
+                        profile: profile_identity(&request, &controls)?,
+                        backend: None,
+                        controls: &controls,
+                        request: &composition,
+                        start: pse_model::strategy::StartOrigin::Specification,
+                        start_identity: None,
+                    },
+                    &scope,
+                    |admission| {
+                        let mut execution = Execution::within(flag, &controls, scope.clone())?;
+                        execution.work_admission = Some(admission);
+                        execution.memory = Some(foreign);
+                        execution.progress = progress;
+                        let attempt_scope = execution.scope()?;
+                        let parameters = prepared
+                            .profile
+                            .parameters_at(&prepared.parameters, request.time);
+                        let mut worker = prepared.worker(attempt_scope.clone())?;
+                        let mut report = native::initialize_consistent(
+                            &mut worker,
+                            &parameters,
+                            &request,
+                            execution.clone(),
+                        )?;
+                        // No callback or new mathematical assessment follows a terminal latch.
+                        // The native IC owner has already assessed the actual original RHS/guard,
+                        // residual, signs and state roles. These additional rows are physical
+                        // authored initial obligations, not replacement residuals.
+                        let can_check = !report.evidence.callback.terminal_failure
+                            && report.validation_error.is_none()
+                            && report.assessment.is_some();
+                        let checks = if can_check {
+                            match report
+                                .candidate
+                                .as_ref()
+                                .map(|point| {
+                                    original_initial_checks(
+                                        run_id,
+                                        request.time,
+                                        &point.state,
+                                        &prepared.coordinates.state,
+                                        &prepared.modes[0].original_initial_conditions,
+                                        &attempt_scope,
+                                    )
+                                })
+                                .transpose()
+                            {
+                                Ok(checks) => checks.unwrap_or_default(),
+                                Err(error) => {
+                                    report.validation_error = Some(error);
+                                    vec![]
+                                }
+                            }
+                        } else {
                             vec![]
-                        }
-                    }
-                } else {
-                    vec![]
-                };
-                let checks_complete = can_check
-                    && report.validation_error.is_none()
-                    && report.candidate.is_some()
-                    && checks.len() == prepared.modes[0].original_initial_conditions.len();
-                drop(worker);
-                let mut observed = ConsistentObservation {
-                    report,
-                    checks,
-                    checks_complete,
-                    scope: attempt_scope,
-                };
-                observed.check_after_join();
+                        };
+                        let checks_complete = can_check
+                            && report.validation_error.is_none()
+                            && report.candidate.is_some()
+                            && checks.len() == prepared.modes[0].original_initial_conditions.len();
+                        drop(worker);
+                        let mut observed = ConsistentObservation {
+                            report,
+                            checks,
+                            checks_complete,
+                            scope: attempt_scope,
+                            strategy: None,
+                        };
+                        observed.check_after_join();
+                        Ok(observed)
+                    },
+                    classify,
+                    assess_consistent,
+                )?;
+                observed.strategy = Some(trace);
                 let report = &observed.report;
                 let checks = &observed.checks;
                 // The report and errors are inline in OwnedConsistent; their owned

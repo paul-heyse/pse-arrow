@@ -117,7 +117,15 @@ impl CausalUnit for UnitWorker {
                 &self.budget,
             )?;
         }
-        let values = self.worker.worker().constraints(&trial)?;
+        let values = self
+            .budget
+            .evaluate(|| {
+                self.worker
+                    .worker()
+                    .constraints(&trial)
+                    .map_err(MathRuntimeError::from)
+            })
+            .map_err(MathRuntimeError::into_problem)?;
         let outputs: BTreeMap<_, _> = self
             .program
             .outputs
@@ -151,6 +159,129 @@ impl CausalUnit for UnitWorker {
         })
     }
 }
+#[derive(Clone, Debug)]
+struct RecycleSource {
+    model: crate::math::modeling::ModelingCasePreparation,
+    providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+}
+#[derive(Debug)]
+struct AutomaticRecycle {
+    package: ModelingPackage,
+    source: RecycleSource,
+    profile: SolverProfile,
+    compiler: pse_compiler::workspace::Profile,
+    selection: ModelingFlowSelection,
+    original: pse_ids::ContentHash,
+    key: pse_ids::ContentHash,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl crate::math::solves::causal::CausalSupplier for AutomaticRecycle {
+    fn key(&self) -> pse_ids::ContentHash {
+        self.key
+    }
+    fn prepare<'a>(
+        &'a self,
+        original: PreparedSolve,
+        scope: pse_kernels::ExecutionScope,
+        cancel: &'a crate::CancelSource,
+    ) -> std::pin::Pin<
+        Box<
+            dyn Future<
+                    Output = Result<crate::math::solves::causal::PreparedCausal, MathRuntimeError>,
+                > + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async move {
+            scope.check().map_err(native::ProblemError::Provider)?;
+            if original.original_identity()? != self.original {
+                return Err(native::ProblemError::Unsupported(
+                    "causal supplier differs from frozen original source".into(),
+                )
+                .into());
+            }
+            let solver = crate::math::settings::SolveSettings {
+                intent: SolveIntent::Root,
+                ..Default::default()
+            };
+            let request = RecycleRequest::from_model(
+                self.source.model.model.compiled(),
+                self.source.model.case.compiled(),
+                &self.selection,
+                &self.package.quantities,
+                solver,
+                None,
+            )
+            .map_err(causal_preparation_error)?;
+            if request.tears.is_empty() {
+                return Err(native::ProblemError::Unsupported(
+                    "authored topology has no recycle coordinates for the native fixed-point route"
+                        .into(),
+                )
+                .into());
+            }
+            let prepare = self.package.finish_recycle(
+                self.source.clone(),
+                self.profile.clone(),
+                self.compiler,
+                self.selection.clone(),
+                request,
+                cancel,
+            );
+            let prepared = crate::math::MathService::within_task(&scope, cancel, prepare)
+                .await
+                .map_err(automatic_causal_preparation_error)?;
+            scope.check().map_err(native::ProblemError::Provider)?;
+            let mut key = FramedHasher::new(pse_ids::Frame::CausalMapV2);
+            key.hash(&self.key)
+                .hash(&prepared.contract.identity)
+                .hash(&prepared.profile_key)
+                .hash(&original.strategy_profile()?);
+            Ok(crate::math::solves::causal::PreparedCausal::new(
+                original,
+                scope,
+                key.finish_hash(),
+                Arc::new(prepared),
+            ))
+        })
+    }
+}
+fn automatic_causal_preparation_error(error: WorkflowError) -> MathRuntimeError {
+    use pse_model::{HeapUsage, diagnostic::DiagnosticProjection};
+    let unavailable = matches!(&error, WorkflowError::ConditionalAdmission { cause, .. }
+        if matches!(cause.as_ref(), MathRuntimeError::Compile(pse_compiler::workspace::CompileError::ConditionalUnavailable(_))));
+    if !unavailable {
+        return causal_preparation_error(error);
+    }
+    let original = error.boundary_diagnostic();
+    let mut refusal = native::ProblemError::Unsupported(
+        "authored unit locality does not establish an automatic causal realization".into(),
+    )
+    .boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingConditionalUnitAdmission);
+    refusal.sources = original.sources.clone();
+    refusal.causes.push(original);
+    pse_math::MathError::Typed {
+        retained: refusal.owned_bytes(),
+        cause: pse_model::diagnostic::DiagnosticCause::new(refusal),
+    }
+    .into()
+}
+fn causal_preparation_error(error: WorkflowError) -> MathRuntimeError {
+    use pse_model::HeapUsage;
+    match error {
+        WorkflowError::Math(error) => error,
+        error => {
+            // Preserve the attributed original boundary and all its diagnostic causes.
+            let diagnostic = error.boundary_diagnostic();
+            pse_math::MathError::Typed {
+                retained: diagnostic.owned_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic),
+            }
+            .into()
+        }
+    }
+}
 /// Compiled immutable causal functions and the independently checked selected tear graph.
 #[derive(Clone, Debug)]
 pub struct PreparedRecycle {
@@ -171,6 +302,7 @@ pub struct PreparedRecycle {
     accuracy: ResolvedAccuracy,
     tolerances: Tolerances,
     numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    original_numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
 }
 impl PreparedRecycle {
     /// Source-owned numerical magnitudes projected onto selected tear coordinates.
@@ -225,128 +357,293 @@ impl PreparedRecycle {
             self.numerics.policy.clone(),
             self.profile_key,
             Some(candidate),
-            move |execution, budget| {
-                let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
-                for program in prepared.programs {
-                    // Every unit evaluator lives for the whole sweep: each is charged to
-                    // the job reservation, and its providers observe the attempt's
-                    // cancellation (F31).
-                    let worker = prepared
-                        .runtime
-                        .native()
-                        .worker(
-                            program.program.clone(),
-                            &prepared.providers,
-                            execution.scope()?,
-                            &budget,
-                        )
-                        .map_err(MathRuntimeError::into_problem)?;
-                    let unit = UnitWorker {
-                        input_ids: program.inputs.iter().map(|x| x.0).collect(),
-                        output_ids: program.outputs.iter().map(|x| x.0).collect(),
-                        program,
-                        worker,
-                        service: prepared.runtime.native().clone(),
-                        providers: prepared.providers.clone(),
-                        budget: budget.clone(),
-                        last_values: None,
-                    };
-                    units.insert(unit.id(), Box::new(unit));
-                }
-                let mut original_worker = prepared
-                    .runtime
-                    .native()
-                    .worker(
-                        prepared.original.clone(),
-                        &prepared.providers,
-                        execution.scope()?,
-                        &budget,
-                    )
-                    .map_err(MathRuntimeError::into_problem)?;
-                let original = prepared._source.values.clone();
-                let structure = prepared.original.assembly.structure().clone();
-                let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
-                let original_tolerances = Tolerances::from_policy(
-                    &prepared.numerics,
-                    prepared._source.case.compiled().plan.columns(),
-                    &row_ids,
-                )?;
-                let map = CausalMap::new(
-                    prepared.graph,
-                    prepared.request.tears,
-                    prepared.contract,
-                    units,
-                    prepared.fixed,
-                    execution,
-                )?
-                .with_original_observer(Box::new(move |overlay, execution| {
-                    let mut candidate = original.clone();
-                    candidate
-                        .scalars
-                        .extend(overlay.scalars.iter().map(|(id, value)| (*id, *value)));
-                    execution.check()?;
-                    let evaluation = WorkEvidence {
-                        evaluations: Some(1),
-                        ..Default::default()
-                    };
-                    if let Some(admission) = &execution.work_admission {
-                        admission.admit(evaluation)?;
-                    }
-                    let result = original_worker.worker().constraints(&candidate);
-                    if let Some(admission) = &execution.work_admission {
-                        admission.observe(evaluation)?;
-                    }
-                    let rows = result?;
-                    execution.check()?;
-                    if let Some(admission) = &execution.work_admission {
-                        admission.admit(evaluation)?;
-                    }
-                    let result = original_worker.worker().objective(&candidate);
-                    if let Some(admission) = &execution.work_admission {
-                        admission.observe(evaluation)?;
-                    }
-                    if !result?.is_finite() {
-                        return Err(native::ProblemError::numerical(
-                            "nonfinite original recycle objective",
-                        ));
-                    }
-                    if rows
-                        .iter()
-                        .zip(structure.rows())
-                        .zip(&original_tolerances.rows)
-                        .any(|((value, row), tolerance)| {
-                            !value.is_finite()
-                                || *value < row.lower - tolerance
-                                || *value > row.upper + tolerance
-                        })
-                    {
-                        return Err(native::ProblemError::Contract(
-                            "full original recycle equations refuse candidate".into(),
-                        ));
-                    }
-                    if structure.variables().iter().any(|v| {
-                        candidate.scalars.get(&v.port.id).is_none_or(|value| {
-                            !value.is_finite()
-                                || v.lower.is_some_and(|lower| *value < lower)
-                                || v.upper.is_some_and(|upper| *value > upper)
-                        })
-                    }) {
-                        return Err(native::ProblemError::Contract(
-                            "full original recycle bounds refuse candidate".into(),
-                        ));
-                    }
-                    execution.check()?;
-                    *observed.lock().map_err(|_| {
-                        native::ProblemError::Internal("recycle candidate lock poisoned".into())
-                    })? = Some(candidate);
-                    Ok(())
-                }));
-                Ok(kinsol::Function::FixedPoint(Box::new(map)))
-            },
+            move |execution, budget| prepared.function(execution, budget, observed),
         )?)
+    }
+    fn function(
+        self,
+        execution: Execution,
+        budget: Arc<crate::math::WorkerBudget>,
+        observed: Arc<std::sync::Mutex<Option<CaseValues>>>,
+    ) -> Result<kinsol::Function, native::ProblemError> {
+        let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
+        for program in self.programs {
+            // Every unit evaluator lives for the whole sweep: each is charged to
+            // the job reservation, and its providers observe the attempt's
+            // cancellation (F31).
+            let worker = self
+                .runtime
+                .native()
+                .worker(
+                    program.program.clone(),
+                    &self.providers,
+                    execution.scope()?,
+                    &budget,
+                )
+                .map_err(MathRuntimeError::into_problem)?;
+            let unit = UnitWorker {
+                input_ids: program.inputs.iter().map(|x| x.0).collect(),
+                output_ids: program.outputs.iter().map(|x| x.0).collect(),
+                program,
+                worker,
+                service: self.runtime.native().clone(),
+                providers: self.providers.clone(),
+                budget: budget.clone(),
+                last_values: None,
+            };
+            units.insert(unit.id(), Box::new(unit));
+        }
+        let mut original_worker = self
+            .runtime
+            .native()
+            .worker(
+                self.original.clone(),
+                &self.providers,
+                execution.scope()?,
+                &budget,
+            )
+            .map_err(MathRuntimeError::into_problem)?;
+        let original = self._source.values.clone();
+        let structure = self.original.assembly.structure().clone();
+        let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
+        let original_tolerances = Tolerances::from_policy(
+            &self.original_numerics,
+            self._source.case.compiled().plan.columns(),
+            &row_ids,
+        )?;
+        let map = CausalMap::new(
+            self.graph,
+            self.request.tears,
+            self.contract,
+            units,
+            self.fixed,
+            execution,
+        )?
+        .with_original_observer(Box::new(move |overlay, execution| {
+            let mut candidate = original.clone();
+            candidate
+                .scalars
+                .extend(overlay.scalars.iter().map(|(id, value)| (*id, *value)));
+            execution.check()?;
+            let evaluation = WorkEvidence {
+                evaluations: Some(1),
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: Some(0),
+            };
+            let rows = execution.counted(evaluation, || {
+                Ok(original_worker.worker().constraints(&candidate)?)
+            })?;
+            execution.check()?;
+            let objective = execution.counted(evaluation, || {
+                Ok(original_worker.worker().objective(&candidate)?)
+            })?;
+            if !objective.is_finite() {
+                return Err(native::ProblemError::numerical(
+                    "nonfinite original recycle objective",
+                ));
+            }
+            if rows
+                .iter()
+                .zip(structure.rows())
+                .zip(&original_tolerances.rows)
+                .any(|((value, row), tolerance)| {
+                    !value.is_finite()
+                        || *value < row.lower - tolerance
+                        || *value > row.upper + tolerance
+                })
+            {
+                return Err(native::ProblemError::Contract(
+                    "full original recycle equations refuse candidate".into(),
+                ));
+            }
+            if structure.variables().iter().any(|v| {
+                candidate.scalars.get(&v.port.id).is_none_or(|value| {
+                    !value.is_finite()
+                        || v.lower.is_some_and(|lower| *value < lower)
+                        || v.upper.is_some_and(|upper| *value > upper)
+                })
+            }) {
+                return Err(native::ProblemError::Contract(
+                    "full original recycle bounds refuse candidate".into(),
+                ));
+            }
+            execution.check()?;
+            *observed.lock().map_err(|_| {
+                native::ProblemError::Internal("recycle candidate lock poisoned".into())
+            })? = Some(candidate);
+            Ok(())
+        }));
+        Ok(kinsol::Function::FixedPoint(Box::new(map)))
+    }
+}
+impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
+    fn execute(
+        &self,
+        service: &crate::math::MathService,
+        mut execution: Execution,
+        budget: &Arc<crate::math::WorkerBudget>,
+        original_start: &[f64],
+    ) -> Result<crate::math::solves::causal::CausalResult, MathRuntimeError> {
+        let columns = self._source.case.compiled().plan.columns();
+        if original_start.len() != columns.len()
+            || columns.iter().zip(original_start).any(|(id, value)| {
+                self._source
+                    .values
+                    .scalars
+                    .get(id)
+                    .is_none_or(|frozen| frozen.to_bits() != value.to_bits())
+            })
+        {
+            return Err(native::ProblemError::Contract(
+                "causal execution differs from frozen declared start".into(),
+            )
+            .into());
+        }
+        execution.work_admission = budget
+            .admission()
+            .map(|owner| -> Arc<dyn WorkAdmission> { owner });
+        execution.check()?;
+        let clone_bytes = self.programs.iter().try_fold(
+            self._source
+                .values
+                .scalars
+                .len()
+                .checked_mul(96)
+                .ok_or(MathRuntimeError::Limit("causal worker metadata"))?,
+            |bytes, program| {
+                bytes
+                    .checked_add(program.values.scalars.len().saturating_mul(96))
+                    .and_then(|bytes| bytes.checked_add(size_of_val(program)))
+                    .ok_or(MathRuntimeError::Limit("causal worker metadata"))
+            },
+        )?;
+        let _charge = budget.charge(clone_bytes)?;
+        let candidate = Arc::new(std::sync::Mutex::new(None));
+        let function =
+            self.clone()
+                .function(execution.clone(), budget.clone(), candidate.clone())?;
+        let stamp = Compatibility {
+            layout: self.contract.identity,
+            profile: self.profile_key,
+            data: self._source.values.identity(),
+            backend: Backend::Kinsol,
+        };
+        let mut session =
+            kinsol::Session::new(function, self.settings.clone(), execution.clone(), stamp)?;
+        let mut report = session.solve(
+            &self.initial,
+            &self.controls,
+            &self.accuracy,
+            execution.clone(),
+            &self.tolerances,
+            None,
+        )?;
+        native::quality::qualify(&mut report, &self.accuracy);
+        drop(session);
+        execution.check()?;
+        let values = candidate
+            .lock()
+            .map_err(|_| native::ProblemError::Internal("causal candidate lock poisoned".into()))?
+            .take();
+        // Native report storage and original assessment storage share one admitted result owner.
+        let owner = service.reserve("math:causal-component", self.controls.report_allowance()?)?;
+        Ok(crate::math::solves::causal::CausalResult {
+            report: Box::new(report.with_owner(owner)),
+            values,
+            // Conditional callbacks, providers and native linear work do not yet
+            // expose a complete inclusive observation. Retain raw native evidence.
+            inclusive_work: WorkEvidence::default(),
+        })
     }
 }
 impl ModelingPackage {
+    pub(in crate::workflow) fn automatic_causal_supplier(
+        &self,
+        model: &crate::math::modeling::ModelingCasePreparation,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        numerics: &Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+        profile: &SolverProfile,
+        compiler: pse_compiler::workspace::Profile,
+        original: &PreparedSolve,
+    ) -> Result<Option<Arc<dyn crate::math::solves::causal::CausalSupplier>>, MathRuntimeError>
+    {
+        if profile.composition.policy != pse_model::strategy::CompositionPolicy::Auto
+            || original.backend() != Some(Backend::Kinsol)
+            || profile.intent != SolveIntent::Root
+            || profile.controls.start != StartPolicy::NoPriorStart
+            || profile.controls.threads != 1
+            || profile.sensitivity.is_some()
+            || !matches!(profile.backend, native::execution::BackendSettings::Default)
+            || model.model.compiled().model.connections.is_empty()
+        {
+            return Ok(None);
+        }
+        let authored = &model.model.compiled().model;
+        let selection = ModelingFlowSelection {
+            nodes: authored
+                .ports
+                .values()
+                .map(|port| port.lineage.instance)
+                .collect(),
+            connections: authored
+                .connections
+                .keys()
+                .map(|id| {
+                    (
+                        *id,
+                        pse_structural::flowsheet::Decision {
+                            id: *id,
+                            cost: 1.0,
+                            policy: pse_structural::flowsheet::Policy::Free,
+                        },
+                    )
+                })
+                .collect(),
+        };
+        let original_identity = original.original_identity()?;
+        let mut key = FramedHasher::new(pse_ids::Frame::CausalMapV2);
+        key.hash(&original_identity)
+            .hash(&self.revision.identity().as_id())
+            .str("authored-unweighted-heuristic");
+        for node in &selection.nodes {
+            key.id(&node.as_id());
+        }
+        for id in selection.connections.keys() {
+            key.id(id);
+        }
+        let bytes = model
+            .values
+            .scalars
+            .len()
+            .checked_mul(96)
+            .and_then(|bytes| bytes.checked_add(providers.len().checked_mul(256)?))
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    (selection.nodes.len() + selection.connections.len()).checked_mul(256)?,
+                )
+            })
+            .and_then(|bytes| bytes.checked_add(size_of::<AutomaticRecycle>()))
+            .ok_or(MathRuntimeError::Limit("causal supplier metadata"))?;
+        let owner = self
+            .runtime
+            .native()
+            .reserve("math:causal-supplier", bytes)?;
+        Ok(Some(Arc::new(AutomaticRecycle {
+            package: self.clone(),
+            source: RecycleSource {
+                model: model.clone(),
+                providers: providers.clone(),
+                numerics: numerics.clone(),
+            },
+            profile: profile.clone(),
+            compiler,
+            selection,
+            original: original_identity,
+            key: key.finish_hash(),
+            _owner: owner,
+        })))
+    }
     /// Admit explicitly directed units from this revision, retaining physical port conversions.
     pub async fn prepare_recycle(
         &self,
@@ -394,6 +691,29 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        self.finish_recycle(
+            RecycleSource {
+                model: resolved.model,
+                providers: resolved.providers,
+                numerics: resolved.numerics,
+            },
+            profile,
+            compiler,
+            selection,
+            request,
+            cancel,
+        )
+        .await
+    }
+    async fn finish_recycle(
+        &self,
+        resolved: RecycleSource,
+        profile: SolverProfile,
+        compiler: pse_compiler::workspace::Profile,
+        selection: ModelingFlowSelection,
+        request: RecycleRequest,
+        cancel: &crate::CancelSource,
+    ) -> Result<PreparedRecycle, WorkflowError> {
         let flow = self
             .runtime
             .native()
@@ -869,6 +1189,7 @@ impl ModelingPackage {
             accuracy,
             tolerances,
             numerics,
+            original_numerics: resolved.numerics,
         })
     }
 }

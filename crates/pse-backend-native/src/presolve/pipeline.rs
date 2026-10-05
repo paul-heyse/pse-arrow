@@ -802,6 +802,17 @@ impl Pipeline {
             .take()
             .ok_or_else(|| ProblemError::Internal("presolve transport already consumed".into()))
     }
+    #[cfg(all(test, feature = "pounce"))]
+    pub(super) fn original_callback_evaluations(&self) -> Option<u64> {
+        self.original
+            .borrow()
+            .state
+            .counts
+            .values()
+            .try_fold(0_u64, |total, count| {
+                total.checked_add(u64::try_from(*count).ok()?)
+            })
+    }
     /// Full recovery traverses the library stack exactly once, then independently observes
     /// the original model and runs the requested local analysis against it, whatever
     /// presolve removed.
@@ -893,11 +904,15 @@ impl Pipeline {
             let mut original = self.original.borrow_mut();
             match original.state.execution.stopped() {
                 None => {
-                    quality::attach_nlp(&mut report, original.oracle.as_mut(), tolerance, sense);
-                    let original = &mut *original;
+                    let execution = original.state.execution.clone();
+                    let mut counted = crate::callback::CountedNlp {
+                        oracle: original.oracle.as_mut(),
+                        execution: &execution,
+                    };
+                    quality::attach_nlp(&mut report, &mut counted, tolerance, sense);
                     factor = crate::kkt::attach(
                         &mut report,
-                        original.oracle.as_mut(),
+                        &mut counted,
                         &self.declared_normalization,
                         tolerance,
                         analysis,

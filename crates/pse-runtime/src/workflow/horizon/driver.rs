@@ -926,6 +926,7 @@ struct Control {
     controller: Option<usize>,
     decision: HorizonDecision,
     fallback: Option<Fallback>,
+    activity: Option<native::kkt::path::PathPrediction>,
     advanced: Option<usize>,
 }
 impl Control {
@@ -933,6 +934,7 @@ impl Control {
         controller: None,
         decision: HorizonDecision::OpenLoop,
         fallback: None,
+        activity: None,
         advanced: None,
     };
 }
@@ -997,6 +999,7 @@ impl Loop {
                 controller: control.controller,
                 decision: control.decision,
                 fallback: control.fallback,
+                activity: control.activity,
                 advanced: control.advanced,
                 applied: self.applied.clone(),
                 reached: self.measured[k + 1].clone(),
@@ -1042,6 +1045,15 @@ impl Loop {
         values: BTreeMap<String, f64>,
         retain: bool,
     ) -> Result<usize, WorkflowError> {
+        let prepared = self.prepare_solve(role, values, retain).await?;
+        self.execute_solve(role, prepared).await
+    }
+    async fn prepare_solve(
+        &mut self,
+        role: Role,
+        values: BTreeMap<String, f64>,
+        retain: bool,
+    ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let admitted = self.admitted.clone();
         let stage = match role {
             Role::Estimator => admitted.estimator.as_ref().map(|e| &e.stage),
@@ -1052,7 +1064,6 @@ impl Loop {
         let seed = last
             .and_then(|i| self.staged.seed(Start::Accepted(i)))
             .unwrap_or_default();
-        let previous = last.and_then(|i| self.staged.predecessor_at(i));
         let specification = Overlay {
             values,
             ..Overlay::default()
@@ -1075,6 +1086,14 @@ impl Loop {
                 .retaining_factor()
                 .map_err(WorkflowError::from)?;
         }
+        Ok(prepared)
+    }
+    async fn execute_solve(
+        &mut self,
+        role: Role,
+        prepared: ModelingSolvePreparation,
+    ) -> Result<usize, WorkflowError> {
+        let previous = self.accepted[role as usize].and_then(|i| self.staged.predecessor_at(i));
         let attempt = self.requests.len();
         if let Some(durable) = &self.durable {
             let seed = prepared
@@ -1234,6 +1253,10 @@ impl Loop {
                 ..Control::OPEN
             });
         };
+        let mut prepared = self
+            .prepare_solve(Role::Controller, values.clone(), false)
+            .await?;
+        let proposal_target = prepared.solve.clone();
         // One backsolve against the background solve's retained factor at the actual state.
         // A factor predicts once: the next background solve replaces it.
         let predicted = match self.background.take() {
@@ -1255,6 +1278,8 @@ impl Loop {
                     _ => None,
                 };
                 let time_limit = admitted.plant.time_limit;
+                let base = self.results[from].prepared.solve.clone();
+                let target = proposal_target.clone();
                 let parameters = advanced
                     .parameters
                     .iter()
@@ -1264,38 +1289,71 @@ impl Loop {
                     .staged
                     .native(admitted.threads, &self.cancel, move |retained, flag, _| {
                         let outcome = match (retained.advance(), source) {
-                            (Some(advance), Some(source)) if permission.permits_use() => {
-                                let mut binding =
-                                    FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
-                                binding
-                                    .str("horizon-control-proposal")
-                                    .hash(&source.binding);
-                                for (id, value) in &parameters {
-                                    binding.id(id).f64(*value);
-                                }
+                            (Some(advance), Some(source))
+                                if permission.permits_use()
+                                    && target.numerical_strategy().start.policy
+                                        != native::solve::StartPolicy::NoPriorStart =>
+                            {
+                                target.related_target_parameters(&base, advance.parameters())?;
+                                let binding = target.original_identity()?;
                                 let mut execution = native::solve::Execution::new(
                                     flag.clone(),
                                     &native::solve::Controls::default(),
                                 );
                                 execution.time_limit = time_limit;
+                                let segments = advance
+                                    .variables()
+                                    .len()
+                                    .saturating_add(advance.rows().len())
+                                    .saturating_add(1);
+                                let limits = native::kkt::activity::Limits {
+                                    backsolves: segments.saturating_mul(8),
+                                    refactorizations: segments.saturating_mul(2),
+                                    bytes: advance.bytes().saturating_mul(4),
+                                };
+                                let activity = target
+                                    .composition_request()
+                                    .recovery
+                                    .contains(&pse_model::strategy::StartOrigin::Predicted)
+                                    && target.numerical_strategy().start.policy
+                                        != native::solve::StartPolicy::NoPriorStart;
                                 match crate::math::prediction::select(
                                     crate::math::prediction::SelectionRequest {
                                         mechanism:
                                             crate::math::prediction::ProposalMechanism::Kkt {
                                                 advance,
                                                 parameters: &parameters,
+                                                activity: activity.then_some((segments, limits)),
                                             },
                                         permission: &permission,
                                         source,
-                                        target: binding.finish_hash(),
-                                        branch: pse_model::strategy::BranchPolicy::any_qualified(),
+                                        target: binding,
+                                        branch: target.composition_request().branch,
                                     },
                                     &execution,
                                 ) {
                                     Ok(crate::math::prediction::SelectedProposal::Kkt {
                                         prediction,
                                         ..
-                                    }) => Ok(prediction),
+                                    }) => Ok((prediction, None, execution.scope()?)),
+                                    Ok(crate::math::prediction::SelectedProposal::Activity {
+                                        proposal,
+                                        path,
+                                        fallback,
+                                    }) => {
+                                        // A tracked endpoint still receives independent original correction.
+                                        // The original activity refusal remains visible in the horizon decision.
+                                        let fallback = fallback.ok_or_else(|| {
+                                            ProblemError::internal(
+                                                "activity selection lacked its original refusal",
+                                            )
+                                        })?;
+                                        Ok((
+                                            path.prediction.clone(),
+                                            Some((*proposal, path, fallback)),
+                                            execution.scope()?,
+                                        ))
+                                    }
                                     Ok(_) => {
                                         return Err(ProblemError::internal(
                                             "horizon selector returned another producer",
@@ -1318,7 +1376,52 @@ impl Loop {
             }
         };
         let (mut control, source) = match predicted {
-            Some(Ok((from, prediction))) => {
+            Some(Ok((_, (_, Some((proposal, path, fallback)), scope)))) => {
+                let screened = admitted
+                    .controller
+                    .as_ref()
+                    .ok_or_else(|| contract("activity controller missing"))?
+                    .stage
+                    .package
+                    .runtime
+                    .native()
+                    .screen_start(
+                        prepared.solve.clone(),
+                        proposal,
+                        prepared.solve.composition_request().branch,
+                        scope.clone(),
+                        &self.cancel,
+                    )
+                    .await?;
+                prepared.solve = prepared
+                    .solve
+                    .within_task(scope)
+                    .map_err(MathRuntimeError::from)?
+                    .with_screened_start(&screened)
+                    .map_err(MathRuntimeError::from)?;
+                let index = self
+                    .execute_solve(Role::Controller, prepared.clone())
+                    .await?;
+                let accepted = self.results[index].accepted;
+                if accepted {
+                    self.apply_solved(c, index)?;
+                }
+                (
+                    Control {
+                        controller: Some(index),
+                        decision: if accepted {
+                            HorizonDecision::Fallback
+                        } else {
+                            HorizonDecision::Held
+                        },
+                        fallback: Some(fallback),
+                        activity: Some(path),
+                        advanced: None,
+                    },
+                    accepted.then_some(Source::Solved(index)),
+                )
+            }
+            Some(Ok((from, (prediction, None, _)))) => {
                 self.apply(c, |id| {
                     prediction.value(id).ok_or_else(|| {
                         contract("an advanced-step controller's moves are columns of its solve")
@@ -1338,7 +1441,9 @@ impl Loop {
                     Some(Err(reason)) => Some(reason),
                     _ => None,
                 };
-                let index = self.solve(Role::Controller, values.clone(), false).await?;
+                let index = self
+                    .execute_solve(Role::Controller, prepared.clone())
+                    .await?;
                 let accepted = self.results[index].accepted;
                 if accepted {
                     self.apply_solved(c, index)?;
@@ -1353,6 +1458,7 @@ impl Loop {
                         controller: Some(index),
                         decision,
                         fallback,
+                        activity: None,
                         advanced: None,
                     },
                     accepted.then_some(Source::Solved(index)),

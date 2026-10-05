@@ -657,3 +657,126 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
     drop((handle, package, runtime));
     database.remove().await.unwrap();
 }
+
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn related_case_study_uses_secant_then_original_correction() {
+    let runtime = tests::runtime_with_workspace(64 << 20);
+    let (physical, modeling) = sources(CASES);
+    let cancel = crate::CancelSource::new();
+    let package = runtime
+        .package_from_sources(
+            std::slice::from_ref(&modeling),
+            runtime
+                .physical_from_sources(&physical, &cancel)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+    let root = package
+        .declarations()
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let scalar = package.quantities.neutral_dimensionless().unwrap();
+    let unit = package
+        .quantities
+        .quantity_type(scalar)
+        .unwrap()
+        .canonical_unit;
+    let mut points = Vec::new();
+    for (index, value) in [4., 4.04, 4.08].into_iter().enumerate() {
+        let start = if index == 0 {
+            StartPolicy::Fresh
+        } else {
+            StartPolicy::Continuation(SeedEdge {
+                predecessor: OccurrenceKey(index as u32),
+                role: SeedRole::PrimalSolution,
+                permission: ContinuationPermission::RequireUsable,
+                unavailable: UnavailableSeedPolicy::Refuse,
+            })
+        };
+        let mut next = point(root, index as u32 + 1, vec![], start);
+        let OperationRequest::DeclaredCase(operation) = &mut next.operation else {
+            panic!("case expected");
+        };
+        operation.settings.intent = pse_backend_native::solve::SolveIntent::Root;
+        operation.settings.controls.start =
+            pse_backend_native::solve::StartPolicy::PreviousAccepted;
+        operation
+            .settings
+            .composition
+            .recovery
+            .push(pse_model::strategy::StartOrigin::Predicted);
+        next.overlay.assignments.push(BindingAssignment {
+            target: BindingTarget::Path("a".into()),
+            value: BindingQuantity {
+                magnitude: pse_model::scalars::FiniteBound::try_new(value).unwrap(),
+                quantity: scalar.as_id(),
+                unit: unit.as_id(),
+            },
+        });
+        points.push(next);
+    }
+    let definition = package
+        .admit_study_points(
+            crate::authoring_driver::document::package_checksum(&physical),
+            vec![crate::authoring_driver::document::package_checksum(
+                &modeling,
+            )],
+            &points,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let study = package.study(&definition, 3, &cancel).await.unwrap();
+    assert!(
+        study
+            .outcomes
+            .iter()
+            .all(|outcome| outcome.scientific.usable)
+    );
+    let result = |index: usize| {
+        let RunReport::Modeling(results) = study.results[index].as_ref().unwrap().report().unwrap()
+        else {
+            panic!("modeling expected");
+        };
+        results[0].clone()
+    };
+    let first = result(0);
+    let second = result(1);
+    let third = result(2);
+    assert!(
+        second.root_predictor().is_err(),
+        "no sensitivity/factor was requested"
+    );
+    let execution = pse_backend_native::solve::Execution::new(
+        Arc::default(),
+        &pse_backend_native::solve::Controls::default(),
+    );
+    let proposal = second
+        .secant_prediction(
+            &first,
+            &third.prepared,
+            pse_model::strategy::BranchPolicy::any_qualified(),
+            &execution,
+        )
+        .unwrap();
+    let expected = third
+        .prepared
+        .solve
+        .clone()
+        .with_primal_start(proposal.values().collect())
+        .unwrap();
+    assert_eq!(
+        third.prepared.solve.request_identity().unwrap(),
+        expected.request_identity().unwrap(),
+        "actual third occurrence consumed the shared secant endpoint"
+    );
+    let crate::math::solves::Outcome::Native(report) = &third.outcome else {
+        panic!("original native correction expected");
+    };
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.08_f64.sqrt()).abs() < 1e-8);
+    assert_eq!(study.outcomes[2].key, OccurrenceKey(3));
+}

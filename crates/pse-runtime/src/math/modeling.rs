@@ -272,7 +272,7 @@ impl MathService {
                             "nested realization requires the KINSOL capability".into(),
                         ));
                     }
-                    let factory = item.admitted.factory(
+                    let factory = item.admitted.reconstruction_factory(
                         item.configurations,
                         pse_compiler::workspace::ImplicitCapabilities {
                             solver: solver.clone(),

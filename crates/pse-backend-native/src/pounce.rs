@@ -5,7 +5,7 @@ mod equalities;
 mod observed;
 mod profiles;
 mod records;
-pub use profiles::{SecondOpinionProfile, second_opinion_profiles};
+pub use profiles::{SecondOpinionProfile, second_opinion_capacity, second_opinion_profiles};
 mod retained;
 pub use crate::settings::pounce::{LinearSettings, Method, Settings};
 use crate::tnlp::{Adapter, finite};
@@ -523,6 +523,10 @@ impl Session {
             retained::Pool::new(feral.clone(), factor_identity)
         };
         self.factors = Some(pool.clone());
+        // Both replaced native owners have now dropped; earlier leases may be released.
+        if !reused && !factor_reused {
+            self.storage_admissions.clear();
+        }
         self.foreign_allowance = controls.foreign_bytes.or(execution.memory);
         let before_factors = pool.borrow().counts();
         let sink = Arc::new(Mutex::new(Default::default()));
@@ -567,7 +571,12 @@ impl Session {
         } else {
             adapter.clone()
         };
-        if let Some(admission) = &execution.work_admission {
+        if let Some(admission) = &execution.work_admission
+            && !self
+                .storage_admissions
+                .iter()
+                .any(|owner| Arc::ptr_eq(owner, admission))
+        {
             self.storage_admissions.push(admission.clone());
         }
         let observation = Rc::new(observed::Observation::new(
@@ -576,8 +585,46 @@ impl Session {
             controls.foreign_bytes.or(execution.memory),
         ));
         let observation_scope = pounce_common::observed::Scope::enter(observation.clone());
-        let status = app.optimize_tnlp_without_presolve(native);
+        let status = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            app.optimize_tnlp_without_presolve(native)
+        }))
+        .map_err(|_| ProblemError::Internal("panic during native optimization".into()));
+        observation.finish_operations();
         let mut a = adapter.borrow_mut();
+        let status = match status {
+            Ok(status) => status,
+            Err(error) => {
+                // The algorithm can unwind after a refused FD probe before it emits a
+                // native status. Preserve both that source refusal and the unwind;
+                // neither partially filled derivatives nor a candidate may escape.
+                let mut report = SolveReport::new(
+                    Backend::Pounce,
+                    a.oracle.contract(),
+                    NativeTermination {
+                        code: i64::MIN,
+                        name: "rust.unwind".into(),
+                        message: Some(
+                            "panic during native optimization; no native status returned".into(),
+                        ),
+                        category: Termination::Panic,
+                        assurance: Assurance::None,
+                    },
+                    &execution,
+                );
+                a.state.terminal.get_or_insert_with(|| {
+                    (
+                        Termination::Panic,
+                        "panic during native optimization".into(),
+                    )
+                });
+                a.state.finish(&mut report);
+                observation.record(&mut report);
+                report.record_validation_failure(error);
+                self.factors = None;
+                self.foreign_allowance = None;
+                return Ok(report);
+            }
+        };
         let mut report = SolveReport::new(
             Backend::Pounce,
             a.oracle.contract(),
@@ -1460,3 +1507,6 @@ mod tests {
         assert_eq!(ADMITTED.with(|a| a.get()), 0);
     }
 }
+
+#[cfg(test)]
+mod schur_tests;

@@ -156,6 +156,7 @@ fn report_of(result: &crate::workflow::RunResult) -> &ShootingReport {
         .as_ref()
         .expect("joined shooting strategy trace");
     assert!(trace.owner.is_some());
+    assert!(trace.events.iter().all(|event| event.decision.is_some()));
     use pse_relations::columnar::RelationRow;
     let rows = pse_relations::generated::runtime::solve_strategy_events::Row::rows(
         &result.table("runtime.solve_strategy_events").unwrap(),
@@ -174,6 +175,71 @@ fn report_of(result: &crate::workflow::RunResult) -> &ShootingReport {
     assert_eq!(final_row.evaluations, None);
     assert_eq!(final_row.factorizations, None);
     report
+}
+
+#[tokio::test]
+async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
+    let simulation = tracking(Method::Diffsol).await;
+    let mut requested = request(&simulation, ShootingMethod::Single, vec![], false);
+    let limits = pse_model::strategy::WorkLimits {
+        attempts: 1,
+        evaluations: Some(1),
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    };
+    requested.solver.composition.limits = Some(limits);
+    let problem = Arc::new(simulation.shooting(requested).unwrap());
+    let error = problem
+        .solve(
+            id(99).into(),
+            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            Arc::new(native::solve::Progress::new(16)),
+            None,
+            &problem.solver,
+        )
+        .unwrap_err();
+    let trace = error.strategy_trace().unwrap();
+    assert_eq!(trace.declaration.limits, limits);
+    assert!(
+        trace
+            .events
+            .iter()
+            .all(|event| event.kind != pse_model::generated::enums::NumericalEventKind::Started)
+    );
+    assert!(
+        trace
+            .events
+            .iter()
+            .any(|event| matches!(event.cause.as_deref(), Some(ProblemError::Unsupported(_))))
+    );
+    assert!(trace.events.iter().all(|event| event.decision.is_some()));
+    // An explicit vector cannot acquire entry permission from optional recovery.
+    let mut requested = request(&simulation, ShootingMethod::Single, vec![], false);
+    requested.solver.composition.recovery = vec![pse_model::strategy::StartOrigin::Auxiliary];
+    let problem = Arc::new(simulation.shooting(requested).unwrap());
+    let error = problem
+        .solve(
+            id(100).into(),
+            pse_kernels::ExecutionScope::new(Arc::default(), None),
+            Arc::new(native::solve::Progress::new(16)),
+            Some(&[]),
+            &problem.solver,
+        )
+        .unwrap_err();
+    let trace = error.strategy_trace().unwrap();
+    assert!(
+        trace
+            .events
+            .iter()
+            .all(|event| event.kind != pse_model::generated::enums::NumericalEventKind::Started)
+    );
+    assert!(
+        trace
+            .events
+            .iter()
+            .any(|event| matches!(event.cause.as_deref(), Some(ProblemError::Contract(_))))
+    );
 }
 
 /// ADR-0110 Outcome 5: single shooting and multiple shooting (nodes at 0.5, 1 and 1.5 s)

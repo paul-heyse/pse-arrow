@@ -52,6 +52,8 @@ mod root_response_tests;
 #[cfg(test)]
 #[cfg(all(feature = "solver-ipopt", feature = "solver-highs"))]
 pub(in crate::workflow) mod sensitivity_tests;
+#[cfg(all(test, feature = "solver-pounce"))]
+mod work_admission_tests;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,
     ModelingDiagnosticPreparation, ModelingDiagnosticSamples, ModelingDiagnostics,

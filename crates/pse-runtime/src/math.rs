@@ -8,7 +8,6 @@ mod functions;
 pub mod initialization;
 mod jobs;
 pub mod modeling;
-pub(crate) mod opaque_strategy;
 pub mod prediction;
 mod products;
 pub(crate) mod retention;

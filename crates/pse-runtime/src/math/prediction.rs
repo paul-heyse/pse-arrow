@@ -377,6 +377,22 @@ pub(crate) enum ProposalMechanism<'a> {
     Kkt {
         advance: &'a kkt::Advance,
         parameters: &'a [(SemanticId, f64)],
+        activity: Option<(usize, kkt::activity::Limits)>,
+    },
+    Activity {
+        advance: &'a kkt::Advance,
+        parameters: &'a [(SemanticId, f64)],
+        segments: usize,
+        limits: kkt::activity::Limits,
+    },
+    Qp {
+        request: kkt::path::qp::Request<'a>,
+        coordinates: &'a [SemanticId],
+    },
+    Secant {
+        history: &'a SecantHistory,
+        parameter: f64,
+        scaled_step_limit: f64,
     },
 }
 pub(crate) struct SelectionRequest<'a> {
@@ -386,14 +402,29 @@ pub(crate) struct SelectionRequest<'a> {
     pub(crate) target: ContentHash,
     pub(crate) branch: BranchPolicy,
 }
-/// Actual source-owned Root action evidence or the current horizon KKT prediction.
+/// Actual source-owned proposal and operation evidence. Partial activity coverage remains
+/// partial; every non-control endpoint has only start meaning.
 pub(crate) enum SelectedProposal {
     Root {
         proposal: Box<Proposal>,
         work: pse_backend_native::square_response::ActionEvidence,
     },
     #[cfg(feature = "solver-diffsol")]
-    Kkt { prediction: kkt::Prediction },
+    Kkt {
+        prediction: kkt::Prediction,
+    },
+    Activity {
+        proposal: Box<Proposal>,
+        path: kkt::path::PathPrediction,
+        fallback: Option<kkt::Fallback>,
+    },
+    Qp {
+        proposal: Box<Proposal>,
+        outcome: Box<kkt::path::qp::Outcome>,
+    },
+    Secant {
+        proposal: Box<Proposal>,
+    },
 }
 pub(crate) enum SelectionFailure {
     #[cfg(feature = "solver-diffsol")]
@@ -445,7 +476,6 @@ pub(crate) fn select(
         )
         .into());
     }
-    #[cfg(feature = "solver-diffsol")]
     let verify_point = |point: &[f64]| -> Result<(), ProblemError> {
         if request.source.point != Some(pse_backend_native::square_response::point_key(point)) {
             Err(ProblemError::Contract(
@@ -482,10 +512,132 @@ pub(crate) fn select(
         ProposalMechanism::Kkt {
             advance,
             parameters,
+            activity,
         } => {
             verify_point(advance.point())?;
-            let prediction = kkt(advance, parameters).map_err(SelectionFailure::Kkt)?;
-            SelectedProposal::Kkt { prediction }
+            match kkt(advance, parameters) {
+                Ok(prediction) => SelectedProposal::Kkt { prediction },
+                Err(fallback @ kkt::Fallback::ActiveSet { .. }) => {
+                    let Some((segments, limits)) = activity else {
+                        return Err(SelectionFailure::Kkt(fallback));
+                    };
+                    let selected = match select(
+                        SelectionRequest {
+                            mechanism: ProposalMechanism::Activity {
+                                advance,
+                                parameters,
+                                segments,
+                                limits,
+                            },
+                            permission: request.permission,
+                            source: request.source,
+                            target: request.target,
+                            branch: request.branch,
+                        },
+                        execution,
+                    ) {
+                        Ok(selected) => selected,
+                        Err(error) => {
+                            let cause = error.into_problem();
+                            let class =
+                                pse_model::diagnostic::DiagnosticProjection::boundary_diagnostic(
+                                    &cause,
+                                    pse_diagnostics::DiagnosticStage::Native,
+                                )
+                                .class;
+                            if matches!(
+                                class,
+                                pse_model::diagnostic::BoundaryClass::Unsupported
+                                    | pse_model::diagnostic::BoundaryClass::Numerical
+                            ) {
+                                return Err(SelectionFailure::Kkt(fallback));
+                            }
+                            return Err(cause.into());
+                        }
+                    };
+                    let SelectedProposal::Activity { proposal, path, .. } = selected else {
+                        return Err(ProblemError::internal(
+                            "activity fallback selected another producer",
+                        )
+                        .into());
+                    };
+                    return Ok(SelectedProposal::Activity {
+                        proposal,
+                        path,
+                        fallback: Some(fallback),
+                    });
+                }
+                Err(fallback) => return Err(SelectionFailure::Kkt(fallback)),
+            }
+        }
+        ProposalMechanism::Activity {
+            advance,
+            parameters,
+            segments,
+            limits,
+        } => {
+            verify_point(advance.point())?;
+            let path =
+                kkt::path::predict(advance, parameters, segments, limits, execution.clone())?;
+            let proposal = Proposal::path(
+                path.prediction.variables.clone(),
+                path.prediction.primal.clone(),
+                request.source,
+                request.target,
+                request.branch,
+            )?;
+            SelectedProposal::Activity {
+                proposal: Box::new(proposal),
+                path,
+                fallback: None,
+            }
+        }
+        ProposalMechanism::Qp {
+            request: qp,
+            coordinates,
+        } => {
+            verify_point(&qp.source.x)?;
+            if coordinates.len() != qp.previous.n
+                || coordinates
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    != coordinates.len()
+            {
+                return Err(ProblemError::Contract(
+                    "QP proposal requires distinct original named coordinates".into(),
+                )
+                .into());
+            }
+            let outcome = kkt::path::qp::predict(qp, execution.clone())?;
+            let proposal = Proposal::path(
+                coordinates.to_vec(),
+                outcome.solution.x.clone(),
+                request.source,
+                request.target,
+                request.branch,
+            )?;
+            SelectedProposal::Qp {
+                proposal: Box::new(proposal),
+                outcome: Box::new(outcome),
+            }
+        }
+        ProposalMechanism::Secant {
+            history,
+            parameter,
+            scaled_step_limit,
+        } => {
+            if history.newer.key != request.source {
+                return Err(ProblemError::Contract(
+                    "secant history differs from the permitted source dependencies".into(),
+                )
+                .into());
+            }
+            let proposal =
+                history.predict(parameter, scaled_step_limit, request.target, request.branch)?;
+            SelectedProposal::Secant {
+                proposal: Box::new(proposal),
+            }
         }
     };
     execution.check()?;
@@ -593,6 +745,10 @@ impl SecantHistory {
             parameter_scale,
         })
     }
+    /// Exact dependencies of the newer independently accepted source sample.
+    pub fn source(&self) -> SemanticProductKey {
+        self.newer.key
+    }
     /// Predict in the declared physical parameter, with a finite scaled extrapolation cap.
     /// # Errors
     /// Invalid parameter/cap/branch or a step outside the admitted numerical history slice.
@@ -686,7 +842,34 @@ mod tests {
         .unwrap();
         let target = ContentHash::from_bytes([9; 32]);
         let branch = BranchPolicy::any_qualified();
-        let proposal = history.predict(3., 0.2, target, branch).unwrap();
+        let execution = Execution::new(
+            std::sync::Arc::default(),
+            &pse_backend_native::solve::Controls::default(),
+        );
+        let permission = CandidateDecision {
+            usability: CandidateUse::Usable,
+            qualifiers: Vec::new(),
+            refusals: Vec::new(),
+            bound: None,
+        };
+        let selected = select(
+            SelectionRequest {
+                mechanism: ProposalMechanism::Secant {
+                    history: &history,
+                    parameter: 3.,
+                    scaled_step_limit: 0.2,
+                },
+                permission: &permission,
+                source: history.source(),
+                target,
+                branch,
+            },
+            &execution,
+        )
+        .unwrap_or_else(|failure| panic!("{}", failure.into_problem()));
+        let SelectedProposal::Secant { proposal } = selected else {
+            panic!("secant expected");
+        };
         assert_eq!(proposal.values.as_slice(), [6.]);
         let contract = OracleContract {
             identity: target,
@@ -740,12 +923,85 @@ mod tests {
         );
     }
     #[test]
+    fn common_secant_selection_refuses_wrong_source_and_connected_transport() {
+        let history = SecantHistory::new(
+            sample(2., 1., CandidateUse::Usable).unwrap(),
+            sample(4., 2., CandidateUse::Usable).unwrap(),
+            1.,
+        )
+        .unwrap();
+        let execution = Execution::new(
+            std::sync::Arc::default(),
+            &pse_backend_native::solve::Controls::default(),
+        );
+        let permission = CandidateDecision {
+            usability: CandidateUse::Usable,
+            qualifiers: Vec::new(),
+            refusals: Vec::new(),
+            bound: None,
+        };
+        let hash = ContentHash::from_bytes([9; 32]);
+        let mut wrong = history.source();
+        wrong.normalization = None;
+        assert!(
+            select(
+                SelectionRequest {
+                    mechanism: ProposalMechanism::Secant {
+                        history: &history,
+                        parameter: 3.,
+                        scaled_step_limit: 1.
+                    },
+                    permission: &permission,
+                    source: wrong,
+                    target: hash,
+                    branch: BranchPolicy::any_qualified()
+                },
+                &execution
+            )
+            .is_err()
+        );
+        let connected = BranchPolicy {
+            kind: pse_model::strategy::BranchKind::Connected,
+            connected: Some(pse_model::strategy::ConnectedPath {
+                path: hash,
+                sheet: hash,
+                transport: hash,
+                orientation: hash,
+            }),
+        };
+        assert!(
+            select(
+                SelectionRequest {
+                    mechanism: ProposalMechanism::Secant {
+                        history: &history,
+                        parameter: 3.,
+                        scaled_step_limit: 1.
+                    },
+                    permission: &permission,
+                    source: history.source(),
+                    target: hash,
+                    branch: connected
+                },
+                &execution
+            )
+            .is_err()
+        );
+    }
+    #[test]
     fn secant_refuses_seed_only_changed_fixed_dependencies_and_extrapolation_slice() {
         assert!(sample(1., 1., CandidateUse::SeedOnly).is_err());
         let mut newer = sample(4., 2., CandidateUse::Usable).unwrap();
         newer.key.accuracy = None;
         assert!(
             SecantHistory::new(sample(2., 1., CandidateUse::Usable).unwrap(), newer, 1.).is_err()
+        );
+        let mut older = sample(2., 1., CandidateUse::Usable).unwrap();
+        let mut newer = sample(4., 2., CandidateUse::Usable).unwrap();
+        older.key.branch = Some(ContentHash::from_bytes([3; 32]));
+        newer.key.branch = Some(ContentHash::from_bytes([4; 32]));
+        assert!(
+            SecantHistory::new(older, newer, 1.).is_err(),
+            "unrelated sheets cannot supply one history"
         );
         let history = SecantHistory::new(
             sample(2., 1., CandidateUse::Usable).unwrap(),

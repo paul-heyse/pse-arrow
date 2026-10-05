@@ -67,7 +67,7 @@ follow actual consumers when a contract changes.
 |---|---|
 | Dependency projections, block completion and local preparation | [compiler workspace](../../crates/pse-compiler/src/workspace.rs), [math execution](../../crates/pse-math/src/execution.rs), [initialization](../../crates/pse-runtime/src/math/initialization.rs), [conditional strategies](../../crates/pse-runtime/src/workflow/strategies/conditional.rs) |
 | Composite reconstruction and requested alternatives | [math derived contracts](../../crates/pse-math/src/derived.rs), [runtime derived preparation](../../crates/pse-runtime/src/math/solves/derived.rs) |
-| Shared request, resolution, execution and scientific assessment | [strategy declarations](../../crates/pse-model/src/strategy.rs), [runtime strategy](../../crates/pse-runtime/src/math/strategy.rs), [prepared solves](../../crates/pse-runtime/src/math/solves.rs), [staged execution](../../crates/pse-runtime/src/math/staged.rs), [modeling assessor](../../crates/pse-runtime/src/workflow/modeling/assessment.rs), [opaque binder](../../crates/pse-runtime/src/math/opaque_strategy.rs) |
+| Shared request, resolution, execution and scientific assessment | [strategy declarations](../../crates/pse-model/src/strategy.rs), [runtime strategy](../../crates/pse-runtime/src/math/strategy.rs), [prepared solves](../../crates/pse-runtime/src/math/solves.rs), [staged execution](../../crates/pse-runtime/src/math/staged.rs), [modeling assessor](../../crates/pse-runtime/src/workflow/modeling/assessment.rs), [callable target binder](../../crates/pse-runtime/src/math/strategy/target.rs) |
 | Native completion and typed public generation | [POUNCE adapter](../../crates/pse-backend-native/src/pounce.rs), [settings catalog](../../crates/pse-schema/src/catalog/solve_settings.rs), [strategy catalog](../../crates/pse-schema/src/catalog/native_strategy.rs) |
 
 ## Target operations and preserved semantics
@@ -361,24 +361,24 @@ dependency pins alone need no ADR or governance relaxation. No library/license i
 
 ## Execution packets
 
-Execution was authorized and is now being closed out at the maintainer’s request before a separately instructed review. The table distinguishes landed slices from remaining packet obligations. Early contract readiness is
+Execution resumed at the maintainer’s request with the preliminary review waived. The table distinguishes landed slices from remaining packet obligations. Early contract readiness is
 not consumer acceptance; packages close only after their actual targeted consumers and deletion
 obligations pass. Static checks and assembled integration wait until all functional scope lands.
 
 | Packet | Actual prerequisite | Result and responsible boundary | Closeout state |
 |---|---|---|---|
 | <a id="n0"></a>N0 Decisions and shared contracts | Current review and confirmed Auto default | Decision proposals/owner amendment route; exact request, dependency, assessment, product and observation meanings. Coordinator owns shared contracts and identities. | Proposed decisions amended and bounded target review Accept; ADR acceptance remains separate. |
-| <a id="n1"></a>N1 Mathematical fidelity and demand | N0 dependency/reconstruction contracts | Compiler/math projections, valid block scheduling, original block completion, local consumer demand and empty-row reduction. | Dependency/schedule/demand source and focused compiler controls landed; automatic block execution remains. |
-| <a id="n2"></a>N2 Assessment and inclusive work | N0 assessment/observation contract | Runtime/native/workflow assessor transport; actual original cause and disjoint accounting, including failed/final checks. | Original conclusion/cause and disjoint work transport landed; inclusive native/producer hooks and consumer coverage remain. |
-| <a id="n3"></a>N3 Conditional capabilities and actual products | N0 product/request contract; N2 charges | Common producer binder, operation-bound accuracy and one owned execution product state; existing real reduced/root producer consumed. | Owned actual product state and operation-bound consumption landed; broader producer/driver acceptance remains. |
-| <a id="n4"></a>N4 Derived decomposition and reconstruction | N1 complete projections; N3 producer admission | Compiler-derived causal/block/reduced candidates, composite supplier and full non-port original-state reconstruction. | Composite reconstruction, chain uncertainty and zero-retained candidate source landed; automatic causal/block dispatch and complete compiled-case coverage remain. |
-| <a id="n5"></a>N5 Native profiles and visible recovery | N2 original cause/work; N3 demand contract | Native POUNCE second-opinion profiles, typed partitioned/FD support and actual compiler/oracle consumers. | Typed profiles and actual partitioned/FD consumers passed 13 focused controls; full packet acceptance remains. |
-| <a id="n6"></a>N6 Observed solve Schur | N0 binding contract; N2/N3 admission; N4 semantic separator slice | Source-owned observer artifact, coherent pins, actual native layout/lowering/use/fallback and complete storage/work. Source seam can proceed before final partition consumer. | Coherent public POUNCE/FERAL source and adapter hooks landed; runtime admission/retention bridge and full requested controls remain. |
-| <a id="n7"></a>N7 Qualified proposal selection | N3 product state; existing predictor/transport interfaces | Common KKT/activity/QP/root/secant selector and real related-target/horizon consumers, with source/branch/start screening. | Shared Root/KKT selector and root/study/horizon consumers landed; Activity/QP/secant selector integration and broader product coverage remain. |
-| <a id="n8"></a>N8 Automatic resolution and driver | N2/N3 working semantics; N4–N7 applicability/production contracts | Pure deterministic next decisions, demand binding, observation-conditioned finite execution and explicit declaration binding on one path. | Lazy same-session direct/reduced/POUNCE selection slice landed; complete alternatives, strict accounting and packet acceptance remain. |
-| <a id="n9"></a>N9 Scientific consumer migration | N8 real target execution; relevant N4/N7 products | Modeling/init/recycle, studies, fitting, shooting, horizons and dynamic initialization use the common target contract while retaining scientific policy. | Modeling assessment and selected prediction consumers changed; opaque fit/shooting Auto, dynamic/init/recycle migration remain. |
-| <a id="n10"></a>N10 Public and durable cutover | N8/N9 actual target binders; N0 version contract | Generated Rust/Python requests/inspection/trace, current versions/identity/readmission and coordinated activation of Auto default. | Current versions/frames and generated boundaries landed; compile and 3 public controls passed; full public/durable round-trip scope remains. |
-| <a id="n11"></a>N11 Functional handoff and retention | N1–N10 integrated and targeted checks complete | Delete replaced paths, reconcile evidence/status, register assembled fixtures and hand readiness/static refresh to 25k. | Not complete; this checkpoint is a paused partial implementation, not a 25k handoff. |
+| <a id="n1"></a>N1 Mathematical fidelity and demand | N0 dependency/reconstruction contracts | Compiler/math projections, valid block scheduling, original block completion, local consumer demand and empty-row reduction. | Done: distinct dependency/coupling projections, demand controls and actual automatic block completion pass. |
+| <a id="n2"></a>N2 Assessment and inclusive work | N0 assessment/observation contract | Runtime/native/workflow assessor transport; actual original cause and disjoint accounting, including failed/final checks. | Done: shared task/native admission and inclusive owner accounting; failed/final checks retain typed causes and unknown composed work. |
+| <a id="n3"></a>N3 Conditional capabilities and actual products | N0 product/request contract; N2 charges | Common producer binder, operation-bound accuracy and one owned execution product state; existing real reduced/root producer consumed. | Done: actual producer evidence and allocation-owned product state are consumed under operation-bound accuracy and the original scope. |
+| <a id="n4"></a>N4 Derived decomposition and reconstruction | N1 complete projections; N3 producer admission | Compiler-derived causal/block/reduced candidates, composite supplier and full non-port original-state reconstruction. | Done: genuine Root/Regimes suppliers, bounded proofs, nonzero offsets/chained actions, automatic causal/blocks and complete original assessment pass. |
+| <a id="n5"></a>N5 Native profiles and visible recovery | N2 original cause/work; N3 demand contract | Native POUNCE second-opinion profiles, typed partitioned/FD support and actual compiler/oracle consumers. | Done: actual typed second opinions, First-only compiler partitioned/FD execution, degradation, reuse and terminal probe controls pass. |
+| <a id="n6"></a>N6 Observed solve Schur | N0 binding contract; N2/N3 admission; N4 semantic separator slice | Source-owned observer artifact, coherent pins, actual native layout/lowering/use/fallback and complete storage/work. Source seam can proceed before final partition consumer. | Done: source-owned native observation is consumed by task work/storage admission; actual Schur use/fallback and retained-owner controls pass. |
+| <a id="n7"></a>N7 Qualified proposal selection | N3 product state; existing predictor/transport interfaces | Common KKT/activity/QP/root/secant selector and real related-target/horizon consumers, with source/branch/start screening. | Done: common Root/KKT/Activity/QP/secant selection is consumed by modeling, related-case studies and advanced-step horizons. |
+| <a id="n8"></a>N8 Automatic resolution and driver | N2/N3 working semantics; N4–N7 applicability/production contracts | Pure deterministic next decisions, demand binding, observation-conditioned finite execution and explicit declaration binding on one path. | Done: pure next decisions drive lazy finite composition, shared admission, actual assessment and explicit constrained execution. |
+| <a id="n9"></a>N9 Scientific consumer migration | N8 real target execution; relevant N4/N7 products | Modeling/init/recycle, studies, fitting, shooting, horizons and dynamic initialization use the common target contract while retaining scientific policy. | Done: fitting, shooting, declared roots, consistent initialization and automatic recycle consume the shared target; the opaque binder is deleted. |
+| <a id="n10"></a>N10 Public and durable cutover | N8/N9 actual target binders; N0 version contract | Generated Rust/Python requests/inspection/trace, current versions/identity/readmission and coordinated activation of Auto default. | Done: current request/payload and historical admission controls pass; linked Python boundary/study units pass 47/47 after native rebuild. |
+| <a id="n11"></a>N11 Functional handoff and retention | N1–N10 integrated and targeted checks complete | Delete replaced paths, reconcile evidence/status, register assembled fixtures and hand readiness/static refresh to 25k. | Functional fixtures and deletion are integrated; selected assembled journeys and scope-end static checks are running before final handoff. |
 
 N1/N2 and native source work can overlap after their shared contract slices are settled. Logical
 independence does not grant simultaneous edits to strategy declarations, registry, settings, IDs or
@@ -601,7 +601,20 @@ contracts, then N1/N2 fidelity and assessment foundations and N3 actual evidence
 
 ## Execution checkpoint
 
-Maintainer-directed pause, 2026-10-04.
+Continuation authorized, 2026-10-04. The maintainer waived the preliminary review and instructed
+implementation of the remaining plan. Work continues in the existing main checkout; the earlier
+closeout below retains its historical scope. No new review is a prerequisite to this continuation.
+The continuation has integrated shared pre-operation work/storage admission and retained native
+ownership, pure preparation/assessment decisions, compiler-issued complete block execution,
+producer-issued Root reconstruction metadata and bounded verifier workspace, common
+Activity/QP/secant selection with actual study/horizon consumers, and the callable target binder
+for fitting, shooting, declared roots and consistent initialization. The separate opaque binder
+has been deleted. Automatic causal composition and its complete original reconstruction,
+native profile/Schur controls, public request/result inspection and recorded-payload controls
+now pass. Selected assembled native and Python journeys also pass. N11 is awaiting the last
+scope-end native lint and feature-powerset results; full 25k qualification remains separate.
+
+Historical maintainer-directed pause, 2026-10-04 (superseded by the continuation above).
 
 The maintainer requested current tasks conclude, integration into main, compile and recent-change
 focused test repair, worktree removal and documentation reconciliation, followed by a pause.
@@ -747,7 +760,7 @@ full scientific/durable qualification is claimed by this bounded closeout.
 
 ### Remaining implementation and validation
 
-Resume only after the maintainer’s review instructions. Resolve the outstanding packet obligations
+The maintainer has resumed implementation without the preliminary review. Resolve the outstanding packet obligations
 in the table: common runtime native work/storage admission and teardown ownership; automatic
 initialization/causal binding and full original correction/product contracts; complete strict-work,
 branch and optional/required controls; opaque scientific target migration; generated/public/durable

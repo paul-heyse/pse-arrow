@@ -53,11 +53,8 @@ fn declaration(value: &Value) -> Declaration {
             Declaration::MovingGit
         };
     }
-    let pinned = requirement(value).is_some_and(|text| {
-        text.split(',')
-            .map(str::trim)
-            .any(bounds_from_above)
-    });
+    let pinned = requirement(value)
+        .is_some_and(|text| text.split(',').map(str::trim).any(bounds_from_above));
     if pinned {
         Declaration::Pinned
     } else {
@@ -79,7 +76,10 @@ fn glob_matches(pattern: &str, name: &str) -> bool {
 }
 
 /// The family the package belongs to, if any: `(name, declared version, match kind)`.
-fn family_of<'v>(families: Option<&'v Value>, package: &str) -> Option<(&'v str, &'v str, &'v str)> {
+fn family_of<'v>(
+    families: Option<&'v Value>,
+    package: &str,
+) -> Option<(&'v str, &'v str, &'v str)> {
     families
         .and_then(Value::as_table)
         .into_iter()
@@ -96,7 +96,10 @@ fn family_of<'v>(families: Option<&'v Value>, package: &str) -> Option<(&'v str,
             };
             (listed("crates") && !listed("exclude")).then(|| {
                 let version = family.get("version").and_then(Value::as_str).unwrap_or("");
-                let kind = family.get("match").and_then(Value::as_str).unwrap_or("exact");
+                let kind = family
+                    .get("match")
+                    .and_then(Value::as_str)
+                    .unwrap_or("exact");
                 (name.as_str(), version, kind)
             })
         })
@@ -123,8 +126,8 @@ fn violations(manifest: &Value) -> Vec<String> {
         .and_then(Value::as_table)
         .expect("workspace dependency declarations");
     let families = common::dig(manifest, &["workspace", "metadata", "pse", "families"]);
-    let reasons = common::dig(manifest, &["workspace", "metadata", "pse", "pins"])
-        .and_then(Value::as_table);
+    let reasons =
+        common::dig(manifest, &["workspace", "metadata", "pse", "pins"]).and_then(Value::as_table);
     let reason = |name: &str| {
         reasons
             .and_then(|table| table.get(name))
@@ -133,10 +136,7 @@ fn violations(manifest: &Value) -> Vec<String> {
     };
     let mut out = Vec::new();
     for (name, value) in dependencies {
-        let package = value
-            .get("package")
-            .and_then(Value::as_str)
-            .unwrap_or(name);
+        let package = value.get("package").and_then(Value::as_str).unwrap_or(name);
         let family = family_of(families, package);
         if let Some((family_name, version, kind)) = family {
             if !exact_at(requirement(value), version, kind) {
@@ -150,7 +150,9 @@ fn violations(manifest: &Value) -> Vec<String> {
         match declaration(value) {
             Declaration::Floating => {}
             Declaration::MovingGit => {
-                out.push(format!("{name}: a git source must name a full commit `rev`"));
+                out.push(format!(
+                    "{name}: a git source must name a full commit `rev`"
+                ));
             }
             Declaration::Pinned => {
                 if !reason(name) {
@@ -240,7 +242,9 @@ fn carets_float_and_pins_need_a_family_or_a_reason() {
     ] {
         let found = violations(&manifest(dependencies));
         assert!(
-            found.iter().any(|line| line.starts_with(&format!("{offender}:"))),
+            found
+                .iter()
+                .any(|line| line.starts_with(&format!("{offender}:"))),
             "{dependencies}: {found:?}"
         );
     }

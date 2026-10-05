@@ -574,12 +574,24 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         ),
     )
     package = package.with_fit_declarations((fit,))
-    job = package.prepare_fit(
+    prepared = package.prepare_fit(
         FitId(identity(158)),
         pse.FitPreparationDocument(
             solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE)
         ),
-    ).start()
+    )
+    direct = prepared.numerical_strategy
+    assert direct.version == 2
+    assert prepared.composition_request.policy == NumericalCompositionPolicy.AUTO
+    assert codec.decode_json(codec.encode_json(direct), type(direct)) == direct
+    assert len(direct.strategy.mechanisms) == 1
+    assert direct.strategy.mechanisms[0].support
+    assert prepared.strategy_profile.to_prefixed()
+    with pytest.raises(
+        pse.InspectionError, match="numerical composition requires an algebraic solve"
+    ):
+        prepared.with_numerical_strategy(direct, (prepared,))
+    job = prepared.start()
     result = job.wait()
     rows = (
         pa.RecordBatchReader.from_stream(result.table("runtime.fit_observations"))
@@ -600,6 +612,15 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     )
     assert checks
     assert all(row["satisfied"] for row in checks)
+
+    events = (
+        pa.RecordBatchReader.from_stream(result.table("runtime.solve_strategy_events"))
+        .read_all()
+        .to_pylist()
+    )
+    assert all(event["decision_identity"] is not None for event in events)
+    assert events[-1]["transition"] == NumericalTransition.FINISH.value
+    assert events[-1]["evaluations"] is None
 
 
 @pytest.mark.unit

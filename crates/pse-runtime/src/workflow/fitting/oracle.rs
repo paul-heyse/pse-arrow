@@ -646,6 +646,7 @@ impl FitProblem {
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
+        admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let adapters: Vec<&dyn native::execution::BackendExecution> = match route {
             native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
@@ -655,7 +656,7 @@ impl FitProblem {
             &adapters,
             self.profile.solver.controls.threads,
             self.runtime.native().stack_bytes(),
-            || self.execute_inner(route, scope, progress, workers),
+            || self.execute_inner(route, scope, progress, workers, admission),
         )
     }
     fn execute_inner(
@@ -664,6 +665,7 @@ impl FitProblem {
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
+        admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let mut execution = Execution::within(
             scope.cancellation().clone(),
@@ -671,6 +673,8 @@ impl FitProblem {
             scope,
         )?;
         execution.progress = progress;
+        execution.work_admission =
+            admission.map(|admission| -> Arc<dyn native::solve::WorkAdmission> { admission });
         execution.memory = Some(
             self.runtime
                 .shared
@@ -1542,6 +1546,10 @@ mod tests {
         };
         assert!(r.solve.is_none());
         let trace = r.strategy.as_ref().unwrap();
+        assert!(trace.events.iter().all(|event| event.decision.is_some()));
+        let work = trace.events.last().unwrap().work.unwrap().observed;
+        assert_eq!(work.evaluations, None);
+        assert_eq!(work.iterations, None);
         assert_eq!(
             trace.events.last().unwrap().transition,
             Some(pse_model::strategy::Transition::Finish)
@@ -1555,6 +1563,57 @@ mod tests {
         assert_eq!(a.table("authored.fit_cases").unwrap().batch().num_rows(), 1);
         drop((a, b, handle, p));
         assert_eq!(table.batch().num_rows(), 1);
+    }
+    #[tokio::test]
+    async fn scientific_fit_strict_composed_work_refuses_before_evaluation() {
+        for counter in 0..4 {
+            let mut requested = profile(true);
+            requested.solver.selection = native::solve::SolverSelection::Auto;
+            let mut limits = pse_model::strategy::WorkLimits {
+                attempts: 1,
+                evaluations: None,
+                iterations: None,
+                factorizations: None,
+                proof_steps: None,
+            };
+            match counter {
+                0 => limits.evaluations = Some(1),
+                1 => limits.iterations = Some(1),
+                2 => limits.factorizations = Some(1),
+                _ => limits.proof_steps = Some(1),
+            }
+            requested.solver.composition.limits = Some(limits);
+            let prepared = source(true)
+                .prepare_fit(
+                    id(32).into(),
+                    requested,
+                    compiler_profile(),
+                    Default::default(),
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap();
+            let error = prepared
+                .execute(
+                    id(99).into(),
+                    pse_kernels::ExecutionScope::new(Arc::default(), None),
+                    Arc::new(native::solve::Progress::new(16)),
+                    1,
+                )
+                .unwrap_err();
+            let trace = error.strategy_trace().unwrap();
+            assert_eq!(trace.declaration.limits, limits);
+            assert!(trace.events.iter().all(
+                |event| event.kind != pse_model::generated::enums::NumericalEventKind::Started
+            ));
+            assert!(
+                trace.events.iter().any(|event| matches!(
+                    event.cause.as_deref(),
+                    Some(ProblemError::Unsupported(_))
+                ))
+            );
+            assert!(trace.events.iter().all(|event| event.decision.is_some()));
+        }
     }
     #[tokio::test]
     async fn all_fixed_required_presolve_is_refused_and_scales_are_checked() {
@@ -1807,10 +1866,12 @@ mod tests {
             true,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);",
         );
+        let mut requested = profile(true);
+        requested.solver.composition.recovery = vec![pse_model::strategy::StartOrigin::Auxiliary];
         let prepared = package
             .prepare_fit(
                 id(32).into(),
-                profile(true),
+                requested,
                 compiler_profile(),
                 Default::default(),
                 &crate::CancelSource::new(),
@@ -1835,6 +1896,21 @@ mod tests {
         assert_eq!(
             final_event.permission,
             Some(pse_model::generated::enums::CandidateUse::Unusable)
+        );
+        assert!(final_event.decision.is_some());
+        assert!(matches!(
+            final_event.original,
+            Some(crate::math::strategy::OriginalConclusion::Refused { .. })
+        ));
+        assert_eq!(
+            trace
+                .events
+                .iter()
+                .filter(
+                    |event| event.kind == pse_model::generated::enums::NumericalEventKind::Started
+                )
+                .count(),
+            1
         );
         assert!(!report.estimate_qualified());
         assert!(result.export_fit_parameters().is_err());

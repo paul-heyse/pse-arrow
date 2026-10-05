@@ -480,6 +480,14 @@ impl SelectionVerifier for Ibex {
         ))
     }
     fn workspace_bytes(&self, programs: &[Arc<RootIsolationProgram>]) -> Result<usize, MathError> {
+        self.bounded_workspace_bytes(programs, MAX_CELLS)
+    }
+    fn bounded_workspace_bytes(
+        &self,
+        programs: &[Arc<RootIsolationProgram>],
+        max_cells: u64,
+    ) -> Result<usize, MathError> {
+        let max_cells = max_cells.min(MAX_CELLS);
         // All Rust transports coexist; native graphs and coverings are sequential.
         // Source DAGs already belong to the factory and are not charged twice.
         let checked = || {
@@ -530,7 +538,7 @@ impl SelectionVerifier for Ibex {
                     .checked_add(guards.checked_mul(256)?)?
                     .checked_add(4096)?
                     .checked_mul(native_nodes)?;
-                let covering = (MAX_CELLS as usize + 1)
+                let covering = (max_cells as usize + 1)
                     .checked_mul(width.checked_mul(32)?.checked_add(4096)?)?;
                 native = native.max(graph.checked_add(covering)?);
             }
@@ -1304,6 +1312,14 @@ impl SelectionVerifier for Ibex {
         &self,
         chain: &ChartChainRequest<'_>,
     ) -> Result<ChartChainEvidence, MathError> {
+        self.connect_chain_bounded(chain, MAX_CELLS)
+    }
+    fn connect_chain_bounded(
+        &self,
+        chain: &ChartChainRequest<'_>,
+        max_cells: u64,
+    ) -> Result<ChartChainEvidence, MathError> {
+        let max_cells = max_cells.min(MAX_CELLS);
         chain.validate(self.identity())?;
         // Endpoint exclusion evidence does not certify intermediate competitors.
         if chain.coverage == ChartChainCoverage::SelectedFunction {
@@ -1378,7 +1394,7 @@ impl SelectionVerifier for Ibex {
             upper: upper.as_ptr(),
             parameters: request.parameters.as_ptr(),
             candidate: request.candidate.as_ptr(),
-            max_cells: MAX_CELLS,
+            max_cells,
             seconds: request
                 .time_limit
                 .saturating_sub(started.elapsed())
@@ -1437,7 +1453,7 @@ impl SelectionVerifier for Ibex {
             0 if result.charts > 0
                 && result.connections == result.charts.saturating_add(1)
                 && result.proof_cells >= result.charts.saturating_add(result.connections)
-                && result.proof_cells <= MAX_CELLS =>
+                && result.proof_cells <= max_cells =>
             {
                 Ok(ChartChainEvidence::Connected(ChartChainProof {
                     coverage: ChartChainCoverage::RootSheet,
@@ -1464,11 +1480,24 @@ impl SelectionVerifier for Ibex {
             }),
         }
     }
+    fn certify(&self, request: &SelectionProofRequest<'_>) -> Result<SelectionEvidence, MathError> {
+        self.certify_bounded(request, MAX_CELLS)
+    }
     #[expect(
         unsafe_code,
         reason = "all native pointers borrow finite checked vectors; native ABI catches every C++ exception"
     )]
-    fn certify(&self, request: &SelectionProofRequest<'_>) -> Result<SelectionEvidence, MathError> {
+    fn certify_bounded(
+        &self,
+        request: &SelectionProofRequest<'_>,
+        max_cells: u64,
+    ) -> Result<SelectionEvidence, MathError> {
+        let max_cells = max_cells.min(MAX_CELLS);
+        if max_cells < 2 {
+            return Ok(SelectionEvidence::Incomplete(
+                SelectionProofRefusal::Resource,
+            ));
+        }
         let started = Instant::now();
         let checkpoint = || {
             if request.cancel.load(Ordering::Relaxed) {
@@ -1578,7 +1607,7 @@ impl SelectionVerifier for Ibex {
                 upper: upper.as_ptr(),
                 parameters: request.parameters.as_ptr(),
                 candidate: request.candidate.as_ptr(),
-                max_cells: MAX_CELLS,
+                max_cells,
                 seconds,
                 cancelled,
                 cancel_context: std::ptr::from_ref(request.cancel.as_ref()).cast(),
@@ -1938,6 +1967,57 @@ mod tests {
             SelectionEvidence::Unique(chart) => chart,
             other => panic!("expected complete chart, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn actual_ibex_single_unknown_no_parameter_affine_root_has_bounded_chart() {
+        let fixture = Fixture::new(
+            RootIsolationProgram {
+                inputs: 1,
+                nodes: vec![
+                    Node::Var(0),
+                    Node::Const(Constant::Rational(Rational::from(-3))),
+                    Node::Sum(vec![0, 1]),
+                    Node::Const(Constant::Rational(Rational::from(0))),
+                ],
+                residuals: vec![2],
+                eligibility: vec![],
+                criterion: [3, 3],
+                obligations: vec![],
+                derivative_obligations: vec![],
+            },
+            &[(1.0, 4.0)],
+        );
+        let alternatives = [fixture.alternative(0)];
+        let request = fixture.request(&alternatives, &[], &[3.0], DerivativeOrder::First);
+        let chart = unique(Ibex.certify_bounded(&request, 64).unwrap());
+        assert!(matches!(
+            Ibex.refine_point(&request, &chart, &[1.0], &[1.0], 64)
+                .unwrap(),
+            RootPointEvidence::Enclosed { .. }
+        ));
+    }
+
+    #[test]
+    fn actual_ibex_initial_chart_and_workspace_consume_declared_cell_ceiling() {
+        let program = Arc::new(projected(false, false, None));
+        let bounded = Ibex
+            .bounded_workspace_bytes(std::slice::from_ref(&program), 256)
+            .unwrap();
+        let complete = Ibex
+            .workspace_bytes(std::slice::from_ref(&program))
+            .unwrap();
+        assert!(bounded < 64 * 1024 * 1024);
+        assert!(complete > 4 * 1024 * 1024 * 1024);
+        let fixture = Fixture::new(program.as_ref().clone(), &[(0.01, 3.0)]);
+        let alternatives = [fixture.alternative(0)];
+        let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
+        assert!(!matches!(
+            Ibex.certify_bounded(&request, 0).unwrap(),
+            SelectionEvidence::Unique(_)
+        ));
+        let chart = unique(Ibex.certify_bounded(&request, 256).unwrap());
+        chart.validate(&request, Ibex.identity()).unwrap();
     }
 
     #[test]

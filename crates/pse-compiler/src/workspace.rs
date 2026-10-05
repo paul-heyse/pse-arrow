@@ -102,6 +102,9 @@ pub enum CompileError {
     /// Missing admitted input.
     #[error("missing compiler input: {0}")]
     Missing(String),
+    /// A valid original case does not establish the selected conditional realization.
+    #[error("conditional realization unavailable: {0}")]
+    ConditionalUnavailable(String),
     /// Source parser failure.
     #[error("definition {definition} source {source_index}: {error}")]
     Syntax {
@@ -131,11 +134,11 @@ pub enum CompileError {
 }
 pse_diagnostics::impl_diagnostic! {
     CompileError,
-    code(this) { match this { Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Missing(_)=>Some(pse_diagnostics::DiagnosticCode::CompilerMissing),Self::Math(_) | Self::Modeling(_) | Self::Syntax{..} | Self::Structure(_)=>None } },
+    code(this) { match this { Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Missing(_)=>Some(pse_diagnostics::DiagnosticCode::CompilerMissing),Self::ConditionalUnavailable(_)=>Some(pse_diagnostics::DiagnosticCode::ModelingConditionalUnitAdmissionUnsupported),Self::Math(_) | Self::Modeling(_) | Self::Syntax{..} | Self::Structure(_)=>None } },
     forward(this) { match this {Self::Math(e)=>Some(e.as_ref()),Self::Modeling(e)=>Some(e),Self::Syntax{error,..}=>Some(error.as_ref()),Self::Structure(e)=>Some(e),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None },
     facts(this) {
-        let rule = match this { Self::Missing(_) => Some(pse_diagnostics::DiagnosticRule::CompilerMissing), Self::Cancelled => Some(pse_diagnostics::DiagnosticRule::CompilerCancelled), Self::Limit(_) => Some(pse_diagnostics::DiagnosticRule::CompilerLimit), Self::Math(_) | Self::Modeling(_) | Self::Syntax{..} | Self::Structure(_) => None };
+        let rule = match this { Self::Missing(_) => Some(pse_diagnostics::DiagnosticRule::CompilerMissing), Self::ConditionalUnavailable(_) => Some(pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionUnsupported), Self::Cancelled => Some(pse_diagnostics::DiagnosticRule::CompilerCancelled), Self::Limit(_) => Some(pse_diagnostics::DiagnosticRule::CompilerLimit), Self::Math(_) | Self::Modeling(_) | Self::Syntax{..} | Self::Structure(_) => None };
         pse_diagnostics::DiagnosticFacts{rule,..Default::default()}
     }
 }
@@ -143,6 +146,7 @@ impl PartialEq for CompileError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Missing(a), Self::Missing(b)) => a == b,
+            (Self::ConditionalUnavailable(a), Self::ConditionalUnavailable(b)) => a == b,
             (Self::Modeling(a), Self::Modeling(b)) => a == b,
             (
                 Self::Syntax {
@@ -1205,7 +1209,10 @@ impl pse_model::diagnostic::DiagnosticProjection for CompileError {
                 d
             }
             Self::Structure(e) => project_facts(e.diagnostic_code(), e.diagnostic_facts(), stage),
-            Self::Missing(_) | Self::Cancelled | Self::Limit(_) => {
+            Self::Missing(_)
+            | Self::ConditionalUnavailable(_)
+            | Self::Cancelled
+            | Self::Limit(_) => {
                 project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage)
             }
         }
@@ -1226,7 +1233,7 @@ impl CompileError {
     /// Retained error extent, including original scientific/compiler causes.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(match self {
-            Self::Missing(value) => value.capacity(),
+            Self::Missing(value) | Self::ConditionalUnavailable(value) => value.capacity(),
             Self::Math(error) => error.retained_bytes(),
             Self::Syntax { error, .. } => size_of_val(error.as_ref()) + error.to_string().len(),
             Self::Modeling(error) => size_of_val(error) + error.to_string().len(),

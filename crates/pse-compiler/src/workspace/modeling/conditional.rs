@@ -87,7 +87,7 @@ impl PreparedModeling {
                 .filter(|p| p.lineage.instance == *node)
             {
                 if from.contains(&port.id) && to.contains(&port.id) {
-                    return Err(CompileError::Missing(
+                    return Err(CompileError::ConditionalUnavailable(
                         "automatic causal port has conflicting authored directions".into(),
                     ));
                 }
@@ -206,7 +206,7 @@ impl CompilerWorkspace {
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedBlock> {
         if !model.model.native.is_empty() {
-            return Err(CompileError::Missing("conditional unit cannot establish locality for native constraint handlers; request an explicit simultaneous strategy".into()));
+            return Err(CompileError::ConditionalUnavailable("conditional unit cannot establish locality for native constraint handlers; request an explicit simultaneous strategy".into()));
         }
         let owned = Self::modeling_conditional_unit_inventory(
             model,
@@ -276,7 +276,7 @@ impl CompilerWorkspace {
                     {
                         let id = binding.slots[*slot].source();
                         if free.contains(&id) && !unknowns.contains(&id) && !direct.contains(&id) {
-                            return Err(CompileError::Missing(format!(
+                            return Err(CompileError::ConditionalUnavailable(format!(
                                 "conditional boundary has undeclared external dependency {id}"
                             )));
                         }
@@ -383,7 +383,7 @@ impl CompilerWorkspace {
                 {
                     let id = instance.slots[*slot].source();
                     if free.contains(&id) && !unknowns.contains(&id) && !inputs.contains(&id) {
-                        return Err(CompileError::Missing(format!(
+                        return Err(CompileError::ConditionalUnavailable(format!(
                             "conditional output has undeclared external free dependency {id}"
                         )));
                     }
@@ -425,19 +425,24 @@ fn admit_boundary(
     cancel: &Arc<AtomicBool>,
 ) -> Result<()> {
     let refuse = |message: &str| {
-        CompileError::Missing(format!(
+        CompileError::ConditionalUnavailable(format!(
             "conditional unit admission: {message}; request an explicit simultaneous strategy"
         ))
     };
     if !inputs.is_disjoint(unknowns)
-        || rows.is_empty()
-        || rows.len() != unknowns.len()
         || rows
             .iter()
             .any(|id| !source.structure().rows().iter().any(|r| r.id == *id))
         || unknowns
             .iter()
             .any(|id| source.columns().binary_search(id).is_err())
+    {
+        return Err(CompileError::Missing(
+            "conditional unit boundary names overlapping or absent source identities".into(),
+        ));
+    }
+    if rows.is_empty()
+        || rows.len() != unknowns.len()
         || source
             .structure()
             .rows()
@@ -678,6 +683,7 @@ mod tests {
                 .to_string()
                 .contains("objective couples a local unknown")
         );
+        assert!(matches!(error, CompileError::ConditionalUnavailable(_)));
     }
     #[test]
     fn conditional_unit_boundary_requires_declared_external_inputs() {
@@ -700,6 +706,18 @@ mod tests {
                 .to_string()
                 .contains("undeclared external free dependency")
         );
+        assert!(matches!(error, CompileError::ConditionalUnavailable(_)));
+        let missing = admit_boundary(
+            &source.plan,
+            &BTreeSet::from([external]),
+            &outputs,
+            &BTreeSet::from([id(99)]),
+            &unknowns,
+            &BTreeSet::new(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap_err();
+        assert!(matches!(missing, CompileError::Missing(_)));
         admit_boundary(
             &source.plan,
             &BTreeSet::from([external]),
@@ -740,6 +758,7 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.to_string().contains("external row"));
+        assert!(matches!(error, CompileError::ConditionalUnavailable(_)));
         // Only the declared connection occurrence may replace its equation with
         // physical propagation and the original tear residual validator.
         admit_boundary(

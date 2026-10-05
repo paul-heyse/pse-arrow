@@ -117,6 +117,42 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         base.root_prediction(&different.solve, BranchPolicy::any_qualified(), &execution)
             .is_err()
     );
+    // Two independently accepted original points produce a bounded secant proposal.
+    analysis.case.values.insert("p".into(), 4.08);
+    let mut secant_target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let proposal = corrected
+        .secant_prediction(
+            &base,
+            &secant_target,
+            BranchPolicy::any_qualified(),
+            &execution,
+        )
+        .unwrap();
+    let predicted = 2. * 4.04_f64.sqrt() - 2.;
+    assert!((proposal.values().next().unwrap().1 - predicted).abs() < 1e-8);
+    let scope = execution.scope().unwrap();
+    let screened = runtime
+        .native()
+        .screen_start(
+            secant_target.solve.clone(),
+            proposal,
+            BranchPolicy::any_qualified(),
+            scope,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    secant_target.solve = secant_target.solve.with_screened_start(&screened).unwrap();
+    let secant_corrected = package
+        .solve_case(secant_target, analysis.compiler, &cancel)
+        .await
+        .unwrap();
+    assert!(secant_corrected.completion.decision.permits_use());
+    let Outcome::Native(report) = &secant_corrected.outcome else {
+        panic!("original correction expected");
+    };
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.08_f64.sqrt()).abs() < 1e-8);
+    analysis.case.values.insert("p".into(), 4.04);
     // A declared approximate fidelity follows the same original screening/correction path.
     use pse_math::surrogate::{FidelityCorrespondence, FidelityEvaluator, SurrogateOptions};
     #[derive(Debug)]
@@ -223,7 +259,8 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         CandidateUse, NumericalAttemptObservation, NumericalEventKind,
     };
     use pse_model::strategy::{
-        MechanismKind, NumericalStrategy, Position, ProfileRef, StartOrigin, Transition, WorkLimits,
+        MechanismKind, NumericalStrategy, Phase, Position, ProfileRef, StartOrigin, Transition,
+        WorkLimits,
     };
     let rows = pse_authoring::language::parse(
         "package p { def Root { var x:Scalar; annotation start x(0); eq balance:x==3; } }",
@@ -309,7 +346,13 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         .solve_case(prepared, analysis.compiler, &cancel)
         .await
         .unwrap();
-    assert!(result.completion.decision.permits_use());
+    assert!(
+        result.completion.decision.permits_use(),
+        "completion={:?}, outcome={:?}, events={:?}",
+        result.completion,
+        result.outcome,
+        result.strategy.as_ref().map(|trace| &trace.events)
+    );
     let Outcome::Native(report) = &result.outcome else {
         panic!("original corrector missing");
     };
@@ -338,9 +381,33 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         .unwrap();
     let finished = rows
         .iter()
-        .filter(|row| row.kind == NumericalEventKind::Finished)
+        .filter(|row| row.kind == NumericalEventKind::Finished && row.observation.is_some())
         .collect::<Vec<_>>();
     assert_eq!(finished.len(), 2);
+    let charges = rows
+        .iter()
+        .filter(|row| {
+            row.kind == NumericalEventKind::Finished
+                && row.phase == Phase::Assessment
+                && row.observation.is_none()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(charges.len(), 1);
+    // This case has no authored physical checks. Fresh original mathematical
+    // evaluation belongs to the native corrector; assessment does not charge it twice.
+    assert_eq!(charges[0].attempts, Some(0));
+    assert_eq!(charges[0].evaluations, Some(0));
+    assert!(charges[0].charging_owner.is_some());
+    assert!(charges[0].decision_identity.is_some());
+    assert_ne!(charges[0].charging_owner, finished[1].charging_owner);
+    assert!(
+        report
+            .evidence
+            .work
+            .evaluations
+            .is_some_and(|count| count > 0)
+    );
+    assert!(report.quality.as_ref().unwrap().feasible());
     assert_eq!(
         finished[0].observation,
         Some(NumericalAttemptObservation::Auxiliary)
@@ -676,4 +743,134 @@ async fn explicit_scip_root_response_uses_shared_square_analysis() {
 #[tokio::test]
 async fn explicit_scip_root_active_bound_withholds_response_and_keeps_base() {
     assert_root_response(Backend::Scip, true).await.unwrap();
+}
+
+#[cfg(all(feature = "solver-pounce", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
+    use crate::math::solves::Outcome;
+    use pse_backend_native::kkt::path::qp;
+    use pse_backend_native::solve::{Controls, Execution};
+    use pse_model::strategy::BranchPolicy;
+    let rows = pse_authoring::language::parse("package p { def Qp { param p:Scalar=1; var x:Scalar; eq floor:x>=0; let cost:Scalar=0.5*x*x-p*x; annotation objective cost(minimize); annotation start x(1); } }",
+        SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+    let root = rows.iter().find(|r| r.name == "Qp").unwrap().declaration_id;
+    let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
+    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let mut solver = fixture::profile();
+    solver.intent = SolveIntent::Optimize;
+    solver.selection = SolverSelection::Explicit(Backend::Ipopt);
+    let mut analysis = ModelingAnalysis {
+        root,
+        instance: pse_modeling::specialize::root_instance(root),
+        bindings: Bindings::default(),
+        limits: Limits::default(),
+        case: Default::default(),
+        order: DerivativeOrder::Second,
+        compiler: fixture::compiler_profile(),
+        solver,
+        numerical: NumericalInputs::default(),
+    };
+    let prepared = package
+        .prepare_analysis(&analysis, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let base = package
+        .solve_case(prepared, analysis.compiler, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert!(base.completion.decision.permits_use());
+    let Outcome::Native(report) = &base.outcome else {
+        panic!("original native result expected");
+    };
+    let candidate = report.candidate.as_ref().unwrap();
+    let mut h = qp::SymTMatrix::new(qp::SymTMatrixSpace::new(1, vec![1], vec![1]));
+    h.set_values(&[1.]);
+    let mut a = qp::GenTMatrix::new(qp::GenTMatrixSpace::new(1, 1, vec![1], vec![1]));
+    a.set_values(&[1.]);
+    let previous = qp::QpProblem {
+        n: 1,
+        m: 1,
+        h: &h,
+        g: &[-1.],
+        a: &a,
+        bl: &[0.],
+        bu: &[1e20],
+        xl: &[-1e20],
+        xu: &[1e20],
+        hessian_inertia: qp::HessianInertia::Psd,
+    };
+    let target_qp = qp::QpProblem {
+        g: &[-2.],
+        ..previous
+    };
+    let source = qp::QpSolution {
+        x: candidate.primal.clone(),
+        lambda_g: vec![0.],
+        lambda_x: vec![0.],
+        working: qp::WorkingSet::cold(1, 1),
+        obj: 0.5 * candidate.primal[0].powi(2) - candidate.primal[0],
+        status: qp::QpStatus::Optimal,
+        stats: Default::default(),
+        unbounded_ray: None,
+    };
+    let linear = qp::FeralConfig {
+        parallel: Some(false),
+        fma: false,
+        ..Default::default()
+    };
+    let options = qp::QpOptions {
+        max_iter: 50,
+        feas_tol: 1e-9,
+        opt_tol: 1e-9,
+        ..Default::default()
+    };
+    analysis.case.values.insert("p".into(), 2.);
+    let cancel = crate::CancelSource::new();
+    let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let execution = Execution::new(Arc::default(), &Controls::default());
+    let (proposal, outcome) = base
+        .qp_prediction(
+            &target.solve,
+            qp::Request {
+                previous: &previous,
+                source: &source,
+                target: &target_qp,
+                options: &options,
+                linear: &linear,
+                limits: pse_backend_native::kkt::activity::Limits {
+                    backsolves: 1000,
+                    refactorizations: 200,
+                    bytes: 1 << 20,
+                },
+            },
+            BranchPolicy::any_qualified(),
+            &execution,
+        )
+        .unwrap();
+    assert_eq!(outcome.solution.status, qp::QpStatus::Optimal);
+    assert!(outcome.linear_calls > 0);
+    assert!(outcome.solution.stats.parametric_source.is_some());
+    assert!((proposal.values().next().unwrap().1 - 2.).abs() < 1e-8);
+    let screened = runtime
+        .native()
+        .screen_start(
+            target.solve.clone(),
+            proposal,
+            BranchPolicy::any_qualified(),
+            execution.scope().unwrap(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    target.solve = target.solve.with_screened_start(&screened).unwrap();
+    let corrected = package
+        .solve_case(target, analysis.compiler, &cancel)
+        .await
+        .unwrap();
+    assert!(corrected.completion.decision.permits_use());
+    let Outcome::Native(report) = &corrected.outcome else {
+        panic!("original corrector expected");
+    };
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 2.).abs() < 1e-8);
 }

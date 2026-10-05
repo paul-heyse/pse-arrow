@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Native views of library-owned mathematical derived families.
 use crate::{NleOracle, NlpOracle, OracleContract, ProblemError, RootOperations, Variable};
-use pse_ids::{ContentHash, FramedHasher, SemanticId};
+use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::DerivativeOrder;
 use pse_math::{
     derived::{
@@ -164,30 +164,7 @@ impl RootBridge {
     /// Explicitly create a numerical zero-equality view with separately retained
     /// physical source/offset metadata and a distinct consumed numerical identity.
     pub fn zero_residuals(self) -> Result<ZeroResidualBridge, ProblemError> {
-        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
-        h.str("explicit-authored-equality-residual-view")
-            .hash(&self.original.identity());
-        for (r, offset) in self.original.constraints().iter().zip(&self.offsets) {
-            h.id(&r.id).f64(*offset);
-        }
-        let identity = h.finish_hash();
-        let numerical = Arc::new(OriginalContract::new(
-            identity,
-            self.original.normalization(),
-            self.original.coordinates().to_vec(),
-            self.original
-                .constraints()
-                .iter()
-                .map(|r| math::Constraint {
-                    id: r.id,
-                    lower: 0.0,
-                    upper: 0.0,
-                })
-                .collect(),
-            self.original.incidence().to_vec(),
-            self.original.support(),
-            self.original.obligations(),
-        )?);
+        let numerical = self.original.zero_residual_view()?;
         Ok(ZeroResidualBridge {
             physical: self,
             numerical,

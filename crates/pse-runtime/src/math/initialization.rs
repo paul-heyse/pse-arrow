@@ -811,21 +811,26 @@ impl MathService {
             let result = service
                 .job_scoped(1, job_bytes, control, Some(deadline), move |flag| {
                     let original = contract.identity;
-                    let start_identity = super::opaque_strategy::point_identity(original, &initial);
-                    let (result, trace) = super::opaque_strategy::direct(
+                    let start_identity =
+                        super::strategy::target::point_identity(original, &initial);
+                    let request = pse_model::strategy::CompositionRequest::default();
+                    let (result, trace) = super::strategy::target::callable(
                         &worker_service,
-                        super::opaque_strategy::Source {
+                        super::strategy::target::Source {
                             original,
                             preparation: original,
                             profile,
                             backend: Some(Backend::Kinsol),
                             controls: &controls,
+                            request: &request,
                             start: pse_model::strategy::StartOrigin::Specification,
                             start_identity: Some(start_identity),
                         },
                         &scope,
-                        || {
+                        |admission| {
                             let mut execution = Execution::within(flag, &controls, scope.clone())?;
+                            let budget = budget.with_admission(admission.clone());
+                            execution.work_admission = Some(admission);
                             execution.progress = events;
                             execution.memory = Some(foreign_bytes);
                             let function = factory(execution.clone(), budget)?;
@@ -870,9 +875,15 @@ impl MathService {
                             drop(session);
                             Ok(report.with_owner(owner.clone()))
                         },
-                        |report| Some(report),
-                        |report| crate::workflow::numerics::native_use(report, &policy),
-                        super::strategy::cause_native,
+                        super::strategy::observe_native,
+                        |report, observed| {
+                            super::strategy::target::original_assessment(
+                                crate::workflow::numerics::native_use(report, &policy),
+                                super::strategy::cause_native(report),
+                                None,
+                                observed,
+                            )
+                        },
                     )?;
                     let decision = crate::workflow::numerics::native_use(&result, &policy);
                     // The trace owns its independent allocation; native result ownership

@@ -17,11 +17,9 @@ use pse_math::{
         self as math, DerivativeSupport, DerivedFamily, MassBinding, MassStructure,
         OriginalContract, OriginalObligations,
     },
-    implicit::{
-        RegimeFactory,
-        reconstruction::{
-            SelectedImplicitReconstruction, SelectedResidualBinding, SelectedResidualRealization,
-        },
+    implicit::reconstruction::{
+        ReconstructionFactory, SelectedImplicitReconstruction, SelectedResidualBinding,
+        SelectedResidualRealization, SupplierFactory,
     },
     index::{Entry, GlobalCol, GlobalRow},
     sparse::AssemblyMatrix,
@@ -34,6 +32,12 @@ use std::{cell::RefCell, collections::BTreeSet, rc::Rc, time::Instant};
 pub enum PreparedRung {
     /// Original source whose completion may grant scientific permission.
     Original(Box<PreparedSolve>),
+    /// Compiler-issued complete original structural schedule.
+    #[cfg(feature = "solver-kinsol")]
+    Blocks(blocks::PreparedBlocks),
+    /// Authored-topology causal sweep with complete original reconstruction.
+    #[cfg(feature = "solver-kinsol")]
+    Causal(causal::PreparedCausal),
     /// One fresh specification coordinated by the common original solver/assessment.
     Multistart(multistart::PreparedMultistart),
     /// Auxiliary family whose result can supply an original-coordinate proposal.
@@ -74,6 +78,10 @@ impl PreparedRung {
     /// Frozen original scientific source identity.
     pub fn original_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => p.original().original_identity(),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => p.original().original_identity(),
             Self::Surrogate(p) => p.original_target().original_identity(),
             Self::Multistart(p) => p.original_identity(),
             Self::Original(p) => p.original_identity(),
@@ -86,6 +94,10 @@ impl PreparedRung {
     /// Exact declared solver profile identity.
     pub fn strategy_profile(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => Ok(p.key()),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => Ok(p.key()),
             Self::Surrogate(p) => Ok(p.key()),
             Self::Multistart(p) => p.strategy_profile(),
             Self::Original(p) => p.strategy_profile(),
@@ -97,6 +109,10 @@ impl PreparedRung {
     }
     pub(crate) fn backend(&self) -> Option<Backend> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => Some(p.backend()),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => Some(p.backend()),
             Self::Surrogate(_) => None,
             Self::Multistart(p) => Some(p.backend()),
             Self::Original(p) => p.backend(),
@@ -108,6 +124,10 @@ impl PreparedRung {
     }
     pub(crate) fn threads(&self) -> usize {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => p.original().threads(),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => p.original().threads(),
             Self::Surrogate(p) => p.threads(),
             Self::Multistart(p) => p.profile().controls.threads,
             Self::Original(p) => p.threads(),
@@ -119,6 +139,10 @@ impl PreparedRung {
     }
     pub(crate) fn declared_foreign_bytes(&self) -> usize {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => p.original().declared_foreign_bytes(),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => p.original().declared_foreign_bytes(),
             Self::Surrogate(_) => 0,
             Self::Multistart(p) => p.profile().controls.foreign_bytes.unwrap_or(0),
             Self::Original(p) => p.declared_foreign_bytes(),
@@ -131,6 +155,10 @@ impl PreparedRung {
     /// Actual preparation request identity.
     pub fn request_identity(&self) -> Result<pse_ids::roles::LineageRequestHash, ProblemError> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => Ok(pse_ids::roles::LineageRequestHash::from(p.key())),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => Ok(pse_ids::roles::LineageRequestHash::from(p.key())),
             Self::Surrogate(p) => Ok(pse_ids::roles::LineageRequestHash::from(p.key())),
             Self::Multistart(p) => Ok(pse_ids::roles::LineageRequestHash::from(p.key())),
             Self::Original(p) => p.request_identity(),
@@ -145,6 +173,10 @@ impl PreparedRung {
     /// Actual source and mathematical preparation identity.
     pub fn preparation_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => Ok(p.key()),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => Ok(p.key()),
             Self::Surrogate(p) => p.original_target().preparation_identity(),
             Self::Multistart(p) => p.original_target().preparation_identity(),
             Self::Original(p) => p.preparation_identity(),
@@ -156,6 +188,10 @@ impl PreparedRung {
     }
     pub(crate) fn result_bytes(&self) -> Result<usize, MathRuntimeError> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => p.result_bytes(),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => p.result_bytes(),
             Self::Surrogate(p) => Ok(p.result_bytes()),
             Self::Multistart(p) => p.result_bytes(),
             Self::Original(p) => p.result_bytes(),
@@ -167,6 +203,10 @@ impl PreparedRung {
     }
     pub(crate) fn entry_origin(&self, has_previous: bool) -> pse_model::strategy::StartOrigin {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => p.original().entry_origin(has_previous),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => p.original().entry_origin(has_previous),
             Self::Surrogate(p) => p.original_target().entry_origin(has_previous),
             Self::Multistart(p) => p.origin(),
             Self::Original(p) => p.entry_origin(has_previous),
@@ -179,6 +219,10 @@ impl PreparedRung {
     /// Callable producer identities consumed by strategy admission.
     pub fn support(&self) -> Result<BTreeSet<pse_ids::ContentHash>, ProblemError> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => PreparedRung::Original(Box::new(p.original().clone())).support(),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => PreparedRung::Original(Box::new(p.original().clone())).support(),
             Self::Surrogate(p) => Ok(p.support()),
             Self::Multistart(p) => p.support(),
             Self::Derived(p) => Ok(p.support()),
@@ -199,6 +243,10 @@ impl PreparedRung {
     /// Original caller task scope, when retained by an auxiliary preparation.
     pub fn task_scope(&self) -> Option<ExecutionScope> {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(p) => Some(p.scope().clone()),
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(p) => Some(p.scope().clone()),
             Self::Surrogate(p) => Some(p.scope().clone()),
             Self::Multistart(p) => Some(p.scope().clone()),
             Self::Original(p) => p.task_scope.clone(),
@@ -215,6 +263,10 @@ impl PreparedRung {
     }
     pub(crate) fn admits_mechanism(&self, kind: MechanismKind) -> bool {
         match self {
+            #[cfg(feature = "solver-kinsol")]
+            Self::Blocks(_) => kind == MechanismKind::Block,
+            #[cfg(feature = "solver-kinsol")]
+            Self::Causal(_) => kind == MechanismKind::MapsAnderson,
             Self::Surrogate(_) => matches!(
                 kind,
                 MechanismKind::Surrogate | MechanismKind::Multifidelity
@@ -289,13 +341,11 @@ pub enum DerivedRequest {
 #[derive(Clone, Debug)]
 pub struct ReducedSupplier {
     /// Actual admitted factory; structural matching never creates this declaration.
-    pub factory: Arc<RegimeFactory>,
+    pub factory: Arc<ReconstructionFactory>,
     /// Existing reservation retained for the actual factory.
     pub factory_owner: Arc<pse_columnar::AllocationLease>,
     /// Source-owned validity interpretation.
     pub validity: pse_ids::ContentHash,
-    /// Actual compiler realization of authored RHS values.
-    pub realization: SelectedResidualRealization,
 }
 /// Actual mathematical product, retaining its distinct scientific correspondence.
 #[derive(Clone, Debug)]
@@ -853,30 +903,9 @@ pub(super) fn zero_contract(
         )
         .into());
     }
-    let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
-    h.str("explicit-authored-equality-residual-view")
-        .hash(&original.identity());
-    for row in original.constraints() {
-        h.id(&row.id).f64(row.lower);
-    }
-    Ok(Arc::new(OriginalContract::new(
-        h.finish_hash(),
-        original.normalization(),
-        original.coordinates().to_vec(),
-        original
-            .constraints()
-            .iter()
-            .map(|r| math::Constraint {
-                id: r.id,
-                lower: 0.0,
-                upper: 0.0,
-            })
-            .collect(),
-        original.incidence().to_vec(),
-        original.support(),
-        original.obligations(),
-    )?))
+    Ok(original.zero_residual_view()?)
 }
+
 fn mass_edges(matrix: &AssemblyMatrix) -> Vec<Entry<GlobalRow, GlobalCol>> {
     let s = matrix.matrix().symbolic();
     (0..s.ncols())
@@ -1027,35 +1056,29 @@ impl MathService {
             .collect();
         let mut pending = Vec::new();
         for registration in source.providers.values() {
-            let factory = registration.source::<RegimeFactory>().or_else(|| {
-                match registration.source::<pse_math::implicit::ImplicitFactory>() {
-                    Some(pse_math::implicit::ImplicitFactory::Regimes(factory)) => Some(factory),
-                    _ => None,
-                }
-            });
-            let Some(factory) = factory else {
+            let Some(factory) = registration.source::<ReconstructionFactory>() else {
                 continue;
             };
+            let residuals = factory.residuals();
             if factory
-                .spec
+                .spec()
                 .inputs
                 .iter()
-                .chain(&factory.spec.outputs)
+                .chain(&factory.spec().outputs)
                 .any(|p| !columns.contains(&p.id))
-                || factory.alternatives.is_empty()
-                || factory
-                    .alternatives
+                || residuals.is_empty()
+                || residuals
                     .iter()
-                    .any(|b| b.residual.rows.iter().any(|r| !row_ids.contains(r)))
-                || factory.verifier.is_none()
+                    .any(|b| b.rows.iter().any(|r| !row_ids.contains(r)))
+                || !factory.supports_reconstruction()
             {
                 continue;
             }
-            // Retained factories currently do not carry owner-issued subtraction
-            // metadata. At a zero RHS, authored-value and zero-residual realizations
-            // coincide; a concrete factory type cannot establish a nonzero offset.
-            let mut zero_offsets = true;
-            for id in &factory.alternatives[0].residual.rows {
+            // Producer-issued subtraction is checked by named row against the
+            // original bounds before admitting this optional operation.
+            let realization = factory.realization().clone();
+            let mut compatible = true;
+            for id in &residuals[0].rows {
                 let row = source
                     .prepared
                     .prepared
@@ -1067,9 +1090,16 @@ impl MathService {
                     .ok_or_else(|| {
                         ProblemError::Contract("automatic supplier named equality absent".into())
                     })?;
-                zero_offsets &= row.lower == 0.0;
+                if let SelectedResidualRealization::ZeroResiduals { authored_offsets } =
+                    &realization
+                {
+                    compatible &= authored_offsets
+                        .iter()
+                        .find(|(name, _)| name == id)
+                        .is_some_and(|(_, value)| value.to_bits() == row.lower.to_bits());
+                }
             }
-            if !zero_offsets {
+            if !compatible {
                 continue;
             }
             let owner =
@@ -1078,7 +1108,6 @@ impl MathService {
                 factory: Arc::new(factory.clone()),
                 factory_owner: owner,
                 validity: original.preparation_identity()?,
-                realization: SelectedResidualRealization::AuthoredValues,
             });
         }
         if pending.is_empty() {
@@ -1086,7 +1115,7 @@ impl MathService {
         }
         let outputs: BTreeSet<_> = pending
             .iter()
-            .flat_map(|s| s.factory.spec.outputs.iter().map(|p| p.id))
+            .flat_map(|s| s.factory.spec().outputs.iter().map(|p| p.id))
             .collect();
         let retained: Vec<_> = columns
             .iter()
@@ -1099,7 +1128,7 @@ impl MathService {
         while !pending.is_empty() {
             let Some(index) = pending.iter().position(|s| {
                 s.factory
-                    .spec
+                    .spec()
                     .inputs
                     .iter()
                     .all(|p| available.contains(&p.id))
@@ -1107,7 +1136,7 @@ impl MathService {
                 return Ok(None);
             };
             let supplier = pending.remove(index);
-            for port in &supplier.factory.spec.outputs {
+            for port in &supplier.factory.spec().outputs {
                 if !available.insert(port.id) {
                     return Ok(None);
                 }
@@ -1364,7 +1393,7 @@ fn frame_request(request: &DerivedRequest, h: &mut FramedHasher) {
             for supplier in suppliers {
                 h.hash(&supplier.factory.configuration_key())
                     .hash(&supplier.validity);
-                match &supplier.realization {
+                match supplier.factory.realization() {
                     SelectedResidualRealization::AuthoredValues => {
                         h.str("authored-values");
                     }
@@ -1379,7 +1408,7 @@ fn frame_request(request: &DerivedRequest, h: &mut FramedHasher) {
         }
     }
 }
-fn factory_bytes(factory: &RegimeFactory) -> Result<usize, MathRuntimeError> {
+fn factory_bytes(factory: &ReconstructionFactory) -> Result<usize, MathRuntimeError> {
     Ok(factory.retained_bytes()?)
 }
 fn prepare_reduced_supplier(
@@ -1393,12 +1422,12 @@ fn prepare_reduced_supplier(
             "selected factory actual retained owner",
         ));
     }
-    let factory = &supplier.factory;
+    let factory = supplier.factory.as_ref();
     let columns: Vec<_> = factory
-        .spec
+        .spec()
         .inputs
         .iter()
-        .chain(&factory.spec.outputs)
+        .chain(&factory.spec().outputs)
         .map(|p| {
             original
                 .coordinates()
@@ -1410,12 +1439,11 @@ fn prepare_reduced_supplier(
                 })
         })
         .collect::<Result<_, _>>()?;
-    let branch = factory
-        .alternatives
+    let residuals = factory.residuals();
+    let branch = residuals
         .first()
-        .ok_or_else(|| ProblemError::Contract("supplier alternatives absent".into()))?;
+        .ok_or_else(|| ProblemError::Contract("supplier residual source absent".into()))?;
     let rows: Vec<_> = branch
-        .residual
         .rows
         .iter()
         .map(|id| {
@@ -1464,12 +1492,14 @@ fn prepare_reduced_supplier(
         original.obligations(),
     )?);
     let eliminated: Vec<_> = (0..rows.len()).map(GlobalRow::new).collect();
-    let retained: Vec<_> = (0..factory.spec.inputs.len()).map(GlobalCol::new).collect();
+    let retained: Vec<_> = (0..factory.spec().inputs.len())
+        .map(GlobalCol::new)
+        .collect();
     let binding = SelectedResidualBinding::for_source(
         factory,
         &local,
         &eliminated,
-        supplier.realization.clone(),
+        supplier.factory.realization().clone(),
     )?;
     let contract = SelectedImplicitReconstruction::<ProblemError>::prepare_contract_with_binding(
         factory,
@@ -1532,7 +1562,7 @@ fn metadata_bytes(
                 + suppliers
                     .iter()
                     .map(|s| {
-                        s.factory.spec.outputs.len()
+                        s.factory.spec().outputs.len()
                             * (size_of::<GlobalCol>() + size_of::<GlobalRow>() + 128)
                     })
                     .sum::<usize>()
@@ -1795,28 +1825,19 @@ impl MathService {
                 .map_err(MathRuntimeError::into_problem)?;
             let eval = WorkEvidence {
                 evaluations: Some(1),
-                ..Default::default()
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: Some(0),
             };
             let mut rows = vec![0.0; p.physical.constraints().len()];
-            if let Some(admission) = &execution.work_admission {
-                admission.admit(eval)?;
-            }
-            calls += 1;
-            let result = oracle.constraints(&proposal.coordinates, &mut rows);
-            if let Some(admission) = &execution.work_admission {
-                admission.observe(eval)?;
-            }
-            result?;
-            execution.check()?;
-            if let Some(admission) = &execution.work_admission {
-                admission.admit(eval)?;
-            }
-            calls += 1;
-            let result = oracle.objective(&proposal.coordinates);
-            if let Some(admission) = &execution.work_admission {
-                admission.observe(eval)?;
-            }
-            let objective = result?;
+            execution.counted(eval, || {
+                calls += 1;
+                oracle.constraints(&proposal.coordinates, &mut rows)
+            })?;
+            let objective = execution.counted(eval, || {
+                calls += 1;
+                oracle.objective(&proposal.coordinates)
+            })?;
             let quality = quality::observed(
                 oracle.contract(),
                 oracle.constraint_bounds(),
@@ -1937,11 +1958,17 @@ impl MathService {
             .and_then(|n| n.checked_add(binding_metadata_bytes(&p.source, &p.profile).ok()?))
             .and_then(|n| {
                 n.checked_add(match &p.request {
-                    DerivedRequest::Reduced { suppliers, .. } => {
-                        suppliers.iter().try_fold(0usize, |n, s| {
-                            n.checked_add(factory_bytes(&s.factory).ok()?)
-                        })?
-                    }
+                    DerivedRequest::Reduced {
+                        suppliers,
+                        accuracy,
+                        ..
+                    } => suppliers.iter().try_fold(0usize, |n, s| {
+                        n.checked_add(factory_bytes(&s.factory).ok()?)?.checked_add(
+                            s.factory
+                                .reconstruction_workspace_bytes(accuracy.refinement.proof_cells)
+                                .ok()?,
+                        )
+                    })?,
                     _ => 0,
                 })
             })
@@ -1965,12 +1992,13 @@ impl MathService {
                 .zip(&prepared.suppliers)
                 .map(|(supplier, prepared)| {
                     SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
-                        &supplier.factory,
+                        supplier.factory.as_ref(),
                         prepared.contract.clone(),
                         prepared.normalization.clone(),
                         scope.clone(),
                         &prepared.binding,
-                    )
+                    )?
+                    .with_proof_cell_limit(accuracy.refinement.proof_cells)
                 })
                 .collect::<Result<Vec<_>, pse_math::MathError>>()?;
             let mut reconstruction = CompositeReconstruction::new_normalized(
@@ -2004,26 +2032,13 @@ impl MathService {
             screen_bounds(&p.physical, &point.values)?;
             let eval = WorkEvidence {
                 evaluations: Some(1),
-                ..Default::default()
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: Some(0),
             };
             let mut rows = vec![0.0; m];
-            if let Some(admission) = &execution.work_admission {
-                admission.admit(eval)?;
-            }
-            let checked = oracle.constraints(&point.values, &mut rows);
-            if let Some(admission) = &execution.work_admission {
-                admission.observe(eval)?;
-            }
-            checked?;
-            execution.check()?;
-            if let Some(admission) = &execution.work_admission {
-                admission.admit(eval)?;
-            }
-            let checked = oracle.objective(&point.values);
-            if let Some(admission) = &execution.work_admission {
-                admission.observe(eval)?;
-            }
-            let objective = checked?;
+            execution.counted(eval, || oracle.constraints(&point.values, &mut rows))?;
+            let objective = execution.counted(eval, || oracle.objective(&point.values))?;
             let quality = quality::observed(
                 oracle.contract(),
                 oracle.constraint_bounds(),
@@ -2069,6 +2084,7 @@ impl MathService {
             return Ok(DerivedAttempt {
                 outcome: Outcome::Constant(Box::new(ConstantReport {
                     owner: Some(result_owner),
+                    components: Vec::new(),
                     objective,
                     observation,
                     quality,
@@ -2243,12 +2259,13 @@ impl MathService {
                                 objective: p.original.normalization.objective,
                             };
                             SelectedImplicitReconstruction::<ProblemError>::new_with_binding(
-                                &supplier.factory,
+                                supplier.factory.as_ref(),
                                 prepared.contract.clone(),
                                 normalization,
                                 scope.clone(),
                                 &prepared.binding,
-                            )
+                            )?
+                            .with_proof_cell_limit(accuracy.refinement.proof_cells)
                         })
                         .collect::<Result<Vec<_>, pse_math::MathError>>()?;
                     let reconstruction = CompositeReconstruction::new_normalized(

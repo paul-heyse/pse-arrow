@@ -3486,6 +3486,7 @@ fn attempt<T>(
         progress,
         memory: None,
         work_admission: None,
+        callback_work_owner: true,
         enclosing_scope: None,
         abandonment: Arc::default(),
     };

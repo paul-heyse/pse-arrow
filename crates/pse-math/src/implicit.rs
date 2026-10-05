@@ -602,7 +602,7 @@ pub struct Factory {
     pub providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 }
 /// A single residual or an explicit alternative selector; both create attempt-local workers.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[expect(
     clippy::large_enum_variant,
     reason = "one factory per implicit block, built once per attempt; both variants are large, so boxing either leaves the other"

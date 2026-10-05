@@ -1,9 +1,417 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Focused admission and one-unit execution controls; no recycle iteration journey.
+//! Focused authored conditional, automatic recycle, and original assessment controls.
 use super::*;
 use crate::workflow::tests::{compiler_profile, id, physical, runtime};
 use pse_structural::flowsheet::{Decision, Policy};
+
+#[tokio::test]
+async fn automatic_workflow_causal_acyclic_refusal_retains_original_alternatives() {
+    use pse_model::strategy::MechanismKind;
+    let declarations = pse_authoring::language::parse(
+        "package causal {def Feed {param value:Scalar=2; port outlet:Scalar=value; annotation connectivity outlet(0,1);} def Sink {var x:Scalar; var y:Scalar; eq local:y==x+3; port inlet:Scalar=x; annotation connectivity inlet(1,0); annotation start x(0); annotation start y(0);} def Root {child feed:Feed=Feed(); child sink:Sink=Sink(); connect feed.outlet -> sink.inlet;}}",
+        id(94), pse_authoring::language::IdentityPolicy::Named, Default::default(),
+    ).unwrap();
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime()
+        .modeling_package(declarations, physical())
+        .unwrap();
+    let cancel = crate::CancelSource::new();
+    let mut profile = super::super::tests::profile(SolveIntent::Root);
+    profile.selection = SolverSelection::Explicit(Backend::Kinsol);
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            DerivativeOrder::First,
+            compiler_profile(),
+            profile,
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let y = prepared
+        .model
+        .model
+        .compiled()
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".sink.y"))
+        .unwrap()
+        .id;
+    let result = package
+        .solve_case(prepared, compiler_profile(), &cancel)
+        .await
+        .unwrap();
+    assert!(
+        result.completion.decision.permits_use(),
+        "{:?}",
+        result.completion
+    );
+    assert!((result.values.scalars[&y] - 5.0).abs() < 1e-7);
+    let trace = result.strategy.as_ref().unwrap();
+    let map = trace
+        .declaration
+        .mechanisms
+        .iter()
+        .position(|mechanism| mechanism.kind == MechanismKind::MapsAnderson)
+        .unwrap();
+    assert!(!trace.events.iter().any(|event| event.mechanism == map
+        && event.kind == pse_model::generated::enums::NumericalEventKind::Started));
+    assert!(trace.events.iter().any(|event| event.mechanism == map
+        && event.kind == pse_model::generated::enums::NumericalEventKind::Refused));
+    assert!(matches!(
+        trace.events.last().unwrap().original,
+        Some(crate::math::strategy::OriginalConclusion::Satisfied)
+    ));
+}
+
+#[tokio::test]
+async fn automatic_workflow_causal_missing_locality_preserves_original_completion() {
+    use pse_model::strategy::MechanismKind;
+    let declarations = pse_authoring::language::parse(
+        "package causal {def Feed {var x:Scalar; var hidden:Scalar; let value:Scalar=x/2+1; port inlet:Scalar=x; port outlet:Scalar=value; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); annotation start x(4); annotation start hidden(0);} def Sink {var x:Scalar; port inlet:Scalar=x; port outlet:Scalar=x; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); annotation start x(0);} def Root {child feed:Feed=Feed(); child sink:Sink=Sink(); connect feed.outlet -> sink.inlet; connect sink.outlet -> feed.inlet; eq cross:feed.hidden==sink.x+3;}}",
+        id(95), pse_authoring::language::IdentityPolicy::Named, Default::default(),
+    ).unwrap();
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime()
+        .modeling_package(declarations, physical())
+        .unwrap();
+    let cancel = crate::CancelSource::new();
+    let mut profile = super::super::tests::profile(SolveIntent::Root);
+    profile.selection = SolverSelection::Explicit(Backend::Kinsol);
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            DerivativeOrder::First,
+            compiler_profile(),
+            profile,
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let frozen = prepared.model.values.identity();
+    let hidden = prepared
+        .model
+        .model
+        .compiled()
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".feed.hidden"))
+        .unwrap()
+        .id;
+    let result = package
+        .solve_case(prepared.clone(), compiler_profile(), &cancel)
+        .await
+        .unwrap();
+    assert!(
+        result.completion.decision.permits_use(),
+        "{:?}",
+        result.completion
+    );
+    assert!((result.values.scalars[&hidden] - 5.0).abs() < 1e-6);
+    assert_eq!(prepared.model.values.identity(), frozen);
+    let trace = result.strategy.as_ref().unwrap();
+    let map = trace
+        .declaration
+        .mechanisms
+        .iter()
+        .position(|mechanism| mechanism.kind == MechanismKind::MapsAnderson)
+        .unwrap();
+    let refused = trace
+        .events
+        .iter()
+        .find(|event| {
+            event.mechanism == map
+                && event.kind == pse_model::generated::enums::NumericalEventKind::Refused
+        })
+        .unwrap();
+    assert_eq!(
+        refused.observation,
+        Some(pse_model::generated::enums::NumericalAttemptObservation::CapabilityRefusal)
+    );
+    let diagnostic = pse_model::diagnostic::DiagnosticProjection::boundary_diagnostic(
+        refused.cause.as_ref().unwrap().as_ref(),
+        pse_diagnostics::DiagnosticStage::ModelingConditionalUnitAdmission,
+    );
+    assert_eq!(
+        diagnostic.class,
+        pse_model::diagnostic::BoundaryClass::Unsupported
+    );
+    assert!(!diagnostic.causes.is_empty());
+    assert!(matches!(
+        trace.events.last().unwrap().original,
+        Some(crate::math::strategy::OriginalConclusion::Satisfied)
+    ));
+    assert_eq!(trace.start, pse_model::strategy::StartOrigin::Specification);
+}
+
+async fn causal_reconstruction_case(
+    nonzero: bool,
+) -> (
+    ModelingPackage,
+    crate::workflow::ModelingSolvePreparation,
+    SolverProfile,
+) {
+    let declarations = pse_authoring::language::parse(
+        "package causal {def Root {var x:Scalar; var y:Scalar; var hidden:Scalar; eq local:y==x/2+1; eq internal:hidden==y+3; state incoming supplied(true) {coordinate value=x; transport value=x tolerance 1e-7{1};} state outgoing supplied(false) {coordinate value=y; transport value=y tolerance 1e-7{1};} state_port inlet=incoming; state_port outlet=outgoing; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(4); annotation start y(LOCAL_START); annotation start hidden(LOCAL_START);}}".replace("LOCAL_START", if nonzero {"1"} else {"0"}).as_str(),
+        id(93), pse_authoring::language::IdentityPolicy::Named, Default::default(),
+    ).unwrap();
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime()
+        .modeling_package(declarations, physical())
+        .unwrap();
+    let cancel = crate::CancelSource::new();
+    let mut profile = super::super::tests::profile(SolveIntent::Root);
+    profile.selection = SolverSelection::Explicit(Backend::Kinsol);
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            DerivativeOrder::First,
+            compiler_profile(),
+            profile.clone(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    (package, prepared, profile)
+}
+
+#[tokio::test]
+async fn automatic_workflow_causal_native_failure_does_not_commit_partial_state() {
+    use pse_model::strategy::MechanismKind;
+    let (package, prepared, _) = causal_reconstruction_case(false).await;
+    let frozen = prepared.model.values.identity();
+    let hidden = prepared
+        .model
+        .model
+        .compiled()
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".hidden"))
+        .unwrap()
+        .id;
+    let result = package
+        .solve_case(
+            prepared.clone(),
+            compiler_profile(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        result.completion.decision.permits_use(),
+        "{:?}",
+        result.completion
+    );
+    assert_eq!(prepared.model.values.identity(), frozen);
+    assert!((result.values.scalars[&hidden] - 5.0).abs() < 1e-6);
+    let trace = result.strategy.as_ref().unwrap();
+    let map = trace
+        .declaration
+        .mechanisms
+        .iter()
+        .position(|mechanism| {
+            mechanism.kind == MechanismKind::MapsAnderson
+                && mechanism.position == pse_model::strategy::Position::Execution
+        })
+        .unwrap();
+    let failed = trace
+        .events
+        .iter()
+        .find(|event| {
+            event.mechanism == map
+                && event.observation
+                    == Some(
+                        pse_model::generated::enums::NumericalAttemptObservation::NumericalFailure,
+                    )
+        })
+        .unwrap();
+    assert!(!matches!(
+        failed.original,
+        Some(crate::math::strategy::OriginalConclusion::Satisfied)
+    ));
+    let native::ProblemError::Numerical {
+        status: Some(status),
+        ..
+    } = failed.cause.as_ref().unwrap().as_ref()
+    else {
+        panic!("actual native failure status missing");
+    };
+    assert_eq!(status.code, -7);
+    assert_eq!(status.name, "KIN_MXNEWT_5X_EXCEEDED");
+    assert!(
+        trace
+            .starts
+            .iter()
+            .all(|origin| *origin == pse_model::strategy::StartOrigin::Specification)
+    );
+    assert!(matches!(
+        trace.events.last().unwrap().original,
+        Some(crate::math::strategy::OriginalConclusion::Satisfied)
+    ));
+}
+
+#[tokio::test]
+async fn automatic_workflow_causal_dispatch_reconstructs_nonport_original_state() {
+    use crate::math::solves::Outcome;
+    use pse_model::strategy::MechanismKind;
+    let (package, prepared, profile) = causal_reconstruction_case(true).await;
+    let cancel = crate::CancelSource::new();
+    let original_start = prepared.model.values.identity();
+    let hidden = prepared
+        .model
+        .model
+        .compiled()
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".hidden"))
+        .unwrap()
+        .id;
+    let result = package
+        .solve_case(prepared.clone(), compiler_profile(), &cancel)
+        .await
+        .unwrap();
+    assert!(
+        result.completion.decision.permits_use(),
+        "{:?}",
+        result.completion
+    );
+    assert_eq!(prepared.model.values.identity(), original_start);
+    let Outcome::Constant(original) = &result.outcome else {
+        panic!("expected fresh full-original causal assessment");
+    };
+    assert_eq!(
+        original.component_reports().count(),
+        1,
+        "mechanisms {:?}; events {:?}",
+        result
+            .strategy
+            .as_ref()
+            .unwrap()
+            .declaration
+            .mechanisms
+            .iter()
+            .map(|mechanism| (mechanism.kind, mechanism.position))
+            .collect::<Vec<_>>(),
+        result
+            .strategy
+            .as_ref()
+            .unwrap()
+            .events
+            .iter()
+            .map(|event| (
+                event.mechanism,
+                event.kind,
+                event.observation,
+                event.cause.as_ref().map(|cause| cause.to_string())
+            ))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        original.component_reports().next().unwrap().backend,
+        Backend::Kinsol
+    );
+    assert_eq!(original.work.evaluations, None);
+    assert_eq!(original.work.iterations, None);
+    assert_eq!(original.work.factorizations, None);
+    assert_eq!(original.work.proof_steps, None);
+    assert!(
+        (original
+            .coordinates
+            .iter()
+            .find(|(id, _)| *id == hidden)
+            .unwrap()
+            .1
+            - 5.0)
+            .abs()
+            < 1e-6
+    );
+    let trace = result.strategy.as_ref().unwrap();
+    assert!(
+        trace
+            .declaration
+            .mechanisms
+            .iter()
+            .any(|mechanism| mechanism.kind == MechanismKind::MapsAnderson)
+    );
+    assert!(
+        trace
+            .events
+            .iter()
+            .any(|event| event.kind == pse_model::generated::enums::NumericalEventKind::Started)
+    );
+    assert!(trace.events.iter().all(|event| event.decision.is_some()));
+    assert!(matches!(
+        trace.events.last().unwrap().original,
+        Some(crate::math::strategy::OriginalConclusion::Satisfied)
+    ));
+    assert_eq!(trace.declaration.branch, profile.composition.branch);
+    assert_eq!(trace.declaration.start.policy, StartPolicy::NoPriorStart);
+
+    // A later explicit start removes the frozen declared-start map from eligibility.
+    let mut explicit = prepared.clone();
+    let seed = explicit
+        .model
+        .case
+        .compiled()
+        .plan
+        .columns()
+        .iter()
+        .map(|id| (*id, 7.0))
+        .collect();
+    explicit.solve = explicit.solve.with_primal_start(seed).unwrap();
+    let result = package
+        .solve_case(explicit, compiler_profile(), &cancel)
+        .await
+        .unwrap();
+    assert!(
+        result.completion.decision.permits_use(),
+        "{:?}",
+        result.completion
+    );
+    assert!(matches!(result.outcome, Outcome::Native(_)));
+    let trace = result.strategy.as_ref().unwrap();
+    assert!(
+        trace
+            .declaration
+            .mechanisms
+            .iter()
+            .all(|mechanism| mechanism.kind == MechanismKind::Direct)
+    );
+    assert_eq!(trace.start, pse_model::strategy::StartOrigin::Explicit);
+    assert_eq!(prepared.model.values.identity(), original_start);
+}
 
 #[tokio::test]
 async fn explicit_map_admission_requires_free_branch_controls_without_promoting_value() {
@@ -701,6 +1109,27 @@ fn conditional_unit_admission_diagnostic_retains_sources_and_original_cause() {
     let encoded = serde_json::to_vec(&diagnostic).unwrap();
     let decoded: pse_model::diagnostic::BoundaryDiagnostic =
         serde_json::from_slice(&encoded).unwrap();
+    let unavailable = conditional_admission(
+        &unit,
+        &request,
+        MathRuntimeError::Compile(
+            pse_compiler::workspace::CompileError::ConditionalUnavailable(
+                "external row couples selected unknown".into(),
+            ),
+        ),
+    );
+    assert_eq!(
+        unavailable.boundary_diagnostic().class,
+        pse_model::diagnostic::BoundaryClass::Unsupported
+    );
+    assert_eq!(
+        unavailable.boundary_diagnostic().rule,
+        pse_diagnostics::DiagnosticRule::ModelingConditionalUnitAdmissionUnsupported
+    );
+    assert_eq!(
+        unavailable.boundary_diagnostic().sources,
+        diagnostic.sources
+    );
     let numerical = conditional_admission(
         &unit,
         &request,

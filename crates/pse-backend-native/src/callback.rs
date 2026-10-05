@@ -76,6 +76,10 @@ pub fn classify(error: &ProblemError) -> Failure {
             kind: crate::LimitKind::Time,
             ..
         } => Failure::Stopped(Termination::TimeLimit),
+        ProblemError::Limit {
+            kind: crate::LimitKind::Work,
+            ..
+        } => Failure::Stopped(Termination::Limit),
         ProblemError::Native {
             kind: crate::NativeFailureKind::Resource,
             ..
@@ -98,6 +102,80 @@ pub fn classify(error: &ProblemError) -> Failure {
         | ProblemError::Internal(_) => Failure::Fatal,
     }
 }
+/// Borrowed original oracle used only for fresh validation/analysis outside TNLP callbacks.
+/// Native callbacks already have CallbackState; wrapping those would charge twice.
+#[derive(Debug)]
+pub(crate) struct CountedNlp<'a> {
+    pub(crate) oracle: &'a mut dyn crate::NlpOracle,
+    pub(crate) execution: &'a Execution,
+}
+impl crate::NlpOracle for CountedNlp<'_> {
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        self.oracle.structural_analysis()
+    }
+    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
+        self.oracle.normalization()
+    }
+    fn solve_separator(&self) -> Option<&crate::SolveSeparator> {
+        self.oracle.solve_separator()
+    }
+    fn constraint_sources(&self) -> Result<Vec<pse_math::assembly::OutputValue>, ProblemError> {
+        self.oracle.constraint_sources()
+    }
+    fn presolve_facts(&self) -> Option<&pse_math::presolve::Facts> {
+        self.oracle.presolve_facts()
+    }
+    fn derivative_facts(&self) -> crate::DerivativeFacts {
+        self.oracle.derivative_facts()
+    }
+    fn contract(&self) -> &crate::OracleContract {
+        self.oracle.contract()
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.oracle.jacobian_pattern()
+    }
+    fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+        self.oracle.hessian_pattern()
+    }
+    fn constraint_bounds(&self) -> &[(f64, f64)] {
+        self.oracle.constraint_bounds()
+    }
+    fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
+        self.execution
+            .counted(evaluation_unit(), || self.oracle.objective(x))
+    }
+    fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.execution
+            .counted(evaluation_unit(), || self.oracle.constraints(x, out))
+    }
+    fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.execution
+            .counted(evaluation_unit(), || self.oracle.gradient(x, out))
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.execution
+            .counted(evaluation_unit(), || self.oracle.jacobian(x, out))
+    }
+    fn hessian(
+        &mut self,
+        x: &[f64],
+        weight: f64,
+        multipliers: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        self.execution.counted(evaluation_unit(), || {
+            self.oracle.hessian(x, weight, multipliers, out)
+        })
+    }
+}
+pub(crate) const fn evaluation_unit() -> crate::solve::WorkEvidence {
+    crate::solve::WorkEvidence {
+        evaluations: Some(1),
+        iterations: Some(0),
+        factorizations: Some(0),
+        proof_steps: Some(0),
+    }
+}
 /// Worker-local failure state; recoverable history never becomes a terminal latch.
 #[derive(Debug)]
 pub struct CallbackState {
@@ -106,7 +184,9 @@ pub struct CallbackState {
     pub rejected_evaluations: usize,
     /// Recoverable trial refusals, retained even when the event history is disabled.
     pub trial_rejections: usize,
-    /// Cause of the latest failed callback, until a later callback succeeds.
+    /// Cause of the latest failed callback, retained through the native attempt.
+    /// A later callback cannot establish recovery of a partially built FD matrix;
+    /// successful native completion clears this diagnostic without latching a stop.
     /// A wrapper which aborts immediately can return the original typed witness.
     pub last_failure: Option<ProblemError>,
     /// Shared stop/progress controls.
@@ -163,7 +243,9 @@ impl CallbackState {
             factorizations: Some(0),
             proof_steps: Some(0),
         };
-        if let Some(admission) = &self.execution.work_admission {
+        if let Some(admission) = &self.execution.work_admission
+            && self.execution.callback_work_owner
+        {
             match catch_unwind(AssertUnwindSafe(|| admission.admit(unit))) {
                 Ok(Ok(())) => {}
                 Ok(Err(error)) => {
@@ -185,7 +267,9 @@ impl CallbackState {
         }
         let start = std::time::Instant::now();
         let result = catch_unwind(AssertUnwindSafe(work));
-        if let Some(admission) = &self.execution.work_admission {
+        if let Some(admission) = &self.execution.work_admission
+            && self.execution.callback_work_owner
+        {
             match catch_unwind(AssertUnwindSafe(|| admission.observe(unit))) {
                 Ok(Ok(())) => {}
                 Ok(Err(error)) => {
@@ -211,9 +295,9 @@ impl CallbackState {
         }
         let (failure, message) = match result {
             Ok(Ok(value)) => {
-                self.last_failure = None;
                 if let Some(stop) = self.execution.stopped() {
                     self.rejected_evaluations = self.rejected_evaluations.saturating_add(1);
+                    self.last_failure = self.execution.check().err();
                     self.terminal = Some((stop, "execution checkpoint after callback".into()));
                     return None;
                 }
@@ -324,12 +408,18 @@ impl CallbackState {
             report.termination.assurance = crate::solve::Assurance::None;
             report.termination.message = Some(message.clone());
         }
-        if self.terminal.is_some() || report.termination.category == Termination::Evaluation {
+        if self.terminal.is_some()
+            || matches!(
+                report.termination.category,
+                Termination::Evaluation | Termination::Panic
+            )
+        {
             if let Some(cause) = self.last_failure.take() {
                 report.callback_failure = Some(std::sync::Arc::new(cause));
             }
         } else {
             report.callback_failure = None;
+            self.last_failure = None;
         }
         (report.events, report.dropped_events) = self.execution.progress.snapshot();
     }
@@ -388,6 +478,127 @@ mod tests {
             },
             execution,
         )
+    }
+    #[derive(Debug)]
+    struct Capped {
+        cap: u64,
+        admitted: std::sync::atomic::AtomicU64,
+        observed: std::sync::atomic::AtomicU64,
+    }
+    impl crate::solve::WorkAdmission for Capped {
+        fn admit(&self, work: crate::solve::WorkEvidence) -> Result<(), ProblemError> {
+            let count = work.evaluations.unwrap();
+            self.admitted
+                .try_update(
+                    std::sync::atomic::Ordering::SeqCst,
+                    std::sync::atomic::Ordering::SeqCst,
+                    |n| n.checked_add(count).filter(|n| *n <= self.cap),
+                )
+                .map(|_| ())
+                .map_err(|_| ProblemError::Limit {
+                    kind: crate::LimitKind::Work,
+                    detail: "evaluation cap".into(),
+                })
+        }
+        fn observe(&self, work: crate::solve::WorkEvidence) -> Result<(), ProblemError> {
+            self.observed.fetch_add(
+                work.evaluations.unwrap(),
+                std::sync::atomic::Ordering::SeqCst,
+            );
+            Ok(())
+        }
+        fn admit_storage(
+            &self,
+            _: crate::solve::NativeStorageScope,
+            _: &str,
+            _: usize,
+            _: bool,
+        ) -> Result<(), ProblemError> {
+            Ok(())
+        }
+    }
+    #[test]
+    fn transported_callback_has_one_charging_owner_and_failed_operations_reconcile() {
+        use std::sync::{Arc, atomic::Ordering};
+        for transported in [false, true] {
+            let admission = Arc::new(Capped {
+                cap: 3,
+                admitted: 0.into(),
+                observed: 0.into(),
+            });
+            let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
+            execution.work_admission = Some(admission.clone());
+            let mut original = CallbackState::new(execution.clone());
+            if transported {
+                let mut forwarding = execution.clone();
+                forwarding.callback_work_owner = false;
+                let mut outer = CallbackState::new(forwarding);
+                assert_eq!(
+                    outer.evaluate("transport.objective", || original
+                        .evaluate("original.objective", || Ok(7))
+                        .ok_or_else(|| ProblemError::internal("inner refused"))),
+                    Some(7)
+                );
+            } else {
+                assert_eq!(original.evaluate("objective", || Ok(7)), Some(7));
+            }
+            assert_eq!(admission.observed.load(Ordering::SeqCst), 1);
+            assert!(
+                execution
+                    .counted(evaluation_unit(), || Err::<(), _>(ProblemError::numerical(
+                        "original evaluation failed"
+                    )))
+                    .is_err()
+            );
+            assert!(
+                execution
+                    .counted::<()>(evaluation_unit(), || panic!("failed indivisible operation"))
+                    .is_err()
+            );
+            assert_eq!(admission.admitted.load(Ordering::SeqCst), 3);
+            assert_eq!(admission.observed.load(Ordering::SeqCst), 3);
+            let mut invoked = false;
+            assert!(
+                execution
+                    .counted(evaluation_unit(), || {
+                        invoked = true;
+                        Ok(())
+                    })
+                    .is_err()
+            );
+            assert!(!invoked);
+            assert_eq!(admission.observed.load(Ordering::SeqCst), 3);
+        }
+    }
+    #[test]
+    fn original_callback_refusal_survives_transported_native_unwind() {
+        let execution = Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        let mut original = CallbackState::new(execution.clone());
+        assert!(
+            original
+                .evaluate::<()>("gradient", || Err(pse_math::MathError::Domain {
+                    source_id: pse_ids::SemanticId::from_bytes([1; 16]),
+                    requirement: "finite difference probe envelope",
+                }
+                .into()))
+                .is_none()
+        );
+        assert_eq!(original.evaluate("constraints", || Ok(7)), Some(7));
+        let mut report = report(&execution);
+        report.termination.category = Termination::Panic;
+        original.finish(&mut report);
+        assert_eq!(report.termination.category, Termination::Panic);
+        assert!(matches!(
+            report.callback_failure(),
+            Some(ProblemError::Math(pse_math::MathError::Domain {
+                requirement: "finite difference probe envelope",
+                ..
+            }))
+        ));
+        assert_eq!(report.evidence.callback.trial_rejections, 1);
     }
     #[test]
     fn scoped_deadline_classification_preserves_time_stop_and_other_limits() {
@@ -627,7 +838,7 @@ mod tests {
             std::sync::Arc::default(),
             &crate::solve::Controls::default(),
         );
-        let mut state = CallbackState::new(execution);
+        let mut state = CallbackState::new(execution.clone());
         assert!(
             state
                 .evaluate::<()>("f", || Err(pse_math::MathError::Domain {
@@ -643,6 +854,10 @@ mod tests {
             Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
         ));
         assert_eq!(state.evaluate("f", || Ok(42)), Some(42));
+        assert!(state.terminal.is_none());
+        let mut successful = report(&execution);
+        state.finish(&mut successful);
+        assert!(successful.callback_failure().is_none());
         assert!(state.last_failure.is_none());
         assert!(state.evaluate::<()>("f", || panic!("contained")).is_none());
         assert_eq!(

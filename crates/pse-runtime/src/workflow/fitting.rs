@@ -423,6 +423,34 @@ impl PreparedFit {
         &self.problem.profile.solver.composition
     }
 
+    pub(crate) fn callable_source(&self) -> crate::math::strategy::target::Source<'_> {
+        let problem = &self.problem;
+        crate::math::strategy::target::Source {
+            original: problem.source_identity,
+            preparation: problem.key,
+            profile: problem.profile_key.as_id(),
+            backend: match self.route {
+                native::routing::Route::Native(backend) => Some(backend),
+                native::routing::Route::Constant => None,
+            },
+            controls: &problem.profile.solver.controls,
+            request: &problem.profile.solver.composition,
+            start: pse_model::strategy::StartOrigin::Specification,
+            start_identity: Some(crate::math::strategy::target::point_identity(
+                problem.source_identity,
+                &problem.initial,
+            )),
+        }
+    }
+    /// Actual callable profile identity, including scientific fit settings.
+    pub fn strategy_profile(&self) -> ContentHash {
+        self.problem.profile_key.as_id()
+    }
+    /// Frozen callable execution declaration; inspection does not construct derivatives.
+    pub fn numerical_strategy(&self) -> pse_model::strategy::NumericalStrategy {
+        crate::math::strategy::target::declaration(&self.callable_source())
+    }
+
     /// Complete immutable source/execution identity.
     pub fn identity(&self) -> ContentHash {
         self.problem.key
