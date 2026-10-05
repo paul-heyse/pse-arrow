@@ -489,6 +489,299 @@ fn dense_provider_support_checks_cardinality_before_allocation() {
 }
 
 #[test]
+fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates() {
+    use crate::typed::{Binary, BodyBuilder, BodyLimits};
+    use pse_quantity::{IndexSet, standard::StandardInvariantChecker};
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let (body, ready) = (1..256)
+        .find_map(|occurrences| {
+            let mut builder = BodyBuilder::new(
+                crate::initialize().unwrap(),
+                &registry,
+                &StandardInvariantChecker,
+                2,
+                BodyLimits {
+                    occurrences,
+                    ..Default::default()
+                },
+            )
+            .ok()?;
+            let x = builder
+                .input(
+                    0,
+                    pse_quantity::standard::ids::quantity("neutral"),
+                    IndexSet::new(),
+                    id(1),
+                )
+                .ok()?;
+            let y = builder
+                .input(
+                    1,
+                    pse_quantity::standard::ids::quantity("neutral"),
+                    IndexSet::new(),
+                    id(2),
+                )
+                .ok()?;
+            let product = builder
+                .binary(Binary::Mul, x.clone(), y.clone(), None, id(3))
+                .ok()?;
+            let sum = builder.binary(Binary::Add, x, y, None, id(4)).ok()?;
+            let body = builder.prepare(&[product, sum]).ok()?;
+            let ready = body
+                .prepare_support(&[0, 1], &[0, 1], DerivativeOrder::First, &cancel)
+                .ok()?;
+            (ready.remaining_occurrences() == 0).then_some((body, ready))
+        })
+        .expect("a finite source First construction can consume its exact allowance");
+    let owner = Arc::new(());
+    let weak = Arc::downgrade(&owner);
+    let ready = ready.with_owner(owner.clone());
+    assert!(matches!(
+        ready.incidence(&[1], &cancel),
+        Err(MathError::WorkLimit { .. })
+    ));
+    let projected = ready
+        .conditional_support(&[1], &[1], DerivativeOrder::First, &cancel)
+        .unwrap();
+    assert_eq!(projected.outputs(), &[1]);
+    assert_eq!(projected.coordinates(), &[1]);
+    assert_eq!(projected.first_for_output(1).unwrap(), &BTreeSet::from([1]));
+    assert!(projected.first_for_output(0).is_none());
+    assert!(projected.support().second.is_empty());
+    assert_eq!(projected.remaining_occurrences(), 0);
+    assert_eq!(projected.derivative_operations(), 0);
+    let result = projected
+        .compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker()
+        .evaluate(
+            &[4.0, 3.0],
+            DerivativeOrder::First,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![7.0]);
+    assert_eq!(result.jacobian, vec![1.0]);
+    // The case producer must also reuse this exhausted support before scheduling:
+    // dependencies inspect the complete source; the block restricts output [1].
+    use crate::{
+        assembly::{AssemblyLimits, CasePlan},
+        binding::*,
+    };
+    let quantity = pse_quantity::standard::ids::quantity("neutral");
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let key = ContentHash::from_bytes([7; 32]);
+    let structure = Arc::new(
+        CaseStructure::new(
+            [1, 2]
+                .into_iter()
+                .map(|n| Variable {
+                    port: port(n),
+                    fixed: false,
+                    domain: pse_model::generated::enums::ModelingVariableDomain::Continuous,
+                    lower: None,
+                    upper: None,
+                })
+                .collect(),
+            vec![],
+            vec![InstanceBinding {
+                instance: id(9),
+                body: key,
+                checked_members: Default::default(),
+                slots: [1, 2]
+                    .into_iter()
+                    .map(|n| SlotBinding::new(&port(n), &port(n), &registry).unwrap())
+                    .collect(),
+                contributions: [10, 11]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(output, n)| Contribution {
+                        output,
+                        target: Target::Row(id(n)),
+                        scale: 1.0,
+                    })
+                    .collect(),
+            }],
+            [10, 11]
+                .into_iter()
+                .map(|n| Row {
+                    id: id(n),
+                    quantity,
+                    lower: 0.0,
+                    upper: 0.0,
+                })
+                .collect(),
+            None,
+            CaseLimits {
+                scalars: 2,
+                instances: 1,
+                rows: 2,
+                bodies: 1,
+                slots: 2,
+            },
+        )
+        .unwrap(),
+    );
+    let plan = CasePlan::prepare(
+        structure,
+        BTreeMap::from([(key, Arc::new(body.clone()))]),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(plan.supports()[0].remaining_occurrences(), 0);
+    assert_eq!(plan.dependencies(&cancel).unwrap().len(), 2);
+    let conditional = plan
+        .conditional(
+            &BTreeSet::from([id(11)]),
+            &BTreeSet::from([id(2)]),
+            &registry,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(conditional.supports()[0].outputs(), &[1]);
+    assert_eq!(conditional.supports()[0].coordinates(), &[1]);
+    assert_eq!(conditional.supports()[0].remaining_occurrences(), 0);
+    assert_eq!(conditional.supports()[0].derivative_operations(), 0);
+    assert_eq!(
+        conditional.limits().worker_bytes,
+        plan.limits().worker_bytes
+    );
+    assert!(
+        ready
+            .conditional_support(&[2], &[1], DerivativeOrder::First, &cancel)
+            .is_err()
+    );
+    let narrowed = body
+        .prepare_support(&[0], &[0], DerivativeOrder::First, &cancel)
+        .unwrap();
+    assert!(
+        narrowed
+            .conditional_support(&[0], &[1], DerivativeOrder::First, &cancel)
+            .is_err()
+    );
+    assert!(
+        narrowed
+            .conditional_support(&[1], &[0], DerivativeOrder::First, &cancel)
+            .is_err()
+    );
+    cancel.store(true, Ordering::Release);
+    assert!(matches!(
+        ready.conditional_support(&[1], &[1], DerivativeOrder::First, &cancel),
+        Err(MathError::Cancelled)
+    ));
+    drop(owner);
+    drop(ready);
+    assert!(weak.upgrade().is_some());
+    drop(projected);
+    assert!(weak.upgrade().is_none());
+}
+
+#[test]
+fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let support = (1..512)
+        .find_map(|allowance| {
+            let mut remaining = allowance;
+            let body = PreparedBody::new_with_allowance(
+                2,
+                5,
+                vec![2, 3],
+                vec![
+                    block(vec![&x * &x], vec![2]),
+                    Stage::Domain {
+                        stages: vec![block(vec![y.clone()], vec![3])],
+                        argument: 3,
+                        token: 4,
+                        lineage: form_lineage(id(13)),
+                    },
+                    block(vec![&y * &y], vec![3]),
+                ],
+                &mut remaining,
+            )
+            .ok()?;
+            let support = body
+                .prepare_support(&[0, 1], &[0, 1], DerivativeOrder::Second, &cancel)
+                .ok()?;
+            (support.remaining_occurrences() == 0).then_some(support)
+        })
+        .expect("an admitted Second support can consume its exact finite allowance");
+    assert_eq!(support.support().controls, BTreeSet::from([1]));
+    let projected = support
+        .conditional_support(&[1], &[1], DerivativeOrder::Second, &cancel)
+        .unwrap();
+    assert_eq!(projected.order(), DerivativeOrder::Second);
+    assert_eq!(projected.outputs(), &[1]);
+    assert_eq!(projected.first_for_output(1).unwrap(), &BTreeSet::from([1]));
+    assert_eq!(
+        projected.second_for_output(1).unwrap(),
+        &BTreeSet::from([(1, 1)])
+    );
+    assert_eq!(projected.support().controls, BTreeSet::from([1]));
+    assert_eq!(projected.remaining_occurrences(), 0);
+    assert_eq!(projected.derivative_operations(), 0);
+    let mut worker = projected
+        .compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    let result = worker
+        .evaluate(
+            &[4.0, 3.0],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![9.0]);
+    assert_eq!(result.jacobian, vec![6.0]);
+    assert_eq!(result.hessians, vec![2.0]);
+    assert!(matches!(
+        worker.evaluate(
+            &[4.0, -3.0],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &cancel
+        ),
+        Err(MathError::Validity(_))
+    ));
+    let other = support
+        .conditional_support(&[0], &[0], DerivativeOrder::Second, &cancel)
+        .unwrap();
+    assert_eq!(
+        other.second_for_output(0).unwrap(),
+        &BTreeSet::from([(0, 0)])
+    );
+    assert!(other.support().controls.is_empty());
+    let first = support
+        .conditional_support(&[1], &[1], DerivativeOrder::First, &cancel)
+        .unwrap();
+    assert!(
+        first
+            .conditional_support(&[1], &[1], DerivativeOrder::Second, &cancel)
+            .is_err()
+    );
+}
+
+#[test]
 fn support_construction_consumes_the_remaining_authored_body_allowance() {
     use crate::typed::{Binary, BodyBuilder, BodyLimits};
     use pse_quantity::{IndexSet, standard::StandardInvariantChecker};

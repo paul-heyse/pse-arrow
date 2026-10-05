@@ -408,6 +408,13 @@ impl CallbackState {
             report.termination.assurance = crate::solve::Assurance::None;
             report.termination.message = Some(message.clone());
         }
+        self.retain_failure(report);
+        (report.events, report.dropped_events) = self.execution.progress.snapshot();
+    }
+    /// Retain the actual native-exit witness before independent validation can
+    /// replace the callback state. Successful recovered trials have no failure
+    /// receipt. Measurements remain finalized by `finish` after validation.
+    pub(crate) fn retain_failure(&mut self, report: &mut crate::solve::SolveReport) {
         if self.terminal.is_some()
             || matches!(
                 report.termination.category,
@@ -421,7 +428,6 @@ impl CallbackState {
             report.callback_failure = None;
             self.last_failure = None;
         }
-        (report.events, report.dropped_events) = self.execution.progress.snapshot();
     }
 }
 /// A trial refused for crossing a nested implicit stage's bound regime, typed through its

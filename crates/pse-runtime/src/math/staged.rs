@@ -21,6 +21,56 @@ use std::sync::{
     mpsc,
 };
 
+/// A completed native resource stop remains an observable failed result. This does
+/// not turn an independent task cutoff or an earlier scientific result into output.
+fn retains_stopped_native_report(
+    current_assessment: bool,
+    last: Option<&super::strategy::AutoObservation>,
+    cause: &Arc<ProblemError>,
+    report: &pse_backend_native::solve::SolveReport,
+    events: &[super::strategy::Event],
+) -> bool {
+    use pse_model::{
+        generated::enums::{CandidateUse, NumericalEventKind},
+        strategy::Phase,
+    };
+    if !current_assessment
+        || report.termination.category != pse_backend_native::solve::Termination::ResourceExhausted
+    {
+        return false;
+    }
+    let Some(last) = last else {
+        return false;
+    };
+    if !matches!(
+        last.permission,
+        Some(CandidateUse::Unusable | CandidateUse::SeedOnly)
+    ) || last.native != super::strategy::observe_native(report)
+        || !last
+            .original
+            .as_ref()
+            .and_then(super::strategy::OriginalConclusion::cause)
+            .is_some_and(|original| Arc::ptr_eq(&original, cause))
+    {
+        return false;
+    }
+    let Some(assessed) = events.last() else {
+        return false;
+    };
+    assessed.kind == NumericalEventKind::Finished
+        && assessed.phase == Phase::Assessment
+        && assessed.observation == Some(last.native)
+        && assessed.permission == last.permission
+        && assessed
+            .original
+            .as_ref()
+            .and_then(super::strategy::OriginalConclusion::cause)
+            .is_some_and(|original| Arc::ptr_eq(&original, cause))
+        && events.iter().any(|event| {
+            event.mechanism == assessed.mechanism && event.kind == NumericalEventKind::Started
+        })
+}
+
 /// Admission of one escaping native session, separate from scientific candidate use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SessionDisposition {
@@ -261,7 +311,7 @@ impl NativeSession {
             .await
     }
     /// Queue native work under the already admitted task's cancellation owner and clock.
-    #[cfg(any(test, feature = "solver-diffsol"))]
+    #[cfg(feature = "solver-diffsol")]
     pub(crate) async fn run_in_task<T: Send + 'static>(
         &self,
         cores: usize,
@@ -502,6 +552,7 @@ impl NativeSession {
         let mut terminal = None;
         let mut collected = super::strategy::Trace {
             owner: None,
+            publication_request: Some(step.request_identity()?),
             declaration: declaration.clone(),
             original: step.original_identity()?,
             backend: step.backend(),
@@ -747,7 +798,10 @@ impl NativeSession {
                         operations[candidate].candidate.prepared = true;
                         bound_operations.insert(candidate, prepared);
                         collected.starts.push(description.start);
-                        collected.products.push(Default::default());
+                        collected.products.push(super::strategy::RungProducts {
+                            provider: Some(super::strategy::ProviderEvidence::NonNative),
+                            ..Default::default()
+                        });
                         collected.events.push(super::strategy::Event {
                             mechanism: index,
                             kind: pse_model::generated::enums::NumericalEventKind::Finished,
@@ -851,6 +905,20 @@ impl NativeSession {
                                 && known.insert(operation.candidate.identity)
                         }));
                     }
+                    if one.2.starts.len() != one.2.declaration.mechanisms.len()
+                        || one.2.products.len() != one.2.declaration.mechanisms.len()
+                        || collected.starts.len() < index
+                        || collected.products.len() < index
+                    {
+                        return Err(ProblemError::Internal(
+                            "automatic trace operation slots are misaligned".into(),
+                        )
+                        .into());
+                    }
+                    // Bind actual operation slots by their declaration index. A
+                    // prior binding-preparation slot remains separate from execution.
+                    collected.starts.truncate(index);
+                    collected.products.truncate(index);
                     collected.starts.extend(one.2.starts.iter().copied());
                     collected.products.extend(one.2.products.iter().cloned());
                     collected
@@ -875,6 +943,16 @@ impl NativeSession {
             ),
         );
         if let Some(cause) = terminal {
+            let preserve = last_result.as_ref().is_some_and(|(outcome, _, actual)| {
+                matches!(outcome, super::solves::Outcome::Native(report)
+                    if retains_stopped_native_report(current_assessment,last_observation.as_ref(),&cause,report,&actual.events))
+            });
+            if preserve {
+                let (outcome, product, _) = last_result.ok_or_else(|| {
+                    ProblemError::Internal("assessed native stop result disappeared".into())
+                })?;
+                return Ok((outcome, product, trace));
+            }
             return Err(MathRuntimeError::Strategy {
                 cause: Arc::new(
                     ProblemError::Math(pse_math::MathError::Typed {
@@ -1161,7 +1239,8 @@ impl NativeSession {
                             let mut step=*step;
                             if matches!(actual_starts.borrow()[index],pse_model::strategy::StartOrigin::Auxiliary|pse_model::strategy::StartOrigin::Surrogate) {
                                 if let Some(screened)=screened_start.borrow().as_ref() {
-                                    step=step.within_admitted_task(enclosing.clone(),admission.clone()).and_then(|step|step.with_composed_recovery_start(screened,&declaration.start,declaration.branch)).map_err(Arc::new)?;
+                                    let branch=completion_witness.borrow().as_ref().map_or(Ok(declaration.branch),|witness|witness.recovery_branch(declaration.branch,screened.proposal())).map_err(Arc::new)?;
+                                    step=step.within_admitted_task(enclosing.clone(),admission.clone()).and_then(|step|step.with_composed_recovery_start(screened,&declaration.start,branch)).map_err(Arc::new)?;
                                 } else if !step.has_screened_start() {
                                     return Err(Arc::new(ProblemError::Contract("original correction requires the actual screened producer receipt".into())).into());
                                 }
@@ -1216,15 +1295,13 @@ impl NativeSession {
                                 }
                             };
                             if let Some(failed)=prepared.local_attempt_failure(&value,&enclosing) {retained.clear();return Err(failed);}
-                            if !original_completion {
-                                if let Some(proposal)=&value.proposal {
+                            if !original_completion && let Some(proposal)=&value.proposal {
                                     let mut evaluations=0;
                                     match service.screen_auxiliary_start_worker_observed(prepared.original(),proposal,declaration.branch,enclosing.clone(),budget,&mut evaluations) {
                                         Ok(screened)=>*pending_screened.borrow_mut()=Some(screened),
                                         Err(error)=>{value.screening_failure=Some(Arc::new(error.into_problem()));},
                                     }
                                     if let super::solves::Outcome::Native(report)=&mut value.outcome {report.evidence.work.evaluations=report.evidence.work.evaluations.and_then(|n|n.checked_add(evaluations));}
-                                }
                             }
                             let evidence=prepared.produced_evidence(&value,declaration.branch).map_err(|cause|super::strategy::EffectFailure::component(Arc::new(cause),value.work(),super::strategy::observe(&value.outcome)))?;
                             for product in &evidence {
@@ -1375,7 +1452,7 @@ impl NativeSession {
                     },
                 },
             );
-            let trace = super::strategy::Trace { owner:None, declaration, original, backend, profile, start, starts:actual_starts.into_inner(), products:actual_products.into_inner(), events:result.events };
+            let trace = super::strategy::Trace { owner:None, publication_request:None, declaration, original, backend, profile, start, starts:actual_starts.into_inner(), products:actual_products.into_inner(), events:result.events };
             let bytes=trace.retained_bytes()?;
             let trace=Arc::new(trace.with_owner(service.reserve("math:strategy-trace",bytes)?));
             match (result.value, assessed, result.terminal) {
@@ -1475,7 +1552,7 @@ impl NativeSession {
                 proof_steps: Some(0),
             };
             let decision = super::strategy::next_automatic(
-                &request,
+                request,
                 &declaration.start,
                 &candidates,
                 &Default::default(),
@@ -1488,7 +1565,7 @@ impl NativeSession {
                 super::strategy::AutoDecision::Dispatch { candidate: 0 }
             );
             match super::strategy::automatic_decision_key(
-                &request,
+                request,
                 &candidates,
                 &decision,
                 None,
@@ -1579,7 +1656,7 @@ impl NativeSession {
                         super::strategy::Assessment {auxiliary:false,retention:assessment.retention,original:assessment.original,work:assessment.work,observation,cause:super::strategy::cause(outcome)}
                     });
                 for event in &mut result.events {if event.decision.is_none() {event.decision=Some(decision);}}
-                let trace=super::strategy::Trace {owner:None,declaration,original,backend,profile,start,starts:vec![start],products:vec![Default::default()],events:result.events};
+                let trace=super::strategy::Trace {owner:None,publication_request:None,declaration,original,backend,profile,start,starts:vec![start],products:vec![Default::default()],events:result.events};
                 let bytes=trace.retained_bytes()?;
                 let trace=Arc::new(trace.with_owner(service.reserve("math:strategy-trace",bytes)?));
                 match (result.value,product,result.terminal) {
@@ -1620,6 +1697,175 @@ impl Drop for NativeSession {
 mod admission_tests {
     use super::*;
     use std::sync::{Condvar, Mutex};
+
+    #[test]
+    fn actual_resource_stop_retains_current_report_but_never_a_stale_or_usable_result() {
+        use super::super::strategy::{self, AutoDecision, AutoObservation, OriginalConclusion};
+        use pse_backend_native::solve::{
+            Assurance, Controls, Execution, NativeTermination, SolveReport, Termination,
+        };
+        use pse_model::{
+            generated::enums::{CandidateRefusal, CandidateUse, NumericalEventKind},
+            strategy::{Phase, Scope, StartOrigin, WorkCharge, WorkObservation},
+        };
+        let controls = Controls::default();
+        let scope = pse_kernels::ExecutionScope::new(Arc::default(), None);
+        let declaration = strategy::direct(&controls);
+        let cause = Arc::new(ProblemError::memory("scripted native memory stop"));
+        let contract = pse_backend_native::OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([1; 32]),
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+            variables: Vec::new(),
+            rows: Vec::new(),
+        };
+        let mut report = Some(SolveReport::new(
+            Backend::Scip,
+            &contract,
+            NativeTermination {
+                code: 0,
+                name: "scripted.memory.stop".into(),
+                message: None,
+                category: Termination::ResourceExhausted,
+                assurance: Assurance::None,
+            },
+            &Execution::new(scope.cancellation().clone(), &controls),
+        ));
+        let work = WorkObservation {
+            attempts: 1,
+            evaluations: Some(0),
+            iterations: Some(0),
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        let result = strategy::run(
+            &declaration,
+            &scope,
+            |_| strategy::Facts {
+                support: Default::default(),
+                accuracy: Vec::new(),
+                consumption: Vec::new(),
+                reservation: Some(work),
+                work_admitted: false,
+                start: StartOrigin::Specification,
+                inherited: false,
+                connected: false,
+                refusal: None,
+            },
+            |_, _| {
+                let report = report.take().unwrap();
+                Ok(strategy::Attempt {
+                    evidence: Vec::new(),
+                    observation: strategy::observe_native(&report),
+                    value: report,
+                    work: WorkCharge {
+                        phase: Phase::Native,
+                        scope: Scope::Task,
+                        charging_owner: contract.identity,
+                        observed: work,
+                    },
+                })
+            },
+            |report, observation| strategy::Assessment {
+                auxiliary: false,
+                original: OriginalConclusion::Unavailable {
+                    cause: cause.clone(),
+                },
+                work: Vec::new(),
+                retention: StepRetention {
+                    candidate: crate::workflow::numerics::native_use(
+                        report,
+                        &pse_model::numerics::NumericalPolicy::default(),
+                    ),
+                    session: SessionDisposition::Discard,
+                },
+                observation,
+                cause: None,
+            },
+        );
+        assert!(result.terminal.is_none());
+        let assessment = result.assessment.as_ref().unwrap();
+        let mut last = AutoObservation {
+            awaiting_assessment: false,
+            native: assessment.observation,
+            original: Some(assessment.original.clone()),
+            permission: Some(assessment.retention.candidate.usability),
+        };
+        let report = result.value.as_ref().unwrap();
+        assert!(report.candidate.is_none());
+        assert!(report.quality.is_none());
+        assert_eq!(last.permission, Some(CandidateUse::Unusable));
+        assert!(
+            assessment
+                .retention
+                .candidate
+                .refusals
+                .contains(&CandidateRefusal::NoCandidate)
+        );
+        assert!(
+            assessment
+                .retention
+                .candidate
+                .refusals
+                .contains(&CandidateRefusal::FeasibilityUnavailable)
+        );
+        assert!(
+            !assessment
+                .retention
+                .candidate
+                .refusals
+                .contains(&CandidateRefusal::Infeasible)
+        );
+        let request = pse_model::strategy::CompositionRequest::default();
+        let AutoDecision::Stop { cause: Some(stop) } = strategy::next_automatic(
+            &request,
+            &declaration.start,
+            &[],
+            &Default::default(),
+            Some(&last),
+            result.work,
+            false,
+        ) else {
+            panic!("actual native resource report must stop");
+        };
+        assert!(retains_stopped_native_report(
+            true,
+            Some(&last),
+            &stop,
+            report,
+            &result.events
+        ));
+        assert!(
+            !retains_stopped_native_report(false, Some(&last), &stop, report, &result.events),
+            "a later binding cannot revive an earlier report"
+        );
+        let cutoff = Arc::new(ProblemError::memory("independent later task cutoff"));
+        assert!(!retains_stopped_native_report(
+            true,
+            Some(&last),
+            &cutoff,
+            report,
+            &result.events
+        ));
+        last.permission = Some(CandidateUse::Usable);
+        assert!(!retains_stopped_native_report(
+            true,
+            Some(&last),
+            &stop,
+            report,
+            &result.events
+        ));
+        last.permission = Some(CandidateUse::Unusable);
+        let mut incomplete = result.events.clone();
+        incomplete.retain(|event| event.kind != NumericalEventKind::Started);
+        assert!(!retains_stopped_native_report(
+            true,
+            Some(&last),
+            &stop,
+            report,
+            &incomplete
+        ));
+    }
 
     #[test]
     fn session_retention_requires_composed_permission_and_artifact_admission() {

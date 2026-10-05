@@ -670,6 +670,8 @@ struct PathEndpoint {
     chart: Arc<SelectionChart>,
     parameter: f64,
     target: ContentHash,
+    origin: BranchPolicy,
+    branch: BranchPolicy,
     scope: ExecutionScope,
     _owner: Arc<std::sync::Mutex<Vec<Arc<pse_columnar::AllocationLease>>>>,
 }
@@ -700,6 +702,29 @@ impl PathOutcome {
     }
 }
 impl PathCompletion {
+    /// Consume the sealed transport ending branch for this exact path proposal.
+    pub(crate) fn recovery_branch(
+        &self,
+        origin: BranchPolicy,
+        proposal: &Proposal,
+    ) -> Result<BranchPolicy, ProblemError> {
+        let endpoint = &self.0;
+        endpoint.scope.check().map_err(ProblemError::Provider)?;
+        let connected = endpoint.branch.connected.ok_or_else(|| {
+            ProblemError::Contract("path completion has no connected ending branch".into())
+        })?;
+        if origin != endpoint.origin
+            || proposal.branch() != endpoint.branch
+            || proposal.target() != endpoint.target
+            || proposal.source().derivation != Some(connected.path)
+            || proposal.source().branch != Some(connected.transport)
+        {
+            return Err(ProblemError::Contract(
+                "path recovery does not consume its sealed origin-to-endpoint transport".into(),
+            ));
+        }
+        Ok(endpoint.branch)
+    }
     /// Preserve the actual ending sheet when the common original corrector returns.
     /// This consumes the complete source-issued chart/program/verifier scope at the
     /// actual target parameter. Original numerical quality remains its own obligation.
@@ -2651,6 +2676,11 @@ pub(crate) fn run_path(
                 chart: Arc::new(chart),
                 parameter: point[n],
                 target: path.target_identity,
+                origin: path.branch,
+                branch: BranchPolicy {
+                    kind: pse_model::strategy::BranchKind::Connected,
+                    connected: outcome.connected,
+                },
                 scope: path.task_scope.clone(),
                 _owner: outcome.reports_owner.clone(),
             }));

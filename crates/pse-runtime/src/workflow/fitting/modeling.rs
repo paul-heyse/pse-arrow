@@ -62,7 +62,7 @@ impl FitDeclarations {
 #[derive(Clone, Debug)]
 pub(super) enum Assessment {
     Steady {
-        model: ModelingPreparation,
+        model: Box<ModelingPreparation>,
         program: Option<Arc<ExecutableCase>>,
         numerics: Arc<ResolvedNumericalPolicy>,
     },
@@ -793,7 +793,7 @@ impl ModelingPackage {
                     })
                     .ok_or_else(|| contract("fit worker extent"))?;
                 assessments.push(Assessment::Steady {
-                    model,
+                    model: Box::new(model),
                     program,
                     numerics,
                 });

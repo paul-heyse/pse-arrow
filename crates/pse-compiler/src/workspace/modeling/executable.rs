@@ -1161,7 +1161,7 @@ fn finish_projection(
     Ok(())
 }
 fn bind_members(p: &mut Projection, bindings: &[(String, Expr)]) {
-    let members = MemberReads::new(&bindings, &p.validity);
+    let members = MemberReads::new(bindings, &p.validity);
     for expression in &mut p.expressions {
         let needed = members.closure(expression);
         if !needed.is_empty() {

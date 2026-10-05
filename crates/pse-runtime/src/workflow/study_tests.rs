@@ -177,7 +177,7 @@ fn study_definition_historical_readmission_codec_unit() {
         pse_diagnostics::DiagnosticRule::WorkflowOperations
     );
     assert_eq!(historical, retained);
-    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":5}"#] {
+    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":6}"#] {
         assert!(matches!(
             StudyDefinition::readmission(malformed),
             Err(WorkflowError::Input(_))

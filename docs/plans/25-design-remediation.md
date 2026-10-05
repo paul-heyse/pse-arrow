@@ -127,7 +127,7 @@ workflow engine, new solver mathematics, generic ontology or architecture-scorin
 | [25k: Integrated qualification and closure](25k-integrated-qualification-and-closure.md) | One evidence campaign for the complete target, followed by architecture and disposition closure |
 | [25l: Demand-driven flowsheet compilation and contextual solver routing](25l-flowsheet-compilation-and-solver-routing.md) | Follow-up functional correction of semantic/output/support staging, contextual readiness and failure interpretation before qualification resumes |
 | [25m: Integrated solve pipeline](25m-integrated-solve-pipeline.md) | Combined solver-review implementation, shared numerical strategy and library-owned acceleration/globalization; owns its adopted findings and hands functional readiness to 25k |
-| [25n: Automatic simulation and solve pipeline](25n-automatic-simulation-solve-pipeline.md) | Partial implementation paused for maintainer-directed review; automatic composition, reconstruction, consumed evidence/work and native bindings; owns AF-01–AF-08 and corrected functional handoff to 25k |
+| [25n: Automatic simulation and solve pipeline](25n-automatic-simulation-solve-pipeline.md) | Automatic composition, reconstruction, consumed evidence/work and native bindings; owns AF-01–AF-08, current execution status and functional handoff to 25k |
 
 ### Grounding and boundary
 

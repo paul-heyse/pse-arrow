@@ -93,6 +93,16 @@ impl BackendExecution for Kinsol {
     fn linked(&self) -> bool {
         cfg!(feature = "kinsol")
     }
+    fn work_coverage(&self, execution: &crate::solve::Execution) -> crate::solve::WorkCoverage {
+        crate::solve::WorkCoverage {
+            evaluations: self.linked()
+                && execution.work_admission.is_some()
+                && execution.callback_work_owner,
+            // SUNDIALS/KLU iterations and factors have no primitive admission
+            // observer. Evaluation callbacks, including final validation, do.
+            ..Default::default()
+        }
+    }
     fn automatic(&self) -> Option<u8> {
         Some(0)
     }

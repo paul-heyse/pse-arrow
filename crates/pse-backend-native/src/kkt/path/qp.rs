@@ -543,18 +543,28 @@ mod tests {
     }
     impl crate::solve::WorkAdmission for Admission {
         fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
-            let factors: u64 = self
-                .seen
-                .lock()
-                .unwrap()
-                .iter()
-                .map(|w| w.factorizations.unwrap())
-                .sum();
-            if self
-                .factor_cap
-                .is_some_and(|cap| factors + work.factorizations.unwrap() > cap)
-                || self.iterations.is_some() && work.iterations.is_none()
-            {
+            let observed = self.seen.lock().map_err(|_| {
+                ProblemError::internal("QP test admission observation mutex poisoned")
+            })?;
+            let overflow = || ProblemError::Limit {
+                kind: crate::LimitKind::Work,
+                detail: "QP test factor counter overflow".into(),
+            };
+            let factors = observed.iter().try_fold(0_u64, |total, work| {
+                let count = work.factorizations.ok_or_else(|| {
+                    ProblemError::Contract("QP observed factor count is unknown".into())
+                })?;
+                total.checked_add(count).ok_or_else(overflow)
+            })?;
+            let exceeds_factors = if let Some(cap) = self.factor_cap {
+                let requested = work.factorizations.ok_or_else(|| {
+                    ProblemError::Contract("QP admitted factor count is unknown".into())
+                })?;
+                factors.checked_add(requested).ok_or_else(overflow)? > cap
+            } else {
+                false
+            };
+            if exceeds_factors || self.iterations.is_some() && work.iterations.is_none() {
                 return Err(ProblemError::Limit {
                     kind: crate::LimitKind::Work,
                     detail: "QP task test cap".into(),
@@ -563,7 +573,12 @@ mod tests {
             Ok(())
         }
         fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
-            self.seen.lock().unwrap().push(work);
+            self.seen
+                .lock()
+                .map_err(|_| {
+                    ProblemError::internal("QP test admission observation mutex poisoned")
+                })?
+                .push(work);
             Ok(())
         }
     }

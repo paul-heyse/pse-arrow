@@ -814,6 +814,10 @@ pub(crate) struct DriverResult<T> {
 #[derive(Debug)]
 pub struct Trace {
     pub(crate) owner: Option<Arc<dyn pse_math::AllocationOwner>>,
+    /// Automatic observations retain their admitted source request even when the
+    /// selected prefix has no execution. This is publication attribution only;
+    /// it never grants admission to an empty execution declaration.
+    pub(crate) publication_request: Option<pse_ids::roles::LineageRequestHash>,
     pub(crate) declaration: NumericalStrategy,
     pub(crate) original: ContentHash,
     pub(crate) backend: Option<pse_backend_native::solve::Backend>,
@@ -967,10 +971,13 @@ impl Trace {
         step: usize,
     ) -> Result<Vec<pse_model::generated::runtime::solve_strategy_events::Row>, ProblemError> {
         use pse_model::generated::runtime::solve_strategy_events::Row;
-        let strategy_identity = self
-            .declaration
-            .key()
-            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        let strategy_identity = match self.publication_request {
+            Some(request) => request.as_id(),
+            None => self
+                .declaration
+                .key()
+                .map_err(|e| ProblemError::Contract(e.to_string()))?,
+        };
         let ordinal =
             |value: usize| i64::try_from(value).map_err(|_| limit("strategy event ordinal"));
         let count = |value: Option<u64>| {
@@ -982,7 +989,8 @@ impl Trace {
             .iter()
             .enumerate()
             .map(|(index, event)| {
-                let mechanism = &self.declaration.mechanisms[event.mechanism];
+                let mechanism = self.declaration.mechanisms.get(event.mechanism)
+                    .ok_or_else(|| ProblemError::Contract("published event has no observed mechanism".into()))?;
                 let actual = !matches!(event.kind, EventKind::Planned | EventKind::Refused);
                 let product = actual.then(|| self.products.get(event.mechanism)).flatten();
                 let produced = matches!(event.kind, EventKind::Finished | EventKind::Abandoned)
@@ -1762,7 +1770,11 @@ pub(crate) fn failure(cause: &ProblemError) -> Observation {
                 pse_backend_native::solve::Termination::Cancelled,
             ) => Observation::Cancelled,
             pse_backend_native::callback::Failure::Stopped(_) => Observation::ResourceExhausted,
-            pse_backend_native::callback::Failure::Fatal => Observation::ContractFailure,
+            pse_backend_native::callback::Failure::Fatal => boundary_failure(
+                cause
+                    .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+                    .class,
+            ),
         },
     }
 }
@@ -1783,7 +1795,11 @@ pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
                 .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
                 .class,
         ),
-        E::Compile(_) => Observation::ContractFailure,
+        E::Compile(cause) => boundary_failure(
+            cause
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+                .class,
+        ),
     }
 }
 /// Scientific consumers classify the same typed failure before applying their own

@@ -39,6 +39,134 @@ fn strategy() -> NumericalStrategy {
     s.mechanisms.push(recovery);
     s
 }
+#[tokio::test]
+async fn automatic_refusal_only_trace_publishes_without_admitting_empty_execution() {
+    use crate::workflow::tests as fixture;
+    let runtime = fixture::runtime();
+    let declarations = pse_authoring::language::parse(
+        "package p {def Constant {param p:Scalar=1;eq check:p==1;}}",
+        pse_ids::SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Constant")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(declarations, fixture::physical())
+        .unwrap();
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            pse_kernels::DerivativeOrder::Value,
+            fixture::compiler_profile(),
+            fixture::profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let request = prepared.solve.request_identity().unwrap();
+    let mut observed = prepared.solve.numerical_strategy();
+    observed.mechanisms.clear();
+    assert!(observed.key().is_err());
+    assert!(
+        prepared
+            .solve
+            .clone()
+            .with_strategy(observed.clone(), Vec::new())
+            .is_err()
+    );
+    let mut trace = Trace {
+        owner: None,
+        publication_request: Some(request),
+        declaration: observed,
+        original: prepared.solve.original_identity().unwrap(),
+        backend: prepared.solve.backend(),
+        profile: prepared.solve.strategy_profile().unwrap(),
+        start: StartOrigin::Specification,
+        starts: Vec::new(),
+        products: Vec::new(),
+        events: Vec::new(),
+    };
+    let run_id = pse_operations::mint_id();
+    assert!(trace.rows(run_id, 0).unwrap().is_empty());
+    assert!(trace.product_rows(run_id, 0).unwrap().is_empty());
+    let mut preparation = prepared.solve.numerical_strategy().mechanisms.remove(0);
+    preparation.position = Position::Preparation;
+    preparation.kind = MechanismKind::BoundedFeasibility;
+    preparation.required = false;
+    trace.declaration.mechanisms.push(preparation);
+    trace.starts.push(StartOrigin::Specification);
+    trace.products.push(RungProducts::default());
+    let cause = Arc::new(ProblemError::Unsupported(
+        "required proof count unavailable before preparation".into(),
+    ));
+    trace.events.push(Event {
+        mechanism: 0,
+        kind: EventKind::Refused,
+        phase: Phase::Preparation,
+        original: Some(OriginalConclusion::Unavailable {
+            cause: cause.clone(),
+        }),
+        decision: None,
+        observation: Some(Observation::CapabilityRefusal),
+        transition: Some(Transition::Stop),
+        permission: Some(CandidateUse::Unusable),
+        work: None,
+        cause: Some(cause),
+    });
+    let rows = trace.rows(run_id, 0).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].strategy_identity, request.as_id());
+    assert_eq!(rows[0].kind, EventKind::Refused);
+    assert!(rows[0].backend.is_none());
+    assert!(rows[0].profile_identity.is_none());
+    assert!(
+        rows[0].attempts.is_none(),
+        "no execution or proof work was dispatched"
+    );
+    let pool = runtime.shared.pool();
+    let cancelled = pse_columnar::CancellationToken::new();
+    let validation = runtime.validation_context().unwrap();
+    let mut published =
+        pse_relations::columnar::Collection::new(&runtime.registry, &pool, &cancelled, &validation);
+    published
+        .ensure::<pse_model::generated::runtime::solve_strategy_events::Row>()
+        .unwrap();
+    published.push(rows[0].clone()).unwrap();
+    let batches = published.finish().unwrap();
+    assert_eq!(
+        batches
+            .values()
+            .map(|batch| batch.batch().num_rows())
+            .sum::<usize>(),
+        1
+    );
+    assert!(trace.declaration.key().is_err());
+    assert!(
+        prepared
+            .solve
+            .clone()
+            .with_strategy(
+                trace.declaration.clone(),
+                vec![prepared.solve.clone().into()]
+            )
+            .is_err()
+    );
+    trace.publication_request = None;
+    assert!(
+        trace.rows(run_id, 0).is_err(),
+        "explicit declaration publication retains admission validation"
+    );
+}
 fn facts(index: usize) -> Facts {
     Facts {
         support: BTreeSet::new(),
@@ -572,6 +700,7 @@ fn preparation_first_uses_entry_then_auxiliary_correction_requires_declared_reco
         admit(&declaration, 0, true, &auxiliary),
         Admission::RequiredRefusal(_)
     ));
+    declaration.start.policy = pse_model::strategy::StartPolicy::NoPriorStart;
     declaration.start.recovery.clear();
     let result = run(
         &declaration,
@@ -624,6 +753,49 @@ fn optional_preparation_refusal_preserves_specification_entry_for_first_dispatch
     assert_eq!(
         result.events.last().unwrap().transition,
         Some(Transition::Finish)
+    );
+}
+
+#[test]
+fn compiler_derivative_support_limit_retains_resource_observation_and_stops() {
+    let source = pse_ids::SemanticId::from_bytes([17; 16]);
+    let error = crate::math::MathRuntimeError::Compile(
+        pse_compiler::workspace::CompileError::from(pse_math::MathError::WorkLimit {
+            source_id: source,
+            resource: "derivative support construction",
+            required: 1,
+            available: 0,
+            components: 0,
+        }),
+    );
+    let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native);
+    assert_eq!(
+        diagnostic.class,
+        pse_model::diagnostic::BoundaryClass::ResourceLimit
+    );
+    assert_eq!(diagnostic.sources, vec![source]);
+    let observation = runtime_failure(&error);
+    assert_eq!(observation, Observation::ResourceExhausted);
+    let cause = Arc::new(error.into_problem());
+    assert_eq!(failure(&cause), observation);
+    let preserved = cause.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native);
+    assert_eq!(preserved.class, diagnostic.class);
+    assert_eq!(preserved.sources, diagnostic.sources);
+    let mut assessed = assessment(false, false, observation);
+    assessed.cause = Some(cause.clone());
+    assessed.original = OriginalConclusion::Unavailable { cause };
+    let mut preparation = strategy().mechanisms.remove(0);
+    preparation.position = Position::Preparation;
+    preparation.required = false;
+    assert_eq!(transition(&preparation, &assessed), Transition::Stop);
+    assert!(!permits_numerical_continuation(observation));
+    let invalid = crate::math::MathRuntimeError::Compile(
+        pse_compiler::workspace::CompileError::Missing("authored compiler input".into()),
+    );
+    assert_eq!(runtime_failure(&invalid), Observation::ContractFailure);
+    assert_eq!(
+        failure(&invalid.into_problem()),
+        Observation::ContractFailure
     );
 }
 
@@ -1314,7 +1486,7 @@ fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_binding_h
     let mut work = charge(0).observed;
     work.attempts = 1;
     assert!(
-        matches!(next_automatic(&request,&start,&[candidate.clone()],&BTreeSet::from([0]),Some(&last),work,false),AutoDecision::Exhausted {cause:Some(actual)} if Arc::ptr_eq(&actual,&cause))
+        matches!(next_automatic(&request,&start,std::slice::from_ref(&candidate),&BTreeSet::from([0]),Some(&last),work,false),AutoDecision::Exhausted {cause:Some(actual)} if Arc::ptr_eq(&actual,&cause))
     );
     assert!(
         matches!(next_automatic(&request,&start,&[candidate],&BTreeSet::new(),Some(&last),work,false),AutoDecision::Stop {cause:Some(actual)} if matches!(actual.as_ref(),ProblemError::Limit {..}))

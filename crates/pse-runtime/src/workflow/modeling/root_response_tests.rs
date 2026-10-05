@@ -826,6 +826,11 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         ..Default::default()
     };
     analysis.case.values.insert("p".into(), 2.);
+    analysis
+        .solver
+        .composition
+        .recovery
+        .push(pse_model::strategy::StartOrigin::Predicted);
     let cancel = crate::CancelSource::new();
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let mut execution = Execution::new(Arc::default(), &Controls::default());
@@ -1030,6 +1035,10 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         "actual class production cannot be relabeled as zero proof work"
     );
     assert!((proposal.values().next().unwrap().1 - 2.).abs() < 1e-8);
+    assert_eq!(
+        proposal.origin(),
+        pse_model::strategy::StartOrigin::Predicted
+    );
     let screened = runtime
         .native()
         .screen_start(

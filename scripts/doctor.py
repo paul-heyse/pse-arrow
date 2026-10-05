@@ -569,36 +569,6 @@ def check_operational_store() -> Check:
     )
 
 
-def check_external() -> Check:
-    pins = tomllib.loads((ROOT / "Cargo.lock").read_text())["package"]
-    versions = {p["name"]: p["version"] for p in pins}
-    parity = pyproject()["dependency-groups"]["parity"]
-    idaes = next(
-        p.split("==", 1)[1].split(";", 1)[0]
-        for p in parity
-        if isinstance(p, str) and p.startswith("idaes-pse==")
-    )
-    wanted = {
-        "arrow-rs": versions["arrow"],
-        "datafusion": versions["datafusion"],
-        "idaes-pse": idaes,
-    }
-    problems = []
-    for name, tag in wanted.items():
-        directory = ROOT / "external" / name
-        # Reading copies must match the pins, not merely exist.
-        code, out = run("git", "describe", "--tags", "--exact-match", cwd=directory)
-        if code or out != tag:
-            problems.append(f"{name}: missing or not at {tag}")
-    return Check(
-        "external",
-        not problems,
-        "; ".join(problems) if problems else "all reading copies match pins",
-        "just fetch-external" if problems else "",
-        blocking=False,
-    )
-
-
 CHECKS = (
     check_interpreter,
     check_uv,
@@ -611,7 +581,6 @@ CHECKS = (
     check_extension,
     check_solvers,
     check_operational_store,
-    check_external,
 )
 
 

@@ -471,6 +471,9 @@ Modeling, studies, fitting, shooting, horizons and applicable dynamic initializa
 mathematical target and original assessor to one numerical binder. Sampling, statistical stopping,
 control application, scientific time/events and durable occurrence policy retain their owners.
 Preparation inspection may be conditional; execution traces contain actual decisions and products.
+Automatic trace publication uses the already admitted request identity, including empty and
+preparation-only refusal prefixes. Such a prefix is an observation, not a new execution declaration;
+explicit execution declarations retain their admission checks.
 `runtime.solve_strategy_products` retains every actual point/action receipt with consumed source,
 normalization, original-space point, derivative/action order, branch and error class; capability
 declarations create no rows. Effective caller output obligations are checked before original

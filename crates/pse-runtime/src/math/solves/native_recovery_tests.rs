@@ -144,6 +144,7 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
     assert!(rebound.proposal_start.is_some());
     assert!(Arc::ptr_eq(&rebound.task_admission().unwrap(), &ledger));
     let mut declaration = rebound.numerical_strategy();
+    declaration.start.recovery = rebound.composition_request().recovery.clone();
     declaration.limits = limits;
     declaration.mechanisms[0].kind = MechanismKind::NativeGlobalization;
     declaration.mechanisms[0].starts = vec![StartOrigin::Auxiliary];

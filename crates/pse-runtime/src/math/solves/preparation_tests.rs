@@ -77,6 +77,111 @@ fn ready(solve: &PreparedSolve) -> &AlgebraicCase {
     case
 }
 
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_opaque_counters() {
+    let (package, root, runtime) = package_and_runtime(
+        "package p { def Root { var x:Scalar; eq root:x*x==4; annotation start x(1); } }",
+    );
+    let limits = pse_model::strategy::WorkLimits {
+        attempts: 4,
+        evaluations: Some(500),
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    };
+    let solver = SolverProfile {
+        intent: SolveIntent::Root,
+        selection: SolverSelection::Explicit(Backend::Kinsol),
+        presolve: native::presolve::Policy::Off,
+        composition: pse_model::strategy::CompositionRequest {
+            limits: Some(limits),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let cancel = crate::CancelSource::new();
+    let mut prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            ModelingCaseBindings::default(),
+            DerivativeOrder::First,
+            fixture::compiler_profile(),
+            solver,
+            NumericalInputs::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let scope = pse_kernels::ExecutionScope::new(
+        Arc::default(),
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(20)),
+    );
+    let admission = super::super::strategy::admission::TaskAdmission::new(
+        limits,
+        scope.clone(),
+        Some(runtime.native().pool.clone()),
+        false,
+    );
+    assert!(
+        prepared
+            .solve
+            .work_admitted(limits, &scope, admission.clone())
+    );
+    for constrained in [
+        pse_model::strategy::WorkLimits {
+            iterations: Some(1),
+            ..limits
+        },
+        pse_model::strategy::WorkLimits {
+            factorizations: Some(1),
+            ..limits
+        },
+        pse_model::strategy::WorkLimits {
+            proof_steps: Some(1),
+            ..limits
+        },
+    ] {
+        assert!(
+            !prepared
+                .solve
+                .work_admitted(constrained, &scope, admission.clone())
+        );
+    }
+    let mut preprocessing = prepared.solve.clone();
+    preprocessing.profile.presolve = native::presolve::Policy::Auto;
+    assert!(!preprocessing.work_admitted(limits, &scope, admission.clone()));
+    let mut sensitivity = prepared.solve.clone();
+    sensitivity.profile.sensitivity = Some(super::super::settings::SensitivityRequest {
+        parameters: Vec::new(),
+        reduced_hessian: false,
+        propagation: None,
+    });
+    assert!(!sensitivity.work_admitted(limits, &scope, admission.clone()));
+    prepared.solve = prepared
+        .solve
+        .within_admitted_task(scope, admission.clone())
+        .unwrap();
+    let result = package
+        .solve_case(prepared, fixture::compiler_profile(), &cancel)
+        .await
+        .unwrap();
+    assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
+    assert!(matches!(&result.outcome,Outcome::Native(report) if report.backend==Backend::Kinsol));
+    let trace = result.strategy.as_ref().unwrap();
+    assert!(
+        trace
+            .events
+            .iter()
+            .any(|event| event.kind == pse_model::generated::enums::NumericalEventKind::Started)
+    );
+    let evaluations = admission.observation().unwrap().evaluations.unwrap();
+    assert!(evaluations > 0 && evaluations <= 500);
+}
+
 #[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {

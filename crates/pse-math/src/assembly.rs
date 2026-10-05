@@ -133,11 +133,27 @@ impl CasePlan {
                 continue;
             }
             let body = &self.bodies[&binding.body];
-            let support = body.incidence(
-                &outputs,
-                &(0..binding.slots.len()).collect::<Vec<_>>(),
-                cancel,
-            )?;
+            let coordinates = (0..binding.slots.len()).collect::<Vec<_>>();
+            let established = self.supports.iter().find(|support| {
+                support.body() == body.as_ref()
+                    && support.order() >= DerivativeOrder::First
+                    && outputs
+                        .iter()
+                        .all(|output| support.outputs().contains(output))
+                    && coordinates
+                        .iter()
+                        .all(|coordinate| support.coordinates().contains(coordinate))
+            });
+            let support = if let Some(established) = established {
+                established.conditional_support(
+                    &outputs,
+                    &coordinates,
+                    DerivativeOrder::First,
+                    cancel,
+                )?
+            } else {
+                body.incidence(&outputs, &coordinates, cancel)?
+            };
             for contribution in &binding.contributions {
                 let numerical: BTreeSet<_> = support
                     .first_for_output(contribution.output)
@@ -381,6 +397,24 @@ impl CasePlan {
         cancel: &Arc<AtomicBool>,
         columns: Vec<SemanticId>,
     ) -> Result<Self, MathError> {
+        Self::prepare_with_source_support(
+            structure, bodies, registry, order, limits, cancel, columns, None,
+        )
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "conditional preparation reuses its actual source support under the same case limits"
+    )]
+    fn prepare_with_source_support(
+        structure: Arc<CaseStructure>,
+        bodies: BTreeMap<ContentHash, Arc<PreparedBody>>,
+        registry: &QuantityRegistry,
+        order: DerivativeOrder,
+        limits: AssemblyLimits,
+        cancel: &Arc<AtomicBool>,
+        columns: Vec<SemanticId>,
+        source: Option<&Self>,
+    ) -> Result<Self, MathError> {
         if limits.contributions == 0 || limits.native_index == 0 || limits.worker_bytes == 0 {
             return Err(MathError::Limit("zero case assembly budget"));
         }
@@ -503,7 +537,34 @@ impl CasePlan {
                 .collect();
             let shared_key = (binding.body, all_outputs.clone(), formal.clone());
             if !all_outputs.is_empty() && !shared_supports.contains_key(&shared_key) {
-                let support = if order == DerivativeOrder::First {
+                let established = source.and_then(|source| {
+                    source
+                        .structure
+                        .instances()
+                        .iter()
+                        .position(|original| {
+                            original.instance == binding.instance && original.body == binding.body
+                        })
+                        .and_then(|index| {
+                            source.instances[index]
+                                .groups
+                                .values()
+                                .flatten()
+                                .map(|group| &source.supports[group.request])
+                                .find(|support| {
+                                    support.order() >= order
+                                        && all_outputs
+                                            .iter()
+                                            .all(|output| support.outputs().contains(output))
+                                        && formal.iter().all(|coordinate| {
+                                            support.coordinates().contains(coordinate)
+                                        })
+                                })
+                        })
+                });
+                let support = if let Some(established) = established {
+                    established.conditional_support(&all_outputs, &formal, order, cancel)?
+                } else if order == DerivativeOrder::First {
                     body.incidence(&all_outputs, &formal, cancel)?
                 } else {
                     body.prepare_support(&all_outputs, &formal, order, cancel)?
@@ -737,21 +798,49 @@ impl CasePlan {
             .iter()
             .map(|i| (i.body, self.bodies[&i.body].clone()))
             .collect();
+        // This is a restriction of an admitted structure, so its extents must not
+        // exceed that source. Avoid replacing the source's limits with defaults.
+        let source_slots = self
+            .structure
+            .instances()
+            .iter()
+            .try_fold(0usize, |total, instance| {
+                total
+                    .checked_add(instance.slots.len())
+                    .and_then(|total| total.checked_add(instance.checked_members.len()))
+            })
+            .ok_or(MathError::Limit("conditional source slots"))?;
+        let case_limits = crate::binding::CaseLimits {
+            scalars: self
+                .structure
+                .variables()
+                .len()
+                .checked_add(self.structure.parameters().len())
+                .ok_or(MathError::Limit("conditional source scalars"))?
+                .max(1),
+            instances: self.structure.instances().len().max(1),
+            rows: self.structure.rows().len().max(1),
+            bodies: self.bodies.len().max(1),
+            slots: source_slots.max(1),
+        };
         let structure = CaseStructure::new(
             variables,
             self.structure.parameters().to_vec(),
             instances,
             rows,
             None,
-            crate::binding::CaseLimits::default(),
+            case_limits,
         )?;
-        Self::prepare(
+        let columns = structure.free_variables().collect();
+        Self::prepare_with_source_support(
             Arc::new(structure),
             bodies,
             registry,
-            DerivativeOrder::First,
+            self.order.max(DerivativeOrder::First),
             self.limits,
             cancel,
+            columns,
+            Some(self),
         )
     }
     /// Append first directional constraint actions after a consumer requests them.

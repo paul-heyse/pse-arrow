@@ -1435,6 +1435,10 @@ impl Session {
         if let Ok(method) = serde_json::to_string(&self.settings.method) {
             report.provenance.insert("settings".into(), method);
         }
+        // Native-exit failure and fresh original validation are distinct
+        // observations. Preserve the former before validation replaces its
+        // worker-local witness; finalize inclusive counters after both phases.
+        self.callback.state.retain_failure(&mut report);
         // SAFETY: the session's live iterate vector of the `n` coordinates.
         let x = shifted(unsafe { values(self.x, n) }?, &self.callback.offsets, 1.0);
         if x.iter().all(|v| v.is_finite()) {
@@ -2097,6 +2101,7 @@ mod tests {
         calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
         fail_at: usize,
         reject_above: Option<f64>,
+        distinguish_failures: bool,
     }
     impl FaultOracle {
         fn new(fail_at: usize) -> Self {
@@ -2105,6 +2110,7 @@ mod tests {
                 calls: Default::default(),
                 fail_at,
                 reject_above: None,
+                distinguish_failures: false,
             }
         }
         fn trial(&self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
@@ -2112,7 +2118,11 @@ mod tests {
             if call == self.fail_at || self.reject_above.is_some_and(|limit| x[0] > limit) {
                 out[0] = 99.0; // Partial work must never reach the native output.
                 return Err(pse_math::MathError::Domain {
-                    source_id: self.inner.c.variables[0].id,
+                    source_id: if self.distinguish_failures {
+                        pse_ids::SemanticId::from_bytes([u8::try_from(call).unwrap(); 16])
+                    } else {
+                        self.inner.c.variables[0].id
+                    },
                     requirement: "admitted trial",
                 }
                 .into());
@@ -2203,6 +2213,113 @@ mod tests {
             )
             .unwrap()
     }
+    #[derive(Debug)]
+    struct EvaluationAdmission {
+        cap: u64,
+        observed: std::sync::atomic::AtomicU64,
+    }
+    impl WorkAdmission for EvaluationAdmission {
+        fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            let evaluations = work.evaluations.ok_or_else(|| {
+                ProblemError::Contract("KINSOL callback evaluation count is unknown".into())
+            })?;
+            if self
+                .observed
+                .load(std::sync::atomic::Ordering::SeqCst)
+                .checked_add(evaluations)
+                .is_none_or(|total| total > self.cap)
+            {
+                return Err(ProblemError::Limit {
+                    kind: crate::LimitKind::Work,
+                    detail: "KINSOL test evaluation allowance exhausted".into(),
+                });
+            }
+            Ok(())
+        }
+        fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            let evaluations = work.evaluations.ok_or_else(|| {
+                ProblemError::Contract("KINSOL observed evaluation count is unknown".into())
+            })?;
+            self.observed
+                .try_update(
+                    std::sync::atomic::Ordering::SeqCst,
+                    std::sync::atomic::Ordering::SeqCst,
+                    |total| total.checked_add(evaluations),
+                )
+                .map_err(|_| ProblemError::Limit {
+                    kind: crate::LimitKind::Work,
+                    detail: "KINSOL test evaluation counter overflow".into(),
+                })?;
+            Ok(())
+        }
+    }
+    #[test]
+    fn evaluation_coverage_requires_the_actual_callback_owner_and_counts_final_validation() {
+        use crate::solve::WorkCoverage;
+        use std::sync::Arc;
+        let adapter = crate::execution::adapter(Backend::Kinsol);
+        assert_eq!(adapter.work_coverage(&execution()), WorkCoverage::default());
+        for cap in [0_u64, 1, 2] {
+            let admission = Arc::new(EvaluationAdmission {
+                cap,
+                observed: std::sync::atomic::AtomicU64::new(0),
+            });
+            let mut scope = execution();
+            scope.work_admission = Some(admission.clone());
+            assert_eq!(
+                adapter.work_coverage(&scope),
+                WorkCoverage {
+                    evaluations: true,
+                    ..WorkCoverage::default()
+                }
+            );
+            scope.callback_work_owner = false;
+            assert_eq!(adapter.work_coverage(&scope), WorkCoverage::default());
+            scope.callback_work_owner = true;
+            let oracle = FaultOracle::new(usize::MAX);
+            let calls = oracle.calls.clone();
+            let mut session = fault_session(Strategy::Newton, oracle);
+            let report = session
+                .solve(
+                    &[1.0],
+                    &Controls::default(),
+                    &ResolvedAccuracy::nominal(),
+                    scope,
+                    &Tolerances {
+                        variables: vec![1e-8],
+                        rows: vec![1e-8],
+                        integrality: 1e-8,
+                    },
+                    None,
+                )
+                .unwrap();
+            assert_eq!(
+                calls.load(std::sync::atomic::Ordering::SeqCst),
+                cap as usize
+            );
+            assert_eq!(
+                admission.observed.load(std::sync::atomic::Ordering::SeqCst),
+                cap
+            );
+            assert_eq!(report.evidence.work.evaluations, Some(cap));
+            if cap < 2 {
+                assert_eq!(report.termination.category, Termination::Limit);
+                assert!(report.evidence.callback.terminal_failure);
+                assert!(matches!(
+                    report.callback_failure().or(report.validation_failure()),
+                    Some(ProblemError::Limit {
+                        kind: crate::LimitKind::Work,
+                        ..
+                    })
+                ));
+                assert_eq!(report.validation_failure().is_some(), cap == 1);
+            } else {
+                solved(&report);
+                assert!(report.callback_failure().is_none());
+                assert!(report.validation_failure().is_none());
+            }
+        }
+    }
     #[test]
     fn final_residual_validation_is_inclusive_even_when_it_fails() {
         for fail in [false, true] {
@@ -2224,6 +2341,25 @@ mod tests {
                 ));
             }
         }
+    }
+    #[test]
+    fn native_exit_and_final_validation_retain_distinct_domain_witnesses() {
+        let mut oracle = FaultOracle::new(usize::MAX);
+        oracle.reject_above = Some(0.0);
+        oracle.distinguish_failures = true;
+        let calls = oracle.calls.clone();
+        let mut session = fault_session(Strategy::Newton, oracle);
+        let report = solve_fault(&mut session, 1.0);
+        assert_eq!(report.termination.category, Termination::Evaluation);
+        assert!(crate::callback::retryable_evaluation(&report));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+        assert_eq!(report.evidence.work.evaluations, Some(2));
+        assert!(matches!(report.callback_failure(),
+            Some(ProblemError::Math(pse_math::MathError::Domain {source_id, ..}))
+                if *source_id == pse_ids::SemanticId::from_bytes([1; 16])));
+        assert!(matches!(report.validation_failure(),
+            Some(ProblemError::Math(pse_math::MathError::Domain {source_id, ..}))
+                if *source_id == pse_ids::SemanticId::from_bytes([2; 16])));
     }
     #[test]
     fn map_callbacks_latch_failed_trials_but_newton_can_recover() {

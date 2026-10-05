@@ -53,8 +53,8 @@ Scientific workflows retain statistical, control, time/event, occurrence and dur
 | Native methods and reuse | Actual KINSOL JVP/block factors, FERAL retention, Ipopt sequences, Uno, PETSc and egobox state | Preserve existing objects and scopes; complete M8/M17/M18 routes and actual observation |
 | Public/durable boundaries | Rust-owned generation, version-first readmission and distinct source/request/preparation identities | Version changed execution meaning; preserve historical bytes and refuse unsupported readmission explicitly |
 
-The remaining reconstruction work is concrete: existing math interfaces admit a generic supplier,
-but the runtime reduced request currently assumes one factory covering every eliminated row and
+At authoring, existing math interfaces admitted a generic supplier,
+but the runtime reduced request assumed one factory covering every eliminated row and
 coordinate. The selected replacement composes existing authored `Root`/`Regimes` factories and
 `CasePlan` projections through that generic interface. Structural matching alone never produces
 a selected regular sheet. Ineligible equality regions remain simultaneous or supply only an
@@ -613,10 +613,12 @@ The complete POUNCE family and FERAL use the corrective source artifact
 `ff6386944421e8037069e521222ada9f22d457e3`. Dependency discovery follows the resolved graph;
 KLU preparation no longer requires offline availability or a hardcoded SuiteSparse crate version.
 
-Next: finish linked positive/refusal controls, regenerate after the dependency update, refresh the
-Python extension, perform selected assembled journeys and scope-end checks, then settle AF-01–AF-08
-and the N11 functional handoff. Full 25k scientific and performance qualification remains separate.
-This checkpoint is not final signoff.
+The selected linked controls and scope-end checks have passed, but the assembled flash study
+uncovered a remaining conditional-preparation defect: already-owned First support is rebuilt from
+bodies whose finite construction allowance is exhausted. Correct that projection without raising
+any authored budget, then rerun the affected mathematical/native controls and the original
+1,000-point Python journey before settling AF-01–AF-08 and the N11 handoff. Full 25k scientific
+and performance qualification remains separate. This checkpoint is not final signoff.
 
 The earlier authorized stale-worktree assessment found ten obsolete secondary trees with no commits
 outside main. Their changes were integrated or superseded; all ten trees and their two obsolete local

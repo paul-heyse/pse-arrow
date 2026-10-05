@@ -701,11 +701,11 @@ The maintainer committed and pushed the implementation as
 `58b700bc36d59517d77886496c6ad4072ed4a560`. The subsequent
 [automatic simulation/solve pipeline review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md)
 assesses that baseline, identifies additional integration corrections and distinguishes
-them from the broader automatic-composition target. The draft
-[25n](25n-automatic-simulation-solve-pipeline.md) owns AF-01–AF-08 and the proposed corrections.
+them from the broader automatic-composition target. The subsequent
+[25n](25n-automatic-simulation-solve-pipeline.md) owns AF-01–AF-08 and the corrections.
 The P6/P9 packet rows distinguish delivered scoped forms from missing native obligations now assigned to
-25n N5/N6; earlier finding ownership and receipts stay here. Plan creation supplies no correction
-evidence. Implementation and qualification remain paused.
+25n N5/N6; earlier finding ownership and receipts stay here. The 25n execution checkpoint and
+Outcome own its current correction evidence and handoff; 25k owns full qualification.
 
 The shared driver now consumes actual prepared original, derived, arclength and PETSc
 operations under one original task scope. Only an original correction followed by the
@@ -1020,8 +1020,8 @@ of those pending campaigns is running in the background.
 
 **Implemented, scoped Tested:** P0–P11 functional work and migration are present within the
 targeted evidence described in the checkpoint. This does not establish the missing M8/M17/M18
-routes or the newly reviewed integration corrections, now proposed in
-[25n](25n-automatic-simulation-solve-pipeline.md). The current repair handoff is paused at the maintainer's request.
+routes or the newly reviewed integration corrections. Their current implementation and handoff
+are owned by [25n](25n-automatic-simulation-solve-pipeline.md#outcome).
 Plan 25k's final stable assembled campaign, required dev-profile measurements and worktree
 retirement remain incomplete; these functional results do not close either plan.
 

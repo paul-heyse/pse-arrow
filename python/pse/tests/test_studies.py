@@ -20,6 +20,7 @@ from pse.contracts.documents import (
 )
 from pse.contracts.enums import (
     AttemptState,
+    DiagnosticCode,
     FeralOrdering,
     JobState,
     NativeBackend,
@@ -52,7 +53,9 @@ SOURCE = """package algebraic { def Root {
 } }"""
 
 
-def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
+def _package(
+    runtime: pse.Runtime, *, source: str = SOURCE
+) -> tuple[pse.ModelingPackage, DeclarationId]:
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -69,7 +72,7 @@ def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
     )
     manifest = manifest.replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
+        [{"package.toml": manifest, "models/root.pse": source}], physical
     )
     case = next(
         row.declaration_id for row in package.declarations() if row.name == "Root"
@@ -629,7 +632,29 @@ def test_flash_sweep_prepares_structure_once(
         # Independent points retain physical checks; the original oracle fixture remains
         # qualified separately at its single 368 K feed.
         (attempt,) = pa.table(result.table("runtime.solve_runs")).to_pylist()
-        assert attempt["termination"] == NativeTermination.SUCCESS
+        if attempt["state"] == "constant_evaluation":
+            # Complete block assembly is independently assessed in original space;
+            # it has no redundant outer native solve or native termination code.
+            assert attempt["candidate_kind"] == "constant_evaluation"
+            assert attempt["qualification"] == "feasible"
+            assert attempt["feasible"] is True
+            assert attempt["error"] is None
+            assert attempt["validation_error"] is None
+            assert attempt["backend"] is None
+            assert attempt["termination"] is None
+            assert attempt["native_code"] is None
+            assert attempt["native_status"] is None
+            events = pa.table(result.table("runtime.solve_strategy_events")).to_pylist()
+            assert any(
+                row["mechanism"] == "block"
+                and row["kind"] == "finished"
+                and row["phase"] == "assessment"
+                and row["original_conclusion"] == "satisfied"
+                and row["permission"] == "usable"
+                for row in events
+            )
+        else:
+            assert attempt["termination"] == NativeTermination.SUCCESS
         if not result.usable:
             checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
             failed_checks = [row for row in checks if not row["satisfied"]]
@@ -672,9 +697,7 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
         settings,
         composition=msgspec.structs.replace(
             settings.composition,
-            limits=WorkLimits(
-                attempts=4, evaluations=500, iterations=500, factorizations=500
-            ),
+            limits=WorkLimits(attempts=4, evaluations=500),
         ),
     )
     alone = package.study(package.admit_study(request(point(case, settings, 3))))
@@ -683,7 +706,9 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
             request(point(case, settings, 7), point(case, settings, 11))
         )
     )
-    assert alone.outcome(0).scientific.usable
+    assert alone.outcome(0).scientific.usable, codec.encode_json(
+        alone.outcome(0)
+    ).decode()
     for index in range(2):
         assert paired.outcome(index).scientific.usable
         result = paired.result(index)
@@ -698,13 +723,32 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
         )
         assert all(row["observation"] != "contract_failure" for row in events)
 
+    # This adapter admits callback evaluations; opaque native counters still refuse.
+    unsupported = msgspec.structs.replace(
+        settings,
+        composition=msgspec.structs.replace(
+            settings.composition,
+            limits=WorkLimits(
+                attempts=4, evaluations=500, iterations=500, factorizations=500
+            ),
+        ),
+    )
+    refused = package.study(package.admit_study(request(point(case, unsupported, 13))))
+    outcome = refused.outcome(0)
+    assert not outcome.scientific.usable
+    assert not outcome.scientific.seed_permission
+    assert outcome.diagnostic is not None
+    assert outcome.diagnostic.code == DiagnosticCode.NATIVE_UNSUPPORTED
+
 
 @pytest.mark.unit
 def test_capped_related_root_study_charges_prediction_and_screening(
     inspection_settings: pse.EngineSettings,
 ) -> None:
     runtime = pse.Runtime(inspection_settings)
-    package, case = _package(runtime)
+    package, case = _package(
+        runtime, source=SOURCE.replace("    annotation bounds x(0,10);\n", "")
+    )
     settings = pse.SolveSettings(
         backend=NativeBackend.KINSOL,
         intent=NativeSolveIntent.ROOT,
@@ -734,7 +778,9 @@ def test_capped_related_root_study_charges_prediction_and_screening(
             )
         )
     )
-    assert all(study.outcome(index).scientific.usable for index in range(2))
+    assert all(study.outcome(index).scientific.usable for index in range(2)), tuple(
+        codec.encode_json(study.outcome(index)).decode() for index in range(2)
+    )
     result = study.result(1)
     assert result is not None
     events = pa.table(result.table("runtime.solve_strategy_events")).to_pylist()

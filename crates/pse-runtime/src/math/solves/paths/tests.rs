@@ -416,6 +416,17 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
         .unwrap();
     assert!(outcome.terminal.is_none(), "{:?}", outcome.terminal);
     assert_eq!(outcome.native_calls, 2);
+    let witness = outcome.completion_witness().unwrap();
+    let proposal = outcome.proposal.as_ref().unwrap();
+    assert_eq!(
+        witness.recovery_branch(path.branch(), proposal).unwrap(),
+        proposal.branch()
+    );
+    assert!(
+        witness
+            .recovery_branch(BranchPolicy::any_qualified(), proposal)
+            .is_err()
+    );
     assert_eq!(outcome.observations.len(), 2);
     assert_eq!(outcome.observations.last().unwrap().point[1], 3.);
     assert_ne!(outcome.connected.unwrap().transport, prior.transport);

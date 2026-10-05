@@ -128,14 +128,13 @@ impl PreparedSolve {
                 "screened proposal origin or branch is not admitted by the original request".into(),
             ));
         }
-        if let Some(scope) = &self.task_scope {
-            if !Arc::ptr_eq(scope.cancellation(), start.scope().cancellation())
-                || scope.deadline() != start.scope().deadline()
-            {
-                return Err(ProblemError::Contract(
-                    "screened proposal task differs from the original scope".into(),
-                ));
-            }
+        if let Some(scope) = &self.task_scope
+            && (!Arc::ptr_eq(scope.cancellation(), start.scope().cancellation())
+                || scope.deadline() != start.scope().deadline())
+        {
+            return Err(ProblemError::Contract(
+                "screened proposal task differs from the original scope".into(),
+            ));
         }
         let compatibility = self.compatibility.clone().ok_or_else(|| {
             ProblemError::Contract("constant evaluation has no numerical proposal start".into())

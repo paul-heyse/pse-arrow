@@ -168,7 +168,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     );
     assert_eq!(
         event.transition,
-        Some(pse_model::strategy::Transition::Stop)
+        Some(pse_model::strategy::Transition::Finish)
     );
     assert!(event.decision.is_some());
     assert_eq!(event.work.unwrap().observed.evaluations, None);

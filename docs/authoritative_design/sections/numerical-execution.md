@@ -589,10 +589,11 @@ backend, coordinates and profile (the same block in a later stage) when that ste
 `ReusePolicy` allows it; the default, `Fresh`, rebuilds. A step whose candidate is not a
 result drops the retained state.
 
-A case resolved for the initialize intent refuses a free discrete variable
-(`modeling.domain`, [§6.8](schema-and-relations.md#section-6-8)); the ADR-0103 stage that
-fixes discrete variables as a scoped overlay, restored on every exit (Plan 22 M2), is not
-yet implemented. The public entry is the package-bound block initialization strategy
+A case resolved directly for the initialize intent refuses a free discrete variable
+(`modeling.domain`, [§6.8](schema-and-relations.md#section-6-8)). Authored staged initialization
+implements ADR-0103’s `FixAtStart` policy: it validates integral discrete starts, fixes them
+within the stage overlay, and restores the original free discrete specification for final
+assessment and on every exit. The public entry is the package-bound block initialization strategy
 (`workflow/strategies/conditional.rs`). Authored stage and homotopy initialization
 (`ModelingPackage::initialize_model`, `workflow/modeling/engines.rs`) runs on the same
 staged-sequence primitive and retains original-specification acceptance
@@ -1347,8 +1348,8 @@ absence derives the actual classified native geometry rather than selecting anot
 Application heap storage remains opaque and deployment-owned. Retained storage transfers to its
 resource owner; completing a task releases its ledger and foreign allowance while resource tokens
 remain until teardown. The
-[25n checkpoint](../../plans/25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
-owns the partial integration and validation state.
+[25n Outcome](../../plans/25n-automatic-simulation-solve-pipeline.md#outcome)
+owns functional integration evidence and the qualification handoff.
 
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — SPRAL
 > (OpenMP) and oneMKL threads become admitted resources under this owner, with one

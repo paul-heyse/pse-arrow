@@ -842,7 +842,10 @@ fn settings_identity_is_type_name_independent() {
         ),
         (
             "pounce",
-            "blake3:cf49096ef6cc9bd5423a72ca8916ed0f3061744355448ef3a4c8db1ae0f0a3f9",
+            // Current FeralIdentity includes the optional storage dimension bound,
+            // including its unset state. The source revision belongs to the native
+            // build/request identity, not this typed settings document.
+            "blake3:dbbc460a77cea086b9d2e787b4f5fd8191dda0f9721aa5dd65c1ebc318b737e7",
         ),
         (
             "kinsol",
@@ -864,7 +867,14 @@ fn settings_identity_is_type_name_independent() {
     .into_iter()
     .map(|(label, identity)| (label, identity.to_owned()))
     .collect::<Vec<_>>();
-    assert_eq!((historical, observed), (historical_expected, expected));
+    assert_eq!(
+        historical, historical_expected,
+        "historical document bytes remain frozen"
+    );
+    assert_eq!(
+        observed, expected,
+        "current typed defaults use canonical V5 settings identity"
+    );
     // Plan 25n's native controls are identity-bearing even when callers submit
     // partial documents and the remaining settings take their typed defaults.
     let pounce = serde_json::from_value::<BackendSettings>(json!({"backend": "pounce"}))

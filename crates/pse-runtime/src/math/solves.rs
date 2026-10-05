@@ -274,7 +274,7 @@ enum AutomaticBinding {
     #[cfg(feature = "solver-kinsol")]
     Blocks(Box<PreparedSolve>),
     Original(Box<PreparedSolve>),
-    Prepared(PreparedRung),
+    Prepared(Box<PreparedRung>),
     #[cfg(feature = "solver-pounce")]
     NativeProfile {
         original: Box<PreparedSolve>,
@@ -487,7 +487,10 @@ impl PreparedSolve {
             return false;
         };
         let adapter = execution::adapter(backend);
-        if adapter.representation() != execution::Representation::Nlp {
+        if !matches!(
+            adapter.representation(),
+            execution::Representation::Nlp | execution::Representation::Roots
+        ) {
             return false;
         }
         // Library preprocessing has no primitive proof/work admission contract.
@@ -629,7 +632,7 @@ impl PreparedSolve {
                 description.prepared = true;
                 operations.push(AutomaticOperation {
                     candidate: description,
-                    binding: AutomaticBinding::Prepared(rung.clone()),
+                    binding: AutomaticBinding::Prepared(Box::new(rung.clone())),
                 });
             }
             #[cfg(feature = "solver-kinsol")]
@@ -782,7 +785,7 @@ impl MathService {
                     self.prepare_blocks(*original, scope, cancel).await?,
                 ));
             }
-            AutomaticBinding::Prepared(rung) => return Ok(rung),
+            AutomaticBinding::Prepared(rung) => return Ok(*rung),
             AutomaticBinding::Original(original) => (*original).within_task(scope)?,
             AutomaticBinding::Reduced {
                 original,

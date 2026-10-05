@@ -262,6 +262,89 @@ impl PreparedSupport {
             owner: self.owner.clone(),
         })
     }
+    /// Mechanical conditional projection of already established derivative support.
+    /// No symbolic construction is repeated and no exhausted allowance is reset.
+    /// The containing case admits and retains these restricted metadata buffers.
+    pub(crate) fn conditional_support(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        self.body().check_selection(outputs, coordinates)?;
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        if order < DerivativeOrder::First
+            || self.order() < order
+            || coordinates
+                .iter()
+                .any(|coordinate| !self.coordinates().contains(coordinate))
+        {
+            return Err(MathError::Contract(
+                "conditional support is not an established order and coordinate restriction".into(),
+            ));
+        }
+        let first = outputs
+            .iter()
+            .map(|output| {
+                let support = self.first_for_output(*output).ok_or_else(|| {
+                    MathError::Contract(
+                        "conditional First support output is not established".into(),
+                    )
+                })?;
+                Ok(support
+                    .iter()
+                    .filter(|coordinate| coordinates.contains(coordinate))
+                    .copied()
+                    .collect())
+            })
+            .collect::<Result<Vec<BTreeSet<usize>>, MathError>>()?;
+        let second = if order >= DerivativeOrder::Second {
+            outputs
+                .iter()
+                .map(|output| {
+                    let support = self.second_for_output(*output).ok_or_else(|| {
+                        MathError::Contract(
+                            "conditional Second support output is not established".into(),
+                        )
+                    })?;
+                    Ok(support
+                        .iter()
+                        .filter(|(left, right)| {
+                            coordinates.contains(left) && coordinates.contains(right)
+                        })
+                        .copied()
+                        .collect())
+                })
+                .collect::<Result<Vec<BTreeSet<(usize, usize)>>, MathError>>()?
+        } else {
+            Vec::new()
+        };
+        Ok(Self {
+            data: Arc::new(PreparedSupportData {
+                body: self.body().clone(),
+                outputs: outputs.to_vec(),
+                coordinates: coordinates.to_vec(),
+                order,
+                support: Support {
+                    first,
+                    second,
+                    controls: self
+                        .support()
+                        .controls
+                        .iter()
+                        .filter(|coordinate| coordinates.contains(coordinate))
+                        .copied()
+                        .collect(),
+                },
+                remaining_occurrences: self.remaining_occurrences(),
+                derivative_operations: 0,
+            }),
+            owner: self.owner.clone(),
+        })
+    }
     /// Compile numerical products after independent selected-closure capability admission.
     pub fn compile(
         &self,

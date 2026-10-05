@@ -1703,6 +1703,7 @@ mod tests {
     use super::*;
     use crate::math::solves::Outcome;
     use std::sync::Arc;
+    #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
     fn authored_symbol(
         product: &pse_compiler::workspace::PreparedModeling,
         path: &str,
@@ -1746,9 +1747,15 @@ mod tests {
         let package = runtime
             .modeling_package(declarations, fixture::physical())
             .unwrap();
-        let mut solver = SolverProfile::default();
-        solver.presolve = pse_backend_native::presolve::Policy::Off;
-        solver.controls.time_limit = std::time::Duration::from_secs(30);
+        let defaults = SolverProfile::default();
+        let solver = SolverProfile {
+            presolve: pse_backend_native::presolve::Policy::Off,
+            controls: pse_backend_native::solve::Controls {
+                time_limit: std::time::Duration::from_secs(30),
+                ..defaults.controls
+            },
+            ..defaults
+        };
         assert!(solver.reconstruction.is_none());
         let cancel = crate::CancelSource::new();
         let prepared = package
@@ -1829,7 +1836,7 @@ mod tests {
             .solve_case(prepared, fixture::compiler_profile(), &cancel)
             .await
             .unwrap();
-        assert!(result.accepted, "{result:?}");
+        assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
         assert!((result.values.scalars[&x] - 2.0).abs() < 1e-5);
         assert!((result.values.scalars[&y] - 5.0).abs() < 1e-5);
         assert!((result.values.scalars[&z] - 5.0).abs() < 1e-5);
@@ -1841,11 +1848,22 @@ mod tests {
                 .mechanisms
                 .iter()
                 .any(|m| m.kind == pse_model::strategy::MechanismKind::ReducedSpace),
-            "{trace:?}"
+            "actual mechanisms={:?}",
+            trace
+                .declaration
+                .mechanisms
+                .iter()
+                .map(|mechanism| mechanism.kind)
+                .collect::<Vec<_>>()
         );
         assert!(
             trace.products.iter().any(|p| p.accuracy.is_some()),
-            "{trace:?}"
+            "actual accuracy receipt count={}",
+            trace
+                .products
+                .iter()
+                .flat_map(|product| &product.evidence)
+                .count()
         );
         assert!(
             trace
@@ -1853,7 +1871,13 @@ mod tests {
                 .iter()
                 .flat_map(|p| &p.evidence)
                 .any(|e| e.derivative_order == 1),
-            "actual composed action must be published: {trace:?}"
+            "actual composed action must be published; derivative orders={:?}",
+            trace
+                .products
+                .iter()
+                .flat_map(|product| &product.evidence)
+                .map(|evidence| evidence.derivative_order)
+                .collect::<Vec<_>>()
         );
         use pse_relations::columnar::RelationRow;
         use pse_relations::generated::runtime::solve_strategy_products;

@@ -640,6 +640,82 @@ mod tests {
         assert!(separator.rows.contains(&local));
     }
     #[test]
+    fn automatic_blocks_reuse_owned_first_support_with_restricted_formal_slots() {
+        for order in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let (source, _) = source_text(
+                "package p {def Root {var x:Scalar;var p:Scalar;eq local:x==if p>0 then 1 else 2;eq external:p==1;}}",
+                order,
+            );
+            let cancel = Arc::new(AtomicBool::new(false));
+            let Alternative::Available(blocks) = source.automatic_blocks(&cancel).unwrap() else {
+                panic!("the original equality schedule must remain preparable")
+            };
+            assert!(blocks.len() > 1);
+            for block in blocks.iter() {
+                assert_eq!(block.plan.order(), order);
+                for projected in block.plan.supports() {
+                    let original = source
+                        .plan
+                        .supports()
+                        .iter()
+                        .find(|original| {
+                            original.body() == projected.body()
+                                && projected
+                                    .outputs()
+                                    .iter()
+                                    .all(|output| original.outputs().contains(output))
+                                && projected
+                                    .coordinates()
+                                    .iter()
+                                    .all(|coordinate| original.coordinates().contains(coordinate))
+                        })
+                        .unwrap();
+                    assert_eq!(projected.derivative_operations(), 0);
+                    assert_eq!(
+                        projected.remaining_occurrences(),
+                        original.remaining_occurrences()
+                    );
+                    assert_eq!(
+                        projected.support().controls,
+                        original
+                            .support()
+                            .controls
+                            .iter()
+                            .filter(|coordinate| projected.coordinates().contains(coordinate))
+                            .copied()
+                            .collect()
+                    );
+                    for output in projected.outputs() {
+                        if order == DerivativeOrder::Second {
+                            assert_eq!(
+                                projected.second_for_output(*output).unwrap(),
+                                &original
+                                    .second_for_output(*output)
+                                    .unwrap()
+                                    .iter()
+                                    .filter(|(left, right)| projected.coordinates().contains(left)
+                                        && projected.coordinates().contains(right))
+                                    .copied()
+                                    .collect()
+                            );
+                        }
+                        assert_eq!(
+                            projected.first_for_output(*output).unwrap(),
+                            &original
+                                .first_for_output(*output)
+                                .unwrap()
+                                .iter()
+                                .filter(|coordinate| projected.coordinates().contains(coordinate))
+                                .copied()
+                                .collect()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn fixed_parameter_branch_is_retained_in_execution_projection() {
         let (source, [x, p, local, _]) = source_text(
             "package p { def Root { var x:Scalar; param p:Scalar=1; eq local:x==if p>0 then 1 else 2; } }",

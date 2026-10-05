@@ -64,7 +64,6 @@ pub(crate) fn callable<T>(
     classify: impl Fn(&T) -> Observation,
     assess: impl Fn(&T, Observation) -> strategy::Assessment,
 ) -> Result<(T, Arc<strategy::Trace>), MathRuntimeError> {
-    #[allow(unused_mut)] // Actual POUNCE catalog extends the finite binding.
     let mut declaration = declaration(&source);
     #[cfg(feature = "solver-pounce")]
     if source.request.limits.is_none()
@@ -78,7 +77,9 @@ pub(crate) fn callable<T>(
             }
             pse_backend_native::execution::BackendSettings::Pounce(settings) => settings.clone(),
             _ => {
-                return Err(ProblemError::Contract("callable POUNCE settings differ".into()).into());
+                return Err(
+                    ProblemError::Contract("callable POUNCE settings differ".into()).into(),
+                );
             }
         };
         declaration.limits.attempts = u64::try_from(
@@ -96,8 +97,10 @@ pub(crate) fn callable<T>(
         Some(service.pool.clone()),
         false,
     );
-    #[allow(unused_mut)] // Actual POUNCE reports can reveal another source-owned profile.
+    #[cfg(feature = "solver-pounce")]
     let mut profiles = vec![source.solver.cloned()];
+    #[cfg(not(feature = "solver-pounce"))]
+    let profiles = [source.solver.cloned()];
     #[cfg(feature = "solver-pounce")]
     let mut known_profiles = BTreeSet::from([source.profile]);
     #[cfg(not(feature = "solver-pounce"))]
@@ -259,6 +262,8 @@ pub(crate) fn callable<T>(
             .hash(&source.preparation)
             .hash(&actual_profile);
         let charging_owner = charging_owner.finish_hash();
+        // A later binding or cutoff must not inherit an earlier operation's cause.
+        operation_failure = None;
         let mut result = strategy::run_admitted(
             &operation,
             scope,
@@ -426,6 +431,7 @@ pub(crate) fn callable<T>(
     };
     let trace = strategy::Trace {
         owner: None,
+        publication_request: None,
         declaration,
         original: source.original,
         backend: source.backend,
@@ -463,14 +469,24 @@ pub(crate) fn callable<T>(
     };
     let trace = Arc::new(trace.with_owner(owner));
     if let Some(cause) = outer_terminal {
+        let source_failure = operation_failure.filter(|_| {
+            last.as_ref()
+                .and_then(|last| last.original.as_ref())
+                .and_then(strategy::OriginalConclusion::cause)
+                .is_some_and(|original| Arc::ptr_eq(&original, &cause))
+        });
         return Err(MathRuntimeError::Strategy {
-            cause: Arc::new(
-                ProblemError::Math(pse_math::MathError::Typed {
-                    retained: cause.retained_bytes(),
-                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
-                })
-                .into(),
-            ),
+            // Preserve the actual dispatched error when this Stop projects its
+            // original assessment; an independent budget cutoff remains its own cause.
+            cause: source_failure.unwrap_or_else(|| {
+                Arc::new(
+                    ProblemError::Math(pse_math::MathError::Typed {
+                        retained: cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                    })
+                    .into(),
+                )
+            }),
             trace,
         });
     }
@@ -651,11 +667,13 @@ mod tests {
                     Backend::Pounce,
                     &contract,
                     NativeTermination {
-                        code: if profiles.len() == 1 { -2 } else { 0 },
+                        // Source-owned local-infeasibility recovery offers a scaling
+                        // profile without a replacement point or guessed escalation.
+                        code: if profiles.len() == 1 { 2 } else { 0 },
                         name: "binder fixture".into(),
                         message: None,
                         category: if profiles.len() == 1 {
-                            Termination::Numerical
+                            Termination::Infeasible
                         } else {
                             Termination::Success
                         },

@@ -956,12 +956,10 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         .wait()
         .await
         .unwrap();
-    let cause = failed
-        .report
-        .as_ref()
-        .err()
-        .expect("zero evaluation cap must refuse the actual target")
-        .clone();
+    let cause = match &failed.report {
+        Err(cause) => cause.clone(),
+        Ok(_) => panic!("zero evaluation cap must refuse the actual target"),
+    };
     assert!(cause.strategy_trace().is_some());
     let (report, failure) = driver::joined_modeling(
         Err(crate::workflow::WorkflowError::Shared(cause)),
