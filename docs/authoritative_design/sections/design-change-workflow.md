@@ -30,7 +30,8 @@ uncertainty. Library eligibility under §3.3.1 remains; integration cost and dep
 are assessed against the architecture. Internal contracts may evolve deliberately without
 freezing an immature API, while durable/external compatibility remains explicit.
 
-AP-07 adds execution fit through existing G9 in Core 3.4; ProcessSimulator 1.5 applies it to
+AP-07 adds qualitative execution-fit assessment through existing G9 in Core 3.4;
+ProcessSimulator 1.5 applies it to
 edit/re-solve, studies, recycles and dynamics while retaining PS-01–PS-13, PS-G1–PS-G3 and the
 PS-09 solver-composition contract. Supported workload premises and relevant growth/skew,
 concurrency and interruption scenarios belong in existing scope/scenario discussion. Semantic
@@ -39,7 +40,16 @@ Compare complete necessary work with incidental scans/crossings/materialization,
 reuse/invalidation, economical assurance, transaction/visibility and retry units, coordinated
 capacity, consumer views and total generated/library-induced obligations. Repeated producer work
 is not independent assurance; distinct state/trust failures and required scientific post-checks
-remain covered. More expensive choices identify their concrete retained benefit.
+remain covered. Explain material tradeoffs and retained benefits in plain language.
+
+Editorial clarification (2026-10-05): assess execution fit qualitatively from relevant operations
+and growth/failure scenarios. This design/review consideration does not require numerical
+estimates, cost models, estimators, runtime cost accounting, execution-planning machinery,
+instrumentation, formal cost proofs or additional proof artifacts. Introduce such mechanisms
+only for a separate concrete functional or operational requirement. Quantitative performance or
+capacity claims still require measurements; existing semantic correctness obligations remain.
+This clarifies the existing assessment scope without a new decision, standard version or
+production work.
 
 Static evidence can establish a structurally unfit route; quantitative speed and capacity require
 measurement. Safe refusal alone does not establish supported-workload fit. Local passing slices

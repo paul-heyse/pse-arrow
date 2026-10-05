@@ -58,8 +58,9 @@ and why that crossing is unnecessary for the scenario. Evidence labels apply to 
 claim; an extension traced in source has not been executed merely because it is plausible.
 
 Prioritize correctness/fidelity failures and choices that make supported workloads infeasible,
-unstable or operationally disproportionate. Structural cost evidence may establish failure
-before measurement. Assess change barriers, repeated semantic ownership, testability and other
+unstable or operationally disproportionate. Qualitative reasoning about operations and growth or
+failure scenarios may establish an execution-fit defect. Assess change barriers, repeated semantic
+ownership, testability and other
 material complexity in the same functional context; priority follows consequence, not whether
 evidence is a benchmark. Compare the simplest viable conforming realization, including native
 composition, and explain the concrete benefit retained by a more expensive choice.
@@ -129,7 +130,12 @@ new evidence folder, artifact hierarchy or registration process.
 
 State the functional target, qualities driving this change, baseline, supported scope and
 non-goals. Include representative operations, relevant size/skew/growth, concurrency/deployment
-constraints and resource envelope where material; no invented capacity SLA or exact cost model.
+constraints and resource envelope where material. Assess execution fit qualitatively and explain
+material tradeoffs in plain language. This consideration requires no numerical estimates, cost
+model, estimator, runtime cost accounting, execution-planning machinery, instrumentation, formal
+cost proof or additional proof artifact; such mechanisms need a separate concrete functional or
+operational requirement. Quantitative performance/capacity claims still require measurements,
+and existing semantic correctness obligations remain. No invented capacity SLA is required.
 Explain what was inspected, asserted, not examined or unavailable. Identify likely
 variation axes and constraints before naming implementation mechanisms.
 
@@ -177,7 +183,7 @@ reused primitives, repeated decisions, affected owners and needed context. Add f
 journeys when lifecycle is material. No mandatory number of scenarios or numeric change quota.
 Where material, include growth, skew/high-degree, concurrency and interruption scenarios beside
 extension scenarios. Ask what scales with necessary input versus incidental declarations or
-boundaries, what stable work survives change, and how much work retries repeat. Global work can
+boundaries, what stable work survives change, and which work retries repeat. Global work can
 be required even for small output; a bounded refusal cannot establish supported-scale fitness.
 Distinguish instances, bindings, compositions, policies, domain concepts and mechanisms; explain
 why edits belong to their semantic owners. In a substantial architecture review, consider both
@@ -229,7 +235,7 @@ fitness; interactions may multiply scans, pools or retained state.
 
 G9 follows the individual foundation verdicts, without averaging. For a change review, omit
 unaffected foundation rows with a scope explanation. Gate judgments must identify evidence;
-passing code tests do not establish unexamined architecture. AP-07 settles credible execution
+passing code tests do not establish unexamined architecture. AP-07 qualitatively assesses execution
 fit through G9, without another gate. Material unknown workload premises remain unresolved;
 known work amplification cannot be excused merely as unmeasured performance.
 
@@ -277,7 +283,7 @@ needed native operations. Do not force a wrapper, feature restriction or depende
 
 ### 9. Alternatives and tradeoffs
 
-| Alternative | Scenarios served / change locality | Contracts, composition and test isolation | Meaning or machinery carried | Correctness / operational cost | Selection and revisit condition |
+| Alternative | Scenarios served / change locality | Contracts, composition and test isolation | Meaning or machinery carried | Correctness / qualitative operational tradeoffs | Selection and revisit condition |
 |---|---|---|---|---|---|
 | Current baseline | | | | | |
 | Proposed design | | | | | |
@@ -286,8 +292,8 @@ needed native operations. Do not force a wrapper, feature restriction or depende
 
 Compare complete preparation, execution, publication, recovery and change, including generated
 and library-induced machinery. Separate necessary work from incidental scans/crossings; state
-the retained benefit when choosing more work or obligations. Reasoning can establish structural
-cost; coefficients and quantitative benefit require measurements.
+the retained benefit when choosing more work or obligations. Qualitative reasoning can settle
+execution fit; numerical performance/capacity claims require measurements.
 
 Rows may coincide; say so. Explain why a seam is justified by a credible variation axis and
 why another abstraction would not help. Report performance claims at their evidence strength.

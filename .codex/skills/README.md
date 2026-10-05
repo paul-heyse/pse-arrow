@@ -29,7 +29,11 @@ All workflow pairs use the [shared agent roles](../../.agents/roles/README.md). 
 bounded capabilities; the coordinator retains design, integration and acceptance. The layered
 standard remains core 3.4 and process-simulator 1.5, as selected by
 `docs/design_review/design_principles/standard.toml`; model adequacy/authority (AP-04/G9),
-execution fit (AP-07/G9) and independent scientific judgments are preserved. The binding owns cadence. Routine implementation adds no standing domain-model
+qualitative execution-fit assessment (AP-07/G9) and independent scientific judgments are preserved.
+Explain material operational tradeoffs in plain language under the core's assessment scope;
+numerical estimates, runtime cost accounting and cost proof artifacts are not required by it.
+Quantitative performance/capacity claims require measurements; semantic correctness obligations
+remain. The binding owns cadence. Routine implementation adds no standing domain-model
 review or exhaustive flow tracing.
 
 Library capability skills remain shared live sources selected by `.config/library-skills.toml`,

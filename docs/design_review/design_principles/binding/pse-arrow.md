@@ -17,13 +17,17 @@ This assessment belongs to the bounded reviews below. Ordinary implementation wo
 itself trigger a domain-model review; investigation depth and optional flow tracing follow the
 concrete question being assessed.
 
-AP-07/G9 assesses execution fit alongside those foundations, under
+AP-07/G9 qualitatively assesses execution fit alongside those foundations, under
 [ADR-0162](../../../adr/0162-workload-fit-review-principles.md). Use the simulator's declared
 edit/re-solve, study, recycle and dynamic workloads; scope size/skew, concurrency and resource
 premises where material. Semantic unit/model boundaries do not dictate physical batches,
 allocations, transactions or native calls. Compare complete preparation/evaluation/solve and
 publication/recovery work, including immutable reuse, compact views and nested pool contention.
-Structural evidence can defeat acceptance without a benchmark; no new review cadence, checklist,
+Explain material tradeoffs in plain language. This consideration requires no numerical estimates,
+cost model, estimator, runtime cost accounting, execution-planning machinery, instrumentation,
+formal cost proof or additional proof artifact; those mechanisms need a separate concrete
+functional or operational requirement. Quantitative performance/capacity claims still require
+measurements. Qualitative reasoning can defeat acceptance without a benchmark; no new review cadence, checklist,
 probe mandate, lint or product qualification is introduced by this adoption. Scientific gates
 and PS-09's solver/composition ownership remain independently required.
 

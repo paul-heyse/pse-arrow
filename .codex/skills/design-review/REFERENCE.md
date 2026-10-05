@@ -42,7 +42,10 @@ input bytes/rows, declarations, degree, case count, concurrent requests and reta
 Ask what grows with necessary computation and what grows only because boundaries cause repeated
 scans, decoding, crossings or materialization. Small output and one RPC do not establish small
 work. Global computations may need full input; ordinary fixed-size operations may reasonably
-collect and sort. Static reasoning establishes structure; timings establish coefficients.
+collect and sort. Assess these operations and growth/failure scenarios qualitatively; explain
+material tradeoffs in plain language. The core's assessment scope requires no numerical cost
+estimate, accounting machinery or cost proof artifact. Quantitative performance/capacity claims need
+measurements; existing semantic correctness obligations remain.
 
 | Shape | Evidence that makes it reportable | Foundation |
 |---|---|---|
@@ -53,7 +56,7 @@ collect and sort. Static reasoning establishes structure; timings establish coef
 | Transaction or cancellation lifetime mismatch | A connection/lock lives through unrelated CPU work, or cancelled native work is uncharged before draining | AP-05/AP-07 |
 | Cheap witness, overstated assurance | Certificate proves equality or one path, but the contract claims semantic validity, absence or closure; retain required independent/global checks | AP-04/AP-07 |
 
-A retained cost needs its concrete benefit. Immutable views, compact identity mappings, late
+A retained tradeoff needs its concrete benefit. Immutable views, compact identity mappings, late
 hydration, shared admission and bounded retry units are conditional remedies, not universal
 requirements. No probe, new receipt, optimizer abstraction or extra review stage is implied.
 

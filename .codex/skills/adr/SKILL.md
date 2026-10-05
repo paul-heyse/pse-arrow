@@ -72,9 +72,13 @@ consumed contracts, local test setup and
 integration costs as well as correctness. Where execution is material, compare complete
 preparation, access paths, native composition/optimizer visibility, movement, live state, reuse,
 assurance and effect-sized recovery. Distinguish semantic authority from physical organization.
-Include generated and library-induced operational obligations in total cost; choosing more work
-needs a concrete retained benefit. Structural cost can be Interface-checked, while quantitative
-speed/capacity remains Proposed until measured. AP-07 follows existing G9; no extra gate is added. A new trait, crate or registry is not itself an
+Consider generated and library-induced operational obligations qualitatively; explain material
+tradeoffs and retained benefits in plain language. Execution-fit assessment requires no numerical
+estimates, cost models, estimators, runtime cost accounting, execution-planning machinery,
+instrumentation, formal cost proofs or additional proof artifacts. Introduce those mechanisms
+only for a separate concrete functional or operational requirement. Quantitative performance/
+capacity claims require measurements; semantic correctness obligations remain. AP-07 follows
+existing G9; no extra gate is added. A new trait, crate or registry is not itself an
 improvement. Use the current review template; keep its architectural and behavioral judgments
 distinct and preserve the scope of each claim.
 

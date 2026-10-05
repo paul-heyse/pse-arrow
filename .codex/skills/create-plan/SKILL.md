@@ -58,7 +58,7 @@ Explain consequential decisions through their benefits, costs and assumptions. C
 capabilities and alternatives where they affect the design, using the repository's capability
 skills and documentation routes. Preserve enough rationale for an implementer to recognize
 evidence that would reopen a decision. Relate an expected benefit to its mechanism and workload
-or conditions, and account for material integration, lifecycle and maintenance obligations.
+or conditions, and consider material integration, lifecycle and maintenance obligations.
 Quantitative benefits need a baseline and measurement route; unmeasured benefits remain hypotheses.
 Co-design semantic contracts and physical execution for supported operations, size/skew,
 concurrency and resource premises. Explain necessary versus repeated scans/passes, native planning
@@ -67,6 +67,11 @@ assurance placement, transaction/visibility and retry units where material. Sema
 not become physical work boundaries. Compare total generated/library-induced machinery and
 retained obligations, not only bespoke code. Static evidence can require removing structural
 amplification without a benchmark; preserve sound checks and scientific exactness/partiality.
+Assess execution fit qualitatively from relevant operations and growth/failure scenarios, explaining
+material tradeoffs in plain language. This consideration requires no numerical estimates, cost
+models, estimators, runtime cost accounting, execution-planning machinery, instrumentation, formal
+cost proofs or additional proof artifacts. Introduce those mechanisms only for a separate concrete
+functional or operational requirement; quantitative performance/capacity claims require measurements.
 
 Resolve choices that materially shape responsibilities, semantics, sequencing or acceptance.
 If uncertainty remains, state the question, the evidence needed and the dependent work it
@@ -107,7 +112,7 @@ every row a synchronization barrier. Among ready packages, consider establishing
 contracts or resolving consequential uncertainty early; explain such ordering when it matters.
 Carry warranted foundation improvements ahead of the work that relies on them.
 
-Account for shared resource capacity when otherwise independent packages compose. Preparation,
+Consider shared resource capacity qualitatively when otherwise independent packages compose. Preparation,
 certification, durable progress and visibility can require different units/lifetimes; schedule
 reuse and consumer-specific compact views only where actual operations justify them. Work,
 resident state, queues and output limits stay distinct, with cancellation/drain and retry scope

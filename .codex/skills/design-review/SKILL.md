@@ -66,10 +66,14 @@ in that plan and does not replace a formal review due under the binding.
 - **Architecture:** verdicts for the applicable foundations, grounded in responsibilities,
   contracts, composition and change scenarios. Name the context and dependencies needed to
   modify or test a component. AP-04 requires both model adequacy and behavior governed by its
-  semantic authorities; a centralized but inadequate definition is insufficient. AP-07 assesses
+  semantic authorities; a centralized but inadequate definition is insufficient. AP-07 qualitatively assesses
   the complete physical operation: necessary versus repeated work, access paths, crossings, live
   state, reuse, resource/transaction lifetime and failure recovery under relevant growth/skew
-  and concurrency. Material unknown premises remain unresolved. Static structural evidence can
+  and concurrency. Explain material tradeoffs in plain language. This consideration requires no
+  numerical estimates, cost models, estimators, runtime cost accounting, execution-planning machinery,
+  instrumentation, formal cost proofs or additional proof artifacts. Those mechanisms need a
+  separate concrete functional or operational requirement; existing correctness obligations remain.
+  Material unknown premises remain unresolved. Static structural evidence can
   establish unfit execution; quantitative benefits need measurement. G9 follows
   these verdicts without averaging, even when current outputs are correct. Deferral cannot
   waive a domain-model MUST for supported behavior.

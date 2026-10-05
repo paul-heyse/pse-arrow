@@ -47,7 +47,12 @@ IDs (`AP-nn`, `DP-nn`, `PS-nn`) go in `principles:`; scenario definitions retain
 
 Compare the current baseline, proposed design and simplest viable/library-owned alternatives
 as relevant. State change locality, contract and testing effects, integration cost and the
-reason for selecting or rejecting each option. Rows may coincide.
+reason for selecting or rejecting each option. Assess execution fit qualitatively from relevant
+operations and growth/failure scenarios, explaining material tradeoffs in plain language under
+the core's assessment scope. This consideration requires no cost estimates, models, runtime
+accounting or cost proof artifacts; such mechanisms need a separate concrete functional or
+operational requirement. Quantitative performance/capacity claims require measurements, and
+semantic correctness obligations remain. Rows may coincide.
 
 ## Outcome
 

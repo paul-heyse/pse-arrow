@@ -209,8 +209,9 @@ at the level needed to explain decisions without introducing another source of p
 ### AP-07 — Execution fits the workload
 
 **MUST · G9.** Choose representations, algorithms, access paths, placement and lifecycle
-units for supported operations and input sizes. Establish a credible physical route over the
-necessary input and dependencies, accounting for relevant size, skew, fan-out, passes,
+units for supported operations and input sizes. Qualitatively assess whether supported operations
+have a credible physical route over the necessary input and dependencies, considering relevant
+size, skew, fan-out, passes,
 serialization, serial crossings, live intermediates, concurrency and failure. A small output,
 one RPC or fixed traversal depth does not establish small examined work. Full-input processing
 and required sorting are legitimate for global computations; repeated scans introduced only by
@@ -222,8 +223,13 @@ inside the selected engine. A bulk export to a compact algorithm-specific view c
 for repeated global computation. Reuse stable preparation and immutable validity while their
 premises hold; extra enforcement or recovery machinery addresses a concrete failure or need.
 Prefer a simpler conforming realization that removes substantial work or obligations. Retaining
-a cost must identify the benefit, not merely acknowledge it. No exact cost model, fixed batch
-size, capacity SLA or mandatory benchmark follows from this foundation.
+a material tradeoff must explain its benefit in plain language. Assess execution fit qualitatively
+from relevant operations and growth/failure scenarios. This design/review consideration does not
+require numerical estimates, cost models, estimators, runtime cost accounting, execution-planning
+machinery, instrumentation, formal cost proofs or additional proof artifacts. Introduce such
+mechanisms only for a separate concrete functional or operational requirement. No fixed batch
+size, capacity SLA or mandatory benchmark follows from this foundation. Quantitative performance
+or capacity claims still require measurements; semantic correctness obligations remain.
 
 **Assess.** What complete operation and workload are supported? What grows when input bytes,
 semantic kinds, degree or concurrent requests grow? Which scans, crossings, live representations,
@@ -526,7 +532,7 @@ exploration does not make an extension mandatory for a basic supported operation
 deliberate contract. An ordinary extension should be one authoritative declaration, any genuinely new
 implementation, and focused tests where warranted (§E). Generated code, like any derived
 artifact, is never treated as an authority (DP-01). Proportionality applies to the
-integration as well as bespoke machinery: account for coupling, initialization,
+integration as well as bespoke machinery: consider coupling, initialization,
 configuration and upgrade obligations introduced by a capability. Eligibility never requires a current consumer; the
 adopted integration still needs an architectural role or a bounded exploration purpose. Once
 a replacement lands and its callers have moved, delete the replaced code, tests and fixtures
@@ -690,9 +696,10 @@ or relax these.
 | G9 — Architectural fitness | A representative change violates an applicable foundation: avoidable cross-owner changes, leaked implementation knowledge, entangled composition, an inadequate domain model or behavior outside its semantic authority, implicit constraints, inability to reason/test locally, or unjustified work, movement, live state, coordination or recovery amplification that makes a supported workload unfit. | AP-01–AP-07 |
 
 For G9, name the scenario, violated foundation, affected boundary and concrete consequence.
-AP-07 assesses the complete physical operation and growth/failure conditions, not only local
-slices. A material unresolved workload premise prevents acceptance; unmeasured coefficients
-do not excuse a demonstrated bad work shape. No G10 or separate correctness gate is added.
+AP-07 qualitatively assesses the complete physical operation and growth/failure conditions,
+not only local slices. A material unresolved workload premise prevents acceptance; numerical
+estimates or cost proofs are not needed for a demonstrated execution-fit defect. No G10 or
+separate correctness gate is added.
 A missing analysis of a material scenario is unresolved, not automatically a defect. A wide
 change justified by a new core concept is not a failure merely because it touches many files.
 All applicable foundations must be satisfied for G9 to pass. A proposed correction does not

@@ -22,5 +22,8 @@ and have the coordinator arrange its execution within the repository's acceptanc
 This repository selects core 3.4 and process-simulator 1.5 through
 `docs/design_review/design_principles/standard.toml`. Load
 `.codex/skills/design-review-process-simulator/SKILL.md` when applicable. Preserve model adequacy and semantic authority under AP-04/G9 and execution fit under
-AP-07/G9; settle architectural fitness separately from
+AP-07/G9 as qualitative assessment of relevant operations and growth/failure scenarios. Explain
+material tradeoffs in plain language under the core's scope; no cost estimates, accounting
+machinery or cost proof artifacts are required by this consideration. Quantitative claims need
+measurements and existing correctness obligations remain. Settle architectural fitness separately from
 behavioral and scientific adequacy. Architecture entrypoint: `docs/authoritative_design/README.md`.

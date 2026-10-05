@@ -115,14 +115,16 @@ Similarly, connect benefit claims to their conditions and costs:
 > Preparing an index once removes repeated parsing and dependency resolution for requests over
 > stable source revisions. It introduces retained memory and invalidation responsibilities. If
 > inputs change on every request, reassess the preparation lifecycle before extending the cache.
-> Evaluate the benefit with representative revision reuse and end-to-end resource measurements.
+> Explain the qualitative tradeoff for representative revision reuse. A quantitative benefit
+> claim would require end-to-end resource measurements.
 
 For a material execution route, explain growth/skew and contention as well as reuse: a bounded
 result may scan an unbounded universe, and nested case/library pools can exceed a shared budget.
 Compare short visibility transitions and effect-sized retries with long preparation transactions
 where atomicity permits. Reusing immutable assurance cannot replace checks of a changed state
 or a distinct trust failure. These examples guide relevant reasoning; they are not new required
-plan sections, test matrices or benchmark gates.
+plan sections, test matrices or benchmark gates. Execution-fit assessment is qualitative under
+create-plan's scope; cost estimates, accounting machinery and cost proof artifacts are not required.
 
 Keep such reasoning with the decision it explains. An unresolved premise should identify the
 work it constrains and the evidence that would settle it. Avoid a separate register when a short

@@ -29,7 +29,11 @@ identify the semantic or integration question a comparison would resolve. The se
 standard remains the basis for judgment. For material execution questions, identify supported
 operations, size/skew, concurrency and resource premises. Prepare inquiries about necessary
 versus repeated work, optimizer visibility, locality, live state, reuse, assurance and recovery.
-A static growth argument can settle architectural fit; quantitative benefit needs measurement.
+A qualitative growth/failure argument can settle architectural fit; quantitative benefit needs measurement.
+Explain material tradeoffs in plain language under the core's assessment scope. This consideration
+does not require cost estimates, models, runtime accounting, instrumentation or cost proof artifacts;
+such mechanisms need a separate concrete functional or operational requirement. Existing semantic
+correctness obligations remain.
 Keep these within existing scope/scenarios rather than adding a checklist or probe mandate.
 
 ## Choose breadth and depth deliberately

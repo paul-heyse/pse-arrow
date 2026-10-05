@@ -36,7 +36,11 @@ supports the new consumers, or whether a library capability fits the required se
 For material workloads, investigate physical access and native composed capabilities before
 freezing neutral interfaces. Ask which scans/crossings, live representations, invalidation and
 coordination a simpler conforming realization removes, and what effect/recovery units it needs.
-Semantic ownership alone does not settle layout, placement or enforcement frequency.
+Semantic ownership alone does not settle layout, placement or enforcement frequency. Assess
+execution fit qualitatively under create-plan's scope and explain material tradeoffs in plain
+language; numerical estimates, cost models, accounting machinery and cost proof artifacts are
+not required by this consideration. Quantitative performance/capacity claims require measurements,
+and existing correctness obligations remain.
 Investigate such questions early enough to avoid developing substantial detail around an
 unstable premise. Explain what a result would enable or change in the proposed design.
 

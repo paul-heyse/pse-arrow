@@ -40,14 +40,18 @@ its review additions align with Core 3.4's bounded assessment and discretionary 
 authoritative behavior are assessed independently of numerical correctness; result schemas
 alone do not establish a governing domain model.
 
-Execution fit (AP-07/G9) is judged for edit/re-solve, studies, recycles and dynamics at their
-supported size, sparsity, stiffness, case count and concurrency. Physical definitions do not
+Execution fit (AP-07/G9) is assessed qualitatively for edit/re-solve, studies, recycles and dynamics
+at their supported size, sparsity, stiffness, case count and concurrency. Physical definitions do not
 force one allocation, store operation or scheduling boundary per model element. Choose sparse
 layouts, evaluator batches, library composition and placement for the complete computation;
 retain domain identities and numerical contracts in derived views. Required global structural
 analysis or coupled solves are legitimate; incidental reconstruction and per-scalar crossings
-are costs to remove or justify. Structural evidence can establish an unfit route without a
-numerical speed claim. No workload optimization relaxes physical or numerical guarantees.
+are work to remove or justify through qualitative assessment. Explain material tradeoffs in
+plain language. The core's qualitative assessment does not require
+numerical estimates, cost models, runtime cost accounting or cost proofs; such mechanisms need
+a separate concrete functional or operational requirement. Qualitative reasoning can establish
+an unfit route; quantitative performance/capacity claims require measurements. No workload
+optimization relaxes physical or numerical guarantees.
 
 ## Principle index
 

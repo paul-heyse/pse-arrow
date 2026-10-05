@@ -89,7 +89,7 @@ actual contention is likely, following repository policy.
 ## Plan how contributions become a working whole
 
 Consider who will connect contributions, migrate adjacent consumers, retire replaced paths and
-establish the combined behavior. Account for the plan's preservation and transition obligations
+establish the combined behavior. Consider the plan's preservation and transition obligations
 when assigning that work. Ask what could remain wrong even if every worker satisfies its local
 brief; the answer identifies where coordinator attention or a revealing cross-boundary check
 would help.

@@ -48,13 +48,17 @@ invariants; matching result schemas alone cannot satisfy it. Assess adding a mod
 implementation and testing admission or policy in isolation where they distinguish alternatives. Assess ownership of library state,
 upgrade cost and duplicated workflow decisions. Do not demand a new trait, registry or crate
 merely because a numerical capability has its own name. Scientific correctness and G9 remain
-separate judgments; neither certifies the other. Assess AP-07 for the complete preparation,
+separate judgments; neither certifies the other. Qualitatively assess AP-07 for the complete preparation,
 evaluation, solve and publication/recovery route at relevant size, sparsity/stiffness, case count
 and concurrency. Necessary coupled/global work remains valid. Compare repeated assembly, scalar
 crossings, live workspaces/trajectories, invalidation and nested pools with simpler native
 composition. Reuse immutable validity while its premises hold, retaining independent PS-10
 checks of each new numerical state. Budgets, cancellation/drain and honest partiality preserve
-scientific meaning; no measurement or probe is required merely to establish structural cost.
+scientific meaning. Explain material tradeoffs in plain language under the core's qualitative
+assessment scope; it requires no numerical estimates, cost models, runtime cost accounting or
+cost proof artifacts. Such mechanisms need a separate concrete functional or operational
+requirement. Quantitative performance/capacity claims still need measurements, and existing
+scientific correctness obligations remain.
 
 ## Lenses that settle numerical claims
 

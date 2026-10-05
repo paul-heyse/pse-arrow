@@ -14,7 +14,7 @@ the numerical detail does not replace decomposition or change-scenario analysis.
 | 3 Contracts | A **well-posedness statement** (below). |
 | 5 Mechanisms and execution | The **numerical stage columns** (below) for every stage that formulates, evaluates or solves. |
 | 4 Change scenarios | The **simulator journeys** (below), selected by relevance. |
-| 6 Gates | Rows PS-G1, PS-G2, PS-G3; assess AP-07 through existing G9 separately from scientific adequacy. |
+| 6 Gates | Rows PS-G1, PS-G2, PS-G3; qualitatively assess AP-07 through existing G9 separately from scientific adequacy, under the core's assessment scope. |
 | 8 Library fit | Consider derivative, sparse algebra, property, structural-analysis and solver capabilities, their composed preparation/evaluation/solve capabilities, integration owners, optimizer/native batch visibility, movement, state lifetimes and testing/upgrade costs. |
 | 9 Alternatives | Optional **reference-practice** note: how established simulators handle the same problem, read for behaviour only. |
 | 10 Verification | Where relevant, how the touched unit or property models' correctness is established (PS-13), and any reference used. |

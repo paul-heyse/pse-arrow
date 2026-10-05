@@ -293,9 +293,14 @@ resolved reviews; Git history is the archive, not a backlog (ADR-0096).
 Architectural reviews use the selected design principles and design-review skill within the
 bounded review periods defined by the repository binding (ADR-0129). The review template owns
 the detailed method; ordinary implementation does not require an unsolicited review. AP-07/G9
-assesses complete-operation execution fit alongside model authority and scientific adequacy: use
-relevant workload/growth, locality, reuse, live-state and recovery evidence; structural cost can
-settle a judgment without adding a benchmark, checklist or standing audit.
+qualitatively assesses complete-operation execution fit alongside model authority and scientific
+adequacy. Consider relevant operations, growth/failure scenarios, locality, reuse, live state and
+recovery; explain material tradeoffs in plain language. This consideration requires no numerical
+estimates, cost models, estimators, runtime cost accounting, execution-planning machinery,
+instrumentation, formal cost proofs or additional proof artifacts. Such mechanisms need a separate
+concrete functional or operational requirement. Quantitative performance/capacity claims still
+require measurements; semantic correctness obligations remain. It adds no benchmark, checklist
+or standing audit.
 Current finding dispositions and packet status have one owning plan/location. Indexes link
 that owner. Reviews retain their original scope/version and evidence; ADR acceptance is not
 implementation acceptance. See `.claude/rules/decisions.md` and blueprint §24.4.
