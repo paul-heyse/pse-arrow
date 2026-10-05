@@ -1,6 +1,6 @@
 # Process-simulator review additions
 
-**Version 1.4 · 2026-10-03** · What the [process-simulator profile](principles.md) adds
+**Version 1.5 · 2026-10-05** · What the [process-simulator profile](principles.md) adds
 to each slot of the [core review template](../../core/design-review-template.md). The additions
 sit within the core slots; no slot is added or removed. Everything here applies only where the
 subject touches the behaviour concerned. Architectural foundations and G9 remain visible;
@@ -8,14 +8,14 @@ the numerical detail does not replace decomposition or change-scenario analysis.
 
 | Core slot | Profile addition |
 |---|---|
-| 1 Scope | Name the analysis modes in scope (square simulation, optimization, dynamics, estimation) and the simulator workloads considered (principles: *Functional target*). |
+| 1 Scope | Name the analysis modes in scope (square simulation, optimization, dynamics, estimation) and the simulator workloads considered (principles: *Functional target*), including material scale, sparsity/stiffness, case count, concurrent use and resource envelope. |
 | 2 Decomposition | Distinguish authored physics, property integration, analysis policy, workflow orchestration and result/persistence responsibilities where they occur. |
 | 3 Contracts and authority | A **physical-semantics table** (below), linked to the owned operations for formulation, evaluation and outcome interpretation. |
 | 3 Contracts | A **well-posedness statement** (below). |
 | 5 Mechanisms and execution | The **numerical stage columns** (below) for every stage that formulates, evaluates or solves. |
 | 4 Change scenarios | The **simulator journeys** (below), selected by relevance. |
-| 6 Gates | Rows PS-G1, PS-G2, PS-G3. |
-| 8 Library fit | Consider derivative, sparse algebra, property, structural-analysis and solver capabilities, their integration owners and their testing/upgrade costs. |
+| 6 Gates | Rows PS-G1, PS-G2, PS-G3; assess AP-07 through existing G9 separately from scientific adequacy. |
+| 8 Library fit | Consider derivative, sparse algebra, property, structural-analysis and solver capabilities, their composed preparation/evaluation/solve capabilities, integration owners, optimizer/native batch visibility, movement, state lifetimes and testing/upgrade costs. |
 | 9 Alternatives | Optional **reference-practice** note: how established simulators handle the same problem, read for behaviour only. |
 | 10 Verification | Where relevant, how the touched unit or property models' correctness is established (PS-13), and any reference used. |
 
@@ -36,6 +36,16 @@ Add to each formulating, evaluating or solving stage:
 | Formulation policy (guards, smoothing, complementarity) | Derivative source and order | Scaling | Problem class · solver capability used | Status → outcome mapping | Tolerances (scaled / unscaled) · post-solve check |
 |---|---|---|---|---|---|
 
+For material stages, assess necessary versus repeated assembly/evaluation, sparse and dense
+intermediates, language/device/store crossings, and live workspace/factor/trajectory sizes.
+Compare a complete native operation with application loops while preserving PS-09's library-owned
+iteration, globalization and factors and its bounded scientific composition. Scheduling boundaries
+need not mirror unit/model ownership. Assess case/solver thread-pool contention, admitted/queued
+work, backpressure and cancellation/drain. Preparation, durable progress and visible scientific
+results can have distinct lifetimes; short coherent publication still requires complete outcomes
+and an interruption argument. Reuse validity only while unchanged, preserving PS-10's independent
+checks of each new numerical state. No mandatory benchmark or new numerical stage column follows.
+
 ## Simulator journeys (slot 4)
 
 Classify each change as an instance, binding, composition, policy, domain concept or mechanism.
@@ -51,12 +61,13 @@ for the scoped judgment; journeys do not require complete traces.
 | **Test admission or policy locally** | Required input and capability facts; whether unrelated native or storage startup is necessary |
 | **Compose a new analysis workflow** | Model and preparation primitives reused; genuinely new behavior; duplicated end-to-end orchestration |
 | **Edit → re-solve** | A value change and a structural change on one flowsheet: which prepared artifacts survive, which rebuild, and whether the warm start is a recorded dependency |
-| **Study over many cases** | Sweep or estimation: prepare once, bind per case, reuse evaluators; how failed points are reported without contaminating the rest |
+| **Study over many cases** | Sweep or estimation: prepare once, bind per case, reuse evaluators; necessary work as case count grows, live cases/workspaces and nested pools; failed points do not contaminate others |
 | **Recycle that will not converge** | Tear selection, convergence policy and history; what the user sees; that the specification is intact afterwards |
 | **Infeasible or ill-posed problem** | Structural rejection before solving versus numerical infeasibility after; diagnostics in model terms |
 | **Out-of-envelope property evaluation** | An iterate leaves a correlation's range: rejection or selected extrapolation, and how the result records it |
 | **Dynamic start and event** | Consistent initialization, index handling, an event or discontinuity, and publication of partial trajectories |
-| **Boundary round trip** | Units, basis and identities through authoring, storage and language bridges |
+| **Boundary round trip** | Units, basis and identities through authoring, storage and language bridges; selective hydration and compact consumer views without a second authority |
+| **Grow or interrupt a workload** | Larger sparse structure, skewed blocks, longer trajectories or concurrent solves; necessary work versus repeated assembly, resource/transaction lifetimes, drain and bounded retry scope |
 
 ## Calibration: adequate finding shapes
 
@@ -69,4 +80,5 @@ for the scoped judgment; journeys do not require complete traces.
 | **Basis confusion** | Two interfaces exchanging a flow or property with different bases or reference states and no conversion | PS-01 · PS-G1 |
 | **Topology used as solve order** | A stream graph traversed as though it were a dependency order, skipping a cycle or an information link | PS-05, DP-07 · PS-G2 |
 | **Structure rebuilt per case** | The per-case path that recompiles or re-derives what depends only on structure | PS-11, DP-10 · G6 |
+| **Unfit assembled solve route** | Supported case growth multiplies incidental rebuilds/crossings, live workspaces or nested queues; compare a simpler conforming native composition and distinguish source evidence from measured speed | AP-07, DP-10, DP-20 · G9 |
 | **Reimplemented solver machinery** | Own Newton step, line search, tear convergence or factorization where a qualified solver provides it, with no stated reason | PS-09, DP-13 · G8 |

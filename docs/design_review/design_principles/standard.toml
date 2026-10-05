@@ -2,13 +2,13 @@
 # Read by the design-review skills; paths are relative to this file.
 
 [core]
-version = "3.3"
+version = "3.4"
 principles = "core/design-principles.md"
 template = "core/design-review-template.md"
 
 [[profiles]]
 name = "process-simulator"
-version = "1.4"
+version = "1.5"
 prefix = "PS"
 principles = "profiles/process-simulator/principles.md"
 review = "profiles/process-simulator/review.md"

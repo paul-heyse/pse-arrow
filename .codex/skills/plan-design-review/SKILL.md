@@ -26,7 +26,11 @@ design, a different underlying cause, or a sound diagnosis with an unsuitable pr
 Prepare revealing questions about the intended capabilities and credible changes, rather than
 settling the verdict during preparation. Where alternatives or library capabilities matter,
 identify the semantic or integration question a comparison would resolve. The selected design
-standard remains the basis for judgment.
+standard remains the basis for judgment. For material execution questions, identify supported
+operations, size/skew, concurrency and resource premises. Prepare inquiries about necessary
+versus repeated work, optimizer visibility, locality, live state, reuse, assurance and recovery.
+A static growth argument can settle architectural fit; quantitative benefit needs measurement.
+Keep these within existing scope/scenarios rather than adding a checklist or probe mandate.
 
 ## Choose breadth and depth deliberately
 

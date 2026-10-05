@@ -16,7 +16,7 @@ from implemented or verified behavior.
 | Purpose, scope and basis | Intended outcome, completion boundary, reference material, governing architecture and credible changes the target should accommodate |
 | Current baseline and affected foundations | What exists, relevant evidence limits, reusable components, and conclusions from the focused dependency assessment |
 | Target design and contracts | Responsibilities, semantic owners, interactions, preserved guarantees, intentional behavior changes and support limits |
-| Choices and alternatives | Material decisions, library fit, benefit mechanisms, ownership costs, assumptions and conditions for reconsideration |
+| Choices and alternatives | Material decisions, composed library/optimizer fit, necessary versus repeated work, movement/live state/reuse, total lifecycle machinery, assumptions and reconsideration |
 | Execution sequence | Coherent work packages, specific prerequisites, affected owners, available capabilities and completion evidence |
 | Migration and adoption | Consumer changes, preservation and retirement, intermediate states and operational transitions where relevant |
 | Verification and acceptance | Revealing scenarios, local and assembled acceptance, applicable review points, and measurements with their conditions and completion role |
@@ -116,6 +116,13 @@ Similarly, connect benefit claims to their conditions and costs:
 > stable source revisions. It introduces retained memory and invalidation responsibilities. If
 > inputs change on every request, reassess the preparation lifecycle before extending the cache.
 > Evaluate the benefit with representative revision reuse and end-to-end resource measurements.
+
+For a material execution route, explain growth/skew and contention as well as reuse: a bounded
+result may scan an unbounded universe, and nested case/library pools can exceed a shared budget.
+Compare short visibility transitions and effect-sized retries with long preparation transactions
+where atomicity permits. Reusing immutable assurance cannot replace checks of a changed state
+or a distinct trust failure. These examples guide relevant reasoning; they are not new required
+plan sections, test matrices or benchmark gates.
 
 Keep such reasoning with the decision it explains. An unresolved premise should identify the
 work it constrains and the evidence that would settle it. Avoid a separate register when a short

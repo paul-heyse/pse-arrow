@@ -1,7 +1,7 @@
 # Design review template
 
-**Version 3.3 · 2026-09-30** · Core layer: repository- and domain-agnostic.
-The [principles](design-principles.md) define foundations AP-01–AP-06, refinements DP-nn
+**Version 3.4 · 2026-10-05** · Core layer: repository- and domain-agnostic.
+The [principles](design-principles.md) define foundations AP-01–AP-07, refinements DP-nn
 and gates G1–G9. Profile additions follow this template's versioned slots.
 
 Output and synthesis guidance revised 2026-10-01; assessment rules and slot identifiers unchanged.
@@ -48,7 +48,7 @@ grouped by the argument they support; listing every rule is not evidence.
 | Finding | One falsifiable structural cause, grouping its concrete instances. |
 | Principles / gates / scenario | Only identifiers that support the argument. |
 | Evidence or gap | Read source/interface expression or document section; identify uncertainty honestly. |
-| Consequence | A trigger leads to incorrect behavior, amplified change, leaked knowledge, repeated policy, unnecessary coordination or inability to test/reason locally. |
+| Consequence | A trigger leads to incorrect behavior, amplified change, leaked knowledge, repeated policy, unnecessary coordination or inability to test/reason locally, avoidable scans/crossings/materialization, excessive live state or queues, broad invalidation, or effect-mismatched resource/recovery lifetimes. |
 | Correction | A direction, expected responsibility boundary and approximate affected surface. |
 | Verification | How to distinguish a landed correction from renamed or relocated complexity; reasoning may suffice. |
 
@@ -57,15 +57,17 @@ a large module or many changed files alone is not a finding. Show the responsibi
 and why that crossing is unnecessary for the scenario. Evidence labels apply to the actual
 claim; an extension traced in source has not been executed merely because it is plausible.
 
-Priority follows consequences: correctness/authority violations first; then architectural
-change cost, testability and library ownership; then measured cost. Do not discard a coupling
-finding because it has no known wrong numerical output. Compare the least complex viable
-alternative and assess over-construction from any integration, including library adoption.
+Prioritize correctness/fidelity failures and choices that make supported workloads infeasible,
+unstable or operationally disproportionate. Structural cost evidence may establish failure
+before measurement. Assess change barriers, repeated semantic ownership, testability and other
+material complexity in the same functional context; priority follows consequence, not whether
+evidence is a benchmark. Compare the simplest viable conforming realization, including native
+composition, and explain the concrete benefit retained by a more expensive choice.
 
 ### Decision rules
 
 Settle **behavioral/semantic adequacy** (G1–G8 and applicable domain gates) and
-**architectural fitness** (G9, supported by the six foundation verdicts) separately.
+**architectural fitness** (G9, supported by the seven foundation verdicts) separately.
 Neither substitutes for the other. G8 retains its established library-use meaning.
 Core §1's domain-model MUST is assessed through AP-04 and G9: both model adequacy and
 authoritative realization must hold. Domain-named output records and correct current outputs
@@ -126,7 +128,9 @@ new evidence folder, artifact hierarchy or registration process.
 | Disposition owner | Plan/packet or other binding-designated owner of follow-up status |
 
 State the functional target, qualities driving this change, baseline, supported scope and
-non-goals. Explain what was inspected, asserted, not examined or unavailable. Identify likely
+non-goals. Include representative operations, relevant size/skew/growth, concurrency/deployment
+constraints and resource envelope where material; no invented capacity SLA or exact cost model.
+Explain what was inspected, asserted, not examined or unavailable. Identify likely
 variation axes and constraints before naming implementation mechanisms.
 
 ### 2. Decomposition, ownership and dependencies
@@ -153,7 +157,10 @@ on them. Explain substitution for the capabilities actually consumed, including 
 work and effects. Identify intended specification versus observed implementation explicitly.
 Assess verbs alongside nouns: applicability, inputs, outcomes, state changes, effects and the
 invariants owned by concepts, relationships and operations. Multiple enforcement points may
-share one invariant definition. Ordinary domain functions can supply these contracts.
+share one invariant definition, but each extra check addresses a distinct failure, trust transition
+or recovery benefit. Established immutable validity is reused while its premises hold. Distinguish
+semantic scope/completeness, examined effort and output limits. Ordinary domain functions can
+supply these contracts; semantic ownership does not prescribe physical layout or placement.
 
 ### 4. Change scenarios and composition
 
@@ -168,6 +175,10 @@ ordinary extension, implementation/library replacement, new workflow, representa
 independent test and meaningful contract evolution. For each, identify genuinely new meaning,
 reused primitives, repeated decisions, affected owners and needed context. Add failure/recovery
 journeys when lifecycle is material. No mandatory number of scenarios or numeric change quota.
+Where material, include growth, skew/high-degree, concurrency and interruption scenarios beside
+extension scenarios. Ask what scales with necessary input versus incidental declarations or
+boundaries, what stable work survives change, and how much work retries repeat. Global work can
+be required even for small output; a bounded refusal cannot establish supported-scale fitness.
 Distinguish instances, bindings, compositions, policies, domain concepts and mechanisms; explain
 why edits belong to their semantic owners. In a substantial architecture review, consider both
 a relevant domain extension and mechanism substitution where credible, with a scope reason
@@ -184,6 +195,12 @@ Deepen only the mechanisms needed to settle the architecture or its correctness 
 For computations, include structural/value inputs, termination, precision and determinism
 where relevant. For boundaries, include ownership, representation, batching and loss. A
 noncomputational subsystem need not invent cache, graph or publication requirements.
+For a material complete operation, assess access paths, fan-out, passes, sorting/hashing, serial
+crossings, movement/re-encoding, live copies/intermediates, and resource/transaction lifetimes.
+Explain justified materialization, spill/backpressure, preparation reuse and late hydration,
+including cancellation/drain and retry scope where relevant. Semantic/module boundaries need
+not become I/O or materialization boundaries. Local passing slices do not establish assembled
+fitness; interactions may multiply scans, pools or retained state.
 
 ### 6. Architectural assessment and gates
 
@@ -195,6 +212,7 @@ noncomputational subsystem need not invent cache, graph or publication requireme
 | AP-04 Domain model and semantic authority | | | |
 | AP-05 Explicit structure | | | |
 | AP-06 Local reasoning/testability | | | |
+| AP-07 Execution fits workload | | | |
 
 | Gate | Pass / fail / unresolved / not applicable | Evidence or scope reason | Required action |
 |---|---|---|---|
@@ -211,7 +229,9 @@ noncomputational subsystem need not invent cache, graph or publication requireme
 
 G9 follows the individual foundation verdicts, without averaging. For a change review, omit
 unaffected foundation rows with a scope explanation. Gate judgments must identify evidence;
-passing code tests do not establish unexamined architecture.
+passing code tests do not establish unexamined architecture. AP-07 settles credible execution
+fit through G9, without another gate. Material unknown workload premises remain unresolved;
+known work amplification cannot be excused merely as unmeasured performance.
 
 ### 7. Findings
 
@@ -250,7 +270,10 @@ useful leads on established capabilities and integration patterns. Consulting th
 
 Apply principles §F to material choices. Full library eligibility remains. A prospective
 capability may be explored before a consumer exists; assess any integration machinery and
-its architectural role. Do not force a wrapper, feature restriction or dependency upgrade.
+its architectural role. Compare composed capabilities, optimizer visibility, physical access,
+data locality/movement, intermediate state, lifecycle and failure/recovery behavior. Preserve
+consumed semantics rather than forcing a wrong built-in or a neutral interface that discards
+needed native operations. Do not force a wrapper, feature restriction or dependency upgrade.
 
 ### 9. Alternatives and tradeoffs
 
@@ -260,6 +283,11 @@ its architectural role. Do not force a wrapper, feature restriction or dependenc
 | Proposed design | | | | | |
 | Library-owned alternative | | | | | |
 | Simplest viable alternative | | | | | |
+
+Compare complete preparation, execution, publication, recovery and change, including generated
+and library-induced machinery. Separate necessary work from incidental scans/crossings; state
+the retained benefit when choosing more work or obligations. Reasoning can establish structural
+cost; coefficients and quantitative benefit require measurements.
 
 Rows may coincide; say so. Explain why a seam is justified by a credible variation axis and
 why another abstraction would not help. Report performance claims at their evidence strength.

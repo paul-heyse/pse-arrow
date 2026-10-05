@@ -35,6 +35,28 @@ Useful questions: which decision is hidden here; what changes with the next impl
 what must be read or instantiated to test this responsibility; which knowledge is duplicated;
 and what would be deleted if the proposed abstraction disappeared?
 
+### Execution fit without a benchmark ritual
+
+Compare the complete operation against a simpler conforming realization. Useful variables are
+input bytes/rows, declarations, degree, case count, concurrent requests and retained artifacts.
+Ask what grows with necessary computation and what grows only because boundaries cause repeated
+scans, decoding, crossings or materialization. Small output and one RPC do not establish small
+work. Global computations may need full input; ordinary fixed-size operations may reasonably
+collect and sort. Static reasoning establishes structure; timings establish coefficients.
+
+| Shape | Evidence that makes it reportable | Foundation |
+|---|---|---|
+| Physical organization follows every semantic kind | An ordinary kind adds lifecycle/store operations without an access, indexing or mutation requirement; compare grouped/fused realization | AP-04/AP-07 |
+| Local library leverage, global repeated work | Individually fitting libraries exchange/rebuild the same working set; identify discarded planning/batching or shared preparation | AP-03/AP-07 |
+| Small result, global recertification | Immutable established properties are rebuilt for unrelated content per request without a new state/trust premise | AP-07 |
+| Budgeted yet unfit workload | Ordinary supported input predictably exceeds the envelope because unnecessary live copies/passes/queues dominate | AP-07 |
+| Transaction or cancellation lifetime mismatch | A connection/lock lives through unrelated CPU work, or cancelled native work is uncharged before draining | AP-05/AP-07 |
+| Cheap witness, overstated assurance | Certificate proves equality or one path, but the contract claims semantic validity, absence or closure; retain required independent/global checks | AP-04/AP-07 |
+
+A retained cost needs its concrete benefit. Immutable views, compact identity mappings, late
+hydration, shared admission and bounded retry units are conditional remedies, not universal
+requirements. No probe, new receipt, optimizer abstraction or extra review stage is implied.
+
 ### When the subject is a document
 
 **Reconstruct the design.** Establish the responsibilities and scenarios from the substance of

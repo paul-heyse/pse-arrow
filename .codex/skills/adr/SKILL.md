@@ -47,7 +47,7 @@ lint checks the required fields (optional traceability fields are described belo
 | `date` | `YYYY-MM-DD`, the day the decision was taken. |
 | `deciders` | GitHub handles. |
 | `level` | `decision` \| `should-deviation` \| `must-gap`. A `must-gap` **narrows the supported scope**; it never claims compliance. A record that *amends* the architecture sections is a `decision`, not a deviation — say so in Scope. |
-| `principles` | The principle IDs this bears on: architectural foundations `AP-01` … `AP-06`, core refinements `DP-01` … `DP-24`, process-simulator profile `PS-01` … `PS-13` (see `docs/design_review/design_principles/standard.toml`). Accepted records keep their legacy `DM-nn` IDs from the retired charter. Cite the ones the decision actually turns on, not a wall. |
+| `principles` | The principle IDs this bears on: architectural foundations `AP-01` … `AP-07`, core refinements `DP-01` … `DP-24`, process-simulator profile `PS-01` … `PS-13` (see `docs/design_review/design_principles/standard.toml`). Accepted records keep their legacy `DM-nn` IDs from the retired charter. Cite the ones the decision actually turns on, not a wall. |
 | `blueprint` | The sections governed: `[§14.3, §D7]`. Every citation must resolve to one owning heading under `docs/authoritative_design/sections/`, including `§D1` … `§D14`. |
 | `review` | A path into `docs/design_review/reviews/…` (optionally `#anchor`) where a finding motivated this, an immutable historical source `git:<commit>:<path>[#anchor]` when that review was retired, **or** `not-required: <reason>`. |
 | `evidence` | A design principles §D label — `Proposed`, `Interface-checked`, `Implemented`, `Tested`, `Measured`, `Formally established`. |
@@ -69,7 +69,12 @@ For architecture decisions, connect the selected option to concrete change scena
 responsibility boundaries. Establish the modeled phenomena, owned operations and how behavior
 realizes them (AP-04); a consistent output schema is insufficient. Compare composition,
 consumed contracts, local test setup and
-integration costs as well as correctness. A new trait, crate or registry is not itself an
+integration costs as well as correctness. Where execution is material, compare complete
+preparation, access paths, native composition/optimizer visibility, movement, live state, reuse,
+assurance and effect-sized recovery. Distinguish semantic authority from physical organization.
+Include generated and library-induced operational obligations in total cost; choosing more work
+needs a concrete retained benefit. Structural cost can be Interface-checked, while quantitative
+speed/capacity remains Proposed until measured. AP-07 follows existing G9; no extra gate is added. A new trait, crate or registry is not itself an
 improvement. Use the current review template; keep its architectural and behavioral judgments
 distinct and preserve the scope of each claim.
 

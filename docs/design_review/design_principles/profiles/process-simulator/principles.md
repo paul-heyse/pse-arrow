@@ -1,6 +1,6 @@
 # Process-simulator design principles
 
-**Version 1.4 · 2026-10-03** · Domain profile for process simulation software:
+**Version 1.5 · 2026-10-05** · Domain profile for process simulation software:
 steady-state and dynamic flowsheet simulation, optimization and parameter estimation.
 Refines the [core design principles](../../core/design-principles.md) under their layering
 rules (§B). It adds and tightens; it never relaxes a core principle. It names no specific
@@ -25,7 +25,7 @@ numerical integrity.
 
 ## Architectural application
 
-Core AP-01–AP-06 apply to the organization of the simulator: separate authored physics,
+Core AP-01–AP-07 apply to the organization of the simulator: separate authored physics,
 provider integration, numerical policy, workflow composition and representation concerns;
 assess the consumed contract when replacing a solver; compose studies from shared model
 operations; make the explicit domain model govern formulation, evaluation and outcome
@@ -36,9 +36,18 @@ A new unit using existing physics is an ordinary extension. A new physical conce
 legitimately change the core contract. Neither case requires a universal plugin framework.
 Numerical tests are necessary for numerical claims; they do not by themselves establish
 modularity or local reasoning. This version retains PS-01–PS-13 and their gate semantics;
-its review additions align with Core 3.3's bounded assessment and discretionary investigation. Model adequacy and
+its review additions align with Core 3.4's bounded assessment and discretionary investigation. Model adequacy and
 authoritative behavior are assessed independently of numerical correctness; result schemas
 alone do not establish a governing domain model.
+
+Execution fit (AP-07/G9) is judged for edit/re-solve, studies, recycles and dynamics at their
+supported size, sparsity, stiffness, case count and concurrency. Physical definitions do not
+force one allocation, store operation or scheduling boundary per model element. Choose sparse
+layouts, evaluator batches, library composition and placement for the complete computation;
+retain domain identities and numerical contracts in derived views. Required global structural
+analysis or coupled solves are legitimate; incidental reconstruction and per-scalar crossings
+are costs to remove or justify. Structural evidence can establish an unfit route without a
+numerical speed claim. No workload optimization relaxes physical or numerical guarantees.
 
 ## Principle index
 
@@ -54,7 +63,7 @@ alone do not establish a governing domain model.
 | PS-08 | Initialization and convergence are declared strategies | MUST | DP-05, DP-12, DP-19 | PS-G3 |
 | PS-09 | Solver selection follows problem class and capability | MUST | DP-13, DP-15 | G7 |
 | PS-10 | Solve outcomes are truthful and independently verified | MUST | DP-19, DP-21 | PS-G3 |
-| PS-11 | One model serves every analysis mode | SHOULD; MUST for warm-start and reuse dependencies | DP-06, DP-09, DP-10 | G6 |
+| PS-11 | One model serves every analysis mode | SHOULD; MUST for warm-start and reuse dependencies | DP-06, DP-09, DP-10, AP-07 | G6, G9 |
 | PS-12 | Results are physical and honestly scoped | MUST | DP-21, DP-22 | G7 |
 | PS-13 | Shared model checks and reference validation | SHOULD | DP-16, DP-23 | — |
 
@@ -197,7 +206,7 @@ at solver indices?
 
 ### PS-11 — One model serves every analysis mode
 
-**SHOULD, and MUST for warm-start and reuse dependencies · G6 · refines DP-06, DP-09, DP-10.**
+**SHOULD, and MUST for warm-start and reuse dependencies · G6, G9 · refines DP-06, DP-09, DP-10, AP-07.**
 Steady state, dynamics, optimization, sensitivity and parameter estimation are analysis modes
 declared over the same model definitions plus a case, not separate models. Studies over many
 cases reuse prepared structure and evaluators and bind only values per case. A warm start, an
@@ -208,6 +217,16 @@ computed, event and discontinuity handling, and time discretization or integrati
 **Audit.** Does switching mode require re-authoring the model? Does a value-only sweep rebuild
 structure? Is a warm start recorded as an input of the result it changed?
 
+For edit/re-solve and studies, separate symbolic/structural preparation, provider state,
+evaluation workspaces, numeric factors and executed results by their actual dependencies.
+Value changes may require refactorization without rebuilding topology; layout and unrelated
+build changes need not alter scientific identity. Reuse only compatible factors, starts and
+certified properties, retaining accuracy, provider-version and branch dependencies. Use compact
+sparse/graph views and hydrate diagnostics by identity; batch crossings and coordinate case,
+solver and library thread pools. Budget simultaneously live cases/workspaces, queued solves and
+retained trajectories. Cancellation charges end when native work drains, not when a caller stops
+waiting. Streaming, spill or simple fixed-input collection are choices justified by the workload.
+
 ### PS-12 — Results are physical and honestly scoped
 
 **MUST · G7 · refines DP-21, DP-22.** Results are reported in physical units against model
@@ -215,7 +234,10 @@ identities (units, streams, ports, phases, components), with the basis and refer
 stated. Derived quantities — duals and shadow prices, sensitivities, parameter covariances and
 confidence intervals — state the conditions under which they are valid (active set, second-order
 conditions, local linearization, statistical assumptions) and are withheld or flagged when those
-conditions are not met.
+conditions are not met. Semantic analysis scope, examined work and returned trajectory or
+study size stay distinct: reaching an effort cap is partial/refused, not a complete shorter
+answer unless the requested scope defines it. Approximate search or case selection does not
+establish exhaustive optima, and exactly checked residuals do not establish ranking completeness.
 
 **Audit.** Can a user read any result without knowing solver indices? Are sensitivities or
 covariances reported where their validity conditions fail?
@@ -229,7 +251,10 @@ warranted, rather than re-authored for each model, so a new model gains them wit
 Where reference data or reference simulators exist, physical behaviour is compared against them
 with declared tolerances and conditions, and thermodynamic models are consistent (for example,
 Gibbs–Duhem and fugacity equality at equilibrium). Agreement with a reference is evidence, not
-proof.
+proof. Established immutable structural validity may be reused while its premises hold; extra
+enforcement names a new failure or trust transition. Repeated producer evaluation is not by
+itself independent physical verification. Required post-solve residual, domain and closure
+checks remain, because a new numerical state changes the premises.
 
 **Audit.** Would a new model gain the common checks without re-authoring them? Where a claim of
 physical fidelity is made, what reference supports it?
@@ -254,3 +279,5 @@ These add to the core gates; G9 independently assesses architectural fitness.
 | "It matches the reference simulator." | Different property parameters or reference states, or matching only at the reference's own convergence tolerance. |
 | "Initialization is robust." | It succeeds by leaving temporary fixes or relaxations in the model. |
 | "It is equation-oriented, so it is fast." | Structure is rebuilt per case, or per-iteration evaluation crosses a language boundary. |
+| "Each solver pool is bounded." | Nested case/library pools, queues and workspaces exceed the shared envelope, or cancelled native work is no longer charged. |
+| "The model is the authority." | Semantic distinctions mechanically create physical allocations/crossings, without access or lifecycle justification. |

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 123
+revision: 126
 date: 2026-10-05
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 126 | 2026-10-05 | ADR-0162: §24.4 adopts Core 3.4 / ProcessSimulator 1.5 execution fit as AP-07 through existing G9, with composed physical work, reuse, assurance and recovery criteria. Existing scientific gates, PS-09 solver ownership and bounded discretionary review cadence remain. | Maintainer-authorized principles adoption; Implemented policy, no product qualification or measured performance claim; `PSE_DESIGN_EDIT=1`. |
 | 121 | 2026-10-04 | Plan 25n deep audit repair amends the proposed ADR-0154/0155/0158 route: §18.8 names actual serial sparse native storage ownership; §17.3 describes implemented scoped discrete initialization; §19.3 and §21.5 retain operation obligations, original-point receipts, failed-run prefixes, automatic publication identity and original start policy; §20.5 records operation-specific contracts and current document/frame versions while preserving historical bytes. Functional acceptance remains in Plan 25n. | maintainer-authorized audit repair; `PSE_DESIGN_EDIT=1`; decision acceptance unchanged |
 | 122 | 2026-10-05 | ADR-0160 testing responsibility: immutable completion and shared successful transport (§19.2/§21), typed integrity origin and independent family evidence (§14.2), one complete freshness owner and isolated test effects (§24.1), recipe-scoped qualification and measurement prerequisites (§24.3), retirement of historical name-only parity (§6.14) and the empty structural test crate. | Maintainer-authorized Plan 26 hard pivot; independent bounded target review Accept at Proposed strength; implementation and scoped Q1 owned by Plan 26; `PSE_DESIGN_EDIT=1`; ADR remains proposed. |
 | 123 | 2026-10-05 | Plan 26 closure corrects §24.1 test locations: independent integrity mechanisms and catalog/enforcement controls belong to `pse-rules`; conformance retains canonicalization and selected scientific journeys. No production contract changes. | Maintainer-authorized Plan 26 closure through ADR-0160; `PSE_DESIGN_EDIT=1`; decision acceptance unchanged. |

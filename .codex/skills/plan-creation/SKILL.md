@@ -33,6 +33,10 @@ chooses how to conduct it without repeating an assessment already supported by r
 
 Some questions shape many later choices: who owns a meaning, whether an existing foundation
 supports the new consumers, or whether a library capability fits the required semantics.
+For material workloads, investigate physical access and native composed capabilities before
+freezing neutral interfaces. Ask which scans/crossings, live representations, invalidation and
+coordination a simpler conforming realization removes, and what effect/recovery units it needs.
+Semantic ownership alone does not settle layout, placement or enforcement frequency.
 Investigate such questions early enough to avoid developing substantial detail around an
 unstable premise. Explain what a result would enable or change in the proposed design.
 
@@ -75,7 +79,9 @@ assignment for the design input it can produce, not merely an available document
 Consider where investigations will inform a common decision. Individually reasonable proposals
 can disagree about ownership, meaning, preservation or dependencies. Keep one author responsible
 for assembling the plan, with enough visibility to reconcile those tensions before elaborating
-dependent sections. Identify useful follow-up questions when findings conflict; do not resolve
+dependent sections. Reserve attention for complete-operation work growth, shared capacity and
+retry costs that separately adequate local proposals can amplify; preserve exactness and
+required independent assurance when reducing machinery. Identify useful follow-up questions when findings conflict; do not resolve
 them by simply concatenating contributions.
 
 Keep segmentation provisional until the reasoning reveals useful boundaries. Create-plan owns

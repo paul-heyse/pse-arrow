@@ -48,7 +48,13 @@ invariants; matching result schemas alone cannot satisfy it. Assess adding a mod
 implementation and testing admission or policy in isolation where they distinguish alternatives. Assess ownership of library state,
 upgrade cost and duplicated workflow decisions. Do not demand a new trait, registry or crate
 merely because a numerical capability has its own name. Scientific correctness and G9 remain
-separate judgments; neither certifies the other.
+separate judgments; neither certifies the other. Assess AP-07 for the complete preparation,
+evaluation, solve and publication/recovery route at relevant size, sparsity/stiffness, case count
+and concurrency. Necessary coupled/global work remains valid. Compare repeated assembly, scalar
+crossings, live workspaces/trajectories, invalidation and nested pools with simpler native
+composition. Reuse immutable validity while its premises hold, retaining independent PS-10
+checks of each new numerical state. Budgets, cancellation/drain and honest partiality preserve
+scientific meaning; no measurement or probe is required merely to establish structural cost.
 
 ## Lenses that settle numerical claims
 
@@ -73,8 +79,11 @@ paths and follow them far enough to settle it; this is not a required tracing ch
   at each interface between models and providers, not only dimensions.
 - **Reuse across cases (PS-11).** For a value-only change or a sweep point, identify what is
   rebuilt. Confirm that warm starts are recorded as inputs of the result they changed.
-- **Solver machinery (PS-09).** Search for own Newton steps, line searches, tear convergence or
-  factorization. Where a qualified solver clearly fits, each needs a stated reason or is a G8 finding.
+- **Solver machinery (PS-09).** Assess the complete consumed contract: established solvers own
+  fitting numerical iteration, globalization, factorization and native model management.
+  Scientific families, accuracy and start/branch permissions and bounded domain composition
+  remain with their semantic owner where no fitting library supplies the complete contract.
+  Own generic machinery where a qualified solver fits needs a stated reason or is a G8 finding.
 
 The profile review additions give the evidence bar for each finding shape. Use the core
 REFERENCE for authority, reuse and graph shapes.

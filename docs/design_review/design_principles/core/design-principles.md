@@ -1,15 +1,15 @@
 # Design principles
 
-**Version 3.3 · 2026-09-30** · Core layer: repository- and domain-agnostic.
+**Version 3.4 · 2026-10-05** · Core layer: repository- and domain-agnostic.
 DP-14/DP-15 wording revised 2026-10-04 (resolved version); obligations unchanged.
-Six architectural foundations organize the operational rules retained from Core 2.0.
+Seven architectural foundations organize the operational rules retained from Core 2.0.
 §I maps the retired charter's IDs, which some retained decisions still cite.
 
 > **Localize change. Encode domain meaning explicitly. Extend through composition.**
 
 ## 0. How to use this document
 
-The core defines architectural foundations `AP-01`–`AP-06`, operational refinements
+The core defines architectural foundations `AP-01`–`AP-07`, operational refinements
 `DP-01`–`DP-24`, gates `G1`–`G9` and the review contract. Domain profiles add relevant
 correctness requirements and review lenses. A repository binding maps these to local
 authorities, commands and decision routes. The repository's `standard.toml` selects versions.
@@ -35,19 +35,28 @@ technique for resolving a concrete uncertainty, not a required sequence or exhau
 ## 1. Governing objective
 
 Organize the system so expected changes remain local, important meaning has explicit
-ownership, and new behavior composes through understandable contracts. Optimize for
+ownership, and new behavior composes through understandable contracts. Design semantic contracts and their
+physical realization together: preserve correctness, fidelity and assurance while minimizing
+unnecessary work, data movement, coordination and lifecycle machinery for the supported workload.
+Semantic authority does not determine layout, execution placement or enforcement frequency.
+Compare preparation, normal execution, failure and change in the composed system; retaining a
+more expensive realization needs a concrete benefit. Optimize for
 extensibility, maintainability, modularity, testability and evolvability within the system's
 correctness and required operational constraints. Domain profiles supply additional
 constraints, including scientific correctness where relevant.
 
 Start with the functional target and a small set of representative changes. Establish what
 must stay stable, what may vary, and which responsibilities should absorb each variation.
+Co-design boundaries and candidate library realizations after establishing intent and semantic
+obligations; do not freeze a backend-neutral interface before examining capabilities it must
+preserve. Meaning governs the result; native capabilities inform its physical realization.
 Resolve tradeoffs against these scenarios: state the benefit, the cost, the affected boundary
 and the condition that would reopen the decision. Local rules serve the target; a rule that
 blocks a better design becomes a required authority change in a target-purpose review.
 
 Correctness and truthful claims remain constraints. Among conforming designs, favor localized
-change, clear ownership and bounded reasoning; consider performance against actual workloads.
+change, clear ownership, bounded reasoning and execution fit for actual workloads. Structural
+work amplification can violate architectural fitness before its latency is measured.
 Neither a library name, declarative syntax, source-line reduction nor an abstraction count
 establishes quality. Modifiability depends on coupling, cohesion and change cost, as developed
 in the [SEI modifiability tactics](https://www.sei.cmu.edu/library/modifiability-tactics/).
@@ -90,7 +99,7 @@ an authority is not a second writable production authority.
 
 ## 2. Architectural foundations
 
-All six foundations are assessed for a system/subsystem design review, with explicit scope
+All seven foundations are assessed for a system/subsystem design review, with explicit scope
 reasons where one is irrelevant. A change review assesses the affected foundations. Their
 verdicts settle G9 individually; strengths are never averaged. Detailed DP rules refine these
 foundations and retain their identifiers for existing decisions and historical reviews.
@@ -101,7 +110,8 @@ foundations and retain their identifiers for existing decisions and historical r
 components need not know. Group behavior and invariants that change together; separate
 independent reasons for change. Dependencies follow those responsibilities with an explicit
 direction. A component may be substantial behind a narrow interface; splitting files or
-crates is not itself modularity.
+crates is not itself modularity. A responsibility boundary need not become an I/O, scheduling,
+transaction or materialization boundary.
 
 **Assess.** For a representative policy, representation or infrastructure change, which
 owners must change and why? Does the change require knowledge of unrelated internals? Can
@@ -132,6 +142,7 @@ a wrapper must earn its semantic or substitution benefit.
 composition rules. Orchestration connects domain operations through their owned meanings without
 independently interpreting their rules. An ordinary extension within the declared variation axis adds or combines
 capabilities at its extension point without adding special cases to unrelated internals.
+Composition may fuse operations or share streams without merging their semantic owners.
 A new core concept may legitimately change the core contract and its consumers; distinguish
 that from repeating the same end-to-end workflow for another instance.
 
@@ -151,7 +162,10 @@ update path within its scope and revision; behavior consumes or realizes that au
 Authority may be distributed among coherent domain modules. Different contexts may use
 different models with explicit scopes and translations. Derive mechanical representations
 and checks where appropriate, preserving the semantics promised by each contract and declaring
-any loss. No universal schema, registry or storage format is required. Independent oracles
+any loss. Physical families may group semantic kinds, or provide several views of one kind;
+declarations are not inherently tables, privilege objects or units of work. A separate layout
+needs an access, indexing or mutation benefit, and remains changeable without redefining meaning.
+No universal schema, registry or storage format is required. Independent oracles
 challenge the model and its realization rather than deriving every expectation from production.
 
 **Assess.** Where are the phenomena and operations defined? Does the model govern behavior
@@ -192,6 +206,35 @@ at the level needed to explain decisions without introducing another source of p
 
 **Refinements:** DP-10, DP-17, DP-18, DP-19, DP-21, DP-23, DP-24.
 
+### AP-07 — Execution fits the workload
+
+**MUST · G9.** Choose representations, algorithms, access paths, placement and lifecycle
+units for supported operations and input sizes. Establish a credible physical route over the
+necessary input and dependencies, accounting for relevant size, skew, fan-out, passes,
+serialization, serial crossings, live intermediates, concurrency and failure. A small output,
+one RPC or fixed traversal depth does not establish small examined work. Full-input processing
+and required sorting are legitimate for global computations; repeated scans introduced only by
+incidental boundaries need justification. Safe refusal does not establish fit if ordinary
+supported inputs predictably exhaust the budget.
+
+Preserve optimizer visibility when semantics permit selection, projection, reduction or traversal
+inside the selected engine. A bulk export to a compact algorithm-specific view can be better
+for repeated global computation. Reuse stable preparation and immutable validity while their
+premises hold; extra enforcement or recovery machinery addresses a concrete failure or need.
+Prefer a simpler conforming realization that removes substantial work or obligations. Retaining
+a cost must identify the benefit, not merely acknowledge it. No exact cost model, fixed batch
+size, capacity SLA or mandatory benchmark follows from this foundation.
+
+**Assess.** What complete operation and workload are supported? What grows when input bytes,
+semantic kinds, degree or concurrent requests grow? Which scans, crossings, live representations,
+queues and transaction lifetimes are necessary? What remains on the critical path, and what
+must repeat after interruption? Compare a credible simpler or native realization. Static evidence
+can establish structural failure; quantitative latency, throughput or capacity needs measurement.
+Relevant workload premises belong in existing scope and scenario discussion. Material unknowns
+are unresolved; convenient fixtures cannot silently narrow a broader supported claim.
+
+**Refinements:** DP-01, DP-03, DP-08–DP-16, DP-19–DP-23.
+
 ## 3. Operational refinement index
 
 These rules are conditional on the operation being reviewed. An architecture review first
@@ -201,9 +244,9 @@ the subject does not need. DP-22 governs evidence for every foundation and refin
 | Concern | Rules | Gates |
 |---|---|---|
 | Meaning, authority, identity and relationships | DP-01–DP-07 | G1, G2, G3, G5, G6 |
-| Transformation, reuse, preparation, determinism and iteration | DP-08–DP-12 | G5, G6 |
+| Transformation, reuse, preparation, determinism and iteration | DP-08–DP-12 | G5, G6, G9 |
 | Library use, integration cost and module ownership | DP-13–DP-17 | G7, G8, G9 |
-| Effects, lifecycle, resources and diagnostics | DP-18–DP-21 | G3, G4, G5, G7 |
+| Effects, lifecycle, resources and diagnostics | DP-18–DP-21 | G3, G4, G5, G7, G9 |
 | Evidence, verification and evolution | DP-22–DP-24 | G2, G3, G6, G7 |
 
 # Operational refinements
@@ -217,7 +260,10 @@ and revision. Caches, memo tables, compiled artifacts, execution layouts, langua
 objects, generated code and documentation are *derived*: they identify their source revision
 and derivation, can be rebuilt from declared inputs (or state the external evidence needed),
 and are never edited as sources. Specialized physical representations are welcome when their
-mapping to the authority is explicit. An editable projection needs an explicit inverse with
+mapping to the authority is explicit. Group or split declarations by access and lifecycle needs;
+semantic boundaries need not multiply physical objects or materializations. A consumer-specific
+view declares its universe, identities, roles, multiplicity, isolates, uncertainty and any loss.
+Build views for real access/reuse needs rather than every imagined destination. An editable projection needs an explicit inverse with
 conflict checks; otherwise it is read-only.
 
 **Audit.** For each fact the scope introduces or touches, can you name its one authority and
@@ -254,7 +300,12 @@ combinations and domains — not every combination of individually valid values 
 each invariant to the concept, relationship or operation whose meaning requires it. Each
 critical invariant has a boundary where it is enforced and an observable rejection. Multiple
 enforcement points may be appropriate; independently maintained definitions of one invariant are not.
-Documentation, annotations and schema metadata are not enforcement.
+Documentation, annotations and schema metadata are not enforcement. Select enforcement points
+by named failure classes and trust transitions. Reuse immutable established validity while its
+premises hold; another check contributes distinct protection or cheaper recovery. A digest
+establishes representation equality, not semantic validity. A certificate binds its artifact,
+operation, parameters and assumptions, and its checker establishes the property actually claimed;
+a path witness alone does not establish absence or fixed-point closure.
 
 **Audit.** For each critical invariant: where is it enforced, and what does a violation
 produce? Can any write or execution path bypass it?
@@ -334,6 +385,13 @@ discover, inspect, compose, plan or persist operations in that form.
 its internals? Which domain rules govern it? For a transformation, which equivalence does it
 promise, under which assumptions, and what enforces them?
 
+Material operation contracts distinguish the necessary input universe, semantic completeness,
+examined effort and returned size. A work limit can make an answer partial even when its output
+fits; a semantic scope limit can define a complete smaller question. Apply eligibility and
+semantic grouping before a cutoff that promises top-k eligible/grouped results; bounded overfetch
+alone is insufficient. Exact evidence for approximate candidates does not make ranking exhaustive.
+Keep mandatory claim structure intact; optional explanation expansion may be independently partial.
+
 ### DP-09 — One reuse mechanism, keyed on complete dependencies
 
 **MUST · G6.** Reuse — memoization, caching, incremental recomputation, retained artifacts — is
@@ -344,6 +402,11 @@ mutable files, "latest" references, clocks or registries. Separate structural fr
 so a value change does not rebuild structure; distinguish reuse of a prepared artifact from
 reuse of an executed result. Equality used for reuse must make results substitutable.
 Invalidate at the finest granularity the evidence supports; conservative beats unsound.
+Distinguish semantic identity, preparation/result dependencies, physical realization and full
+build provenance. Layout or unrelated-source changes need not invalidate all semantic artifacts.
+Opaque dependencies may justify conservative keys; state material rebuild cost as a tradeoff
+without omitting result-affecting algorithm, version or configuration inputs. Incrementality and
+cache bookkeeping need a reuse benefit; immutable full rebuilding can be simpler.
 
 **Audit.** Could an undeclared change alter a reused result? Does a second mechanism track the
 same dependencies? Would incremental output equal a clean recomputation after additions,
@@ -356,10 +419,16 @@ once per stable input and are reused across instances, cases and iterations; cha
 bind through explicit interfaces. Choose physical layouts for actual access patterns, mapped
 explicitly to domain identities. Cross language, process, storage and device boundaries in
 validated batches or artifacts, not per primitive operation; zero-copy is an optimization with
-preconditions, not an objective.
+preconditions, not an objective. Share compatible scans and reduce before transport where
+semantics permit. Keep wide provenance/source payloads out of inner loops that need compact IDs;
+hydrate them when needed. Design peak live inputs, copies, indexes, caches and outputs together.
+Pipeline compatible work, or use spill/external ordering and producer backpressure where supported
+size requires it. Materialization earns its cost through reuse, ordering, atomicity or algorithm
+needs. Small fixed inputs may reasonably use simple collection and scalar operations.
 
 **Audit.** Which work depends on structure and which on values, and does the lifecycle reflect
-that? Is any boundary crossed per element inside an inner loop?
+that? Is any boundary crossed per element or declaration inside an inner loop? Which intermediate
+exists only because of a component boundary, and what is live at peak?
 
 ### DP-11 — Precision, approximation and determinism are contracts
 
@@ -396,10 +465,15 @@ choice made after considering established libraries, with its reason stated brie
 next reader will look (§F). Place each operation in the mechanism whose semantics fit it, not the
 one that happens to be present. A library's full capability surface is eligible: the absence of
 a current consumer is not a reason to write bespoke code instead of using a library mechanism.
+Select for interacting capabilities and total integration cost, not individual checkmarks. Keep
+filtering, projection, grouping, ordering, limits and traversal visible to the chosen optimizer
+where supported. Opaque kernels may need selective retrieval first. A neutral fetch-one interface
+that destroys bulk planning is not successful replaceability.
 
 **Audit.** Does the scope contain generic code that an adopted or established library provides?
 Is each bespoke generic component a deliberate choice with a stated reason? Is each operation
-placed because its semantics fit?
+placed because its semantics fit? What complete useful operation can composed capabilities
+perform, and which application loops disappear?
 
 **Warning sign.** A hand-written solver loop, graph traversal, cache, parser, retry framework or
 derivative routine.
@@ -414,7 +488,9 @@ kernel, algorithm or idiom rather than a hand-rolled equivalent; do not re-imple
 resolved version provides, and do not wrap a library only to rebuild its features. Adapters
 translate representations and bind identifiers; domain rules, defaults, provider selection and
 policy do not live in adapters. A conversion that changes interpretation is a named
-transformation under DP-08.
+transformation under DP-08. Prefer a built-in when both consumed semantics and composed
+physical behavior fit. A matching name is insufficient; a small owned semantic fold can be
+better than a wrong built-in or general translation language.
 
 **Audit.** Does any loop replicate a built-in? Does an adapter contain a default or rule found
 nowhere else?
@@ -442,7 +518,12 @@ work fail late or silently fall back? Can installing a package change a selectio
 ### DP-16 — Minimize bespoke machinery; maximize extension locality
 
 **SHOULD · G8.** Judge a design by the independent semantic decisions and bespoke code it
-removes. An ordinary extension should be one authoritative declaration, any genuinely new
+removes, including generated and library-induced operations, copies, stores, configuration,
+roles, migrations, retries, telemetry, build dependencies and upgrade/recovery obligations.
+One generated declaration may still expand into excessive lifecycle work. Line count and
+feature count are weak proxies; preserve focused local iteration and diagnostics. Optional
+exploration does not make an extension mandatory for a basic supported operation without a
+deliberate contract. An ordinary extension should be one authoritative declaration, any genuinely new
 implementation, and focused tests where warranted (§E). Generated code, like any derived
 artifact, is never treated as an authority (DP-01). Proportionality applies to the
 integration as well as bespoke machinery: account for coupling, initialization,
@@ -462,7 +543,7 @@ meaning: the domain core does not depend on a particular backend, solver, store 
 bridge; mechanisms are selected by explicit policy and lowering. Library types are used freely
 inside their integration owner. Intentionally adopted shared data contracts may expose library
 types; incidental implementation objects must not couple unrelated consumers to internals.
-The six foundations govern the result; this rule does not require a trait or crate per concern.
+The seven foundations govern the result; this rule does not require a trait or crate per concern.
 
 **Audit.** Could another conforming backend consume the same intent? Does a public model type
 mirror a library's internal objects? Must a caller know a module's internals to use it?
@@ -491,6 +572,14 @@ Planned, running, completed, partial, stale, cancelled and failed are distinguis
 completeness is validated before publication; stale asynchronous results are rejected. Retries
 define idempotency, and no rollback or exactly-once claim exceeds what the protocol provides.
 Material workflows are explicit plans or state machines, not only statement order in a script.
+Separate long preparation, durable progress, sealing and visibility where the effect permits;
+coherent publication need not be one long transaction. Before final persisted reconciliation,
+drain writers and freeze the content and answer-affecting definitions being certified, or use
+an equivalently protected immutable view; publish that same realization. Transaction/lock
+lifetime and retry unit follow the actual atomicity promise. Private completed artifacts plus a visible handle can
+publish multiple parts with an explicit crash argument; advertised results cannot depend on
+unfinished indexes or uncommitted external payloads. Bound retry work through idempotent batches
+or rebuildable segments where useful, without gratuitous leases or hostile-operator assumptions.
 
 **Audit.** After a crash, cancellation or retry, which outputs are valid and which effects
 already happened? Can a partial output look complete?
@@ -501,7 +590,15 @@ already happened? Can a partial output look complete?
 contracts. Coordinate nested thread pools rather than maximizing each independently. Budget
 intermediates, conversions, workspaces, caches and retained artifacts together; exceeding a
 budget fails explicitly. Parallel execution changes results only within the declared
-determinism class (DP-11).
+determinism class (DP-11). Bound admitted work as well as workers: distinguish examined effort,
+resident state, queued work, transport and output. Coordinate CPU, memory, I/O, connections and
+retained artifacts, including contention between bulk and interactive workloads. Admission and
+priority keep competing workloads within their shared envelope, or concurrent use is explicitly
+outside scope. Propagate
+backpressure and cancellation/drain; define interruption safety and when charges end. An opaque
+kernel still running after cancellation retains its resource charge. Partition independent
+attempts where useful, prefer immutable readers, and add threads/shards/queues for a justified
+need rather than as evidence of quality. Honest refusal satisfies truthfulness, not AP-07 fitness.
 
 **Audit.** Can concurrency change results, visible ordering or effect counts beyond the
 contract? What happens at the memory limit?
@@ -516,7 +613,9 @@ Every output traces to its authored sources, selected policies and providers, tr
 and attempt, many-to-many where needed. Declare the reproducibility class — recomputation or
 replay of recorded evidence — and record what it needs. Make changes explainable at the level of
 meaning, and make lifecycle decisions (selection, reuse, rejection, cost) observable without
-letting instrumentation dominate cost.
+letting instrumentation dominate cost. Explain complete operations and their scan, fan-out,
+queue, spill and retry drivers. Preserve lineage through compact references and selective
+hydration; a receipt/span per tiny fact must not dominate useful work.
 
 **Audit.** Can a tool classify a failure without parsing prose? Can a bad output be traced to the
 inputs responsible? What exactly can be reproduced, and what is outside that promise?
@@ -529,7 +628,9 @@ inputs responsible? What exactly can be reproduced, and what is outside that pro
 mechanism, baseline, validation method and current evidence. Performance is measured end to end
 — construction, preparation, transfer, execution, publication, memory, cold and warm — at
 representative scale; an isolated kernel benchmark or a language choice does not establish a
-system speed-up. An unmeasured benefit is a hypothesis.
+system speed-up. An unmeasured benefit is a hypothesis. Static evidence of an avoidable scan, crossing or
+amplification is architectural evidence under AP-07/G9; lack of a speed claim does not exempt
+a supported operation from execution-fit assessment.
 
 **Audit.** What observation would show the claim false, and was it sought? Do *Tested* and
 *Measured* name the test or benchmark and its conditions?
@@ -544,7 +645,11 @@ equivalences, and adversarial lifecycle cases (malformed input, empty domains, m
 capabilities, precision edges, interruption, stale caches, concurrent change, retry). None is
 mandatory for every change. Agreement between two implementations is evidence, not proof, when
 they share a transformation. Tests protect behaviour where regression risk warrants them; design
-alignment itself is established by judgment and review (§0).
+alignment itself is established by judgment and review (§0). Distinguish semantic admission,
+stored/read-codec reconciliation, certificate checking and independent audit/testing by the
+failures they cover. Repeating producer logic is not an independent semantic oracle. Reuse
+checks whose premises remain valid, retaining new-state, trust-transition, transient-failure
+and global checks where necessary; economy never removes a required sound guarantee.
 
 **Audit.** For the risks that matter here, what would detect semantic drift in an adapter, a
 rewrite or an alternate backend? Are the failures most likely to occur between happy-path
@@ -582,9 +687,12 @@ or relax these.
 | G6 — Transformation and reuse | A rewrite, cache hit, projection or alternate backend changes required behaviour without a valid contract or selected approximation policy. | DP-07, DP-08, DP-09, DP-11, DP-23 |
 | G7 — Truthful capability claims | A capability is claimed without an implementation route or evidence, or unsupported work silently falls back. | DP-15, DP-21, DP-22 |
 | G8 — Library leverage | Generic capability is implemented bespoke where an adopted or established library clearly provides it, without a stated reason. | DP-13, DP-14, DP-16 |
-| G9 — Architectural fitness | A representative change violates an applicable foundation: avoidable cross-owner changes, leaked implementation knowledge, entangled composition, an inadequate domain model or behavior outside its semantic authority, implicit constraints, or inability to reason/test locally. | AP-01–AP-06 |
+| G9 — Architectural fitness | A representative change violates an applicable foundation: avoidable cross-owner changes, leaked implementation knowledge, entangled composition, an inadequate domain model or behavior outside its semantic authority, implicit constraints, inability to reason/test locally, or unjustified work, movement, live state, coordination or recovery amplification that makes a supported workload unfit. | AP-01–AP-07 |
 
 For G9, name the scenario, violated foundation, affected boundary and concrete consequence.
+AP-07 assesses the complete physical operation and growth/failure conditions, not only local
+slices. A material unresolved workload premise prevents acceptance; unmeasured coefficients
+do not excuse a demonstrated bad work shape. No G10 or separate correctness gate is added.
 A missing analysis of a material scenario is unresolved, not automatically a defect. A wide
 change justified by a new core concept is not a failure merely because it touches many files.
 All applicable foundations must be satisfied for G9 to pass. A proposed correction does not
@@ -676,7 +784,8 @@ a review or a code comment — helps the next reader; use whichever points are u
 | Candidates | Libraries and built-ins that plausibly provide it |
 | Fit and gaps | What each provides and what it lacks for this contract, including capability differences |
 | Integration owner | Which module absorbs library details and what consumers see |
-| Ownership cost | Coupling, lifecycle, configuration, testing, upgrade and replacement costs; bespoke machinery removed |
+| Ownership cost | Coupling, lifecycle, configuration, testing, upgrade and replacement costs; generated/library-induced machinery and failure modes added or removed |
+| Composed execution | Complete operation, physical access, optimizer visibility, placement, movement, live state, reuse, contention and recovery; semantics the native path actually preserves |
 | Decision | Adopt, adapt, or build — and for build, the bounded scope of the bespoke code |
 | Revisit | What would reopen the decision, such as a candidate gaining the capability |
 
@@ -709,6 +818,13 @@ gap is never an exception: it narrows the supported scope or is recorded as unre
 concrete record is enough for a small deviation.
 
 ## §I Lineage: Data Model–Based Design Charter 1.0
+
+**Core 3.4.** AP-07 adds execution fit through existing G9. AP-01–AP-06, DP-01–DP-24 and
+G1–G9 retain their IDs and meanings. Physical independence, necessary work, composed library
+capabilities, locality, live state, reuse, economical assurance, transaction/recovery effects,
+coordinated capacity, reusable views, honest completeness and total machinery refine existing
+rules. Review cadence and discretionary investigation stay bounded; no A4, G10, checklist,
+mandatory probe or benchmark is added. Historical reviews keep their original versions.
 
 **Core 3.3.** Domain-model adequacy and authority remain criteria under §1, AP-04 and G9.
 Assessment belongs to bounded design and review work; mandatory tracing sequences are removed.
@@ -758,5 +874,6 @@ history; DP and PS identifiers were never renumbered.
 A good design makes valid changes easy and invalid states hard to introduce. Its explicit domain
 model governs behavior and keeps meaning inspectable. It takes generic mechanisms from libraries
 and keeps execution mechanisms
-replaceable. Its extensions add meaning rather than machinery. Its claims match its evidence,
+replaceable. Its complete operations fit supported workloads without unnecessary work, movement
+or lifecycle machinery. Its extensions add meaning rather than machinery. Its claims match its evidence,
 and its remaining uncertainty is visible.

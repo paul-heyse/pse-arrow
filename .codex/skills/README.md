@@ -27,9 +27,9 @@ root STATUS file or handoff skill is required.
 
 All workflow pairs use the [shared agent roles](../../.agents/roles/README.md). Roles supply
 bounded capabilities; the coordinator retains design, integration and acceptance. The layered
-standard remains core 3.3 and process-simulator 1.3, as selected by
-`docs/design_review/design_principles/standard.toml`; AP-04/G9 and independent scientific judgments
-are preserved. The binding owns cadence. Routine implementation adds no standing domain-model
+standard remains core 3.4 and process-simulator 1.5, as selected by
+`docs/design_review/design_principles/standard.toml`; model adequacy/authority (AP-04/G9),
+execution fit (AP-07/G9) and independent scientific judgments are preserved. The binding owns cadence. Routine implementation adds no standing domain-model
 review or exhaustive flow tracing.
 
 Library capability skills remain shared live sources selected by `.config/library-skills.toml`,

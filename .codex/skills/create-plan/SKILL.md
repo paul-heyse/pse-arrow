@@ -60,6 +60,13 @@ skills and documentation routes. Preserve enough rationale for an implementer to
 evidence that would reopen a decision. Relate an expected benefit to its mechanism and workload
 or conditions, and account for material integration, lifecycle and maintenance obligations.
 Quantitative benefits need a baseline and measurement route; unmeasured benefits remain hypotheses.
+Co-design semantic contracts and physical execution for supported operations, size/skew,
+concurrency and resource premises. Explain necessary versus repeated scans/passes, native planning
+and composed capabilities, placement/crossings, live representations, reuse and invalidation,
+assurance placement, transaction/visibility and retry units where material. Semantic owners need
+not become physical work boundaries. Compare total generated/library-induced machinery and
+retained obligations, not only bespoke code. Static evidence can require removing structural
+amplification without a benchmark; preserve sound checks and scientific exactness/partiality.
 
 Resolve choices that materially shape responsibilities, semantics, sequencing or acceptance.
 If uncertainty remains, state the question, the evidence needed and the dependent work it
@@ -99,6 +106,12 @@ contract and later consumers. An ordered table can provide a convenient route wi
 every row a synchronization barrier. Among ready packages, consider establishing widely consumed
 contracts or resolving consequential uncertainty early; explain such ordering when it matters.
 Carry warranted foundation improvements ahead of the work that relies on them.
+
+Account for shared resource capacity when otherwise independent packages compose. Preparation,
+certification, durable progress and visibility can require different units/lifetimes; schedule
+reuse and consumer-specific compact views only where actual operations justify them. Work,
+resident state, queues and output limits stay distinct, with cancellation/drain and retry scope
+where relevant.
 
 Keep prerequisites, runtime interactions, shared editing surfaces and common acceptance journeys
 distinct. Independent capabilities may still contend for the same files. Semantic ownership and

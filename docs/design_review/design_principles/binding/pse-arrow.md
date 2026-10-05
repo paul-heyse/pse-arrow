@@ -17,6 +17,16 @@ This assessment belongs to the bounded reviews below. Ordinary implementation wo
 itself trigger a domain-model review; investigation depth and optional flow tracing follow the
 concrete question being assessed.
 
+AP-07/G9 assesses execution fit alongside those foundations, under
+[ADR-0162](../../../adr/0162-workload-fit-review-principles.md). Use the simulator's declared
+edit/re-solve, study, recycle and dynamic workloads; scope size/skew, concurrency and resource
+premises where material. Semantic unit/model boundaries do not dictate physical batches,
+allocations, transactions or native calls. Compare complete preparation/evaluation/solve and
+publication/recovery work, including immutable reuse, compact views and nested pool contention.
+Structural evidence can defeat acceptance without a benchmark; no new review cadence, checklist,
+probe mandate, lint or product qualification is introduced by this adoption. Scientific gates
+and PS-09's solver/composition ownership remain independently required.
+
 ## Reviews in this repository
 
 - **Location:** `docs/design_review/reviews/design_review_{slug}_{YYYY-MM-DD}.md`; supporting
@@ -53,6 +63,7 @@ A review may link a row and record only its case-specific conditions and accepta
 | <a id="pse-s04"></a>PSE-S04 | Change a result storage/transport representation without changing scientific meaning | Persistence/conversion owners absorb the change; physical meaning and computation remain under their existing owners |
 | <a id="pse-s05"></a>PSE-S05 | Exercise admission or execution policy independently | Tests supply the actual semantic inputs/dependencies without starting unrelated solvers, stores or workflows |
 | <a id="pse-s06"></a>PSE-S06 | Upgrade an integration library within the intended capability contract | Identify integration owners absorbing API/lifecycle changes and any justified consumer contract migration |
+| <a id="pse-s07"></a>PSE-S07 | Increase structure/case count, introduce skew or concurrent solves, or interrupt before publication | Necessary physical work, live state and queues remain credible for supported scope; prepared structure is reused, native work drains, recovery matches actual effects |
 
 Inspect dependency edges from manifests and executing paths. Existing dependency/import checks
 can support named boundary claims; an acceptance manifest is not an architectural dependency
@@ -77,7 +88,7 @@ and semantic judgments remain separate; there is no generated approval or archit
 
 | Role (principle) | Authority in this repository |
 |---|---|
-| Architecture review and tracking (AP-01–AP-06, G9) | blueprint §24.4; ADR-0094; the current core and template |
+| Architecture review and tracking (AP-01–AP-07, G9) | blueprint §24.4; ADR-0094/0162; the current core and template |
 | Model authority and identity (DP-01, DP-04, DP-05) | blueprint §2 (D1–D14), §5 and §6; ADR-0088/0089 |
 | Ownership of math, derivatives, sparse algebra, properties, structure and solvers (DP-13, DP-17, PS-07, PS-09) | blueprint §1.3, §3.2, §3.3, §7, §14 and §18; ADR-0082–0084 |
 | Supported math, provider and solver scope (DP-15, PS-02, PS-10) | blueprint §9, §18 and §25; ADR-0082–0084 and ADR-0093 |
@@ -158,4 +169,5 @@ Their absence proves nothing.
 | Two majors of a graph library in `Cargo.lock` through a backend adapter | Version bridge | DP-15 |
 | A whole-graph algorithm behind a DataFusion operator that claims a partitioning or exact pushdown | Global computation per partition | DP-08 |
 | Evaluator, property or solver workspace shared across attempts or held inside a tracked query | Owned-workspace violation | DP-19, DP-18 |
+| Per-case structure reconstruction, per-scalar bridge calls, or independently maximized case/native pools | Unjustified work/crossing/live-state amplification across the complete solve route | AP-07, DP-10, DP-20 |
 | Solver return code mapped to success without the post-solve check | Status read as success | PS-10 |

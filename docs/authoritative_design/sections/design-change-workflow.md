@@ -10,15 +10,16 @@ status: current
 > Decision: [ADR-0094](../../adr/0094-architecture-first-design-review.md),
 > [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md),
 > [ADR-0129](../../adr/0129-domain-model-review-scope.md),
-> [ADR-0149](../../adr/0149-agent-permissions-by-contract.md).
+> [ADR-0149](../../adr/0149-agent-permissions-by-contract.md),
+> [ADR-0162](../../adr/0162-workload-fit-review-principles.md).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review. Its core foundations organize assessment around separation of concerns,
 contracts, composition, explicit domain models and scoped semantic authority, constraints and
-local reasoning. The principles and review skill own the domain-model criterion; assess it
+local reasoning and execution fit for supported workloads. The principles and review skill own the domain-model criterion; assess it
 within bounded design/review periods at the binding's cadence. AGENTS.md routes to that process
 without imposing a standing modeling mandate. AP-04/G9 retain model adequacy and authoritative
-behavior as acceptance criteria. This review policy is Implemented (2026-09-30).
+behavior as acceptance criteria. This review policy is Implemented (2026-09-30; execution-fit adoption 2026-10-05).
 
 Reviews start with the functional target, modeled phenomena and owned domain operations,
 responsibility boundaries and representative change scenarios. Investigation depth follows the
@@ -28,6 +29,32 @@ passing one does not establish the other. Mechanism-level investigation follows 
 uncertainty. Library eligibility under §3.3.1 remains; integration cost and dependency exposure
 are assessed against the architecture. Internal contracts may evolve deliberately without
 freezing an immature API, while durable/external compatibility remains explicit.
+
+AP-07 adds execution fit through existing G9 in Core 3.4; ProcessSimulator 1.5 applies it to
+edit/re-solve, studies, recycles and dynamics while retaining PS-01–PS-13, PS-G1–PS-G3 and the
+PS-09 solver-composition contract. Supported workload premises and relevant growth/skew,
+concurrency and interruption scenarios belong in existing scope/scenario discussion. Semantic
+model ownership does not dictate physical layout, placement, scheduling or enforcement frequency.
+Compare complete necessary work with incidental scans/crossings/materialization, live state,
+reuse/invalidation, economical assurance, transaction/visibility and retry units, coordinated
+capacity, consumer views and total generated/library-induced obligations. Repeated producer work
+is not independent assurance; distinct state/trust failures and required scientific post-checks
+remain covered. More expensive choices identify their concrete retained benefit.
+
+Static evidence can establish a structurally unfit route; quantitative speed and capacity require
+measurement. Safe refusal alone does not establish supported-workload fit. Local passing slices
+do not establish assembled fitness, and a material unresolved execution premise prevents scoped
+acceptance. This is a bounded architectural judgment, not a new A4/G10, checklist, lint, probe
+mandate, benchmark gate or ordinary-implementation review. Historical reviews keep their recorded
+versions, scope and evidence. The adoption changes policy and process-skill guidance only; it
+claims no product performance or newly qualified numerical behavior. Independent static review
+accepted the written policy at scoped strength on 2026-10-05, including retained new-state checks,
+necessary global work and drain/freeze before reconciliation. `just docs`, `just lint-agents` and
+`just adr-lint` passed at the adoption baseline; the initial stale-index failure cleared after
+regeneration. A later whole-tree ADR check failed on concurrently introduced ADR-0163's missing
+review and changed index inputs; final docs/agent checks passed. That draft is outside adoption.
+Current product qualification stays with its existing plan/packet owners. The policy is Implemented
+(2026-10-05).
 
 The [process skills](../../../.codex/skills/README.md) own review planning, plan authoring and
 execution. Each has a conversational planning companion and an action skill; companions use an

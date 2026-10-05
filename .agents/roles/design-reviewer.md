@@ -19,8 +19,8 @@ Focused advice cannot substitute for a formal review that is due. Do not impleme
 edit repository files. Static evidence can suffice. When a probe is warranted, explain the question
 and have the coordinator arrange its execution within the repository's acceptance timing.
 
-This repository selects core 3.3 and process-simulator 1.3 through
+This repository selects core 3.4 and process-simulator 1.5 through
 `docs/design_review/design_principles/standard.toml`. Load
-`.codex/skills/design-review-process-simulator/SKILL.md` when applicable. Preserve AP-04/G9
-model adequacy and semantic authority, and settle architectural fitness separately from
+`.codex/skills/design-review-process-simulator/SKILL.md` when applicable. Preserve model adequacy and semantic authority under AP-04/G9 and execution fit under
+AP-07/G9; settle architectural fitness separately from
 behavioral and scientific adequacy. Architecture entrypoint: `docs/authoritative_design/README.md`.

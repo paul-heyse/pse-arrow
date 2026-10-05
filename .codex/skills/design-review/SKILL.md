@@ -24,7 +24,7 @@ If no declaration exists, apply the available core and say so. If the core is mi
 that limitation. Profiles refine or tighten the core; they never waive a MUST. Follow the
 binding's conflict route and state any effect on the verdict.
 
-The core defines six architectural foundations, operational refinements, independent gates,
+The core defines seven architectural foundations, operational refinements, independent gates,
 evidence levels and the review contract. Its selected version is authoritative; do not infer
 current requirements from an older review or duplicate the standard in this skill.
 
@@ -66,19 +66,26 @@ in that plan and does not replace a formal review due under the binding.
 - **Architecture:** verdicts for the applicable foundations, grounded in responsibilities,
   contracts, composition and change scenarios. Name the context and dependencies needed to
   modify or test a component. AP-04 requires both model adequacy and behavior governed by its
-  semantic authorities; a centralized but inadequate definition is insufficient. G9 follows
+  semantic authorities; a centralized but inadequate definition is insufficient. AP-07 assesses
+  the complete physical operation: necessary versus repeated work, access paths, crossings, live
+  state, reuse, resource/transaction lifetime and failure recovery under relevant growth/skew
+  and concurrency. Material unknown premises remain unresolved. Static structural evidence can
+  establish unfit execution; quantitative benefits need measurement. G9 follows
   these verdicts without averaging, even when current outputs are correct. Deferral cannot
   waive a domain-model MUST for supported behavior.
 - **Behavior:** settle each applicable core/profile gate on its own evidence. Preserve physical
   and numerical requirements when the subject touches them. A missing mechanism is unresolved,
   not a pass. Successful tests do not establish unexamined architectural qualities.
 - **Findings:** concrete causes and consequences under the template's finding standard.
-  Change amplification, policy duplication, leaked implementation knowledge and unnecessary
-  test dependencies are material even if current outputs are correct.
+  Change amplification, repeated scans/crossings/materialization, excessive live state/queues,
+  broad invalidation, mismatched recovery lifetimes, policy duplication, leaked implementation
+  knowledge and unnecessary test dependencies are material even if current outputs are correct.
 - **Alternatives:** compare the proposed design with the simplest viable and library-owned
   alternatives. Justify seams by their variation axis, including roadmap or exploration needs.
 - **Library fit:** assess semantic fit, integration owner, exposed types, lifecycle, testing,
-  upgrade/replacement cost and bespoke machinery removed. Full capability eligibility remains;
+  upgrade/replacement cost and total machinery removed or introduced. Compare interacting native
+  capabilities and optimizer visibility, locality, preparation/reuse and failure scope; a
+  neutral wrapper must not discard consumed bulk or planning opportunities. Full capability eligibility remains;
   integration cost is assessed independently of whether a consumer already exists.
 
   **Optional context: existing library use.** A focused look at relevant entries in
@@ -103,6 +110,9 @@ Measured name executed checks and their conditions. Secondhand evidence is a lea
 Attack the relevant guarantee: an ordinary extension propagating into unrelated owners; an
 implementation detail leaking into consumers; a pure responsibility requiring unrelated
 infrastructure to test; two authorities diverging; a rewrite, cache or retry changing meaning.
+For execution fit, challenge growth/skew, contention or interruption where material; reason
+about examined effort separately from result size and preserve mandatory exactness/partiality
+contracts. A bounded refusal is honest but insufficient if ordinary supported work is infeasible.
 The reference and domain skills give conditional mechanisms to investigate. Do not force every
 review into a cache, graph, registry or publication analysis.
 
