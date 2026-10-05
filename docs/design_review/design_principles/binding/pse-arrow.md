@@ -4,7 +4,9 @@ The repository layer of the design standard. It defines no principles; it maps t
 [core principles](../core/design-principles.md) and the
 [process-simulator profile](../profiles/process-simulator/principles.md) onto this
 repository's authorities, commands, routes and local policies. Where this page and a cited
-authority disagree, the cited authority wins and this page is corrected.
+authority disagree, the cited authority wins and this page is corrected. Those authorities govern
+plan execution and implementation review in their domains; a design review treats them as current
+design and reports its rule impacts instead (design-review, Grounding).
 
 ## Standard applied
 
@@ -46,12 +48,21 @@ remain; the companion introduces no exhaustive checklist, cost models or proof m
   evidence files under `docs/design_review/evidence/`.
 - **Skills:** `design-review` (core method) with `design-review-process-simulator` (profile
   lenses). The `design-reviewer` agent applies both with this binding.
-- **Default purpose:** design reviews default to **target** purpose (template, *Tier and purpose*): the
-  aim is the best-in-class simulator design, and blueprint, ADR, plan or policy text that blocks
-  it is recorded in slot 11 as a required change with its route. Change reviews within an
-  approved plan default to **conformance**.
+- **Grounding:** the standard and the functional target. The target is stated as outcomes in
+  the process-simulator profile's *Functional target* (a best-in-class simulator serving
+  edit/re-solve, studies, recycles, dynamics and extension) and in blueprint §0 and §0.2 (the
+  IDAES-PSE modeling capability families this core re-implements). The mechanisms those passages
+  name are rules, like ADRs, blueprint D1–D14, plans and the policies on this page: the Rust core
+  with a Python authoring and result boundary, the clean-room parity harness against a pinned
+  `idaes-pse`, and §0.2's *Realization here* column. A review lists the rules its
+  recommendations would change (`review#RCnn`); they change only after the operator confirms
+  them in plan creation.
+- **Purpose:** every review, design or change tier, has the **target** purpose (template,
+  *Tier and purpose*): the aim is the best-in-class simulator design. The template's
+  conformance purpose is not used; whether an implementation matches its accepted design
+  belongs to implementation review.
 - **Reviews are evidence, not authority.** Their findings take effect through a plan, an ADR or
-  a `design:` PR.
+  a `design:` PR, once the operator has confirmed any rule change they carry.
 - **Lifecycle:** a review stays in the tree while an open finding or a pending decision depends
   on it. Once findings are dispositioned and enduring rationale has its owner, it retires to Git
   history; retained ADRs cite it as `git:<commit>:<path>` (ADR-0096).
@@ -112,7 +123,9 @@ and semantic judgments remain separate; there is no generated approval or archit
 
 ## Local policies that tighten the standard
 
-Each is stated once in its authority; this list only points to it.
+Each is stated once in its authority; this list only points to it. They govern plan execution
+and implementation review; a design review treats them as current design (Grounding), except
+where one governs how the review itself is conducted or reported, such as evidence labels.
 
 | Policy | Tightens | Authority |
 |---|---|---|
@@ -137,6 +150,9 @@ Each is stated once in its authority; this list only points to it.
 | Plan-close qualification | the [qualification command guide](../../../dev/validation-assessment.md) and AGENTS.md *Qualification reporting* |
 
 ## Routes for required changes
+
+A review's rule impacts (`review#RCnn`) go to plan creation for operator confirmation first; an
+accepted change then uses the route below, and a rejected one stays as the plan records it.
 
 | Change | Route |
 |---|---|

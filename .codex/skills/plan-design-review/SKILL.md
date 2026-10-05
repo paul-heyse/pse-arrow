@@ -20,7 +20,9 @@ conclusions and document structure responsive to what is discovered.
 Load [design-review](../design-review/SKILL.md) and discover the applicable principles,
 profiles and binding through repository instructions and `standard.toml`. Those sources own
 the assessment criteria and output contract. Explore enough current context to make the
-approach specific, distinguishing implementation, accepted constraints and proposed design.
+approach specific, distinguishing implementation, current rules and proposed design. The review
+is grounded only in the standard and the functional target (design-review, Grounding); ADRs,
+rulings and other rules are current design it may overturn.
 The considerations below guide attention, not required stages or an exhaustive checklist.
 
 ## Frame questions that could change the judgment
@@ -33,7 +35,8 @@ design, a different underlying cause, or a sound diagnosis with an unsuitable pr
 Prepare revealing questions about the intended capabilities and credible changes, rather than
 settling the verdict during preparation. Where alternatives or library capabilities matter,
 identify the semantic or integration question a comparison would resolve. The selected design
-standard remains the basis for judgment. For material execution questions, identify supported
+standard and the functional target remain the basis for judgment; do not drop a question because
+a current rule appears to settle it. For material execution questions, identify supported
 operations, size/skew, concurrency and resource premises. Prepare inquiries about necessary
 versus repeated work, optimizer visibility, locality, live state, reuse, assurance and recovery.
 A qualitative growth/failure argument can settle architectural fit; quantitative benefit needs measurement.
@@ -62,9 +65,10 @@ Preparing the review requires neither exhaustive mapping nor a new probe or seco
 
 ## Provide context without prescribing the verdict
 
-Give a reviewer the intended capability, relevant requirements, baseline, applicable authorities
-and known uncertainty. Explain why references matter and distinguish facts, accepted constraints,
-proposals and previous judgments. Include relevant contrary evidence. Supply source pointers
+Give a reviewer the functional target, relevant requirements, the applicable standard, the
+baseline and known uncertainty. Explain why references matter and distinguish facts, proposals
+and previous judgments. Present ADRs, rulings and other rules as the current design, not as
+constraints on the judgment, and ask for the review's rule impacts. Include relevant contrary evidence. Supply source pointers
 that support independent examination; workers may follow discovered dependencies beyond them.
 
 For example, the reasoning portion of a brief might say:

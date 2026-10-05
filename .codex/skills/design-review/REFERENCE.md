@@ -253,7 +253,7 @@ DP-07, DP-12, G6."
 | 8 Library fit | Material adoption/retention choices and ownership costs | Changed integration only |
 | 9 Alternatives | Real alternatives, including simplest viable | When a material choice exists |
 | 10 Verification | Claim-specific evidence and gaps | Settling evidence, no ritual test expansion |
-| 11 Disposition | Link the single status owner and authority routes | Link existing owner |
+| 11 Disposition | Rule impacts (`review#RCnn`); link the single status owner | Same; state "none" when no rule is affected |
 | 12 Decision | Architecture, behavior, then overall scope/decision | Same distinctions |
 
 <a id="synthesis-and-corrective-reasoning"></a>

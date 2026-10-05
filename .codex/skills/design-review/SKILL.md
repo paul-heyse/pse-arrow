@@ -30,6 +30,22 @@ The core defines seven architectural foundations, operational refinements, indep
 evidence levels and the review contract. Its selected version is authoritative; do not infer
 current requirements from an older review or duplicate the standard in this skill.
 
+## Grounding
+
+Judge the subject only against the loaded standard (principles, companion heuristics, template and
+declared profiles) and the system's functional target, located through the binding. Every other
+repository rule describes the current design, not the criteria for judging it: accepted decisions
+and ADRs, blueprint binding decisions and product rulings, binding policies, agent instructions
+and working agreements, operator decisions recorded in status or memory, global working rules and
+dependency pins. Read them to understand the subject. Do not judge the design by its agreement
+with them, narrow a recommendation to fit them, or review them for their own sake. Where the
+target statement names a chosen mechanism, such as a store, language or framework, that choice is
+a rule.
+
+Rules for conducting and reporting the review still apply: its location, the reviewer's
+independence, the evidence vocabulary and outcome reporting. Once the judgment is settled, the
+review lists the rules its recommendations would change (see Identify rule impacts).
+
 ## Reading context
 
 Use the repository's architecture entrypoint and relevant contract/source owners; consult current
@@ -41,8 +57,10 @@ need documentation updates only when an enduring contract, explanation or workfl
 
 ## Scope the assessment
 
-Infer `tier` (change/design), `purpose` (conformance/target), system/subsystem/change boundary
-and optional focus from the request and binding. Clarify only material ambiguity. Include the
+Infer `tier` (change/design), system/subsystem/change boundary and optional focus from the
+request and binding. The `purpose` is always `target`, the best architecture serving the
+functional outcome; the tier sets breadth only. The template's `conformance` purpose is not used:
+whether an implementation matches its accepted design belongs to implementation review. Clarify only material ambiguity. Include the
 suppliers and consumers needed to reason about the boundary; state exclusions. Focus changes
 depth, not the obligation to report a material defect found outside the focus.
 
@@ -137,8 +155,8 @@ not establish entanglement. A specification and its implementation serve differe
 roles; reconcile disagreement instead of treating their coexistence as duplication. Independent
 oracles may deliberately use a different representation.
 
-In target purpose, assess workloads required by the stated target even when the current plan
-excludes them; record obstructing authority changes through the binding. Do not silently expand
+Assess workloads required by the stated target even when the current plan excludes them; record
+an obstructing rule as a rule impact (see Identify rule impacts). Do not silently expand
 a bounded requested scope into whole-system qualification.
 
 ## Synthesize the assessment
@@ -195,6 +213,16 @@ premise that could change the verdict or selected remedy; name suitable settling
 material. An unexamined area is not itself a defect. Keep the next consequential decision and
 follow-up obligation clear without inventing implementation work merely to make the review actionable.
 
+## Identify rule impacts
+
+After the judgment and recommendations are settled, compare the recommended design with the
+current rules named under Grounding. List each rule it would change, replace or retire, including
+a rule it makes unnecessary, in the template's slot 11. Give each item a stable identifier
+(`review#RCnn`), the rule and where it is recorded, the proposed change, the findings or
+recommendations that depend on it, and what the recommendation becomes if the rule is kept.
+State "none" when nothing is affected. The review does not edit, supersede or route these rules:
+plan creation presents them to the operator, and a change takes effect only once confirmed there.
+
 ## Organize the output for its readers
 
 The investigation structure, system decomposition and published argument need not coincide.
@@ -228,5 +256,12 @@ coordinator, who publishes it while preserving the reviewer’s judgment.
 Keep finding IDs linkable and record standard version, inspected scope and disposition owner.
 State architectural fitness, behavioral adequacy, overall decision and evidence limits. A target
 accepted as a design remains unqualified implementation until supported by execution evidence.
-Close with the decision, material findings, coverage and artifact path. If nothing is wrong,
-say so with the coverage limits; do not manufacture findings or pilot results.
+Close with the decision, material findings, rule impacts, coverage and artifact path. If nothing
+is wrong, say so with the coverage limits; do not manufacture findings or pilot results.
+
+## Failure modes
+
+- Fitting a recommendation to an existing ADR, ruling or policy instead of the standard and the
+  functional target.
+- Auditing the rule corpus instead of the design, or treating a rule impact as applied before the
+  operator confirms it.
