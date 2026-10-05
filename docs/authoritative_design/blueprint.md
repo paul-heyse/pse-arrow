@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 121
-date: 2026-10-04
+revision: 123
+date: 2026-10-05
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -25,6 +25,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 | Revision | Date | Change | git |
 |---|---|---|---|
 | 121 | 2026-10-04 | Plan 25n deep audit repair amends the proposed ADR-0154/0155/0158 route: §18.8 names actual serial sparse native storage ownership; §17.3 describes implemented scoped discrete initialization; §19.3 and §21.5 retain operation obligations, original-point receipts, failed-run prefixes, automatic publication identity and original start policy; §20.5 records operation-specific contracts and current document/frame versions while preserving historical bytes. Functional acceptance remains in Plan 25n. | maintainer-authorized audit repair; `PSE_DESIGN_EDIT=1`; decision acceptance unchanged |
+| 122 | 2026-10-05 | ADR-0160 testing responsibility: immutable completion and shared successful transport (§19.2/§21), typed integrity origin and independent family evidence (§14.2), one complete freshness owner and isolated test effects (§24.1), recipe-scoped qualification and measurement prerequisites (§24.3), retirement of historical name-only parity (§6.14) and the empty structural test crate. | Maintainer-authorized Plan 26 hard pivot; independent bounded target review Accept at Proposed strength; implementation and scoped Q1 owned by Plan 26; `PSE_DESIGN_EDIT=1`; ADR remains proposed. |
+| 123 | 2026-10-05 | Plan 26 closure corrects §24.1 test locations: independent integrity mechanisms and catalog/enforcement controls belong to `pse-rules`; conformance retains canonicalization and selected scientific journeys. No production contract changes. | Maintainer-authorized Plan 26 closure through ADR-0160; `PSE_DESIGN_EDIT=1`; decision acceptance unchanged. |
 | 56 | 2026-09-26 | ADR-0096 / Plan 19: the mixed legacy blueprint is replaced by focused current contracts under `sections/`; retired mechanisms keep one-line identity pointers; former anchors map below. Product contracts unchanged. | ADR-0096 accepted by the maintainer |
 | 57 | 2026-09-26 | ADR-0088–0095 accepted as implemented (Plan 16 contracts in §0.5–§0.6, §5, §9, §13, §18, §20, §24; §0.1, §0.3, §24.4); ADR-0095 supersedes the retired ADR-0033/0036. No contract text changed. | maintainer acceptance |
 | 58 | 2026-09-26 | ADR-0066 accepted as implemented (§3.3.2); no contract text changed. | maintainer acceptance |
@@ -168,7 +170,7 @@ owner. A heading whose mechanism was retired leads to its one-line retirement po
 | <a id="611-numerical-infrastructure-reference-authored-compiled"></a>§6.11 Numerical infrastructure (reference, authored, compiled) | [schema and relations: Numerical requirements and native algorithm signatures](sections/schema-and-relations.md#section-6-11) |
 | <a id="612-derived-structure-compiled"></a>§6.12 Derived structure (compiled) | [schema and relations: Derived structure relations — retired](sections/schema-and-relations.md#section-6-12) |
 | <a id="613-execution-and-evidence-runtime-provenance"></a>§6.13 Execution and evidence (runtime, provenance) | [schema and relations: Execution results, publication and evidence](sections/schema-and-relations.md#section-6-13) |
-| <a id="614-enumerations-preserved-from-idaes"></a>§6.14 Enumerations preserved from IDAES | [schema and relations: Enumerations preserved from IDAES](sections/schema-and-relations.md#section-6-14) |
+| <a id="614-enumerations-preserved-from-idaes"></a>§6.14 Scientific vocabularies | [schema and relations: Scientific vocabularies](sections/schema-and-relations.md#section-6-14) |
 | <a id="615-semantic-compilation-contracts"></a>§6.15 Semantic compilation contracts | [schema and relations: Semantic specialization contracts](sections/schema-and-relations.md#section-6-15) |
 | <a id="6151-typed-configuration-and-finite-prospective-scopes"></a>§6.15.1 Typed configuration and finite prospective scopes | [schema and relations: Typed configuration and finite scopes](sections/schema-and-relations.md#section-6-15-1) |
 | <a id="6152-rule-workspace-truth-and-support"></a>§6.15.2 Rule workspace, truth and support | [schema and relations: Rule workspace, truth and support — retired](sections/schema-and-relations.md#section-6-15-2) |

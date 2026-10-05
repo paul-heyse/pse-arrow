@@ -46,28 +46,6 @@
         ],
         "matcher": "^(Edit|MultiEdit|NotebookEdit|Write)$"
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run --no-project --python 3.14 python \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}\"/scripts/after_turn.py stop --harness claude",
-            "timeout": 120
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run --no-project --python 3.14 python \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}\"/scripts/after_turn.py prompt --harness claude",
-            "timeout": 30
-          }
-        ]
-      }
     ]
   }
 }

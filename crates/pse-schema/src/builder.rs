@@ -432,7 +432,7 @@ impl RegistryBuilder {
         &self.algorithms
     }
     /// Project declared field/relation integrity into the same executable rule catalog.
-    /// Exact existing projections are retained; conflicting declarations remain errors.
+    /// Native projections follow the current relation version; authored conflicts remain errors.
     pub(crate) fn derive_integrity(&mut self) {
         integrity::declare(self);
     }
@@ -479,7 +479,8 @@ impl RegistryBuilder {
     }
 
     /// Declares an invariant.
-    pub fn declare_invariant(&mut self, decl: InvariantDecl) -> &mut Self {
+    pub fn declare_invariant(&mut self, mut decl: InvariantDecl) -> &mut Self {
+        decl.origin = crate::model::InvariantOrigin::AuthoredQuery;
         self.invariants.push(decl);
         self
     }
@@ -1076,6 +1077,7 @@ fn resolve_invariants(
             ));
         }
         out.push(InvariantSpec {
+            origin: decl.origin,
             id: registry_id(&format!("invariant:{name}")),
             name: decl.name,
             relation: decl.relation,

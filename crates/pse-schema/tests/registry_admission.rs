@@ -549,3 +549,50 @@ fn pass_diagnostics_resolve_actual_declared_failure_members_before_materializati
     );
     assert!(builder.build().is_err());
 }
+
+#[test]
+fn integrity_origin_resolves_existing_declarations_instead_of_names_or_kinds() {
+    use pse_schema::model::{IntegrityDerivation, InvariantOrigin};
+    let mut builder = RegistryBuilder::new();
+    builder.declare_relation(
+        relation(
+            "origin",
+            1,
+            vec![FieldContract::payload(
+                "slot",
+                FieldContract::native(arrow_schema::DataType::Int64),
+                "slot",
+            )],
+        )
+        .unique("slot", &["slot"]),
+    );
+    builder.declare_invariant(InvariantDecl::error(
+        "authored.origin",
+        "unique:positive",
+        InvariantKind::Unique,
+        "SELECT id FROM authored.origin WHERE slot < 0",
+        vec!["authored.origin".into()],
+        vec!["id"],
+        "Independent sign predicate",
+    ));
+    let registry = builder.build().unwrap();
+    let relation = registry.relation("authored.origin").unwrap();
+    for invariant in registry.invariants() {
+        match invariant.origin() {
+            InvariantOrigin::AuthoredQuery => assert_eq!(invariant.name, "unique:positive"),
+            InvariantOrigin::GeneratedIntegrity(binding) => {
+                assert_eq!(
+                    registry.relation_by_key(binding.relation).unwrap().id,
+                    relation.id
+                );
+                match &binding.derivation {
+                    IntegrityDerivation::PrimaryKey => assert_eq!(relation.primary_key, ["id"]),
+                    IntegrityDerivation::UniqueKey(name) => {
+                        assert!(relation.unique_keys.iter().any(|key| key.name == *name))
+                    }
+                    other => panic!("unexpected derivation: {other:?}"),
+                }
+            }
+        }
+    }
+}

@@ -89,7 +89,7 @@ def _physical_ids(quantity: str, unit: str) -> tuple[str, str]:
     )
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -142,7 +142,7 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     assert [row["value"] for row in variables if row["parameter"]] == [4.0]
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_study_unusable_predecessor_retains_refusal_without_dispatch(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -189,7 +189,7 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
     assert rows[1]["attempts"] == []
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_study_binding_identity_uses_admitted_member_and_physical_value(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -228,7 +228,7 @@ def test_study_binding_identity_uses_admitted_member_and_physical_value(
     )
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_study_physical_mismatch_preserves_full_boundary_envelope(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -372,7 +372,7 @@ def test_study_controller_moves_preserve_exact_typed_tuple_positions() -> None:
             codec.decode_json(msgspec.json.encode(document), ControllerOperation)
 
 
-@pytest.mark.unit
+@pytest.mark.component
 @pytest.mark.parametrize(("operation", "version"), [("admit_study", 2), ("study", 4)])
 def test_native_study_version_precedes_nested_current_decode(
     inspection_settings: pse.EngineSettings, operation: str, version: int
@@ -391,7 +391,7 @@ def test_native_study_version_precedes_nested_current_decode(
             handle.study(historical)
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_study_request_excludes_owner_seed_capability(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -677,7 +677,7 @@ def test_flash_sweep_prepares_structure_once(
     assert preparations.rebuilt + preparations.shared == len(temperatures), preparations
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_fresh_capped_study_preserves_individual_automatic_execution(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -741,7 +741,7 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
     assert outcome.diagnostic.code == DiagnosticCode.NATIVE_UNSUPPORTED
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_capped_related_root_study_charges_prediction_and_screening(
     inspection_settings: pse.EngineSettings,
 ) -> None:

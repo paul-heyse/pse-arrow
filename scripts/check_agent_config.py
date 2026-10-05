@@ -285,9 +285,9 @@ FILE_TOOLS = ("Edit", "Read", "Write", "NotebookEdit", "MultiEdit", "Glob")
 ANCHORS = ("/", "~/")
 
 
-# The shared hook scripts: protected-edit policy, and the end-of-turn pipeline.
-HOOK_SCRIPTS = ("scripts/agent-hooks.py", "scripts/after_turn.py")
-REQUIRED_HOOK_EVENTS = ("PreToolUse", "Stop", "UserPromptSubmit")
+# The shared hook script: protected-edit policy.
+HOOK_SCRIPTS = ("scripts/agent-hooks.py",)
+REQUIRED_HOOK_EVENTS = ("PreToolUse",)
 
 
 def check_hook_wiring(config: Path, problems: list[str]) -> None:

@@ -65,7 +65,7 @@ mod _native {
             NativePreparedStrategy, NativeProgressStream, NativePublicationAttempt,
             NativeRunHandle, NativeRunResult, NativeRuntime, NativeStart, NativeStrategyAttempt,
             NativeStrategyResult, NativeStudyHandle, NativeStudyReport, OperationalStore,
-            SimulationSettings,
+            SimulationSettings, TestOperationalStore,
         },
     };
 

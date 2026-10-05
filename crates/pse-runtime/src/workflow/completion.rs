@@ -191,49 +191,34 @@ impl RunResult {
                     Ok(RunReport::Simulation(r)) => Some(r.as_ref()),
                     _ => None,
                 };
-                let r = trajectory.map(|t| t.report.as_ref());
-                let profile = super::dynamics::profile_identity(p.profile())
-                    .map_err(crate::math::MathRuntimeError::from)?;
-                let mut row = header(
-                    self,
-                    ComputationKind::Simulation,
-                    p.source.revision.identity().as_id(),
-                    profile.as_id(),
-                );
-                row.state = if r.is_some() {
-                    NativeRunState::Native
-                } else {
-                    NativeRunState::Rejected
+                let profile_identity = match trajectory {
+                    Some(t) => t.header().profile_identity,
+                    None => super::dynamics::profile_identity(p.profile())
+                        .map_err(crate::math::MathRuntimeError::from)?
+                        .as_id(),
                 };
-                row.trajectory_termination = r.map(|r| r.termination);
-                row.backend = p.profile().resolved_method().ok().map(|m| match m {
-                    pse_backend_native::dynamics::Method::Idas => NativeBackend::Idas,
-                    _ => NativeBackend::Diffsol,
+                product.computation = Some(if let Some(trajectory) = trajectory {
+                    trajectory.header().clone()
+                } else {
+                    let mut row = header(
+                        self,
+                        ComputationKind::Simulation,
+                        p.source.revision.identity().as_id(),
+                        profile_identity,
+                    );
+                    row.backend = p.profile().resolved_method().ok().map(|m| match m {
+                        pse_backend_native::dynamics::Method::Idas => NativeBackend::Idas,
+                        _ => NativeBackend::Diffsol,
+                    });
+                    row
                 });
-                row.candidate_available = r.is_some_and(|r| !r.samples.is_empty());
-                row.completed_time = r.map(|r| r.completed_time).filter(|v| v.is_finite());
-                row.completed_samples = r.map(|r| r.samples.len() as i64);
-                row.feasible = trajectory
-                    .filter(|t| t.checks_complete)
-                    .map(|t| t.checks.iter().all(|c| c.satisfied));
-                row.qualification = if trajectory.is_some_and(|t| t.accepted) {
-                    NativeQualification::Feasible
-                } else {
-                    NativeQualification::Unqualified
-                };
-                row.validation_error =
-                    trajectory.and_then(|t| t.validation_error.as_ref().map(ToString::to_string));
-                row.error = row
-                    .error
-                    .or_else(|| r.and_then(|r| r.error.as_ref().map(ToString::to_string)));
-                product.computation = Some(row);
                 let mut actual_environment =
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
                     .hash(&pse_buildinfo::BUILD_IDENTITY);
                 #[cfg(feature = "solver-diffsol")]
-                if r.is_some() {
+                if trajectory.is_some() {
                     actual_environment.str(&pse_backend_native::dynamics::settings_identity(
                         p.profile(),
                     ));
@@ -249,7 +234,7 @@ impl RunResult {
                     fit_id: lineage.fit_id,
                     request_identity: p.identity(),
                     preparation_identity: p.identity(),
-                    profile_identity: profile.as_id(),
+                    profile_identity,
                     numerical_identity: p.numerics().key,
                     physical_identity: p.source.physical.key,
                     environment_identity: actual_environment.finish_hash(),
@@ -285,8 +270,11 @@ impl RunResult {
                 row.backend = native.map(|r| r.backend);
                 row.native_code = native.map(|r| r.termination.code);
                 row.native_status = native.map(|r| r.termination.name.clone());
-                row.qualification =
-                    native.map_or(NativeQualification::Unqualified, |r| r.qualification);
+                row.qualification = report
+                    .filter(|r| r.completion.permits_use())
+                    .map_or(NativeQualification::Unqualified, |_| {
+                        native.map_or(NativeQualification::Feasible, |r| r.qualification)
+                    });
                 row.candidate_kind = native.and_then(|r| r.candidate.as_ref().map(|c| c.kind));
                 row.candidate_available = report.is_some_and(|r| r.candidate.is_some());
                 if native.is_none() && row.candidate_available {
@@ -442,14 +430,69 @@ fn frame_start(h: &mut FramedHasher, native: Option<&pse_backend_native::solve::
         h.id(id).u64(value.to_bits());
     }
 }
+pub(super) fn simulation_header(
+    run_id: pse_model::generated::identities::RunId,
+    prepared: &super::ModelingSimulation,
+    report: &pse_backend_native::dynamics::Report,
+    checks: &super::modeling::dynamics::checks::SampleChecks,
+    completion: &super::numerics::Completed,
+) -> Result<computation_runs::Row, WorkflowError> {
+    let profile = super::dynamics::profile_identity(prepared.profile())
+        .map_err(crate::math::MathRuntimeError::from)?;
+    let mut row = empty_header(
+        run_id,
+        ComputationKind::Simulation,
+        prepared.source.revision.identity().as_id(),
+        profile.as_id(),
+    );
+    row.state = NativeRunState::Native;
+    row.trajectory_termination = Some(report.termination);
+    row.backend = prepared.profile().resolved_method().ok().map(|m| match m {
+        pse_backend_native::dynamics::Method::Idas => NativeBackend::Idas,
+        _ => NativeBackend::Diffsol,
+    });
+    row.candidate_available = !report.samples.is_empty();
+    row.completed_time = report
+        .completed_time
+        .is_finite()
+        .then_some(report.completed_time);
+    row.completed_samples = Some(report.samples.len() as i64);
+    row.feasible = checks
+        .complete
+        .then_some(checks.rows.iter().all(|c| c.satisfied));
+    row.qualification = if completion.permits_use() {
+        NativeQualification::Feasible
+    } else {
+        NativeQualification::Unqualified
+    };
+    row.validation_error = checks.error.as_ref().map(ToString::to_string);
+    row.error = report.error.as_ref().map(ToString::to_string);
+    row.response_available = Some(
+        report
+            .samples
+            .iter()
+            .any(|s| !s.output_sensitivities.is_empty()),
+    );
+    Ok(row)
+}
 fn header(
     result: &RunResult,
     kind: ComputationKind,
     source_identity: ContentHash,
     profile_identity: ContentHash,
 ) -> computation_runs::Row {
+    let mut row = empty_header(result.run_id, kind, source_identity, profile_identity);
+    row.error = result.report.as_ref().err().map(ToString::to_string);
+    row
+}
+fn empty_header(
+    run_id: pse_model::generated::identities::RunId,
+    kind: ComputationKind,
+    source_identity: ContentHash,
+    profile_identity: ContentHash,
+) -> computation_runs::Row {
     computation_runs::Row {
-        run_id: result.run_id,
+        run_id,
         kind,
         source_identity,
         profile_identity,
@@ -470,7 +513,7 @@ fn header(
         response_rank: None,
         response_condition: None,
         validation_error: None,
-        error: result.report.as_ref().err().map(ToString::to_string),
+        error: None,
     }
 }
 

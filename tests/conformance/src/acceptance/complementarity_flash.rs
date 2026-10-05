@@ -16,36 +16,16 @@ use pse_runtime::{
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-/// The seed package with the authored `complementarity_*` fixtures of `bt_ideal` restored,
-/// and their identities by name.
-fn with_complementarity_fixtures(
-    package: &ModelingPackage,
-) -> (ModelingPackage, BTreeMap<String, SemanticId>) {
-    let path = fixture("")
-        .ancestors()
-        .find(|p| p.join("packages/reference").is_dir())
-        .unwrap()
-        .join("packages/reference/seed-data/models/bt-ideal.pse");
-    let rows = pse_authoring::language::parse(
-        &std::fs::read_to_string(path).unwrap(),
-        SemanticId::NIL,
-        pse_authoring::language::IdentityPolicy::Explicit,
-        Default::default(),
-    )
-    .unwrap();
-    let tests = rows
+/// Select real complementarity fixture identities from the intact loaded package.
+fn complementarity_fixtures(package: &ModelingPackage) -> BTreeMap<String, SemanticId> {
+    let tests = package
+        .declarations()
         .iter()
         .filter(|r| r.value.kind.as_str() == "test" && r.name.starts_with("complementarity_"))
         .map(|r| (r.name.clone(), r.declaration_id.as_id()))
         .collect::<BTreeMap<_, _>>();
     assert_eq!(tests.len(), 9, "3 feeds × 3 realizations");
-    let mut selected = package.declarations().to_vec();
-    selected.extend(rows.into_iter().filter(|r| {
-        tests.values().any(|id| {
-            r.declaration_id.as_id() == *id || r.parent_id.is_some_and(|p| p.as_id() == *id)
-        })
-    }));
-    (package.with_declarations(selected).unwrap(), tests)
+    tests
 }
 /// An explicit route to a feasible point of the fixture's system.
 fn feasible(backend: Backend) -> SolverProfile {
@@ -80,8 +60,8 @@ async fn solve(package: &ModelingPackage, case: SemanticId, solver: SolverProfil
 #[tokio::test]
 async fn flash_phase_disappearance_agrees_across_realizations() {
     let owner = WorkflowRuntime::new().unwrap();
-    let source = seed_package(&owner).await;
-    let (package, cases) = with_complementarity_fixtures(&source);
+    let package = seed_package(&owner).await;
+    let cases = complementarity_fixtures(&package);
     for (feed, beta) in [("liquid", 0.0), ("two_phase", 0.3961), ("vapor", 1.0)] {
         // smooth(math.smooth_min, 1e-4): a square system on the NLP route.
         let smooth = solve(

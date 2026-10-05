@@ -401,9 +401,10 @@ impl super::ModelingSimulation {
                 return;
             }
             let report = match handle.finish().await {
-                Ok(((report, checks), owner)) => Ok(RunReport::Simulation(Box::new(
-                    prepared.finish(run_id, report, checks, owner),
-                ))),
+                Ok(((report, checks), owner)) => prepared
+                    .finish(run_id, report, checks, owner)
+                    .map(|trajectory| RunReport::Simulation(Box::new(trajectory)))
+                    .map_err(Arc::new),
                 Err(error) => Err(Arc::new(WorkflowError::Math(error))),
             };
             let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);

@@ -29,30 +29,6 @@ fn half_tracking() -> f64 {
 fn half_always_on() -> f64 {
     saturated_tracking() - (1.0 - (-2.0f64).exp()) + 0.5
 }
-/// The seed package with the dynamic-optimization tests of `control_fixtures` restored.
-async fn package(owner: &WorkflowRuntime) -> ModelingPackage {
-    let package = seed_package(owner).await;
-    let path = fixture("")
-        .ancestors()
-        .find(|p| p.join("packages/reference").is_dir())
-        .unwrap()
-        .join("packages/reference/seed-data/models/control-fixtures.pse");
-    let rows = pse_authoring::language::parse(
-        &std::fs::read_to_string(path).unwrap(),
-        SemanticId::NIL,
-        pse_authoring::language::IdentityPolicy::Explicit,
-        Default::default(),
-    )
-    .unwrap();
-    let tests = [SATURATED, INTEGRATED, SWITCHED].map(|id| SemanticId::parse_hex(id).unwrap());
-    let mut selected = package.declarations().to_vec();
-    selected.extend(rows.into_iter().filter(|r| {
-        tests.iter().any(|id| {
-            r.declaration_id.as_id() == *id || r.parent_id.is_some_and(|p| p.as_id() == *id)
-        })
-    }));
-    package.with_declarations(selected).unwrap()
-}
 fn optimize(selection: SolverSelection) -> SolverProfile {
     let mut solver = profile(Backend::Ipopt, true);
     solver.selection = selection;
@@ -148,7 +124,7 @@ fn native(result: &ModelingResult) -> &pse_backend_native::solve::SolveReport {
 #[tokio::test]
 async fn simultaneous_dynamic_optimization_matches_analytic() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = package(&owner).await;
+    let package = seed_package(&owner).await;
     let paths = HOLDUPS.map(|(_, p)| p);
     let (saturated, holdups) = simultaneous(
         &package,
@@ -229,10 +205,10 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         .unwrap();
     let trajectory = simulation.run(&cancel).await.unwrap();
     assert_eq!(
-        trajectory.report.termination,
+        trajectory.report().termination,
         pse_backend_native::dynamics::Termination::Completed,
         "{:?}",
-        trajectory.report.error
+        trajectory.report().error
     );
     let state = simulation.contract().states[0];
     let output = simulation
@@ -240,13 +216,13 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         .outputs
         .iter()
         .position(|id| *id == state);
-    for (sample, x) in trajectory.report.samples.iter().zip(simultaneous_states) {
+    for (sample, x) in trajectory.report().samples.iter().zip(simultaneous_states) {
         let integrated = output.map_or(sample.state[0], |o| sample.outputs[o]);
         near(integrated, 1.0 - (-sample.time).exp(), 1e-7);
         near(integrated, x, 1e-6);
     }
     near(
-        trajectory.report.samples.last().unwrap().integrals[0],
+        trajectory.report().samples.last().unwrap().integrals[0],
         saturated_tracking(),
         1e-8,
     );
@@ -259,7 +235,7 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
 #[tokio::test]
 async fn simultaneous_dynamic_optimization_with_discrete_decision() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = package(&owner).await;
+    let package = seed_package(&owner).await;
     let (run, _) = simultaneous(
         &package,
         SWITCHED,

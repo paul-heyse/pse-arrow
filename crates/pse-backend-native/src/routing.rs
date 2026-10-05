@@ -1549,7 +1549,7 @@ mod tests {
             Some(DerivativeOrder::First)
         );
     }
-    fn root_facts() -> ProblemFacts {
+    pub(super) fn root_facts() -> ProblemFacts {
         ProblemFacts {
             class_status: pse_math::presolve::ClassStatus::Established,
             variables: 1,
@@ -2549,3 +2549,31 @@ mod tests {
 
 #[cfg(test)]
 mod contextual_tests;
+
+#[cfg(all(test, not(feature = "ipopt")))]
+mod feature_absence {
+    use super::*;
+    #[test]
+    fn explicit_unlinked_backend_refuses_without_fallback() {
+        let facts = tests::root_facts();
+        let requirements = Requirements {
+            table: &crate::execution::LINKED,
+            facts: &facts,
+            intent: SolveIntent::Root,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &crate::solve::Controls::default(),
+            settings: &crate::execution::BackendSettings::Default,
+            sensitivity: false,
+            context: test_context(&crate::execution::LINKED),
+        };
+        assert!(!crate::execution::adapter(Backend::Ipopt).linked());
+        let decision = requirements.decision(SolverSelection::Explicit(Backend::Ipopt));
+        assert!(matches!(
+            decision.refusal,
+            Some(Refusal::Unavailable(Backend::Ipopt))
+        ));
+        assert!(decision.selected.is_none());
+        assert!(decision.candidate().is_err());
+    }
+}

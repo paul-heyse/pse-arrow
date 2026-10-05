@@ -23,7 +23,7 @@ For edits, identify changed ownership or behavior and deletions. For checks, giv
 compact enough for integration without hiding consequential details.
 
 Follow AGENTS.md's test timing and pinned tool routes. Formatting and generators belong to the
-end-of-turn hook. Non-functional checks (`just hygiene`) run once at scope end, by the integrator
+root's `just turn-end`. Non-functional checks (`just hygiene`) run once at scope end, by the integrator
 unless the assignment includes them.
 
 Local commands and protections remain in AGENTS.md and its shared rules. Never edit generated

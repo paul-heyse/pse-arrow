@@ -16,8 +16,8 @@ the architecture sections record the supported scope and its limits.
 It is a **clean-room re-implementation** of core IDAES-PSE capabilities. The current parity
 reference is `idaes-pse==2.13.0`. **Not affiliated with IDAES.** Read `external/idaes-pse`
 for *behaviour*; never copy its code, docstrings or comments. The parity harness is the
-only sanctioned coupling, and the enumerations preserved by name are listed in the
-blueprint (§6.14). See `docs/relationship-to-idaes.md`.
+only sanctioned coupling; scientific vocabularies have local meaning rather than a
+historical spelling obligation (blueprint §6.14, ADR-0160). See `docs/relationship-to-idaes.md`.
 
 Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and lives in
 `python/pse`; the PyPI distribution is `pse-arrow`.
@@ -48,13 +48,17 @@ tests retain explicit force-validation. Full library eligibility remains in forc
 ## Execution rhythm: functional scope first; static checks at scope end
 
 The work is moving the codebase onto the target design and deleting what it replaces.
-Spend attention there. The end-of-turn hooks (`scripts/after_turn.py`, ADR-0143) run only
-automatic steps when you stop: `just fmt` (with ruff's safe auto-fixes) and the generators,
-then `doctor`, `db-status` and the library catalog in the background; the maintainer sees failed
-steps and the next prompt never waits. They run no `just hygiene` check and fix nothing: type
-errors, clippy, lint and codegen drift are yours, through `just hygiene` once all functional
-scope in the plan is implemented. Integrated testing happens once, at the same point. None of these is a commit, push or merge
-prerequisite. Formatting and lint fixes mid-work rewrite lines you did not author, so you (and
+Spend attention there. There are no end-of-turn hooks (ADR-0161); three bundles, each keeping
+going after a failure and listing what failed:
+
+- `just turn-end` (ADR index, `fmt` with ruff's safe auto-fixes): the root agent runs it at the
+  end of a turn that changed files; subagents don't.
+- `just ready` (skill sync, `doctor`): after a dependency, toolchain or skill-selection change,
+  or when a command fails in an environment-shaped way.
+- `just hygiene` (type errors, clippy, lint, codegen drift): once all functional scope in the
+  plan is implemented; fix what fails. Integrated testing happens once, at the same point.
+
+None of these is a commit, push or merge prerequisite. Formatting and lint fixes mid-work rewrite lines you did not author, so you (and
 every other agent) would have to re-assess changes that are not yours.
 
 **While implementing a plan** — compile checks and targeted tests only:
@@ -79,9 +83,9 @@ time.
 
 **Don't, mid-plan:**
 
-- Run `just doctor` — the end-of-turn hooks run it and show a failure to the maintainer. Run
-  it only when a command fails in an environment-shaped way.
-- Run formatters (the end-of-turn hooks do), or linters, type checks, any other `just hygiene`
+- Run `just doctor` or `just ready` unless the environment changed or a command failed in an
+  environment-shaped way.
+- Run formatters (`just turn-end` does, at the end of the turn), or linters, type checks, any other `just hygiene`
   check (`just clippy`, `ruff`, `just quality`, `just ci-fast`) or integration suites: they wait
   for scope end, when you run `just hygiene` and fix what it reports.
 - Rerun static checks after documentation-only edits.
@@ -96,7 +100,7 @@ Outcome, PR descriptions and ADRs (prime directives 4 and 7).
 
 ```bash
 just --list        # the command surface
-just bootstrap     # only if the end-of-turn doctor check reports a failure -- idempotent
+just bootstrap     # only if `just ready` reports a failure -- idempotent
 ```
 
 `just --list` is the contract. Prefer a recipe over an ad hoc command: recipes own the
@@ -379,12 +383,12 @@ packet checkpoint for the baseline and handoff. Existing plans own status and fi
 
 - `AGENTS.md` is the shared authority. `CLAUDE.md` starts with `@AGENTS.md` and
   describes Claude-specific behavior. Codex reads this file directly.
-- Select library skills in `.config/library-skills.toml`; the end-of-turn hooks run
-  `just skills-sync` (`just skills-check` inspects). Gitignored `.codex/skills/<name>` links expose one live copy per skill
+- Select library skills in `.config/library-skills.toml`, then run `just ready`
+  (`just skills-check` inspects). Gitignored `.codex/skills/<name>` links expose one live copy per skill
   from `~/.local/share/library-skills/skills/`; `.claude/skills` and `.agents/skills` expose
   that selection to both runtimes. Improvements reach every selecting repo. Process skills
   remain local and tracked. Set `LIBRARY_SKILLS_ROOT` if the shared store is elsewhere.
-  A new worktree gets its links when its first turn ends. Windows needs directory symlink support for the
+  A new worktree gets its links from `just ready`. Windows needs directory symlink support for the
   shared bundles; `just agent-config-sync` preserves their links when copying local aliases.
 - Shared role behavior lives in [.agents/roles/](.agents/roles/README.md) (ADR-0149).
   `library-research` may write new `docs/design_review/evidence/<topic>-<YYYY-MM-DD>/` folders and
@@ -395,9 +399,8 @@ packet checkpoint for the baseline and handoff. Existing plans own status and fi
   `executor`. `just agent-config-sync` only materializes skill aliases and never changes agents.
   The Codex coordinator defaults to Astra/high, with Sol/high as the generic worker fallback;
   explicit user runtime choices take precedence.
-- Both runtimes use `scripts/agent-hooks.py` for protected edit checks and
-  `scripts/after_turn.py` for the end-of-turn pipeline (ADR-0143, `.config/after-turn.toml`); no
-  hook formats files as you edit (see *Execution rhythm*).
+- Both runtimes use `scripts/agent-hooks.py` (PreToolUse) for protected edit checks; it is the
+  only hook. Nothing formats files as you edit or when you stop (see *Execution rhythm*).
   `.codex/hooks.json` and `.claude/settings.json` contain the runtime wiring. Hooks guard supported file-edit tools; they are not a
   sandbox for arbitrary shell commands or tools. Follow the same protection policy
   for all other actions. Existing session authorization remains authoritative.
@@ -429,4 +432,4 @@ loads these through its native path rules; Codex follows this routing table:
 
 Registry model generators and regeneration equivalence follow ADR-0031/0051.
 API-reference doc lint remains deferred (register R-20). Parity covers the environment and the explicitly
-exercised compatibility names; it does not establish numerical IDAES equivalence.
+selected scientific reference comparisons; it does not establish numerical IDAES equivalence.

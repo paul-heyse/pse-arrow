@@ -331,42 +331,48 @@ async fn shooting_matches_simultaneous_optimum() {
 #[tokio::test]
 async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease() {
     let simulation = tracking(Method::Diffsol).await;
-    let problem = simulation
-        .shooting(request(&simulation, ShootingMethod::Single, vec![], false))
-        .unwrap();
+    let mut profile = request(&simulation, ShootingMethod::Single, vec![], false);
+    // No controls can satisfy this path: retain the actual refused joined candidate.
+    profile.path.push(PathBound {
+        output: simulation.contract().outputs[0],
+        lower: Some(10.),
+        upper: None,
+    });
+    let problem = simulation.shooting(profile).unwrap();
     let result = solve(problem, None).await;
     let report = report_of(&result);
+    assert!(!report.completion.permits_use());
     let native = report.trajectory.as_ref().unwrap();
-    let diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
-        pse_model::diagnostic::BoundaryClass::Inconclusive,
-        pse_diagnostics::DiagnosticStage::ShootingTrajectoryProjection,
-        [id(30)],
-        pse_diagnostics::DiagnosticRule::ModelingTrajectoryIncomplete,
-    );
     let owner = result._owner.as_ref().unwrap();
     let owners_before = Arc::strong_count(owner);
-    let projected = simulation.completed_trajectory(
-        result.run_id,
-        native.clone(),
-        crate::workflow::modeling::dynamics::checks::SampleChecks {
-            rows: report.checks.clone(),
-            reports: report.reports.clone(),
-            complete: false,
-            error: Some(diagnostic.clone()),
-        },
-        report.completion.clone(),
-        owner.clone(),
+    let header = result.completion().unwrap().computation.clone().unwrap();
+    let projected = simulation
+        .completed_trajectory(
+            report,
+            header.clone(),
+            result.assessments[0].clone(),
+            owner.clone(),
+        )
+        .unwrap();
+    assert!(std::ptr::eq(projected.report(), native.as_ref()));
+    assert_eq!(projected.completion(), &report.completion);
+    assert!(!projected.accepted());
+    assert!(projected.diagnostic().is_some());
+    assert_eq!(projected.checks_complete(), report.checks_complete);
+    assert_eq!(projected.header(), &header);
+    assert_eq!(projected.assessment(), &result.assessments[0]);
+    assert_eq!(
+        header.kind,
+        pse_model::generated::enums::ComputationKind::Shooting
     );
-    assert!(Arc::ptr_eq(&projected.report, native));
-    assert_eq!(projected.completion.decision, report.completion.decision);
-    assert_eq!(projected.accepted, report.completion.permits_use());
-    assert!(!projected.checks_complete);
-    let retained = projected.validation_error.as_ref().unwrap();
-    assert_eq!(retained.class, diagnostic.class);
-    assert_eq!(retained.stage, diagnostic.stage);
-    assert_eq!(retained.rule, diagnostic.rule);
-    assert_eq!(retained.sources, diagnostic.sources);
+    assert_eq!(
+        header.qualification,
+        pse_model::generated::enums::NativeQualification::Unqualified
+    );
+    let cloned = projected.clone();
+    assert!(std::ptr::eq(cloned.report(), projected.report()));
     assert_eq!(Arc::strong_count(owner), owners_before + 1);
+    drop(cloned);
     drop(projected);
     assert_eq!(Arc::strong_count(owner), owners_before);
 }

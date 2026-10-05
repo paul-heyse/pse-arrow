@@ -1203,7 +1203,7 @@ impl ModelingPackage {
                                 cap,
                             );
                             if expected_failure.is_none() {
-                                report.model_checks(fixture, &trajectory.checks, oracle, cap);
+                                report.model_checks(fixture, trajectory.checks(), oracle, cap);
                             }
                             report.trajectories.insert(fixture, trajectory);
                             continue;
@@ -1214,7 +1214,7 @@ impl ModelingPackage {
                         report.record_fixture(
                             fixture,
                             Kind::StartToSolve,
-                            if trajectory.accepted && expected_failure.is_none() {
+                            if trajectory.accepted() && expected_failure.is_none() {
                                 Status::Passed
                             } else {
                                 Status::Failed
@@ -1263,7 +1263,7 @@ impl ModelingPackage {
                                 report.failed(fixture, Kind::Derivatives, &error, None, oracle, cap)
                             }
                         }
-                        for (index, sample) in trajectory.report.samples.iter().enumerate() {
+                        for (index, sample) in trajectory.report().samples.iter().enumerate() {
                             let (model, values, providers) = trajectory.sample_context(sample)?;
                             let ranges = model
                                 .compiled()
@@ -1314,7 +1314,7 @@ impl ModelingPackage {
                                 }
                             }
                         }
-                        report.model_checks(fixture, &trajectory.checks, oracle, cap);
+                        report.model_checks(fixture, trajectory.checks(), oracle, cap);
                         report.trajectories.insert(fixture, trajectory);
                     }
                     Err(error) => report.failed(

@@ -17,15 +17,38 @@ from pathlib import Path
 
 from scripts import validation, validation_receipts
 from scripts.native_tests import native_provenance
-from scripts.validation_scope import comprehensive
+from scripts.validation_scope import (
+    FUNCTIONAL_SCOPES,
+    RUST_INPUTS,
+    input_identity,
+    native_gate,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def source_digest(root: Path) -> str:
-    return hashlib.sha256(
-        json.dumps(validation.sources(root), sort_keys=True).encode()
-    ).hexdigest()
+def measurement_inputs(snapshot: dict) -> dict:
+    paths = (
+        *RUST_INPUTS,
+        "benches",
+        ".config/process-cases.json",
+        ".config/preparation-cases.json",
+        "scripts/case_measure.py",
+    )
+    return {
+        name: value
+        for name, value in snapshot.items()
+        if any(
+            name == prefix
+            or name.startswith(prefix + "/")
+            or (prefix.startswith("scripts/") and name.startswith(prefix))
+            for prefix in paths
+        )
+    }
+
+
+def snapshot_digest(snapshot: dict) -> str:
+    return hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
 
 
 def build_benchmark(
@@ -103,26 +126,145 @@ def samples(path: Path) -> dict:
     }
 
 
-def require_functional(root: Path, path: Path) -> dict:
+def require_functional(
+    root: Path,
+    path: Path,
+    workloads: list[dict],
+    *,
+    snapshot: dict | None = None,
+    profile: str = "dev",
+) -> dict:
+    """Consume only exact declared selections or their explicit linked covering gate."""
     report = path / "checks.json" if path.is_dir() else path
     evidence = json.loads(report.read_text())
     if (
-        evidence.get("version") != 4
-        or not evidence.get("required_checks_covered")
-        or evidence.get("scope")
-        != json.loads(json.dumps([validation.asdict(g) for g in comprehensive()]))
+        evidence.get("version") != 5
+        or evidence.get("baseline_failures") != 0
+        or not evidence.get("input_coverage")
     ):
         raise ValueError(
-            "case measurement requires completed ordinary functional qualification"
+            "measurement requires a current zero-baseline functional report"
         )
-    if evidence["source_files"] != validation.sources(root):
-        raise ValueError(
-            "functional inputs changed; explicitly reassess or transfer affected observations"
+    if snapshot is None:
+        snapshot = validation.sources(root)
+    required = {
+        name for workload in workloads for name in workload.get("functional_scopes", [])
+    }
+    if not required or any(
+        not workload.get("functional_scopes") for workload in workloads
+    ):
+        raise ValueError("measurement workload lacks functional prerequisite scopes")
+    declarations = {item["name"]: item for item in evidence["scope"]}
+    observations = {check["gate"]: check for check in evidence["checks"]}
+    consumed = {}
+    for name in sorted(required):
+        if name not in FUNCTIONAL_SCOPES:
+            raise ValueError("unknown functional prerequisite scope")
+        exact = FUNCTIONAL_SCOPES[name]
+        covering = native_gate()
+        gate = next(
+            (
+                candidate
+                for candidate in (exact, covering)
+                if declarations.get(candidate.name)
+                == json.loads(json.dumps(validation.asdict(candidate)))
+            ),
+            None,
         )
-    for check in evidence["checks"]:
-        if check.get("native"):
-            validation_receipts.verify_native(check["native"])
-    return {"path": str(report.resolve()), "digest": validation_receipts.digest(report)}
+        if gate is None:
+            raise ValueError(
+                f"missing exact functional invocation or explicit native covering identity: {name}"
+            )
+        check = observations.get(gate.name, {})
+        if (
+            not validation_receipts.qualified(
+                {"status": check.get("status", "missing")}
+            )
+            or check.get("exit_code") != 0
+            or check.get("report_errors")
+            or not check.get("selected")
+            or not check.get("results")
+            or any(result["status"] != "passed" for result in check["results"])
+            or check.get("changed_source")
+            or check.get("invocation") != declarations[gate.name]
+            or check.get("mode") != gate.mode
+            or check.get("profile") != gate.profile
+        ):
+            raise ValueError(f"incomplete functional prerequisite: {name}")
+        terminal = {**check, "results": list(check["results"]), "report_errors": []}
+        validation.compose_selection(terminal)
+        if terminal["report_errors"]:
+            raise ValueError("incomplete or contradictory selected terminal evidence")
+        inputs = input_identity(gate.input_scope, snapshot, evidence["environment"])
+        if check.get("inputs") != inputs:
+            raise ValueError(
+                "functional inputs changed; explicitly reassess affected observations"
+            )
+        # Read current relevant environment through the same identity operation.
+        native = check.get("native", {})
+        current_environment = validation.relevant_environment()
+        actual_environment = native.get("environment")
+        if (
+            actual_environment is None
+            or input_identity(gate.input_scope, snapshot, current_environment)[
+                "environment"
+            ]
+            != input_identity(gate.input_scope, snapshot, actual_environment)[
+                "environment"
+            ]
+        ):
+            raise ValueError("functional relevant environment changed")
+        validation_receipts.verify_native(native)
+        if native.get("profile", {}).get("cargo_profile") != profile:
+            raise ValueError("functional Cargo profile differs from measurement")
+        expected_features = {
+            "pse-runtime/native-solvers",
+            "pse-tests-conformance/native-acceptance",
+            "pse-relations/force-validate",
+        }
+        if set(native.get("profile", {}).get("features", [])) != expected_features:
+            raise ValueError("functional native feature graph differs")
+        origin = Path(check.get("origin", report.parent))
+        for artifact, expected in check.get("artifacts", {}).items():
+            target = (origin / artifact).resolve()
+            target.relative_to(origin.resolve())
+            if validation_receipts.digest(target) != expected:
+                raise ValueError("changed functional artifact")
+        consumed[name] = {
+            "gate": gate.name,
+            "native": native,
+            "evidence_kind": check["evidence_kind"],
+            "origin": str(origin),
+        }
+    return {
+        "path": str(report.resolve()),
+        "digest": validation_receipts.digest(report),
+        "prerequisites": consumed,
+    }
+
+
+def compatible_native(functional: dict, native: dict) -> None:
+    """Test and benchmark executables differ; their toolchain/providers must agree."""
+    for claim in functional["prerequisites"].values():
+        prior = claim["native"]
+        if prior["toolchain"] != native["toolchain"]:
+            raise ValueError("measurement toolchain differs from functional execution")
+        prior_libraries = {
+            name: value
+            for name, value in prior["files"].items()
+            if name not in prior["links"]
+        }
+        libraries = {
+            name: value
+            for name, value in native["files"].items()
+            if name not in native["links"]
+        }
+        if not libraries or any(
+            prior_libraries.get(name) != value for name, value in libraries.items()
+        ):
+            raise ValueError(
+                "measurement native providers differ from functional execution"
+            )
 
 
 def selected_workloads(
@@ -342,7 +484,9 @@ def main() -> int:
     args = parser.parse_args()
     declaration = json.loads((ROOT / ".config/process-cases.json").read_text())
     preparation = json.loads((ROOT / ".config/preparation-cases.json").read_text())
-    admission = {"workloads": [{"id": "document-admission"}]}
+    admission = {
+        "workloads": [{"id": "document-admission", "functional_scopes": ["admission"]}]
+    }
     selection = selected_workloads((declaration, preparation, admission), args.case)
     selected = {w["id"] for w in selection}
     if args.smoke:
@@ -355,10 +499,18 @@ def main() -> int:
         return 0
     if args.functional_from is None:
         parser.error("measurement requires --functional-from completed qualification")
-    functional = require_functional(ROOT, args.functional_from)
+    snapshot = validation.sources(ROOT)
+    functional = require_functional(
+        ROOT,
+        args.functional_from,
+        selection,
+        snapshot=snapshot,
+        profile=declaration["cargo_profile"],
+    )
     output = validation.fresh_output(ROOT, args.output)
     started = time.time()
-    before = source_digest(ROOT)
+    inputs = measurement_inputs(snapshot)
+    before = snapshot_digest(inputs)
     profile = {
         "cargo_profile": declaration["cargo_profile"],
         "features": ["native-process", "pse-relations/force-validate"],
@@ -393,6 +545,7 @@ def main() -> int:
         raise ValueError("expected one compiled benchmark executable")
     binary = Path(binaries.pop())
     native = native_provenance(profile, [str(binary)])
+    compatible_native(functional, native)
     cases = []
     for workload in declaration["workloads"]:
         name = workload["id"]
@@ -429,14 +582,13 @@ def main() -> int:
                 "artifacts": files,
             }
         )
-    if source_digest(ROOT) != before:
-        raise ValueError("sources changed during measurement")
     report = {
         "schema": "process-cost-v3",
         "profile": profile,
         "functional": functional,
         "started": started,
         "source_digest": before,
+        "measurement_inputs": inputs,
         "compilation_timed": False,
         "selected_cases": [w["id"] for w in selection],
         "binary_path": str(binary.resolve()),
@@ -449,7 +601,7 @@ def main() -> int:
         },
         "cases": cases,
     }
-    report["thermodynamic_preparation"] = (
+    preparation_report: dict = (
         preparation_campaign(
             output,
             profile["cargo_profile"],
@@ -460,7 +612,10 @@ def main() -> int:
         or "document-admission" in selected
         else {"cases": [], "admission": None, "not_selected": True}
     )
-    if source_digest(ROOT) != before:
+    report["thermodynamic_preparation"] = preparation_report
+    if preparation_report.get("native"):
+        compatible_native(functional, preparation_report["native"])
+    if snapshot_digest(measurement_inputs(validation.sources(ROOT))) != before:
         raise ValueError("sources changed during preparation measurement")
     validation.write_json(output / "case-measure.json", report)
     return 0

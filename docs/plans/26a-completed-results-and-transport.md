@@ -1,6 +1,6 @@
 ---
 title: "26a: Completed results and transport"
-status: draft
+status: done
 date: 2026-10-05
 adrs: [ADR-0092, ADR-0145]
 review_sources: ["../design_review/reviews/design_review_testing-architecture_2026-10-05.md#f08"]
@@ -14,15 +14,16 @@ scenario_sources: ["../design_review/reviews/design_review_testing-architecture_
 Seal completed trajectory meaning and make its transport reuse safe and production-owned.
 The [coordinator](26-testing-architecture.md) owns F08 disposition, shared decisions and final
 acceptance. This companion owns A1–A3 progress. The baseline and evidence limits are those
-of the coordinator; this target is **Proposed**, not an implemented cache or qualified result.
+of the coordinator. This section records the **Proposed** target and foundation assessment
+at authoring; the Outcome records the implementation and scoped acceptance.
 
-`ModelingTrajectory` currently exposes mutable identity, native report, preparation, checks,
+At authoring, `ModelingTrajectory` exposed mutable identity, native report, preparation, checks,
 reports, coverage, acceptance and validation-error fields beside a retained private completion.
 Cloning deep-copies several of those allocations while sharing the native lease. Its
 diagnostic and exported assessment can consequently disagree after a legal Rust mutation.
 The constructor's initial agreement is insufficient as a lifetime contract.
 
-Direct transport also derives qualification from satisfied checks while supervised completion
+At authoring, direct transport also derived qualification from satisfied checks while supervised completion
 uses accepted permission. The two meanings must be reconciled at the completion owner, not
 patched separately in Python and Arrow encoders. Physical feasibility, native termination,
 coverage and permission remain distinct facts.
@@ -106,9 +107,9 @@ consequential unused retention. Speed and memory improvements remain unmeasured.
 
 | Package | Prerequisite and delivered behavior | Retirement and acceptance | Status |
 |---|---|---|---|
-| <a id="a1"></a>A1 Immutable completion | Existing completion/report owners; coordinator P0 if a governed boundary changes. Seal snapshot, derive accessors, capture final Simulation header/coherent Shooting projection and migrate every affected field/header consumer | Remove writable fields/duplicate acceptance. Accepted, refused, partial and terminal-prefix projections agree; clone shares snapshot/lease | planned |
-| <a id="a2"></a>A2 Bounded shared transport | A1 working immutable products and kind-correct headers. Implement success-only synchronized lazy map/runtime `table` and migrate Rust/Python export callers | Remove caller-selected kind and repeated whole-map construction. Concurrent first reads encode once; retry follows the specified owner contract | planned |
-| A3 Migration audit and boundary acceptance | A1/A2 integrated interfaces and callers. Confirm complete migration and retained independent journeys | No replaced API/helper remains; boundary/lifetime/scientific controls exercise all migrated meanings | planned |
+| <a id="a1"></a>A1 Immutable completion | Existing completion/report owners; coordinator P0 if a governed boundary changes. Seal snapshot, derive accessors, capture final Simulation header/coherent Shooting projection and migrate every affected field/header consumer | Remove writable fields/duplicate acceptance. Accepted, refused, partial and terminal-prefix projections agree; clone shares snapshot/lease | implemented; assembled acceptance complete |
+| <a id="a2"></a>A2 Bounded shared transport | A1 working immutable products and kind-correct headers. Implement success-only synchronized lazy map/runtime `table` and migrate Rust/Python export callers | Remove caller-selected kind and repeated whole-map construction. Concurrent first reads encode once; retry follows the specified owner contract | implemented; assembled acceptance complete |
+| A3 Migration audit and boundary acceptance | A1/A2 integrated interfaces and callers. Confirm complete migration and retained independent journeys | No replaced API/helper remains; boundary/lifetime/scientific controls exercise all migrated meanings | implemented; assembled acceptance complete |
 
 Production editing owners are `workflow/modeling/dynamics.rs`, its trajectory encoder and
 the existing completion/numerics/simulation-result owners in `pse-runtime`; Python native
@@ -124,7 +125,7 @@ original closure and interrupted-DAE evidence. No second solving or validation p
 
 ## Verification
 
-All checks here are **Proposed**. Compile with `just check-package pse-runtime` and
+The checks below were **Proposed** at authoring; executed evidence is recorded in the Outcome. Compile with `just check-package pse-runtime` and
 `just check-package pse-py` as applicable. Isolated completion/materialization controls use
 `just unit-package pse-runtime <filter>` with explicit correctness force-validation supplied
 by the recipe. Actual solver controls use `just unit-native-package` and the relevant explicit
@@ -150,16 +151,38 @@ Keep the shooting projection diagnostic/lease control, migrated to a coherent co
 Final assembled/native/Python and static evidence belongs to coordinator Q1, not another
 full campaign in this companion.
 
-## Outcome (recorded after implementation)
+## Outcome
 
 ### What was built
 
-Not implemented; fill from landed behavior and scoped execution evidence.
+**Implemented**, 2026-10-05: trajectories retain one private immutable, clone-shared completion
+snapshot, final header and assessment. Simulation and Shooting exports consume those decisions.
+A synchronized, success-only table map retains bounded allocations; concurrent callers share
+its storage. Direct budget refusal can retry without solving again, while an enclosing
+`RunResult` preserves its existing sticky transport error. Checked Arrow export retains the
+source, container and wrapper leases through the last escaped array without copying payloads.
+All affected Rust and Python callers use the completed result and fallible export interfaces.
+
+**Tested**, zero failure baseline: `just check-package pse-runtime` and
+`just check-package pse-py` compile the migrated consumers. Coordinator Q1's linked
+`just native-test --profile ci -E <Plan 26 owner selection>` passes the completion,
+Simulation/Shooting, concurrent map, same-ID distinct-attempt, assessment/header agreement,
+budget retry, sticky error and escaped-owner controls. That selection also retains analytic
+terminal-integral, interrupted-DAE and Shooting/simultaneous optimization comparisons.
+The complete assembled receipt, including its unrelated registry repair, belongs to Q1.
+Assembled acceptance is complete. Plan 26's independent implementation conformance review
+and accepted remedy follow-up retain the transport judgment; the coordinator Outcome owns
+the final scoped evidence and its limits.
 
 ### A mistake made and corrected
 
-Not yet applicable; record an actual correction.
+An early transport implementation left final Shooting endpoint assessment available for
+recalculation during projection. The completed Shooting report now retains that assessment;
+the encoder borrows it, and numeric retention accounting includes missing-observation storage.
 
 ### Deviations from the plan, deliberate
 
-None recorded.
+The first successful access still materializes the complete trajectory table map, as selected
+in the design. No selective-encoding hierarchy or measured speed/memory claim is introduced.
+Wholly bufferless Arrow exports are explicitly refused because no payload buffer could retain
+the owner; current registry result relations have retainable buffers.

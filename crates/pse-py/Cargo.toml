@@ -45,6 +45,7 @@ force-validate = ["pse-relations/force-validate"]
 pse-diagnostics.workspace = true
 pse-modeling.workspace = true
 pse-model.workspace = true
+pse-operations = { workspace = true, features = ["test-support"] }
 pyo3-async-runtimes.workspace = true
 pse-backend-native.workspace = true
 pse-authoring.workspace = true

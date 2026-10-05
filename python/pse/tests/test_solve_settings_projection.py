@@ -60,12 +60,12 @@ def identity(n: int) -> SemanticId:
     return SemanticId(bytes([n]) * 16)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def runtime(inspection_settings: pse.EngineSettings) -> pse.Runtime:
     return pse.Runtime(inspection_settings)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
     root = (
         Path(__file__).resolve().parents[3]
@@ -80,7 +80,7 @@ def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def cases(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> tuple[pse.ModelingPackage, dict[str, DeclarationId]]:
@@ -199,7 +199,7 @@ def test_solve_settings_enum_types() -> None:
         msgspec.json.decode(b'{"version": 2}', type=pse.SolveSettings)
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_solve_settings_backend_projection(
     runtime: pse.Runtime,
     physical: pse.PhysicalContext,

@@ -64,30 +64,75 @@ struct OriginalInitialCondition {
     expected: f64,
     tolerance: f64,
 }
-/// The native trajectory and all partial outcomes retain their resource owner.
+/// Clone-shared immutable scientific completion and lazy transport.
 #[derive(Clone, Debug)]
 pub struct ModelingTrajectory {
-    /// Run identity of the integration.
-    pub run_id: RunId,
-    /// Native integration report.
-    pub report: Arc<native::Report>,
-    /// The simulation that produced the trajectory.
-    pub prepared: ModelingSimulation,
-    /// Physical obligations evaluated at the explicitly requested sample times.
-    pub checks: Vec<ModelingCheck>,
-    /// Whole-domain integral reports exist only after completing their full domain.
-    pub reports: Vec<ModelingReport>,
-    /// Whether every requested sample check was evaluated.
-    pub checks_complete: bool,
-    /// Whether the native outcome, checks and closure permit using the trajectory.
-    pub accepted: bool,
-    /// One composed permission decision retained for every downstream consumer.
-    pub(in crate::workflow) completion: crate::workflow::numerics::Completed,
-    /// Why sample checks could not be evaluated, if they could not.
-    pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+    inner: Arc<TrajectorySnapshot>,
+}
+#[derive(Debug)]
+struct TrajectorySnapshot {
+    run_id: RunId,
+    report: Arc<native::Report>,
+    prepared: ModelingSimulation,
+    checks: Vec<ModelingCheck>,
+    reports: Vec<ModelingReport>,
+    checks_complete: bool,
+    completion: crate::workflow::numerics::Completed,
+    validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+    header: pse_model::generated::runtime::computation_runs::Row,
+    coverage: native::EndpointAssessment,
+    assessment: pse_model::generated::runtime::candidate_assessments::Row,
     _owner: Arc<pse_columnar::AllocationLease>,
+    tables: Mutex<Option<Arc<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>>>,
 }
 impl ModelingTrajectory {
+    /// Unique identity of this completed attempt.
+    pub fn run_id(&self) -> RunId {
+        self.inner.run_id
+    }
+    /// Borrow the native outcome without permitting mutation beneath completion.
+    pub fn report(&self) -> &native::Report {
+        &self.inner.report
+    }
+    /// Borrow the preparation that produced this outcome.
+    pub fn prepared(&self) -> &ModelingSimulation {
+        &self.inner.prepared
+    }
+    /// Sample obligations retained by completion.
+    pub fn checks(&self) -> &[ModelingCheck] {
+        &self.inner.checks
+    }
+    /// Whole-domain reports retained by completion.
+    pub fn reports(&self) -> &[ModelingReport] {
+        &self.inner.reports
+    }
+    /// Whether requested sample checks were evaluated.
+    pub fn checks_complete(&self) -> bool {
+        self.inner.checks_complete
+    }
+    /// Permission derived exclusively from the joined completion.
+    pub fn accepted(&self) -> bool {
+        self.inner.completion.permits_use()
+    }
+    /// Retained typed validation cause, if any.
+    pub fn validation_error(&self) -> Option<&pse_model::diagnostic::BoundaryDiagnostic> {
+        self.inner.validation_error.as_ref()
+    }
+    pub(in crate::workflow) fn completion(&self) -> &crate::workflow::numerics::Completed {
+        &self.inner.completion
+    }
+    pub(in crate::workflow) fn header(
+        &self,
+    ) -> &pse_model::generated::runtime::computation_runs::Row {
+        &self.inner.header
+    }
+
+    pub(in crate::workflow) fn assessment(
+        &self,
+    ) -> &pse_model::generated::runtime::candidate_assessments::Row {
+        &self.inner.assessment
+    }
+
     pub(super) fn sample_context(
         &self,
         sample: &native::Sample,
@@ -100,13 +145,17 @@ impl ModelingTrajectory {
         WorkflowError,
     > {
         let mode = self
+            .inner
             .prepared
             .modes
             .get(sample.mode)
             .ok_or_else(|| contract("trajectory sample mode absent"))?;
         let mut values = mode.context.values.clone();
-        self.prepared
-            .update_sample_values(sample, &self.prepared.parameters, &mut values)?;
+        self.inner.prepared.update_sample_values(
+            sample,
+            &self.inner.prepared.parameters,
+            &mut values,
+        )?;
         Ok((mode.model.clone(), values, mode.context.providers.clone()))
     }
     pub(super) async fn derivative_samples(
@@ -126,19 +175,20 @@ impl ModelingTrajectory {
             .allowance()
             .map_err(crate::math::MathRuntimeError::from)?
             .checked_add(
-                self.report
+                self.inner
+                    .report
                     .samples
                     .len()
                     .checked_mul(1024)
                     .ok_or_else(|| contract("derivative sample extent"))?,
             )
             .ok_or_else(|| contract("derivative sample extent"))?;
-        let handle = self.prepared.runtime.shared.math().submit(1, bytes, move |flag, _| {
+        let handle = self.inner.prepared.runtime.shared.math().submit(1, bytes, move |flag, _| {
             let execution = pse_backend_native::solve::Execution::new(flag.clone(), &controls);
             let scope = execution.scope()?;
             let mut outcomes = Vec::new();
-            for (index, sample) in trajectory.report.samples.iter().enumerate() {
-                let p = &trajectory.prepared;
+            for (index, sample) in trajectory.inner.report.samples.iter().enumerate() {
+                let p = &trajectory.inner.prepared;
                 let parameters = p.profile.parameters_at(&p.parameters, sample.time);
                 // The box the mode's range obligations admit, so a difference step stays
                 // inside it: one-sided at an input or state held at its bound.
@@ -174,19 +224,19 @@ impl ModelingTrajectory {
     /// The typed failed qualification or native interruption, without changing termination.
     pub fn diagnostic(&self) -> Option<pse_model::diagnostic::BoundaryDiagnostic> {
         use pse_model::diagnostic::{BoundaryClass as C, BoundaryDiagnostic as D, Observation};
-        if self.accepted {
+        if self.accepted() {
             return None;
         }
-        if let Some(error) = &self.validation_error {
+        if let Some(error) = &self.inner.validation_error {
             return Some(error.clone());
         }
-        if let Some(error) = &self.report.error {
+        if let Some(error) = &self.inner.report.error {
             return Some(super::super::diagnostics::observed(
                 error,
                 pse_diagnostics::DiagnosticStage::ModelingTrajectory,
             ));
         }
-        let class = match self.report.termination {
+        let class = match self.inner.report.termination {
             native::Termination::Cancelled => C::Cancelled,
             native::Termination::StepLimit | native::Termination::TimeLimit => C::ResourceLimit,
             _ => C::TrialRejected,
@@ -194,7 +244,8 @@ impl ModelingTrajectory {
         let mut error = D::new(
             class,
             pse_diagnostics::DiagnosticStage::ModelingTrajectory,
-            self.checks
+            self.inner
+                .checks
                 .iter()
                 .filter(|c| !c.satisfied)
                 .map(|c| c.source_id.as_id()),
@@ -202,11 +253,11 @@ impl ModelingTrajectory {
         );
         error.observations.insert(
             "termination".into(),
-            Observation::Text(self.report.termination.as_str().into()),
+            Observation::Text(self.inner.report.termination.as_str().into()),
         );
         error.observations.insert(
             "completed_time".into(),
-            Observation::number(self.report.completed_time),
+            Observation::number(self.inner.report.completed_time),
         );
         Some(error)
     }
@@ -218,28 +269,40 @@ type DynamicsHandle = crate::math::solves::SolveHandle<(
     Arc<pse_columnar::AllocationLease>,
 )>;
 impl ModelingSimulation {
-    /// Project an already joined scientific completion through the shared trajectory transport.
+    /// Project a coherent joined shooting product, retaining its final optimizer header.
     #[cfg(feature = "solver-diffsol")]
     pub(in crate::workflow) fn completed_trajectory(
         &self,
-        run_id: RunId,
-        report: Arc<native::Report>,
-        checks: checks::SampleChecks,
-        completion: crate::workflow::numerics::Completed,
+        report: &crate::workflow::ShootingReport,
+        header: pse_model::generated::runtime::computation_runs::Row,
+        assessment: pse_model::generated::runtime::candidate_assessments::Row,
         owner: Arc<pse_columnar::AllocationLease>,
-    ) -> ModelingTrajectory {
-        ModelingTrajectory {
-            run_id,
-            accepted: completion.permits_use(),
-            completion,
-            report,
-            checks: checks.rows,
-            reports: checks.reports,
-            checks_complete: checks.complete,
-            prepared: self.clone(),
-            validation_error: checks.error,
-            _owner: owner,
-        }
+    ) -> Result<ModelingTrajectory, WorkflowError> {
+        let trajectory = report
+            .trajectory
+            .as_ref()
+            .ok_or_else(|| contract("shooting trajectory absent"))?;
+        let coverage = report
+            .endpoint_assessment
+            .clone()
+            .ok_or_else(|| contract("shooting endpoint assessment absent"))?;
+        Ok(ModelingTrajectory {
+            inner: Arc::new(TrajectorySnapshot {
+                run_id: header.run_id,
+                report: trajectory.clone(),
+                prepared: self.clone(),
+                checks: report.checks.clone(),
+                reports: report.reports.clone(),
+                checks_complete: report.checks_complete,
+                completion: report.completion.clone(),
+                validation_error: report.validation_error.clone(),
+                header,
+                coverage,
+                assessment,
+                _owner: owner,
+                tables: Mutex::new(None),
+            }),
+        })
     }
     /// Required physical obligations from the admitted model, even when evaluation is absent.
     pub(in crate::workflow) fn required_closure_checks(&self) -> usize {
@@ -451,7 +514,7 @@ impl ModelingSimulation {
         report: native::Report,
         checks: checks::SampleChecks,
         owner: Arc<pse_columnar::AllocationLease>,
-    ) -> ModelingTrajectory {
+    ) -> Result<ModelingTrajectory, WorkflowError> {
         let coverage = report.assess_endpoint(&self.profile);
         let required_closure = self.required_closure_checks();
         let completion = crate::workflow::numerics::complete(
@@ -465,19 +528,34 @@ impl ModelingSimulation {
             },
             &self.numerics().policy,
         );
-        ModelingTrajectory {
+        let header = crate::workflow::completion::simulation_header(
             run_id,
-            accepted: completion.permits_use(),
-            completion,
-            checks: checks.rows,
-            reports: checks.reports,
-            checks_complete: checks.complete,
-            validation_error: checks.error,
-            report: Arc::new(report),
-            prepared: self.clone(),
-            _owner: owner,
-        }
+            self,
+            &report,
+            &checks,
+            &completion,
+        )?;
+        let assessment =
+            completion.assessment_row(run_id, 0, &self.numerics().policy, None, None, false);
+        Ok(ModelingTrajectory {
+            inner: Arc::new(TrajectorySnapshot {
+                run_id,
+                completion,
+                checks: checks.rows,
+                reports: checks.reports,
+                checks_complete: checks.complete,
+                validation_error: checks.error,
+                report: Arc::new(report),
+                prepared: self.clone(),
+                header,
+                coverage,
+                assessment,
+                _owner: owner,
+                tables: Mutex::new(None),
+            }),
+        })
     }
+
     /// Await one joined run. Cancellation still waits for native teardown.
     pub async fn run(
         &self,
@@ -2209,6 +2287,123 @@ mod tests {
         physical
     }
     #[tokio::test]
+    async fn trajectory_transport_shares_completion_retries_budget_and_retains_escaped_batches() {
+        use pse_columnar::MemoryConsumer;
+        let (batch, pool) = {
+            let runtime = super::super::super::tests::runtime();
+            let cancel = crate::CancelSource::new();
+            let rows = pse_authoring::language::parse(
+                "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; } }",
+                SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            ).unwrap();
+            let root = rows
+                .iter()
+                .find(|r| r.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let package = runtime.modeling_package(rows, physical()).unwrap();
+            let prepared = package
+                .prepare_simulation(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    super::super::super::tests::compiler_profile(),
+                    native::Profile {
+                        method: native::Method::Diffsol,
+                        samples: vec![0., 0.5, 1.],
+                        parameter_scales: vec![1.],
+                        out_rtol: Some(1e-8),
+                        out_atol: vec![1e-10],
+                        ..Default::default()
+                    },
+                    DerivativeOrder::First,
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let result = prepared.start().unwrap().wait().await.unwrap();
+            let crate::workflow::RunReport::Simulation(trajectory) = result.report().unwrap()
+            else {
+                panic!("simulation expected");
+            };
+            let trajectory = trajectory.as_ref();
+            assert_eq!(
+                result.completion().unwrap().computation.as_ref().unwrap(),
+                trajectory.header()
+            );
+            let cloned = trajectory.clone();
+            assert!(Arc::ptr_eq(&trajectory.inner, &cloned.inner));
+            assert!(trajectory.accepted());
+            assert_eq!(
+                trajectory.header().qualification,
+                pse_model::generated::enums::NativeQualification::Feasible
+            );
+            assert!(trajectory.diagnostic().is_none());
+            assert!(trajectory.inner.tables.lock().unwrap().is_none());
+            let pool = runtime.shared.pool();
+            let before = pool.reserved();
+            let pressure = MemoryConsumer::new("test:trajectory-pressure").register(&pool);
+            pressure
+                .try_grow(runtime.shared.budget().memory_limit_bytes.get() - before)
+                .unwrap();
+            assert!(trajectory.tables().is_err());
+            assert!(result.tables().is_err());
+            assert!(trajectory.inner.tables.lock().unwrap().is_none());
+            drop(pressure);
+            assert_eq!(pool.reserved(), before);
+            let maps = std::thread::scope(|scope| {
+                (0..4)
+                    .map(|_| scope.spawn(|| trajectory.tables().unwrap()))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .map(|thread| thread.join().unwrap())
+                    .collect::<Vec<_>>()
+            });
+            assert!(maps.iter().all(|m| Arc::ptr_eq(m, &maps[0])));
+            assert!(Arc::ptr_eq(&maps[0], &cloned.tables().unwrap()));
+            assert!(
+                result.tables().is_err(),
+                "outer RunResult retains its failed encoding"
+            );
+            // Equal supplied identities do not make distinct attempts share mutable transport.
+            let ((other_report, other_checks), other_owner) = prepared
+                .submit(trajectory.run_id(), crate::math::Submission::ephemeral())
+                .unwrap()
+                .finish()
+                .await
+                .unwrap();
+            let other = prepared
+                .finish(trajectory.run_id(), other_report, other_checks, other_owner)
+                .unwrap();
+            assert_eq!(other.run_id(), trajectory.run_id());
+            assert!(!Arc::ptr_eq(&other.inner, &trajectory.inner));
+            assert!(!Arc::ptr_eq(&other.tables().unwrap(), &maps[0]));
+            use pse_relations::{columnar::RelationRow, generated::runtime::candidate_assessments};
+            assert_eq!(
+                candidate_assessments::Row::rows(&maps[0][&candidate_assessments::RELATION_ID])
+                    .unwrap(),
+                vec![trajectory.assessment().clone()]
+            );
+            assert_eq!(result.assessments, vec![trajectory.assessment().clone()]);
+            let batch = trajectory.table("runtime.simulation_samples").unwrap();
+            assert!(batch.batch().num_rows() > 0);
+            assert!(trajectory.table("runtime.solve_variables").is_err());
+            assert!(trajectory.table("missing.table").is_err());
+            assert_eq!(
+                trajectory.header().trajectory_termination,
+                Some(trajectory.report().termination)
+            );
+            (batch, pool)
+        };
+        assert!(batch.batch().num_rows() > 0);
+        assert!(pool.reserved() > 0);
+        drop(batch);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[tokio::test]
     async fn authored_conservation_derives_only_its_generated_flux_quadrature_controls() {
         let runtime = super::super::super::tests::runtime();
         let cancel = crate::CancelSource::new();
@@ -2256,7 +2451,7 @@ mod tests {
                 assert_eq!(prepared.profile.out_rtol, Some(1e-8));
                 assert_eq!(prepared.profile.out_atol, vec![1e-6 * 0.1]);
                 let trajectory = prepared.run(&cancel).await.unwrap();
-                assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
+                assert!(trajectory.accepted(), "{:?}", trajectory.validation_error());
             }
         }
     }
@@ -2356,25 +2551,38 @@ mod tests {
                 }
                 let trajectory = prepared.run(&cancel).await.unwrap();
                 assert_eq!(
-                    trajectory.report.termination,
+                    trajectory.report().termination,
                     native::Termination::Event,
                     "{:?}",
-                    trajectory.report.error
+                    trajectory.report().error
                 );
-                assert!((trajectory.report.completed_time - 0.5).abs() < 1e-6);
-                assert_eq!(trajectory.report.samples.len(), 2);
+                assert!((trajectory.report().completed_time - 0.5).abs() < 1e-6);
+                assert_eq!(trajectory.report().samples.len(), 2);
                 assert_eq!(
-                    trajectory.accepted, accepted,
+                    trajectory.accepted(),
+                    accepted,
                     "{:?}; {:?}",
-                    trajectory.completion, trajectory.validation_error
+                    trajectory.completion(),
+                    trajectory.validation_error()
                 );
-                assert_eq!(trajectory.checks_complete, accepted);
-                assert!(trajectory.reports.iter().all(|r| r.label != "whole-domain"));
+                assert_eq!(trajectory.checks_complete(), accepted);
                 assert_eq!(
-                    trajectory.report.conservation.last().unwrap().time,
-                    trajectory.report.completed_time
+                    trajectory.header().qualification
+                        == pse_model::generated::enums::NativeQualification::Feasible,
+                    accepted
                 );
-                let endpoint = trajectory.report.endpoint.as_ref().unwrap();
+                assert_eq!(trajectory.diagnostic().is_none(), accepted);
+                assert!(
+                    trajectory
+                        .reports()
+                        .iter()
+                        .all(|r| r.label != "whole-domain")
+                );
+                assert_eq!(
+                    trajectory.report().conservation.last().unwrap().time,
+                    trajectory.report().completed_time
+                );
+                let endpoint = trajectory.report().endpoint.as_ref().unwrap();
                 assert!((endpoint.point.outputs[0] - 1.25).abs() < 1e-6);
                 let tables = trajectory.tables().unwrap();
                 assert!(tables.contains_key(
@@ -2382,7 +2590,7 @@ mod tests {
                 ));
                 if accepted {
                     assert_eq!(
-                        trajectory.completion.closure,
+                        trajectory.completion().closure,
                         pse_model::generated::enums::ClosureAssessment::Closed
                     );
                 }
@@ -2461,15 +2669,15 @@ mod tests {
             );
             let trajectory = prepared.run(&cancel).await.unwrap();
             assert_eq!(
-                trajectory.report.termination,
+                trajectory.report().termination,
                 native::Termination::Completed,
                 "{:?}",
-                trajectory.report.error
+                trajectory.report().error
             );
-            assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
-            assert!((trajectory.report.samples.last().unwrap().state[0] - 1.5).abs() < 1e-7);
+            assert!(trajectory.accepted(), "{:?}", trajectory.validation_error());
+            assert!((trajectory.report().samples.last().unwrap().state[0] - 1.5).abs() < 1e-7);
             let checks = trajectory
-                .checks
+                .checks()
                 .iter()
                 .filter(|c| c.kind == pse_model::generated::enums::ModelingCheckKind::Closure)
                 .collect::<Vec<_>>();
@@ -2480,7 +2688,7 @@ mod tests {
                 && c.tolerance == Some(1e-6)));
             assert!(
                 trajectory
-                    .report
+                    .report()
                     .conservation
                     .iter()
                     .all(|p| p.defects[0].abs() < 1e-6)
@@ -2549,20 +2757,20 @@ mod tests {
                 );
                 let trajectory = prepared.run(&cancel).await.unwrap();
                 assert_eq!(
-                    trajectory.report.termination,
+                    trajectory.report().termination,
                     native::Termination::Completed,
                     "{:?}",
-                    trajectory.report.error
+                    trajectory.report().error
                 );
                 assert_eq!(
-                    trajectory.accepted,
+                    trajectory.accepted(),
                     closes,
                     "{:?} complete={} conservation={:?}",
-                    trajectory.validation_error,
-                    trajectory.checks_complete,
-                    trajectory.report.conservation
+                    trajectory.validation_error(),
+                    trajectory.checks_complete(),
+                    trajectory.report().conservation
                 );
-                let assessment = &trajectory.completion;
+                let assessment = trajectory.completion();
                 assert_eq!(
                     assessment.closure,
                     if closes {
@@ -2571,8 +2779,8 @@ mod tests {
                         pse_model::generated::enums::ClosureAssessment::Unclosed
                     }
                 );
-                assert!((trajectory.report.conservation[0].inventories[0] - 1.0).abs() < 1e-8);
-                let last = trajectory.report.conservation.last().unwrap();
+                assert!((trajectory.report().conservation[0].inventories[0] - 1.0).abs() < 1e-8);
+                let last = trajectory.report().conservation.last().unwrap();
                 assert!((last.inventories[0] - 0.5_f64.exp()).abs() < 1e-7);
                 if closes {
                     assert!(last.defects[0].abs() < 1e-5);
@@ -2581,7 +2789,7 @@ mod tests {
                 }
                 assert!(
                     trajectory
-                        .checks
+                        .checks()
                         .iter()
                         .any(|c| c.kind == pse_model::generated::enums::ModelingCheckKind::Closure)
                 );
@@ -2670,17 +2878,19 @@ mod tests {
                 assert!(descriptor.state.is_some());
                 let trajectory = prepared.run(&cancel).await.unwrap();
                 assert_eq!(
-                    trajectory.report.termination,
+                    trajectory.report().termination,
                     native::Termination::Completed,
                     "{:?}",
-                    trajectory.report.error
+                    trajectory.report().error
                 );
                 if initial_y_value == Some(4) {
                     assert!(
-                        !trajectory.accepted,
+                        !trajectory.accepted(),
                         "inconsistent original coordinate initial rows must refuse result use"
                     );
-                    assert!(trajectory.checks_complete && trajectory.validation_error.is_none());
+                    assert!(
+                        trajectory.checks_complete() && trajectory.validation_error().is_none()
+                    );
                     let original_sources = prepared
                         .model()
                         .compiled()
@@ -2689,7 +2899,7 @@ mod tests {
                         .values()
                         .map(|condition| condition.lineage.declaration)
                         .collect::<BTreeSet<_>>();
-                    assert!(trajectory.checks.iter().any(|check| {
+                    assert!(trajectory.checks().iter().any(|check| {
                         check.kind
                             == pse_model::generated::enums::ModelingCheckKind::OriginalEquation
                             && original_sources.contains(&check.source_id)
@@ -2699,22 +2909,22 @@ mod tests {
                     }));
                     assert!(
                         trajectory
-                            .report
+                            .report()
                             .conservation
                             .iter()
                             .all(|point| point.defects[0].abs() < 1e-6)
                     );
                     continue;
                 }
-                assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
-                assert!((trajectory.report.conservation[0].inventories[0] - 3.).abs() < 1e-7);
+                assert!(trajectory.accepted(), "{:?}", trajectory.validation_error());
+                assert!((trajectory.report().conservation[0].inventories[0] - 3.).abs() < 1e-7);
                 assert!(
-                    (trajectory.report.conservation.last().unwrap().inventories[0] - 6.).abs()
+                    (trajectory.report().conservation.last().unwrap().inventories[0] - 6.).abs()
                         < 1e-7
                 );
                 assert!(
                     trajectory
-                        .report
+                        .report()
                         .conservation
                         .iter()
                         .all(|point| point.defects[0].abs() < 1e-6)
@@ -2798,15 +3008,15 @@ mod tests {
             );
             let trajectory = prepared.run(&cancel).await.unwrap();
             assert_eq!(
-                trajectory.report.termination,
+                trajectory.report().termination,
                 native::Termination::Completed,
                 "{:?}",
-                trajectory.report.error
+                trajectory.report().error
             );
-            assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
-            let mut initial = trajectory.report.conservation[0].inventories.clone();
+            assert!(trajectory.accepted(), "{:?}", trajectory.validation_error());
+            let mut initial = trajectory.report().conservation[0].inventories.clone();
             let mut last = trajectory
-                .report
+                .report()
                 .conservation
                 .last()
                 .unwrap()
@@ -2822,7 +3032,7 @@ mod tests {
             }
             assert!(
                 trajectory
-                    .report
+                    .report()
                     .conservation
                     .iter()
                     .all(|point| point.defects.iter().all(|defect| defect.abs() < 1e-6))
@@ -2931,38 +3141,40 @@ mod tests {
                 );
                 let trajectory = prepared.run(&cancel).await.unwrap();
                 assert_eq!(
-                    trajectory.accepted, matches,
+                    trajectory.accepted(),
+                    matches,
                     "{:?} {:?}",
-                    trajectory.report.error, trajectory.validation_error
+                    trajectory.report().error,
+                    trajectory.validation_error()
                 );
                 if matches {
                     assert_eq!(
-                        trajectory.report.termination,
+                        trajectory.report().termination,
                         native::Termination::Completed
                     );
                     assert!(
-                        (trajectory.report.conservation.last().unwrap().transfers[0] - 1.5).abs()
+                        (trajectory.report().conservation.last().unwrap().transfers[0] - 1.5).abs()
                             < 1e-7
                     );
                     assert!(
                         trajectory
-                            .report
+                            .report()
                             .conservation
                             .iter()
                             .all(|p| p.defects[0].abs() < 1e-6)
                     );
                 } else {
-                    assert_eq!(trajectory.report.termination, native::Termination::Failed);
+                    assert_eq!(trajectory.report().termination, native::Termination::Failed);
                     assert!(
                         trajectory
-                            .report
+                            .report()
                             .error
                             .as_ref()
                             .unwrap()
                             .to_string()
                             .contains("permitted event transfer")
                     );
-                    assert!(trajectory.checks.iter().any(|c| c.kind
+                    assert!(trajectory.checks().iter().any(|c| c.kind
                         == pse_model::generated::enums::ModelingCheckKind::Closure
                         && c.source_id == descriptor.lineage.declaration
                         && c.target_id == descriptor.id
@@ -3165,13 +3377,13 @@ mod tests {
                 .unwrap();
             let trajectory = prepared.run(&cancel).await.unwrap();
             assert_eq!(
-                trajectory.report.termination,
+                trajectory.report().termination,
                 native::Termination::Completed,
                 "{:?}",
-                trajectory.report.error
+                trajectory.report().error
             );
-            assert!(trajectory.accepted, "{:?}", trajectory.validation_error);
-            let last = trajectory.report.conservation.last().unwrap();
+            assert!(trajectory.accepted(), "{:?}", trajectory.validation_error());
+            let last = trajectory.report().conservation.last().unwrap();
             assert!((last.inventories[0] - 301.5).abs() < 1e-7);
             assert!((last.transfers[0] - 0.5).abs() < 1e-7);
             assert!(last.defects[0].abs() < 1e-6);
@@ -3270,8 +3482,8 @@ mod tests {
             .unwrap();
         assert_eq!(report.trajectories.len(), 1, "{:?}", report.checks);
         let trajectory = report.trajectories.values().next().unwrap();
-        assert!(trajectory.accepted, "{:?}", trajectory.diagnostic());
-        assert_eq!(trajectory.report.samples.len(), 3);
+        assert!(trajectory.accepted(), "{:?}", trajectory.diagnostic());
+        assert_eq!(trajectory.report().samples.len(), 3);
         let checks = report
             .checks
             .iter()
@@ -3374,8 +3586,8 @@ mod tests {
             .unwrap();
         assert_ne!(sensitive.identity(), prepared.identity());
         let result = sensitive.run(&cancel).await.unwrap();
-        assert!(result.accepted, "{:?}", result.diagnostic());
-        let samples = &result.report.samples;
+        assert!(result.accepted(), "{:?}", result.diagnostic());
+        let samples = &result.report().samples;
         // x = 1 + 2·t before the change and 2 − (t − 0.5) after; the unscheduled model
         // value 5 would give 6 at the end.
         for (sample, expected) in samples.iter().zip([1., 2., 1.5]) {
@@ -3470,28 +3682,29 @@ mod tests {
         assert_eq!(prepared.mode_names().collect::<Vec<_>>(), ["rise", "coast"]);
         let result = prepared.run(&cancel).await.unwrap();
         assert!(
-            result.accepted,
+            result.accepted(),
             "{:?} {:?}",
-            result.report.error, result.validation_error
+            result.report().error,
+            result.validation_error()
         );
-        assert_eq!(result.report.events.len(), 1);
-        assert!((result.report.events[0].time - 0.5).abs() < 1e-5);
+        assert_eq!(result.report().events.len(), 1);
+        assert!((result.report().events[0].time - 0.5).abs() < 1e-5);
         assert_eq!(
             result
-                .report
+                .report()
                 .samples
                 .iter()
                 .map(|s| s.mode)
                 .collect::<Vec<_>>(),
             vec![0, 0, 1, 1]
         );
-        assert!((result.report.samples[3].outputs[0] - 4.).abs() < 1e-6);
+        assert!((result.report().samples[3].outputs[0] - 4.).abs() < 1e-6);
         assert!(
-            result.report.samples[3].output_sensitivities[0].abs() < 1e-5,
+            result.report().samples[3].output_sensitivities[0].abs() < 1e-5,
             "moving root sensitivity must cancel at the threshold: {:?}",
-            result.report.samples[3]
+            result.report().samples[3]
         );
-        assert_eq!(result.checks.len(), 4);
+        assert_eq!(result.checks().len(), 4);
         let tables = result.tables().unwrap();
         assert!(
             tables.contains_key(&pse_relations::generated::runtime::simulation_events::RELATION_ID)
@@ -3506,10 +3719,10 @@ mod tests {
             .run(&cancel)
             .await
             .unwrap();
-        assert_eq!(stopped.report.termination, native::Termination::Event);
-        assert!(!stopped.accepted);
-        assert!(!stopped.checks_complete);
-        assert_eq!(stopped.report.samples.len(), 2);
+        assert_eq!(stopped.report().termination, native::Termination::Event);
+        assert!(!stopped.accepted());
+        assert!(!stopped.checks_complete());
+        assert_eq!(stopped.report().samples.len(), 2);
     }
     /// ADR-0119 Outcome 3 within ADR-0110's routes: an authored directional event routes an
     /// automatic method to IDAS, which honours the direction (`IDASetRootDirection`); an
@@ -3557,18 +3770,18 @@ mod tests {
             assert_eq!(prepared.profile().resolved_method().unwrap(), method);
             let result = prepared.run(&cancel).await.unwrap();
             assert_eq!(
-                result.report.termination,
+                result.report().termination,
                 native::Termination::Event,
                 "{:?}",
-                result.report.error
+                result.report().error
             );
-            assert_eq!(result.report.events.len(), 1);
+            assert_eq!(result.report().events.len(), 1);
             assert!(
-                (result.report.events[0].time - time).abs() < 1e-6,
+                (result.report().events[0].time - time).abs() < 1e-6,
                 "{method:?}: {:?}",
-                result.report.events
+                result.report().events
             );
-            assert!((result.report.completed_time - time).abs() < 1e-6);
+            assert!((result.report().completed_time - time).abs() < 1e-6);
         }
         // Diffsol detects every sign change, so it refuses a directional event.
         let mut diffsol = package
@@ -3661,7 +3874,7 @@ mod tests {
         profile.samples = (0..=400).map(|i| f64::from(i) * 0.025).collect();
         let lowest = |result: &ModelingTrajectory| {
             result
-                .report
+                .report()
                 .samples
                 .iter()
                 .map(|s| s.outputs[0])
@@ -3673,13 +3886,13 @@ mod tests {
             [native::StateSign::NonNegative]
         );
         let kept = constrained.run(&cancel).await.unwrap();
-        assert!(kept.accepted, "{:?}", kept.diagnostic());
+        assert!(kept.accepted(), "{:?}", kept.diagnostic());
         assert!(lowest(&kept) >= 0., "constrained minimum {}", lowest(&kept));
         let free = prepare(relaxed, Some(profile)).await.unwrap();
         assert!(free.contract().signs.is_empty());
         assert_ne!(free.identity(), constrained.identity());
         let dipped = free.run(&cancel).await.unwrap();
-        assert!(dipped.accepted, "{:?}", dipped.diagnostic());
+        assert!(dipped.accepted(), "{:?}", dipped.diagnostic());
         assert!(
             lowest(&dipped) < 0.,
             "the unconstrained control run stayed non-negative ({})",
@@ -3817,18 +4030,23 @@ mod tests {
             );
             let result = prepared.run(&cancel).await.unwrap();
             assert!(
-                result.accepted,
+                result.accepted(),
                 "{:?} {:?}",
-                result.report.error, result.validation_error
+                result.report().error,
+                result.validation_error()
             );
-            assert_eq!(result.checks.len(), 4);
+            assert_eq!(result.checks().len(), 4);
             assert_eq!(
-                result.checks.iter().filter(|c| c.sample_index == 2).count(),
+                result
+                    .checks()
+                    .iter()
+                    .filter(|c| c.sample_index == 2)
+                    .count(),
                 2
             );
             assert!(
                 (result
-                    .reports
+                    .reports()
                     .iter()
                     .find(|r| r.label == "integral")
                     .unwrap()
@@ -3839,7 +4057,7 @@ mod tests {
             );
             assert!(
                 (result
-                    .reports
+                    .reports()
                     .iter()
                     .find(|r| r.label == "log-integral")
                     .unwrap()
@@ -3848,7 +4066,7 @@ mod tests {
                 .abs()
                     < 1e-6
             );
-            assert!((result.report.samples[1].integrals[0] - 2.).abs() < 1e-6);
+            assert!((result.report().samples[1].integrals[0] - 2.).abs() < 1e-6);
             let tables = result.tables().unwrap();
             use pse_relations::{columnar::RelationRow, generated::runtime::modeling_reports};
             assert_eq!(
@@ -3895,8 +4113,8 @@ mod tests {
                 .await
                 .unwrap();
             let sensitive = sensitive.run(&cancel).await.unwrap();
-            assert!(sensitive.accepted, "{:?}", sensitive.diagnostic());
-            for sample in &sensitive.report.samples {
+            assert!(sensitive.accepted(), "{:?}", sensitive.diagnostic());
+            for sample in &sensitive.report().samples {
                 assert_eq!(sample.output_sensitivities.len(), 1);
                 assert!((sample.output_sensitivities[0] - sample.time).abs() < 1e-6);
                 assert!((sample.integrals[0] - 2. * sample.time).abs() < 1e-6);
@@ -3991,11 +4209,11 @@ mod tests {
                 .await
                 .unwrap();
             let result = prepared.run(&cancel).await.unwrap();
-            assert_eq!(result.report.termination, native::Termination::Completed);
-            assert!(result.checks_complete, "{:?}", result.validation_error);
-            assert_eq!(result.accepted, accepted);
-            assert_eq!(result.checks.len(), 3);
-            let expected_checks = result.checks.clone();
+            assert_eq!(result.report().termination, native::Termination::Completed);
+            assert!(result.checks_complete(), "{:?}", result.validation_error());
+            assert_eq!(result.accepted(), accepted);
+            assert_eq!(result.checks().len(), 3);
+            let expected_checks = result.checks().to_vec();
             let tables = result.tables().unwrap();
             use pse_relations::{
                 columnar::RelationRow,
@@ -4134,17 +4352,17 @@ mod tests {
                 .unwrap();
             let result = prepared.run(&cancel).await.unwrap();
             if singular {
-                assert_ne!(result.report.termination, native::Termination::Completed);
-                assert!(result.report.error.is_some());
+                assert_ne!(result.report().termination, native::Termination::Completed);
+                assert!(result.report().error.is_some());
                 continue;
             }
             assert_eq!(
-                result.report.termination,
+                result.report().termination,
                 native::Termination::Completed,
                 "{:?}",
-                result.report.error
+                result.report().error
             );
-            for sample in &result.report.samples {
+            for sample in &result.report().samples {
                 assert!((sample.outputs[xi] - (1. + 4. * sample.time / 3.)).abs() < 1e-6);
                 assert!((sample.outputs[yi] - (3. - 2. * sample.time / 3.)).abs() < 1e-6);
                 assert!((sample.output_sensitivities[xi] + 2. * sample.time / 9.).abs() < 1e-6);
@@ -4283,19 +4501,19 @@ mod tests {
             .unwrap();
         let result = prepared.run(&cancel).await.unwrap();
         assert_eq!(
-            result.report.termination,
+            result.report().termination,
             native::Termination::Completed,
             "{:?}",
-            result.report.error
+            result.report().error
         );
-        for sample in &result.report.samples {
+        for sample in &result.report().samples {
             assert!((sample.outputs[0] - (1. + 2. * sample.time)).abs() < 1e-6);
             assert!((sample.state[0] - (1. + 2. * sample.time) / 10.).abs() < 1e-6);
             assert!((sample.output_sensitivities[pi] - sample.time).abs() < 1e-6);
             assert!((sample.output_sensitivities[oi] - 1.).abs() < 1e-6);
         }
         // @start is only a guess: the original endpoint equation determines x(0).
-        assert!((result.report.requested_initial[0] - 0.1).abs() < 1e-12);
+        assert!((result.report().requested_initial[0] - 0.1).abs() < 1e-12);
         let tables = result.tables().unwrap();
         use pse_relations::{
             columnar::RelationRow,
@@ -4467,8 +4685,8 @@ mod tests {
                 .position(|id| *id == parameter("offset"))
                 .unwrap();
             let result = prepared.run(&cancel).await.unwrap();
-            assert!(result.accepted, "{method:?}: {:?}", result.diagnostic());
-            for sample in &result.report.samples {
+            assert!(result.accepted(), "{method:?}: {:?}", result.diagnostic());
+            for sample in &result.report().samples {
                 let y = (1. + 2. * sample.time).sqrt();
                 assert!((sample.state[yi] - y).abs() < 1e-6);
                 assert!(
@@ -4532,13 +4750,13 @@ mod tests {
         let yi = 1 - xi;
         let result = prepared.run(&cancel).await.unwrap();
         assert_eq!(
-            result.report.termination,
+            result.report().termination,
             native::Termination::Completed,
             "{:?}",
-            result.report.error
+            result.report().error
         );
-        assert!((result.report.consistent_initial[yi] - 4.).abs() < 1e-7);
-        for sample in &result.report.samples {
+        assert!((result.report().consistent_initial[yi] - 4.).abs() < 1e-7);
+        for sample in &result.report().samples {
             assert!((sample.outputs[xi] - (1. + 4. * sample.time)).abs() < 1e-6);
             assert!((sample.outputs[yi] - 4.).abs() < 1e-6);
         }
@@ -4642,10 +4860,10 @@ mod tests {
             );
         }
         let result = prepared.run(&cancel).await.unwrap();
-        assert_ne!(result.report.termination, native::Termination::Completed);
-        assert!(result.report.error.is_some());
-        assert!(!result.report.samples.is_empty());
-        assert!(result.report.samples.iter().all(|s| s.outputs[xi] <= 2.));
+        assert_ne!(result.report().termination, native::Termination::Completed);
+        assert!(result.report().error.is_some());
+        assert!(!result.report().samples.is_empty());
+        assert!(result.report().samples.iter().all(|s| s.outputs[xi] <= 2.));
         let bounded = package
             .with_declarations(parse(&source.replace(
                 "annotation start x(0{s});",
@@ -4680,10 +4898,10 @@ mod tests {
             .unwrap();
         let result = override_bounds.run(&cancel).await.unwrap();
         assert_eq!(
-            result.report.termination,
+            result.report().termination,
             native::Termination::Completed,
             "{:?}",
-            result.report.error
+            result.report().error
         );
     }
 
@@ -4728,13 +4946,13 @@ mod tests {
             .unwrap();
         let trajectory = simulation.run(&cancel).await.unwrap();
         assert_eq!(
-            trajectory.report.termination,
+            trajectory.report().termination,
             native::Termination::Completed,
             "{:?}",
-            trajectory.report.error
+            trajectory.report().error
         );
         assert!(
-            (trajectory.report.samples.last().unwrap().outputs[0] - 2. * (1. - (-1.0f64).exp()))
+            (trajectory.report().samples.last().unwrap().outputs[0] - 2. * (1. - (-1.0f64).exp()))
                 .abs()
                 < 1e-5
         );

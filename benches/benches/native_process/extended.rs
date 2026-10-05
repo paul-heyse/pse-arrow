@@ -357,8 +357,8 @@ async fn run(
                 .unwrap();
             if operation == "vessel" {
                 let result = prepared.run(&cancel).await.unwrap();
-                assert!(result.accepted, "{result:?}");
-                observations.trajectory(&result.report);
+                assert!(result.accepted(), "{result:?}");
+                observations.trajectory(result.report());
                 std::hint::black_box(result.tables().unwrap());
             } else {
                 let analysis = package
@@ -391,8 +391,8 @@ async fn run(
                         .await
                         .unwrap();
                     let result = rebound.run(&cancel).await.unwrap();
-                    assert!(result.accepted, "{result:?}");
-                    observations.trajectory(&result.report);
+                    assert!(result.accepted(), "{result:?}");
+                    observations.trajectory(result.report());
                 }
             }
         }

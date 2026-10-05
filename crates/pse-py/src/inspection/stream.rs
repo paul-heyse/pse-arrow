@@ -12,14 +12,20 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub(crate) struct TableStream(BatchStream);
 impl TableStream {
-    pub(crate) fn from_batch(batch: pse_relations::columnar::FieldCheckedBatch) -> Self {
-        let schema = batch.batch().schema();
-        let mut next = Some(batch.batch().clone());
-        Self(BatchStream::new(
+    pub(crate) fn from_batch(
+        batch: pse_relations::columnar::FieldCheckedBatch,
+    ) -> Result<Self, pse_engine::EngineError> {
+        let cancel = pse_columnar::CancellationToken::new();
+        let exported = batch
+            .checked_export(&cancel)
+            .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
+        let schema = exported.schema();
+        let mut next = Some(exported);
+        Ok(Self(BatchStream::new(
             schema,
-            pse_columnar::CancellationToken::new(),
+            cancel,
             Box::new(move || Ok(next.take())),
-        ))
+        )))
     }
     pub(crate) fn new(mut reader: TableReader, runtime: Arc<super::runtime::Runtime>) -> Self {
         Self(BatchStream::new(

@@ -4,13 +4,11 @@
 
 This is a real file so the shared import survives a Windows checkout without symlinks.
 
-`.claude/settings.json` configures permissions and the lifecycle hooks; AGENTS.md
+`.claude/settings.json` configures permissions and the edit hook; AGENTS.md
 describes which permission layers survive an unprompted session. Both Claude
 and Codex call `scripts/agent-hooks.py`, whose pre-edit checks protect generated files and
-decided documents, and `scripts/after_turn.py`, the end-of-turn pipeline (ADR-0143): when the
-main agent stops it formats and regenerates, then runs readiness and the library catalog, and the
-maintainer sees failed steps. It runs no `just hygiene` check and fixes nothing else: those
-findings are the agent's at scope end. It is silent to the model, never blocks a prompt; subagents stopping don't trigger it. No hook formats edits as you work.
+decided documents. There are no end-of-turn hooks (ADR-0161): run `just turn-end` at the end of a
+turn that changed files, `just ready` after an environment change and `just hygiene` at scope end.
 The guard does not stand between you and your own runtime directories — memory, scratch
 space and runtime configuration are writable, under the scope AGENTS.md describes.
 Hook timeouts are seconds. Shell writes remain governed by AGENTS.md; the edit hook

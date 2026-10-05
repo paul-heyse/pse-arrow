@@ -8,9 +8,17 @@ import hashlib
 import json
 from pathlib import Path
 
+from scripts.validation_scope import input_identity
+
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def require_fresh(path: Path, started: float, kind: str) -> None:
+    """Refuse selection evidence older than the invocation that produced it."""
+    if path.stat().st_mtime < started:
+        raise ValueError(f"stale {kind} selection")
 
 
 def changed(before: dict, after: dict) -> list[str]:
@@ -53,7 +61,10 @@ def classify(check: dict, output: Path) -> None:
     ):
         check["status"] = "unsupported"
         check["authority"] = "R-20"
-    if check["gate"] in {"native-test", "native-python"}:
+    if check.get("native_required") or check["gate"] in {
+        "native-test",
+        "native-python",
+    }:
         path = output / f"{check['gate']}-native.json"
         try:
             native = json.loads(path.read_text())
@@ -82,7 +93,7 @@ def classify(check: dict, output: Path) -> None:
 
 
 def verify_native_capture(native: dict, check: dict) -> None:
-    if native["captured"] < check["started"]:
+    if native["captured"] < check.get("invocation_started", check["started"]):
         raise ValueError("stale native identity")
 
 
@@ -122,8 +133,10 @@ def reuse_checks(
     if transfer and not (reason and reason.strip()):
         raise ValueError("reviewed transfer requires a rationale")
     prior = json.loads((parent / "checks.json").read_text())
-    if prior.get("version") != 4:
-        raise ValueError("reuse requires an ordinary version 4 report")
+    if prior.get("version") != 5:
+        raise ValueError("reuse requires an current version 5 report")
+    if not prior.get("input_coverage"):
+        raise ValueError("retained report lacks trustworthy input coverage")
     declarations = {g["name"]: g for g in json.loads(json.dumps(scope))}
     previous = {g["name"]: g for g in prior["scope"]}
     observations = {c["gate"]: c for c in prior["checks"]}
@@ -132,6 +145,8 @@ def reuse_checks(
         if name not in declarations or previous.get(name) != declarations[name]:
             raise ValueError("reused command scope differs")
         check = observations[name]
+        if check.get("invocation") != declarations[name]:
+            raise ValueError("recorded invocation identity differs")
         if not qualified(check):
             raise ValueError("only successful observations can be retained")
         origin = Path(check.get("origin", str(parent)))
@@ -139,36 +154,59 @@ def reuse_checks(
         origin_digest = check.get("origin_digest", digest(origin_report))
         if digest(origin_report) != origin_digest:
             raise ValueError("changed original report")
-        original = json.loads(origin_report.read_text())
-        changes = changed(original["source_files"], snapshot)
+        # Preserve syntax validation of the authenticated original report.
+        json.loads(origin_report.read_text())
+        current_inputs = input_identity(
+            declarations[name]["input_scope"], snapshot, environment
+        )
+        if not check.get("inputs"):
+            raise ValueError("missing scoped input identity")
+        changes = changed(check["inputs"]["files"], current_inputs["files"])
         for artifact, expected in check.get("artifacts", {}).items():
             path = (origin / artifact).resolve()
             path.relative_to(origin.resolve())
             if digest(path) != expected:
                 raise ValueError("changed retained artifact")
         if name in reuse:
-            if changes or original["environment"] != environment:
+            if check["inputs"] != current_inputs:
                 raise ValueError(
                     "unchanged-input reuse requires identical inputs and environment"
                 )
             if check.get("native"):
                 verify_native(check["native"])
+        transfers = list(check.get("applicability_transfers", []))
+        if name in transfer:
+            transfers.append(
+                {
+                    "from_inputs": check["inputs"],
+                    "to_inputs": current_inputs,
+                    "changed_inputs": changes,
+                    "reason": reason,
+                }
+            )
         retained.append(
             {
                 **check,
+                "inputs": current_inputs,
+                "observed_inputs": check.get("observed_inputs", check["inputs"]),
                 "origin": str(origin),
                 "origin_digest": origin_digest,
                 "evidence_kind": "unchanged-input-reuse"
                 if name in reuse
                 else "reviewed-transfer",
-                "changed_inputs": changes,
-                "transfer_reason": reason if name in transfer else None,
+                "changed_inputs": changes
+                if name in transfer
+                else check.get("changed_inputs", []),
+                "transfer_reason": reason
+                if name in transfer
+                else check.get("transfer_reason"),
+                "applicability_transfers": transfers,
             }
         )
     return retained
 
 
-def native_selection(log: str) -> list[dict]:
+def native_inventory(log: str) -> dict:
     """Read nextest's actual selected identities, not a source-code name guess."""
     inventories = []
     for line in log.splitlines():
@@ -180,9 +218,14 @@ def native_selection(log: str) -> list[dict]:
             inventories.append(value)
     if len(inventories) != 1:
         raise ValueError("missing or ambiguous nextest enumeration")
+    return inventories[0]
+
+
+def native_selection(log: str) -> list[dict]:
+    inventory = native_inventory(log)
     selected = [
         {"class": suite["binary-id"], "name": name}
-        for suite in inventories[0]["rust-suites"].values()
+        for suite in inventory["rust-suites"].values()
         for name, test in suite["testcases"].items()
         if test["filter-match"]["status"] == "matches"
     ]
@@ -202,6 +245,8 @@ def reconcile(check: dict) -> None:
     if "selected" in check:
         selected = {identity(item): item for item in check["selected"]}
         actual = {identity(item) for item in check["results"]}
+        if len(actual) != len(check["results"]):
+            check["report_errors"].append("duplicate terminal identities")
         if len(selected) != len(check["selected"]):
             check["report_errors"].append("duplicate selected identities")
         for key in actual - selected.keys():

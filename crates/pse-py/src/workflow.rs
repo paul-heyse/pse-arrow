@@ -113,6 +113,111 @@ impl OperationalStore {
         format!("OperationalStore(worker={:?})", self.worker)
     }
 }
+/// Test-owned isolated database. This private boundary reuses the operational store's
+/// schema creation and teardown rather than sending test SQL from Python.
+#[pyclass(
+    name = "_TestOperationalStore",
+    skip_from_py_object,
+    module = "pse._native"
+)]
+#[derive(Debug)]
+pub(crate) struct TestOperationalStore {
+    database: Option<pse_operations::testing::TestDatabase>,
+    executor: Option<tokio::runtime::Runtime>,
+}
+
+#[pymethods]
+impl TestOperationalStore {
+    #[new]
+    fn new(py: Python<'_>) -> PyResult<Self> {
+        if tokio::runtime::Handle::try_current().is_ok() {
+            return Err(invalid(
+                py,
+                "test database setup cannot re-enter an async executor",
+            ));
+        }
+        let executor = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .map_err(|source| {
+                errors::diagnostic(
+                    py,
+                    &pse_engine::EngineError::Infrastructure {
+                        op: "build isolated test database executor".to_owned(),
+                        source: Box::new(source),
+                    },
+                )
+            })?;
+        let database = py
+            .detach(|| executor.block_on(pse_operations::testing::TestDatabase::create()))
+            .map_err(|error| errors::diagnostic(py, &native::WorkflowError::Operations(error)))?;
+        Ok(Self {
+            database: Some(database),
+            executor: Some(executor),
+        })
+    }
+
+    /// A production store descriptor for this database, while its owner is live.
+    fn store(&self, py: Python<'_>) -> PyResult<OperationalStore> {
+        let database = self
+            .database
+            .as_ref()
+            .ok_or_else(|| invalid(py, "isolated test database has been removed"))?;
+        Ok(OperationalStore::new(Some(database.url().to_owned()), None))
+    }
+
+    /// Remove this database and close its setup executor. Cleanup errors are surfaced.
+    fn remove(&mut self, py: Python<'_>) -> PyResult<()> {
+        if tokio::runtime::Handle::try_current().is_ok() {
+            return Err(invalid(
+                py,
+                "test database teardown cannot re-enter an async executor",
+            ));
+        }
+        let Some(database) = self.database.take() else {
+            return Ok(());
+        };
+        let executor = self
+            .executor
+            .take()
+            .ok_or_else(|| invalid(py, "isolated test database has no executor"))?;
+        py.detach(|| {
+            let result = executor.block_on(database.remove());
+            drop(executor);
+            result
+        })
+        .map_err(|error| errors::diagnostic(py, &native::WorkflowError::Operations(error)))
+    }
+}
+
+impl Drop for TestOperationalStore {
+    fn drop(&mut self) {
+        // Normal fixture teardown reports errors directly. Also clean up an abandoned
+        // owner; destructor failures use Python's unraisable-error channel.
+        if let Some(executor) = self.executor.take() {
+            if let Some(database) = self.database.take() {
+                // A pyclass may be dropped from an async host. Join cleanup on a
+                // separate thread so Runtime::block_on never nests in that host.
+                let result = std::thread::scope(|scope| {
+                    scope.spawn(|| executor.block_on(database.remove())).join()
+                })
+                .unwrap_or_else(|_| {
+                    Err(pse_operations::OperationsError::Configuration {
+                        reason: "isolated test database cleanup task panicked".to_owned(),
+                    })
+                });
+                if let Err(error) = result {
+                    Python::try_attach(|py| {
+                        errors::diagnostic(py, &native::WorkflowError::Operations(error))
+                            .write_unraisable(py, None);
+                    });
+                }
+            }
+            executor.shutdown_background();
+        }
+    }
+}
 /// Borrow the same budget, services and executor as exact publication inspection.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -236,7 +341,7 @@ impl NativeRuntime {
             limit,
         };
         let batch = blocking(py, &self.owner, self.inner.runs(&filter), || {})?;
-        Ok(inspection::TableStream::from_batch(batch))
+        inspection::TableStream::from_batch(batch).map_err(|e| errors::diagnostic(py, &e))
     }
     fn physical_from_documents(
         &self,
@@ -301,7 +406,7 @@ impl NativeRuntime {
             limit,
         };
         let batch = blocking(py, &self.owner, self.inner.studies(&filter), || {})?;
-        Ok(inspection::TableStream::from_batch(batch))
+        inspection::TableStream::from_batch(batch).map_err(|e| errors::diagnostic(py, &e))
     }
     /// The store's durable jobs, newest first, as `runtime.operational_jobs`: optionally
     /// those in the given registry `JobState` names.
@@ -326,7 +431,7 @@ impl NativeRuntime {
             limit,
         };
         let batch = blocking(py, &self.owner, self.inner.jobs(&filter), || {})?;
-        Ok(inspection::TableStream::from_batch(batch))
+        inspection::TableStream::from_batch(batch).map_err(|e| errors::diagnostic(py, &e))
     }
     /// Run one SQL query over this runtime's query session: the operational relations
     /// under `pse_ops` when durable, a run's retained results under `workspace`, and an
@@ -743,12 +848,14 @@ impl NativeRunResult {
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.table(name))
             .map(inspection::TableStream::from_batch)
-            .map_err(|e| errors::diagnostic(py, e.as_ref()))
+            .map_err(|e| errors::diagnostic(py, e.as_ref()))?
+            .map_err(|e| errors::diagnostic(py, &e))
     }
     fn export_fit_parameters(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.export_fit_parameters())
             .map(inspection::TableStream::from_batch)
-            .map_err(|error| errors::diagnostic(py, &error))
+            .map_err(|error| errors::diagnostic(py, &error))?
+            .map_err(|e| errors::diagnostic(py, &e))
     }
     /// Prepare the publication of this durable attempt's results in a registered
     /// workspace (JSON) against the exact expected parent; performs no write.

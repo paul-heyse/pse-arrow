@@ -316,7 +316,7 @@ def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
     )
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_binary_documents_admit_keyed_rows_and_reject_integer_sequences(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -365,7 +365,7 @@ def test_binary_documents_admit_keyed_rows_and_reject_integer_sequences(
     assert usage.pool_peak_bytes >= usage.pool_reserved_now >= 0
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_modeling_expansion_limits_are_explicit_and_isolated(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -429,7 +429,7 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
         pse.ModelingLimits(members=0)
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_complete_preparation_policy_controls_public_preparation_and_execution(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -487,7 +487,7 @@ def test_complete_preparation_policy_controls_public_preparation_and_execution(
         )
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_conformance_preparation_policy_reaches_native_and_pure_compilers(
     tmp_path: Path,
     inspection_settings: pse.EngineSettings,
@@ -573,7 +573,7 @@ def test_conformance_preparation_policy_reaches_native_and_pure_compilers(
     assert detail.value == "math limit exceeded: worker scratch bytes"
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_modeling_simulation_events_checks_and_terminal_reports(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -662,7 +662,7 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
     assert report_rows[0]["value"] == pytest.approx(1.3862943611198906, abs=1e-6)
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -889,7 +889,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         )
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinates(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -976,7 +976,7 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
     assert pa.table(bad_table).num_rows == 1
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     inspection_settings: pse.EngineSettings, tmp_path: Path
 ) -> None:
@@ -1116,7 +1116,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
         assert reader.read_all().num_rows == checks.num_rows
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_modeling_nonlinear_explanation_retains_local_evidence(
     inspection_settings: pse.EngineSettings,
 ) -> None:
@@ -1222,7 +1222,7 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     assert attempt.backend == "pounce"
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_pure_conformance_has_no_process_runtime_and_retains_findings(
     tmp_path: Path,
 ) -> None:
@@ -1331,7 +1331,7 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
     assert (tmp_path / "checks.findings.arrow").is_file()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_knowledge_inspects_admitted_values_and_refuses_writes(
     inspection_settings: pse.EngineSettings,
 ) -> None:

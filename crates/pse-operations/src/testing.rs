@@ -128,29 +128,49 @@ impl TestDatabase {
     }
 
     async fn new(open: bool) -> Result<Self, OperationsError> {
+        Self::create_with(|url| async move {
+            let store = Store::connect_with(&url, &StoreOptions::for_tests()).await?;
+            if open && let Err(error) = store.create().await {
+                store.close();
+                return Err(error);
+            }
+            Ok(store)
+        })
+        .await
+    }
+
+    async fn create_with<F, Fut>(initialize: F) -> Result<Self, OperationsError>
+    where
+        F: FnOnce(String) -> Fut,
+        Fut: Future<Output = Result<Store, OperationsError>>,
+    {
         let server = database_url_from_env();
         let config = crate::store::configure(&server, &StoreOptions::for_tests())?;
         let target = Target::describe(&config);
         let admin = Session::connect(&config, &crate::store::tls()?, &target).await?;
         let name = format!("pse_test_{}", uuid::Uuid::now_v7().simple());
-        // The name is minted here from a UUID; it carries no caller text.
-        admin
-            .execute(&format!("CREATE DATABASE \"{name}\""))
-            .await?;
         let mut url = url::Url::parse(&server).map_err(|error| OperationsError::Configuration {
             reason: format!("{} is not a URL: {error}", crate::DATABASE_URL_ENV),
         })?;
         url.set_path(&format!("/{name}"));
         let url = url.to_string();
-        let options = StoreOptions::for_tests();
-        let store = if open {
-            {
-                let store = Store::connect_with(&url, &options).await?;
-                store.create().await?;
-                store
+        // The name is minted here from a UUID; it carries no caller text. Finish
+        // fallible URL preparation before acquiring the database.
+        admin
+            .execute(&format!("CREATE DATABASE \"{name}\""))
+            .await?;
+        let store = match initialize(url.clone()).await {
+            Ok(store) => store,
+            Err(setup) => {
+                if let Err(cleanup) = Self::drop_database(&admin, &name).await {
+                    return Err(OperationsError::Configuration {
+                        reason: format!(
+                            "isolated database setup failed: {setup}; cleanup failed: {cleanup}"
+                        ),
+                    });
+                }
+                return Err(setup);
             }
-        } else {
-            Store::connect_with(&url, &options).await?
         };
         Ok(Self {
             store,
@@ -187,13 +207,17 @@ impl TestDatabase {
     /// Classified driver failures.
     pub async fn remove(self) -> Result<(), OperationsError> {
         self.store.close();
-        let drop = format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", self.name);
+        Self::drop_database(&self.admin, &self.name).await
+    }
+
+    async fn drop_database(admin: &Session, name: &str) -> Result<(), OperationsError> {
+        let drop = format!("DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)");
         // FORCE refuses to terminate a server background worker (autovacuum) attached to
         // the database, whose role this user may not signal. Such a worker leaves within
         // moments, so that refusal is retried.
         let mut attempts = 0;
         loop {
-            match self.admin.client.simple_query(&drop).await {
+            match admin.client.simple_query(&drop).await {
                 Err(error)
                     if attempts < 50
                         && error.code()
@@ -203,11 +227,53 @@ impl TestDatabase {
                     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 }
                 result => {
-                    result.classify(&self.admin.target)?;
+                    result.classify(&admin.target)?;
                     return Ok(());
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod store_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn failed_isolated_database_setup_removes_owned_database() {
+        let mut attempted = None;
+        let result = TestDatabase::create_with(|url| {
+            attempted = Some(url);
+            std::future::ready(Err(OperationsError::Configuration {
+                reason: "injected store initialization failure".to_owned(),
+            }))
+        })
+        .await;
+        assert!(
+            matches!(result, Err(OperationsError::Configuration { ref reason })
+            if reason == "injected store initialization failure")
+        );
+        let attempted =
+            url::Url::parse(&attempted.expect("initialization ran")).expect("minted URL");
+        let name = attempted.path().trim_start_matches('/');
+        assert!(name.starts_with("pse_test_"));
+
+        let config = crate::store::configure(&database_url_from_env(), &StoreOptions::for_tests())
+            .expect("admin configuration");
+        let target = Target::describe(&config);
+        let admin = Session::connect(&config, &crate::store::tls().expect("TLS"), &target)
+            .await
+            .expect("admin session");
+        let count = admin
+            .count(&format!(
+                "SELECT count(*)::bigint FROM pg_database WHERE datname = '{name}'"
+            ))
+            .await
+            .expect("database inventory");
+        assert_eq!(
+            count, 0,
+            "failed setup must not leave its acquired database"
+        );
     }
 }
 

@@ -104,8 +104,8 @@ Structure every plan the way AGENTS.md *Execution rhythm* runs it:
   they replace. A packet is not done while the replaced mechanism, its callers or its
   tests remain — delete them as soon as the replacement is proven by its tests. No
   compatibility paths, no tests ported onto a deleted mechanism.
-- **Formatting runs in the end-of-turn hooks; static checks (`just hygiene`) and integrated
-  tests run once, after all functional scope is implemented** (ADR-0143). Packets use compile checks and
+- **Formatting runs in `just turn-end` at the end of a turn; static checks (`just hygiene`) and integrated
+  tests run once, after all functional scope is implemented** (ADR-0161). Packets use compile checks and
   targeted tests only. A plan's final qualification packet selects the relevant integration,
   component, solver, Python, performance and manual static checks; the maintainer may also request it at
   any time. None of these is a commit, push or merge gate. Report evidence for checks

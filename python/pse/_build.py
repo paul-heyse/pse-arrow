@@ -36,6 +36,7 @@ _NativeTableStream = _native.TableStream
 _NativePhysicalContext = _native.NativePhysicalContext
 _NativeRuntime = _native.NativeRuntime
 OperationalStore = _native.OperationalStore
+_TestOperationalStore = _native._TestOperationalStore  # noqa: SLF001 -- private test fixture owner
 _NativeModelingNativeAnalysis = _native.NativeModelingNativeAnalysis
 _NativeModelingNonlinearExplanation = _native.NativeModelingNonlinearExplanation
 _NativeModelingElasticAttempt = _native.NativeModelingElasticAttempt

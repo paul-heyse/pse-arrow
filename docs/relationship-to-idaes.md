@@ -25,10 +25,9 @@ The architecture is a re-implementation, not a translation:
   `external/` is on the agent configuration's deny list for edits.
 - The **only** coupling is the parity harness (`python/pse/parity/`), which
   imports `idaes` in a separate environment and compares results.
-- Names are preserved where parity requires a two-way mapping — for example the
-  property name `enth_mol_phase` and the enumerations listed in blueprint §6.14.
-  Those are interface facts, and each is enumerated in the architecture rather
-  than absorbed silently.
+- Scientific comparisons use explicit formulation mappings under matched conditions.
+  Historical enumeration spelling is not a compatibility obligation (blueprint §6.14,
+  ADR-0160); local authored vocabularies retain their own scientific meaning.
 
 The architectural decisions are recorded in
 [ADR-0003](adr/0003-clean-room-relationship-and-parity-pin.md) (clean-room

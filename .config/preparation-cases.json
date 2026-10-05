@@ -7,28 +7,40 @@
       "components": 2,
       "smoke": true,
       "body_slots": 65536,
-      "body_occurrences": 1048576
+      "body_occurrences": 1048576,
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "pcsaft-05",
       "model": "pcsaft",
       "components": 5,
       "body_slots": 65536,
-      "body_occurrences": 1048576
+      "body_occurrences": 1048576,
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "pcsaft-10",
       "model": "pcsaft",
       "components": 10,
       "body_slots": 65536,
-      "body_occurrences": 1048576
+      "body_occurrences": 1048576,
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "pcsaft-20",
       "model": "pcsaft",
       "components": 20,
       "body_slots": 65536,
-      "body_occurrences": 1048576
+      "body_occurrences": 1048576,
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "pr-inline",
@@ -36,44 +48,68 @@
       "realization": "inline",
       "smoke": true,
       "body_slots": 65536,
-      "body_occurrences": 1048576
+      "body_occurrences": 1048576,
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "pr-nested",
       "model": "peng-robinson",
       "realization": "nested",
       "body_slots": 65536,
-      "body_occurrences": 1048576
+      "body_occurrences": 1048576,
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "k4-demand-orders-selected-output",
       "model": "scalar-k4",
       "demand_orders": true,
-      "smoke": true
+      "smoke": true,
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "k4-worker-permit-lifetime",
       "model": "scalar-k4",
       "worker_permit_lifetime": true,
-      "smoke": true
+      "smoke": true,
+      "functional_scopes": [
+        "preparation",
+        "lifecycle"
+      ]
     },
     {
       "id": "k4-scalar-preparation",
-      "model": "scalar-k4"
+      "model": "scalar-k4",
+      "functional_scopes": [
+        "preparation"
+      ]
     },
     {
       "id": "k4-retention-pressure",
       "model": "scalar-k4",
       "pressure": true,
       "retention_bytes": 65536,
-      "variants": 64
+      "variants": 64,
+      "functional_scopes": [
+        "preparation",
+        "lifecycle"
+      ]
     },
     {
       "id": "k4-retention-bypass",
       "model": "scalar-k4",
       "pressure": true,
       "retention_bytes": 1,
-      "variants": 8
+      "variants": 8,
+      "functional_scopes": [
+        "preparation",
+        "lifecycle"
+      ]
     }
   ]
 }

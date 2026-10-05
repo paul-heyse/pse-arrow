@@ -13,14 +13,20 @@ use datafusion::{arrow::array::RecordBatch, execution::runtime_env::RuntimeEnv};
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget, native_engine_profile};
 use pse_ids::{ContentHash, SemanticId};
-use pse_schema::{Registry, model::RelationKey};
+use pse_schema::{
+    Registry,
+    model::{IntegrityDerivation, InvariantOrigin, RelationKey},
+};
 use std::{
     collections::{BTreeMap, BTreeSet},
     num::NonZeroUsize,
     sync::Arc,
 };
 
-fn session(registry: &Arc<Registry>, rows: BTreeMap<RelationKey, RecordBatch>) -> EngineSession {
+pub(super) fn session(
+    registry: &Arc<Registry>,
+    rows: BTreeMap<RelationKey, RecordBatch>,
+) -> EngineSession {
     let threads = NonZeroUsize::new(1).unwrap();
     pse_engine::EngineFactory::new(
         Arc::new(RuntimeEnv::default()),
@@ -38,7 +44,43 @@ fn session(registry: &Arc<Registry>, rows: BTreeMap<RelationKey, RecordBatch>) -
 
 #[tokio::test]
 async fn every_declared_query_binds_against_its_exact_native_inputs() {
-    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    catalog_bindings(Arc::new(pse_schema::catalog::assemble().unwrap())).await;
+}
+
+#[tokio::test]
+async fn new_existing_family_relation_inherits_binding_without_witness_data() {
+    use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
+    let mut builder = pse_schema::RegistryBuilder::new();
+    pse_schema::catalog::declare_diagnostics(&mut builder);
+    builder.declare_relation(
+        RelationDecl::new(
+            Namespace::Authored,
+            "ordinary_addition",
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "Another instance of established key families",
+        )
+        .pk(&["id"])
+        .unique("slot", &["slot"])
+        .columns(vec![
+            FieldContract::key(
+                "id",
+                FieldContract::native(datafusion::arrow::datatypes::DataType::UInt64),
+                "Key",
+            ),
+            FieldContract::payload(
+                "slot",
+                FieldContract::native(datafusion::arrow::datatypes::DataType::Int64),
+                "Unique slot",
+            )
+            .optional(),
+        ]),
+    );
+    catalog_bindings(Arc::new(builder.build().unwrap())).await;
+}
+
+async fn catalog_bindings(registry: Arc<Registry>) {
     let rows = registry
         .relations()
         .iter()
@@ -55,6 +97,7 @@ async fn every_declared_query_binds_against_its_exact_native_inputs() {
     let cancel = CancellationToken::default();
     let mut failures = Vec::new();
     for invariant in registry.invariants() {
+        assert_binding(registry.as_ref(), invariant);
         let inputs = invariant
             .inputs
             .iter()
@@ -65,10 +108,13 @@ async fn every_declared_query_binds_against_its_exact_native_inputs() {
             .await
         {
             Ok(plan) => {
-                for name in &invariant.key_columns {
-                    if let Err(error) = plan.schema().field_with_unqualified_name(name) {
-                        failures.push(format!("{}: {error}", invariant.qualified_name()));
-                    }
+                if let Err(error) = super::project_query_keys(
+                    plan,
+                    invariant,
+                    registry.relation(&invariant.relation).unwrap(),
+                    &registry,
+                ) {
+                    failures.push(format!("{}: {error}", invariant.qualified_name()));
                 }
             }
             Err(error) => failures.push(format!(
@@ -107,10 +153,108 @@ async fn every_declared_query_binds_against_its_exact_native_inputs() {
         .unwrap();
     assert_eq!(plans.len(), queries.len());
     for (invariant, plan) in registry.invariants().iter().zip(plans) {
-        for key in &invariant.key_columns {
-            plan.schema().field_with_unqualified_name(key).unwrap();
-        }
+        super::project_query_keys(
+            plan,
+            invariant,
+            registry.relation(&invariant.relation).unwrap(),
+            &registry,
+        )
+        .unwrap();
     }
+    let mut required = registry
+        .invariants()
+        .iter()
+        .map(|invariant| invariant.id)
+        .collect::<BTreeSet<_>>();
+    for spec in registry.relations() {
+        required.extend(
+            spec.checks
+                .keys()
+                .map(|name| spec.row_check_id(name).unwrap()),
+        );
+    }
+    let compiled = super::compile_individual(
+        &registry.relations().iter().map(|spec| spec.key).collect(),
+        &session,
+        &registry,
+        crate::invariants::InvariantScope::Required(&required),
+        &cancel,
+    )
+    .await
+    .unwrap();
+    assert_eq!(compiled.len(), required.len());
+    assert_eq!(
+        compiled.iter().map(|(id, _)| *id).collect::<BTreeSet<_>>(),
+        required
+    );
+    let absent = BTreeSet::from([SemanticId::from_bytes([255; 16])]);
+    assert!(
+        super::compile_individual(
+            &registry.relations().iter().map(|spec| spec.key).collect(),
+            &session,
+            &registry,
+            crate::invariants::InvariantScope::Required(&absent),
+            &cancel
+        )
+        .await
+        .is_err()
+    );
+}
+
+fn assert_binding(registry: &Registry, invariant: &pse_schema::model::InvariantSpec) {
+    let InvariantOrigin::GeneratedIntegrity(binding) = invariant.origin() else {
+        return;
+    };
+    let relation = registry.relation_by_key(binding.relation).unwrap();
+    assert_eq!(relation.qualified_name(), invariant.relation);
+    assert_eq!(invariant.key_columns, relation.primary_key);
+    let product = registry.obligations(binding.relation).unwrap();
+    let target = match &binding.derivation {
+        IntegrityDerivation::PrimaryKey => {
+            assert_eq!(product.primary_key, relation.primary_key);
+            None
+        }
+        IntegrityDerivation::UniqueKey(name) => {
+            assert!(relation.unique_keys.iter().any(|key| key.name == *name));
+            None
+        }
+        IntegrityDerivation::TableReference(name) => Some(
+            relation
+                .foreign_keys
+                .iter()
+                .find(|reference| reference.name == *name)
+                .unwrap()
+                .target
+                .to_owned(),
+        ),
+        IntegrityDerivation::ReferenceOccurrence(path) => Some(
+            product
+                .references
+                .iter()
+                .find(|reference| &reference.path == path)
+                .unwrap()
+                .reference
+                .relation
+                .clone(),
+        ),
+        IntegrityDerivation::OrdinalOccurrence(path) => Some(
+            product
+                .ordinals
+                .iter()
+                .find(|ordinal| &ordinal.path == path)
+                .unwrap()
+                .target
+                .clone(),
+        ),
+    };
+    let mut expected = BTreeSet::from([invariant.relation.clone()]);
+    if let Some(target) = target {
+        expected.insert(target);
+    }
+    assert_eq!(
+        invariant.inputs.iter().cloned().collect::<BTreeSet<_>>(),
+        expected
+    );
 }
 
 #[tokio::test]

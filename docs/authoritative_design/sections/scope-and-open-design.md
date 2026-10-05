@@ -69,7 +69,7 @@ no silent fallback, approximate substitute or compatibility route.
   empirical property accuracy. Passing analytic or reference cases does not establish
   untested formulations.
 - The IDAES parity harness covers the pinned environment and explicitly exercised
-  compatibility names. It does not establish numerical equivalence with IDAES.
+  scientific reference comparisons. It does not establish numerical equivalence with IDAES.
 - Native NLP presolve excludes pinned bound tightening without original multiplier
   provenance; interval source-infeasibility analysis and supported affine recovery retain
   their separate contracts ([§18.5](numerical-execution.md#section-18-5)). HiGHS's QP

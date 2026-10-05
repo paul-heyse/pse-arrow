@@ -1,7 +1,7 @@
 ---
 id: ADR-0143
 title: End-of-turn hooks run only automatic steps; agents run the static checks at scope end
-status: accepted
+status: superseded
 date: 2026-10-01
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§24.4]
 review: "not-required: agent tooling adopted from project-template v0.3.0, where it is render-tested; this repository adds only its configuration and instruction updates"
 evidence: Tested
 supersedes: [ADR-0137]
-superseded-by: null
+superseded-by: ADR-0161
 revisit: A static check repeatedly fails late enough at scope end to cost rework, or Claude Code or Codex changes Stop or UserPromptSubmit hook semantics.
 verification: scripts/tests/test_after_turn.py (9 unittest cases, run by just setup-test); the check_hook_wiring tests in scripts/tests/test_setup.py; just lint-agents; the project-template v0.3.0 render test, which runs Stop and checks the report and a silent prompt hook.
 standard: null
@@ -107,3 +107,4 @@ Executed behaviour: the tests named in `verification:`.
 
 - 2026-10-01 — proposed and accepted by the maintainer as agent tooling policy; supersedes
   ADR-0137.
+- 2026-10-05 — superseded by ADR-0161.

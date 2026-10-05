@@ -17,28 +17,13 @@ fn hidden_nulls_nested_masks_dictionary_codes_slices_and_batch_order_are_equival
     let (_reg, contract, base) = fixture(false);
     let (_, _, alternate) = fixture(true);
     let expected = canonical(&contract, std::slice::from_ref(&base));
-    for order in [
-        [0, 1, 2],
-        [0, 2, 1],
-        [1, 0, 2],
-        [1, 2, 0],
-        [2, 0, 1],
-        [2, 1, 0],
-    ] {
-        let reordered =
-            take_record_batch(&alternate, &UInt32Array::from(order.to_vec())).expect("permutation");
-        for boundary in 0..=3 {
-            let actual = canonical(
-                &contract,
-                &[
-                    reordered.slice(0, boundary),
-                    reordered.slice(boundary, 3 - boundary),
-                ],
-            );
-            assert_eq!(actual.preimage, expected.preimage);
-            assert_eq!(actual.logical_hash, expected.logical_hash);
-        }
-    }
+    // One deterministic witness covers payload normalization and a split slice.
+    // Generated cases own the broader ordering/split exploration.
+    let reordered =
+        take_record_batch(&alternate, &UInt32Array::from(vec![2, 0, 1])).expect("permutation");
+    let actual = canonical(&contract, &[reordered.slice(0, 1), reordered.slice(1, 2)]);
+    assert_eq!(actual.preimage, expected.preimage);
+    assert_eq!(actual.logical_hash, expected.logical_hash);
     let values = base
         .column(0)
         .as_any()

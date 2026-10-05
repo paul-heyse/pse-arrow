@@ -109,6 +109,8 @@ evidence.
 
 ### 3.2 Workspace crates and dependency direction
 
+> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md) — empty structural test package retired; production structural analysis remains.
+
 > Decision: [ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md) — the crate
 > `pse-workspace-hack` has no code. cargo-hakari generates its dependencies from
 > `.config/hakari.toml`, and every member except `pse-ids`, `pse-diagnostics` and the
@@ -130,7 +132,7 @@ evidence.
 > ADR-0117 Outcome 1's "serde and thiserror/miette only".
 
 Cargo metadata owns workspace membership: `members` in the root manifest are `crates/*`,
-the five `tests/*` crates, `xtask` and `benches`. The table explains roles; it does not
+the `tests/*` packages, `xtask` and `benches`. The table explains roles; it does not
 register crates.
 
 | Crate | Responsibility |
@@ -165,11 +167,10 @@ register crates.
 
 | Non-product member | Role |
 |---|---|
-| `pse-tests-governance` | Workspace invariants: pins, MSRV, unsafe allowlist, error taxonomy, BLAKE3 ownership, shadow structs, regeneration |
+| `pse-tests-governance` | Workspace invariants: pins, MSRV, unsafe allowlist, error taxonomy, BLAKE3 ownership, shadow structs |
 | `pse-tests-engine` | Engine and catalog inspection, pushdown truthfulness and unified sources |
-| `pse-tests-conformance` | Canonical encoding properties, generated invariant fixtures and invariant domains |
+| `pse-tests-conformance` | Canonical encoding properties and scientific/native boundary journeys; independent integrity mechanisms live with their production owners |
 | `pse-tests-lifecycle` | Publication object races and memory-budget behavior |
-| `pse-tests-structural` | Reserved for structural fixtures; it currently contains only a placeholder, and structural tests live with their crates |
 | `xtask` | Code generation and regeneration checks, family and ceiling checks, governance and inspection fixtures; the justfile is its surface |
 | `pse-benches` | Criterion groups for canonicalization, native cache, consolidation, process cases and modeling preparation |
 

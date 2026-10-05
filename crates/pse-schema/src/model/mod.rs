@@ -45,7 +45,9 @@ pub use crate::model::enums::{
 pub use crate::model::extension::ExtensionUse;
 pub use crate::model::extension::{EXTENSION_TYPES, ExtensionMetadataShape, ExtensionTypeSpec};
 pub use crate::model::field::{FieldTypeRow, render_data_type};
-pub use crate::model::invariant::{InvariantDecl, InvariantSpec};
+pub use crate::model::invariant::{
+    IntegrityBinding, IntegrityDerivation, InvariantDecl, InvariantOrigin, InvariantSpec,
+};
 pub use crate::model::migration::{
     MappingPolicy, MigrationNulls, MigrationSpec, MigrationStep, MigrationValuePair,
     MigrationValues,

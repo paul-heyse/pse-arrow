@@ -1,8 +1,8 @@
 ---
 title: "26b: Test composition and independent evidence"
-status: draft
+status: done
 date: 2026-10-05
-adrs: [ADR-0051, ADR-0092, ADR-0119]
+adrs: [ADR-0160, ADR-0092, ADR-0119]
 review_sources: ["../design_review/reviews/design_review_testing-architecture_2026-10-05.md"]
 scenario_sources: ["../design_review/reviews/design_review_testing-architecture_2026-10-05.md#revealing-changes"]
 ---
@@ -14,7 +14,8 @@ scenario_sources: ["../design_review/reviews/design_review_testing-architecture_
 Replace test-owned package reconstruction and repeated per-instance verification with
 production selection, independent mechanism expectations and useful boundary tests. The
 [coordinator](26-testing-architecture.md) owns F01/F02/F04/F07/F09 dispositions and shared
-decisions. This companion owns B1–B5. All corrections and acceptance are **Proposed**.
+decisions. This companion owns B1–B5. The assessment below records the **Proposed** design
+at authoring; implemented corrections and scoped acceptance are recorded in the Outcome.
 
 The intact loader, `OwnedDocumentSet`, `ModelingFixtureSelection::Selected` and
 `ModelingPackage::declared_execution` already supply the relevant production operations.
@@ -157,11 +158,11 @@ recorded at its owner before retaining its test.
 
 | Package | Prerequisites and delivered capability | Replacement/deletion and acceptance | Status |
 |---|---|---|---|
-| <a id="b1"></a>B1 Intact selection | Existing owned loader/production selectors; migrate all affected journeys | Delete package surgery/restore. An unselected declaration and descendants remain loaded but do not execute; unknown/non-test selection is refused | planned |
-| B2 Native derivation identity | Production declaration/obligation producer; private generated descriptor and immutable registry access | Remove consumer prefix/kind inference. Repeated derivation is idempotent and manual masquerade/collision fails | planned |
-| <a id="b3"></a>B3 Independent mechanisms and enforcement | B2 actual origin; existing native binding and narrow raw-query seam | Establish variations/catalog/admission/custom-query controls, then delete per-instance YAML/discovery/generation and stale semantic branches | planned |
-| <a id="b4"></a>B4 Freshness consolidation | P0 superseding ADR-0051; B3 before retiring invariant artifact checks | Retain complete emitted-tree equivalence; delete weaker test/recipe selections; keep distinct semantics | planned |
-| B5 Purposeful retirement | P0 crate/policy decisions; scoped consumer confirmation and retained distinct risks | Remove placeholders, structural shell, unused support, upstream-only probes and compatibility-only cases/edges | planned |
+| <a id="b1"></a>B1 Intact selection | Existing owned loader/production selectors; migrate all affected journeys | Delete package surgery/restore. An unselected declaration and descendants remain loaded but do not execute; unknown/non-test selection is refused | implemented; assembled acceptance complete |
+| B2 Native derivation identity | Production declaration/obligation producer; private generated descriptor and immutable registry access | Remove consumer prefix/kind inference. Repeated derivation is idempotent and manual masquerade/collision fails | implemented; assembled acceptance complete |
+| <a id="b3"></a>B3 Independent mechanisms and enforcement | B2 actual origin; existing native binding and narrow raw-query seam | Establish variations/catalog/admission/custom-query controls, then delete per-instance YAML/discovery/generation and stale semantic branches | implemented; assembled acceptance complete |
+| <a id="b4"></a>B4 Freshness consolidation | P0 superseding ADR-0051; B3 before retiring invariant artifact checks | Retain complete emitted-tree equivalence; delete weaker test/recipe selections; keep distinct semantics | implemented; assembled acceptance complete |
+| B5 Purposeful retirement | P0 crate/policy decisions; scoped consumer confirmation and retained distinct risks | Remove placeholders, structural shell, unused support, upstream-only probes and compatibility-only cases/edges | implemented; assembled acceptance complete |
 
 B1 and B2 can start independently. B3 depends on real B2 APIs, not an agreed name alone.
 Ordinary unused-support retirement can proceed independently; no shared test files or manifests
@@ -171,7 +172,7 @@ consumers; leaving an unused generator is not completion.
 
 ## Verification
 
-Acceptance is **Proposed**. Use `just check-package` for touched packages, targeted
+Acceptance below was **Proposed** at authoring; executed evidence is recorded in the Outcome. Use `just check-package` for touched packages, targeted
 `just unit-package pse-schema <filter>` and `just unit-package pse-rules <filter>` for new
 origin/mechanism/binding controls, and relevant engine/relations owner controls. Existing useful
 controls include `a_conflicting_manual_integrity_projection_cannot_replace_the_declaration`,
@@ -193,16 +194,41 @@ For generation changes run `just codegen`; final freshness/governance and integr
 journeys belong to coordinator Q1. No scientific tests or native campaigns were run during
 authoring. No numerical benefit is labelled **Measured** here.
 
-## Outcome (recorded after implementation)
+## Outcome
 
 ### What was built
 
-Not implemented; populate from actual landed behavior and scoped evidence.
+**Implemented**, 2026-10-05: intact owned authored documents and production selectors replace
+package surgery and fixture restoration. The native integrity producer owns typed generated
+origin and relation/path bindings; public declarations remain authored and cannot bless SQL.
+Independent mechanism witnesses, complete catalog binding and real candidate-admission controls
+replace 442 generated YAML witness files and their discovery/generation machinery. The weaker
+regeneration test, three placeholders, empty structural test crate, unused physical-source
+support, upstream-only math composition probes and spelling-only parity obligations are removed.
+`xtask::codegen::run` remains the complete emitted-tree freshness owner.
+
+**Tested**, zero failure baseline: initial targeted schema controls passed 3/3 and rules controls
+passed 11/11 using `just unit-package pse-schema 'test(integrity)'` and the focused
+`just unit-package pse-rules <mechanism/catalog/enforcement filter>`. Coordinator Q1's linked
+native selection exercises intact dynamic-optimization/complementarity workloads, selected
+conformance, actual admission, independent family semantics and production catalog binding.
+A registry-version repair additionally passes 7/7 controls through
+`just native-test -E <schema integrity and migration selection>`. Generation succeeds through
+`just codegen`; final freshness leaf results belong to Q1.
+Assembled acceptance is complete. The independent implementation conformance review retains
+the integrity/deletion judgment; Plan 26's Outcome owns the final scoped evidence and limits.
 
 ### A mistake made and corrected
 
-Not yet applicable; record an actual correction.
+Typed origin exposed a genuine multi-version ambiguity: unversioned SQL tables resolve the
+highest schema version, but the producer derived competing invariants from historical versions.
+The producer now selects the current declaration and rebuilds only its own generated outputs.
+Historical migration declarations and authored SQL remain intact. Controls cover either
+version declaration order, changed keys, derivation before an upgrade and manual masquerading.
+Hostile mechanism witnesses also exposed dictionary/nullable run-end projection metadata
+loss; producer lowering was corrected while retaining the normal query optimizer.
 
 ### Deviations from the plan, deliberate
 
-None recorded.
+No compatibility fixture language, receipt reader or historical enumeration contract is retained.
+Independent scientific comparisons remain. There is no claim of improved timing or memory.

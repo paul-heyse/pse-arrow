@@ -108,6 +108,10 @@ main() {
       || echo -e "\nnote: run 'direnv allow' to activate the environment on cd"
   fi
 
+  # Skill aliases (a no-op where the committed symlinks work) and the selected library skills.
+  python3 scripts/agent-config.py
+  python3 scripts/library_skills.py
+
   say "Status"
   python3 scripts/doctor.py --format=text
 }

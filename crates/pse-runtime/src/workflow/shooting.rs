@@ -139,6 +139,7 @@ pub struct ShootingReport {
     /// Fresh original-coordinate shooting constraint and bound quality.
     pub quality: Option<native::quality::Quality>,
     pub(crate) completion: super::numerics::Completed,
+    pub(super) endpoint_assessment: Option<native::dynamics::EndpointAssessment>,
     /// The NLP candidate: the controls, then every inner node's differential states.
     pub candidate: Option<Vec<f64>>,
     /// Fresh original-coordinate constraint values at the candidate.
@@ -1342,6 +1343,7 @@ impl ShootingProblem {
             candidate,
             quality: None,
             constraint_values: None,
+            endpoint_assessment: None,
             completion: super::numerics::Completed {
                 closure: pse_model::generated::enums::ClosureAssessment::Unavailable,
                 decision: super::numerics::refused(
@@ -1533,12 +1535,18 @@ impl ShootingProblem {
                     .any(|sample| sample.time == *required)
             })
         });
-        let endpoint_satisfied = report.trajectory.as_ref().is_some_and(|trajectory| {
-            trajectory
-                .assess_endpoint(&self.experiment.profile)
-                .satisfied
-                && trajectory.error.is_none()
-        });
+        report.endpoint_assessment = report
+            .trajectory
+            .as_ref()
+            .map(|trajectory| trajectory.assess_endpoint(&self.experiment.profile));
+        let endpoint_satisfied = report
+            .endpoint_assessment
+            .as_ref()
+            .is_some_and(|assessment| assessment.satisfied)
+            && report
+                .trajectory
+                .as_ref()
+                .is_some_and(|trajectory| trajectory.error.is_none());
         report.completion = complete(
             native,
             CompletionEvidence {
@@ -1639,6 +1647,9 @@ impl ShootingReport {
             + self.quality.as_ref().map_or(0, |q| {
                 (q.rows.capacity() + q.bounds.capacity() + q.integrality.capacity())
                     * size_of::<native::quality::Violation>()
+            })
+            + self.endpoint_assessment.as_ref().map_or(0, |assessment| {
+                assessment.missing_observations.capacity() * size_of::<f64>()
             })
             + self.completion.decision.qualifiers.capacity()
                 * size_of::<pse_model::generated::enums::CandidateQualifier>()

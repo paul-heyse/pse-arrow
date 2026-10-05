@@ -45,14 +45,40 @@ pub(crate) fn run(path: &Path) -> Result<()> {
         Ok(())
     })
 }
+fn needs_publication(args: &[String]) -> bool {
+    if args
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "--collect-only" | "--co"))
+    {
+        return false;
+    }
+    // The exact explicit unit route is independent. Other framework predicates
+    // retain conservative setup; this is not a marker-expression parser.
+    let mut mark = None;
+    let mut arguments = args.iter();
+    while let Some(argument) = arguments.next() {
+        if argument == "-m" || argument == "--markexpr" {
+            mark = arguments.next().map(String::as_str);
+        } else if let Some(value) = argument.strip_prefix("--markexpr=") {
+            mark = Some(value);
+        }
+    }
+    mark != Some("unit")
+}
+
 pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
-    let scratch = tempfile::tempdir()?;
-    let path = scratch.path().join("inspection");
-    let fixture = run(&path);
-    if let Err(error) = &fixture {
+    let scratch = needs_publication(args)
+        .then(tempfile::tempdir)
+        .transpose()?;
+    let path = scratch
+        .as_ref()
+        .map(|scratch| scratch.path().join("inspection"));
+    let fixture = path.as_ref().map(|path| run(path));
+    if let Some(Err(error)) = &fixture {
         eprintln!("inspection fixture failed; continuing independent Python tests: {error:#}");
     }
-    let status = Command::new("uv")
+    let mut command = Command::new("uv");
+    command
         .current_dir(root)
         .args([
             "run",
@@ -66,12 +92,13 @@ pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
             "-n",
             "auto",
         ])
-        .args(args)
-        .env("PSE_INSPECTION_PUBLICATION", &path)
-        .status()
-        .context("running Python tests against fresh native Delta publication")?;
+        .args(args);
+    if let Some(path) = &path {
+        command.env("PSE_INSPECTION_PUBLICATION", path);
+    }
+    let status = command.status().context("running selected Python tests")?;
     ensure!(
-        fixture.is_ok() && status.success(),
+        fixture.as_ref().is_none_or(|fixture| fixture.is_ok()) && status.success(),
         "Python tests: {status}; fixture: {fixture:?}"
     );
     Ok(())
@@ -81,6 +108,30 @@ pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
     use std::sync::Arc;
+
+    #[test]
+    fn explicit_pure_collection_is_independent_of_publication_setup() {
+        for args in [
+            vec!["-m", "unit"],
+            vec!["--markexpr=unit"],
+            vec!["--collect-only"],
+            vec!["--co", "-m", "component"],
+        ] {
+            assert!(!needs_publication(
+                &args.into_iter().map(String::from).collect::<Vec<_>>()
+            ));
+        }
+        for args in [
+            vec![],
+            vec!["-m", "unit or component"],
+            vec!["-m", "component"],
+            vec!["-m", "unit", "-m", "component"],
+        ] {
+            assert!(needs_publication(
+                &args.into_iter().map(String::from).collect::<Vec<_>>()
+            ));
+        }
+    }
 
     #[tokio::test]
     async fn empty_source_outputs_have_executable_declared_native_fields() {

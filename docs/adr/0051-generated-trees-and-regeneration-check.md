@@ -1,7 +1,7 @@
 ---
 id: ADR-0051
 title: Extend the generated-tree list and make codegen --check a regeneration-equivalence check
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§4.2, §24.1]
 review: not-required: an extension of ADR-0031 inside its accepted convention; the generated set grows and the check gets stronger, neither changes where generated code lives
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0160
 revisit: the Ipopt bindgen arm starts running its generator in CI's solver container, or the hand-written Rust manifest struct is generated (register row R-27)
 verification: `just codegen-check` (`cargo xtask codegen --check`); `tests/governance/tests/codegen_regeneration.rs`
 
@@ -69,3 +69,4 @@ Blueprint §4.2 (what is generated), §24.1 (test layers), §20.2 (the manifest)
 ## Status history
 
 - 2026-09-13 — accepted. Evidence is `Proposed`: the generated-path list and the check contract are written; `codegen_regeneration` lands with packet R-2.
+- 2026-10-05 — superseded by ADR-0160.

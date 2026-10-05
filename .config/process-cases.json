@@ -9,6 +9,9 @@
       "threads": 1,
       "variables": [
         6
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -19,6 +22,9 @@
       "threads": 1,
       "variables": [
         48
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -29,6 +35,9 @@
       "threads": 1,
       "variables": [
         192
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -39,6 +48,9 @@
       "threads": 1,
       "variables": [
         6
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -49,6 +61,9 @@
       "threads": 1,
       "variables": [
         48
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -59,6 +74,9 @@
       "threads": 1,
       "variables": [
         192
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -70,6 +88,9 @@
       "variables": [
         48,
         54
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -80,6 +101,9 @@
       "threads": 1,
       "variables": [
         48
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -90,6 +114,9 @@
       "threads": 4,
       "variables": [
         6
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -100,6 +127,9 @@
       "threads": 4,
       "variables": [
         48
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -110,6 +140,9 @@
       "threads": 4,
       "variables": [
         192
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -120,6 +153,9 @@
       "threads": 4,
       "variables": [
         6
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -130,6 +166,9 @@
       "threads": 4,
       "variables": [
         48
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -140,6 +179,9 @@
       "threads": 4,
       "variables": [
         192
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -151,6 +193,9 @@
       "variables": [
         48,
         54
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -161,6 +206,9 @@
       "threads": 4,
       "variables": [
         48
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -172,7 +220,10 @@
       "variables": [
         11
       ],
-      "difficult": false
+      "difficult": false,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "flash-warm-1",
@@ -183,7 +234,10 @@
       "variables": [
         11
       ],
-      "difficult": false
+      "difficult": false,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "flash-difficult-1",
@@ -194,7 +248,10 @@
       "variables": [
         11
       ],
-      "difficult": true
+      "difficult": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "vessel-cold-1",
@@ -204,6 +261,9 @@
       "threads": 1,
       "variables": [
         7
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -214,6 +274,9 @@
       "threads": 1,
       "variables": [
         1
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -224,6 +287,9 @@
       "threads": 1,
       "variables": [
         6
+      ],
+      "functional_scopes": [
+        "process"
       ]
     },
     {
@@ -234,6 +300,10 @@
       "threads": 1,
       "variables": [
         192
+      ],
+      "functional_scopes": [
+        "process",
+        "lifecycle"
       ]
     },
     {
@@ -242,7 +312,10 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "mixed-scale-1-1",
@@ -250,7 +323,10 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "qp-1-1",
@@ -258,7 +334,10 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "conic-1-1",
@@ -266,7 +345,10 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "value-sweep-1000-1",
@@ -274,7 +356,10 @@
       "reuse": "within-sweep",
       "blocks": 1000,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "dynamic-rebind-4-1",
@@ -282,7 +367,10 @@
       "reuse": "within-sweep",
       "blocks": 4,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "evented-fit-1-1",
@@ -290,7 +378,10 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "sparse-fit-32-1",
@@ -298,7 +389,10 @@
       "reuse": "cold",
       "blocks": 32,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "sparse-fit-1000-1",
@@ -306,7 +400,10 @@
       "reuse": "cold",
       "blocks": 1000,
       "threads": 1,
-      "extended": true
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "publication-chain-1",
@@ -317,7 +414,10 @@
       "variables": [
         6
       ],
-      "publications": 3
+      "publications": 3,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "k4-study-in-process-8",
@@ -325,7 +425,10 @@
       "adapter": "in-process",
       "reuse": "admitted-definition",
       "blocks": 8,
-      "threads": 1
+      "threads": 1,
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "k4-study-durable-8",
@@ -333,7 +436,11 @@
       "adapter": "durable",
       "reuse": "admitted-definition",
       "blocks": 8,
-      "threads": 1
+      "threads": 1,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ]
     }
   ]
 }

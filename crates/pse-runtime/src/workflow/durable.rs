@@ -880,7 +880,7 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
                     |s| TerminationCode::RunState(s.state),
                 )
             }),
-        (RunReport::Simulation(t), _) => TerminationCode::Trajectory(t.report.termination),
+        (RunReport::Simulation(t), _) => TerminationCode::Trajectory(t.report().termination),
         #[cfg(feature = "solver-diffsol")]
         (RunReport::Shooting(_), Ok(c)) => {
             c.computation.as_ref().and_then(|r| r.termination).map_or(

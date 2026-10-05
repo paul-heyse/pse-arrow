@@ -19,15 +19,6 @@ workspace = true
 
 [features]
 native-acceptance = ["pse-runtime/native-solvers", "dep:faer", "dep:clarabel"]
-math-composition = [
-  "dep:faer",
-  "dep:num-dual",
-  "dep:nalgebra",
-  "dep:feos",
-  "dep:feos-core",
-  "dep:quantity",
-  "dep:symbolica",
-]
 native-profiles = [
   "dep:highs",
   "dep:highs-sys",
@@ -38,12 +29,6 @@ native-profiles = [
 
 [dependencies]
 faer = { workspace = true, optional = true }
-num-dual = { workspace = true, optional = true }
-nalgebra = { workspace = true, optional = true }
-feos = { workspace = true, optional = true }
-feos-core = { workspace = true, optional = true }
-quantity = { workspace = true, optional = true }
-symbolica = { workspace = true, optional = true }
 highs = { workspace = true, optional = true }
 highs-sys = { workspace = true, optional = true }
 clarabel = { workspace = true, optional = true }
@@ -52,7 +37,6 @@ diffsol = { workspace = true, optional = true }
 pse-workspace-hack.workspace = true
 
 [dev-dependencies]
-libtest-mimic.workspace = true
 object_store.workspace = true
 pse-runtime.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
@@ -81,8 +65,3 @@ tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde-saphyr.workspace = true
-
-[[test]]
-name = "invariant_fixtures"
-path = "tests/invariant_fixtures.rs"
-harness = false

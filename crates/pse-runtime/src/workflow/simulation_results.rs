@@ -13,26 +13,27 @@ impl RunResult {
             return Err(contract("simulation request mismatch"));
         };
         let mut batches = match &self.report {
-            Ok(RunReport::Simulation(r)) => r.tables()?,
+            Ok(RunReport::Simulation(r)) => r.tables()?.as_ref().clone(),
             _ => BTreeMap::new(),
         };
         let registry = &self.runtime.registry;
         let validation = self.runtime.validation_context()?;
-        let mut header =
-            computation_runs::Builder::with_registry(registry, 1, &validation).map_err(relation)?;
-        header
-            .push(
-                self.completion()
-                    .map_err(|e| contract(e.to_string()))?
-                    .computation
-                    .clone()
-                    .ok_or_else(|| contract("simulation completion absent"))?,
-            )
-            .map_err(relation)?;
-        batches.insert(
-            computation_runs::RELATION_ID,
-            header.finish().map_err(relation)?,
-        );
+        if let std::collections::btree_map::Entry::Vacant(entry) =
+            batches.entry(computation_runs::RELATION_ID)
+        {
+            let mut header = computation_runs::Builder::with_registry(registry, 1, &validation)
+                .map_err(relation)?;
+            header
+                .push(
+                    self.completion()
+                        .map_err(|e| contract(e.to_string()))?
+                        .computation
+                        .clone()
+                        .ok_or_else(|| contract("simulation completion absent"))?,
+                )
+                .map_err(relation)?;
+            entry.insert(header.finish().map_err(relation)?);
+        }
         batches.extend(p.source.source_tables()?);
         self.retain_sources(&mut batches)?;
         Ok(batches)
@@ -55,30 +56,31 @@ impl RunResult {
             .try_grow(problem.encoding_bytes(report)?)
             .map_err(|e| WorkflowError::Math(e.into()))?;
         let mut batches = BTreeMap::new();
-        if let Ok(RunReport::Shooting(report)) = &self.report
-            && let Some(trajectory) = &report.trajectory
-        {
-            // Share the native trajectory; qualification is copied
-            // from the joined shooting result and never recomputed by this exporter.
+        if let Some(report) = report.filter(|r| r.trajectory.is_some()) {
             let owner = self
                 ._owner
                 .clone()
                 .ok_or_else(|| contract("shooting result ownership absent"))?;
+            let header = self
+                .completion()
+                .map_err(|e| contract(e.to_string()))?
+                .computation
+                .clone()
+                .ok_or_else(|| contract("shooting completion absent"))?;
             batches = problem
                 .simulation
                 .completed_trajectory(
-                    self.run_id,
-                    trajectory.clone(),
-                    super::modeling::dynamics::checks::SampleChecks {
-                        rows: report.checks.clone(),
-                        reports: report.reports.clone(),
-                        complete: report.checks_complete,
-                        error: report.validation_error.clone(),
-                    },
-                    report.completion.clone(),
+                    report,
+                    header,
+                    self.assessments
+                        .first()
+                        .cloned()
+                        .ok_or_else(|| contract("shooting assessment absent"))?,
                     owner,
-                )
-                .tables_for_kind(pse_model::generated::enums::ComputationKind::Shooting)?;
+                )?
+                .tables()?
+                .as_ref()
+                .clone();
         }
         use pse_model::generated::enums::{
             DualQualification, ModelingVariableDomain, NumericalTarget,
@@ -199,22 +201,23 @@ impl RunResult {
             solve_metrics::RELATION_ID,
             metrics.finish().map_err(relation)?,
         );
-        let mut header =
-            computation_runs::Builder::with_registry(&self.runtime.registry, 1, &validation)
+        if let std::collections::btree_map::Entry::Vacant(entry) =
+            batches.entry(computation_runs::RELATION_ID)
+        {
+            let mut header =
+                computation_runs::Builder::with_registry(&self.runtime.registry, 1, &validation)
+                    .map_err(relation)?;
+            header
+                .push(
+                    self.completion()
+                        .map_err(|e| contract(e.to_string()))?
+                        .computation
+                        .clone()
+                        .ok_or_else(|| contract("shooting completion absent"))?,
+                )
                 .map_err(relation)?;
-        header
-            .push(
-                self.completion()
-                    .map_err(|e| contract(e.to_string()))?
-                    .computation
-                    .clone()
-                    .ok_or_else(|| contract("shooting completion absent"))?,
-            )
-            .map_err(relation)?;
-        batches.insert(
-            computation_runs::RELATION_ID,
-            header.finish().map_err(relation)?,
-        );
+            entry.insert(header.finish().map_err(relation)?);
+        }
         batches.extend(problem.simulation.source.source_tables()?);
         let trace = report
             .and_then(|r| r.strategy.as_ref())

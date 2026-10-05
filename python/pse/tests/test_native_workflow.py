@@ -68,7 +68,7 @@ def declaration(n: int) -> DeclarationId:
     return DeclarationId(identity(n))
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_explicit_cone_strategy_preserves_native_qualification(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -136,7 +136,7 @@ def test_explicit_cone_strategy_preserves_native_qualification(
     assert attempt.normalized_violation <= 1.0
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_explicit_primal_seed_and_transactional_initialization(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -209,19 +209,19 @@ def test_explicit_primal_seed_and_transactional_initialization(
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def runtime(inspection_settings: pse.EngineSettings) -> pse.Runtime:
     return pse.Runtime(inspection_settings)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def durable_runtime(
     inspection_settings: pse.EngineSettings, operational_store: pse.OperationalStore
 ) -> pse.Runtime:
     return pse.Runtime(inspection_settings, store=operational_store)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
     root = (
         Path(__file__).resolve().parents[3]
@@ -246,7 +246,7 @@ def package_documents(source: str) -> dict[str, str]:
     return {"package.toml": manifest, "models/fixed.pse": source}
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_rung(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -326,7 +326,7 @@ def revision(
     return runtime.modeling_from_documents([package_documents(source)], physical)
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_empty_library_is_admitted_but_missing_case_is_refused(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -342,7 +342,7 @@ def test_empty_library_is_admitted_but_missing_case_is_refused(
         )
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_native_capability_discovery_and_hard_cut(runtime: pse.Runtime) -> None:
     capabilities = runtime.capabilities()
     assert capabilities
@@ -354,7 +354,7 @@ def test_native_capability_discovery_and_hard_cut(runtime: pse.Runtime) -> None:
     assert not hasattr(pse, "HostCapabilities")
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_revision_edit_is_atomic_and_has_no_python_math(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -390,7 +390,7 @@ def test_revision_edit_is_atomic_and_has_no_python_math(
     ).to_pylist() == [2.0]
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_blocking_async_share_terminal_report_and_last_array_owner(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -425,7 +425,7 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
     assert values.to_pylist() == [2.0]
 
 
-@pytest.mark.unit
+@pytest.mark.component
 @pytest.mark.parametrize(
     "construct",
     [
@@ -451,7 +451,7 @@ def test_solver_profile_refuses_unsupported_or_partial_controls(
         revision(runtime, physical).prepare_solve(declaration(101), construct())
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_cancelled_async_waiter_does_not_consume_terminal_result(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -479,7 +479,7 @@ def test_cancelled_async_waiter_does_not_consume_terminal_result(
     assert runs.num_rows == 20
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_simulation_controls_round_trip_exact_native_options(
     runtime: pse.Runtime,
 ) -> None:
@@ -497,7 +497,7 @@ def test_simulation_controls_round_trip_exact_native_options(
         pse.SimulationSettings.from_json(json.dumps(wire))
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
@@ -623,7 +623,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     assert events[-1]["evaluations"] is None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_completion_projection_and_pre_effect_publication_ticket(
     runtime: pse.Runtime,
     durable_runtime: pse.Runtime,
@@ -906,7 +906,7 @@ def test_durable_native_memory_stop_keeps_unavailable_feasibility(
     assert all(row["value"] is None for row in candidates)
 
 
-@pytest.mark.unit
+@pytest.mark.component
 @pytest.mark.parametrize(
     "source",
     [

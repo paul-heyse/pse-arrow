@@ -12,13 +12,20 @@ import hashlib
 import os
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.ipc
 import pytest
 
-from pse._build import CacheSettings, EngineSettings, OperationalStore, build_info
+from pse._build import (
+    CacheSettings,
+    EngineSettings,
+    OperationalStore,
+    _TestOperationalStore,
+    build_info,
+)
 from pse.contracts.extension_types import EXTENSION_NAMES
 
 #: Modules `pse` itself must not pull in at import (blueprint §21.6, §3.1).
@@ -40,6 +47,18 @@ WATCHED_ON_IMPORT = (*FORBIDDEN_ON_IMPORT, "pse._array")
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+def pytest_sessionstart() -> None:
+    """Refuse an import origin different from the native wrapper's recorded binary."""
+    expected = os.environ.get("PSE_NATIVE_EXPECTED_BINARY")
+    if expected is None:
+        return
+    module = sys.modules.get("pse._native")
+    actual = module.__file__ if module is not None else None
+    if actual is None or Path(actual).resolve() != Path(expected).resolve():
+        message = "native Python import differs from the binary recorded by the wrapper"
+        raise pytest.UsageError(message)
+
+
 @pytest.fixture(scope="session")
 def native_inspection_publication() -> Path:
     """Read the fresh publication produced before workers start by ``just py-test``."""
@@ -57,7 +76,7 @@ def native_inspection_publication() -> Path:
     return store
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def registered_extension_types() -> tuple[str, ...]:
     """Assert every `pse.*` extension type resolves after an IPC round trip.
 
@@ -195,7 +214,7 @@ def _ipc_round_trip(schema: pa.Schema) -> pa.Schema:
 
 @pytest.fixture(scope="session")
 def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSettings:
-    """Shared explicit budget for native publication readers in this process."""
+    """Immutable settings for the process-owned deployment resource service."""
     return EngineSettings(
         memory_limit_bytes=64 << 30,
         threads=2,
@@ -215,12 +234,11 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
     )
 
 
-@pytest.fixture(scope="session")
-def operational_store() -> OperationalStore:
-    """The explicitly prepared operational store durable runs register in (ADR-0146).
-
-    ``PSE_DATABASE_URL``, else the development default: the local socket with
-    peer authentication. Run ``just db-create`` for an absent store, or the supported
-    quiescent migration for an existing predecessor; runtime opening validates only.
-    """
-    return OperationalStore()
+@pytest.fixture
+def operational_store() -> Iterator[OperationalStore]:
+    """Own one isolated operational database for this test, including teardown."""
+    owner = _TestOperationalStore()
+    try:
+        yield owner.store()
+    finally:
+        owner.remove()

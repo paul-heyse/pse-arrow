@@ -4,15 +4,6 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 26: Testing architecture](26-testing-architecture.md) is the proposed hard-pivot target
-derived from the [testing-architecture review](../design_review/reviews/design_review_testing-architecture_2026-10-05.md).
-It owns F01–F09 planning dispositions and combined acceptance. Its companions cover
-[completed results and transport](26a-completed-results-and-transport.md),
-[test composition and independent evidence](26b-test-composition-and-independent-evidence.md),
-and [test execution and qualification evidence](26c-test-execution-and-qualification-evidence.md).
-The documents are authored; production execution is not started. They neither reopen 25n
-nor resume 25k's paused campaign, and overlapping future qualification scopes run once.
-
 [Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
 and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,
 implementation packets, dependency order and final qualification. The coordinator owns the
@@ -64,6 +55,12 @@ Full qualification resumes through 25k after the functional handoff.
 The series reserves full integration and qualification for 25k after all functional
 work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
 checks and immediate deletion of replaced mechanisms during the pivot.
+
+[Plan 26](26-testing-architecture.md) (testing architecture) and its companions are **done**
+(2026-10-05). Its [Outcome](26-testing-architecture.md#outcome) records implemented delivery,
+composite scoped Q1 acceptance and the independent conformance review's accepted remedies.
+It is retained as the highest-numbered plan and links still-consumed decision/review evidence;
+it creates no active work and does not resume Plan 25k.
 
 [Plan 23](23-thermodynamic-domain-and-campaign.md) (the thermodynamic domain model and
 integrated kernel campaign) is **done** (2026-09-30). Its

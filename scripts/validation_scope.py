@@ -17,6 +17,7 @@ class Gate:
     recipe: str | None = None
     mode: str = ""
     profile: str = ""
+    input_scope: str = "unknown"
 
 
 # Explicit classifications cover direct recipes as well as aggregate expansion.
@@ -33,6 +34,30 @@ PERFORMANCE_GATES = frozenset(
 
 
 def declared(name: str) -> Gate:
+    scope = (
+        "generation"
+        if name.startswith("codegen-")
+        else "documentation"
+        if name in {"docs", "docs-rust", "doc-lint"}
+        else "rust-product"
+        if name
+        in {
+            "test",
+            "native-test",
+            "doctest",
+            "check",
+            "clippy-default",
+            "clippy-no-default",
+            "inspection-fixture",
+        }
+        else "python-product"
+        if name in {"native-python", "py-sync-native", "python-stubs"}
+        else "tooling"
+    )
+    return _declared(name, scope)
+
+
+def _declared(name: str, scope: str) -> Gate:
     """Tool findings and unsupported capabilities retain their declared authority."""
     if name in {
         "audit-dependencies",
@@ -40,12 +65,12 @@ def declared(name: str) -> Gate:
         "audit-shear",
         "audit-machete",
     }:
-        return Gate(name, role="advisory")
+        return Gate(name, input_scope=scope, role="advisory")
     if name == "doc-lint":
-        return Gate(name, role="deferred")
+        return Gate(name, input_scope=scope, role="deferred")
     if name in PERFORMANCE_GATES:
-        return Gate(name, phase="performance")
-    return Gate(name)
+        return Gate(name, input_scope=scope, phase="performance")
+    return Gate(name, input_scope=scope)
 
 
 # Aggregates expand recursively, so both ordinary recipes and the full campaign
@@ -130,7 +155,7 @@ def expand(names: tuple[str, ...]) -> list[Gate]:
 
 
 def comprehensive() -> list[Gate]:
-    """Local qualification: default Rust, linked native Rust, and Python once."""
+    """Canonical linked Rust graph, focused absence controls and Python once."""
     static = expand(
         (
             "fmt-check",
@@ -141,7 +166,6 @@ def comprehensive() -> list[Gate]:
             "check",
             "docs-rust",
             "docs",
-            "conformance-fixtures-check",
         )
     )
     static = [
@@ -155,35 +179,48 @@ def comprehensive() -> list[Gate]:
         if gate.name == "setup-test"
         else gate
         for gate in static
+        if gate.name != "governance-tests"
     ]
     return [
-        Gate("py-sync-native"),
+        Gate("py-sync-native", input_scope="python-product"),
         *static,
-        Gate("python-stubs", ("--check",), dependencies=("py-sync-native",)),
         Gate(
-            "test",
-            ("--profile", "ci"),
+            "python-stubs",
+            ("--check",),
+            dependencies=("py-sync-native",),
+            input_scope="python-product",
+        ),
+        Gate(
+            "feature-absence",
+            (
+                "--profile",
+                "ci",
+                "-p",
+                "pse-backend-native",
+                "-p",
+                "pse-relations",
+                "-E",
+                "test(feature_absence::) | test(clarabel_tests::clarabel_mkl_pardiso_refused_without_profile)",
+            ),
             "{target}/nextest/ci/junit.xml",
             enumerate_native=True,
-            mode="force-validate",
+            recipe="feature-absence",
+            mode="force-validate-feature-absence",
+            input_scope="rust-product",
             profile="ci",
         ),
-        Gate("doctest"),
+        Gate("doctest", input_scope="rust-product"),
+        native_gate(),
         Gate(
-            "native-test",
-            ("--profile", "ci"),
-            "{target}/nextest/ci/junit.xml",
-            enumerate_native=True,
-            mode="native-force-validate",
-            profile="ci",
+            "inspection-fixture", ("{output}/inspection",), input_scope="rust-product"
         ),
-        Gate("inspection-fixture", ("{output}/inspection",)),
         Gate(
             "native-python",
             ("{output}",),
             "{output}/native-python.xml",
-            dependencies=("py-sync-native", "inspection-fixture"),
+            dependencies=("py-sync-native",),
             mode="python-native",
+            input_scope="python-product",
         ),
     ]
 
@@ -196,4 +233,195 @@ EXCLUSIONS = {
     "reviews": "Architecture and scientific review are judgments recorded in the owning plan, not command-exit evidence.",
     "scheduled register checks": "register-check is time-dependent; deterministic adr-lint uses register-lint.",
     "dependency inventory": "deps-report is advisory; policy is separately available and strict.",
+}
+
+# Versioned, conservative subsystem declarations project the one captured map.
+# A missing declaration deliberately retains every contextual input.
+INPUT_SCOPE_VERSION = 1
+RUST_INPUTS = (
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    ".python-version",
+    ".cargo",
+    "crates",
+    "xtask",
+    "tests",
+    "vendor",
+    "packages",
+    "docker",
+    "justfile",
+    ".config/nextest.toml",
+    ".config/hakari.toml",
+    ".config/native-cache.cmake",
+    ".config/build.toml",
+    "scripts/build",
+    "scripts/native",
+    "scripts/memory-cap.sh",
+    "scripts/validation",
+    "scripts/cargo",
+    "scripts/solver",
+)
+INPUT_SCOPES = {
+    "rust-product": RUST_INPUTS,
+    "python-product": (
+        *RUST_INPUTS,
+        "python",
+        "pyproject.toml",
+        "uv.lock",
+        "conftest.py",
+        "scripts/python",
+    ),
+    # Tool policies and data are deliberately included: many governance tools read them.
+    "tooling": (
+        "scripts",
+        "xtask",
+        "tests",
+        ".config",
+        ".github",
+        ".claude",
+        ".codex",
+        ".agents",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "justfile",
+        "pyproject.toml",
+        "uv.lock",
+        "Cargo.toml",
+        "Cargo.lock",
+        "crates",
+        "python",
+        "docs",
+        "sgrules",
+        "sgutils",
+        "sgtests",
+        "sgconfig.yml",
+        "deny.toml",
+        "REUSE.toml",
+        "LICENSES",
+        "clippy.toml",
+        ".gitignore",
+        ".pre-commit-config.yaml",
+    ),
+    "documentation": (
+        "docs",
+        "scripts",
+        "xtask",
+        "crates",
+        "python",
+        ".config",
+        "Cargo.toml",
+        "Cargo.lock",
+        "justfile",
+        "pyproject.toml",
+        "uv.lock",
+        "README.md",
+    ),
+    "generation": (
+        "crates",
+        "xtask",
+        "scripts",
+        ".config",
+        "python",
+        "docs/generated",
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        ".python-version",
+        ".cargo",
+        "justfile",
+        "pyproject.toml",
+        "uv.lock",
+    ),
+}
+PRODUCT_ENVIRONMENT = (
+    "RUSTUP_TOOLCHAIN",
+    "RUSTFLAGS",
+    "CARGO_ENCODED_RUSTFLAGS",
+    "RUSTC_WRAPPER",
+    "SUITESPARSE_LIBRARY_DIR",
+    "IPOPT_DIR",
+    "SCIPOPTDIR",
+    "PSE_SOLVER_IMAGE",
+    "PSE_ROOT_ISOLATION_DIR",
+    "PYO3_PYTHON",
+    "PYO3_CONFIG_FILE",
+    "PYO3_ENVIRONMENT_SIGNATURE",
+    "LD_LIBRARY_PATH",
+    "PSE_LLVM_PREFIX",
+    "LIBCLANG_PATH",
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "PSE_DATABASE_URL",
+    "PSE_MEMORY_MAX",
+    "SYMBOLICA_LICENSE",
+    "LOCAL_NATIVE_ENVIRONMENT",
+)
+INPUT_ENVIRONMENT = (
+    *PRODUCT_ENVIRONMENT,
+    "UV_PROJECT_ENVIRONMENT",
+    "PSE_TEST_WORKERS",
+    "PYTHONPATH",
+    "PYTHONHASHSEED",
+)
+
+
+def input_identity(scope: str, snapshot: dict, environment: dict) -> dict:
+    """Project captured identities; preserve absent paths, modes and symlink hashes."""
+    paths = INPUT_SCOPES.get(scope)
+    return {
+        "scope": scope,
+        "version": INPUT_SCOPE_VERSION,
+        "definition": list(paths) if paths is not None else None,
+        "files": {
+            name: value
+            for name, value in snapshot.items()
+            if paths is None
+            or any(
+                name == prefix
+                or name.startswith(prefix + "/")
+                or (prefix.startswith("scripts/") and name.startswith(prefix))
+                for prefix in paths
+            )
+        },
+        "environment": {
+            key: value
+            for key, value in environment.items()
+            if paths is None or key in INPUT_ENVIRONMENT
+        },
+    }
+
+
+def native_gate(name: str = "native-test", selection: str | None = None) -> Gate:
+    """Declared linked invocation; covering identity never infers filter equivalence."""
+    return Gate(
+        name,
+        ("--profile", "ci", *(("-E", selection) if selection else ())),
+        "{target}/nextest/ci/junit.xml",
+        recipe="native-test" if name != "native-test" else None,
+        mode="native-force-validate",
+        profile="ci",
+        input_scope="rust-product",
+    )
+
+
+# Small subsystem selections, rather than an inventory of exact individual tests.
+# Conservative owner packages cover controls whose narrower namespace is unproven.
+FUNCTIONAL_SCOPES = {
+    "native": native_gate(),
+    "process": native_gate(
+        "functional-process",
+        "package(pse-runtime) | (package(pse-tests-conformance) & test(acceptance::))",
+    ),
+    "preparation": native_gate(
+        "functional-preparation", "package(pse-runtime) | package(pse-compiler)"
+    ),
+    "admission": native_gate(
+        "functional-admission", "package(pse-authoring) | package(pse-runtime)"
+    ),
+    "lifecycle": native_gate(
+        "functional-lifecycle",
+        "package(pse-runtime) | package(pse-operations) | package(pse-tests-lifecycle) | (package(pse-tests-conformance) & test(acceptance::publication_resource::))",
+    ),
 }

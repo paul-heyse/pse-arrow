@@ -36,7 +36,10 @@ def _round_trip(schema: pa.Schema) -> pa.Schema:
 
 
 @pytest.mark.unit
-def test_every_declared_name_is_registered() -> None:
+def test_every_declared_name_is_registered(
+    registered_extension_types: tuple[str, ...],
+) -> None:
+    assert registered_extension_types == EXTENSION_NAMES
     assert len(set(EXTENSION_NAMES)) == len(EXTENSION_NAMES)
     assert all(name.startswith("pse.") for name in EXTENSION_NAMES)
 

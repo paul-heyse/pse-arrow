@@ -23,19 +23,19 @@ leak-timeout = "500ms"
 
 [[profile.default.overrides]]
 # Tests that create a TestDatabase on the local PostgreSQL server.
-filter = 'package(pse-operations) | (package(pse-runtime) & (test(durable_tests::) | test(worker_tests::)))'
+filter = '(package(pse-operations) & (test(store_tests::) | test(study_tests::) | test(tables_tests::) | test(migration_tests::) | test(retirement::tests::))) | (package(pse-runtime) & (test(durable_tests::) | test(worker_tests::) | test(study_tests::)))'
 test-group = "store"
 
 [[profile.default.overrides]]
-filter = 'package(pse-backend-native) | package(pse-tests-lifecycle) | test(/(^|::)solve_/)'
+filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'
 test-group = "solver"
 threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 2 }
 
 [[profile.default.overrides]]
-# Ordinary workflows consume two scheduler slots. Pure catalog/engine units use
-# normal nextest scheduling; no package-wide serialization remains.
-filter = 'package(pse-tests-engine) | package(pse-tests-conformance)'
+# Owned native engineering/publication journeys consume two scheduler slots.
+# Pure package tests use normal scheduling; only actual responsibility selectors apply.
+filter = '(package(pse-runtime) & (test(workflow::) | test(math::))) | (package(pse-tests-conformance) & test(acceptance::)) | (package(pse-tests-engine) & (binary(catalog_inspection) | binary(catalog_session_codec) | binary(pushdown_vs_unpruned) | binary(unified_sources))) | (package(pse-tests-lifecycle) & binary(publication_each_object))'
 test-group = "engineering"
 threads-required = 2
 

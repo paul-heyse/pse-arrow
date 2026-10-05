@@ -23,6 +23,90 @@ use crate::{
     ReserveError,
 };
 
+/// Conservative metadata units for an owner-retaining Arrow export. Each unit
+/// requires 256 pre-admitted bytes for array, vector or buffer-wrapper metadata.
+/// Backing allocation bytes are excluded: their original owners remain attached.
+/// # Errors
+/// Metadata extent overflow, or a wholly bufferless batch which cannot retain an
+/// escaped payload owner (including NullArray-only and zero-column batches).
+pub fn payload_wrapper_units(batch: &RecordBatch) -> Result<usize, CanonError> {
+    fn units(data: &ArrayData) -> Result<(usize, usize), CanonError> {
+        let mut count = checked_sum(1, data.buffers().len())?;
+        let mut buffers = checked_sum(data.buffers().len(), usize::from(data.nulls().is_some()))?;
+        count = checked_sum(count, usize::from(data.nulls().is_some()))?;
+        for child in data.child_data() {
+            let (child_count, child_buffers) = units(child)?;
+            count = checked_sum(count, child_count)?;
+            buffers = checked_sum(buffers, child_buffers)?;
+        }
+        Ok((count, buffers))
+    }
+    let (count, buffers) = batch
+        .columns()
+        .iter()
+        .try_fold((0, 0), |(count, buffers), array| {
+            let (array_count, array_buffers) = units(&array.to_data())?;
+            Ok::<_, CanonError>((
+                checked_sum(count, array_count)?,
+                checked_sum(buffers, array_buffers)?,
+            ))
+        })?;
+    if buffers == 0 {
+        return Err(CanonError::Internal(
+            "bufferless Arrow export cannot retain its payload owner".into(),
+        ));
+    }
+    Ok(count)
+}
+
+/// Retain an immutable payload owner on every escaped Arrow buffer, without
+/// copying values or reserving their backing allocations again. The caller must
+/// reserve wrapper metadata before calling this function.
+/// # Errors
+/// Cancellation, wholly bufferless storage, or Arrow representation failure.
+pub fn retain_payload(
+    batch: &RecordBatch,
+    owner: Arc<dyn crate::PayloadOwner>,
+    cancel: &CancellationToken,
+) -> Result<RecordBatch, CanonError> {
+    struct PayloadBuffer {
+        buffer: Buffer,
+        _owner: Arc<dyn crate::PayloadOwner>,
+    }
+    impl AsRef<[u8]> for PayloadBuffer {
+        fn as_ref(&self) -> &[u8] {
+            self.buffer.as_slice()
+        }
+    }
+    cancel.checkpoint()?;
+    let mut retained = false;
+    let arrays = batch
+        .columns()
+        .iter()
+        .map(|array| {
+            transform_data(array.to_data(), &mut |buffer| {
+                cancel.checkpoint()?;
+                retained = true;
+                Ok(Buffer::from(Bytes::from_owner(PayloadBuffer {
+                    buffer,
+                    _owner: owner.clone(),
+                })))
+            })
+            .map(make_array)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if !retained {
+        return Err(CanonError::Internal(
+            "bufferless Arrow export cannot retain its payload owner".into(),
+        ));
+    }
+    Ok(RecordBatch::try_new_with_options(
+        batch.schema(),
+        arrays,
+        &RecordBatchOptions::new().with_row_count(Some(batch.num_rows())),
+    )?)
+}
+
 /// Immutable Arrow storage with an attached result reservation. Construction is
 /// operation-backed; this owner carries no schema or semantic validity claim.
 #[derive(Clone, Debug)]
@@ -877,6 +961,41 @@ mod tests {
     use arrow_schema::{DataType, Field, Schema};
 
     use super::*;
+
+    #[test]
+    fn payload_export_refuses_bufferless_storage_before_retaining_owner() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(crate::GreedyMemoryPool::new(1 << 20));
+        let reservation = crate::MemoryConsumer::new("payload-export:test-owner").register(&pool);
+        reservation.try_grow(256).unwrap();
+        let owner = AllocationLease::new(reservation);
+        let batches = [
+            RecordBatch::try_new(
+                Arc::new(Schema::new(vec![Field::new("value", DataType::Null, true)])),
+                vec![Arc::new(arrow_array::NullArray::new(2))],
+            )
+            .unwrap(),
+            RecordBatch::try_new_with_options(
+                Arc::new(Schema::empty()),
+                vec![],
+                &RecordBatchOptions::new().with_row_count(Some(2)),
+            )
+            .unwrap(),
+        ];
+        for batch in batches {
+            assert!(matches!(
+                payload_wrapper_units(&batch),
+                Err(CanonError::Internal(_))
+            ));
+            assert!(matches!(
+                retain_payload(&batch, owner.clone(), &CancellationToken::new()),
+                Err(CanonError::Internal(_))
+            ));
+            assert_eq!(Arc::strong_count(&owner), 1);
+            assert_eq!(pool.reserved(), 256);
+        }
+        drop(owner);
+        assert_eq!(pool.reserved(), 0);
+    }
 
     fn fixture() -> RecordBatch {
         let dictionary: ArrayRef = Arc::new(

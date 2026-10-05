@@ -11,7 +11,7 @@ it through the `library-catalog` MCP server; humans can read the JSONL directly.
 
 Regenerate both with `just library-catalog` (`scripts/library_utilization.py --write`). It edits
 the tree and takes a few minutes the first time (it builds `tools/lu-resolve` offline), then one to
-two. The end-of-turn hooks run it last, after their checks, without waiting on it (ADR-0137). `uv run python scripts/library_utilization.py` alone is a
+two. `uv run python scripts/library_utilization.py` alone is a
 dry run: it prints the drift and exits 1 if there is any.
 
 ## Records

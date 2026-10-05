@@ -249,23 +249,24 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
         assert_eq!(prepared.contract().balances.len(), 1);
         let trajectory = prepared.run(&cancel).await.unwrap();
         assert_eq!(
-            trajectory.report.termination,
+            trajectory.report().termination,
             native::dynamics::Termination::Completed,
             "{:?}",
-            trajectory.report.error
+            trajectory.report().error
         );
         assert_eq!(
-            trajectory.accepted, closes,
+            trajectory.accepted(),
+            closes,
             "{:?}",
-            trajectory.validation_error
+            trajectory.validation_error()
         );
-        let last = trajectory.report.conservation.last().unwrap();
+        let last = trajectory.report().conservation.last().unwrap();
         let expected = 2. - (-0.5_f64).exp();
         assert!((last.inventories[0] - expected).abs() < 1e-6);
         if closes {
             assert!(
                 trajectory
-                    .report
+                    .report()
                     .conservation
                     .iter()
                     .all(|s| s.defects[0].abs() < 1e-6)

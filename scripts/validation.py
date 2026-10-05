@@ -24,9 +24,22 @@ import xml.etree.ElementTree as ET
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 from scripts import build_environment, validation_receipts
-from scripts.validation_scope import EXCLUSIONS, GROUPS, Gate, comprehensive, expand
+from scripts.validation_scope import (
+    EXCLUSIONS,
+    FUNCTIONAL_SCOPES,
+    GROUPS,
+    INPUT_ENVIRONMENT,
+    Gate,
+    comprehensive,
+    expand,
+    input_identity,
+)
 
 
 def command_env() -> dict[str, str]:
@@ -42,6 +55,28 @@ def command_env() -> dict[str, str]:
     )
 
 
+def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Capture relevant controls, hashing credentials instead of publishing secrets."""
+    source_environment = os.environ if source is None else source
+    environment = {
+        key: hashlib.sha256(source_environment[key].encode()).hexdigest()
+        if key in {"SYMBOLICA_LICENSE", "PSE_DATABASE_URL"}
+        else source_environment[key]
+        for key in (
+            *INPUT_ENVIRONMENT,
+            "CARGO_TARGET_DIR",
+            "SCCACHE_DIR",
+            "CARGO_BUILD_JOBS",
+        )
+        if key in source_environment
+    }
+    local = Path(__file__).resolve().parents[1] / ".envrc.local"
+    environment["LOCAL_NATIVE_ENVIRONMENT"] = hashlib.sha256(
+        local.read_bytes() if local.is_file() else b"absent"
+    ).hexdigest()
+    return environment
+
+
 def git(root: Path, *args: str) -> bytes:
     return subprocess.check_output(["git", *args], cwd=root)
 
@@ -54,6 +89,7 @@ SOURCE_PATHS = (
     "pyproject.toml",
     "uv.lock",
     "rust-toolchain.toml",
+    ".python-version",
     "justfile",
     "AGENTS.md",
     "CLAUDE.md",
@@ -69,9 +105,9 @@ SOURCE_PATHS = (
     ".cargo",
     ".config",
     ".github",
-    ".claude/rules",
-    ".codex/skills/adr",
-    ".codex/skills/design-review",
+    ".claude",
+    ".codex",
+    ".agents",
     "crates",
     "xtask",
     "tests",
@@ -81,15 +117,9 @@ SOURCE_PATHS = (
     "packages",
     "vendor",
     "docker",
-    "docs/plans",
-    "docs/adr",
-    "docs/authoritative_design",
-    "docs/design_review",
-    "docs/dev",
-    "docs/generated",
-    "docs/book.toml",
-    "docs/site.toml",
-    "docs/theme",
+    # Publishing inputs are selected by docs/site.toml; capture the whole tree
+    # so new collections and root pages cannot evade the shared inventory.
+    "docs",
     "REUSE.toml",
     "LICENSES",
     ".pre-commit-config.yaml",
@@ -283,6 +313,37 @@ def collect_report(
     return results, errors if results else [*errors, "report contains no test cases"]
 
 
+def compose_selection(check: dict) -> None:
+    """Finalize terminal evidence after the invocation's own inventory is attached."""
+    validation_receipts.reconcile(check)
+    if check["status"] != "interrupted" and (
+        check["exit_code"] != 0
+        or check["report_errors"]
+        or any(result["status"] != "passed" for result in check["results"])
+    ):
+        check["status"] = "failed"
+
+
+def compose_terminal(
+    check: dict, report: Path, output: Path, name: str, *, reconcile: bool = True
+) -> None:
+    """One JUnit parser and status composition for parented and standalone runs."""
+    try:
+        check["results"], errors = collect_report(
+            report, output, name, check["started"]
+        )
+        check["report_errors"].extend(errors)
+    except (OSError, ValueError) as error:
+        check["report_errors"].append(str(error))
+    copied = output / f"{name}.xml"
+    if copied.is_file():
+        check.setdefault("artifacts", {})[copied.name] = validation_receipts.digest(
+            copied
+        )
+    if reconcile:
+        compose_selection(check)
+
+
 def native_report_config(root: Path, output: Path, name: str) -> Path:
     """Preserve every test setting while isolating this invocation's report."""
     config = (root / ".config/nextest.toml").read_text()
@@ -411,7 +472,7 @@ def run_gates(
         "relative": str(output.relative_to(root)),
     }
     receipt: dict = {
-        "version": 4,
+        "version": 5,
         "mode": "local",
         "baseline_failures": 0,
         "scope": [asdict(gate) for gate in gates],
@@ -421,30 +482,9 @@ def run_gates(
         "provenance_errors": errors,
         "evidence": "Proposed",
         "source_files": snapshot,
+        "input_coverage": capture,
         "parent": None,
-        "environment": {
-            key: os.environ[key]
-            for key in (
-                "RUSTUP_TOOLCHAIN",
-                "CARGO_TARGET_DIR",
-                "RUSTFLAGS",
-                "CARGO_ENCODED_RUSTFLAGS",
-                "RUSTC_WRAPPER",
-                "SCCACHE_DIR",
-                "SUITESPARSE_LIBRARY_DIR",
-                "CARGO_BUILD_JOBS",
-                "IPOPT_DIR",
-                "OMP_NUM_THREADS",
-                "OPENBLAS_NUM_THREADS",
-                "MKL_NUM_THREADS",
-                "LD_LIBRARY_PATH",
-                "PSE_LLVM_PREFIX",
-                "LIBCLANG_PATH",
-                "UV_PROJECT_ENVIRONMENT",
-                "PSE_TEST_WORKERS",
-            )
-            if key in os.environ
-        },
+        "environment": relevant_environment(),
     }
     selected = {gate.name for gate in gates}
     if reuse_from:
@@ -492,8 +532,18 @@ def run_gates(
         # Fixture consumers use the retained fixture's actual directory on continuation.
         fixture = previous.get("inspection-fixture", {})
         gate_env = dict(env)
-        if gate.name in {"native-test", "native-python"}:
+        if recipe in {"native-test", "native-python", "feature-absence"}:
             gate_env["PSE_NATIVE_PROVENANCE"] = str(output / f"{gate.name}-native.json")
+            if recipe == "native-test":
+                gate_env["PSE_NATIVE_SELECTION"] = str(
+                    output / f"{gate.name}-selected.json"
+                )
+            elif recipe == "native-python":
+                command.append("--terminal-owner=assessment")
+            else:
+                gate_env.update(
+                    OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1"
+                )
         if fixture.get("origin"):
             gate_env["PSE_INSPECTION_PUBLICATION"] = str(
                 Path(fixture["origin"]) / "inspection"
@@ -504,6 +554,7 @@ def run_gates(
             report = output / f"{gate.name}.xml"
         record: dict = {
             "evidence_kind": "not-run",
+            "invocation": asdict(gate),
             "gate": gate.name,
             "command": command,
             "exit_code": None,
@@ -515,6 +566,8 @@ def run_gates(
             "dependencies": dependencies,
             "role": gate.role,
             "phase": gate.phase,
+            "native_required": recipe
+            in {"native-test", "native-python", "feature-absence"},
             "mode": gate.mode,
             "profile": gate.profile,
             "elapsed_seconds": 0,
@@ -523,14 +576,15 @@ def run_gates(
             "report_errors": [],
             "artifacts": {},
             "changed_source": [],
+            "inputs": input_identity(
+                gate.input_scope, snapshot, receipt["environment"]
+            ),
         }
         receipt["checks"].append(record)
         checkpoint(output, receipt)
         if interrupted or dependencies:
             continue
-        if report and (
-            gate.name.startswith("assessment-python-") or gate.name == "native-python"
-        ):
+        if report and recipe == "native-python":
             gate_env["PSE_TEST_ENUMERATION"] = str(output / f"{gate.name}-selected.txt")
         if gate.enumerate_native:
             listing_command = [
@@ -547,6 +601,7 @@ def run_gates(
                 {**gate_env, "PSE_NEXTEST_ACTION": "list --message-format json"},
             )
             record["enumeration"] = listing
+            record["invocation_started"] = listing["started"]
             record["artifacts"][listing["log"]] = validation_receipts.digest(
                 output / listing["log"]
             )
@@ -562,6 +617,46 @@ def run_gates(
                 interrupted = record["status"] == "interrupted"
                 checkpoint(output, receipt)
                 continue
+            if recipe == "feature-absence":
+                try:
+                    # The native wrapper imports this collector; defer to avoid a cycle.
+                    from scripts.native_tests import native_provenance  # noqa: PLC0415
+
+                    data = validation_receipts.native_inventory(
+                        (output / listing["log"]).read_text()
+                    )
+                    binaries = [
+                        suite["binary-path"]
+                        for suite in data["rust-suites"].values()
+                        if any(
+                            test["filter-match"]["status"] == "matches"
+                            for test in suite["testcases"].values()
+                        )
+                    ]
+                    write_json(
+                        Path(gate_env["PSE_NATIVE_PROVENANCE"]),
+                        native_provenance(
+                            {
+                                "features": ["pse-relations/force-validate"],
+                                "cargo_profile": "dev",
+                            },
+                            binaries,
+                            environment=gate_env,
+                        ),
+                    )
+                except (
+                    OSError,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                    subprocess.CalledProcessError,
+                ) as error:
+                    record["status"] = "failed"
+                    record["report_errors"].append(
+                        f"default graph provenance unavailable: {error}"
+                    )
+                    checkpoint(output, receipt)
+                    continue
             checkpoint(output, receipt)
         record.update(execute(root, output, gate.name, command, gate_env))
         record["evidence_kind"] = "executed"
@@ -569,23 +664,7 @@ def run_gates(
         receipt["evidence"] = "Tested"
         checkpoint(output, receipt)  # Command survives collector or source errors.
         if report:
-            try:
-                record["results"], record["report_errors"] = collect_report(
-                    report,
-                    output,
-                    gate.name,
-                    record["started"],
-                )
-            except (OSError, ValueError) as error:
-                record["report_errors"] = [str(error)]
-            if record["status"] != "interrupted" and (
-                record["report_errors"]
-                or any(r["status"] != "passed" for r in record["results"])
-            ):
-                record["status"] = "failed"
-            copied = output / f"{gate.name}.xml"
-            if copied.is_file():
-                record["artifacts"][copied.name] = validation_receipts.digest(copied)
+            compose_terminal(record, report, output, gate.name, reconcile=False)
         if gate.name == "setup-test" and gate.recipe == "setup-test-report":
             selected_path = output / "setup-test-selected.json"
             try:
@@ -606,6 +685,20 @@ def run_gates(
                 record["artifacts"][str(artifact.relative_to(output))] = (
                     validation_receipts.digest(artifact)
                 )
+        if recipe == "native-test":
+            raw_selection = output / f"{gate.name}-selected.json"
+            try:
+                validation_receipts.require_fresh(
+                    raw_selection, record["started"], "native"
+                )
+                record["selected"] = validation_receipts.native_selection(
+                    raw_selection.read_text()
+                )
+                record["artifacts"][raw_selection.name] = validation_receipts.digest(
+                    raw_selection
+                )
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                record["report_errors"].append(f"native selection unavailable: {error}")
         selected_path = output / f"{gate.name}-selected.txt"
         if gate_env.get("PSE_TEST_ENUMERATION"):
             try:
@@ -615,7 +708,7 @@ def run_gates(
                 )
             except (OSError, ValueError) as error:
                 record["report_errors"].append(f"missing current collection: {error}")
-        validation_receipts.reconcile(record)
+        compose_selection(record)
         validation_receipts.classify(record, output)
         record["artifacts"][record["log"]] = validation_receipts.digest(
             output / record["log"]
@@ -624,29 +717,42 @@ def run_gates(
             status: sum(r["status"] == status for r in record["results"])
             for status in ("passed", "failure", "error", "skipped", "not_run")
         }
-        if capture:
-            try:
-                current = sources(root)
-                record["changed_source"] = sorted(
-                    key
-                    for key in snapshot.keys() | current.keys()
-                    if snapshot.get(key) != current.get(key)
-                )
-                receipt["source_unchanged"] &= not record["changed_source"]
-            except OSError as error:
-                receipt["provenance_errors"].append(str(error))
         checkpoint(output, receipt)
         print(
             f"validation: {gate.name}: {record['status']} ({record['elapsed_seconds']:.1f}s); {output / record['log']}",
             flush=True,
         )
+    if capture:
+        try:
+            current = sources(root)
+            receipt["contextual_changes"] = validation_receipts.changed(
+                snapshot, current
+            )
+            receipt["source_unchanged"] = not receipt["contextual_changes"]
+            after_environment = relevant_environment()
+            for record in receipt["checks"]:
+                scope = next(g.input_scope for g in gates if g.name == record["gate"])
+                after = input_identity(scope, current, after_environment)
+                record["changed_source"] = validation_receipts.changed(
+                    record["inputs"]["files"], after["files"]
+                )
+                record["changed_environment"] = validation_receipts.changed(
+                    record["inputs"]["environment"], after["environment"]
+                )
+                if record["changed_source"] or record["changed_environment"]:
+                    record["report_errors"].append(
+                        "relevant inputs changed during assessment"
+                    )
+                    if record["status"] == "passed":
+                        record["status"] = "failed"
+        except OSError as error:
+            receipt["provenance_errors"].append(str(error))
     receipt["complete"] = not interrupted and all(
         c["status"] not in {"running", "not_run", "blocked", "interrupted"}
         for c in receipt["checks"]
     )
     receipt["required_checks_covered"] = (
         receipt["complete"]
-        and receipt["source_unchanged"]
         and not receipt["provenance_errors"]
         and all(validation_receipts.qualified(c) for c in receipt["checks"])
     )
@@ -656,7 +762,11 @@ def run_gates(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--group", choices=sorted(GROUPS))
+    selector = parser.add_mutually_exclusive_group()
+    selector.add_argument("--group", choices=sorted(GROUPS))
+    selector.add_argument(
+        "--functional-scope", action="append", choices=sorted(FUNCTIONAL_SCOPES)
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--advisory", action="store_true")
@@ -665,7 +775,21 @@ def main() -> int:
     parser.add_argument("--transfer", action="append", default=[])
     parser.add_argument("--change-reason")
     args = parser.parse_args()
-    gates = expand((args.group,)) if args.group else comprehensive()
+    if (
+        args.functional_scope
+        and "native" in args.functional_scope
+        and len(set(args.functional_scope)) != 1
+    ):
+        parser.error(
+            "native is the explicit covering functional scope; select it alone"
+        )
+    gates = (
+        [FUNCTIONAL_SCOPES[name] for name in dict.fromkeys(args.functional_scope)]
+        if args.functional_scope
+        else expand((args.group,))
+        if args.group
+        else comprehensive()
+    )
     if args.list:
         print(
             json.dumps(

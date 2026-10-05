@@ -251,7 +251,7 @@ assert all(row.pinned_bytes in (None, 0) for row in publication.cache_usage())
     assert completed.returncode == 0, completed.stderr
 
 
-@pytest.mark.unit
+@pytest.mark.component
 def test_inspection_annotations_evaluate_on_the_running_interpreter(
     inspection_settings: pse.EngineSettings,
 ) -> None:

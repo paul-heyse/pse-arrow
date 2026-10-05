@@ -224,6 +224,42 @@ impl FieldCheckedBatch {
         self
     }
 
+    /// Export Arrow arrays retaining the original checked storage, container owner
+    /// and pre-admitted wrapper metadata until the last escaped buffer drops.
+    /// Values and their existing backing allocation leases are shared unchanged.
+    /// # Errors
+    /// Cancellation, metadata reservation refusal, wholly bufferless storage
+    /// (which cannot retain an escaped owner), or Arrow representation failure.
+    pub fn checked_export(
+        &self,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<RecordBatch, RelationError> {
+        #[derive(Debug)]
+        struct ExportOwner {
+            _checked: FieldCheckedBatch,
+            _metadata: Option<StorageMetadata>,
+        }
+        cancel.checkpoint()?;
+        let units = pse_columnar::owned_buffer::payload_wrapper_units(self.batch())?;
+        // Express conservative wrapper bytes in the existing transform metadata
+        // reservation's units of four ArrayRef slots, independent of pointer size.
+        let columns = units
+            .checked_mul(256)
+            .map(|bytes| bytes.div_ceil(4 * size_of::<arrow_array::ArrayRef>()))
+            .and_then(|n| n.checked_add(self.batch().num_columns()))
+            .ok_or_else(|| mismatch("checked export metadata extent"))?;
+        let metadata = self.transform_metadata(columns, cancel)?;
+        let owner = Arc::new(ExportOwner {
+            _checked: self.clone(),
+            _metadata: metadata,
+        });
+        Ok(pse_columnar::owned_buffer::retain_payload(
+            self.batch(),
+            owner,
+            cancel,
+        )?)
+    }
+
     fn transform_metadata(
         &self,
         columns: usize,
@@ -1225,6 +1261,74 @@ mod integrated_performance_unit {
         assert_eq!(selected.batch().num_rows(), 1);
         drop(selected);
         assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn checked_arrow_export_retains_storage_container_and_wrapper_lease_without_copying() {
+        let registry = registry();
+        let spec = registry.relation("authored.values").unwrap();
+        let context =
+            crate::validate::ValidationContext::new(&registry, SessionContext::new().state());
+        let cancel = pse_columnar::CancellationToken::new();
+        for values in [vec![], vec![1, 2, 3]] {
+            let pool: Arc<dyn pse_columnar::MemoryPool> =
+                Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+            let raw = RecordBatch::try_new(
+                pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+                vec![Arc::new(Int64Array::from(values.clone()))],
+            )
+            .unwrap();
+            let checked = FieldCheckedBatch::admit(&registry, spec, raw, &context, &cancel)
+                .unwrap()
+                .retained(&pool, &cancel)
+                .unwrap();
+            let container =
+                pse_columnar::MemoryConsumer::new("checked-export:test-container").register(&pool);
+            container.try_grow(4096).unwrap();
+            let checked = checked.with_export_owner(pse_columnar::AllocationLease::new(container));
+            let before = pool.reserved();
+            let pressure =
+                pse_columnar::MemoryConsumer::new("checked-export:test-pressure").register(&pool);
+            pressure.try_grow((1 << 20) - before).unwrap();
+            assert!(checked.checked_export(&cancel).is_err());
+            assert_eq!(pool.reserved(), 1 << 20);
+            drop(pressure);
+            assert_eq!(pool.reserved(), before);
+            let exported = checked.checked_export(&cancel).unwrap();
+            let retained = pool.reserved();
+            assert!(
+                retained > before,
+                "wrapper metadata has its own admitted grant"
+            );
+            assert_eq!(exported.schema(), checked.batch().schema());
+            assert_eq!(
+                exported.column(0).to_data().buffers()[0].as_ptr(),
+                checked.batch().column(0).to_data().buffers()[0].as_ptr(),
+                "no value allocation was copied"
+            );
+            let escaped = exported.column(0).clone();
+            let escaped_clone = escaped.clone();
+            assert_eq!(
+                pool.reserved(),
+                retained,
+                "export clones do not recharge backing allocations"
+            );
+            drop(checked);
+            drop(exported);
+            assert_eq!(
+                pool.reserved(),
+                retained,
+                "an escaped array holds every original and wrapper lease"
+            );
+            assert_eq!(
+                escaped.as_any().downcast_ref::<Int64Array>().unwrap(),
+                &Int64Array::from(values)
+            );
+            drop(escaped);
+            assert_eq!(pool.reserved(), retained);
+            drop(escaped_clone);
+            assert_eq!(pool.reserved(), 0);
+        }
     }
 
     #[test]

@@ -199,9 +199,6 @@ extend-exclude = [
   ".codex/skills/**",
   ".claude/skills/**",
   ".agents/skills/**",
-  # The end-of-turn pipeline: shared verbatim with project-template, 3.14 syntax (uv-pinned).
-  "scripts/after_turn.py",
-  "scripts/tests/test_after_turn.py",
   # The library-utilization catalog tooling: a maintainer script set, developed on 3.14 syntax.
   "scripts/library_*.py",
   "scripts/tests/test_library_*.py",
@@ -358,8 +355,6 @@ project-excludes = [
   "build/**",
   "scripts/library_*.py",
   "scripts/tests/test_library_*.py",
-  "scripts/after_turn.py",
-  "scripts/tests/test_after_turn.py",
 ]
 search-path = ["python", "python/stubs"]
 # Check against the floor, not the 3.14 we develop on.
@@ -476,8 +471,8 @@ log_level = "INFO"
 console_output_style = "count"
 required_plugins = ["pytest-cov", "pytest-xdist"]
 markers = [
-  "unit: fast, no solver, no inspection store; must run in < 2 s",
-  "component: may need a solver, fresh native inspection stores, or the built extension in release profile",
+  "unit: local policy or codec logic, no native attempt or inspection store",
+  "component: an owned native or storage boundary with explicit dependencies",
   "integration: long-running end-to-end",
   "performance: opt-in with --performance; never collected otherwise",
   "parity: needs the parity environment (IDAES 2.13.0 + ipopt on PATH); deselected without --parity, FAILS (never skips) with it",

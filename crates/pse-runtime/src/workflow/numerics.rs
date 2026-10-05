@@ -474,6 +474,11 @@ pub(crate) fn complete(
 }
 impl RunResult {
     pub(super) fn assess_candidates(&self) -> Vec<assessments::Row> {
+        if let (RunRequest::Simulation(_), Ok(RunReport::Simulation(trajectory))) =
+            (&self.request, &self.report)
+        {
+            return vec![trajectory.assessment().clone()];
+        }
         let count = match &self.request {
             RunRequest::Modeling(s) => s.len(),
             _ => 1,
@@ -528,7 +533,7 @@ impl RunResult {
                             None,
                             false,
                             &p.numerics().policy,
-                            r.completion.clone(),
+                            r.completion().clone(),
                         ),
                         #[cfg(feature = "solver-diffsol")]
                         (RunRequest::Shooting { problem: p, .. }, Ok(RunReport::Shooting(r))) => (
@@ -557,16 +562,17 @@ impl RunResult {
     ) -> Result<(), WorkflowError> {
         let registry = &self.runtime.registry;
         let validation = self.runtime.validation_context()?;
-        let mut candidates =
-            assessments::Builder::with_registry(registry, self.assessments.len(), &validation)
-                .map_err(relation)?;
-        for row in &self.assessments {
-            candidates.push(row.clone()).map_err(relation)?;
+        if let std::collections::btree_map::Entry::Vacant(entry) =
+            batches.entry(assessments::RELATION_ID)
+        {
+            let mut candidates =
+                assessments::Builder::with_registry(registry, self.assessments.len(), &validation)
+                    .map_err(relation)?;
+            for row in &self.assessments {
+                candidates.push(row.clone()).map_err(relation)?;
+            }
+            entry.insert(candidates.finish().map_err(relation)?);
         }
-        batches.insert(
-            assessments::RELATION_ID,
-            candidates.finish().map_err(relation)?,
-        );
         let policies: Vec<&ResolvedNumericalPolicy> = match &self.request {
             RunRequest::Fit(f) => vec![&f.problem.numerics],
             RunRequest::Simulation(p) => vec![p.numerics()],

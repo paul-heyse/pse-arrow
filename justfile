@@ -13,9 +13,9 @@
 #   decisions   ADRs, plans, the deferred-trigger register
 #   mutating    CHANGES SOURCE, ENVIRONMENT OR GITHUB
 #
-# The end-of-turn hooks (scripts/after_turn.py, configured in .config/after-turn.toml) run the
-# `fmt` and generator recipes when the main agent stops, then readiness and the catalog; agents
-# run compile checks and functional tests mid-plan, and `hygiene` at scope end.
+# Agents run compile checks and functional tests mid-plan. Three bundles keep going after a failure
+# and list what failed: `turn-end` at the end of a turn that changed files, `ready` after an
+# environment change, and `hygiene` once at scope end.
 #
 # Every check passes `--locked`: there is no cargo config key for it, and an unlocked
 # resolve would silently move a pin.
@@ -389,23 +389,6 @@ doctest-release:
     cargo test --no-fail-fast --doc --workspace --exclude pse-py --locked --release {{ validate }}
 
 [group('local')]
-[doc('Independent Python collection/execution; fixture failures surface as component errors while unit tests continue')]
-assessment-python output:
-    PSE_INSPECTION_PUBLICATION={{ quote(output / "inspection") }} uv run --no-sync pytest python/pse/tests -m "unit or component" -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python.xml") }}
-
-[group('local')]
-assessment-python-unit output:
-    uv run --no-sync pytest python/pse/tests -m unit -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-unit.xml") }}
-
-[group('local')]
-assessment-python-component output:
-    PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest python/pse/tests -m component -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-component.xml") }}
-
-[group('local')]
-assessment-python-integration output:
-    PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest python/pse/tests -m integration -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-integration.xml") }}
-
-[group('local')]
 [doc('Measure current native consolidation, including diagnostic campaigns with an open acceptance barrier')]
 bench-consolidation-native:
     mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}"
@@ -495,9 +478,9 @@ lock-python:
     uv lock
 
 [group('local')]
-[doc('Isolated source/governance checks, including pure regeneration')]
+[doc('Isolated source/governance ownership and error contract checks')]
 unit-rust-foundations-governance *args:
-    cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test no_shadow_structs --test every_crate_registered --test codegen_regeneration --test error_taxonomy --locked {{ validate }} {{ args }}
+    cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test no_shadow_structs --test every_crate_registered --test error_taxonomy --locked {{ validate }} {{ args }}
 
 [group('local')]
 [doc('Isolated engine and assurance units; no storage/compiler/solver journeys')]
@@ -775,9 +758,37 @@ seed-conformance:
 lint-repo:
     python3 -m scripts.validation --group lint-repo
 
+turn_end_steps := "adr-index fmt"
+ready_steps := "skills-sync doctor"
+hygiene_checks := "lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck lint-imports engine-boundary-check solver-pin-check family-check codegen-hakari-check codegen-relations-check codegen-rust-contracts-check codegen-docs-check codegen-postgres-check codegen-queries-check clippy-default clippy-no-default docs-rust"
+
+[group('mutating')]
+[doc('End of a turn that changed files (root agent): regenerate the ADR index and format')]
+turn-end: (_bundle "turn-end" turn_end_steps)
+
+[group('env')]
+[doc('After a dependency, toolchain or skill-selection change, or an environment-shaped failure: sync library skills and run doctor')]
+ready: (_bundle "ready" ready_steps)
+
 [group('manual')]
-[doc('Every non-functional check, one check id per dependency; agents run them once at scope end and fix what fails (just <id> re-runs one); the end-of-turn hooks do not')]
-hygiene: lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck lint-imports engine-boundary-check solver-pin-check family-check codegen-hakari-check codegen-relations-check codegen-rust-contracts-check codegen-docs-check codegen-postgres-check codegen-queries-check clippy-default clippy-no-default docs-rust conformance-fixtures-check
+[doc('Scope end: every non-functional check; keeps going and lists failures; fix them and re-run one with just <id>')]
+hygiene: (_bundle "hygiene" hygiene_checks)
+
+# Run each recipe, keep going after a failure, and list the failures.
+[private]
+_bundle name steps:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    failed=()
+    for step in {{ steps }}; do
+        echo "== just $step"
+        just "$step" || failed+=("$step")
+    done
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "{{ name }}: ${#failed[@]} failed: ${failed[*]} (re-run one with just <id>)"
+        exit 1
+    fi
+    echo "{{ name }}: all passed"
 
 [group('local')]
 [doc('Agent configuration: symlinks resolve, every referenced doc path exists')]
@@ -951,7 +962,7 @@ fmt:
     "{{ ruff }}" format --config pyproject.toml
 
 [group('mutating')]
-[doc('Regenerate the library-utilization catalog (docs/library-utilization.jsonl) and the usage index behind the library-catalog MCP server; run last, after tests and checks')]
+[doc('Regenerate the library-utilization catalog (docs/library-utilization.jsonl) and the usage index behind the library-catalog MCP server')]
 library-catalog:
     "{{ py }}" scripts/library_utilization.py --write
 
@@ -994,16 +1005,6 @@ codegen-queries:
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
     export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     cargo run -p xtask --no-default-features --locked -- codegen --only queries
-
-[group('mutating')]
-[doc('Regenerate concrete invariant fixtures from the declared typed contracts')]
-conformance-fixtures:
-    cargo run --package pse-tests-conformance --example invariant_fixtures --locked {{ validate }}
-
-[group('local')]
-[doc('Compare pure invariant literal and test generation without executing any invariant query')]
-conformance-fixtures-check:
-    cargo run --package pse-tests-conformance --example invariant_fixtures --locked {{ validate }} -- --check
 
 [group('mutating')]
 [doc('Accept pending insta snapshots')]
@@ -1169,7 +1170,7 @@ codegen-contracts-check:
 [group('local')]
 [doc('Targeted runner selection, report, reuse, policy and measurement-CSV units')]
 unit-consolidation-tools:
-    "{{ py }}" -m unittest scripts.tests.test_validation
+    "{{ py }}" -m unittest scripts.tests.test_validation scripts.tests.test_execution_contracts scripts.tests.test_build_measurements
 
 [group('local')]
 [doc('Static source taxonomy checks only; no runtime integration journey')]
@@ -1340,11 +1341,6 @@ llvm-system *args:
     python3 scripts/llvm_system.py "$@"
 
 [group('local')]
-[doc('Targeted invariant runtime harness controls and explicitly selected fixture cases')]
-unit-invariant-harness filter *args:
-    cargo nextest {{ nextest_action }} --workspace --test invariant_fixtures --locked {{ validate }} -E {{ quote(filter) }} {{ args }}
-
-[group('local')]
 [doc('Explicit targeted library checks against the shared linked native feature graph')]
 unit-native-selected filter *args:
     #!/usr/bin/env bash
@@ -1364,6 +1360,12 @@ unit-native-package pkg features filter *args:
     set -euo pipefail
     source scripts/native-execution-env.sh
     bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --lib --locked --features {{ features }},pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+
+[group('local')]
+[doc('Focused default-feature refusal controls; keeps the real serial QDLDL absence branch')]
+[positional-arguments]
+feature-absence *args:
+    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} --locked {{ validate }} "$@"
 
 [group('local')]
 [doc('Full workspace native feature graph with Arrow force validation; nextest owns selection')]

@@ -528,8 +528,10 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
                     native_roots.insert(occurrence, x);
                 }
                 RunReport::Simulation(trajectory) => {
-                    assert!(trajectory.accepted);
-                    assert!((trajectory.report.samples.last().unwrap().state[0] - 2.).abs() < 1e-6);
+                    assert!(trajectory.accepted());
+                    assert!(
+                        (trajectory.report().samples.last().unwrap().state[0] - 2.).abs() < 1e-6
+                    );
                     native_simulation = true;
                 }
                 other => panic!("unexpected mixed-study operation: {other:?}"),

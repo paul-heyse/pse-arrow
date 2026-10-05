@@ -205,7 +205,8 @@ impl NativeStrategyResult {
         builder
             .finish()
             .map(inspection::TableStream::from_batch)
-            .map_err(relation)
+            .map_err(relation)?
+            .map_err(|error| errors::diagnostic(py, &error))
     }
     /// Every attempt in execution order, one typed row each: its native report, or the
     /// typed failure that preceded one, so indices are shared by reports and failures.

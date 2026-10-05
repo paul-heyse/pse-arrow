@@ -687,32 +687,15 @@ Observation relations are volatile evidence, never model or dependency authority
 `provenance.derivations` records derivation evidence. `provenance.assertions` holds
 authored expected evidence and is excluded from semantic membership.
 
-### 6.14 Enumerations preserved from IDAES
+### 6.14 Scientific vocabularies
 
-> Decision: [ADR-0003](../../adr/0003-clean-room-relationship-and-parity-pin.md)
+> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
 
-The compatibility package (`packages/reference/physical/models/compatibility.pse`)
-owns scientific enum names as ordinary modeling data. Only `ConstraintScalingScheme`,
-which selects a numerical algorithm, remains in `s6_14_idaes_enums`. The parity harness's
-`enum-bindings.toml` maps declarations to upstream modules and necessary spelling aliases;
-it does not repeat their member inventories. The sanctioned names are:
-
-| Group | Enumerations (IDAES module) |
-|---|---|
-| Balances and flow | `MaterialBalanceType`, `EnergyBalanceType`, `MomentumBalanceType`, `FlowDirection` (`core.base.control_volume_base`); `MaterialFlowBasis` (`core.base.process_base`); `DistributedVars` (`core.base.control_volume1d`) |
-| Components and phases | `ComponentType` (upstream class names), `PhaseType` |
-| Modular properties | `StateIndex`, `ConcentrationForm`, `HenryType`, `CubicType` |
-| Unit models | `FlashType`, `MixingType`, `MomentumMixingType`, `SplittingType`, `EnergySplittingType`, `ThermodynamicAssumption`, `ValveFunctionType`, `HeatExchangerFlowPattern` |
-| Control | `ControllerType`, `ControllerMVBoundType`, `ControllerAntiwindupType` |
-| Scaling and initialization | `ConstraintScalingScheme`, `DefaultScalingRecommendation`, `InitializationStatus` |
-| Dynamics | `DaeVarTypes`; `DiscretizationScheme` (Pyomo DAE spellings, such as `LAGRANGE-RADAU`) |
-| Costing | `HXType`, `HXMaterial`, `HXTubeLength`, `VesselMaterial`, `TrayType`, `TrayMaterial`, `HeaterMaterial`, `HeaterSource`, `CompressorType`, `CompressorDriveType`, `CompressorMaterial`, `PumpType`, `PumpMaterial`, `PumpMotorType`, `FanType`, `FanMaterial`, `BlowerType`, `BlowerMaterial` |
-
-`HenryType` preserves the four physical forms and excludes upstream's test-only `Dummy`.
-An enum's existence makes no execution claim. Package bindings and their conformance
-fixtures establish which formulations have implementations. The parity test admits the
-actual modeling package and compares its names with IDAES 2.13.0; this establishes naming
-parity only, not numerical equivalence.
+Scientific vocabularies are authored modeling data, consumed for their local scientific
+meaning. The physical package declarations own their members; numerical algorithm enums
+remain registry-owned. Historical IDAES spelling inventories impose no current compatibility
+obligation. Scientific comparisons select actual matched formulations, conditions and
+independent expected values. An enum's existence establishes no execution capability.
 
 ### 6.15 Semantic specialization contracts
 

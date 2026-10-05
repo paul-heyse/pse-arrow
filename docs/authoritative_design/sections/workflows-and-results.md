@@ -368,6 +368,8 @@ mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
+> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
+
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > completion owns candidate use and records the actual request and start. Plan 22 A6
 > (implemented) runs every algebraic run as one staged sequence.
@@ -384,6 +386,20 @@ Lineage records model revision, case, request, preparation, profile, numerical p
 physical context and actual environment identities, separately from the unique run ID.
 Arrow tables, Python objects and publication copy this product; reading it never
 evaluates or reclassifies the model.
+
+`ModelingTrajectory` is a clone-shared immutable completion snapshot. Read-only accessors
+expose the native outcome and retained checks; `accepted()` derives the composed permission.
+The completion owner creates the successful Simulation header once. Shooting transport
+consumes its coherent joined report and enclosing optimizer header. Exporters never select
+an independent kind or recalculate qualification.
+
+Direct trajectory transport lazily publishes one successful complete map of checked batches,
+serialized across clones. Failed encoding releases partial allocations and leaves no cache;
+a later direct access can retry without another solve or assessment. The outer `RunResult`
+retains its existing sticky encoding-error contract. Container metadata is admitted before
+growth and retained with escaped batches; shared buffers keep their existing leases. First
+access materializes the whole map, so a budget fitting one relation may still refuse. No
+speed or memory claim follows without representative measurements.
 
 **Staged sequences.** Every algebraic run is one staged sequence
 (`workflow::staged::Staged`). `ModelingSolvePreparation::start` runs a one-step authored
@@ -872,6 +888,8 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
+> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
+
 > Decision: [ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md)
 
@@ -884,8 +902,8 @@ is a durable native factory declaration.
 
 IDAES and Pyomo are isolated reference tools. They appear only in the parity harness
 (`python/pse/parity`, a separate dependency group and environment) and in no production
-path. Parity fails rather than skips and exercises the environment, preserved
-enumeration names and explicitly selected reference comparisons; it does not establish
+path. Parity fails rather than skips and exercises the environment and explicitly selected
+scientific reference comparisons; it does not establish
 full numerical equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
 
@@ -899,8 +917,11 @@ full numerical equivalence
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — durable runtimes, the publication
 > catalog, studies and the operational query surface (Plan 22 O3–O9, implemented).
 
-`pse.Runtime(EngineSettings, store=None)` binds the shared runtime and memory budget;
-conflicting settings refuse. With `store=pse.OperationalStore()` the runtime is durable
+`pse.Runtime(EngineSettings, store=None)` binds the shared runtime and memory budget.
+The process-owned resource service retains one configured budget, spill directory and executor;
+conflicting settings refuse. Escaped Arrow buffers retain their accounted owners. Test sessions
+share this immutable deployment configuration; runtime facades, admitted packages, databases and
+mutable journey effects remain owned by their individual test. With `store=pse.OperationalStore()` the runtime is durable
 ([§20.6](identity-and-publication.md#section-20-6)): every run is an attempt in the store
 and may be published, and `runs()`, `jobs()`, `studies()`, `study()`, `work()`,
 `query(sql, result=, publication=)` and `progress(attempt_id, follow=True)` read and serve

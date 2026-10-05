@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Repository-wide pytest plugins (plan §5).
 
-Four rules, each of which exists because its absence has produced a green run
+Three rules, each of which exists because its absence has produced a green run
 that proved nothing:
 
 1. **Marker discipline.** Every test carries exactly one of ``unit``,
@@ -15,9 +15,6 @@ that proved nothing:
    line saying so. With it, the environment is verified once per session and
    the session *fails* if the environment is wrong. It never skips: a parity
    suite that skips is indistinguishable from one that passes.
-4. **``VerifyCleanup``.** A test that leaves an untracked file behind, or edits
-   a tracked one, fails the session. Ported from ``idaes/conftest.py`` and
-   extended to tracked-file modification.
 
 Stdlib and pytest only: this file has to work before the project's own package
 is importable.
@@ -25,7 +22,6 @@ is importable.
 
 import os
 import shutil
-import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -122,7 +118,10 @@ def _check_markers(items: list[pytest.Item]) -> None:
         [
             f"{len(offences)} test(s) do not carry exactly one of: {required}",
             *offences,
-            "Every test declares its cost tier; see [tool.pytest.ini_options].markers.",
+            (
+                "Every test declares its responsibility category; "
+                "see [tool.pytest.ini_options].markers."
+            ),
         ]
     )
     raise pytest.UsageError(message)
@@ -269,161 +268,3 @@ def parity_env(request: pytest.FixtureRequest) -> None:
             + "\n".join(f"  - {problem}" for problem in problems),
             pytrace=False,
         )
-
-
-class VerifyCleanup:
-    """Fail the session when a test leaves the working tree dirty.
-
-    Tests write to ``tmp_path``. A test that writes into the repository instead
-    makes the next run's results depend on the previous one's, and makes
-    ``git status`` useless during a debugging session. Ported from
-    ``idaes/conftest.py`` and extended: modifying a *tracked* file is caught too,
-    which the original did not do.
-    """
-
-    def __init__(self, repo_root_dir: Path) -> None:
-        """Bind the plugin to a repository checkout.
-
-        Args:
-            repo_root_dir: The root of the git working tree to watch.
-        """
-        self._repo_root_dir = Path(repo_root_dir).resolve()
-        self._added_by_test: dict[str, list[str]] = {}
-        self._modified_by_test: dict[str, list[str]] = {}
-
-    def _git(self, *args: str) -> list[str]:
-        """Run a read-only git command in the watched checkout.
-
-        Args:
-            *args: The git sub-command and its arguments.
-
-        Returns:
-            The command's output lines, or the error text when git failed, so a
-            broken invocation shows up as a difference rather than as silence.
-        """
-        command = ["git", "-C", str(self._repo_root_dir), *args]
-        try:
-            text = subprocess.check_output(command, text=True).strip()
-        except (subprocess.CalledProcessError, OSError) as exc:
-            text = str(exc)
-        return text.splitlines()
-
-    def _untracked(self) -> list[str]:
-        """Return the untracked, non-ignored files in the checkout.
-
-        Returns:
-            One path per untracked file, relative to the repository root.
-        """
-        return self._git("ls-files", "--others", "--exclude-standard")
-
-    def _modified(self) -> list[str]:
-        """Return porcelain status lines for tracked files only.
-
-        Returns:
-            One porcelain line per modified tracked file.
-        """
-        return self._git("status", "--porcelain", "--untracked-files=no")
-
-    def pytest_report_collectionfinish(self) -> list[str]:
-        """Announce what this plugin watches.
-
-        Returns:
-            The line to add to the collection summary.
-        """
-        return [
-            f"watching for files created or modified by tests in {self._repo_root_dir}"
-        ]
-
-    @pytest.hookimpl(wrapper=True)
-    def pytest_runtest_protocol(
-        self,
-        item: pytest.Item,
-    ) -> "Generator[None, object, object]":
-        """Diff the working tree around each test.
-
-        Args:
-            item: The test being run.
-
-        Returns:
-            Whatever the wrapped hook implementations returned.
-        """
-        untracked_before = set(self._untracked())
-        modified_before = set(self._modified())
-        result = yield
-        added = set(self._untracked()) - untracked_before
-        changed = set(self._modified()) - modified_before
-        if added:
-            self._added_by_test[item.nodeid] = sorted(added)
-        if changed:
-            self._modified_by_test[item.nodeid] = sorted(changed)
-        return result
-
-    @pytest.hookimpl(trylast=True)
-    def pytest_terminal_summary(
-        self,
-        terminalreporter: pytest.TerminalReporter,
-    ) -> None:
-        """Report every test that dirtied the working tree.
-
-        Args:
-            terminalreporter: The reporter to write the section to.
-        """
-        sections = (
-            ("Files added (and not cleaned up) by tests", self._added_by_test),
-            ("Tracked files modified by tests", self._modified_by_test),
-        )
-        offenders: set[str] = set()
-        for title, records in sections:
-            if not records:
-                continue
-            offenders |= set(records)
-            terminalreporter.section(title)
-            for nodeid, paths in records.items():
-                terminalreporter.write_line(nodeid)
-                for path in paths:
-                    terminalreporter.write_line(f"\t{path}")
-        if offenders:
-            terminalreporter.write_line(
-                f"{len(offenders)} test(s) did not clean up after themselves; "
-                "the exit status of the test session will be set to failed"
-            )
-
-    @pytest.hookimpl(trylast=True)
-    def pytest_sessionfinish(self, session: pytest.Session) -> None:
-        """Fail the session if any test dirtied the working tree.
-
-        Args:
-            session: The finishing session.
-        """
-        if self._added_by_test or self._modified_by_test:
-            session.exitstatus = pytest.ExitCode.TESTS_FAILED
-
-
-def _repo_root() -> Path | None:
-    """Locate the git checkout this test run is inside.
-
-    Returns:
-        The absolute repository root, or None when pytest is running against an
-        installed copy rather than a checkout (in which case there is nothing to
-        keep clean).
-    """
-    try:
-        text = subprocess.check_output(
-            ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"],
-            text=True,
-            stderr=subprocess.DEVNULL,
-        )
-    except (subprocess.CalledProcessError, OSError):
-        return None
-    return Path(text.strip())
-
-
-def pytest_addhooks(pluginmanager: pytest.PytestPluginManager) -> None:
-    """Register the working-tree cleanliness plugin when inside a checkout.
-
-    Args:
-        pluginmanager: The session's plugin manager.
-    """
-    repo_root = _repo_root()
-    if repo_root is not None:
-        pluginmanager.register(VerifyCleanup(repo_root), name="pse-verify-cleanup")

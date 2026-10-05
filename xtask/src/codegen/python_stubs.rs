@@ -29,7 +29,8 @@ pub(crate) fn run(root: &Path, extension: Option<&Path>, check: bool) -> Result<
     })?;
     let exceptions = exceptions::read(&root.join("crates/pse-py/src/inspection/errors.rs"))?;
     let source = fs::read_to_string(root.join("crates/pse-py/src/lib.rs"))?;
-    validate::complete(&mut module, &source, exceptions)?;
+    let classes = validate::read_class_names(&root.join("crates/pse-py/src"))?;
+    validate::complete(&mut module, &source, exceptions, &classes)?;
     let mut files = module_stub_files(&module);
     ensure!(
         files.len() == 1,

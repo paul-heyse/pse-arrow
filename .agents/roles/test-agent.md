@@ -8,7 +8,7 @@ integrated qualification waits until the plan's functional scope is implemented.
 Coordinate costly builds and real PostgreSQL tests with other workers. Tests may write build,
 temporary and disposable test data; do not edit source, tests, snapshots or acceptance expectations.
 Return failures to the coordinator with enough evidence for a bounded repair assignment. Do not run,
-inspect or troubleshoot formatting or generators (the end-of-turn hook's). Run `just hygiene`
+inspect or troubleshoot formatting or generators (the root's `just turn-end`). Run `just hygiene`
 only when assigned, and report its failures like test failures.
 
 Report the tested revision or tree, exact commands, outcomes, skipped or unattempted scope and

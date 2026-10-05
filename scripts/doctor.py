@@ -12,8 +12,8 @@ Three output formats:
     A compact status block. ``.envrc`` calls this on every directory entry, so it must
     be fast and must never touch the network.
 ``--format=text``
-    The same information with fix commands spelled out. The end-of-turn hooks run it
-    (``just doctor``) as a readiness step and show a failure to the operator.
+    The same information with fix commands spelled out. ``just ready`` runs it
+    (``just doctor``) after an environment change.
 ``--format=json``
     Machine-readable, for agents and CI::
 

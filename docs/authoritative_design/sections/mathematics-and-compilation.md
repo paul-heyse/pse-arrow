@@ -521,6 +521,14 @@ as Delta `CHECK`s. Source and physical loading each call shared Rust entity/refe
 acyclicity predicates. Their duplicate registry SQL declarations and the inactive
 requirement-planner/provider-policy bridge are removed.
 
+Generated integrity declarations carry a read-only typed `InvariantOrigin` identifying their
+native producer and derivation family; authored queries cannot acquire it by naming convention.
+Origin is implementation metadata and does not enter durable schema identity. Independent family
+witnesses exercise key and nested-reference semantics through the real executor. Catalog controls
+establish exact native bindings, and hostile admission controls exercise production enforcement.
+Tests select from intact admitted packages; they do not rewrite registry obligations or authored
+package declarations to make a journey executable ([ADR-0160](../../adr/0160-centralize-testing-responsibility.md), proposed; authorized implementation).
+
 Operand-level physical prerequisites are `PhysicalPrecondition` predicates checked against
 actual operands during typed inference ([§7.3](#section-7-3)). There is no production rule
 engine or recursive inference executor. A future recursive-inference consumer needs its

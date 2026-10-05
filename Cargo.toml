@@ -26,7 +26,6 @@ members = [
   "tests/engine",
   "tests/conformance",
   "tests/lifecycle",
-  "tests/structural",
   "xtask",
   "benches",
 ]
@@ -200,7 +199,6 @@ strum = { version = "0.28.0", features = ["derive"] }
 hex = "0.4.3"
 winnow = { version = "1.0.4", default-features = false, features = ["std"] }
 sqlparser = "0.62.0"
-libtest-mimic = "0.8.2"
 
 # ---- code generation (pse-schema and xtask only) ----
 # syn 3, not the ecosystem's syn 2; a prettyplease upgrade is a regeneration commit.
@@ -233,7 +231,6 @@ faer = { version = "0.24.4", default-features = false, features = [
 ] }
 feos = { version = "=0.10.1", default-features = false, features = ["pcsaft"] }
 feos-core = { version = "=0.10.1", default-features = false }
-num-dual = { version = "=0.14.2", default-features = false }
 nalgebra = { version = "0.35.0", default-features = false, features = ["std"] }
 highs = "2.4.0"
 highs-sys = "1.15.0"
@@ -345,7 +342,7 @@ futures = "0.3.34"
 cornucopia = "=1.0.1"
 
 # ---- optional providers enter here WITH their consumer crate (blueprint §9.8, §13.6,
-# §7.4): FeOS uses the pinned num-dual 0.14 trait universe; native dynamics uses Diffsol.
+# §7.4): FeOS owns its dual-number trait universe; native dynamics uses Diffsol.
 # egglog =3.0.0. Nothing holds them back but a consumer (blueprint §3.3.2, ADR-0066).
 
 # ---- dev and tooling (declared here, as for runtime dependencies) ----
@@ -601,10 +598,9 @@ prettyplease = "Formats committed generated Rust and bindgen output byte for byt
 bindgen = "Emits the committed pse-ipopt-sys bindings; a bump is a regeneration commit"
 cornucopia = "Generates the committed pse-operations-queries crate (ADR-0114); a bump is a regeneration commit"
 schemars = "Derives the committed JSON Schemas and msgspec types of the boundary documents (ADR-0116); a bump is a regeneration commit"
-feos = "FeOS reference oracle: `just feos-reference` generates the committed package pse.data.oracles.feos-0.10.1 and tests/conformance compares against FeOS live, both qualified at this release (with feos-core, quantity and num-dual)"
+feos = "FeOS reference oracle: `just feos-reference` generates the committed package pse.data.oracles.feos-0.10.1, qualified at this release with feos-core and quantity"
 feos-core = "FeOS reference oracle closure (see feos)"
 quantity = "FeOS reference oracle closure (see feos)"
-num-dual = "FeOS reference oracle closure (see feos); also the dual-number trait universe pse code shares with FeOS"
 salsa = "pse-compiler calls `<dyn salsa::Database>::memory_usage` (src/workspace.rs), gated by `salsa_unstable`, which carries no compatibility guarantee within 0.28.x; the build fails without the feature (checked 2026-10-04)"
 
 # Resolved normal-dependency closures, checked by family-check (blueprint §3.1).

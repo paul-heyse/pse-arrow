@@ -1114,11 +1114,13 @@ impl NativeModelingNonlinearExplanation {
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
 
@@ -1207,31 +1209,30 @@ pub(crate) struct NativeModelingTrajectory {
 impl NativeModelingTrajectory {
     #[getter]
     fn accepted(&self) -> bool {
-        self.inner.accepted
+        self.inner.accepted()
     }
     #[getter]
     fn checks_complete(&self) -> bool {
-        self.inner.checks_complete
+        self.inner.checks_complete()
     }
     #[getter]
     fn validation_error(&self) -> Option<inspection::DiagnosticReport> {
         self.inner
-            .validation_error
-            .as_ref()
+            .validation_error()
             .map(inspection::DiagnosticReport::observe)
     }
 
     #[getter]
     fn termination(&self) -> EnumValue<TrajectoryTermination> {
-        self.inner.report.termination.into()
+        self.inner.report().termination.into()
     }
     #[getter]
     fn completed_time(&self) -> f64 {
-        self.inner.report.completed_time
+        self.inner.report().completed_time
     }
     #[getter]
     fn samples(&self) -> usize {
-        self.inner.report.samples.len()
+        self.inner.report().samples.len()
     }
     fn failure(&self) -> Option<inspection::DiagnosticReport> {
         self.inner
@@ -1240,16 +1241,10 @@ impl NativeModelingTrajectory {
             .map(inspection::DiagnosticReport::observe)
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        let id = relation(py, name)?;
-        py.detach(|| {
-            self.inner.tables().and_then(|mut tables| {
-                tables
-                    .remove(&id)
-                    .ok_or_else(|| native::WorkflowError::Input("trajectory table absent".into()))
-            })
-        })
-        .map(inspection::TableStream::from_batch)
-        .map_err(|e| errors::diagnostic(py, &e))
+        py.detach(|| self.inner.table(name))
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
+            .map_err(|e| errors::diagnostic(py, &e))
     }
 }
 
@@ -1285,8 +1280,9 @@ impl NativeModelingKnowledge {
     fn source_revision(&self) -> String {
         self.inner.source_revision().to_prefixed()
     }
-    fn table(&self) -> inspection::TableStream {
+    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         inspection::TableStream::from_batch(self.inner.table().clone())
+            .map_err(|e| errors::diagnostic(py, &e))
     }
     fn query(&self, py: Python<'_>, sql: &str) -> PyResult<inspection::TableStream> {
         let cancel = pse_columnar::CancellationToken::new();
@@ -1342,8 +1338,9 @@ impl NativeModelingNativeAnalysis {
             .map(|inner| NativeAttempt { inner })
             .ok_or_else(|| invalid(py, "native diagnostic attempt index"))
     }
-    fn table(&self) -> inspection::TableStream {
+    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         inspection::TableStream::from_batch(self.inner.table.clone())
+            .map_err(|e| errors::diagnostic(py, &e))
     }
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -1356,11 +1353,13 @@ impl NativeModelingDiagnosticSamples {
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
 
@@ -1416,7 +1415,8 @@ impl NativeModelingDiagnostics {
         tables
             .remove(&id)
             .map(inspection::TableStream::from_batch)
-            .ok_or_else(|| invalid(py, "diagnostic table absent"))
+            .ok_or_else(|| invalid(py, "diagnostic table absent"))?
+            .map_err(|e| errors::diagnostic(py, &e))
     }
 
     #[getter]
@@ -1470,11 +1470,13 @@ impl NativeModelingInitialization {
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
 
@@ -1571,11 +1573,13 @@ impl NativeStudyReport {
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     #[getter]
@@ -1716,11 +1720,13 @@ impl NativeModelingConformance {
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     /// Retained original route/structure facts, including refused fixtures.
@@ -1734,12 +1740,14 @@ impl NativeModelingConformance {
             })
         })
         .map(inspection::TableStream::from_batch)
+        .map_err(|e| errors::diagnostic(py, &e))?
         .map_err(|e| errors::diagnostic(py, &e))
     }
     /// The oracle parity report projected from the run's checks (Plan 23 H6).
     fn parity(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.parity_table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn failure(&self, py: Python<'_>, ordinal: usize) -> PyResult<inspection::DiagnosticReport> {
@@ -1781,6 +1789,7 @@ impl NativeModelingConformance {
     fn fixture_statuses(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.fixture_statuses_table())
             .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn result(&self, py: Python<'_>, fixture_id: &str) -> PyResult<NativeModelingResult> {
@@ -1847,6 +1856,7 @@ impl NativeModelingResult {
             })
         })
         .map(inspection::TableStream::from_batch)
+        .map_err(|e| errors::diagnostic(py, &e))?
         .map_err(|e| errors::diagnostic(py, &e))
     }
 }

@@ -19,7 +19,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import case_measure, native_tests, validation, validation_receipts
-from scripts.validation_scope import GROUPS, Gate, comprehensive, expand
+from scripts.validation_scope import GROUPS, INPUT_SCOPES, Gate, comprehensive, expand
 
 
 class ValidationTests(unittest.TestCase):
@@ -141,6 +141,76 @@ class ValidationTests(unittest.TestCase):
             validation.fresh_output(
                 self.root, self.root / "escape/uncontained-evidence"
             )
+
+    def test_publication_inputs_include_root_pages_and_library_collections(
+        self,
+    ) -> None:
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        page = self.root / "docs/README.md"
+        library = self.root / "docs/capability-maps/new-map.md"
+        library.parent.mkdir(parents=True)
+        page.write_text("old page")
+        subprocess.run(["git", "-C", str(self.root), "add", "docs"], check=True)
+        before = validation.sources(self.root)
+        page.write_text("new page")
+        library.write_text("new consumed collection")
+        after = validation.sources(self.root)
+        self.assertEqual(
+            validation_receipts.changed(before, after),
+            ["docs/README.md", "docs/capability-maps/new-map.md"],
+        )
+        self.assertNotEqual(
+            validation.input_identity("documentation", before, {}),
+            validation.input_identity("documentation", after, {}),
+        )
+        subprocess.run(["git", "-C", str(self.root), "add", "docs"], check=True)
+        page.unlink()
+        library.unlink()
+        deleted = validation.sources(self.root)
+        self.assertEqual(
+            validation_receipts.changed(after, deleted),
+            ["docs/README.md", "docs/capability-maps/new-map.md"],
+        )
+
+    def test_declared_inputs_and_agent_policies_are_covered_without_local_credentials(
+        self,
+    ) -> None:
+        for scope, prefixes in INPUT_SCOPES.items():
+            for prefix in prefixes:
+                with self.subTest(scope=scope, prefix=prefix):
+                    self.assertTrue(
+                        any(
+                            prefix == captured or prefix.startswith(captured + "/")
+                            for captured in validation.SOURCE_PATHS
+                        )
+                    )
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        (self.root / ".gitignore").write_text(
+            ".claude/settings.local.json\n.codex/auth.json\n"
+        )
+        policies = (
+            ".claude/settings.json",
+            ".codex/hooks.json",
+            ".agents/roles/executor.md",
+        )
+        credentials = (".claude/settings.local.json", ".codex/auth.json")
+        for name in (*policies, *credentials):
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("original")
+        before = validation.sources(self.root)
+        self.assertTrue(all(name in before for name in policies))
+        self.assertTrue(all(name not in before for name in credentials))
+        for name in policies:
+            (self.root / name).write_text("changed policy")
+        after = validation.sources(self.root)
+        self.assertEqual(validation_receipts.changed(before, after), sorted(policies))
+        self.assertNotEqual(
+            validation.input_identity("tooling", before, {}),
+            validation.input_identity("tooling", after, {}),
+        )
+        (self.root / ".claude/settings.local.json").write_text("changed credential")
+        self.assertEqual(after, validation.sources(self.root))
 
     def test_failed_process_does_not_prevent_later_checks(self) -> None:
         real_execute = validation.execute
@@ -395,14 +465,18 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         self.assertTrue(
             {
-                "test",
+                "feature-absence",
                 "native-test",
                 "native-python",
                 "clippy-default",
                 "clippy-no-default",
-                "governance-tests",
             }
             <= set(names)
+        )
+        self.assertNotIn("test", names)
+        self.assertNotIn("governance-tests", names)
+        self.assertFalse(
+            next(g for g in comprehensive() if g.name == "native-test").enumerate_native
         )
         self.assertNotIn("register-check", names)
         self.assertNotIn("case-measure", names)
@@ -438,15 +512,18 @@ class ValidationTests(unittest.TestCase):
         log.write_text("original execution")
         check = {
             "gate": "test",
+            "invocation": scope[0],
             "status": "passed",
             "evidence_kind": "executed",
             "artifacts": {log.name: validation_receipts.digest(log)},
+            "inputs": validation.input_identity("unknown", {"src": "old"}, {}),
         }
         validation.write_json(
             self.output / "checks.json",
             {
-                "version": 4,
+                "version": 5,
                 "source_files": {"src": "old"},
+                "input_coverage": True,
                 "environment": {},
                 "checks": [check],
                 "scope": scope,
@@ -476,6 +553,82 @@ class ValidationTests(unittest.TestCase):
         log.write_text("tampered")
         with self.assertRaises(ValueError):
             use(self.output, {"src": "new"}, {}, scope, set(), {"test"}, "reviewed")
+
+    def test_scoped_inputs_exclude_prose_but_keep_relevant_file_identity(self) -> None:
+        before = {
+            "crates/pse-runtime/src/lib.rs": "a",
+            "Cargo.lock": "a",
+            "docs/plans/plan.md": "a",
+        }
+        original = validation.input_identity(
+            "rust-product", before, {"IPOPT_DIR": "a", "SCCACHE_DIR": "cache-a"}
+        )
+        prose = validation.input_identity(
+            "rust-product",
+            {**before, "docs/plans/plan.md": "b"},
+            {"IPOPT_DIR": "a", "SCCACHE_DIR": "cache-b"},
+        )
+        self.assertEqual(original, prose)
+        for name in (
+            "Cargo.lock",
+            "crates/new/data.txt",
+            "crates/pse-runtime/src/lib.rs",
+        ):
+            after = validation.input_identity(
+                "rust-product", {**before, name: "b"}, {"IPOPT_DIR": "a"}
+            )
+            self.assertNotEqual(original, after)
+        del before["Cargo.lock"]
+        self.assertNotEqual(
+            original,
+            validation.input_identity("rust-product", before, {"IPOPT_DIR": "a"}),
+        )
+        self.assertNotEqual(
+            original,
+            validation.input_identity("rust-product", before, {"IPOPT_DIR": "b"}),
+        )
+        self.assertEqual(
+            validation.input_identity("unknown", before, {})["files"], before
+        )
+
+    def test_inventory_is_captured_twice_and_only_relevant_drift_fails(self) -> None:
+        real = validation.execute
+        for path, expected in (("docs/plans/concurrent.md", 0), ("Cargo.lock", 1)):
+            output = self.output / path.split("/")[-1]
+            output.mkdir()
+            before = {"Cargo.lock": "a", "docs/plans/concurrent.md": "a"}
+            after = {**before, path: "b"}
+
+            def execute(
+                root: Path,
+                output: Path,
+                name: str,
+                _command: list[str],
+                env: dict[str, str],
+            ) -> dict:
+                return real(root, output, name, [sys.executable, "-c", "pass"], env)
+
+            with (
+                patch.object(
+                    validation,
+                    "provenance",
+                    return_value=(before, self.root / "target", []),
+                ),
+                patch.object(validation, "sources", return_value=after) as inventory,
+                patch.object(validation, "execute", side_effect=execute),
+            ):
+                result = validation.run_gates(
+                    self.root, output, [Gate("pure", input_scope="rust-product")]
+                )
+            self.assertEqual(
+                inventory.call_count, 1
+            )  # provenance owns the initial capture
+            self.assertEqual(result, expected)
+            receipt = json.loads((output / "checks.json").read_text())
+            self.assertEqual(receipt["contextual_changes"], [path])
+            self.assertEqual(
+                receipt["checks"][0]["status"], "passed" if expected == 0 else "failed"
+            )
 
     def test_native_identity_detects_changed_linked_library(self) -> None:
         library = self.output / "library.so"
@@ -616,11 +769,15 @@ class ValidationTests(unittest.TestCase):
         for case, expected in (
             ("", 1),
             ('<testcase name="a"><skipped/></testcase>', 1),
-            ('<testcase name="a"/>', 0),
+            (
+                '<testcase name="a"><properties><property name="nodeid" value="node"/></properties></testcase>',
+                0,
+            ),
         ):
 
             def run(*_args: object, case: str = case, **_kwargs: object) -> int:
                 path.write_text(f"<testsuite>{case}</testsuite>")
+                path.with_name(path.stem + "-selected.txt").write_text("node\n")
                 return 0
 
             with (
@@ -628,6 +785,13 @@ class ValidationTests(unittest.TestCase):
                     sys, "argv", ["native_tests", "python", f"--junitxml={path}"]
                 ),
                 patch.dict(os.environ, {}, clear=True),
+                patch.object(native_tests, "native_provenance", return_value={}),
+                patch.object(
+                    native_tests,
+                    "python_native_binary",
+                    return_value=Path("/owned/extension.so"),
+                ),
+                patch.object(native_tests.time, "time", return_value=1),
                 patch("subprocess.call", side_effect=run),
             ):
                 self.assertEqual(native_tests.main(), expected)

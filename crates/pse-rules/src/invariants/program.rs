@@ -3,6 +3,8 @@
 
 //! Registry declarations become one native union of exact diagnostic projections.
 
+#[cfg(test)]
+mod mechanism_tests;
 mod native;
 #[cfg(test)]
 mod tests;

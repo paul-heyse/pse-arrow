@@ -31,7 +31,7 @@ their original conditions; only named tests and measurements support Tested and 
 |---|---|---|
 | `crates/` | Workspace `pse-*` crates declared in `Cargo.toml` | Ours; see `.claude/rules/rust.md`. `pse-workspace-hack` has no code: cargo-hakari generates its dependencies (ADR-0122) |
 | `xtask/` | Everything that needs Rust APIs, JSON or cross-platform behaviour | Logic lives here, the justfile is the surface |
-| `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/fixtures/` contains source inputs, not a crate |
+| `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle` | `tests/fixtures/` contains source inputs, not a crate; structural algorithms are tested in their owning crates |
 | `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
 | `python/pse/` | The Python package (import name `pse`) | `python/pse/contracts/` is GENERATED |
 | `docs/authoritative_design/` | **Authoritative collection:** current contracts in numbered `sections/` pages; `blueprint.md` keeps revisions and former anchors | Start at its README; edits follow the design route below |
@@ -73,4 +73,3 @@ Do not restate these; cite them.
   process-simulator profile (`PS-nn`, `PS-G1`–`PS-G3`) and the pse-arrow binding.
 - **`docs/dev/dependency-policy.md`** — what you may depend on and under what licence.
   Short answer: anything. Read it before assuming a library is off-limits.
-

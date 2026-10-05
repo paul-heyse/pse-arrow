@@ -123,13 +123,11 @@ class EditPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "hooks.json"
             hook = {"type": "command", "command": "echo not shared"}
-            config.write_text(
-                json.dumps({"hooks": {"PreToolUse": [{"hooks": [hook]}]}})
-            )
+            config.write_text(json.dumps({"hooks": {"Stop": [{"hooks": [hook]}]}}))
             problems: list[str] = []
             agent_checks.check_hook_wiring(config, problems)
         self.assertTrue(any("does not use shared policy" in p for p in problems))
-        self.assertTrue(any("missing Stop hook" in p for p in problems))
+        self.assertTrue(any("missing PreToolUse hook" in p for p in problems))
 
     def test_settings_deny_rules_are_anchored_edit_rules(self) -> None:
         problems: list[str] = []

@@ -298,18 +298,20 @@ design-change tracking are owned by
 
 ### 24.1 Test layers
 
+> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
+
 | Layer | Location | What it establishes |
 |---|---|---|
-| Crate tests | `#[cfg(test)]` modules and `crates/*/tests` | the owning contract: identity, admission, compilation, physical providers, native adapters, workflow, publication and settlement |
-| Governance | `tests/governance` | workspace invariants: sole hasher, generated-tree equivalence, dependency pins and floors, error taxonomy, crate registration, FFI unwind containment, no shadow structs, registry governance, MSRV, unsafe allowlist |
+| Crate tests | `#[cfg(test)]` modules and `crates/*/tests` | the owning contract: identity, admission, compilation, physical providers, native adapters, workflow, publication and settlement; `pse-rules` owns independent integrity mechanism witnesses and catalog/enforcement controls |
+| Governance | `tests/governance` | workspace invariants: sole hasher, dependency pins and floors, error taxonomy, crate registration, FFI unwind containment, no shadow structs, registry governance, MSRV, unsafe allowlist |
 | Engine | `tests/engine` | provider hierarchy, plan codec, pushdown truthfulness against unpruned sources, relational expansion, unified sources |
-| Conformance | `tests/conformance` | `pse.canon.v2` properties (layout, null payload, signed zero, encoding round trips) and generated invariant fixtures |
+| Conformance | `tests/conformance` | `pse.canon.v2` properties (layout, null payload, signed zero, encoding round trips) and selected scientific acceptance journeys |
 | Lifecycle | `tests/lifecycle` | interrupted Delta publication leaves the old or the committed state; canonicalization, query and result memory budgets |
 | Python | `python/pse/tests` | the native Python boundary: generated contracts, extension round trips, extra-key refusal, nullable-array refusal, workflows, publication streams |
-| Parity | `python/pse/parity` | the IDAES 2.13.0 environment, authored compatibility enumerations and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
+| Parity | `python/pse/parity` | the IDAES 2.13.0 environment and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
 
-`tests/structural` currently contains only a placeholder; structural algorithms are
-tested in their owning crates. Scientific checks compare against analytic, exhaustive or
+Structural algorithms are tested in their owning production crates; no empty structural
+test package is retained. Scientific checks compare against analytic, exhaustive or
 independently generated references; they establish the stated cases, not untested
 formulations. Parity does not establish numerical IDAES equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
@@ -321,13 +323,20 @@ formulations. Parity does not establish numerical IDAES equivalence
 - Every Python test carries exactly one of `unit`, `component`, `integration` or
   `performance`; the repository `conftest.py` refuses collection otherwise.
   Performance tests are collected only with `--performance`. Parity tests run only with
-  `--parity` and fail, never skip, when the environment is wrong. A test that leaves an
-  untracked file or edits a tracked one fails the session.
-- Generated trees equal a fresh regeneration
-  ([ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)).
+  `--parity` and fail, never skip, when the environment is wrong. Tests own requested
+  temporary files, isolated databases and mutable runtime state. Prohibited writes are
+  checked against disposable inputs with known contents and modes; concurrent checkout
+  edits are not attributed through Git polling.
+- Generated trees equal a fresh regeneration through the complete nonmutating xtask
+  comparison, including missing, extra and untracked outputs. Product tests do not repeat
+  a weaker freshness check ([ADR-0160](../../adr/0160-centralize-testing-responsibility.md)).
 - Test selection belongs to nextest and pytest; no exact-name acceptance manifest exists.
   Reports distinguish executed, unchanged-input reuse, reviewed transfer and not-run
-  evidence.
+  evidence. Current receipts bind conservative gate-specific consumed inputs and actual
+  native/binary provenance; unknown scope captures all inputs. One terminal composer
+  reconciles actual selection, failure, cancellation and missing evidence. Comprehensive
+  qualification runs the shared native graph once, with separate feature-absence controls
+  and one Python scope; ordinary effects follow requested fixtures and resource owners.
 
 **Commands.** During implementation: `just check-package <pkg>`, `just unit-package
 <pkg> <filter>` and `just codegen` when declarations change. On request: `just test`
@@ -388,6 +397,14 @@ tests show the new behavior; comprehensive qualification runs again only when th
 maintainer requests it.
 
 ### 24.3 Benchmarks
+
+> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
+
+Measurement prerequisites name the relevant functional recipe scopes (process, preparation,
+admission or lifecycle). Existing runners own case selection; no second selector or exact
+test-name manifest is maintained. Full coverage can satisfy a narrower declared scope;
+arbitrary filters are never inferred equivalent. Native identity and actual conditions
+remain part of applicability.
 
 Criterion benchmarks live in `benches/` (`pse-benches`): `canonicalization`,
 `native_cache`, `native_consolidation`, `native_process` (complete-process cases) and

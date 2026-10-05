@@ -59,7 +59,7 @@ manual qualification.
 
 | Command | What it does |
 |---|---|
-| `just assessment-list [--group <name>]` | Prints the declared gates as JSON (name, role, recipe, arguments, dependencies, mode, profile) and the explicit exclusions. Executes nothing. |
+| `just assessment-list [--group <name>]` | Prints the declared gates as JSON (name, role, recipe, arguments, dependencies, mode, profile, input scope) and the explicit exclusions. Executes nothing. |
 | `just assessment [<output>] [flags]` | Runs every gate in `scripts/validation_scope.py::comprehensive` and continues after failures. The default output is `build/assessment/<UTC timestamp>/`; pass `""` for it when adding flags. |
 
 The comprehensive scope runs these gates in order:
@@ -67,10 +67,11 @@ The comprehensive scope runs these gates in order:
 1. `py-sync-native`, then the formatting, TOML and both Clippy gates.
 2. Quality: Python contracts, format, lint, types and imports; repository lint; agent
    configuration; setup controls through `setup-test-report`; solver pins.
-3. Governance (`governance-tests`, the four `codegen-*-check` gates, `family-check`) and
-   ADR, index and register lint.
-4. `check`, `docs-rust`, `docs`, `conformance-fixtures-check` and `python-stubs --check`.
-5. `test --profile ci`, `doctest` and `native-test --profile ci`.
+3. Generation freshness and family checks, plus ADR, index and register lint.
+   Governance tests are covered by the linked workspace invocation.
+4. `check`, `docs-rust`, `docs` and `python-stubs --check`.
+5. Focused `feature-absence --profile ci` in the default graph, `doctest`, and
+   `native-test --profile ci` as the single common Rust execution graph.
 6. `inspection-fixture` and `native-python`.
 
 A gate whose dependency did not qualify is recorded as `blocked`; the run continues.
@@ -82,26 +83,47 @@ Each run directory holds:
 - `host.json`, copies of the manifests, lockfiles and nextest configuration, and
   `cargo-metadata.json`;
 - `scope.json`, one `<gate>.log` per gate and a JUnit copy for each gate that produces one;
-- `checks.json` (version 4), `failures.json`, `test-findings.json` and `summary.md`.
+- `checks.json` (version 5), `failures.json`, `test-findings.json` and `summary.md`.
 
-Before `test` and `native-test` run, nextest lists the selected test identities; pytest
-records its collected node IDs. A selected identity without a terminal result becomes
-`not_run`, and skipped, failed, duplicate or unexpected results fail the gate.
-`native-test` and `native-python` also record a `native-profile-v1` identity: hashes of
-the executed binaries and their `ldd`-resolved libraries, `rustc -Vv`, and the thread
-settings.
+The assessment lists the focused default-feature selection once. The linked Rust wrapper
+owns its one explicit nextest listing and persists the raw JSON beside binary/link
+provenance; assessment consumes that artifact. Pytest records selected node IDs during
+its execution. Assessment owns JUnit parsing and selected/terminal reconciliation; a
+standalone native Python command calls the same composition operation. A selected identity
+without a terminal result becomes `not_run`; skipped, failed, duplicate, unexpected and
+truncated results fail the gate. Nonzero process exit cannot be replaced by a passing report.
+Native identities retain executed binary and `ldd` library hashes, `rustc -Vv`, actual
+relevant environment, feature/Cargo profile and thread settings. Default refusal controls
+retain their own default graph identity, including the real serial QDLDL control.
+Native Python resolves the imported package and extension in pytest's interpreter/import
+environment, refuses origins outside this checkout, and checks the same loaded extension
+inside pytest before collection. On-disk candidates are not execution identity.
 
-The command exits 0 only when `required_checks_covered` holds: every gate was attempted
-and qualified, sources did not change during the run, and provenance was captured without
-error. A gate qualifies when it passed, when it is advisory with findings, or when it is
-deferred and unsupported. Ctrl-C stops the current gate and records the remaining gates
-as `not_run`, which leaves the run incomplete.
+One before/after contextual inventory captures source hashes, additions, deletions, modes,
+symlink targets and Git provenance. Each gate projects that map into a versioned declared
+input family: Rust product, Python product, tooling, documentation or generation. Unknown
+scopes retain the whole map. Product claims exclude unconsumed plans/reviews/prose;
+executable policy and data remain relevant to operations that consume them. Environment
+identity excludes unrelated controls; credentials and local native override files enter as
+hashes. Native provider identity comes from actual binaries and linked libraries.
+
+The command exits 0 only when `required_checks_covered` holds: every required gate was
+attempted and qualified, relevant inputs/environment remained stable, and provenance was
+captured without error. Unrelated concurrent prose changes remain contextual observations
+and do not fail a product claim. A gate qualifies when it passed, when it is advisory with
+findings, or when it is deferred and unsupported. Ctrl-C retains terminal evidence and records
+remaining gates as `not_run`, leaving the assessment incomplete. Publication setup failure
+blocks only fixture consumers; independent Python cases continue. Tests own temporary
+outputs, runtime facades, attempt/cancellation state, physical packages and isolated stores.
+Immutable engine settings and the deployment resource service remain process-owned; tests
+share one configured budget and session spill directory. Checkout changes are not attributed
+to individual tests by Git polling.
 
 **Continuation.** Every run writes a new directory. `--reuse-from <prior-output>` names
-a version-4 report, and each retained gate takes one of two repeatable flags:
+a current version-5 report, and each retained gate takes one of two repeatable flags:
 
-- `--reuse <gate>` keeps a qualified observation only if its declared scope, sources,
-  environment, retained artifact hashes and native bytes are all unchanged.
+- `--reuse <gate>` keeps a qualified observation only if its canonical invocation, scope definition, relevant inputs/environment,
+  retained artifact hashes and applicable native bytes are unchanged.
 - `--transfer <gate>` keeps a qualified observation despite changed inputs. It requires
   `--change-reason`, and the record lists the changed inputs.
 
@@ -120,25 +142,52 @@ but a tool failure does. `policy` runs the same audits as required gates. The
 | Command | Scope |
 |---|---|
 | `just test [nextest args]` | The default workspace feature graph, run with `cargo nextest run --no-fail-fast` and force-validation. |
-| `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. `PSE_NEXTEST_ACTION="list --message-format json"` lists the selection without executing it. |
+| `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. The wrapper writes a raw selection artifact and native identity before execution. |
 | `just doctest` | Workspace doctests with force-validation. `pse-py` is excluded because Cargo cannot run cdylib doctests. `doctest-release` is the release-profile variant. |
 | `just py-sync-native` | Rebuilds the editable extension (`dev` profile, `force-validate,native-solvers`) and regenerates the compiled API stubs. `just py-sync` installs the default profile, which lacks native solvers. |
 | `just inspection-fixture <new-dir>` | Publishes and reopens a fresh native store for component tests. |
-| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Component tests read `PSE_INSPECTION_PUBLICATION` (default `<output>/inspection`); create it first with `inspection-fixture`. Run `py-sync-native` after Rust edits. |
+| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Explicit fixture consumers read `PSE_INSPECTION_PUBLICATION` (default `<output>/inspection`); create it first with `inspection-fixture`. Run `py-sync-native` after Rust edits. |
 | `just governance-tests [args]` | `pse-tests-governance` with force-validation. |
 | `just setup-test` | Stdlib `unittest` discovery over `scripts/tests`: setup, guards, runner, docs and build tooling. |
 | `just setup-test-report <output>` | The same discovery with an XML reporter, writing `setup-test.xml` and `setup-test-selected.json`. Fails on skips or an empty run. |
-| `just unit-consolidation-tools` | `scripts.tests.test_validation` only: runner selection, reports, reuse and transfer, and measurement CSV parsing. |
+| `just unit-consolidation-tools` | Focused runner, ownership, selected prerequisite, measurement parser and isolated build snapshot controls. |
 
 These tooling tests establish runner behaviour, not product or scientific acceptance.
 
 ## Case measurements
 
 `just case-measure <new-output> --functional-from <assessment-dir-or-checks.json>`
-measures the complete-process cases after functional qualification. It refuses a
-functional report unless the report is version 4, `required_checks_covered` holds, its
-scope equals the current comprehensive scope, its source files match the working tree,
-and its native identities still verify.
+measures selected complete-process, preparation or admission cases. Repeat `--case <id>`
+to select declared cases; no selector runs the complete campaign. Workload declarations in
+`.config/process-cases.json` and `.config/preparation-cases.json` reference named functional
+scopes, and document admission explicitly requires the admission scope:
+
+| Scope | Existing behavioral owners |
+|---|---|
+| `process` | Native runtime and conformance acceptance boundaries |
+| `preparation` | Runtime/compiler preparation and provider composition |
+| `admission` | Authored loading/admission and its runtime boundary |
+| `lifecycle` | Runtime/store/lifecycle enforcement and publication resource controls |
+| `native` | The explicit full linked workspace covering invocation |
+
+Obtain selected prerequisite evidence with, for example,
+`just assessment "" --functional-scope preparation`. For several workload groups, use
+`just assessment "" --functional-scope native` to cover them in one Rust invocation.
+Conservative named scopes can overlap; the explicit full native scope avoids repeating them.
+Selections specify recipes, graph/profile and framework filters, never individual-test
+manifests. Measurement accepts the exact declared invocation or the explicitly declared
+complete full-workspace native invocation. It infers no arbitrary filter-subset equivalence.
+Only consumed claims must qualify; unrelated static/documentation checks are not prerequisites.
+Missing, failed, skipped, unexecuted, wrong-mode/profile or changed-input/provider observations
+are refused. Reuse/transfer retains its origin and applicability labels.
+
+The current version-5 report must carry complete terminal evidence for each consumed claim,
+matching relevant product/model/policy/lock inputs and actual native environment/provider
+identity. The benchmark retains its own executable identity: test and benchmark binaries need
+compatible source, features, Cargo profile and providers, not identical executable bytes.
+Benchmark source, workload declarations and parameters also enter measurement identity;
+unrelated prose does not. `just bench-case-smoke <new-output> [--case <id>]` runs untimed
+controls and cannot supply functional or performance qualification.
 
 - **Untimed build.** The benchmark is built with `cargo bench -p pse-benches --bench
   native_process --no-run`, using the profile named in `.config/process-cases.json`
@@ -159,11 +208,19 @@ and its native identities still verify.
   after-teardown pool reservations are reported separately.
 
 `case-measure.json` (`process-cost-v3`) binds the functional report digest, the source
-digest (a change during measurement is refused), the binary and linked-library hashes,
+digest over relevant measurement inputs (a relevant change during measurement is refused), the binary and linked-library hashes,
 the toolchain and the thread settings. Per-case artifacts are under `process-cost/<id>/`.
 These are local observations of the design-stage profile, not release-profile
 performance. For production-equivalent measurements, use `just bench-production`
 ([§24.3](../authoritative_design/sections/operations-and-validation.md#section-24-3)).
+
+`just py-unit` and exact `just py-test -m unit` run without inspection publication.
+`py-test --collect-only` also avoids publication. Mixed component selections retain explicit
+setup before pytest workers; the all-extension IPC round trip is requested by one dedicated
+boundary test. Runtime facades, physical packages and operational databases are owned per
+test; immutable engine settings are shared for the session and configure the process-owned
+deployment resource service. Exported buffers continue to charge that same service after a
+facade closes.
 
 ## Shared process fixtures and independent references
 

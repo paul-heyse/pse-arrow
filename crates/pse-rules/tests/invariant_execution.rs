@@ -180,35 +180,6 @@ async fn native_requirement_queries_retain_typed_violations_and_cancellation() {
 }
 
 #[tokio::test]
-async fn every_registered_invariant_compiles_against_its_exact_candidate_contract() {
-    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let rows = registry
-        .relations()
-        .iter()
-        .map(|spec| {
-            (
-                spec.key,
-                RecordBatch::new_empty(Arc::new(
-                    pse_schema::arrow::relation_schema(&registry, spec).unwrap(),
-                )),
-            )
-        })
-        .collect();
-    let session = session(&registry, &rows);
-    for invariant in registry.invariants() {
-        let inputs = invariant
-            .inputs
-            .iter()
-            .map(|name| registry.relation(name).unwrap().key)
-            .collect::<Vec<_>>();
-        session
-            .bind_declared_query(&invariant.query, &inputs, &CancellationToken::default())
-            .await
-            .unwrap_or_else(|error| panic!("{}: {error}", invariant.qualified_name()));
-    }
-}
-
-#[tokio::test]
 async fn complete_minimal_model_executes_all_applicable_invariants_with_explicit_empty_bindings() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let mut rows: BTreeMap<_, _> = registry

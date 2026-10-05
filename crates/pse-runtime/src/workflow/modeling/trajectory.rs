@@ -4,25 +4,61 @@
 use super::*;
 
 impl ModelingTrajectory {
-    /// Columns retain pool ownership after all source and trajectory handles are dropped.
+    /// Materialize a complete checked map once on success, sharing storage across clones.
     pub fn tables(
         &self,
-    ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
+    ) -> Result<Arc<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>, WorkflowError>
     {
-        self.tables_for_kind(pse_model::generated::enums::ComputationKind::Simulation)
+        let mut cached = self
+            .inner
+            .tables
+            .lock()
+            .map_err(|_| contract("trajectory transport lock poisoned"))?;
+        if let Some(tables) = cached.as_ref() {
+            return Ok(tables.clone());
+        }
+        // Reserve map ownership before allocation. Column buffers retain their own leases.
+        let reservation = self
+            .inner
+            .prepared
+            .runtime
+            .shared
+            .math()
+            .reserve("modeling:trajectory-map", source_map_extent(10)?)?;
+        let mut encoded = self.encode_tables()?;
+        for batch in encoded.values_mut() {
+            *batch = batch.clone().with_export_owner(reservation.clone());
+        }
+        let tables = Arc::new(encoded);
+        *cached = Some(tables.clone());
+        Ok(tables)
     }
-    pub(in crate::workflow) fn tables_for_kind(
+    /// Resolve and share one relation from the successful production materialization.
+    pub fn table(
         &self,
-        kind: pse_model::generated::enums::ComputationKind,
+        name: &str,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let id = self
+            .inner
+            .prepared
+            .runtime
+            .registry
+            .relation(name)
+            .ok_or_else(|| contract(format!("unknown trajectory table {name}")))?
+            .id;
+        self.tables()?
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| contract(format!("trajectory table absent: {name}")))
+    }
+    fn encode_tables(
+        &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
-        use pse_model::generated::{
-            enums::{NativeBackend, NativeQualification, NativeRunState},
-            runtime::{
-                computation_runs, response_sensitivities, simulation_events, simulation_samples,
-            },
+        use pse_model::generated::runtime::{
+            computation_runs, response_sensitivities, simulation_events, simulation_samples,
         };
-        let p = &self.prepared;
+        let p = &self.inner.prepared;
         let product = p.model().compiled();
         let pool = p.runtime.shared.pool();
         let cancel = pse_columnar::CancellationToken::new();
@@ -35,7 +71,8 @@ impl ModelingTrajectory {
                 .and_then(|n| n.checked_add(4096))
                 .and_then(|n| {
                     n.checked_add(
-                        self.reports
+                        self.inner
+                            .reports
                             .iter()
                             .map(pse_model::HeapUsage::owned_bytes)
                             .max()
@@ -62,16 +99,16 @@ impl ModelingTrajectory {
             .map_err(relation)?;
         if let Some(failure) = self.diagnostic() {
             columns
-                .push(analysis_tables::finding_row(self.run_id, 0, &failure))
+                .push(analysis_tables::finding_row(self.inner.run_id, 0, &failure))
                 .map_err(relation)?;
         }
-        for check in &self.checks {
+        for check in &self.inner.checks {
             columns.push(check.clone()).map_err(relation)?;
         }
         columns
             .ensure::<pse_model::generated::runtime::modeling_reports::Row>()
             .map_err(relation)?;
-        for row in &self.reports {
+        for row in &self.inner.reports {
             columns.push(row.clone()).map_err(relation)?;
         }
         columns
@@ -86,7 +123,7 @@ impl ModelingTrajectory {
         columns
             .ensure::<pse_model::generated::runtime::modeling_trajectory_modes::Row>()
             .map_err(relation)?;
-        for (sample, point) in self.report.samples.iter().enumerate() {
+        for (sample, point) in self.inner.report.samples.iter().enumerate() {
             let mode = p
                 .modes
                 .get(point.mode)
@@ -94,7 +131,7 @@ impl ModelingTrajectory {
             columns
                 .push(
                     pse_model::generated::runtime::modeling_trajectory_modes::Row {
-                        run_id: self.run_id,
+                        run_id: self.inner.run_id,
                         sample: sample as i64,
                         time: point.time,
                         mode: mode.name.clone(),
@@ -103,24 +140,17 @@ impl ModelingTrajectory {
                 .map_err(relation)?;
         }
         columns
-            .push(self.completion.assessment_row(
-                self.run_id,
-                0,
-                &p.numerics().policy,
-                None,
-                None,
-                false,
-            ))
+            .push(self.inner.assessment.clone())
             .map_err(relation)?;
-        let r = &self.report;
+        let r = &self.inner.report;
         columns
             .ensure::<pse_model::generated::runtime::trajectory_endpoints::Row>()
             .map_err(relation)?;
         if let Some(end) = &r.endpoint {
-            let coverage = r.assess_endpoint(&p.profile);
+            let coverage = &self.inner.coverage;
             columns
                 .push(pse_model::generated::runtime::trajectory_endpoints::Row {
-                    run_id: self.run_id,
+                    run_id: self.inner.run_id,
                     requirement: p.profile.endpoint.kind,
                     required_event: p.profile.endpoint.event,
                     event_id: end.event,
@@ -148,51 +178,11 @@ impl ModelingTrajectory {
                     input_columns: end.input_columns.iter().map(|c| *c as i64).collect(),
                     endpoint_satisfied: coverage.satisfied,
                     prefix_complete: coverage.prefix_complete,
-                    missing_observations: coverage.missing_observations,
+                    missing_observations: coverage.missing_observations.clone(),
                 })
                 .map_err(relation)?;
         }
-        let error = r.error.as_ref().map(engines::bounded_error);
-        columns
-            .push(computation_runs::Row {
-                run_id: self.run_id,
-                kind,
-                source_identity: p.source.revision.identity().as_id(),
-                profile_identity: super::super::super::dynamics::profile_identity(&p.profile)
-                    .map_err(crate::math::MathRuntimeError::from)?
-                    .as_id(),
-                state: NativeRunState::Native,
-                termination: None,
-                trajectory_termination: Some(r.termination),
-                backend: match p.profile.method {
-                    native::Method::Diffsol => Some(NativeBackend::Diffsol),
-                    native::Method::Idas => Some(NativeBackend::Idas),
-                    native::Method::Auto => None,
-                },
-                native_code: None,
-                native_status: None,
-                qualification: if self.checks_complete && self.checks.iter().all(|c| c.satisfied) {
-                    NativeQualification::Feasible
-                } else {
-                    NativeQualification::Unqualified
-                },
-                candidate_kind: None,
-                candidate_available: !r.samples.is_empty(),
-                feasible: self
-                    .checks_complete
-                    .then_some(self.checks.iter().all(|c| c.satisfied)),
-                completed_time: Some(r.completed_time),
-                completed_samples: Some(r.samples.len() as i64),
-                estimate_qualified: None,
-                response_available: Some(
-                    r.samples.iter().any(|s| !s.output_sensitivities.is_empty()),
-                ),
-                response_rank: None,
-                response_condition: None,
-                validation_error: self.validation_error.as_ref().map(ToString::to_string),
-                error,
-            })
-            .map_err(relation)?;
+        columns.push(self.inner.header.clone()).map_err(relation)?;
         let parameters = p
             .contract
             .parameters
@@ -240,7 +230,7 @@ impl ModelingTrajectory {
                     .canonical_unit;
                 columns
                     .push(simulation_samples::Row {
-                        run_id: self.run_id,
+                        run_id: self.inner.run_id,
                         sample: sample as i64,
                         time: point.time,
                         symbol_id: *symbol,
@@ -253,7 +243,7 @@ impl ModelingTrajectory {
                     for (j, parameter) in parameters.iter().enumerate() {
                         columns
                             .push(response_sensitivities::Row {
-                                run_id: self.run_id,
+                                run_id: self.inner.run_id,
                                 experiment_id: p.solved.instance(),
                                 sample: sample as i64,
                                 time: Some(point.time),
@@ -280,7 +270,7 @@ impl ModelingTrajectory {
             for (i, state) in p.coordinates.state.iter().enumerate() {
                 columns
                     .push(simulation_events::Row {
-                        run_id: self.run_id,
+                        run_id: self.inner.run_id,
                         ordinal: ordinal as i64,
                         event_id: event.event,
                         time: event.time,

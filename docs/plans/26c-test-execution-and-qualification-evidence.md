@@ -1,6 +1,6 @@
 ---
 title: "26c: Test execution and qualification evidence"
-status: draft
+status: done
 date: 2026-10-05
 adrs: [ADR-0092, ADR-0122, ADR-0143]
 review_sources: ["../design_review/reviews/design_review_testing-architecture_2026-10-05.md"]
@@ -13,8 +13,9 @@ scenario_sources: ["../design_review/reviews/design_review_testing-architecture_
 
 Run the necessary obligations with appropriate dependencies and compose their evidence once.
 The [coordinator](26-testing-architecture.md) owns F03–F06 dispositions, decision routes and
-overall qualification. This companion owns C1–C5 progress. Targets/checks are **Proposed**;
-source observations are **Implemented/source-inspected**, not timing measurements.
+overall qualification. This companion owns C1–C5 progress. Targets/checks below were
+**Proposed** at authoring; source observations were **Implemented/source-inspected**,
+not timing measurements. The Outcome records implemented delivery and scoped acceptance.
 
 The current recipe-leaf deduplication, nextest/pytest selectors, failure-preserving assessment,
 native binary/link identity, selected-versus-terminal reconciliation and reviewed transfer are
@@ -217,11 +218,11 @@ resource refusals and report limits. No sampler or statistical engine is rewritt
 
 | Package | Required capability and delivery | Deletion and targeted acceptance | Status |
 |---|---|---|---|
-| <a id="c1"></a>C1 Fixtures and actual resource classes | Existing production operations and category contract; explicit IPC/publication dependencies, correct Python tiers and Rust namespaces/groups | Remove unrelated autouse/package-wide setup. Pure tests run without native/publication; real native/store work remains capped | planned |
-| C2 Owned effects | P0 owned-effect policy; explicit outputs and disposable tool fixtures | Delete Git attribution/plugin helpers and obsolete tests. Dirty-input writes are caught at owned boundary; concurrent unrelated edits are permitted | planned |
-| C3 Selection and terminal ownership | C1 categories; B4 freshness replacement where its recipes retire | Remove full-graph/common repetition, duplicate native enumeration and nested report parsing; preserve complete failures and mode distinctions | planned |
-| <a id="c4"></a>C4 Relevant-input evidence | C3 current truthful invocation records; scoped input/environment declarations | Delete global reuse equality and old-version receipt coupling. Relevant changes invalidate; unrelated prose does not; transfer stays explicit | planned |
-| C5 Measurement readiness | C4 scoped claims and actual workload prerequisites | Delete mandatory comprehensive prerequisite. Selected functional claims admit only matching workloads; smoke never supplies qualification | planned |
+| <a id="c1"></a>C1 Fixtures and actual resource classes | Existing production operations and category contract; explicit IPC/publication dependencies, correct Python tiers and Rust namespaces/groups | Remove unrelated autouse/package-wide setup. Pure tests run without native/publication; real native/store work remains capped | implemented; assembled acceptance complete |
+| C2 Owned effects | P0 owned-effect policy; explicit outputs and disposable tool fixtures | Delete Git attribution/plugin helpers and obsolete tests. Dirty-input writes are caught at owned boundary; concurrent unrelated edits are permitted | implemented; assembled acceptance complete |
+| C3 Selection and terminal ownership | C1 categories; B4 freshness replacement where its recipes retire | Remove full-graph/common repetition, duplicate native enumeration and nested report parsing; preserve complete failures and mode distinctions | implemented; assembled acceptance complete |
+| <a id="c4"></a>C4 Relevant-input evidence | C3 current truthful invocation records; scoped input/environment declarations | Delete global reuse equality and old-version receipt coupling. Relevant changes invalidate; unrelated prose does not; transfer stays explicit | implemented; assembled acceptance complete |
+| C5 Measurement readiness | C4 scoped claims and actual workload prerequisites | Delete mandatory comprehensive prerequisite. Selected functional claims admit only matching workloads; smoke never supplies qualification | implemented; assembled acceptance complete |
 
 Editing ownership includes `scripts/validation_scope.py`, `validation.py`,
 `validation_receipts.py`, `native_tests.py`, `case_measure.py`, root/Python conftests,
@@ -232,7 +233,7 @@ their implementation moves to a shared operation.
 
 ## Verification
 
-All checks are **Proposed**. Tooling changes use the focused stdlib runner controls through
+The checks below were **Proposed** at authoring; executed evidence is recorded in the Outcome. Tooling changes use the focused stdlib runner controls through
 `just unit-consolidation-tools` and relevant setup/guard fixtures. Extend existing controls for
 exact argument/filter preservation, nonzero exit, stale/malformed/empty/truncated reports,
 collection/interruption, failed setup blocking only dependents and origin-preserving transfer.
@@ -254,16 +255,51 @@ selections and static/manual leaves once, under the new composition. Standalone 
 available on demand. Record actual command/mode/scope and zero failure baseline; no current
 campaign, speed improvement or scientific qualification is claimed by these documents.
 
-## Outcome (recorded after implementation)
+## Outcome
 
 ### What was built
 
-Not implemented; populate from actual behavior and scoped evidence.
+**Implemented**, 2026-10-05: explicit fixtures own publication, IPC extension inputs, mutable
+runtime facades and isolated operational databases. Git-based per-test attribution is deleted.
+The common linked Rust graph runs once, with separate default-feature absence controls;
+nextest/pytest own actual selection and terminal results. The thin composer retains one native
+inventory, terminal reconciliation, mandatory native identity and origin-preserving transfer.
+Version-5 evidence uses relevant input/environment scopes; no historical receipt adapter exists.
+Native Python provenance resolves the actually imported checkout extension, hashes only that
+binary and its linked closure, and verifies the same loaded origin inside pytest before
+collection. Database support controls inherit the existing `store_tests` scheduling namespace.
+Measurement workloads name functional prerequisites and accept exact matching invocations or
+the declared complete linked covering invocation, without inferring arbitrary filter equivalence.
+
+**Tested**, zero failure baseline: `just setup-test-report build/plan26-q1-tools-final` passes
+129/129 controls, with no failures or skips. After annotation/lint repairs, seven affected
+terminal/provenance/transfer/measurement controls pass again. `just lint-py` reports zero
+findings. The separate default-feature absence selection passes 2/2. Coordinator Q1 owns
+linked native/Python and final static/manual evidence. These tests cover malformed/stale
+reports, interruption and collection, actual categories/effects, relevant source drift,
+prose-insensitive reuse, explicit transfer and prerequisite refusal; no timing experiment ran.
+Assembled acceptance is complete. The conformance review's two findings are resolved at this
+companion's execution owners; its independent remedy follow-up accepts the corrected scope.
+Plan 26's Outcome owns the additional 52/52 tool controls, focused database pass, fresh
+33/33 linked Python selection and final manual results.
 
 ### A mistake made and corrected
 
-Not yet applicable; record an actual correction.
+Review found that declared tooling/documentation inputs exceeded the snapshot inventory,
+standalone Python provenance was optional, and reused transfers could lose their original
+reason. Input capture now covers tracked agent configuration and all declared documentation
+roots, uses one relevant-environment declaration, always records actual Python native provenance,
+and preserves the original transfer observation and rationale. Negative controls exercise each
+correction. Fixture lifetime also follows the strong process deployment owner: immutable
+settings are shared within the session, while facades and database effects are individually owned.
+Final conformance review additionally exposed a database control outside the declared store
+schedule and provenance of on-disk extension candidates instead of the consumed import.
+The existing namespace and wrapper/session boundaries now enforce those guarantees; hostile
+import controls distinguish foreign imports, stale candidates and execution-time divergence.
 
 ### Deviations from the plan, deliberate
 
-None recorded.
+The production deployment resource service remains strongly process-owned. Replacing it with
+a weak registry would permit escaped buffers from an old budget to overlap a new pool and
+would mismatch the process executor lifetime. No statistical engine, benchmark sampler or
+automatic test-impact inference was added; performance claims remain unmeasured.

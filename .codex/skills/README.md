@@ -35,5 +35,5 @@ review or exhaustive flow tracing.
 Library capability skills remain shared live sources selected by `.config/library-skills.toml`,
 exposed through gitignored links. Follow AGENTS.md's capability and Context7 routes. Change shared
 library skills at their shared source, preserving repository-independent guidance; local process
-skills stay tracked here. Formatting and alias synchronization remain owned by the existing
-end-of-turn machinery; these workflows add no hooks, and run `just hygiene` only at scope end.
+skills stay tracked here. Formatting is the root's `just turn-end` and skill synchronization
+`just ready`; these workflows add no hooks, and run `just hygiene` only at scope end.

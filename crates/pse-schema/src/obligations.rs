@@ -91,7 +91,14 @@ impl RelationObligations {
         input: String,
     ) -> Result<(), SchemaError> {
         let value = crate::catalog::inv::identifier(&self.value_column);
-        let input = format!("SELECT * FROM ({input}) s WHERE s.{value} IS NOT NULL");
+        // Decode run-end storage before filtering: Arrow's filter coalescer rebuilds
+        // encoded child fields without their declared metadata. The recursive scalar
+        // occurrence applies the same visibility guard to the decoded value.
+        let input = if matches!(field.data_type(), DataType::RunEndEncoded(..)) {
+            input
+        } else {
+            format!("SELECT * FROM ({input}) s WHERE s.{value} IS NOT NULL")
+        };
         if !matches!(field.data_type(), DataType::Dictionary(..))
             && let Some(reference) = ReferenceContract::for_contract(field)?
         {
@@ -200,16 +207,20 @@ impl RelationObligations {
             DataType::Dictionary(_, kind) => {
                 let nested = format!(
                     "SELECT {prefix}arrow_cast(s.{value}, {}) AS {value} FROM ({input}) s",
-                    crate::catalog::inv::literal(&kind.to_string())
+                    crate::catalog::inv::literal(&sql_storage_name(&kind)?)
                 );
                 let decoded =
                     FieldContract::from_field(field.field().clone().with_data_type(*kind));
                 self.descend(&decoded, path, nested)?;
             }
             DataType::RunEndEncoded(_, child) => {
+                // A one-element expansion keeps root correlation and prevents native
+                // filter pushdown from reintroducing an encoded-array filter before
+                // decoding. Filtering that representation loses custom child metadata
+                // in Arrow 59.3's coalescer; the scalar output retains ordinary guards.
                 let nested = format!(
-                    "SELECT {prefix}arrow_cast(s.{value}, {}) AS {value} FROM ({input}) s",
-                    crate::catalog::inv::literal(&child.data_type().to_string())
+                    "SELECT {prefix}unnest(make_array(arrow_cast(s.{value}, {}))) AS {value} FROM ({input}) s",
+                    crate::catalog::inv::literal(&sql_storage_name(child.data_type())?)
                 );
                 self.descend(
                     &FieldContract::from_field(child.as_ref().clone()),
@@ -236,4 +247,18 @@ impl RelationObligations {
         }
         Ok(())
     }
+}
+
+/// SQL casts describe storage only. Arrow's Display includes nested field metadata,
+/// which is not part of the DataFusion datatype grammar. Keep the original field
+/// tree for obligation traversal and remove annotations only from this cast spelling.
+fn sql_storage_name(kind: &DataType) -> Result<String, SchemaError> {
+    let field = arrow_schema::Field::new("value", kind.clone(), true);
+    let storage = pse_columnar::native_field::map(&field, &mut |field| {
+        let mut field = field.clone();
+        field.metadata_mut().clear();
+        field
+    })
+    .map_err(|error| crate::checks::invalid("integrity cast type", error.to_string()))?;
+    Ok(storage.data_type().to_string())
 }

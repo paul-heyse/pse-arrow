@@ -79,7 +79,6 @@ memchr = { version = "2" }
 miette = { version = "7", features = ["fancy"] }
 num-complex = { version = "0.4", features = ["bytemuck"] }
 num-integer = { version = "0.1", features = ["i128"] }
-num-rational = { version = "0.4", default-features = false, features = ["num-bigint-std", "std"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
 object_store = { version = "0.13", features = ["aws", "azure", "gcp", "http"] }
 once_cell = { version = "1" }
@@ -94,7 +93,6 @@ rand = { version = "0.9" }
 rand_chacha = { version = "0.9", default-features = false, features = ["std"] }
 refinery-core = { version = "0.9", default-features = false, features = ["tokio-postgres"] }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa", "perf", "std", "unicode"] }
-regex-syntax = { version = "0.8" }
 ring = { version = "0.17", features = ["std"] }
 rustls-pki-types = { version = "1", features = ["std"] }
 semver = { version = "1", features = ["serde"] }
@@ -149,7 +147,6 @@ proc-macro2 = { version = "1" }
 quote = { version = "1" }
 refinery-core = { version = "0.9" }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-onepass", "hybrid", "meta", "nfa-backtrack", "perf-inline", "perf-literal", "std", "unicode"] }
-regex-syntax = { version = "0.8" }
 semver = { version = "1" }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
