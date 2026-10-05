@@ -101,6 +101,10 @@ impl TaskAdmission {
     pub(crate) fn observation(&self) -> Result<WorkObservation, ProblemError> {
         Ok(self.state()?.ledger.observation())
     }
+    /// The existing parent grant remains authoritative for serial child operations.
+    pub(crate) fn limits(&self) -> Result<WorkLimits, ProblemError> {
+        Ok(self.state()?.ledger.limits)
+    }
     pub(crate) fn reserve_attempt(&self) -> Result<(), ProblemError> {
         self.state()?.ledger.reserve_attempt()
     }

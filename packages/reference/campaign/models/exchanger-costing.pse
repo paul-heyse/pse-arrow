@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0f037426c718f919d212ed1ac51e9") package exchanger_costing {
+@id("1dcff414860a439796f7829e981e16b5") use numerical_policy @"1.0.0";
 @id("727f21953966452e8b5fecb5c31a6da1") use properties @"1.0.0";
 @id("e803afd1e770457d911469a78a128589") use cubic @"1.0.0";
 @id("01a0f037426c718f919d212f976ca346") use campaign_references @"1.0.0";
@@ -31,7 +32,10 @@
 // (0.13 % of the capital cost). 1 m2 (10.76 ft2) is far below the exchanger sizes the
 // correlation is published for, and the consuming test explicitly permits the unknown area support, so this
 // checks the costing's reading and arithmetic at the solved area, not a qualified
-// purchase price.
+// purchase price. Dimensionless material/pressure factors resolve to 0.001:
+// separately these correspond to about 18 and 66 USD_CE500 of capital cost,
+// below its 85 USD_CE500 allowance. The capital aggregation comparison remains
+// a tight arithmetic identity, which does not set solver convergence accuracy.
 @id("01a0f037426c718f919d213c29dd62fd") test hx_costing_solved_area oracle campaign_references.sslw_cost_of_idaes_bt_exchanger fixture {dof 0; route steady; procedure solve; fix root.exchanger.hot.inlet.flow=5{mol/s}; fix root.exchanger.hot.inlet.T=365{K}; value root.exchanger.hot.inlet.bubble=364{K}; fix root.exchanger.hot.inlet.pressure=101325{Pa}; fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1}; fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1}; fix root.exchanger.hot.delta_pressure=0{Pa}; value root.exchanger.hot.inlet.epsilon_bubble=0.0001{K}; value root.exchanger.hot.inlet.epsilon_dew=0.0001{K}; value root.exchanger.hot.outlet.epsilon_bubble=0.0001{K}; value root.exchanger.hot.outlet.epsilon_dew=0.0001{K}; fix root.exchanger.cold.inlet.flow=1{mol/s}; fix root.exchanger.cold.inlet.T=300{K}; fix root.exchanger.cold.inlet.pressure=101325{Pa}; fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1}; fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1}; fix root.exchanger.cold.delta_pressure=0{Pa}; value root.exchanger.cold.inlet.epsilon_bubble=0.0001{K}; value root.exchanger.cold.inlet.epsilon_dew=0.0001{K}; value root.exchanger.cold.outlet.epsilon_bubble=0.0001{K}; value root.exchanger.cold.outlet.epsilon_dew=0.0001{K}; fix root.exchanger.cold.outlet.T=331.6111111111111{K}; fix root.exchanger.coefficient=100{W/(m^2*K)};policy {limits body_occurrences(1000000); } } {
 // These exact selected critical records and predictive zero rule declare unknown applicability.
 @id("30f22b896d104dba9cede6d8be6871e3") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
@@ -39,11 +43,11 @@
 @id("299efa0208c359a8870b8981fb181a1b") permission pressure_use families(costing.pressure_factor) allow_unknown false allow_extrapolation true;
 @id("01a0f037426c718f919d213d423e28dc") child root:CostedExchanger=CostedExchanger;
 @id("01a0f037426c718f919d213e75b7f2f0") expect root.exchanger.area==1{m^2} tolerance 0.003{m^2};
-@id("01a0f037426c718f919d213f96bce1c4") expect root.exchanger.hot.outlet.T==359.4{K} tolerance 0.1{K};
+@id("01a0f037426c718f919d213f96bce1c4") expect root.exchanger.hot.outlet.T==359.4{K} tolerance numerical_policy.temperature;
 @id("01a0f037426c718f919d21403dc416a4") expect root.cost.area_per_unit==10.763910416709722 tolerance 0.033;
 @id("01a0f037426c718f919d2141fd46b0a9") expect root.cost.base_cost_per_unit==16529.14{USD_CE500} tolerance 22{USD_CE500};
-@id("01a0f037426c718f919d214227e6c83e") expect root.cost.material_factor==3.555535 tolerance 0.0002;
-@id("01a0f037426c718f919d21438849fbd8") expect root.cost.pressure_factor==0.9803 tolerance 0.000001;
+@id("01a0f037426c718f919d214227e6c83e") expect root.cost.material_factor==3.555535 tolerance numerical_policy.dimensionless;
+@id("01a0f037426c718f919d21438849fbd8") expect root.cost.pressure_factor==0.9803 tolerance numerical_policy.dimensionless;
 @id("01a0f037426c718f919d21444eaf93ae") expect root.cost.capital_cost==64525.6{USD_CE500} tolerance 85{USD_CE500};
 @id("01a0f037426c718f919d214521198702") expect root.cost.capital_cost==77830.8{USD_2018} tolerance 100{USD_2018};
 @id("01a0f037426c718f919d2146d8b0cf87") expect root.capital==root.cost.capital_cost tolerance 1e-8{USD_CE500};

@@ -60,6 +60,61 @@ fn admit(workspace: &mut CompilerWorkspace, root: DeclarationId) -> Arc<Admitted
 }
 
 #[test]
+fn authored_accuracy_and_engineering_expressions_enter_the_typed_modeling_program() {
+    let (mut workspace, _, _, root) = setup(
+        r#"package p {
+            def Root {
+                var temperature: Temperature;
+                eq state: temperature == 300{K};
+                annotation accuracy_goal temperature(selected_output, steady,
+                    resolution=0.01{K}, criterion_lower=273.15{K}, criterion_upper=373.15{K});
+                annotation engineering_scale temperature(kind=range_width, value=20{K});
+            }
+        }"#,
+    );
+    let admitted = admit(&mut workspace, root);
+    let hints = admitted
+        .outputs
+        .iter()
+        .filter_map(|output| match output {
+            ModelingOutput::Hint {
+                target,
+                declaration,
+                kind:
+                    kind @ (ModelingHint::AccuracyGoalResolution
+                    | ModelingHint::AccuracyGoalLower
+                    | ModelingHint::AccuracyGoalUpper
+                    | ModelingHint::EngineeringScaleValue),
+            } => Some((*target, *declaration, *kind)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(hints.len(), 4);
+    assert!(hints.iter().all(|(target, _, _)| *target == hints[0].0));
+    let goal_sources = hints.iter().filter(|(_, _, kind)|
+        *kind != ModelingHint::EngineeringScaleValue)
+        .map(|(_, declaration, _)| *declaration).collect::<BTreeSet<_>>();
+    assert_eq!(goal_sources.len(), 1);
+    let scale_source = hints.iter().find(|(_, _, kind)|
+        *kind == ModelingHint::EngineeringScaleValue).unwrap().1;
+    assert!(!goal_sources.contains(&scale_source));
+    assert_eq!(
+        hints
+            .iter()
+            .map(|(_, _, kind)| *kind)
+            .collect::<BTreeSet<_>>(),
+        [
+            ModelingHint::AccuracyGoalResolution,
+            ModelingHint::AccuracyGoalLower,
+            ModelingHint::AccuracyGoalUpper,
+            ModelingHint::EngineeringScaleValue,
+        ]
+        .into_iter()
+        .collect()
+    );
+}
+
+#[test]
 fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases_budget() {
     use pse_modeling::document::{DocumentColumn, RowSet, Values};
     let text = r#"package p {

@@ -12,9 +12,10 @@ serial = { max-threads = 1 }
 # Each engineering workflow has its own 64 GiB ceiling and two workers.
 # At most two such processes run together (128 GiB aggregate declared ceiling).
 engineering = { max-threads = 4 }
-# Each operational-store test creates its own database with a four-connection pool, a
-# listener and sessions; the local server allows 100 connections (ADR-0114 Outcome 28).
-store = { max-threads = 8 }
+# A TestDatabase pool uses four connections; runtime Operations can add ten plus
+# administrative/listener sessions. Bound their aggregate below the local server's
+# 100 connections (ADR-0114 Outcome 28), including integration consumers.
+store = { max-threads = 4 }
 
 [profile.default]
 fail-fast = false
@@ -23,7 +24,7 @@ leak-timeout = "500ms"
 
 [[profile.default.overrides]]
 # Tests that create a TestDatabase on the local PostgreSQL server.
-filter = '(package(pse-operations) & (test(store_tests::) | test(study_tests::) | test(tables_tests::) | test(migration_tests::) | test(retirement::tests::))) | (package(pse-runtime) & (test(durable_tests::) | test(worker_tests::) | test(study_tests::)))'
+filter = '(package(pse-operations) & (test(store_tests::) | test(study_tests::) | test(tables_tests::) | test(migration_tests::) | test(retirement::tests::))) | (package(pse-runtime) & (test(durable_tests::) | test(worker_tests::) | test(study_tests::) | test(horizon_tests::) | test(operational_tables_tests::) | binary(publication_catalog) | binary(worker))) | (package(pse-tests-conformance) & test(acceptance::publication_resource::))'
 test-group = "store"
 
 [[profile.default.overrides]]

@@ -59,7 +59,7 @@ The bounded author review establishes proposed contract fitness only. Plan 25e o
 
 ## More information
 
-[Plan 25e](../plans/25e-declared-analyses-and-qualification.md), ADR-0106, ADR-0111, ADR-0144 and ADR-0146.
+[Plan 25e](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25e-declared-analyses-and-qualification.md), ADR-0106, ADR-0111, ADR-0144 and ADR-0146.
 
 ## Status history
 

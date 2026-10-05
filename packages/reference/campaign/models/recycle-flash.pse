@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0f042b65f749c9bbcbb4ab092671a") package recycle_flash {
+@id("ce0e399b3b5449e3a0c09a1da48b3a5e") use numerical_policy @"1.0.0";
 @id("01a0f042b65f749c9bbcbb4b04ab206d") use provenance @"1.0.0";
 @id("01a0f042b660738c8ffef70a6c386780") use campaign_references @"1.0.0";
 @id("01a0f042b660738c8ffef70b425abedc") use kinds @"1.0.0";
@@ -95,12 +96,12 @@
 coordinate component[j in components]=tear_component[j];
 coordinate temperature=tear_temperature;
 coordinate pressure=tear_pressure;
-transport component[j in components]=tear_component[j] tolerance 1e-7{mol/s};
-transport energy=tear_energy tolerance 0.001{W};
+transport component[j in components]=tear_component[j] tolerance numerical_policy.component_flow;
+transport energy=tear_energy tolerance numerical_policy.power;
 }
 @id("0f0d8d61c18c4667be4e199499d519ad") material port tear_port=tear_state;
 @id("f821edcb22604724930ee3e554eaefd6") annotation connectivity tear_port(0,1);
-@id("01a0f053c2807589b9b24cdf3a92e89f") accumulate overall[j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
+@id("01a0f053c2807589b9b24cdf3a92e89f") accumulate overall[j in components]:ComponentFlow accounting tolerance numerical_policy.component_flow;
 @id("01a0f053c2807589b9b24ce0f90adaaf") contribute [j in components] overall[j] role inflow=feed.state.component_flow[j];
 @id("01a0f053c2807589b9b24ce1f9b44029") contribute [j in components] overall[j] role outflow=flash.unit.vapor_component_flow[j];
 @id("01a0f053c2807589b9b24ce294e518a3") contribute [j in components] overall[j] role outflow=splitter.unit.component_flow[purged,j];
@@ -136,8 +137,8 @@ transport energy=tear_energy tolerance 0.001{W};
 coordinate component[j in components]=tear_component[j];
 coordinate temperature=overheated_temperature;
 coordinate pressure=tear_pressure;
-transport component[j in components]=tear_component[j] tolerance 1e-7{mol/s};
-transport energy=tear_energy tolerance 0.001{W};
+transport component[j in components]=tear_component[j] tolerance numerical_policy.component_flow;
+transport energy=tear_energy tolerance numerical_policy.power;
 }
 @id("5506ce7e0177411ca5e38f1bfca3463c") material port overheated_port=overheated_state;
 @id("e1f802bc921643edbd9b4132ec50a0e3") annotation connectivity overheated_port(0,1);
@@ -174,36 +175,37 @@ transport energy=tear_energy tolerance 0.001{W};
 // of the fresh feed: x and y are the flash's equilibrium phases at 368 K (the IDAES
 // test_BTIdeal state), V/F is the lever rule and the recycle is 0.9 (F - V)/0.1. The
 // package's 0.01 K bubble-point smoothing moves a flash that is 2 % vaporized (cold_lean)
-// by 0.5 mK, so compositions compare within 1e-5 and flows within 5e-4 relative. The
+// by 0.5 mK. Physical comparisons and internal transport use the shared typed
+// design policy; relative flow comparisons use its dimensionless allowance. The
 // recycled liquid is saturated, so the derivative sample at the solution resolves that
 // smoothing in its re-flash with a 1e-7 step, whose roundoff on the 1e5 W energy rows and
 // truncation on the smoothing both stay below 1 %.
 @id("01a0f053c2807589b9b24cf0b26a07c9") test recycle_flash_converges_from_defaults oracle campaign_references.analytic_recycle_flash fixture {dof 0; route steady; procedure initialize; stages("tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); policy { derivatives step(1e-7) tolerance(1e-2); }} {
 @id("01a0f053c2807589b9b24cf1e6db2076") child root:RecycleFlashStudy=RecycleFlashStudy;
-@id("01a0f053c2807589b9b24cf202b31e73") expect root.point[cold_lean].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf3b9a99eb9") expect root.point[cold_lean].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf4b5c93839") expect root.point[cold_lean].flash.unit.vapor_flow==8.53742566{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c2807589b9b24cf5c1c7fbaa") expect root.point[cold_lean].mixer.unit.inlet[recycled].flow==373.163169{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c2807589b9b24cf6c60e55b0") expect root.point[saturated_equimolar].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf78c453a65") expect root.point[saturated_equimolar].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c2807589b9b24cf86af3e9f8") expect root.point[saturated_equimolar].flash.unit.vapor_flow==0.396116832{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c2807589b9b24cf9911b7f09") expect root.point[saturated_equimolar].mixer.unit.inlet[recycled].flow==5.43494852{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee3dea45d640") expect root.point[warm_rich].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee3e5b21e575") expect root.point[warm_rich].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee3f30f1ec71") expect root.point[warm_rich].flash.unit.vapor_flow==12.429703{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee405e8561e9") expect root.point[warm_rich].mixer.unit.inlet[recycled].flow==68.132673{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee41685a64a0") expect root.point[vapor_rich].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee42c8e9d78d") expect root.point[vapor_rich].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f053c28176ea84d8ee432bd7870f") expect root.point[vapor_rich].flash.unit.vapor_flow==0.423426734{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f053c28176ea84d8ee440f2ba107") expect root.point[vapor_rich].mixer.unit.inlet[recycled].flow==0.689159392{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f05b4c437594b6148a160c3a0a98") expect root.point[cold_lean].overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05b4c437594b6148a179bd9f7ba") expect root.point[cold_lean].overall[chem.toluene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05b4c437594b6148a18351142d7") expect root.point[saturated_equimolar].overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05b4c437594b6148a19a163b002") expect root.point[saturated_equimolar].overall[chem.toluene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05b4c437594b6148a1a620eec58") expect root.point[warm_rich].overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05b4c437594b6148a1b5e526487") expect root.point[warm_rich].overall[chem.toluene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05b4c437594b6148a1c135fb641") expect root.point[vapor_rich].overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05b4c437594b6148a1d14dea77d") expect root.point[vapor_rich].overall[chem.toluene]==0{mol/s} tolerance 0.000001{mol/s};
+@id("01a0f053c2807589b9b24cf202b31e73") expect root.point[cold_lean].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c2807589b9b24cf3b9a99eb9") expect root.point[cold_lean].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c2807589b9b24cf4b5c93839") expect root.point[cold_lean].flash.unit.vapor_flow==8.53742566{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f053c2807589b9b24cf5c1c7fbaa") expect root.point[cold_lean].mixer.unit.inlet[recycled].flow==373.163169{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f053c2807589b9b24cf6c60e55b0") expect root.point[saturated_equimolar].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c2807589b9b24cf78c453a65") expect root.point[saturated_equimolar].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c2807589b9b24cf86af3e9f8") expect root.point[saturated_equimolar].flash.unit.vapor_flow==0.396116832{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f053c2807589b9b24cf9911b7f09") expect root.point[saturated_equimolar].mixer.unit.inlet[recycled].flow==5.43494852{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f053c28176ea84d8ee3dea45d640") expect root.point[warm_rich].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c28176ea84d8ee3e5b21e575") expect root.point[warm_rich].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c28176ea84d8ee3f30f1ec71") expect root.point[warm_rich].flash.unit.vapor_flow==12.429703{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f053c28176ea84d8ee405e8561e9") expect root.point[warm_rich].mixer.unit.inlet[recycled].flow==68.132673{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f053c28176ea84d8ee41685a64a0") expect root.point[vapor_rich].flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c28176ea84d8ee42c8e9d78d") expect root.point[vapor_rich].flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f053c28176ea84d8ee432bd7870f") expect root.point[vapor_rich].flash.unit.vapor_flow==0.423426734{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f053c28176ea84d8ee440f2ba107") expect root.point[vapor_rich].mixer.unit.inlet[recycled].flow==0.689159392{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f05b4c437594b6148a160c3a0a98") expect root.point[cold_lean].overall[chem.benzene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05b4c437594b6148a179bd9f7ba") expect root.point[cold_lean].overall[chem.toluene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05b4c437594b6148a18351142d7") expect root.point[saturated_equimolar].overall[chem.benzene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05b4c437594b6148a19a163b002") expect root.point[saturated_equimolar].overall[chem.toluene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05b4c437594b6148a1a620eec58") expect root.point[warm_rich].overall[chem.benzene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05b4c437594b6148a1b5e526487") expect root.point[warm_rich].overall[chem.toluene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05b4c437594b6148a1c135fb641") expect root.point[vapor_rich].overall[chem.benzene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05b4c437594b6148a1d14dea77d") expect root.point[vapor_rich].overall[chem.toluene]==0{mol/s} tolerance numerical_policy.component_flow;
 }
 // The overheated tear's stage fails, and the failure leaves the specification intact: the
 // attempt commits nothing, and the unchanged specification, RecycleFlash's at the IDAES
@@ -211,11 +213,11 @@ transport energy=tear_energy tolerance 0.001{W};
 // from its own starts and answers to the same steady state.
 @id("01a0f053f157702a825ee1acc5a50f11") test recycle_flash_failure_restores_specification oracle campaign_references.analytic_recycle_flash fixture {dof 0; route steady; procedure initialize; stages("overheated_tear"); initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600); failure trial_rejected members(root.recycle); fix root.feed.state.flow=1{mol/s}; fix root.feed.state.T=368{K}; fix root.feed.state.pressure=101325{Pa}; fix root.feed.state.z[chem.benzene]=0.5{1}; fix root.feed.state.z[chem.toluene]=0.5{1};} {
 @id("01a0f05f996477f09a4b59bf39131cec") child root:OverheatedTear=OverheatedTear;
-@id("01a0f05f996477f09a4b59c0cd740ceb") expect root.flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance 0.00001{1};
-@id("01a0f05f996477f09a4b59c1a7dff362") expect root.flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance 0.00001{1};
-@id("01a0f05f996477f09a4b59c24aec69da") expect root.flash.unit.vapor_flow==0.396116832{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f05f996477f09a4b59c362ff95ff") expect root.mixer.unit.inlet[recycled].flow==1.81164951{mol/s} tolerance 0.000001{mol/s} relative 0.0005;
-@id("01a0f05f996477f09a4b59c433047fe6") expect root.overall[chem.benzene]==0{mol/s} tolerance 0.000001{mol/s};
-@id("01a0f05f996477f09a4b59c51c020a51") expect root.overall[chem.toluene]==0{mol/s} tolerance 0.000001{mol/s};
+@id("01a0f05f996477f09a4b59c0cd740ceb") expect root.flash.unit.vapor_composition[chem.benzene]==0.633977{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f05f996477f09a4b59c1a7dff362") expect root.flash.unit.liquid_composition[chem.benzene]==0.412118{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f05f996477f09a4b59c24aec69da") expect root.flash.unit.vapor_flow==0.396116832{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f05f996477f09a4b59c362ff95ff") expect root.mixer.unit.inlet[recycled].flow==1.81164951{mol/s} tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0f05f996477f09a4b59c433047fe6") expect root.overall[chem.benzene]==0{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0f05f996477f09a4b59c51c020a51") expect root.overall[chem.toluene]==0{mol/s} tolerance numerical_policy.component_flow;
 }
 }

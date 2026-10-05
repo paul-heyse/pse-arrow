@@ -2,6 +2,54 @@
 
 # runtime relations
 
+## `accuracy_goal_assessments`
+
+Completion-owned engineering goal assessment retaining the actual physical observation, requested subject, strength, method and validity dependencies. Missing observation or evidence is Unresolved, never NotRequested. Only admitted output-error or optimum-value evidence can satisfy its corresponding goal; residual, backward and local integration error retain their separate interpretations. Estimates never acquire certification from native success or a zero residual. Physical acceptance and native termination remain independently owned.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, goal_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `goal_id` | `semantic_id` | false | `key` | — | — |
+| `model_id` | `semantic_id` | true | `payload` | — | — |
+| `case_id` | `semantic_id` | true | `payload` | — | — |
+| `instance_id` | `semantic_id` | true | `payload` | — | — |
+| `fit_id` | `semantic_id` | true | `payload` | — | — |
+| `target_id` | `semantic_id` | false | `payload` | — | — |
+| `target_kind` | `enum:NumericalTarget` | false | `payload` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `subject` | `enum:AccuracyGoalSubject` | false | `payload` | — | — |
+| `observation` | `enum:AccuracyObservation` | false | `payload` | — | — |
+| `time` | `Float64` | true | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
+| `interval_lower` | `Float64` | true | `payload` | — | — |
+| `interval_upper` | `Float64` | true | `payload` | — | — |
+| `error` | `Float64` | true | `payload` | — | — |
+| `accuracy_class` | `enum:NumericalAccuracyClass` | true | `payload` | — | — |
+| `required_class` | `enum:NumericalAccuracyClass` | false | `payload` | — | — |
+| `status` | `enum:AccuracyGoalStatus` | false | `payload` | — | — |
+| `resolution_status` | `enum:AccuracyResolutionStatus` | false | `payload` | — | — |
+| `criterion_status` | `enum:AccuracyCriterionStatus` | false | `payload` | — | — |
+| `use_policy` | `enum:AccuracyGoalUse` | false | `payload` | — | — |
+| `resolution` | `Float64` | true | `payload` | — | — |
+| `criterion_lower` | `Float64` | true | `payload` | — | — |
+| `criterion_upper` | `Float64` | true | `payload` | — | — |
+| `refine` | `Boolean` | false | `payload` | — | — |
+| `context` | `content_hash` | true | `payload` | — | — |
+| `product` | `content_hash` | true | `payload` | — | — |
+| `point` | `content_hash` | true | `payload` | — | — |
+| `branch` | `content_hash` | true | `payload` | — | — |
+| `validity` | `content_hash` | true | `payload` | — | — |
+| `dependencies` | `List` | false | `payload` | — | — |
+| `dependencies.item` | `content_hash` | false | `payload` | — | — |
+| `interpretation` | `enum:AccuracyEvidenceInterpretation` | true | `payload` | — | — |
+| `method` | `enum:AccuracyEvidenceMethod` | true | `payload` | — | — |
+| `unavailable` | `enum:AccuracyUnavailableReason` | true | `payload` | — | — |
+| `limitation` | `Utf8` | false | `payload` | — | — |
+
 ## `artifact_descriptors`
 
 Exact current-format artifact validity. Publication members own output versions; local graph and Salsa handles are never persisted.
@@ -2481,9 +2529,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 ## `resolved_numerics`
 
-Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling.
+Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling. Optional engineering context retains the selected shared rule, physical allowance, relative fraction, explicit characteristic magnitude and source, derived budget and fallback limitation. Historical rows without this context do not acquire contextual accuracy evidence.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, target_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, target_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2498,6 +2546,17 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, 
 | `absolute` | `Float64` | false | `payload` | — | — |
 | `relative` | `Float64` | false | `payload` | — | — |
 | `budget` | `Float64` | false | `payload` | — | — |
+| `engineering` | `Struct` | true | `payload` | — | — |
+| `engineering.rule_id` | `semantic_id` | true | `payload` | — | — |
+| `engineering.scale_id` | `semantic_id` | true | `payload` | — | — |
+| `engineering.physical_allowance` | `Float64` | true | `payload` | — | — |
+| `engineering.relative_fraction` | `Float64` | false | `payload` | — | — |
+| `engineering.characteristic` | `Float64` | true | `payload` | — | — |
+| `engineering.scale_kind` | `enum:EngineeringScaleKind` | true | `payload` | — | — |
+| `engineering.source` | `enum:NumericalSource` | false | `payload` | — | — |
+| `engineering.budget` | `Float64` | false | `payload` | — | — |
+| `engineering.canonical_fallback` | `Boolean` | false | `payload` | — | — |
+| `engineering.limitation` | `Utf8` | false | `payload` | — | — |
 | `provenance` | `List` | false | `payload` | — | — |
 | `provenance.item` | `Struct` | false | `payload` | — | — |
 | `provenance.item.declaration` | `semantic_id` | true | `payload` | — | — |

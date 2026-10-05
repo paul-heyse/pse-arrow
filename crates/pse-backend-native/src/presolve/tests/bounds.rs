@@ -188,7 +188,7 @@ fn nlp_presolve_refuses_required_untracked_bound_transport_before_dispatch() {
                 &[3.0],
                 &policy,
                 &tolerance,
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 execution(),
                 None,
                 stamp(),
@@ -208,7 +208,7 @@ fn nlp_presolve_retains_provenance_bearing_affine_bound_transfer() {
         &[1.0, 2.0],
         &Policy::Auto,
         &tolerance,
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -262,7 +262,7 @@ fn nlp_presolve_analysis_shows_singleton_geometry_without_materializing_it() {
         &[0.6],
         &Policy::Auto,
         &tolerance,
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -299,7 +299,7 @@ fn native_run(model: Model) -> SolveReport {
         feasibility: 1e-10,
         stationarity: 1e-9,
         complementarity: 1e-9,
-        ..ResolvedAccuracy::nominal()
+        ..ResolvedAccuracy::verification()
     };
     let mut pipeline = Pipeline::new(
         Box::new(source),

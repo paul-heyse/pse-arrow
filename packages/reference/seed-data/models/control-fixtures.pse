@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("3d46c54466244a0a9882811830e20a2e") package control_fixtures {
+// These isolated analytic controller fixtures verify the declared smoothing and
+// quadrature identities. Their explicit integration budgets are verification
+// controls, not ordinary process-design convergence defaults.
 @id("01a0ef604fdf73c68b36e12d5c7de854") use references @"1.0.0";
 @id("5b0910b1c5df49b4828c0cac56540e38") use control @"1.0.0";
 @id("3fce049dec88498792d8765449ad9d94") use distributed_volumes @"1.0.0";

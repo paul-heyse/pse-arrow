@@ -323,7 +323,7 @@ pub(super) fn exercise_declared_flow_and_blocks() {
     let accuracy = ResolvedAccuracy {
         native_scaling: false,
         feasibility: 1e-10,
-        ..ResolvedAccuracy::nominal()
+        ..ResolvedAccuracy::verification()
     };
     let compatibility = crate::solver_tests::stamp(Backend::Petsc);
     let settings = Settings {

@@ -107,3 +107,12 @@ pse:numerical-decision:v1
 pse:numerical-strategy:v2
 pse:solve-strategy-preparation:v2
 pse:solve-strategy-request:v2
+
+# Plan 25n approved current composition and durable document versions.
+pse.durable.job_request.v5
+pse.durable.modeling_request.v3
+pse.durable.study_request.v4
+pse:numerical-decision:v2
+pse:numerical-strategy:v3
+pse:solve-strategy-preparation:v3
+pse:solve-strategy-request:v3

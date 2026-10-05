@@ -173,6 +173,10 @@ frames! {
         NumericalPolicyV1 => "pse.numerical.policy.v1",
         /// Numerical policy including incumbent permission; historical V1 remains unchanged.
         NumericalPolicyV2 => "pse.numerical.policy.v2",
+        /// Numerical policy with contextual engineering defaults and declared goals.
+        NumericalPolicyV3 => "pse.numerical.policy.v3",
+        /// Bound engineering goal and observation dependencies.
+        EngineeringGoalV1 => "pse.engineering.goal.v1",
         /// Request-qualified structural and route admission over bound model and resolved policies.
         ModelingAdmissionV2 => "pse.modeling.admission.v2",
         /// Historical generic capability admission before contextual readiness.
@@ -241,6 +245,8 @@ frames! {
         NumericalDifferenceProjectionV1 => "pse.numerical.difference-projection.v1",
         /// Resolved numerical targets.
         NumericalResolvedV1 => "pse.numerical.resolved.v1",
+        /// Frozen contextual engineering interpretation independent of conditioning.
+        NumericalResolvedV2 => "pse.numerical.resolved.v2",
         /// An implicit block's configuration.
         ImplicitConfigurationV1 => "pse.implicit.configuration.v1",
         /// Implicit selection and resolved derivative requirements.
@@ -277,7 +283,7 @@ frames! {
         /// states are addressed by (ADR-0123 Outcome 6).
         MathPhysicalInventoryV5 => "pse.math.physical-inventory.v5",
         /// Selected physical declaration inventory with explicit lengths for every
-        /// nested collection, including unit factors and reduction domains (Plan 25a/I1).
+        /// nested collection, including unit factors and reduction domains (blueprint §5.3).
         MathPhysicalInventoryV6 => "pse.math.physical-inventory.v6",
         /// Admitted owner-relative physical transformation specialized at an occurrence.
         ModelingPhysicalOperationV1 => "pse.modeling.physical-operation.v1",

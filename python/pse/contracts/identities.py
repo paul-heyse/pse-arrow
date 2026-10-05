@@ -7,11 +7,20 @@ from typing import NewType
 
 from pse.contracts import values as v
 
+# A scoped engineering output accuracy or decision goal (entity identity `accuracy_goal`).
+AccuracyGoalId = NewType("AccuracyGoalId", v.SemanticId)
+
 # One durable attempt: a single try of a run (entity identity `attempt`).
 AttemptId = NewType("AttemptId", v.SemanticId)
 
 # One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`).
 DeclarationId = NewType("DeclarationId", v.SemanticId)
+
+# A typed shared engineering allowance rule (entity identity `engineering_rule`).
+EngineeringRuleId = NewType("EngineeringRuleId", v.SemanticId)
+
+# An explicitly declared engineering characteristic magnitude (entity identity `engineering_scale`).
+EngineeringScaleId = NewType("EngineeringScaleId", v.SemanticId)
 
 # One authored shared-parameter fit over its experiments (entity identity `fit`).
 FitId = NewType("FitId", v.SemanticId)

@@ -84,7 +84,7 @@ Compare final incremental admission with clean loading, test occurrence-specific
 
 ### Confirmation
 
-**Implemented/Tested, 2026-10-02:** [25h Verification](../plans/25h-authoring-and-admission-ownership.md#verification) and [25i Verification](../plans/25i-identity-reuse-and-resource-ownership.md#verification) own the targeted force-validation commands, zero-failure baseline, composite repairs and limits. They cover checked occurrences and explicit contexts, canonical frames and role refusal, selective body/data/physical-context reuse, escaped allocation owners, profile dispatch and the preserving V7 transition. The original review assesses the proposed target; its dated follow-up independently assesses the implemented cache witness and mathematical-purity boundary. Counter and lifetime controls do not establish performance or total RSS bounds. Integrated qualification remains 25k; this record remains proposed pending its decision PR.
+**Implemented/Tested, 2026-10-02:** [25h Verification](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25h-authoring-and-admission-ownership.md#verification) and [25i Verification](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md#verification) own the targeted force-validation commands, zero-failure baseline, composite repairs and limits. They cover checked occurrences and explicit contexts, canonical frames and role refusal, selective body/data/physical-context reuse, escaped allocation owners, profile dispatch and the preserving V7 transition. The original review assesses the proposed target; its dated follow-up independently assesses the implemented cache witness and mathematical-purity boundary. Counter and lifetime controls do not establish performance or total RSS bounds. Integrated qualification remains 25k; this record remains proposed pending its decision PR.
 
 ## Pros and cons
 
@@ -92,7 +92,7 @@ Explicit owners improve change locality and permit isolated admission/reuse test
 
 ## More information
 
-[25h](../plans/25h-authoring-and-admission-ownership.md), [25i](../plans/25i-identity-reuse-and-resource-ownership.md), [series coordinator](../plans/25-design-remediation.md), ADR-0146 and ADR-0148.
+[25h](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25h-authoring-and-admission-ownership.md), [25i](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md), [series coordinator](../plans/25-design-remediation.md), ADR-0146 and ADR-0148.
 
 ## Status history
 

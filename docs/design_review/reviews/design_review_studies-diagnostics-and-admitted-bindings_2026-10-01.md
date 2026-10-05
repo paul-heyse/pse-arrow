@@ -29,7 +29,7 @@ records inspected source and subsequent bounded reinspection, rather than a stab
 or whole-product qualification. Final reinspection used the coordinator-declared frozen dirty
 source, including terminal-history enrichment, closed physical observations and completed
 generation. Current finding dispositions belong to
-[Plan 25f](../../plans/25f-studies-diagnostics-and-continuation.md) and the
+[Plan 25f](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md) and the
 [series coordinator](../../plans/25-design-remediation.md).
 
 Inspected owners: `workflow/bindings.rs`, compiler member case inputs,

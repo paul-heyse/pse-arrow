@@ -879,8 +879,8 @@ mod tests {
         }
         assert_eq!(
             causes.lock().unwrap().as_slice(),
-            &[true, false],
-            "actual source deadline and report-only native deadline both exercised"
+            &[true, true],
+            "the 120 ms callback overruns the inner 80 ms deadline under both outer budgets"
         );
     }
     #[test]

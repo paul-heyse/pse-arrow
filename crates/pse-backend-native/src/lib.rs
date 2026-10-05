@@ -11,6 +11,7 @@ mod convexity;
 pub mod derivative_diagnostics;
 pub mod derived;
 pub mod dynamics;
+pub mod engineering_accuracy;
 pub mod execution;
 #[cfg(any(feature = "uno", feature = "ipopt"))]
 #[path = "uno/callback.rs"]

@@ -463,6 +463,17 @@ impl<'a> Emitter<'a> {
         if !names.is_empty() {
             source.push('\n');
         }
+        // Schema defaults are constructor conveniences. A serde-required version
+        // must still be supplied when reading bytes, including in a nested object.
+        if required.contains("version")
+            && let Some(version) = properties
+                .get("version")
+                .filter(|property| text(property, "type") == Some("integer"))
+                .and_then(|property| property.get("const"))
+                .and_then(Value::as_u64)
+        {
+            let _ = writeln!(source, "    _pse_required_version: ClassVar[int] = {version}\n");
+        }
         let mut keys = Vec::new();
         let mut validation = Vec::new();
         for field in names {
@@ -1014,6 +1025,17 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
             )
             .replace("from typing import Literal\n\n", "");
     }
+    if source.contains("ClassVar[") {
+        // Keep imports derived from emitted use, as for Annotated and Literal.
+        let import = source
+            .lines()
+            .find(|line| line.starts_with("from typing import "))
+            .map(ToOwned::to_owned);
+        match import {
+            Some(import) => source = source.replacen(&import, &format!("{import}, ClassVar"), 1),
+            None => source = source.replacen("import msgspec\n", "from typing import ClassVar\n\nimport msgspec\n", 1),
+        }
+    }
     Ok(source)
 }
 
@@ -1101,6 +1123,7 @@ mod tests {
             "class ChoicePlain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field=\"kind\", tag=\"plain\"):",
             "    size: Annotated[int, msgspec.Meta(ge=1)]",
             "Choice = ChoicePlain | ChoiceSized",
+            "    _pse_required_version: ClassVar[int] = 1",
             "    version: Literal[1] = 1",
             "    hessian: enums.HessianMode = enums.HessianMode.LIMITED_MEMORY",
             "    choice: Choice\n",
@@ -1110,6 +1133,34 @@ mod tests {
             assert!(source.contains(expected), "{expected}\n{source}");
         }
         assert!(!source.contains("Any"));
+    }
+
+    #[test]
+    fn python_document_read_versions_follow_required_schema_fields_and_keep_defaults() {
+        let registry = crate::registry().unwrap();
+        let schema = serde_json::json!({
+            "title": "ReadProbe", "type": "object", "additionalProperties": false,
+            "required": ["version"],
+            "properties": {
+                "version": {"type": "integer", "const": 7, "default": 7},
+                "nested": {"anyOf": [{"$ref": "#/$defs/NestedReadProbe"}, {"type": "null"}], "default": null},
+                "retained": {"anyOf": [{"$ref": "#/$defs/RetainedProbe"}, {"type": "null"}], "default": null}
+            },
+            "$defs": {
+                "NestedReadProbe": {"type": "object", "additionalProperties": false, "required": ["version"],
+                    "properties": {"version": {"type": "integer", "const": 11, "default": 11}}},
+                "RetainedProbe": {"type": "object", "additionalProperties": false,
+                    "properties": {"version": {"type": "integer", "const": 13, "default": 13}}}
+            }
+        });
+        let source = python(registry, &[document(schema)]).unwrap();
+        assert!(source.contains("_pse_required_version: ClassVar[int] = 7"));
+        assert!(source.contains("_pse_required_version: ClassVar[int] = 11"));
+        assert!(!source.contains("_pse_required_version: ClassVar[int] = 13"));
+        for version in [7, 11, 13] {
+            assert!(source.contains(&format!("version: Literal[{version}] = {version}")));
+        }
+        assert!(!source.contains("self._pse_required_version"));
     }
 
     #[test]

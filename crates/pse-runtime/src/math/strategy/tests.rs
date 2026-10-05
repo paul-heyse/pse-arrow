@@ -11,6 +11,22 @@ use std::sync::atomic::AtomicBool;
 fn hash(n: u8) -> ContentHash {
     ContentHash::from_bytes([n; 32])
 }
+
+#[test]
+fn engineering_refinement_original_success_stops_catalog_without_promoting_goal_permission() {
+    let declaration = strategy();
+    let last = AutoObservation {
+        awaiting_assessment: false,
+        native: Observation::Converged,
+        original: Some(OriginalConclusion::Satisfied),
+        permission: Some(CandidateUse::Unusable),
+    };
+    let request = pse_model::strategy::CompositionRequest::default();
+    assert!(matches!(next_automatic(
+        &request, &declaration.start, &[], &BTreeSet::new(), Some(&last), charge(0).observed, false,
+    ), AutoDecision::Finish));
+    assert_eq!(last.permission, Some(CandidateUse::Unusable));
+}
 fn scope() -> pse_kernels::ExecutionScope {
     pse_kernels::ExecutionScope::new(
         Arc::new(AtomicBool::new(false)),
@@ -1257,8 +1273,8 @@ fn optional_component_numerical_failure_retains_observation_and_charges_before_d
                 visited.push(index);
                 if index == 0 {
                     return Err(EffectFailure::component(
-                        Arc::new(ProblemError::Unsupported(
-                            "incomplete optional component".into(),
+                        Arc::new(ProblemError::numerical(
+                            "failed optional numerical component",
                         )),
                         charge(index).observed,
                         observed,
@@ -1292,6 +1308,486 @@ fn optional_component_numerical_failure_retains_observation_and_charges_before_d
             assert!(result.terminal.is_some());
         }
     }
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[test]
+fn abandoned_block_native_refusal_reaches_direct_through_production_projection() {
+    use pse_backend_native::{self as native, solve::*};
+    use pse_ids::SemanticId;
+    use pse_model::strategy::{CompositionRequest, StartPolicy};
+
+    let column = SemanticId::from_bytes([1; 16]);
+    let row = SemanticId::from_bytes([2; 16]);
+    let boundary = pse_structural::initialization::Block {
+        id: pse_structural::incidence::BlockId(hash(1)),
+        members: pse_structural::incidence::Part {
+            rows: vec![row],
+            columns: vec![column],
+        },
+        inputs: vec![],
+    };
+    let contract = native::OracleContract {
+        identity: hash(2),
+        variables: vec![native::Variable {
+            id: column,
+            lower: f64::NEG_INFINITY,
+            upper: f64::INFINITY,
+        }],
+        rows: vec![row],
+        derivatives: pse_kernels::DerivativeOrder::First,
+        smoothness: pse_kernels::DerivativeOrder::First,
+    };
+    let mut report = SolveReport::new(
+        Backend::Ipopt,
+        &contract,
+        NativeTermination {
+            code: 2,
+            name: "Infeasible_Problem_Detected".into(),
+            message: None,
+            category: Termination::Infeasible,
+            assurance: Assurance::None,
+        },
+        &Execution::new(Arc::default(), &Controls::default()),
+    );
+    report.candidate = Some(Candidate {
+        kind: CandidateKind::FinalIterate,
+        primal: vec![2.0],
+        objective: None,
+        row_dual: None,
+        bound_dual: None,
+        reduced_costs: None,
+        slacks: None,
+        commitment: None,
+    });
+    report.quality = Some(
+        native::quality::Quality::new(
+            vec![native::quality::Violation {
+                id: row,
+                physical: 2.0,
+                tolerance: 1.0,
+            }],
+            vec![],
+            vec![],
+        )
+        .unwrap(),
+    );
+    let policy = pse_model::numerics::NumericalPolicy::default();
+    native::quality::qualify(
+        &mut report,
+        &ResolvedAccuracy::from_policy(&policy, pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY)
+            .unwrap(),
+    );
+
+    let mut declaration = NumericalStrategy::direct(StartPolicy::NoPriorStart, limits());
+    declaration.mechanisms[0].kind = MechanismKind::Block;
+    declaration.mechanisms[0].required = false;
+    declaration.mechanisms[0]
+        .transitions
+        .push(Transition::Continue);
+    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate {
+        identity: if kind == MechanismKind::Block {
+            hash(3)
+        } else {
+            hash(4)
+        },
+        kind,
+        start: StartOrigin::Specification,
+        replacement: false,
+        support: BTreeSet::new(),
+        reservation: None,
+        prepared: true,
+    });
+    for missing_candidate in [false, true] {
+        let mut native = report.clone();
+        if missing_candidate {
+            native.candidate = None;
+            native.quality = None;
+        }
+        let mut values = pse_math::binding::CaseValues {
+            scalars: std::collections::BTreeMap::from([(column, 1.0)]),
+        };
+        let cause = crate::math::initialization::commit_block(
+            &mut values,
+            &boundary,
+            Some(&native),
+            &policy,
+        )
+        .unwrap_err();
+        assert!(matches!(cause.as_ref(), ProblemError::Numerical { .. }));
+        assert_eq!(values.scalars[&column], 1.0);
+        assert_eq!(observe_native(&native), Observation::Limited);
+        let failed = run::<()>(
+            &declaration,
+            &scope(),
+            |_| facts(0),
+            |_, _| {
+                Err(EffectFailure::component(
+                    cause.clone(),
+                    charge(0).observed,
+                    observe_native(&native),
+                ))
+            },
+            |_, _| panic!("failed block cannot be accepted or assessed as an original result"),
+        );
+        assert!(failed.value.is_none());
+        assert_eq!(failed.work.attempts, 1);
+        let event = failed.events.last().unwrap();
+        assert_eq!(event.kind, EventKind::Abandoned);
+        assert_eq!(event.transition, Some(Transition::Continue));
+        let last = automatic_observation(&failed.events).unwrap();
+        assert!(Arc::ptr_eq(
+            &last.original.as_ref().unwrap().cause().unwrap(),
+            &cause
+        ));
+        assert!(matches!(
+            next_automatic(
+                &CompositionRequest::default(),
+                &declaration.start,
+                &candidates,
+                &BTreeSet::from([0]),
+                Some(&last),
+                failed.work,
+                false,
+            ),
+            AutoDecision::Dispatch { candidate: 1 },
+        ));
+    }
+
+    // Actual terminal component witnesses still stop before any Direct operation.
+    for cause in [
+        ProblemError::Contract("coordinate contract".into()),
+        ProblemError::memory("component allocation"),
+        ProblemError::Cancelled,
+    ] {
+        let cause = Arc::new(cause);
+        let failed = run::<()>(
+            &declaration,
+            &scope(),
+            |_| facts(0),
+            |_, _| {
+                Err(EffectFailure::component(
+                    cause.clone(),
+                    charge(0).observed,
+                    failure(&cause),
+                ))
+            },
+            |_, _| panic!("terminal component cannot be accepted"),
+        );
+        assert!(Arc::ptr_eq(failed.terminal.as_ref().unwrap(), &cause));
+        let last = automatic_observation(&failed.events).unwrap();
+        assert!(matches!(
+            next_automatic(
+                &CompositionRequest::default(),
+                &declaration.start,
+                &candidates,
+                &BTreeSet::from([0]),
+                Some(&last),
+                failed.work,
+                false,
+            ),
+            AutoDecision::Stop { .. },
+        ));
+    }
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[test]
+fn malformed_component_metadata_stops_explicit_direct_despite_native_observation() {
+    use pse_backend_native::{self as native, solve::*};
+    use pse_ids::SemanticId;
+
+    let column = SemanticId::from_bytes([1; 16]);
+    let row = SemanticId::from_bytes([2; 16]);
+    let boundary = pse_structural::initialization::Block {
+        id: pse_structural::incidence::BlockId(hash(1)),
+        members: pse_structural::incidence::Part {
+            rows: vec![row],
+            columns: vec![column],
+        },
+        inputs: vec![],
+    };
+    let contract = native::OracleContract {
+        identity: hash(2),
+        variables: vec![native::Variable {
+            id: column,
+            lower: f64::NEG_INFINITY,
+            upper: f64::INFINITY,
+        }],
+        rows: vec![row],
+        derivatives: pse_kernels::DerivativeOrder::First,
+        smoothness: pse_kernels::DerivativeOrder::First,
+    };
+    let mut declaration = strategy();
+    declaration.mechanisms[0].kind = MechanismKind::Block;
+    declaration.mechanisms[0].required = false;
+    declaration.mechanisms[0]
+        .transitions
+        .push(Transition::Continue);
+    declaration.mechanisms[1].starts = vec![StartOrigin::Specification];
+    declaration.start.recovery.push(StartOrigin::Specification);
+    let policy = pse_model::numerics::NumericalPolicy::default();
+    let stop = |cause: Arc<ProblemError>, observed: Observation| {
+        let mut visited = Vec::new();
+        let failed = run::<()>(
+            &declaration,
+            &scope(),
+            |_| facts(0),
+            |index, _| {
+                visited.push(index);
+                Err(EffectFailure::component(
+                    cause.clone(),
+                    charge(0).observed,
+                    observed,
+                ))
+            },
+            |_, _| panic!("malformed component must not grant original permission"),
+        );
+        assert_eq!(
+            visited,
+            vec![0],
+            "Direct must not dispatch after a terminal actual cause"
+        );
+        assert!(Arc::ptr_eq(failed.terminal.as_ref().unwrap(), &cause));
+        assert!(failed.value.is_none());
+        assert_eq!(failed.work.attempts, 1);
+        assert_eq!(failed.work.evaluations, Some(3));
+        let event = failed.events.last().unwrap();
+        assert_eq!(event.transition, Some(Transition::Stop));
+        assert_eq!(event.observation, Some(observed));
+        assert!(Arc::ptr_eq(event.cause.as_ref().unwrap(), &cause));
+    };
+    for category in [Termination::Success, Termination::Limit] {
+        let mut report = SolveReport::new(
+            Backend::Ipopt,
+            &contract,
+            NativeTermination {
+                code: 0,
+                name: "fixture native outcome".into(),
+                message: None,
+                category,
+                assurance: Assurance::None,
+            },
+            &Execution::new(Arc::default(), &Controls::default()),
+        );
+        report.candidate = Some(Candidate {
+            kind: CandidateKind::FinalIterate,
+            primal: vec![],
+            objective: None,
+            row_dual: None,
+            bound_dual: None,
+            reduced_costs: None,
+            slacks: None,
+            commitment: None,
+        });
+        report.quality = Some(native::quality::Quality::new(vec![], vec![], vec![]).unwrap());
+        native::quality::qualify(
+            &mut report,
+            &ResolvedAccuracy::from_policy(
+                &policy,
+                pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY,
+            )
+            .unwrap(),
+        );
+        let mut values = pse_math::binding::CaseValues {
+            scalars: std::collections::BTreeMap::from([(column, 1.0)]),
+        };
+        let cause = crate::math::initialization::commit_block(
+            &mut values,
+            &boundary,
+            Some(&report),
+            &policy,
+        )
+        .unwrap_err();
+        assert!(matches!(cause.as_ref(), ProblemError::Contract(_)));
+        assert_eq!(values.scalars[&column], 1.0);
+        let observed = observe_native(&report);
+        assert_eq!(
+            observed,
+            if category == Termination::Success {
+                Observation::Converged
+            } else {
+                Observation::Limited
+            }
+        );
+        stop(cause, observed);
+    }
+    for cause in [
+        ProblemError::memory("actual component allocation"),
+        ProblemError::Cancelled,
+    ] {
+        stop(Arc::new(cause), Observation::Limited);
+    }
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[test]
+fn effective_original_failure_controls_commit_auto_and_explicit_terminal_paths() {
+    use pse_backend_native::{self as native, callback::CallbackState, solve::*};
+    use pse_ids::SemanticId;
+    use pse_model::strategy::CompositionRequest;
+
+    let column = SemanticId::from_bytes([1; 16]);
+    let row = SemanticId::from_bytes([2; 16]);
+    let boundary = pse_structural::initialization::Block {
+        id: pse_structural::incidence::BlockId(hash(1)),
+        members: pse_structural::incidence::Part {
+            rows: vec![row],
+            columns: vec![column],
+        },
+        inputs: vec![],
+    };
+    let contract = native::OracleContract {
+        identity: hash(2),
+        variables: vec![native::Variable {
+            id: column,
+            lower: f64::NEG_INFINITY,
+            upper: f64::INFINITY,
+        }],
+        rows: vec![row],
+        derivatives: pse_kernels::DerivativeOrder::First,
+        smoothness: pse_kernels::DerivativeOrder::First,
+    };
+    let with_callback = |cause: ProblemError| {
+        let execution = Execution::new(Arc::default(), &Controls::default());
+        let mut report = SolveReport::new(
+            Backend::Kinsol,
+            &contract,
+            NativeTermination {
+                code: -13,
+                name: "callback exit fixture".into(),
+                message: None,
+                category: Termination::Evaluation,
+                assurance: Assurance::None,
+            },
+            &execution,
+        );
+        let mut callbacks = CallbackState::new(execution);
+        assert!(
+            callbacks
+                .evaluate::<()>("residual", || Err(cause))
+                .is_none()
+        );
+        callbacks.finish(&mut report);
+        report
+    };
+    let trial = || {
+        ProblemError::Math(pse_math::MathError::Domain {
+            source_id: row,
+            requirement: "trial domain",
+        })
+    };
+    let mut declaration = strategy();
+    declaration.mechanisms[0].kind = MechanismKind::Block;
+    declaration.mechanisms[0].required = false;
+    declaration.mechanisms[0]
+        .transitions
+        .push(Transition::Continue);
+    declaration.mechanisms[1].starts = vec![StartOrigin::Specification];
+    declaration.start.recovery.push(StartOrigin::Specification);
+    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate {
+        identity: if kind == MechanismKind::Block {
+            hash(3)
+        } else {
+            hash(4)
+        },
+        kind,
+        start: StartOrigin::Specification,
+        replacement: false,
+        support: BTreeSet::new(),
+        reservation: None,
+        prepared: true,
+    });
+    let terminal = |report: &SolveReport, expected: &Arc<ProblemError>, observed: Observation| {
+        assert_eq!(observe_native(report), observed);
+        assert!(Arc::ptr_eq(&cause_native(report).unwrap(), expected));
+        let mut values = pse_math::binding::CaseValues {
+            scalars: std::collections::BTreeMap::from([(column, 1.0)]),
+        };
+        let cause = crate::math::initialization::commit_block(
+            &mut values,
+            &boundary,
+            Some(report),
+            &Default::default(),
+        )
+        .unwrap_err();
+        assert!(Arc::ptr_eq(&cause, expected));
+        assert_eq!(values.scalars[&column], 1.0);
+        let mut visited = Vec::new();
+        let result = run::<()>(
+            &declaration,
+            &scope(),
+            |_| facts(0),
+            |index, _| {
+                visited.push(index);
+                Err(EffectFailure::component(
+                    cause.clone(),
+                    charge(0).observed,
+                    observed,
+                ))
+            },
+            |_, _| panic!("terminal original source cannot grant permission"),
+        );
+        assert_eq!(visited, vec![0]);
+        assert!(Arc::ptr_eq(result.terminal.as_ref().unwrap(), expected));
+        assert_eq!(result.work.attempts, 1);
+        assert_eq!(
+            result.events.last().unwrap().transition,
+            Some(Transition::Stop)
+        );
+        let last = automatic_observation(&result.events).unwrap();
+        assert!(matches!(
+            next_automatic(
+                &CompositionRequest::default(),
+                &declaration.start,
+                &candidates,
+                &BTreeSet::from([0]),
+                Some(&last),
+                result.work,
+                false,
+            ),
+            AutoDecision::Stop { .. }
+        ));
+    };
+    for late_terminal_flag in [false, true] {
+        for (validation, observed) in [
+            (
+                ProblemError::Contract("original contract".into()),
+                Observation::ContractFailure,
+            ),
+            (
+                ProblemError::memory("original validation allocation"),
+                Observation::ResourceExhausted,
+            ),
+            (ProblemError::Cancelled, Observation::Cancelled),
+        ] {
+            let mut report = with_callback(trial());
+            let callback = report.shared_callback_failure().unwrap();
+            assert!(!report.evidence.callback.terminal_failure);
+            report.record_validation_failure(validation);
+            report.evidence.callback.terminal_failure = late_terminal_flag;
+            let validation = report.shared_validation_failure().unwrap();
+            terminal(&report, &validation, observed);
+            assert!(Arc::ptr_eq(
+                &report.shared_callback_failure().unwrap(),
+                &callback
+            ));
+        }
+    }
+    let mut report = with_callback(ProblemError::Contract("terminal callback contract".into()));
+    let callback = report.shared_callback_failure().unwrap();
+    assert!(report.evidence.callback.terminal_failure);
+    report.record_validation_failure(ProblemError::memory("later original validation"));
+    terminal(&report, &callback, Observation::ContractFailure);
+
+    // Merely retaining a trial witness does not create a terminal native observation.
+    let mut report = with_callback(trial());
+    report.termination.category = Termination::Success;
+    assert!(!report.evidence.callback.terminal_failure);
+    assert!(report.validation_failure().is_none());
+    assert!(report.shared_effective_failure().is_some());
+    assert_eq!(observe_native(&report), Observation::Converged);
+    assert!(cause_native(&report).is_none());
 }
 
 #[test]

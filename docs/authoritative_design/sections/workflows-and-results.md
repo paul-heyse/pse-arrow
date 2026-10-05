@@ -73,12 +73,19 @@ or production FeOS provider remains.
 
 ### 13.3 Time derivatives and accumulation
 
+> Decision: ADR-0163 (proposed; authorized implementation).
+
+Output goals may protect already-declared integrated observables. Their error evidence is
+separate from native local integration weights and original cumulative conservation checks.
+
 Quantity inference admits each derivative against the actual axis type. Authored integrals
 become native quadratures for causal terminal integrated outputs or scheme-weighted sums
 for simultaneous realization. Integral sensitivities are not exposed; ordinary state/output
 sensitivities may coexist with terminal quadratures. Conservation-generated flux quadratures
-derive their absolute budget as one tenth of the tightest consuming physical closure tolerance
+inherit the tightest consuming physical closure tolerance as their absolute budget
 and inherit the integration relative budget unless an explicit quadrature budget is supplied.
+There is no additional automatic inner tightening factor; independently assessed inventory
+closure remains required.
 Unrelated authored integrals still require explicit quadrature tolerances.
 
 A conserved descriptor retains the original inventory and flux expression, physical tolerance
@@ -135,6 +142,14 @@ Simultaneous actionable roots are refused. IDAES time utilities such as copying 
 between time points or deactivating a model at selected points have no counterpart.
 
 ### 13.6 Native integrators and trajectories
+
+> Decision: ADR-0163 (proposed; authorized implementation).
+
+Compatible sampled/endpoint/integrated goals share one bounded comparator integration,
+retaining consumed scalar products and matched schedule/event/branch meaning. Paired output
+stability is empirical Estimated evidence, never a global trajectory certificate. No-goal
+integration acquires no comparator solely for this feature; native controllers remain owned
+by their libraries.
 
 > Decision: [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — IDAS scheduled
 > inputs with recoverable trials, events without sensitivities, constraints and Krylov;
@@ -368,6 +383,15 @@ mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
+> Decision: ADR-0163 (proposed; authorized implementation).
+
+Completion retains immutable physical goal assessments, method, validity, strength and
+unavailable reasons. Publication and Python/durable consumers report that assessment without
+refining or reinterpreting usability. A selected output and the optimum objective are distinct
+subjects: objective-gap evidence cannot certify arbitrary variables. For an asymmetric optimum
+interval, value resolution is assessed about the reported representative, not silently about
+the midpoint. Native terminal/refusal obligations retain precedence.
+
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
@@ -451,7 +475,8 @@ consuming instance, claim owner and checked nominal ancestry, selected records, 
 inputs, evidence basis, unknown reason and required or alternative status. A matched
 permission retains its identity, scope, authored targets and independent unknown/extrapolation
 flags. Refusals retain the same typed assessment through boundary diagnostics. These are
-low-level data-use observations; Plan 25e owns the later result qualification decision.
+low-level data-use observations; result qualification is owned by
+[§19.2](#section-19-2).
 
 Results are registry-generated `runtime.*` relations (solve runs/variables/constraints/
 metrics, computation runs, simulation samples/events, fit parameters/variables/
@@ -562,7 +587,7 @@ there is outside these execution-local counters. An execution that consumes that
 records a value rebind for its first point as well as subsequent points, without another view.
 Equal structures reuse compiler/library
 products while admitted values remain explicit inputs. Historic measurements retain their
-original scope; the owning [Plan 25f](../../plans/25f-studies-diagnostics-and-continuation.md)
+original scope; the owning [Plan 25f](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md)
 records replacement-control evidence and [25k](../../plans/25k-integrated-qualification-and-closure.md)
 owns assembled qualification.
 

@@ -163,7 +163,7 @@ datum translation. Scientific oracles detect type-correct but wrong formulas.
 ### Confirmation
 
 Implemented contract scope is recorded in blueprint §8, §9.8 and §14.3. The owning plan
-records the [actual focused commands and outcomes](../plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation). Selected scientific-declaration controls
+records the [actual focused commands and outcomes](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation). Selected scientific-declaration controls
 retain current scientific bodies and use small synthetic parameter rows; external dataset
 transport and full package journeys remain Plan 25k scope. This proposed decision does not
 claim integrated product qualification or decision acceptance.
@@ -176,7 +176,7 @@ to introducing helper types.
 
 ## More information
 
-[Plan 25a](../plans/25a-physical-values-and-contextual-contracts.md) owns packets;
+[Plan 25a](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25a-physical-values-and-contextual-contracts.md) owns packets;
 [Plan 25](../plans/25-design-remediation.md) owns finding dispositions. ADR-0124,
 ADR-0127 and blueprint §8/§9.8 provide current context.
 

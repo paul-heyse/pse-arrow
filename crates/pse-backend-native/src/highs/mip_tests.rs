@@ -64,7 +64,7 @@ fn solve(
             p,
             &identity(p),
             controls,
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             settings,
             Execution::new(Default::default(), controls),
             &Tolerances {
@@ -296,7 +296,7 @@ fn highs_incumbents_streamed() {
             &native,
             &n,
             &controls,
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             &Settings::default(),
             execution,
             &Tolerances {
@@ -405,7 +405,7 @@ fn mip_node_budget_independent() {
                 &p,
                 &identity(&p),
                 &raw,
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 &Settings::default(),
                 Execution::new(Default::default(), &raw),
                 &Tolerances {
@@ -427,7 +427,7 @@ fn mip_node_budget_independent() {
                 &p,
                 &identity(&p),
                 &Controls::default(),
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 &zero,
                 Execution::new(Default::default(), &Controls::default()),
                 &Tolerances {
@@ -620,7 +620,7 @@ fn qp_regularization_within_gap_budget() {
     // Two variables in [-10, 10]: the bounding box has ‖x‖² ≤ 200.
     let accuracy = ResolvedAccuracy {
         gap_absolute: 1e-6,
-        ..ResolvedAccuracy::nominal()
+        ..ResolvedAccuracy::verification()
     };
     let mut p = problem(
         &[0.0, 0.0],
@@ -632,7 +632,7 @@ fn qp_regularization_within_gap_budget() {
     p.contract.variables[0].upper = f64::INFINITY;
     let loose = ResolvedAccuracy {
         gap_absolute: 1.0,
-        ..ResolvedAccuracy::nominal()
+        ..ResolvedAccuracy::verification()
     };
     assert_eq!(qp_regularization(&p, &loose), 1e-7);
 }

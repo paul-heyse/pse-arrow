@@ -32,7 +32,7 @@ symlinks. These obligations belong to their affected owners and do not prevent G
 
 The independent reviewer examined the completed-25f baseline `6150c8c92`, the proposed
 expansion of [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md), and
-[Plan 25g](../../plans/25g-durable-contract-evolution.md), including its execution checkpoint.
+[Plan 25g](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25g-durable-contract-evolution.md), including its execution checkpoint.
 The coordinator supplied the settled capability boundaries, finite-map transformation scope,
 reset transaction contract, restart-safe scan choice and subsequent descriptor-proof condition.
 The source assessment uses the named baseline; concurrent operations changes appearing during

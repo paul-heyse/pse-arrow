@@ -132,7 +132,7 @@ fn pounce_convex_batch_matches_single_solves() {
         threads: 2,
         ..Controls::default()
     };
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let settings = pounce_convex();
     let programs: Vec<_> = [1.2, 1.6, 2.0, 2.4].into_iter().map(qp).collect();
     let budgets: Vec<Tolerances> = programs.iter().map(|(p, _)| budgets(p, 1e-7)).collect();

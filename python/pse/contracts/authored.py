@@ -14,6 +14,36 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredAccuracyGoalsRow:
+    """Declared relation row or nested value."""
+
+    goal_id: i.AccuracyGoalId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    model_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    case_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    instance_id: i.InstanceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    fit_id: i.FitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    subject: e.AccuracyGoalSubject = attrs.field(validator=attrs.validators.instance_of(e.AccuracyGoalSubject))
+    observation: e.AccuracyObservation = attrs.field(validator=attrs.validators.instance_of(e.AccuracyObservation))
+    time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    resolution: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    criterion_lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    criterion_upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    required_class: e.NumericalAccuracyClass = attrs.field(validator=attrs.validators.instance_of(e.NumericalAccuracyClass))
+    use_policy: e.AccuracyGoalUse = attrs.field(validator=attrs.validators.instance_of(e.AccuracyGoalUse))
+    refine: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    source: e.NumericalSource = attrs.field(validator=attrs.validators.instance_of(e.NumericalSource))
+    priority: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.goal_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.subject), v.scalar_key(self.observation), v.optional_key(v.scalar_key)(self.time), v.optional_key(v.scalar_key)(self.resolution), v.optional_key(v.scalar_key)(self.criterion_lower), v.optional_key(v.scalar_key)(self.criterion_upper), v.scalar_key(self.required_class), v.scalar_key(self.use_policy), v.scalar_key(self.refine), v.scalar_key(self.source), v.scalar_key(self.priority), v.scalar_key(self.provenance),))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredDocumentsRow:
     """Declared relation row or nested value."""
 
@@ -25,6 +55,44 @@ class AuthoredDocumentsRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_id), v.scalar_key(self.package_id), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.source_text), v.optional_key(v.scalar_key)(self.content),))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredEngineeringDefaultRulesRow:
+    """Declared relation row or nested value."""
+
+    rule_id: i.EngineeringRuleId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    physical_allowance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    relative_fraction: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.rule_id), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.optional_key(v.scalar_key)(self.physical_allowance), v.optional_key(v.scalar_key)(self.relative_fraction), v.scalar_key(self.provenance),))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredEngineeringScalesRow:
+    """Declared relation row or nested value."""
+
+    scale_id: i.EngineeringScaleId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    model_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    case_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    instance_id: i.InstanceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    fit_id: i.FitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: e.EngineeringScaleKind = attrs.field(validator=attrs.validators.instance_of(e.EngineeringScaleKind))
+    value: b.float = attrs.field(validator=v.finite_float)
+    source: e.NumericalSource = attrs.field(validator=attrs.validators.instance_of(e.NumericalSource))
+    priority: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.scale_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.kind), v.scalar_key(self.value), v.scalar_key(self.source), v.scalar_key(self.priority), v.scalar_key(self.provenance),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1361,6 +1429,45 @@ class AuthoredModelingDeclarationsFieldValueAnnotationObjective:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal:
+    """Declared relation row or nested value."""
+
+    subject: e.AccuracyGoalSubject = attrs.field(validator=attrs.validators.instance_of(e.AccuracyGoalSubject))
+    observation: e.AccuracyObservation = attrs.field(validator=attrs.validators.instance_of(e.AccuracyObservation))
+    time: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    resolution: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    criterion_lower: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    criterion_upper: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    required_class: e.NumericalAccuracyClass = attrs.field(validator=attrs.validators.instance_of(e.NumericalAccuracyClass))
+    use_policy: e.AccuracyGoalUse = attrs.field(validator=attrs.validators.instance_of(e.AccuracyGoalUse))
+    refine: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.subject), v.scalar_key(self.observation), v.optional_key(v.scalar_key)(self.time), v.optional_key(v.scalar_key)(self.resolution), v.optional_key(v.scalar_key)(self.criterion_lower), v.optional_key(v.scalar_key)(self.criterion_upper), v.scalar_key(self.required_class), v.scalar_key(self.use_policy), v.scalar_key(self.refine),))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale:
+    """Declared relation row or nested value."""
+
+    kind: e.EngineeringScaleKind = attrs.field(validator=attrs.validators.instance_of(e.EngineeringScaleKind))
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.value),))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault:
+    """Declared relation row or nested value."""
+
+    rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.rule),))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredModelingDeclarationsFieldValueAnnotation:
     """Declared relation row or nested value."""
 
@@ -1370,9 +1477,12 @@ class AuthoredModelingDeclarationsFieldValueAnnotation:
     scheme: e.ConstraintScalingScheme | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ConstraintScalingScheme)))
     connectivity: AuthoredModelingDeclarationsFieldValueAnnotationConnectivity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationConnectivity)))
     objective: AuthoredModelingDeclarationsFieldValueAnnotationObjective | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationObjective)))
+    accuracy_goal: AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal)))
+    engineering_scale: AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale)))
+    engineering_default: AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.target), v.sequence_key(v.scalar_key)(self.arguments), v.optional_key(v.scalar_key)(self.scheme), v.optional_key(v.record_key)(self.connectivity), v.optional_key(v.record_key)(self.objective),))
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.target), v.sequence_key(v.scalar_key)(self.arguments), v.optional_key(v.scalar_key)(self.scheme), v.optional_key(v.record_key)(self.connectivity), v.optional_key(v.record_key)(self.objective), v.optional_key(v.record_key)(self.accuracy_goal), v.optional_key(v.record_key)(self.engineering_scale), v.optional_key(v.record_key)(self.engineering_default),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1555,6 +1665,8 @@ class AuthoredNumericalRequirementsRow:
     scaling_factor: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     absolute_tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     relative_tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    shared_engineering_allowance: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    engineering_rule_id: i.EngineeringRuleId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     coordinates: e.NumericalCoordinates = attrs.field(validator=attrs.validators.instance_of(e.NumericalCoordinates))
     priority: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
@@ -1562,7 +1674,7 @@ class AuthoredNumericalRequirementsRow:
     provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.requirement_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.nominal), v.optional_key(v.scalar_key)(self.scaling_factor), v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.relative_tolerance), v.optional_key(v.scalar_key)(self.unit_id), v.scalar_key(self.coordinates), v.scalar_key(self.priority), v.scalar_key(self.required), v.scalar_key(self.provenance),))
+        return (type(self), (v.scalar_key(self.requirement_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.nominal), v.optional_key(v.scalar_key)(self.scaling_factor), v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.relative_tolerance), v.optional_key(v.scalar_key)(self.shared_engineering_allowance), v.optional_key(v.scalar_key)(self.engineering_rule_id), v.optional_key(v.scalar_key)(self.unit_id), v.scalar_key(self.coordinates), v.scalar_key(self.priority), v.scalar_key(self.required), v.scalar_key(self.provenance),))
 
 
 @attrs.frozen(kw_only=True)

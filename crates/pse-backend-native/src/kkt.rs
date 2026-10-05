@@ -50,11 +50,13 @@
 //! is the exact covariance of the estimate (ADR-0118 item 8).
 use crate::{
     NlpOracle, ProblemError,
+    engineering_accuracy::KktPointArithmetic,
     quality::{self, Observation, Tolerances},
     solve::{Candidate, SolveIntent, SolveReport},
 };
 use pounce_sens_core::{SensBacksolver, backsolver::BoundRow};
 use pse_math::{
+    implicit::ProofInterval,
     index::{Entry, OriginalCol, OriginalRow, TiVec},
     normalization::Normalization,
 };
@@ -86,6 +88,9 @@ pub struct Analysis {
     /// from the step's KKT factor after qualification (Plan 22 S3): over a fit's parameter
     /// columns, the exact covariance of its estimate. It needs `second_order`.
     pub inverse_reduced_hessian: Option<Vec<OriginalCol>>,
+    /// Protected output evidence at the actual qualified stationary candidate. This
+    /// keeps the step's own factor; it creates no sensitivity or inverse request.
+    pub output_accuracy: Option<Box<dyn crate::engineering_accuracy::KktOutputObserver>>,
 }
 impl Analysis {
     /// No analysis.
@@ -93,6 +98,7 @@ impl Analysis {
         second_order: false,
         sensitivity: None,
         inverse_reduced_hessian: None,
+        output_accuracy: None,
     };
     /// The standing selection for a solve of `intent`: the KKT-point analysis for an
     /// optimization, and none for the feasibility purposes, which solve a constant
@@ -102,6 +108,7 @@ impl Analysis {
             second_order: intent == SolveIntent::Optimize,
             sensitivity: None,
             inverse_reduced_hessian: None,
+            output_accuracy: None,
         }
     }
 }
@@ -319,6 +326,26 @@ pub struct KktFactor {
     /// `S_f`, the objective nominal.
     objective: f64,
     bound_rows: Arc<[BoundRow]>,
+    point: pse_ids::ContentHash,
+    variables: Arc<[pse_ids::SemanticId]>,
+    rows: Arc<[pse_ids::SemanticId]>,
+    variable_bounds: Arc<[(f64, f64)]>,
+    normalization: pse_ids::ContentHash,
+    row_dual: Arc<[f64]>,
+    lower_dual: Arc<[f64]>,
+    upper_dual: Arc<[f64]>,
+}
+/// Actual-RHS action receipt, separate from the synthetic KKT diagnostic system.
+#[derive(Clone, Copy, Debug)]
+pub struct KktActionEvidence {
+    /// Normwise normalized backward error; this is not a forward error bound.
+    pub backward_error: f64,
+    /// Arithmetic reliability limit for this action.
+    pub backward_error_limit: f64,
+    /// Shared action invocations observed by this owner.
+    pub action_invocations: u64,
+    /// Actual direct substitutions observed by the correction owner.
+    pub backsolves: Option<u64>,
 }
 impl std::fmt::Debug for KktFactor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -328,6 +355,304 @@ impl std::fmt::Debug for KktFactor {
     }
 }
 impl KktFactor {
+    /// Identity of the original physical point actually factored.
+    pub fn point(&self) -> pse_ids::ContentHash {
+        self.point
+    }
+    /// Coordinates of the original factor's admitted normalization.
+    pub fn normalization(&self) -> pse_ids::ContentHash {
+        self.normalization
+    }
+
+    /// Whether the report still names the original point and inventory factored here.
+    pub(crate) fn matches_report(&self, report: &SolveReport) -> bool {
+        report.candidate.as_ref().is_some_and(|candidate| {
+            crate::square_response::point_key(&candidate.primal) == self.point
+                && candidate.row_dual.as_deref() == Some(self.row_dual.as_ref())
+                && candidate.bound_dual.as_ref().is_some_and(|(lower, upper)| {
+                    lower.as_slice() == self.lower_dual.as_ref() && upper.as_slice() == self.upper_dual.as_ref()
+                })
+        }) && report.variables.as_slice() == self.variables.as_ref()
+            && report.rows.as_slice() == self.rows.as_ref()
+    }
+
+    /// Fresh original stationary and active feasibility residuals in this factor's
+    /// physical order. These are unrelated to `KktPoint::residual`'s synthetic RHS.
+    pub(crate) fn original_residual(&self, report: &SolveReport) -> Result<Vec<f64>, ProblemError> {
+        if !self.matches_report(report) {
+            return Err(ProblemError::Contract(
+                "KKT report differs from the factored point or inventory".into(),
+            ));
+        }
+        let candidate = report
+            .candidate
+            .as_ref()
+            .ok_or_else(|| ProblemError::Contract("KKT candidate missing".into()))?;
+        let observation = report
+            .observation
+            .as_ref()
+            .ok_or_else(|| ProblemError::Contract("KKT original observation missing".into()))?;
+        let stationarity = observation
+            .stationarity
+            .as_ref()
+            .ok_or_else(|| ProblemError::Contract("KKT original stationarity missing".into()))?;
+        if stationarity.len() != self.layout.variables
+            || observation.values.len() != self.rows.len()
+            || observation.bounds.len() != self.rows.len()
+            || observation.dual_error.is_some()
+        {
+            return Err(ProblemError::Contract(
+                "KKT original residual dimensions or duals".into(),
+            ));
+        }
+        let mut residual = Vec::with_capacity(self.layout.dim());
+        residual.extend_from_slice(stationarity);
+        for (row, side) in &self.layout.rows {
+            let (lower, upper) = observation.bounds[row.get()];
+            let boundary = if *side == Side::Upper { upper } else { lower };
+            residual.push(observation.values[row.get()] - boundary);
+        }
+        for (column, side) in &self.layout.bounds {
+            let (lower, upper) = self.variable_bounds[column.get()];
+            // Bound rows in the factor have +e for upper and -e for lower/equal.
+            residual.push(if *side == Side::Upper {
+                candidate.primal[column.get()] - upper
+            } else {
+                lower - candidate.primal[column.get()]
+            });
+        }
+        if residual.iter().any(|value| !value.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite original KKT residual"));
+        }
+        Ok(residual)
+    }
+
+    /// Compare same-point exact-real intervals with the actual original KKT values and
+    /// return physical residual and dense row-major matrix radii. No solver tolerance is
+    /// used to manufacture or enlarge these arithmetic uncertainties.
+    pub(crate) fn arithmetic_radii(
+        &self,
+        report: &SolveReport,
+        source: pse_model::strategy::SemanticProductKey,
+        proof: &KktPointArithmetic,
+    ) -> Result<Option<KktArithmeticRadii>, ProblemError> {
+        if proof.source != source || source.point != Some(self.point) || !self.matches_report(report) {
+            return Err(ProblemError::Contract("KKT arithmetic source differs from its factor point".into()));
+        }
+        let Some(hessian) = proof.hessian.as_deref() else { return Ok(None); };
+        let n = self.layout.variables;
+        let order = self.layout.dim();
+        let Some(hessian_extent) = proof.values.len().checked_mul(n).and_then(|extent| extent.checked_mul(n)) else {
+            return Err(ProblemError::memory("KKT point Hessian extent"));
+        };
+        let Some(jacobian_extent) = proof.values.len().checked_mul(n) else {
+            return Err(ProblemError::memory("KKT point Jacobian extent"));
+        };
+        if proof.rows.len() != self.rows.len()
+            || proof.objective.is_some_and(|index| index >= proof.values.len())
+            || proof.jacobian.len() != jacobian_extent
+            || hessian.len() != hessian_extent
+            || proof.values.iter().chain(&proof.jacobian).chain(hessian)
+                .any(|interval| !interval.valid())
+        {
+            return Err(ProblemError::Contract("KKT point arithmetic shape or interval".into()));
+        }
+        for row in &proof.rows {
+            if row.value >= proof.values.len()
+                || row.lower_residual.is_some_and(|index| index >= proof.values.len())
+                || row.upper_residual.is_some_and(|index| index >= proof.values.len())
+            {
+                return Err(ProblemError::Contract("KKT point row arithmetic index".into()));
+            }
+        }
+        let residual = self.original_residual(report)?;
+        let Some(observation) = report.observation.as_ref() else { return Err(ProblemError::Contract("KKT observation missing for arithmetic comparison".into())); };
+        let Some(stationarity) = observation.stationarity.as_deref() else { return Err(ProblemError::Contract("KKT stationarity missing for arithmetic comparison".into())); };
+        let Some(candidate) = report.candidate.as_ref() else { return Err(ProblemError::Contract("KKT candidate missing for arithmetic comparison".into())); };
+        let Some((zl, zu)) = candidate.bound_dual.as_ref() else { return Err(ProblemError::Contract("KKT bound multipliers missing for arithmetic comparison".into())); };
+        let mut residual_uncertainty = vec![0.0; order];
+        let mut matrix_uncertainty = vec![0.0; order.checked_mul(order).ok_or_else(|| ProblemError::memory("KKT arithmetic matrix extent"))?];
+
+        // Original stationarity is grad(f) + Σ λᵣ grad(gᵣ) − zL + zU.
+        // Enclose that exact expression and compare it with the solver's independently
+        // observed floating-point stationarity, retaining all callback arithmetic error.
+        if stationarity.len() != n || zl.len() != n || zu.len() != n {
+            return Err(ProblemError::Contract("KKT stationarity arithmetic dimensions".into()));
+        }
+        let row_dual = candidate.row_dual.as_deref().ok_or_else(|| ProblemError::Contract("KKT row multipliers missing for arithmetic comparison".into()))?;
+        if row_dual.len() != proof.rows.len() {
+            return Err(ProblemError::Contract("KKT row multiplier arithmetic dimensions".into()));
+        }
+        for column in 0..n {
+            let mut interval = proof.objective.map_or_else(|| point_interval(0.0), |objective| proof.jacobian[objective * n + column]);
+            for (row, multiplier) in proof.rows.iter().zip(row_dual) {
+                if *multiplier == 0.0 { continue; }
+                let derivative = proof.jacobian[row.value * n + column];
+                interval = match interval_add(interval, interval_scale(derivative, *multiplier)) {
+                    Some(sum) => sum,
+                    None => return Err(ProblemError::numerical("nonfinite KKT stationarity enclosure")),
+                };
+            }
+            let bound_term = interval_add(point_interval(-zl[column]), point_interval(zu[column]))
+                .ok_or_else(|| ProblemError::numerical("nonfinite KKT bound stationarity term"))?;
+            interval = match interval_add(interval, bound_term) {
+                Some(sum) => sum,
+                None => return Err(ProblemError::numerical("nonfinite KKT bound stationarity enclosure")),
+            };
+            residual_uncertainty[column] = interval_radius(interval, stationarity[column])?;
+        }
+
+        // Active original row residuals are the exact bound-subtracted outputs from the
+        // same projection. Active variable bounds are simple binary64 subtractions; use
+        // a directed neighbor enclosure of that one actual operation, not a tolerance.
+        let mut active_offset = n;
+        for (row_index, side) in &self.layout.rows {
+            let mapped = &proof.rows[row_index.get()];
+            let interval_index = match side {
+                Side::Lower => mapped.lower_residual,
+                Side::Upper => mapped.upper_residual,
+                Side::Equal => mapped.lower_residual,
+            }.ok_or_else(|| ProblemError::Contract("active KKT row has no enclosed residual".into()))?;
+            residual_uncertainty[active_offset] = interval_radius(proof.values[interval_index], residual[active_offset])?;
+            active_offset += 1;
+        }
+        for (column, side) in &self.layout.bounds {
+            let (left, right) = if *side == Side::Upper {
+                (candidate.primal[column.get()], self.variable_bounds[column.get()].1)
+            } else {
+                (self.variable_bounds[column.get()].0, candidate.primal[column.get()])
+            };
+            let observed = residual[active_offset];
+            residual_uncertainty[active_offset] = subtraction_radius(left, right, observed)?;
+            active_offset += 1;
+        }
+        if active_offset != order {
+            return Err(ProblemError::Contract("KKT arithmetic residual layout".into()));
+        }
+
+        // The physical top-left block encloses Hessian(f)+Σ λᵣ Hessian(gᵣ); compare
+        // it with the actual original matrix retained by this factor.
+        for row in 0..n {
+            for column in 0..n {
+                let mut interval = proof.objective.map_or_else(|| point_interval(0.0), |objective| hessian[(objective * n + row) * n + column]);
+                for (source_row, multiplier) in proof.rows.iter().zip(row_dual) {
+                    if *multiplier == 0.0 { continue; }
+                    let entry = hessian[(source_row.value * n + row) * n + column];
+                    interval = match interval_add(interval, interval_scale(entry, *multiplier)) {
+                        Some(sum) => sum,
+                        None => return Err(ProblemError::numerical("nonfinite KKT Hessian enclosure")),
+                    };
+                }
+                let actual = self.physical_matrix_entry(row, column);
+                matrix_uncertainty[row * order + column] = interval_radius(interval, actual)?;
+            }
+        }
+        // Active constraint gradients occupy both symmetric off-diagonal blocks.
+        for (active, (row_index, _)) in self.layout.rows.iter().enumerate() {
+            let row = &proof.rows[row_index.get()];
+            let matrix_row = n + active;
+            for column in 0..n {
+                let interval = proof.jacobian[row.value * n + column];
+                let actual = self.physical_matrix_entry(matrix_row, column);
+                let radius = interval_radius(interval, actual)?;
+                matrix_uncertainty[matrix_row * order + column] = radius;
+                matrix_uncertainty[column * order + matrix_row] = radius;
+            }
+        }
+        Ok(Some(KktArithmeticRadii { residual: residual_uncertainty, matrix: matrix_uncertainty }))
+    }
+
+    fn physical_matrix_entry(&self, row: usize, column: usize) -> f64 {
+        let (row, column) = (row.max(column), row.min(column));
+        let value = (self.matrix.col_ptr[column]..self.matrix.col_ptr[column + 1])
+            .find_map(|slot| (self.matrix.row_idx[slot] == row).then_some(self.matrix.values[slot]))
+            .unwrap_or(0.0);
+        self.objective * value / (self.scales[row] * self.scales[column])
+    }
+    /// One fallible physical correction action against the actual supplied RHS.
+    /// One existing-factor FERAL substitution, without hidden refinement. A failed
+    /// backward-error check withholds this optional estimate rather than adding work.
+    /// # Errors
+    /// Invalid shape, nonfinite transport, native solve or backward-error failure.
+    pub fn correction_action(
+        &self,
+        rhs: &[f64],
+        execution: &crate::solve::Execution,
+    ) -> Result<(Vec<f64>, KktActionEvidence), ProblemError> {
+        let n = self.layout.dim();
+        if rhs.len() != n || rhs.iter().any(|x| !x.is_finite()) {
+            return Err(ProblemError::Contract(
+                "KKT correction RHS shape or values".into(),
+            ));
+        }
+        execution.check()?;
+        let scaled = rhs
+            .iter()
+            .zip(self.scales.iter())
+            .map(|(r, p)| r * p / self.objective)
+            .collect::<Vec<_>>();
+        if scaled.iter().any(|x| !x.is_finite()) {
+            return Err(ProblemError::numerical(
+                "nonfinite KKT correction normalization",
+            ));
+        }
+        let work = crate::solve::WorkEvidence {
+            evaluations: Some(0),
+            iterations: Some(1),
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        execution.counted(work, || {
+            let w = self
+                .solver
+                .solve(&scaled)
+                .map_err(crate::conditioning::native)?;
+            execution.check()?;
+            if w.len() != n || w.iter().any(|x| !x.is_finite()) {
+                return Err(ProblemError::numerical("nonfinite KKT correction action"));
+            }
+            let actual = symmetric_product(&self.matrix, &w, false);
+            let infinity = |v: &[f64]| v.iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+            let residual = infinity(
+                &actual
+                    .iter()
+                    .zip(&scaled)
+                    .map(|(a, b)| b - a)
+                    .collect::<Vec<_>>(),
+            );
+            let scale = infinity(&symmetric_product(&self.matrix, &vec![1.; n], true))
+                * infinity(&w)
+                + infinity(&scaled);
+            let backward_error = if scale > 0. {
+                residual / scale
+            } else {
+                residual
+            };
+            let backward_error_limit = 128. * f64::EPSILON * (n as f64).max(1.);
+            if !backward_error.is_finite() || backward_error > backward_error_limit {
+                return Err(ProblemError::numerical(
+                    "KKT correction backward error exceeds action limit",
+                ));
+            }
+            let physical = w
+                .iter()
+                .zip(self.scales.iter())
+                .map(|(w, p)| w * p)
+                .collect::<Vec<_>>();
+            if physical.iter().any(|x| !x.is_finite()) {
+                return Err(ProblemError::numerical("nonfinite physical KKT correction"));
+            }
+            Ok((
+                physical,
+                KktActionEvidence {
+                    backward_error,
+                    backward_error_limit,
+                    action_invocations: 1,
+                    backsolves: Some(1),
+                },
+            ))
+        })
+    }
     /// Where each variable and active constraint sits.
     pub fn layout(&self) -> &Layout {
         &self.layout
@@ -357,6 +682,11 @@ impl KktFactor {
             .saturating_add(layout)
             .saturating_add(self.scales.len() * size_of::<f64>())
             .saturating_add(self.bound_rows.len() * size_of::<BoundRow>())
+            .saturating_add(
+                (self.variables.len() + self.rows.len()) * size_of::<pse_ids::SemanticId>(),
+            )
+            .saturating_add(self.variable_bounds.len() * size_of::<(f64, f64)>())
+            .saturating_add((self.row_dual.len() + self.lower_dual.len() + self.upper_dual.len()) * size_of::<f64>())
     }
 }
 /// A [`KktFactor`] answering in the normalized coordinates of the matrix it factored,
@@ -418,7 +748,8 @@ impl SensBacksolver for KktFactor {
 /// Record the requested local analysis of a report's candidate against the original model.
 /// A report without a candidate or an original observation gets none; an unqualified one
 /// gets the typed reason. Returns the factor when a quantity is still to be read from it
-/// after qualification (an inverse reduced Hessian); otherwise it is dropped here.
+/// after qualification (protected output accuracy or an inverse reduced Hessian);
+/// otherwise it is dropped here.
 pub(crate) fn attach(
     report: &mut SolveReport,
     oracle: &mut dyn NlpOracle,
@@ -459,7 +790,9 @@ pub(crate) fn attach(
         Err(unavailable) => (Err(unavailable), None),
     };
     report.evidence.local = Some(local);
-    factor.filter(|_| analysis.inverse_reduced_hessian.is_some())
+    factor.filter(|_| {
+        analysis.inverse_reduced_hessian.is_some() || analysis.output_accuracy.is_some()
+    })
 }
 
 /// Every stored entry of a faer pattern, in storage order, in the spaces `R` and `C`.
@@ -798,6 +1131,26 @@ pub(crate) fn analyse(
         scales: scales.into(),
         objective: sf,
         bound_rows: bound_rows.into(),
+        point: crate::square_response::point_key(x),
+        variables: oracle
+            .contract()
+            .variables
+            .iter()
+            .map(|variable| variable.id)
+            .collect::<Vec<_>>()
+            .into(),
+        rows: oracle.contract().rows.clone().into(),
+        variable_bounds: oracle
+            .contract()
+            .variables
+            .iter()
+            .map(|variable| (variable.lower, variable.upper))
+            .collect::<Vec<_>>()
+            .into(),
+        normalization: normalization.key(),
+        row_dual: lambda.clone().into(),
+        lower_dual: zl.clone().into(),
+        upper_dual: zu.clone().into(),
     };
     Ok((point, factor))
 }
@@ -812,6 +1165,60 @@ fn less(
 }
 /// `y = K x` for a symmetric matrix stored as its lower triangle, with `|K|` in place of `K`
 /// when `absolute`.
+/// Physical arithmetic radii corresponding to the original KKT RHS and matrix.
+#[derive(Clone, Debug)]
+pub(crate) struct KktArithmeticRadii {
+    pub residual: Vec<f64>,
+    pub matrix: Vec<f64>,
+}
+
+fn point_interval(value: f64) -> ProofInterval {
+    ProofInterval { lower: value, upper: value }
+}
+
+fn interval_add(left: ProofInterval, right: ProofInterval) -> Option<ProofInterval> {
+    if left.lower == 0.0 && left.upper == 0.0 { return Some(right); }
+    if right.lower == 0.0 && right.upper == 0.0 { return Some(left); }
+    let lower = left.lower + right.lower;
+    let upper = left.upper + right.upper;
+    if !lower.is_finite() || !upper.is_finite() { return None; }
+    Some(ProofInterval { lower: lower.next_down(), upper: upper.next_up() })
+}
+
+fn interval_scale(interval: ProofInterval, scale: f64) -> ProofInterval {
+    if scale == 0.0 { return point_interval(0.0); }
+    if scale == 1.0 { return interval; }
+    if scale == -1.0 { return ProofInterval { lower: -interval.upper, upper: -interval.lower }; }
+    let (lower, upper) = if scale > 0.0 {
+        (interval.lower * scale, interval.upper * scale)
+    } else {
+        (interval.upper * scale, interval.lower * scale)
+    };
+    ProofInterval { lower: lower.next_down(), upper: upper.next_up() }
+}
+
+fn interval_radius(interval: ProofInterval, observed: f64) -> Result<f64, ProblemError> {
+    let lower = observed - interval.lower;
+    let upper = interval.upper - observed;
+    let radius = lower.abs().max(upper.abs());
+    if radius == 0.0 {
+        Ok(0.0)
+    } else if radius.is_finite() && radius > 0.0 {
+        Ok(radius.next_up())
+    } else {
+        Err(ProblemError::numerical("nonfinite KKT arithmetic radius"))
+    }
+}
+
+fn subtraction_radius(left: f64, right: f64, observed: f64) -> Result<f64, ProblemError> {
+    let difference = left - right;
+    if !difference.is_finite() || difference != observed {
+        return Err(ProblemError::Contract("KKT bound residual differs from its arithmetic source".into()));
+    }
+    if left == right { return Ok(0.0); }
+    interval_radius(ProofInterval { lower: difference.next_down(), upper: difference.next_up() }, observed)
+}
+
 fn symmetric_product(matrix: &feral::CscMatrix, x: &[f64], absolute: bool) -> Vec<f64> {
     let mut y = vec![0.0; matrix.n];
     for j in 0..matrix.n {

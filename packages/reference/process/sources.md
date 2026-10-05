@@ -131,3 +131,11 @@ to independently accumulated original fluxes in integrated and simultaneous real
 Focused original-space controls exercise the replacement; the bespoke vessel closure copies
 are removed. The accumulated amount/energy observations remain for their continuing authored
 fixture comparisons. Complete native scientific journeys remain Plan 25k qualification.
+
+The `numerical_policy` module in the domain package supplies shared typed physical
+allowances for control-volume balances, material connections and temporal conservation.
+Source accounting, algebraic conservation and observation retain different semantics;
+sharing an allowance does not make them interchangeable. Distributed control-volume
+material and energy closure observations use the same global component-flow and power
+allowances as their accounting declarations. Physical acceptance remains independent
+of native status and of the runtime's normalized integration controls.

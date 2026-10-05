@@ -1253,8 +1253,13 @@ impl SimulationSettings {
     }
     #[staticmethod]
     fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
-        documents::decode(py, "simulation settings", source.as_bytes(), 1 << 20)
-            .map(|profile| Self { profile })
+        documents::decode_versioned::<native::SimulationProfile, 1>(
+            py,
+            "simulation settings",
+            source.as_bytes(),
+            1 << 20,
+        )
+        .map(|profile| Self { profile })
     }
 }
 #[derive(Clone, Debug)]

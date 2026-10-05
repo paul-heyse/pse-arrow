@@ -1480,7 +1480,9 @@ mod tests {
                 .await
                 .unwrap();
             assert!(report.complete, "{:?}", report.findings);
-            assert_eq!(report.matrix.as_ref().unwrap().rank, 1);
+            // The complete original rows y - 2 and x - y are independent, while
+            // the unused column still makes the structure underdetermined.
+            assert_eq!(report.matrix.as_ref().unwrap().rank, 2);
             assert!(
                 report
                     .findings

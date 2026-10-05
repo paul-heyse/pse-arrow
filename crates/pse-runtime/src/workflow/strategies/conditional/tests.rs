@@ -1056,7 +1056,7 @@ fn conditional_unit_request_has_one_declared_realization_and_canonical_settings_
     };
     let full = solver.profile().unwrap();
     let omitted: crate::math::settings::SolveSettings =
-        serde_json::from_value(serde_json::json!({"version":1,"intent":"root"})).unwrap();
+        serde_json::from_value(serde_json::json!({"version":3,"intent":"root"})).unwrap();
     assert_eq!(
         crate::math::solves::profile_key(&full).unwrap(),
         crate::math::solves::profile_key(&omitted.profile().unwrap()).unwrap()
@@ -1270,6 +1270,8 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
                 nominal: Some(8.0),
                 scaling_factor: Some(0.125),
                 absolute_tolerance: Some(0.08),
+                shared_engineering_allowance: None,
+                engineering_rule_id: None,
                 relative_tolerance: Some(0.01),
                 unit_id: Some(pse_quantity::standard::ids::unit("degF").as_id()),
                 coordinates: NumericalCoordinates::Physical,

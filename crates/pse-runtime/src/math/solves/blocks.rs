@@ -46,6 +46,86 @@ impl PreparedBlocks {
                     .ok_or(MathRuntimeError::Limit("block result extent"))
             })
     }
+    pub(super) fn completed_result_bytes(
+        &self,
+        report: &ConstantReport,
+    ) -> Result<usize, MathRuntimeError> {
+        let ConstantReport {
+            components: _,
+            owner: _,
+            objective: _,
+            observation: _,
+            quality: _,
+            coordinates: _,
+            certified_reconstruction: _,
+            work: _,
+        } = report;
+        if self.blocks.len() != report.components.len() {
+            return Err(ProblemError::Internal(
+                "completed block report count differs from its schedule".into(),
+            )
+            .into());
+        }
+        let limit = || ProblemError::memory("completed block reporting capacity");
+        let original = self.original.result_bytes()?;
+        let allowance = self.original.controls().report_allowance()?;
+        let original_payload = size_of::<ConstantReport>()
+            .checked_add(
+                report
+                    .observation
+                    .completed_report_allowance()
+                    .ok_or_else(limit)?,
+            )
+            .and_then(|n| n.checked_add(report.quality.completed_report_allowance()?))
+            .and_then(|n| {
+                n.checked_add(
+                    report
+                        .coordinates
+                        .capacity()
+                        .checked_mul(size_of::<(pse_ids::SemanticId, f64)>())?,
+                )
+            })
+            .and_then(|n| {
+                n.checked_add(
+                    report
+                        .components
+                        .capacity()
+                        .checked_mul(size_of::<Box<SolveReport>>())?,
+                )
+            })
+            .ok_or_else(limit)?;
+        if original_payload > original {
+            return Err(limit().into());
+        }
+        // The completed bound includes visible numeric capacities. Keep source-derived
+        // dimension headroom as well, capped only at an admission already proved to
+        // cover that complete visible envelope; never cap an oversized envelope.
+        let original_retained = original
+            .checked_sub(allowance)
+            .and_then(|n| n.checked_add(original_payload))
+            .ok_or_else(limit)?
+            .min(original);
+        self.blocks.iter().zip(&report.components).try_fold(
+            original_retained,
+            |bytes, (prepared, component)| {
+                let admitted = prepared.result_bytes()?;
+                let retained = match component.completed_report_allowance()? {
+                    Some(completed) => {
+                        if completed > admitted {
+                            return Err(limit().into());
+                        }
+                        admitted
+                            .checked_sub(prepared.controls().report_allowance()?)
+                            .and_then(|n| n.checked_add(completed))
+                            .ok_or_else(limit)?
+                            .min(admitted)
+                    }
+                    None => admitted,
+                };
+                bytes.checked_add(retained).ok_or_else(|| limit().into())
+            },
+        )
+    }
 }
 impl PreparedSolve {
     /// Cheap execution-dependency schedule eligibility, without optional evaluator artifacts.
@@ -328,7 +408,7 @@ impl MathService {
                         return Err(error);
                     }
                 };
-                let Outcome::Native(mut report) = outcome else {
+                let Outcome::Native(report) = outcome else {
                     work = sum_work(work, WorkEvidence::default());
                     return Err(match outcome {
                         Outcome::Rejected(error) => MathRuntimeError::Shared(error),
@@ -337,29 +417,19 @@ impl MathService {
                     });
                 };
                 work = sum_work(work, report.evidence.work);
-                if !super::super::initialization::commit_block(
+                if let Err(cause) = super::super::initialization::commit_block(
                     &mut values,
                     &block.boundary,
                     Some(&report),
                     &prepared.original.numerics.policy,
                 ) {
                     component_observation = Some(super::super::strategy::observe_native(&report));
-                    let cause = report
-                        .shared_callback_failure()
-                        .or_else(|| report.shared_validation_failure())
-                        .unwrap_or_else(|| {
-                            Arc::new(ProblemError::Unsupported(
-                                "conditional block did not establish usable original coordinates"
-                                    .into(),
-                            ))
-                        });
                     failure_cause = Some(cause);
                     return Err(ProblemError::Unsupported(
                         "conditional block candidate refused".into(),
                     )
                     .into());
                 }
-                report = Box::new((*report).with_owner(result_owner.clone()));
                 components.push(report);
             }
             execution.check()?;
@@ -406,7 +476,20 @@ impl MathService {
             work = sum_work(work, report.work);
             report.work = work;
             report.components = components;
-            report.owner = Some(result_owner);
+            // Until every component and the original evaluation are complete, retain the
+            // entire pre-admitted construction grant. Partition once while it is unique;
+            // surplus drops without releasing/reacquiring any live report capacity.
+            let retained_bytes = prepared.completed_result_bytes(&report)?;
+            let mut leases = result_owner.partition(&[retained_bytes]).map_err(|_| {
+                ProblemError::Internal("block result owner escaped before completion".into())
+            })?;
+            let owner = leases
+                .pop()
+                .ok_or_else(|| ProblemError::Internal("block result owner absent".into()))?;
+            for component in &mut report.components {
+                component.retain_owner(owner.clone());
+            }
+            report.owner = Some(owner);
             execution.check()?;
             Ok(Outcome::Constant(report))
         })();

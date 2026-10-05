@@ -69,7 +69,7 @@ Plan 25b controls sparse/empty/unknown evidence, charge versus elements, missing
 and `just unit-package pse-modeling 'test(scientific_selection_tests)' --test-threads 1`
 passed 5 and 12 controls respectively against zero, with explicit force-validation in the
 optimized test profile. Reaction, potential and consumed-identity compiler controls have
-composite successful receipts in the [Plan 25b Outcome](../plans/25b-scientific-knowledge-and-applicability.md#verification).
+composite successful receipts in the [Plan 25b Outcome](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md#verification).
 Full product qualification belongs to Plan 25k. This record remains proposed pending its decision PR.
 
 ## Pros and cons
@@ -78,7 +78,7 @@ Meaning stays authored and locally testable, while the one-time migration change
 
 ## More information
 
-[Plan 25b](../plans/25b-scientific-knowledge-and-applicability.md), [Plan 25 dispositions](../plans/25-design-remediation.md#finding-dispositions), ADR-0127 and blueprint §9.
+[Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md), [Plan 25 dispositions](../plans/25-design-remediation.md#finding-dispositions), ADR-0127 and blueprint §9.
 
 ## Status history
 

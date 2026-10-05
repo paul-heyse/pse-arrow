@@ -34,6 +34,11 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
     solver.selection = SolverSelection::Explicit(Backend::Kinsol);
+    // This task explicitly admits fresh predictor proposals for its original corrector.
+    solver.composition.recovery.extend([
+        pse_model::strategy::StartOrigin::Predicted,
+        pse_model::strategy::StartOrigin::Surrogate,
+    ]);
     let mut analysis = ModelingAnalysis {
         root,
         instance: pse_modeling::specialize::root_instance(root),

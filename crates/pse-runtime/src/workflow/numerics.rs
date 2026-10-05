@@ -300,8 +300,23 @@ pub(crate) fn refused(reason: CandidateRefusal) -> CandidateDecision {
 pub(crate) struct Completed {
     pub(crate) closure: ClosureAssessment,
     pub(crate) decision: CandidateDecision,
+    pub(crate) accuracy: Vec<pse_math::engineering_accuracy::GoalResult>,
 }
 impl Completed {
+    /// Preserve the actual contextual fallback limitation alongside final permission.
+    pub(crate) fn with_context(mut self, context: &ResolvedNumericalPolicy) -> Self {
+        self = self.with_canonical_fallback(context.targets.iter().any(|target|
+            target.engineering.as_ref().is_some_and(|e| e.canonical_fallback)));
+        self
+    }
+    pub(crate) fn with_canonical_fallback(mut self, fallback: bool) -> Self {
+        if fallback
+            && !self.decision.qualifiers.contains(&CandidateQualifier::EngineeringCanonicalFallback)
+        {
+            self.decision.qualifiers.push(CandidateQualifier::EngineeringCanonicalFallback);
+        }
+        self
+    }
     /// Copy the immutable decision and independent source evidence into its registry row.
     pub(crate) fn assessment_row(
         &self,
@@ -364,8 +379,16 @@ pub(crate) struct CompletionEvidence<'a> {
     pub(crate) required_closure: usize,
     pub(crate) endpoint_satisfied: Option<bool>,
     pub(crate) coverage_complete: bool,
+    pub(crate) accuracy: &'a [pse_math::engineering_accuracy::GoalResult],
 }
 impl<'a> CompletionEvidence<'a> {
+    pub(crate) fn with_accuracy(
+        mut self,
+        accuracy: &'a [pse_math::engineering_accuracy::GoalResult],
+    ) -> Self {
+        self.accuracy = accuracy;
+        self
+    }
     pub(crate) const fn point(
         checks: &'a [super::ModelingCheck],
         checks_complete: bool,
@@ -377,11 +400,23 @@ impl<'a> CompletionEvidence<'a> {
             required_closure,
             endpoint_satisfied: None,
             coverage_complete: true,
+            accuracy: &[],
         }
     }
 }
-/// Compose independent native evidence, original obligations, closure and applicability once.
+/// Compose final original obligations and requested engineering outcomes.
 pub(crate) fn complete(
+    native: CandidateDecision,
+    evidence: CompletionEvidence<'_>,
+    policy: &pse_model::numerics::NumericalPolicy,
+) -> Completed {
+    let mut result = original_completion(native, evidence, policy);
+    result.accuracy = compose_accuracy(&mut result.decision, evidence.accuracy, policy);
+    result
+}
+/// Original obligations are the admission gate for optional goal evidence work.
+/// This intermediate decision never supplies final result permission when goals exist.
+pub(crate) fn original_completion(
     mut native: CandidateDecision,
     evidence: CompletionEvidence<'_>,
     policy: &pse_model::numerics::NumericalPolicy,
@@ -470,7 +505,72 @@ pub(crate) fn complete(
     Completed {
         closure,
         decision: native,
+        accuracy: vec![],
     }
+}
+/// Apply goal permission after original obligations; an accuracy refusal can leave a
+/// lawful original candidate available as a seed, without granting a result.
+fn compose_accuracy(
+    decision: &mut CandidateDecision,
+    actual: &[pse_math::engineering_accuracy::GoalResult],
+    policy: &pse_model::numerics::NumericalPolicy,
+) -> Vec<pse_math::engineering_accuracy::GoalResult> {
+    use pse_math::engineering_accuracy::GoalResult;
+    use pse_model::generated::enums::{
+        AccuracyEvidenceInterpretation as I, AccuracyGoalStatus as S, AccuracyGoalUse as U,
+        AccuracyUnavailableReason as R, NumericalAccuracyClass as C,
+    };
+    let seed = decision.permits_seed();
+    let mut refused_goal = false;
+    let goals = policy
+        .goals
+        .iter()
+        .map(|goal| {
+            // An assessment of a different declaration cannot satisfy this frozen obligation.
+            let result = actual
+                .iter()
+                .find(|r| r.goal == *goal)
+                .filter(|_| {
+                    actual
+                        .iter()
+                        .filter(|r| r.goal.goal_id == goal.goal_id)
+                        .count()
+                        == 1
+                })
+                .cloned()
+                .unwrap_or_else(|| GoalResult::unavailable(goal.clone(), R::MissingEvidence));
+            let refusal = match result.classification.status {
+                S::Unresolved | S::NotRequested => Some(CandidateRefusal::AccuracyUnresolved),
+                S::Violated if goal.use_policy == U::RequireSatisfied => {
+                    Some(CandidateRefusal::AccuracyViolated)
+                }
+                _ => None,
+            };
+            if let Some(reason) = refusal {
+                decision.refuse(reason);
+                refused_goal = true;
+            }
+            if let Some(evidence) = &result.evidence {
+                let qualifier = if evidence.interpretation == I::EmpiricalOutputVariation {
+                    Some(CandidateQualifier::AccuracyEmpirical)
+                } else if evidence.accuracy.class == C::Estimated {
+                    Some(CandidateQualifier::AccuracyEstimated)
+                } else {
+                    None
+                };
+                if let Some(q) = qualifier {
+                    if !decision.qualifiers.contains(&q) {
+                        decision.qualifiers.push(q);
+                    }
+                }
+            }
+            result
+        })
+        .collect();
+    if refused_goal && seed {
+        decision.usability = CandidateUse::SeedOnly;
+    }
+    goals
 }
 impl RunResult {
     pub(super) fn assess_candidates(&self) -> Vec<assessments::Row> {
@@ -489,6 +589,7 @@ impl RunResult {
                 let unavailable = || Completed {
                     closure: ClosureAssessment::Unavailable,
                     decision: refused(CandidateRefusal::ModelChecks),
+                    accuracy: vec![],
                 };
                 let (report, numerical, constant, policy, completed) =
                     match (&self.request, &self.report) {
@@ -499,7 +600,7 @@ impl RunResult {
                                 r.quality.as_ref().map(|q| q.feasible()),
                                 r.solve.is_none() && r.candidate.is_some(),
                                 policy,
-                                p.assess_completion(r),
+                                r.completion.clone().unwrap_or_else(unavailable),
                             )
                         }
                         (RunRequest::Modeling(p), _) => {
@@ -573,6 +674,19 @@ impl RunResult {
             }
             entry.insert(candidates.finish().map_err(relation)?);
         }
+        if let Ok(completion) = self.completion() {
+            use pse_relations::generated::runtime::accuracy_goal_assessments as goals;
+            let mut builder = goals::Builder::with_registry(
+                registry,
+                completion.accuracy_goals.len(),
+                &validation,
+            )
+            .map_err(relation)?;
+            for row in &completion.accuracy_goals {
+                builder.push(row.clone()).map_err(relation)?;
+            }
+            batches.insert(goals::RELATION_ID, builder.finish().map_err(relation)?);
+        }
         let policies: Vec<&ResolvedNumericalPolicy> = match &self.request {
             RunRequest::Fit(f) => vec![&f.problem.numerics],
             RunRequest::Simulation(p) => vec![p.numerics()],
@@ -597,6 +711,7 @@ impl RunResult {
                         absolute: t.absolute,
                         relative: t.relative,
                         budget: t.budget,
+                        engineering: t.engineering.clone(),
                         provenance: t
                             .provenance
                             .iter()
@@ -622,6 +737,95 @@ impl RunResult {
 mod tests {
     use super::*;
     use pse_model::generated::{enums::ModelingCheckKind, identities::RunId};
+    fn engineering_goal() -> pse_model::engineering_accuracy::AccuracyGoal {
+        use pse_model::generated::enums::*;
+        pse_model::engineering_accuracy::AccuracyGoal {
+            goal_id: SemanticId::from_bytes([9; 16]).into(),
+            model_id: None,
+            case_id: None,
+            instance_id: None,
+            fit_id: None,
+            target_id: SemanticId::from_bytes([8; 16]),
+            target_kind: NumericalTarget::Variable,
+            quantity_id: SemanticId::from_bytes([7; 16]),
+            unit_id: SemanticId::from_bytes([6; 16]),
+            subject: AccuracyGoalSubject::SelectedOutput,
+            observation: AccuracyObservation::Steady,
+            time: None,
+            resolution: None,
+            criterion_lower: None,
+            criterion_upper: Some(10.),
+            required_class: NumericalAccuracyClass::Estimated,
+            use_policy: AccuracyGoalUse::Assess,
+            refine: false,
+            source: NumericalSource::Analysis,
+            priority: 0,
+            provenance: "independently specified process limit".into(),
+        }
+    }
+    #[test]
+    fn engineering_goal_assessment_permission_and_original_failure_remain_independent() {
+        use pse_math::engineering_accuracy::GoalResult;
+        use pse_model::generated::enums::{
+            AccuracyCriterionStatus as C, AccuracyGoalStatus as S, AccuracyGoalUse as U,
+            AccuracyUnavailableReason as R,
+        };
+        let mut goal = engineering_goal();
+        let mut policy = pse_model::numerics::NumericalPolicy::default();
+        policy.goals = vec![goal.clone()];
+        let mut point = CandidateDecision::new(CandidateUse::Usable);
+        let missing = compose_accuracy(&mut point, &[], &policy);
+        assert_eq!(missing.len(), 1);
+        assert_eq!(missing[0].classification.status, S::Unresolved);
+        assert!(!point.permits_use());
+        assert!(point.permits_seed());
+        let mut violation = GoalResult::unavailable(goal.clone(), R::MissingEvidence);
+        violation.classification.status = S::Violated;
+        violation.classification.criterion = C::Violated;
+        violation.classification.unavailable = None;
+        let mut point = CandidateDecision::new(CandidateUse::Usable);
+        compose_accuracy(&mut point, &[violation.clone()], &policy);
+        assert!(point.permits_use()); // Assess reports the clear violation.
+        goal.use_policy = U::RequireSatisfied;
+        policy.goals = vec![goal.clone()];
+        violation.goal = goal;
+        let mut point = CandidateDecision::new(CandidateUse::Usable);
+        compose_accuracy(&mut point, &[violation.clone()], &policy);
+        assert!(!point.permits_use());
+        assert!(point.permits_seed());
+        assert!(point.refusals.contains(&CandidateRefusal::AccuracyViolated));
+        violation.classification.status = S::Satisfied;
+        violation.classification.criterion = C::Satisfied;
+        let mut original = refused(CandidateRefusal::ValidationFailed);
+        compose_accuracy(&mut original, &[violation], &policy);
+        assert!(!original.permits_use());
+        assert!(!original.permits_seed());
+        let mut ordinary = CandidateDecision::new(CandidateUse::Usable);
+        assert!(compose_accuracy(&mut ordinary, &[], &Default::default()).is_empty());
+        assert!(ordinary.permits_use());
+    }
+    #[test]
+    fn engineering_goal_assessment_optional_failure_retains_cause_and_original_seed_permission() {
+        use pse_model::diagnostic::{DiagnosticCause, DiagnosticProjection};
+        let goal = engineering_goal();
+        let error = pse_backend_native::ProblemError::numerical("optional correction backward error");
+        let mut result = pse_math::engineering_accuracy::GoalResult::unavailable(
+            goal.clone(), pse_model::generated::enums::AccuracyUnavailableReason::Regularity,
+        );
+        result.failure = Some(pse_math::engineering_accuracy::GoalFailure::new(
+            DiagnosticCause::new(error), 1024,
+        ));
+        let policy = pse_model::numerics::NumericalPolicy { goals: vec![goal], ..Default::default() };
+        let mut original = CandidateDecision::new(CandidateUse::Usable);
+        let retained = compose_accuracy(&mut original, &[result], &policy);
+        assert!(original.permits_seed());
+        assert!(!original.permits_use());
+        let failure = retained[0].failure.as_ref().unwrap();
+        let diagnostic = failure.cause.boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingQualification);
+        assert_eq!(diagnostic.failure_class(), pse_diagnostics::FailureClass::SolveSolverError);
+        let row = retained[0].row(RunId::from_bytes([1; 16]), 0);
+        assert!(row.limitation.contains("optional correction backward error"));
+    }
     fn check(kind: ModelingCheckKind, satisfied: bool) -> super::super::ModelingCheck {
         super::super::ModelingCheck {
             run_id: RunId::from_bytes([1; 16]),

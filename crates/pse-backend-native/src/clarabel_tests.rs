@@ -108,7 +108,7 @@ pub(crate) fn run(
     normalization: &Normalization,
     tolerances: &Tolerances,
 ) -> Result<SolveReport, ProblemError> {
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let constants = vec![0.0; p.bounds.len()];
     execution::coefficients(
         Step {
@@ -437,7 +437,7 @@ fn almost_infeasible_is_not_certified() {
             &mut c,
             &cone,
             &conic::lowering::row_budgets(&conic::lowering::layout(&p.bounds), &t),
-            ResolvedAccuracy::nominal().feasibility,
+            ResolvedAccuracy::verification().feasibility,
         );
         c
     };
@@ -468,7 +468,7 @@ fn almost_infeasible_is_not_certified() {
     assert!(certificate.certified(), "{certificate:?}");
     certificate.accuracy = CertificateAccuracy::Reduced;
     assert!(!certificate.certified());
-    quality::qualify(&mut reduced, &ResolvedAccuracy::nominal());
+    quality::qualify(&mut reduced, &ResolvedAccuracy::verification());
     assert_eq!(reduced.termination.assurance, Assurance::None);
 }
 
@@ -649,7 +649,7 @@ fn clarabel_chordal_matches_undecomposed() {
     let zero = SparseColMat::try_new_from_triplets(7, 7, &[]).unwrap();
     let proof = crate::solver_tests::certify(&zero, 1.0);
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let expected = 1.0;
     let solve = |chordal: bool| {
         let settings = conic::Settings {

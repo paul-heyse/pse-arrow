@@ -660,7 +660,7 @@ pub fn solve(
 mod tests {
     use super::*;
     fn accuracy() -> ResolvedAccuracy {
-        let mut value = ResolvedAccuracy::nominal();
+        let mut value = ResolvedAccuracy::verification();
         value.native_scaling = false;
         value.acceptable = None;
         value

@@ -1204,7 +1204,7 @@ mod tests {
                 &prediction,
                 pse_math::binding::ObjectiveSense::Minimize,
                 &controls,
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 &crate::ipopt::Settings::default(),
                 Execution::new(Arc::default(), &controls),
                 &tolerances,

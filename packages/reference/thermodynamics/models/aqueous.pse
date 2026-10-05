@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1db89d8722baac398dad77ff4a3") package aqueous {
+@id("2d3455f07ba746c48dff45b011e05cf4") use numerical_policy @"1.0.0";
 @id("01a0f1955e96736397df7b521f3807a2") use compatibility @"1.0.0";
 @id("01a0f14ead4e761899b3c3a81487627a") use constants @"1.0.0";
 @id("01a0ede58ece70f380fb0a5410fa4d73") use chemistry @"1.0.0";
@@ -60,8 +61,10 @@ coordinate volumetric=volume_flow;
 coordinate temperature=T;
 coordinate pressure=pressure;
 coordinate concentration[j in solutes]=concentration[j];
-reconstruct solvent:concentration[solvent]==aqueous.solvent_concentration(solvent_density,solvent) tolerance 1e-7{mol/m^3};
-transport component[j in components]=component_flow[j] tolerance 1e-7{mol/s};
+// Reconstruction and transport use the shared typed physical design policy;
+// the selected solvent law and the independent positivity guard stay unchanged.
+reconstruct solvent:concentration[solvent]==aqueous.solvent_concentration(solvent_density,solvent) tolerance numerical_policy.concentration;
+transport component[j in components]=component_flow[j] tolerance numerical_policy.component_flow;
 }
 
 }

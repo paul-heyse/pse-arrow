@@ -22,7 +22,7 @@ use std::collections::BTreeSet;
 #[serde(deny_unknown_fields)]
 pub struct SolveSettings {
     /// Document version.
-    pub version: Version<3>,
+    pub version: Version<4>,
     /// Requested composition; omission chooses automatic resolution without replacement starts.
     #[serde(default)]
     pub composition: pse_model::strategy::CompositionRequest,
@@ -268,10 +268,10 @@ mod tests {
     #[test]
     fn current_request_admits_version_before_body_and_preserves_start_grants() {
         let old = br#"{"settings":{"backend":"retired"},"version":1}"#;
-        let error = pse_model::document::decode_versioned::<SolveSettings, 3>(old).unwrap_err();
+        let error = pse_model::document::decode_versioned::<SolveSettings, 4>(old).unwrap_err();
         assert!(error.to_string().contains("explicit readmission"));
         let current =
-            pse_model::document::decode_versioned::<SolveSettings, 3>(br#"{"version":3}"#).unwrap();
+            pse_model::document::decode_versioned::<SolveSettings, 4>(br#"{"version":4}"#).unwrap();
         assert_eq!(
             current.composition.policy,
             pse_model::strategy::CompositionPolicy::Auto

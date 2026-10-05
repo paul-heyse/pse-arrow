@@ -31,9 +31,9 @@ proposed change, not a second production specification.
 
 | Companion | Consumes and delivers | Progress owner |
 |---|---|---|
-| [26a: Completed results and transport](26a-completed-results-and-transport.md) | Consumes numerical completion and joined reports; delivers immutable coherent trajectory results and shared bounded export | Its package table |
-| [26b: Test composition and independent evidence](26b-test-composition-and-independent-evidence.md) | Consumes intact model selection and declaration-owned invariant derivation; delivers focused independent mechanism evidence and retired duplicate machinery | Its package table |
-| [26c: Test execution and qualification evidence](26c-test-execution-and-qualification-evidence.md) | Consumes categorized tests and production result boundaries; delivers actual-effect fixtures, one report composition and scoped evidence reuse | Its package table |
+| [26a: Completed results and transport](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26a-completed-results-and-transport.md) | Consumes numerical completion and joined reports; delivers immutable coherent trajectory results and shared bounded export | Its package table |
+| [26b: Test composition and independent evidence](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26b-test-composition-and-independent-evidence.md) | Consumes intact model selection and declaration-owned invariant derivation; delivers focused independent mechanism evidence and retired duplicate machinery | Its package table |
+| [26c: Test execution and qualification evidence](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26c-test-execution-and-qualification-evidence.md) | Consumes categorized tests and production result boundaries; delivers actual-effect fixtures, one report composition and scoped evidence reuse | Its package table |
 
 Plan 26 does not reopen Plan 25n or adopt AF findings. Plan 25k remains the owner of Plan 25's
 paused full product campaign. Authoring this series neither resumes that campaign nor authorizes
@@ -116,13 +116,13 @@ remain immutable. Adding a third-party library does not require an ADR or exact 
 | Step | Required capability and reason | Delivered work and owner |
 |---|---|---|
 | P0 | Concrete target in this series | Required decisions/review and authority amendments; coordinator owns the decision route |
-| Result authority | Existing joined reports and completion; P0 where a public contract changes | [26a A1](26a-completed-results-and-transport.md#a1): immutable projections, required before reuse |
-| Result transport | A1 working result and actual leases | [26a A2–A3](26a-completed-results-and-transport.md#a2): shared lazy export with migrated consumers, then migration audit |
-| Selection and family provenance | Existing intact selection; production obligation producer | [26b B1–B2](26b-test-composition-and-independent-evidence.md#b1): workload selection and typed invariant derivation identity |
-| Independent mechanism evidence | B2's actual provenance and admitted rule interfaces | [26b B3](26b-test-composition-and-independent-evidence.md#b3): family semantics, catalog binding and real enforcement before witness retirement |
-| Test support and retirement | Distinct retained claims established; P0 for governance/crate changes | [26b B4–B5](26b-test-composition-and-independent-evidence.md#b4): strongest freshness owner and obsolete machinery deletion |
-| Effects and execution | Stable responsibility categories; no dependency on every result package | [26c C1–C3](26c-test-execution-and-qualification-evidence.md#c1): explicit fixtures, owned effects and one selection/report composition |
-| Evidence and measurement readiness | C3 truthful invocation records and workload prerequisites | [26c C4–C5](26c-test-execution-and-qualification-evidence.md#c4): relevant-input reuse and selected measurement prerequisites |
+| Result authority | Existing joined reports and completion; P0 where a public contract changes | [26a A1](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26a-completed-results-and-transport.md#a1): immutable projections, required before reuse |
+| Result transport | A1 working result and actual leases | [26a A2–A3](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26a-completed-results-and-transport.md#a2): shared lazy export with migrated consumers, then migration audit |
+| Selection and family provenance | Existing intact selection; production obligation producer | [26b B1–B2](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26b-test-composition-and-independent-evidence.md#b1): workload selection and typed invariant derivation identity |
+| Independent mechanism evidence | B2's actual provenance and admitted rule interfaces | [26b B3](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26b-test-composition-and-independent-evidence.md#b3): family semantics, catalog binding and real enforcement before witness retirement |
+| Test support and retirement | Distinct retained claims established; P0 for governance/crate changes | [26b B4–B5](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26b-test-composition-and-independent-evidence.md#b4): strongest freshness owner and obsolete machinery deletion |
+| Effects and execution | Stable responsibility categories; no dependency on every result package | [26c C1–C3](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26c-test-execution-and-qualification-evidence.md#c1): explicit fixtures, owned effects and one selection/report composition |
+| Evidence and measurement readiness | C3 truthful invocation records and workload prerequisites | [26c C4–C5](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26c-test-execution-and-qualification-evidence.md#c4): relevant-input reuse and selected measurement prerequisites |
 | Q1 | All functional packages integrated and replacements deleted | Coordinator's single assembled acceptance stage below |
 
 This is a dependency route, not a barrier after every row. B1, C1/C2 and proven-unused support

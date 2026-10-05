@@ -99,7 +99,7 @@ pub(super) fn observed(
 }
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
-        match &self.report {
+        let mut diagnostics: Vec<BoundaryDiagnostic> = match &self.report {
             Err(error) => self
                 .modeling_failure
                 .iter()
@@ -150,7 +150,33 @@ impl RunResult {
                 )
                 .chain(r.validation_error.clone())
                 .collect(),
+        };
+        let mut seen = Vec::<std::sync::Arc<pse_model::diagnostic::DiagnosticCause>>::new();
+        let mut append = |goals: &[pse_math::engineering_accuracy::GoalResult]| {
+            for failure in goals.iter().filter_map(|goal| goal.failure.as_ref()) {
+                if !seen.iter().any(|cause| std::sync::Arc::ptr_eq(cause, &failure.cause)) {
+                    diagnostics.push(failure.cause.boundary_diagnostic(DiagnosticStage::ModelingQualification));
+                    seen.push(failure.cause.clone());
+                }
+            }
+        };
+        match &self.report {
+            Ok(RunReport::Modeling(results)) => {
+                for result in results { append(&result.completion.accuracy); }
+            }
+            Ok(RunReport::Simulation(report)) => append(&report.completion().accuracy),
+            #[cfg(feature = "solver-diffsol")]
+            Ok(RunReport::Shooting(report)) => append(&report.completion.accuracy),
+            Ok(RunReport::Fit(report)) => {
+                if let Some(completion) = &report.completion { append(&completion.accuracy); }
+            }
+            Err(_) => {
+                if let Some(failure) = &self.modeling_failure {
+                    for result in &failure.completed { append(&result.completion.accuracy); }
+                }
+            }
         }
+        diagnostics
     }
 }
 

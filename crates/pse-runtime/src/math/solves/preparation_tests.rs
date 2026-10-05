@@ -322,15 +322,27 @@ async fn demanded_krylov_route_prepares_actions_from_value_under_a_narrow_jet_bu
         case.prepared.prepared.facts.prepared_derivatives,
         DerivativeOrder::Value
     );
+    // Exercise the full native JVP consumer; automatic block reconstruction has its own
+    // controls and can legitimately finish without a single original native report.
+    let original = prepared.solve;
+    let mut declaration = original.numerical_strategy();
+    declaration.mechanisms[0].profile = Some(pse_model::strategy::ProfileRef {
+        backend: Backend::Kinsol,
+        key: original.strategy_profile().unwrap(),
+    });
+    let solve = original
+        .clone()
+        .with_strategy(declaration, vec![original.into()])
+        .unwrap();
     let result = runtime
         .native()
-        .solve(prepared.solve)
+        .solve(solve)
         .unwrap()
         .finish()
         .await
         .unwrap();
     let Outcome::Native(report) = &result.outcome else {
-        panic!("{:?}", result.outcome)
+        panic!("expected the declared original native JVP operation")
     };
     assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
     assert_eq!(

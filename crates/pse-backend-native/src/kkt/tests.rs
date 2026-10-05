@@ -508,7 +508,7 @@ fn second_order_analysis_needs_an_optimizing_intent() {
     };
     let oracle = Simplex::new(&TARGET, 1.0, 1.0);
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = crate::restart_tests::tolerances(6);
     let error = execution::nlp(
         Step {
@@ -541,9 +541,479 @@ fn second_order_analysis_needs_an_optimizing_intent() {
                 second_order: true,
                 sensitivity: None,
                 inverse_reduced_hessian: None,
+                output_accuracy: None,
             },
         },
     )
     .unwrap_err();
     assert!(matches!(error, ProblemError::Contract(_)), "{error:?}");
+}
+
+mod output_accuracy {
+    use super::*;
+    use crate::{
+        engineering_accuracy::{KktOutput, KktOutputs, KktPointArithmetic, KktValidity, estimate_kkt},
+        solve::{
+            Assurance, Backend, Controls, Execution, NativeTermination, Qualification,
+            ResolvedAccuracy, SolveReport, Termination, WorkAdmission, WorkEvidence,
+        },
+    };
+    use pse_ids::{ContentHash, SemanticId};
+    use pse_model::{
+        engineering_accuracy::{AccuracyGoal, BoundGoal},
+        generated::enums::{
+            AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation, AccuracyUnavailableReason,
+            NumericalSource, NumericalTarget,
+        },
+        strategy::{AccuracyClass, SemanticProductKey},
+    };
+    use pse_math::{factorable::PointArithmeticRow, implicit::ProofInterval};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Debug, Default)]
+    struct Work(Mutex<Vec<WorkEvidence>>);
+    impl WorkAdmission for Work {
+        fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            assert_eq!(work.iterations, Some(1), "one known direct substitution is admitted before work");
+            assert_eq!(work.factorizations, Some(0), "the existing factor is reused");
+            Ok(())
+        }
+        fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+            self.0.lock().unwrap().push(work);
+            Ok(())
+        }
+    }
+    fn hash(n: u8) -> ContentHash {
+        ContentHash::from_bytes([n; 32])
+    }
+    fn id(n: u8) -> SemanticId {
+        SemanticId::from_bytes([n; 16])
+    }
+    fn observed(
+        oracle: &mut Dense,
+        candidate: Candidate,
+        normalization: &Normalization,
+        execution: &Execution,
+    ) -> (SolveReport, KktFactor, SemanticProductKey) {
+        let tolerance = Tolerances {
+            variables: vec![0.01; candidate.primal.len()],
+            rows: vec![0.01; oracle.rows.len()],
+            integrality: 1e-3,
+        };
+        let mut report = SolveReport::new(
+            Backend::Pounce,
+            &oracle.contract,
+            NativeTermination {
+                code: 0,
+                name: "analytic stationary candidate".into(),
+                message: None,
+                category: Termination::Success,
+                assurance: Assurance::None,
+            },
+            execution,
+        );
+        report.candidate = Some(candidate);
+        quality::attach_nlp(
+            &mut report,
+            oracle,
+            &tolerance,
+            pse_math::binding::ObjectiveSense::Minimize,
+        );
+        let (point, factor) = analyse(
+            oracle,
+            report.candidate.as_ref().unwrap(),
+            report.observation.as_ref().unwrap(),
+            normalization,
+            &tolerance,
+            Budget {
+                dual: 1e-3,
+                limit: 1000,
+            },
+        )
+        .unwrap();
+        report.evidence.local = Some(Ok(point));
+        let mut accuracy = ResolvedAccuracy::verification();
+        accuracy.stationarity = 0.1;
+        accuracy.complementarity = 0.1;
+        quality::record_kkt(&mut report, normalization, &accuracy);
+        quality::qualify(&mut report, &accuracy);
+        assert_eq!(report.qualification, Qualification::Stationary);
+        let source = SemanticProductKey {
+            structure: oracle.contract.identity,
+            binding: hash(2),
+            numerical_policy: Some(hash(3)),
+            normalization: Some(normalization.key()),
+            point: Some(factor.point()),
+            parameters: Some(hash(4)),
+            derivation: None,
+            branch: Some(hash(5)),
+            accuracy: Some(hash(6)),
+        };
+        (report, factor, source)
+    }
+    fn goal(source: SemanticProductKey, n: u8, class: AccuracyClass) -> BoundGoal {
+        BoundGoal {
+            declaration: AccuracyGoal {
+                goal_id: id(n).into(),
+                model_id: None,
+                case_id: None,
+                instance_id: None,
+                fit_id: None,
+                target_id: id(n),
+                target_kind: NumericalTarget::Observable,
+                quantity_id: id(3),
+                unit_id: id(4),
+                subject: AccuracyGoalSubject::SelectedOutput,
+                observation: AccuracyObservation::Steady,
+                time: None,
+                resolution: Some(0.1),
+                criterion_lower: None,
+                criterion_upper: None,
+                required_class: class,
+                use_policy: AccuracyGoalUse::Assess,
+                refine: true,
+                source: NumericalSource::Analysis,
+                priority: 0,
+                provenance: "analytic stationary output control".into(),
+            },
+            source,
+            product: hash(n),
+            normalization: hash(8),
+        }
+    }
+    fn output(goal: BoundGoal, value: f64, derivative: f64) -> KktOutput {
+        KktOutput {
+            derivative_source: goal.source,
+            goal,
+            value,
+            gradient: vec![derivative],
+            gradient_uncertainty: Some(vec![0.0]),
+            uncertainty: Some(0.),
+        }
+    }
+    fn point_arithmetic(oracle: &mut Dense, report: &SolveReport, source: SemanticProductKey) -> KktPointArithmetic {
+        let point = &report.candidate.as_ref().unwrap().primal;
+        let n = point.len();
+        let row_values = oracle.values(point);
+        let mut row_gradient = vec![0.0; oracle.rows.len() * n];
+        for &(row, column, value) in &oracle.a { row_gradient[row * n + column] += value; }
+        let mut objective_gradient = vec![0.0; n];
+        oracle.gradient(point, &mut objective_gradient).unwrap();
+        let mut objective_hessian = vec![0.0; n * n];
+        for &(row, column, value) in &oracle.q {
+            objective_hessian[row * n + column] += value;
+            if row != column { objective_hessian[column * n + row] += value; }
+        }
+        let mut values = Vec::new();
+        let mut jacobian = Vec::new();
+        let mut hessian = Vec::new();
+        let interval = |value| ProofInterval { lower: value, upper: value };
+        let mut rows = Vec::new();
+        for (row, value) in row_values.iter().copied().enumerate() {
+            let value_position = values.len();
+            values.push(interval(value));
+            jacobian.extend(row_gradient[row * n..(row + 1) * n].iter().copied().map(interval));
+            hessian.extend(vec![0.0; n * n].into_iter().map(interval));
+            let mut append_output = |value: f64, gradient: &[f64], hessian_values: &[f64]| {
+                let position = values.len();
+                values.push(interval(value));
+                jacobian.extend(gradient.iter().copied().map(interval));
+                hessian.extend(hessian_values.iter().copied().map(interval));
+                position
+            };
+            let (lower, upper) = oracle.rows[row];
+            let lower_residual = lower.is_finite().then(|| append_output(value - lower, &row_gradient[row * n..(row + 1) * n], &vec![0.0; n * n]));
+            let upper_residual = if lower == upper { lower_residual } else {
+                upper.is_finite().then(|| append_output(value - upper, &row_gradient[row * n..(row + 1) * n], &vec![0.0; n * n]))
+            };
+            rows.push(PointArithmeticRow { value: value_position, lower_residual, upper_residual });
+        }
+        let objective = Some(values.len());
+        let objective_value = oracle.objective(point).unwrap();
+        values.push(interval(objective_value));
+        jacobian.extend(objective_gradient.into_iter().map(interval));
+        hessian.extend(objective_hessian.into_iter().map(interval));
+        KktPointArithmetic {
+            source,
+            projection: hash(77),
+            rows,
+            objective,
+            values,
+            jacobian,
+            hessian: Some(hessian),
+        }
+    }
+    fn outputs(oracle: &mut Dense, report: &SolveReport, source: SemanticProductKey, outputs: Vec<KktOutput>) -> KktOutputs {
+        KktOutputs {
+            validity: Some(KktValidity {
+                source,
+                witness: hash(9),
+            }),
+            arithmetic: Some(point_arithmetic(oracle, report, source)),
+            outputs,
+        }
+    }
+    #[test]
+    fn engineering_accuracy_kkt_analytic_output_shares_actual_rhs_action_and_stays_estimated() {
+        let work = Arc::new(Work::default());
+        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        execution.work_admission = Some(work.clone());
+        let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
+        let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));
+        let normalization = Normalization {
+            variables: vec![5.],
+            rows: vec![],
+            objective: 7.,
+        };
+        let (mut report, factor, source) =
+            observed(&mut oracle, candidate, &normalization, &execution);
+        // Deliberately unrelated diagnostic magnitude: the actual RHS must be 2*x.
+        report
+            .evidence
+            .local
+            .as_mut()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .residual = Some(0.9);
+        let estimated = goal(source, 10, AccuracyClass::Estimated);
+        let certified = goal(source, 11, AccuracyClass::Certified);
+        let batch = estimate_kkt(
+            Some(&factor),
+            &report,
+            source,
+            outputs(
+                &mut oracle,
+                &report,
+                source,
+                vec![
+                    output(estimated.clone(), 0.03, 3.),
+                    output(certified.clone(), 0.03, 3.),
+                ],
+            ),
+            &execution,
+        );
+        assert!((batch.correction.as_ref().unwrap()[0] + 0.01).abs() < 1e-14);
+        assert_eq!(batch.action.unwrap().action_invocations, 1);
+        assert_eq!(batch.action.unwrap().backsolves, Some(1));
+        assert_eq!(work.0.lock().unwrap().len(), 1);
+        assert_eq!(work.0.lock().unwrap()[0].iterations, Some(1));
+        let evidence = batch.outputs[0].as_ref().unwrap();
+        assert_eq!(evidence.accuracy.class, AccuracyClass::Estimated);
+        assert!((evidence.accuracy.error.unwrap() - 0.03).abs() < 1e-14);
+        assert_eq!(evidence.source, source);
+        assert_eq!(evidence.validity, Some(hash(9)));
+        assert_eq!(
+            pse_math::engineering_accuracy::classify(&certified, batch.outputs[1].as_ref().ok())
+                .unavailable,
+            Some(AccuracyUnavailableReason::InsufficientStrength)
+        );
+        assert!(batch.failure.is_none());
+    }
+    #[test]
+    fn engineering_accuracy_kkt_active_rhs_preserves_nonzero_rows_and_bound_orientation() {
+        let execution = Execution::new(Arc::default(), &Controls::default());
+        for side in 0..3 {
+            let (bounds, rows, jacobian, x, lambda, lower, upper, expected) = match side {
+                0 => (
+                    (-10., 10.),
+                    vec![(1., 1.)],
+                    vec![(0, 0, 1.)],
+                    1.001,
+                    vec![-1.001],
+                    0.,
+                    0.,
+                    -0.001,
+                ),
+                1 => ((1., 10.), vec![], vec![], 1.001, vec![], 1.001, 0., -0.001),
+                _ => (
+                    (-10., -1.),
+                    vec![],
+                    vec![],
+                    -1.001,
+                    vec![],
+                    0.,
+                    1.001,
+                    0.001,
+                ),
+            };
+            let mut oracle = Dense::new(&[bounds], &[(0, 0, 1.)], &jacobian, &rows);
+            let (candidate, _) = at(&oracle, &[x], &lambda, (&[lower], &[upper]));
+            let normalization = Normalization {
+                variables: vec![5.],
+                rows: vec![2.; rows.len()],
+                objective: 7.,
+            };
+            let (report, factor, source) =
+                observed(&mut oracle, candidate, &normalization, &execution);
+            let batch = estimate_kkt(
+                Some(&factor),
+                &report,
+                source,
+                outputs(
+                    &mut oracle,
+                    &report,
+                    source,
+                    vec![output(
+                        goal(source, 10, AccuracyClass::Estimated),
+                        2. * x,
+                        2.,
+                    )],
+                ),
+                &execution,
+            );
+            assert!(
+                (batch.correction.as_ref().unwrap()[0] - expected).abs() < 1e-13,
+                "{side}: {batch:?}"
+            );
+            let evidence = batch.outputs[0].as_ref().unwrap_or_else(|reason| panic!("{side}: {reason:?}; {batch:?}"));
+            assert!(
+                (evidence.accuracy.error.unwrap() - 0.002).abs() < 1e-13,
+                "{side}: {batch:?}"
+            );
+        }
+    }
+    #[test]
+    fn engineering_accuracy_kkt_withholds_uncertainty_weak_activity_and_stale_branch_without_action()
+     {
+        let work = Arc::new(Work::default());
+        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        execution.work_admission = Some(work.clone());
+        let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
+        let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));
+        let (mut report, factor, source) = observed(
+            &mut oracle,
+            candidate,
+            &Normalization::identity(1, 0),
+            &execution,
+        );
+        let mut missing = output(goal(source, 10, AccuracyClass::Estimated), 0.03, 3.);
+        missing.uncertainty = None;
+        let batch = estimate_kkt(
+            Some(&factor),
+            &report,
+            source,
+            outputs(&mut oracle, &report, source, vec![missing]),
+            &execution,
+        );
+        assert!(matches!(
+            batch.outputs[0],
+            Err(AccuracyUnavailableReason::EvaluatorUncertainty)
+        ));
+        let mut stale = output(goal(source, 10, AccuracyClass::Estimated), 0.03, 3.);
+        stale.derivative_source.branch = Some(hash(99));
+        let batch = estimate_kkt(
+            Some(&factor),
+            &report,
+            source,
+            outputs(&mut oracle, &report, source, vec![stale]),
+            &execution,
+        );
+        assert!(matches!(
+            batch.outputs[0],
+            Err(AccuracyUnavailableReason::InvalidValidity)
+        ));
+        report
+            .evidence
+            .local
+            .as_mut()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .bounds[OriginalCol::new(0)] = Activity::Weak(Side::Lower);
+        let batch = estimate_kkt(
+            Some(&factor),
+            &report,
+            source,
+            outputs(
+                &mut oracle,
+                &report,
+                source,
+                vec![output(goal(source, 10, AccuracyClass::Estimated), 0.03, 3.)],
+            ),
+            &execution,
+        );
+        assert!(matches!(
+            batch.outputs[0],
+            Err(AccuracyUnavailableReason::Regularity)
+        ));
+        assert!(work.0.lock().unwrap().is_empty());
+    }
+    #[derive(Debug)]
+    struct Observer {
+        source: SemanticProductKey,
+        goals: Vec<BoundGoal>,
+        artifact: Option<crate::engineering_accuracy::DeferredKktAccuracy>,
+        deferrals: usize,
+    }
+    impl crate::engineering_accuracy::KktOutputObserver for Observer {
+        fn source(&self) -> SemanticProductKey { self.source }
+        fn goals(&self) -> &[BoundGoal] { &self.goals }
+        fn defer(&mut self, artifact: crate::engineering_accuracy::DeferredKktAccuracy,
+            _: &Execution) -> Result<(), ProblemError> {
+            // This analytic owner has a real finite admitted extent; no goal
+            // evaluation or factor action is permitted during native deferral.
+            if artifact.bytes() > 1 << 20 {
+                return Err(ProblemError::memory("analytic pending KKT allowance"));
+            }
+            self.deferrals += 1;
+            self.artifact = Some(artifact);
+            Ok(())
+        }
+    }
+    #[test]
+    fn engineering_accuracy_kkt_defers_action_until_original_admission_and_skips_unqualified_work() {
+        let work = Arc::new(Work::default());
+        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        execution.work_admission = Some(work.clone());
+        let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
+        let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));
+        let (mut report, factor, source) = observed(&mut oracle, candidate, &Normalization::identity(1, 0), &execution);
+        let mut frozen = source;
+        frozen.point = None;
+        let mut observer = Observer { source: frozen, goals: vec![goal(frozen, 10, AccuracyClass::Estimated)],
+            artifact: None, deferrals: 0 };
+        let withheld = crate::engineering_accuracy::defer_kkt(&mut observer, Some(factor.clone()), &report, &execution);
+        assert!(withheld.is_none());
+        assert_eq!(observer.deferrals, 1);
+        assert!(work.0.lock().unwrap().is_empty());
+        let artifact = observer.artifact.take().unwrap();
+        assert_eq!(artifact.source(), source);
+        assert_eq!(artifact.goals()[0].source, source);
+        let actual_outputs = outputs(&mut oracle, &report, source, artifact.goals().iter().cloned().map(|goal| output(goal, 0.03, 3.)).collect());
+        // The consuming workflow supplies its real original-model/branch admission
+        // only after deferral; the single shared correction occurs here.
+        let batch = artifact.estimate(&report, actual_outputs, &execution);
+        assert_eq!(work.0.lock().unwrap().len(), 1);
+        assert_eq!(work.0.lock().unwrap()[0].iterations, Some(1));
+        assert_eq!(batch.action.unwrap().action_invocations, 1);
+        assert_eq!(batch.action.unwrap().backsolves, Some(1));
+        assert!(batch.outputs[0].is_ok());
+        report.evidence.local = Some(Err(Unavailable::Hessian));
+        let batch = crate::engineering_accuracy::defer_kkt(&mut observer, None, &report, &execution).unwrap();
+        assert_eq!(observer.deferrals, 1);
+        assert!(observer.artifact.is_none());
+        assert_eq!(batch.goals.len(), 1);
+        assert!(matches!(batch.outputs[0], Err(AccuracyUnavailableReason::Unsupported)));
+        assert!(batch.action.is_none());
+        report.qualification = Qualification::Feasible;
+        let batch = crate::engineering_accuracy::defer_kkt(&mut observer, None, &report, &execution).unwrap();
+        assert_eq!(observer.deferrals, 1);
+        assert!(matches!(batch.outputs[0], Err(AccuracyUnavailableReason::InvalidValidity)));
+    }
+    #[test]
+    fn engineering_accuracy_kkt_rejects_changed_original_multipliers_at_the_same_point() {
+        let work = Arc::new(Work::default());
+        let mut execution = Execution::new(Arc::default(), &Controls::default());
+        execution.work_admission = Some(work.clone());
+        let mut oracle = Dense::new(&[(-10., 10.)], &[(0, 0, 2.)], &[], &[]);
+        let (candidate, _) = at(&oracle, &[0.01], &[], (&[0.], &[0.]));
+        let (mut report, factor, source) = observed(&mut oracle, candidate, &Normalization::identity(1, 0), &execution);
+        report.candidate.as_mut().unwrap().bound_dual.as_mut().unwrap().0[0] = 0.001;
+        let batch = estimate_kkt(Some(&factor), &report, source,
+            outputs(&mut oracle, &report, source, vec![output(goal(source, 10, AccuracyClass::Estimated), 0.03, 3.)]), &execution);
+        assert!(matches!(batch.outputs[0], Err(AccuracyUnavailableReason::InvalidValidity)));
+        assert!(batch.action.is_none());
+        assert!(work.0.lock().unwrap().is_empty());
+    }
 }

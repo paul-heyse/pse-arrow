@@ -793,6 +793,42 @@ impl ModelingPackage {
         if let Some(program) = parametric {
             solve = solve.with_sensitivity(program)?;
         }
+        // Accuracy requests select their own source functions; reports do not authorize
+        // this work. Ordinary solves never construct or execute this projection.
+        if !solve.numerics().policy.goals.is_empty() {
+            use pse_model::generated::enums::{AccuracyGoalSubject, AccuracyObservation};
+            let source = model.model.compiled();
+            let mut selected = BTreeMap::new();
+            for goal in &solve.numerics().policy.goals {
+                if goal.target_kind != NumericalTarget::Observable
+                    || goal.subject != AccuracyGoalSubject::SelectedOutput
+                    || goal.observation != AccuracyObservation::Steady { continue; }
+                let row_id = ModelingOutput::Member(goal.target_id).row_id();
+                let Some(row) = source.admitted.case().rows().iter().find(|row| row.id == row_id) else { continue; };
+                let quantity = self.quantities.quantity_type(row.quantity).map_err(|cause| contract(cause.to_string()))?;
+                if row.quantity.as_id() != goal.quantity_id || quantity.canonical_unit.as_id() != goal.unit_id {
+                    return Err(contract("selected accuracy output changes its full physical quantity or canonical unit"));
+                }
+                selected.insert(goal.target_id, row_id);
+            }
+            if !selected.is_empty() {
+                let executable = self.runtime.shared.math().prepare_modeling_functions(
+                    self.workspace.clone(), model.model.clone(), selected.values().copied().collect(),
+                    model.case.compiled().plan.columns().to_vec(), DerivativeOrder::First, compiler, cancel,
+                ).await;
+                match executable {
+                    Ok(executable) if source.admitted.provider_demands_for_plan(
+                        &executable.assembly, DerivativeOrder::First,
+                    ).map_err(crate::math::MathRuntimeError::from)?.is_empty() => solve = solve.with_selected_outputs(
+                        crate::math::solves::output_program::SelectedOutputProgram::new(
+                            self.runtime.shared.math(), executable, selected)?,
+                    ),
+                    Ok(_) => {},
+                    Err(cause) if selected_output_derivative_unavailable(&cause) => {},
+                    Err(cause) => return Err(cause.into()),
+                }
+            }
+        }
         #[cfg(feature = "solver-kinsol")]
         if let Some(supplier) = self
             .automatic_causal_supplier(&model, &providers, &numerics, &solver, compiler, &solve)?
@@ -843,7 +879,8 @@ impl ModelingPackage {
             .prepare(root, instance, bindings, limits, cancel)
             .await?;
         let model = if (solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto
-            || solver.reconstruction.is_some())
+            || solver.reconstruction.is_some()
+            || implicit::declared_accuracy(&model, &solver.numerics))
             && solver.sensitivity.is_none()
             && model
                 .compiled()
@@ -1061,7 +1098,7 @@ impl ModelingPackage {
                 &inner,
                 &prepared,
                 &mut numerical,
-                &solver,
+                &mut solver,
                 compiler,
                 &providers,
                 cancel,
@@ -1200,7 +1237,7 @@ impl ModelingPackage {
         inner: &Inner,
         prepared: &ModelingCasePreparation,
         numerical: &mut NumericalInputs,
-        solver: &SolverProfile,
+        solver: &mut SolverProfile,
         compiler: Profile,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
@@ -1208,6 +1245,77 @@ impl ModelingPackage {
         let product = model.compiled();
         let variables = variables(product);
         let equations = equations(product);
+        let authored = hints(product)
+            .into_iter()
+            .filter(|(target, _, kind, _)| {
+                matches!(
+                    kind,
+                    ModelingHint::AccuracyGoalTime
+                        | ModelingHint::AccuracyGoalResolution
+                        | ModelingHint::AccuracyGoalLower
+                        | ModelingHint::AccuracyGoalUpper
+                        | ModelingHint::EngineeringScaleValue
+                ) && !inner.contains(target)
+            })
+            .collect::<Vec<_>>();
+        let mut frozen = prepared
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .variables()
+            .iter()
+            .filter(|variable| !variable.fixed)
+            .map(|variable| variable.port.id)
+            .collect::<BTreeSet<_>>();
+        frozen.extend(inner.unknowns.iter().copied());
+        for annotation in &product.model.annotations {
+            if !matches!(
+                annotation.value,
+                AnnotationValue::AccuracyGoal(_) | AnnotationValue::EngineeringScale(_)
+            ) {
+                continue;
+            }
+            if inner.contains(&annotation.target) {
+                return Err(contract(
+                    "authored accuracy targets inside a nested realization are not bound by the outer solve",
+                ));
+            }
+            match &annotation.value {
+                AnnotationValue::AccuracyGoal(goal) => {
+                    for expression in [
+                        goal.time.as_ref(),
+                        goal.resolution.as_ref(),
+                        goal.criterion_lower.as_ref(),
+                        goal.criterion_upper.as_ref(),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    {
+                        require_frozen_expression(expression, &product.model, &frozen)?;
+                    }
+                }
+                AnnotationValue::EngineeringScale(scale) => {
+                    require_frozen_expression(&scale.value, &product.model, &frozen)?;
+                }
+                _ => {}
+            }
+        }
+        let mut authored_values = BTreeMap::new();
+        if !authored.is_empty() {
+            let rows = authored.iter().map(|(_, _, _, row)| *row).collect();
+            let observed = self
+                .observe_registered(
+                    model.clone(),
+                    rows,
+                    prepared.values.clone(),
+                    compiler,
+                    providers.clone(),
+                    cancel,
+                )
+                .await?;
+            authored_values.clone_from(&*observed);
+        }
         let mut nominal_point = prepared.values.clone();
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
@@ -1250,7 +1358,40 @@ impl ModelingPackage {
                 declared_tolerance: None,
             });
         }
+        // A requested authored scalar is itself a selected observation. Admit its
+        // physical type before policy resolution; reporting annotations are optional.
+        for goal in &solver.numerics.goals {
+            if goal.subject != pse_model::generated::enums::AccuracyGoalSubject::SelectedOutput
+                || goal.observation != pse_model::generated::enums::AccuracyObservation::Steady
+                || goal.target_kind != NumericalTarget::Observable
+                || targets.iter().chain(&numerical.targets).any(|target|
+                    target.id == goal.target_id && target.kind == goal.target_kind) {
+                continue;
+            }
+            let symbol = product.model.symbols.get(&goal.target_id)
+                .ok_or_else(|| contract("accuracy goal target absent from selected model"))?;
+            let pse_modeling::Type::Quantity(quantity) = &symbol.ty else {
+                return Err(contract("accuracy goal requires a scalar physical target"));
+            };
+            let quantity = quantity.resolve(&physical, &BTreeMap::new())
+                .map_err(|error| contract(error.to_string()))?;
+            let unit = physical.quantity_type(quantity)
+                .map_err(|error| contract(error.to_string()))?.canonical_unit;
+            numerical.targets.push(pse_math::numerics::TargetSpec {
+                id: goal.target_id, kind: NumericalTarget::Observable, quantity, unit,
+                integer: false, declared_tolerance: None,
+            });
+        }
         targets.extend(numerical.targets.clone());
+        lower_authored_accuracy(
+            product,
+            model.solved().lineage(),
+            &physical,
+            numerical,
+            &mut solver.numerics,
+            &mut targets,
+            &authored_values,
+        )?;
         let reconstruction_requirements = state_reconstruction_requirements(
             product,
             &targets,
@@ -1372,6 +1513,409 @@ impl ModelingPackage {
         ))
     }
 }
+fn selected_output_derivative_unavailable(cause: &crate::math::MathRuntimeError) -> bool {
+    fn derivative(cause: &pse_math::MathError) -> bool {
+        match cause {
+            pse_math::MathError::DerivativeDemand { .. } => true,
+            pse_math::MathError::Instance { cause, .. } => derivative(cause),
+            _ => false,
+        }
+    }
+    use crate::math::MathRuntimeError as E;
+    match cause {
+        E::Math(cause) | E::Solve(pse_backend_native::ProblemError::Math(cause)) => derivative(cause),
+        E::Compile(pse_compiler::workspace::CompileError::Math(cause)) => derivative(cause),
+        E::Shared(cause) => selected_output_derivative_unavailable(cause),
+        _ => false,
+    }
+}
+/// Lower selected authored accuracy declarations into the shared numerical policy.
+/// Expressions have already been evaluated by the compiler's typed modeling program;
+/// this function only binds those values to their existing target and registry owners.
+pub(in crate::workflow) fn lower_authored_accuracy(
+    product: &pse_compiler::workspace::PreparedModeling,
+    scope: pse_model::lineage::Lineage,
+    registry: &pse_quantity::QuantityRegistry,
+    numerical: &mut NumericalInputs,
+    policy: &mut pse_model::numerics::NumericalPolicy,
+    targets: &mut Vec<pse_math::numerics::TargetSpec>,
+    values: &BTreeMap<SemanticId, f64>,
+) -> Result<(), WorkflowError> {
+    fn ensure_target(
+        numerical: &mut NumericalInputs,
+        targets: &mut Vec<pse_math::numerics::TargetSpec>,
+        registry: &pse_quantity::QuantityRegistry,
+        id: SemanticId,
+        kind: pse_model::generated::enums::NumericalTarget,
+        quantity: pse_quantity::QuantityTypeId,
+    ) -> Result<pse_math::numerics::TargetSpec, WorkflowError> {
+        if let Some(target) = targets.iter().find(|target| target.id == id && target.kind == kind) {
+            return Ok(target.clone());
+        }
+        let unit = registry.quantity_type(quantity)
+            .map_err(|error| contract(error.to_string()))?.canonical_unit;
+        let target = pse_math::numerics::TargetSpec {
+            id, kind, quantity, unit, integer: false, declared_tolerance: None,
+        };
+        if !numerical.targets.iter().any(|known| known.id == id && known.kind == kind) {
+            numerical.targets.push(target.clone());
+        }
+        targets.push(target.clone());
+        Ok(target)
+    }
+    use pse_model::generated::enums::{
+        AccuracyGoalSubject, NumericalSource, NumericalTarget,
+    };
+    use pse_modeling::specialize::Value;
+
+    let row_lineage = |instance| pse_model::lineage::Lineage {
+        model_id: scope.model_id,
+        case_id: scope.case_id,
+        instance_id: Some(instance),
+        fit_id: scope.fit_id,
+    };
+    let find_value = |target: SemanticId,
+                      declaration: DeclarationId,
+                      kind: ModelingHint|
+     -> Result<f64, WorkflowError> {
+        let row = hints(product)
+            .into_iter()
+            .find(|(hint_target, hint_declaration, hint_kind, _)| {
+                *hint_target == target && *hint_declaration == declaration && *hint_kind == kind
+            })
+            .map(|(_, _, _, row)| row)
+            .ok_or_else(|| contract("authored accuracy expression has no typed program output"))?;
+        let value = values
+            .get(&row)
+            .copied()
+            .ok_or_else(|| contract("authored accuracy expression was not evaluated"))?;
+        if !value.is_finite() {
+            return Err(contract("authored accuracy expression is nonfinite"));
+        }
+        Ok(value)
+    };
+
+    for rule in &product.model.engineering_rules {
+        let Value::Number { bits, quantity } = &rule.value else {
+            return Err(contract("shared engineering rule is not a typed number"));
+        };
+        let quantity_type = registry
+            .quantity_type(*quantity)
+            .map_err(|error| contract(error.to_string()))?;
+        let row = pse_model::numerics::EngineeringRule {
+            rule_id: rule.id.into(),
+            quantity_id: quantity.as_id(),
+            unit_id: quantity_type.canonical_unit.as_id(),
+            physical_allowance: Some(f64::from_bits(*bits)),
+            relative_fraction: None,
+            provenance: format!(
+                "shared engineering rule constant {} marked by {}",
+                rule.id, rule.marker
+            ),
+        };
+        if let Some(previous) = policy
+            .engineering_rules
+            .iter()
+            .find(|item| item.rule_id == row.rule_id)
+        {
+            if previous != &row {
+                return Err(contract(
+                    "conflicting materialization of a shared engineering rule",
+                ));
+            }
+        } else {
+            policy.engineering_rules.push(row);
+        }
+    }
+
+    let annotations = product.model.annotations.iter().collect::<Vec<_>>();
+    let mut declarations = Vec::new();
+    for annotation in &annotations {
+        match &annotation.value {
+            AnnotationValue::AccuracyGoal(goal) => {
+                let (kind, quantity) = if goal.subject == AccuracyGoalSubject::OptimalObjective {
+                    let selected = product.model.objectives.solved().ok_or_else(|| {
+                        contract("optimal-objective accuracy requires one selected objective level")
+                    })?;
+                    let (_, authored_quantity) = authored_target_semantics(
+                        product,
+                        numerical,
+                        targets,
+                        registry,
+                        annotation.target,
+                    )?;
+                    if authored_quantity != selected.quantity {
+                        return Err(contract(
+                            "optimal-objective accuracy target quantity differs from the selected objective quantity",
+                        ));
+                    }
+                    if !product
+                        .model
+                        .objectives
+                        .members_of(selected)
+                        .any(|member| member.target == annotation.target)
+                    {
+                        return Err(contract(
+                            "optimal-objective accuracy target is not a member of the selected objective",
+                        ));
+                    }
+                    (NumericalTarget::Objective, selected.quantity)
+                } else {
+                    authored_target_semantics(
+                        product,
+                        numerical,
+                        targets,
+                        registry,
+                        annotation.target,
+                    )?
+                };
+                let target_id = if kind == NumericalTarget::Objective {
+                    SemanticId::from_bytes([0; 16])
+                } else {
+                    annotation.target
+                };
+                let target = ensure_target(numerical, targets, registry, target_id, kind, quantity)?;
+                let time = goal
+                    .time
+                    .as_ref()
+                    .map(|_| {
+                        find_value(
+                            annotation.target,
+                            annotation.lineage.declaration,
+                            ModelingHint::AccuracyGoalTime,
+                        )
+                    })
+                    .transpose()?;
+                let resolution = goal
+                    .resolution
+                    .as_ref()
+                    .map(|_| {
+                        find_value(
+                            annotation.target,
+                            annotation.lineage.declaration,
+                            ModelingHint::AccuracyGoalResolution,
+                        )
+                    })
+                    .transpose()?;
+                let criterion_lower = goal
+                    .criterion_lower
+                    .as_ref()
+                    .map(|_| {
+                        find_value(
+                            annotation.target,
+                            annotation.lineage.declaration,
+                            ModelingHint::AccuracyGoalLower,
+                        )
+                    })
+                    .transpose()?;
+                let criterion_upper = goal
+                    .criterion_upper
+                    .as_ref()
+                    .map(|_| {
+                        find_value(
+                            annotation.target,
+                            annotation.lineage.declaration,
+                            ModelingHint::AccuracyGoalUpper,
+                        )
+                    })
+                    .transpose()?;
+                let lineage = row_lineage(annotation.lineage.instance);
+                let source = goal.source;
+                let row = pse_model::numerics::AccuracyGoal {
+                    goal_id: goal.id.into(),
+                    model_id: lineage.model_id,
+                    case_id: lineage.case_id,
+                    instance_id: lineage.instance_id,
+                    fit_id: lineage.fit_id,
+                    target_id,
+                    target_kind: kind,
+                    quantity_id: target.quantity.as_id(),
+                    unit_id: target.unit.as_id(),
+                    subject: goal.subject,
+                    observation: goal.observation,
+                    time,
+                    resolution,
+                    criterion_lower,
+                    criterion_upper,
+                    required_class: goal.required_class,
+                    use_policy: goal.use_policy,
+                    refine: goal.refine,
+                    source,
+                    priority: 0,
+                    provenance: format!(
+                        "accuracy goal {} on {}",
+                        annotation.lineage.declaration, annotation.target
+                    ),
+                };
+                declarations.push(row);
+            }
+            AnnotationValue::EngineeringScale(scale) => {
+                let (kind, quantity) = authored_target_semantics(
+                    product,
+                    numerical,
+                    targets,
+                    registry,
+                    annotation.target,
+                )?;
+                let target = ensure_target(numerical, targets, registry, annotation.target, kind, quantity)?;
+                let value = find_value(
+                    annotation.target,
+                    annotation.lineage.declaration,
+                    ModelingHint::EngineeringScaleValue,
+                )?;
+                let row = pse_model::numerics::EngineeringScale {
+                    scale_id: scale.id.into(),
+                    model_id: scope.model_id,
+                    case_id: scope.case_id,
+                    instance_id: Some(annotation.lineage.instance),
+                    fit_id: scope.fit_id,
+                    target_id: annotation.target,
+                    target_kind: kind,
+                    quantity_id: target.quantity.as_id(),
+                    unit_id: target.unit.as_id(),
+                    kind: scale.kind,
+                    value,
+                    source: scale.source,
+                    priority: 0,
+                    provenance: format!(
+                        "engineering scale {} on {}",
+                        annotation.lineage.declaration, annotation.target
+                    ),
+                };
+                if let Some(previous) = policy
+                    .engineering_scales
+                    .iter()
+                    .find(|item| item.scale_id == row.scale_id)
+                {
+                    if previous != &row {
+                        return Err(contract(
+                            "conflicting materialization of an engineering scale",
+                        ));
+                    }
+                } else {
+                    policy.engineering_scales.push(row);
+                }
+            }
+            AnnotationValue::EngineeringDefault { rule_id, source } => {
+                let (kind, quantity) = authored_target_semantics(
+                    product,
+                    numerical,
+                    targets,
+                    registry,
+                    annotation.target,
+                )?;
+                let target = ensure_target(numerical, targets, registry, annotation.target, kind, quantity)?;
+                let mut sourced = requirement(
+                    row_lineage(annotation.lineage.instance),
+                    annotation.target,
+                    kind,
+                    annotation.lineage.declaration,
+                    *source,
+                    None,
+                    None,
+                );
+                sourced.declaration.shared_engineering_allowance = Some(true);
+                sourced.declaration.engineering_rule_id = Some((*rule_id).into());
+                sourced.declaration.unit_id = Some(target.unit.as_id());
+                let id = sourced.declaration.requirement_id;
+                numerical
+                    .declarations
+                    .retain(|existing| existing.declaration.requirement_id != id);
+                numerical.declarations.push(sourced);
+            }
+            _ => {}
+        }
+    }
+
+    // Bind against the final selected targets now, so authored and request-local goals
+    // share the same unit conversion, identity conflict and target-admission path.
+    let requested = policy
+        .goals
+        .iter()
+        .filter(|goal| goal.source == NumericalSource::Analysis)
+        .cloned()
+        .collect::<Vec<_>>();
+    policy.goals = pse_math::engineering_accuracy::bind_goals(registry, targets, &declarations, &requested)
+        .map_err(|error| contract(error.to_string()))?;
+    Ok(())
+}
+
+fn authored_target_semantics(
+    product: &pse_compiler::workspace::PreparedModeling,
+    numerical: &NumericalInputs,
+    targets: &[pse_math::numerics::TargetSpec],
+    registry: &pse_quantity::QuantityRegistry,
+    id: SemanticId,
+) -> Result<(NumericalTarget, pse_quantity::QuantityTypeId), WorkflowError> {
+    if let Some(target) = targets
+        .iter()
+        .chain(numerical.targets.iter())
+        .find(|target| target.id == id && target.kind != NumericalTarget::Objective)
+    {
+        return Ok((target.kind, target.quantity));
+    }
+    let symbol = product
+        .model
+        .symbols
+        .get(&id)
+        .ok_or_else(|| contract("authored accuracy target is not a specialized scalar"))?;
+    let scheme = symbol
+        .ty
+        .quantity_scheme()
+        .ok_or_else(|| contract("authored accuracy target has no physical quantity"))?;
+    let quantity = scheme
+        .resolve(registry, &Default::default())
+        .map_err(|error| contract(error.to_string()))?;
+    Ok((NumericalTarget::Observable, quantity))
+}
+
+/// Refuse accuracy supports that vary with the current nonlinear solve coordinates.
+/// Derived symbols are expanded transitively using their already-specialized expressions.
+pub(in crate::workflow) fn require_frozen_expression(
+    expression: &pse_authoring::dsl::Expr,
+    model: &pse_modeling::specialize::SpecializedModel,
+    forbidden: &BTreeSet<SemanticId>,
+) -> Result<(), WorkflowError> {
+    fn visit(
+        expression: &pse_authoring::dsl::Expr,
+        model: &pse_modeling::specialize::SpecializedModel,
+        forbidden: &BTreeSet<SemanticId>,
+        seen: &mut BTreeSet<SemanticId>,
+    ) -> Result<(), WorkflowError> {
+        for path in expression.free_paths() {
+            let Some(segment) = path.segments.first() else {
+                continue;
+            };
+            if path.segments.len() != 1 || !segment.indices.is_empty() {
+                continue;
+            }
+            let Some(id) = model
+                .symbols
+                .keys()
+                .copied()
+                .find(|id| pse_modeling::specialize::symbol_name(*id) == segment.name)
+            else {
+                continue;
+            };
+            if forbidden.contains(&id) {
+                return Err(contract(
+                    "accuracy support depends on a changing solve coordinate",
+                ));
+            }
+            if seen.insert(id)
+                && let Some(derived) = model
+                    .symbols
+                    .get(&id)
+                    .and_then(|symbol| symbol.expression.as_ref())
+            {
+                visit(derived, model, forbidden, seen)?;
+            }
+        }
+        Ok(())
+    }
+    visit(expression, model, forbidden, &mut BTreeSet::new())
+}
+
 fn state_reconstruction_requirement_id(row: &pse_modeling::specialize::Row) -> SemanticId {
     pse_ids::named_id(
         pse_ids::named_id(row.lineage.declaration.as_id(), &row.id.to_string()),
@@ -1643,6 +2187,8 @@ pub(in crate::workflow) fn requirement(
             nominal,
             scaling_factor: scale,
             absolute_tolerance: None,
+            shared_engineering_allowance: None,
+            engineering_rule_id: None,
             relative_tolerance: None,
             unit_id: None,
             coordinates: NumericalCoordinates::Physical,
@@ -1703,6 +2249,39 @@ mod tests {
     use super::*;
     use crate::math::solves::Outcome;
     use std::sync::Arc;
+    #[tokio::test]
+    async fn authored_objective_accuracy_rejects_member_quantity_mismatch() {
+        use super::super::super::tests as fixture;
+        let declarations = pse_authoring::language::parse(
+            "package p { def Root { var x:Length; eq root:x==1{m}; annotation start x(1{m}); let cost:Scalar=x/1{m}; annotation objective cost(minimize); annotation accuracy_goal x(optimal_objective, steady, resolution=0.1{m}); } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let runtime = fixture::runtime();
+        let package = runtime.modeling_package(declarations, fixture::physical()).unwrap();
+        let mut profile = fixture::profile();
+        profile.intent = pse_backend_native::solve::SolveIntent::Optimize;
+        let error = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                profile,
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .expect_err("physical member quantity cannot describe a dimensionless objective");
+        assert!(error.to_string().contains("target quantity differs from the selected objective quantity"),
+            "unexpected refusal: {error}");
+    }
     #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
     fn authored_symbol(
         product: &pse_compiler::workspace::PreparedModeling,

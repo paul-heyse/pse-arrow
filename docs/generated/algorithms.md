@@ -38,6 +38,9 @@ Version: `1`. Determinism: `deterministic`. Native effects: {Read}.
 | output | `algorithm_arguments` | `reference.algorithm_arguments` |
 | output | `algorithm_results` | `reference.algorithm_results` |
 | output | `engine_profiles` | `reference.engine_profiles` |
+| output | `accuracy_goals` | `authored.accuracy_goals` |
+| output | `engineering_scales` | `authored.engineering_scales` |
+| output | `engineering_default_rules` | `authored.engineering_default_rules` |
 | output | `numerical_requirements` | `authored.numerical_requirements` |
 | output | `fit_cases` | `authored.fit_cases` |
 | output | `modeling_declarations` | `authored.modeling_declarations` |

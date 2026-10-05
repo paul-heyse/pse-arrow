@@ -47,6 +47,8 @@ mod implicit;
 mod pounce_convex_tests;
 #[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
 mod pr_jacobian_tests;
+#[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
+mod recycle_tests;
 #[cfg(all(test, feature = "solver-kinsol"))]
 mod root_response_tests;
 #[cfg(test)]

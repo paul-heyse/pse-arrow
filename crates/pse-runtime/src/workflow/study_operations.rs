@@ -323,7 +323,7 @@ pub struct AdmittedHorizonValues {
 #[serde(deny_unknown_fields)]
 pub struct StudyOperation {
     /// Interpretation of this operation descriptor.
-    pub version: Version<4>,
+    pub version: Version<5>,
     /// Exact source/context reconstruction precondition.
     pub source: OperationSource,
     /// Complete preparation controls using existing owners' remote projections.

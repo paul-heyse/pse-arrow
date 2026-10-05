@@ -107,7 +107,9 @@ pub fn nlp(
         run.oracle = crate::structural::retain_nlp(run.oracle, structure.witness.clone());
     }
     // Feasibility purposes solve a constant objective, whose curvature says nothing.
-    if (run.analysis.second_order || run.analysis.sensitivity.is_some())
+    if (run.analysis.second_order
+        || run.analysis.sensitivity.is_some()
+        || run.analysis.output_accuracy.is_some())
         && run.intent != SolveIntent::Optimize
     {
         return Err(ProblemError::Contract(format!(
@@ -116,6 +118,29 @@ pub fn nlp(
         )));
     }
     let sensitivity = run.analysis.sensitivity.take();
+    if run.analysis.output_accuracy.is_some() && !run.analysis.second_order {
+        return Err(ProblemError::Contract(
+            "KKT output accuracy requires original exact-Hessian local analysis".into(),
+        ));
+    }
+    if let Some(observer) = &run.analysis.output_accuracy {
+        let source = observer.source();
+        let goals = observer.goals();
+        let distinct = goals
+            .iter()
+            .map(|goal| goal.declaration.goal_id)
+            .collect::<std::collections::BTreeSet<_>>();
+        if goals.is_empty()
+            || distinct.len() != goals.len()
+            || source.normalization != Some(step.normalization.key())
+            || goals.iter().any(|goal| {
+                goal.source != source
+                    || pse_model::engineering_accuracy::validate_goal(&goal.declaration).is_err()
+            })
+        {
+            return Err(ProblemError::Contract("KKT output accuracy needs distinct valid goals bound to its actual original context and normalization".into()));
+        }
+    }
     if let Some(request) = &sensitivity {
         request.admit(run.oracle.contract())?;
     }
@@ -221,6 +246,12 @@ pub fn nlp(
     quality::record_kkt(&mut report, step.normalization, step.accuracy);
     quality::qualify(&mut report, step.accuracy);
     report.least_infeasible = quality::least_infeasible(&report);
+    if let Some(mut observer) = run.analysis.output_accuracy.take() {
+        // The clone only shares existing factor storage. Output work is deferred
+        // until the workflow completes its original scientific/model checks.
+        report.evidence.output_accuracy = crate::engineering_accuracy::defer_kkt(
+            observer.as_mut(), factor.clone(), &report, &step.execution);
+    }
     // The requested sensitivities read the qualified report; their factor lives for this
     // step only, unless the request keeps it for an advanced step (ADR-0118 item 12).
     if let Some(request) = sensitivity
@@ -786,7 +817,7 @@ mod validation_tests {
         let problem = mixed_lp();
         let backend = Backend::Clarabel;
         let controls = Controls::default();
-        let accuracy = ResolvedAccuracy::nominal();
+        let accuracy = ResolvedAccuracy::verification();
         let tolerances = budgets(&problem, 1e-7);
         let normalization = Normalization::identity(
             problem.contract.variables.len(),

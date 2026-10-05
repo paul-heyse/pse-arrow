@@ -51,7 +51,7 @@ Codec controls cover malformed/unknown fields, refusal before results, cancellat
 
 ### Confirmation
 
-**Implemented/Tested, 2026-10-02:** [25j Verification](../plans/25j-generated-boundaries-and-library-consolidation.md#verification)
+**Implemented/Tested, 2026-10-02:** [25j Verification](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25j-generated-boundaries-and-library-consolidation.md#verification)
 records the focused Rust owner/generator/flow controls and 49 selected linked Python unit
 controls, including typed diagnostics/getters/stubs, defaults, eight actual Rust-serialized
 outcome branches, duplicate refusal and scalar/structured collection equality. Final generation,
@@ -67,7 +67,7 @@ One operation owner removes cross-language semantic drift. The native/Python cut
 
 ## More information
 
-[25j](../plans/25j-generated-boundaries-and-library-consolidation.md), [series coordinator](../plans/25-design-remediation.md), ADR-0150 and ADR-0148.
+[25j](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25j-generated-boundaries-and-library-consolidation.md), [series coordinator](../plans/25-design-remediation.md), ADR-0150 and ADR-0148.
 
 ## Status history
 

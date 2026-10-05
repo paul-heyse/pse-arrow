@@ -6,6 +6,11 @@ pub mod blocks;
 #[cfg(feature = "solver-kinsol")]
 pub mod causal;
 mod derived;
+mod certified_accuracy;
+pub(crate) mod engineering_accuracy;
+pub(crate) mod output_program;
+mod kkt_accuracy;
+mod objective_accuracy;
 pub mod multistart;
 pub mod paths;
 #[cfg(feature = "solver-petsc")]
@@ -232,6 +237,9 @@ pub struct PreparedSolve {
     tolerances: Tolerances,
     /// Stopping budgets resolved from `numerics`; never taken from user controls (F20).
     accuracy: ResolvedAccuracy,
+    /// Identity of a goal-driven operational stopping refinement, separate from
+    /// frozen scientific numerical/acceptance identity.
+    work_precision: Option<pse_ids::ContentHash>,
     route: Route,
     snapshot: execution::Snapshot,
     compatibility: Option<Compatibility>,
@@ -246,6 +254,9 @@ pub struct PreparedSolve {
     composition: Option<Arc<PreparedComposition>>,
     task_scope: Option<pse_kernels::ExecutionScope>,
     task_admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
+    /// One workflow point's ephemeral pending factor; ordinary preparation owns none.
+    point_accuracy: Option<Arc<kkt_accuracy::PointAccuracySink>>,
+    selected_outputs: Option<Arc<output_program::SelectedOutputProgram>>,
     #[cfg(feature = "solver-kinsol")]
     causal_supplier: Option<Arc<dyn causal::CausalSupplier>>,
     pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
@@ -275,6 +286,10 @@ enum AutomaticBinding {
     Blocks(Box<PreparedSolve>),
     Original(Box<PreparedSolve>),
     Prepared(Box<PreparedRung>),
+    NativeRoute {
+        original: Box<PreparedSolve>,
+        backend: Backend,
+    },
     #[cfg(feature = "solver-pounce")]
     NativeProfile {
         original: Box<PreparedSolve>,
@@ -382,6 +397,61 @@ impl PreparedSolve {
         self.task_scope = checked.task_scope;
         Ok(self)
     }
+    /// Normalized output resolution of actual reconstructed coordinates, independent
+    /// of their bound-violation acceptance and of KKT stationarity.
+    pub(crate) fn operational_point_allowance(&self) -> Result<f64, ProblemError> {
+        let Representation::Algebraic(source) = &self.representation else {
+            return Err(ProblemError::unsupported(
+                "reconstructed-output context requires algebraic coordinates",
+            ));
+        };
+        let quantities = &source.prepared.prepared.quantities;
+        let mut allowance = f64::INFINITY;
+        for (id, scale) in source
+            .prepared
+            .prepared
+            .plan
+            .columns()
+            .iter()
+            .zip(&self.normalization.variables)
+        {
+            let target = self
+                .numerics
+                .targets
+                .iter()
+                .find(|t| {
+                    t.id == *id && t.kind == pse_model::generated::enums::NumericalTarget::Variable
+                })
+                .ok_or_else(|| {
+                    ProblemError::Contract("operational output context lacks coordinate".into())
+                })?;
+            let context = match &target.engineering {
+                Some(context) => context.clone(),
+                None => pse_math::numerics::operational_output_context(
+                    quantities,
+                    &pse_math::numerics::TargetSpec {
+                        id: target.id,
+                        kind: target.kind,
+                        quantity: target.quantity.into(),
+                        unit: target.unit.into(),
+                        integer: false,
+                        declared_tolerance: None,
+                    },
+                    &self.numerics.policy,
+                )
+                .map_err(ProblemError::from)?,
+            };
+            // Named engineering outputs derive separate consuming demands from
+            // their actual influence; this mandatory context also applies without goals.
+            allowance = allowance.min(context.budget / scale);
+        }
+        if !allowance.is_finite() || allowance <= 0. {
+            return Err(ProblemError::Contract(
+                "operational output allowance is not finite positive".into(),
+            ));
+        }
+        Ok(allowance)
+    }
     fn automatic_reconstruction_accuracy(&self) -> Option<native::derived::ReconstructionAccuracy> {
         if let Some(accuracy) = self.profile.reconstruction {
             return Some(accuracy);
@@ -396,13 +466,7 @@ impl PreparedSolve {
         }) {
             return None;
         }
-        let point = self
-            .tolerances
-            .variables
-            .iter()
-            .zip(&self.normalization.variables)
-            .map(|(budget, scale)| budget / scale)
-            .fold(f64::INFINITY, f64::min);
+        let point = self.operational_point_allowance().ok()?;
         let rounds = usize::try_from(self.profile.controls.iterations).ok()?;
         let proof_cells = self
             .profile
@@ -415,7 +479,7 @@ impl PreparedSolve {
         }
         Some(native::derived::ReconstructionAccuracy {
             point,
-            action: self.numerics.policy.kkt.stationarity,
+            action: self.numerics.policy.supplier_action_accuracy,
             class: pse_model::strategy::AccuracyClass::Certified,
             refinement: pse_math::derived::RefinementLimits {
                 rounds,
@@ -546,21 +610,15 @@ impl PreparedSolve {
             .ok_or_else(|| ProblemError::memory("automatic causal catalog extent"))?;
         #[cfg(not(feature = "solver-kinsol"))]
         let _ = cancel;
+        let count = count
+            .checked_add(self.automatic_backend_alternatives().len())
+            .ok_or_else(|| ProblemError::memory("automatic backend catalog extent"))?;
         #[cfg(feature = "solver-pounce")]
-        let count = if self.backend() == Some(Backend::Pounce) {
-            let settings = match &self.profile.backend {
-                BackendSettings::Pounce(settings) => settings.clone(),
-                BackendSettings::Default => native::pounce::Settings::default(),
-                _ => {
-                    return Err(ProblemError::Contract(
-                        "POUNCE route settings differ".into(),
-                    ));
-                }
-            };
+        let count = if let Some((profile, settings)) = self.pounce_recovery_baseline()? {
             count
                 .checked_add(
                     native::pounce::second_opinion_capacity(
-                        &self.profile.controls,
+                        &profile.controls,
                         &settings,
                         self.profile
                             .composition
@@ -712,52 +770,194 @@ impl PreparedSolve {
             });
             return Ok(operations);
         }
+        let mut operations = Vec::new();
         #[cfg(feature = "solver-pounce")]
-        if self.backend() == Some(Backend::Pounce) {
-            let settings = match &self.profile.backend {
-                BackendSettings::Default => native::settings::pounce::Settings::default(),
-                BackendSettings::Pounce(settings) => settings.clone(),
-                _ => {
-                    return Err(
-                        ProblemError::Contract("POUNCE route settings differ".into()).into(),
-                    );
-                }
-            };
+        if last.is_some_and(|report| report.backend == Backend::Pounce)
+            && let Some((baseline, settings)) = self.pounce_recovery_baseline()?
+        {
             let allow_replacement = self
                 .profile
                 .composition
                 .recovery
                 .contains(&StartOrigin::Auxiliary);
             let descriptions = native::pounce::second_opinion_profiles(
-                &self.profile.controls,
+                &baseline.controls,
                 &settings,
                 last.ok_or_else(|| {
                     ProblemError::Internal("missing actual native observation".into())
                 })?,
                 allow_replacement,
             )?;
-            return Ok(descriptions
-                .into_iter()
-                .map(|description| {
-                    let mut profile = self.profile.clone();
-                    profile.controls = description.controls;
-                    profile.backend = BackendSettings::Pounce(description.settings);
-                    Ok(AutomaticOperation {
-                        candidate: candidate(
-                            MechanismKind::NativeGlobalization,
-                            description.replaces_start,
-                            &profile,
-                        )?,
-                        binding: AutomaticBinding::NativeProfile {
-                            original: Box::new(self.clone()),
-                            profile: Box::new(profile),
-                            perturbation: description.perturbation,
-                        },
+            operations.extend(
+                descriptions
+                    .into_iter()
+                    .map(|description| {
+                        let mut profile = baseline.clone();
+                        profile.controls = description.controls;
+                        profile.backend = BackendSettings::Pounce(description.settings);
+                        Ok(AutomaticOperation {
+                            candidate: candidate(
+                                MechanismKind::NativeGlobalization,
+                                description.replaces_start,
+                                &profile,
+                            )?,
+                            binding: AutomaticBinding::NativeProfile {
+                                original: Box::new(self.clone()),
+                                profile: Box::new(profile),
+                                perturbation: description.perturbation,
+                            },
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>, ProblemError>>()?);
+                    .collect::<Result<Vec<_>, ProblemError>>()?,
+            );
         }
-        Ok(Vec::new())
+        operations.extend(self.automatic_native_route_operations()?);
+        Ok(operations)
+    }
+
+    fn automatic_native_route_operations(&self) -> Result<Vec<AutomaticOperation>, ProblemError> {
+        use pse_model::strategy::MechanismKind;
+        let start = self.entry_origin(false);
+        let original_request = self.request_identity()?.as_id();
+        self.automatic_backend_alternatives()
+            .into_iter()
+            .map(|backend| {
+                let profile = self.profile_for_automatic_backend(backend)?;
+                let mut binding = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
+                binding
+                    .hash(&original_request)
+                    .hash(&profile_key(&profile)?.as_id())
+                    .str(MechanismKind::NativeGlobalization.as_str());
+                Ok(AutomaticOperation {
+                    candidate: super::strategy::AutoCandidate {
+                        identity: binding.finish_hash(),
+                        kind: MechanismKind::NativeGlobalization,
+                        start,
+                        replacement: false,
+                        support: std::collections::BTreeSet::new(),
+                        reservation: None,
+                        prepared: false,
+                    },
+                    binding: AutomaticBinding::NativeRoute {
+                        original: Box::new(self.clone()),
+                        backend,
+                    },
+                })
+            })
+            .collect()
+    }
+
+    /// Other automatic adapters in this request's selected mathematical class, in the
+    /// router's rank order. A pending adapter is a barrier: later candidates are not
+    /// offered until its required evidence has been resolved.
+    fn automatic_backend_alternatives(&self) -> Vec<Backend> {
+        if !matches!(self.profile.selection, SolverSelection::Auto)
+            || !matches!(self.profile.backend, BackendSettings::Default)
+        {
+            return Vec::new();
+        }
+        let Some(decision) = &self.route_decision else {
+            return Vec::new();
+        };
+        let Some(current) = self.backend() else {
+            return Vec::new();
+        };
+        if decision.selection != SolverSelection::Auto
+            || decision.state != routing::AssessmentState::Ready
+            || decision.selected != Some(Route::Native(current))
+        {
+            return Vec::new();
+        }
+        let Some(current_adapter) = execution::LINKED.get(current) else {
+            return Vec::new();
+        };
+        let Some(class) = decision.classes.iter().find(|class| {
+            current_adapter
+                .capability()
+                .automatic_classes
+                .contains(class)
+        }) else {
+            return Vec::new();
+        };
+        let mut ranked = execution::LINKED
+            .adapters()
+            .filter(|adapter| adapter.capability().automatic_classes.contains(class))
+            .filter_map(|adapter| adapter.automatic().map(|rank| (rank, adapter.backend())))
+            .collect::<Vec<_>>();
+        ranked.sort_by_key(|(rank, backend)| (*rank, backend.as_str()));
+        let Some(current_index) = ranked.iter().position(|(_, backend)| *backend == current) else {
+            return Vec::new();
+        };
+        // A higher-ranked unresolved candidate makes the retained selection stale or
+        // incomplete. Never skip it in search of an apparently ready lower-ranked route.
+        if ranked[..current_index].iter().any(|(_, backend)| {
+            decision
+                .eligibility
+                .iter()
+                .find(|entry| entry.backend == *backend)
+                .is_some_and(|entry| entry.state != routing::AssessmentState::Refused)
+        }) {
+            return Vec::new();
+        }
+        let mut alternatives = Vec::new();
+        for (_, backend) in ranked.into_iter().skip(current_index + 1) {
+            let state = decision
+                .eligibility
+                .iter()
+                .find(|entry| entry.backend == backend)
+                .map(|entry| entry.state);
+            match state {
+                Some(routing::AssessmentState::Refused) => {}
+                Some(routing::AssessmentState::Ready)
+                | Some(routing::AssessmentState::SupportedPendingArtifacts) => {
+                    alternatives.push(backend);
+                }
+                Some(routing::AssessmentState::PendingEvidence) | None => break,
+            }
+        }
+        alternatives
+    }
+
+    fn profile_for_automatic_backend(
+        &self,
+        backend: Backend,
+    ) -> Result<SolverProfile, ProblemError> {
+        let Representation::Algebraic(source) = &self.representation else {
+            return Err(ProblemError::Unsupported(
+                "automatic native backend alternatives require algebraic source".into(),
+            ));
+        };
+        let mut profile = self.profile.clone();
+        profile.selection = SolverSelection::Explicit(backend);
+        profile.backend = BackendSettings::Default
+            .for_requirements(backend, &source.prepared.prepared.facts.requirements);
+        Ok(profile)
+    }
+
+    #[cfg(feature = "solver-pounce")]
+    fn pounce_recovery_baseline(
+        &self,
+    ) -> Result<Option<(SolverProfile, native::settings::pounce::Settings)>, ProblemError> {
+        let profile = if self.backend() == Some(Backend::Pounce) {
+            self.profile.clone()
+        } else if self
+            .automatic_backend_alternatives()
+            .contains(&Backend::Pounce)
+        {
+            self.profile_for_automatic_backend(Backend::Pounce)?
+        } else {
+            return Ok(None);
+        };
+        let settings = match &profile.backend {
+            BackendSettings::Default => native::settings::pounce::Settings::default(),
+            BackendSettings::Pounce(settings) => settings.clone(),
+            _ => {
+                return Err(ProblemError::Contract(
+                    "POUNCE recovery route settings differ".into(),
+                ));
+            }
+        };
+        Ok(Some((profile, settings)))
     }
 }
 impl MathService {
@@ -805,6 +1005,11 @@ impl MathService {
                     .await?
                     .into());
             }
+            AutomaticBinding::NativeRoute { original, backend } => {
+                let profile = original.profile_for_automatic_backend(backend)?;
+                self.prepare_automatic_native_profile(&original, profile, scope)
+                    .await?
+            }
             #[cfg(feature = "solver-pounce")]
             AutomaticBinding::NativeProfile {
                 original,
@@ -818,25 +1023,8 @@ impl MathService {
                     .into());
                 };
                 let mut rebound = self
-                    .prepare_resolved(
-                        source.prepared.clone(),
-                        source.values.clone(),
-                        source.providers.clone(),
-                        *profile,
-                        original.numerics.clone(),
-                        BTreeMap::new(),
-                    )
+                    .prepare_automatic_native_profile(&original, *profile, scope.clone())
                     .await?;
-                rebound.explicit_start = original.explicit_start.clone();
-                if let Representation::Algebraic(rebound_source) = &mut rebound.representation {
-                    // The original parametric program remains the mathematical owner.
-                    // Changing the acting native profile does not drop requested postsolve products.
-                    rebound_source.sensitivity = source.sensitivity.clone();
-                }
-                rebound.proposal_start = original.proposal_start.clone();
-                rebound.task_admission = original.task_admission.clone();
-                rebound.requested_hessian = original.requested_hessian;
-                let mut rebound = rebound.within_task(scope.clone())?;
                 if let Some(perturbation) = perturbation {
                     let point = original.source_start(None)?;
                     let declaration = source.prepared.prepared.plan.structure();
@@ -892,6 +1080,86 @@ impl MathService {
             }
         };
         Ok(prepared.into())
+    }
+
+    /// Rebind an admitted native alternative against the same original model and task.
+    /// Native warm payloads are adapter-specific, so an explicit entry primal is rebuilt
+    /// through the newly admitted adapter rather than copied across backend boundaries.
+    async fn prepare_automatic_native_profile(
+        self: &Arc<Self>,
+        original: &PreparedSolve,
+        profile: SolverProfile,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<PreparedSolve, MathRuntimeError> {
+        let Representation::Algebraic(source) = &original.representation else {
+            return Err(ProblemError::Unsupported(
+                "native profile recovery requires algebraic source".into(),
+            )
+            .into());
+        };
+        if original
+            .task_admission
+            .as_ref()
+            .is_some_and(|admission| !admission.matches_scope(&scope))
+        {
+            return Err(ProblemError::Contract(
+                "automatic native alternative differs from its task admission".into(),
+            )
+            .into());
+        }
+        if original.proposal_start.as_ref().is_some_and(|proposal| {
+            !Arc::ptr_eq(proposal.scope().cancellation(), scope.cancellation())
+                || proposal.scope().deadline() != scope.deadline()
+        }) {
+            return Err(ProblemError::Contract(
+                "automatic native alternative differs from its screened entry start scope".into(),
+            )
+            .into());
+        }
+        let mut rebound = self
+            .prepare_resolved(
+                source.prepared.clone(),
+                source.values.clone(),
+                source.providers.clone(),
+                profile,
+                original.numerics.clone(),
+                BTreeMap::new(),
+            )
+            .await?;
+        if let Some(seed) = &original.explicit_start {
+            let primal = match &seed.payload {
+                WarmPayload::Nlp { primal, .. } | WarmPayload::Root(primal) => primal,
+                WarmPayload::Highs {
+                    primal: Some(primal),
+                    ..
+                } => primal,
+                WarmPayload::Highs { primal: None, .. } => {
+                    return Err(ProblemError::Contract(
+                        "explicit entry start has no source-coordinate primal".into(),
+                    )
+                    .into());
+                }
+            };
+            let ids = source.prepared.prepared.plan.columns();
+            if ids.len() != primal.len() {
+                return Err(ProblemError::Contract(
+                    "explicit entry start differs from the original coordinate inventory".into(),
+                )
+                .into());
+            }
+            let values = ids.iter().copied().zip(primal.iter().copied()).collect();
+            rebound = rebound.with_primal_start(values)?;
+        }
+        if let Representation::Algebraic(rebound_source) = &mut rebound.representation {
+            // The original parametric program remains the mathematical owner.
+            rebound_source.sensitivity = source.sensitivity.clone();
+        }
+        rebound.proposal_start = original.proposal_start.clone();
+        rebound.task_admission = original.task_admission.clone();
+        rebound.point_accuracy = original.point_accuracy.clone();
+        rebound.selected_outputs = original.selected_outputs.clone();
+        rebound.requested_hessian = original.requested_hessian;
+        Ok(rebound.within_task(scope)?)
     }
 }
 impl PreparedSolve {
@@ -1214,7 +1482,7 @@ impl PreparedSolve {
     pub fn preparation_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         let mut h = FramedHasher::new(pse_ids::Frame::SolvePreparationV3);
         h.hash(&self.snapshot.identity())
-            .hash(&profile_key(&self.profile)?.as_id())
+            .hash(&self.strategy_profile()?)
             .hash(&self.numerics.key);
         match &self.representation {
             Representation::Algebraic(AlgebraicCase {
@@ -1565,6 +1833,10 @@ impl PreparedSolve {
     pub fn accuracy(&self) -> &ResolvedAccuracy {
         &self.accuracy
     }
+    /// Optional identity of a goal-driven operational stopping refinement.
+    pub fn work_precision(&self) -> Option<pse_ids::ContentHash> {
+        self.work_precision
+    }
     /// The absolute accuracy of the objective value in original units: the continuous
     /// absolute gap budget at the objective's coordinate scale.
     pub fn objective_accuracy(&self) -> f64 {
@@ -1594,7 +1866,15 @@ impl PreparedSolve {
     /// # Errors
     /// The admitted profile cannot be encoded canonically.
     pub fn strategy_profile(&self) -> Result<pse_ids::ContentHash, ProblemError> {
-        Ok(profile_key(&self.profile)?.as_id())
+        let profile = profile_key(&self.profile)?.as_id();
+        match self.work_precision {
+            Some(precision) => pse_ids::document::of(
+                pse_ids::Frame::SolverProfileV5,
+                &("goal-work-precision", profile, precision),
+            )
+            .map_err(|error| ProblemError::Internal(error.to_string())),
+            None => Ok(profile),
+        }
     }
     /// Semantic/numerical reuse identity, absent for all-fixed validation.
     pub fn compatibility(&self) -> Option<&Compatibility> {
@@ -1811,6 +2091,8 @@ pub struct ConstantReport {
     /// Actual original free coordinates from a complete reconstruction or block schedule.
     /// Empty for an all-fixed source.
     pub coordinates: Vec<(pse_ids::SemanticId, f64)>,
+    /// Producer-issued selected-root coverage, present only for complete reconstruction.
+    pub(crate) certified_reconstruction: Option<Arc<derived::CertifiedReconstructionPoint>>,
     /// Direct evaluation work; absent counters retain unavailable supplier totals.
     pub work: WorkEvidence,
 }
@@ -2734,6 +3016,7 @@ impl MathService {
             normalization,
             tolerances,
             accuracy,
+            work_precision: None,
             route,
             compatibility: stamp,
             explicit_start: None,
@@ -2744,6 +3027,8 @@ impl MathService {
             composition: None,
             task_scope: None,
             task_admission: None,
+            point_accuracy: None,
+            selected_outputs: None,
             #[cfg(feature = "solver-kinsol")]
             causal_supplier: None,
             pool: self.pool.clone(),
@@ -2938,6 +3223,7 @@ impl MathService {
             normalization,
             tolerances,
             accuracy,
+            work_precision: None,
             route,
             compatibility: Some(stamp),
             explicit_start: None,
@@ -2948,6 +3234,8 @@ impl MathService {
             composition: None,
             task_scope: None,
             task_admission: None,
+            point_accuracy: None,
+            selected_outputs: None,
             #[cfg(feature = "solver-kinsol")]
             causal_supplier: None,
             pool: self.pool.clone(),
@@ -3173,6 +3461,7 @@ impl MathService {
             normalization,
             tolerances,
             accuracy,
+            work_precision: None,
             route,
             compatibility: Some(stamp),
             explicit_start: None,
@@ -3183,6 +3472,8 @@ impl MathService {
             composition: None,
             task_scope: None,
             task_admission: None,
+            point_accuracy: None,
+            selected_outputs: None,
             #[cfg(feature = "solver-kinsol")]
             causal_supplier: None,
             pool: self.pool.clone(),
@@ -3729,6 +4020,10 @@ impl MathService {
         retained: &mut Retained,
         budget: &Arc<WorkerBudget>,
     ) -> Result<Outcome, MathRuntimeError> {
+        // Every dispatch replaces this point's pending artifact. No previous attempt
+        // can supply a factor to a later candidate, even if that attempt was refused.
+        step.clear_point_accuracy()?;
+        let output_accuracy = step.kkt_observer(budget)?;
         let PreparedSolve {
             representation,
             profile,
@@ -3803,7 +4098,7 @@ impl MathService {
             (
                 Representation::Algebraic(case),
                 kind @ (execution::Representation::Nlp | execution::Representation::Roots),
-            ) => self.callback_step(run, retained, case, kind, &profile, budget)?,
+            ) => self.callback_step(run, retained, case, kind, &profile, budget, output_accuracy)?,
             _ => {
                 return Err(ProblemError::Internal(
                     "prepared representation differs from the selected adapter".into(),
@@ -4054,6 +4349,7 @@ impl MathService {
         Ok(report)
     }
     /// Callback oracle over the compiled case for an NLP or root-system adapter.
+    #[expect(clippy::too_many_arguments, reason = "the shared callback runner also carries the point-owned deferred accuracy consumer")]
     fn callback_step(
         &self,
         run: execution::Step<'_>,
@@ -4062,6 +4358,7 @@ impl MathService {
         kind: execution::Representation,
         profile: &SolverProfile,
         budget: &Arc<WorkerBudget>,
+        output_accuracy: Option<Box<dyn native::engineering_accuracy::KktOutputObserver>>,
     ) -> Result<SolveReport, MathRuntimeError> {
         let AlgebraicCase {
             prepared,
@@ -4191,6 +4488,7 @@ impl MathService {
                     limit: self.policy.worker_bytes / 256,
                     analysis: execution::Analysis {
                         sensitivity: request,
+                        output_accuracy,
                         ..execution::Analysis::for_intent(profile.intent)
                     },
                 },
@@ -4616,6 +4914,7 @@ impl MathService {
             observation,
             quality: Quality::new(rows, vec![], vec![])?,
             coordinates: vec![],
+            certified_reconstruction: None,
             work: if complete_work {
                 WorkEvidence {
                     evaluations: Some(1 + u64::from(objective.is_some())),

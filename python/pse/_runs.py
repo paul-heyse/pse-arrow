@@ -8,7 +8,7 @@ from typing import Self, TypeAlias
 
 import attrs
 
-from pse import codec
+from pse import codec, contracts
 from pse._build import (
     DiagnosticReport,
     _NativePreparedOperation,
@@ -192,6 +192,13 @@ class RunResult:
     def completion(self) -> Completion:
         """Read the immutable joined assessment without evaluating the model again."""
         return codec.decode_json(self._handle.completion(), Completion)
+
+    @property
+    def accuracy_goals(
+        self,
+    ) -> tuple[contracts.runtime.RuntimeAccuracyGoalAssessmentsRow, ...]:
+        """Retained engineering goal outcomes; reading this performs no solver work."""
+        return tuple(self.completion.accuracy_goals)
 
     def diagnostics(self) -> tuple[DiagnosticReport, ...]:
         """Structured native admission and execution failures, preserving causes."""

@@ -32,6 +32,1139 @@
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum AccuracyCriterionStatus {
+    ///not_requested
+    #[serde(rename = "not_requested")]
+    #[strum(serialize = "not_requested")]
+    NotRequested,
+    ///satisfied
+    #[serde(rename = "satisfied")]
+    #[strum(serialize = "satisfied")]
+    Satisfied,
+    ///violated
+    #[serde(rename = "violated")]
+    #[strum(serialize = "violated")]
+    Violated,
+    ///unresolved
+    #[serde(rename = "unresolved")]
+    #[strum(serialize = "unresolved")]
+    Unresolved,
+}
+impl crate::SemanticEq for AccuracyCriterionStatus {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyCriterionStatus {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::NotRequested => 0usize,
+            Self::Satisfied => 1usize,
+            Self::Violated => 2usize,
+            Self::Unresolved => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::NotRequested => None,
+            Self::Satisfied => None,
+            Self::Violated => None,
+            Self::Unresolved => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyCriterionStatus {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyCriterionStatus))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyCriterionStatus)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["not_requested", "satisfied", "violated",
+            "unresolved"] }
+        )
+    }
+}
+impl AccuracyCriterionStatus {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyCriterionStatus),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyEvidenceInterpretation {
+    ///output_error
+    #[serde(rename = "output_error")]
+    #[strum(serialize = "output_error")]
+    OutputError,
+    ///residual_error
+    #[serde(rename = "residual_error")]
+    #[strum(serialize = "residual_error")]
+    ResidualError,
+    ///linear_backward_error
+    #[serde(rename = "linear_backward_error")]
+    #[strum(serialize = "linear_backward_error")]
+    LinearBackwardError,
+    ///local_integration_error
+    #[serde(rename = "local_integration_error")]
+    #[strum(serialize = "local_integration_error")]
+    LocalIntegrationError,
+    ///empirical_output_variation
+    #[serde(rename = "empirical_output_variation")]
+    #[strum(serialize = "empirical_output_variation")]
+    EmpiricalOutputVariation,
+    ///objective_interval
+    #[serde(rename = "objective_interval")]
+    #[strum(serialize = "objective_interval")]
+    ObjectiveInterval,
+}
+impl crate::SemanticEq for AccuracyEvidenceInterpretation {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyEvidenceInterpretation {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::OutputError => 0usize,
+            Self::ResidualError => 1usize,
+            Self::LinearBackwardError => 2usize,
+            Self::LocalIntegrationError => 3usize,
+            Self::EmpiricalOutputVariation => 4usize,
+            Self::ObjectiveInterval => 5usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::OutputError => None,
+            Self::ResidualError => None,
+            Self::LinearBackwardError => None,
+            Self::LocalIntegrationError => None,
+            Self::EmpiricalOutputVariation => None,
+            Self::ObjectiveInterval => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyEvidenceInterpretation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyEvidenceInterpretation))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyEvidenceInterpretation)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["output_error", "residual_error",
+            "linear_backward_error", "local_integration_error",
+            "empirical_output_variation", "objective_interval"] }
+        )
+    }
+}
+impl AccuracyEvidenceInterpretation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyEvidenceInterpretation),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyEvidenceMethod {
+    ///square_correction
+    #[serde(rename = "square_correction")]
+    #[strum(serialize = "square_correction")]
+    SquareCorrection,
+    ///kkt_correction
+    #[serde(rename = "kkt_correction")]
+    #[strum(serialize = "kkt_correction")]
+    KktCorrection,
+    ///certified_enclosure
+    #[serde(rename = "certified_enclosure")]
+    #[strum(serialize = "certified_enclosure")]
+    CertifiedEnclosure,
+    ///qualified_objective_interval
+    #[serde(rename = "qualified_objective_interval")]
+    #[strum(serialize = "qualified_objective_interval")]
+    QualifiedObjectiveInterval,
+    ///dynamic_comparison
+    #[serde(rename = "dynamic_comparison")]
+    #[strum(serialize = "dynamic_comparison")]
+    DynamicComparison,
+    ///composed_output
+    #[serde(rename = "composed_output")]
+    #[strum(serialize = "composed_output")]
+    ComposedOutput,
+}
+impl crate::SemanticEq for AccuracyEvidenceMethod {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyEvidenceMethod {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 6usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::SquareCorrection => 0usize,
+            Self::KktCorrection => 1usize,
+            Self::CertifiedEnclosure => 2usize,
+            Self::QualifiedObjectiveInterval => 3usize,
+            Self::DynamicComparison => 4usize,
+            Self::ComposedOutput => 5usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::SquareCorrection => None,
+            Self::KktCorrection => None,
+            Self::CertifiedEnclosure => None,
+            Self::QualifiedObjectiveInterval => None,
+            Self::DynamicComparison => None,
+            Self::ComposedOutput => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyEvidenceMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyEvidenceMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyEvidenceMethod)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["square_correction", "kkt_correction",
+            "certified_enclosure", "qualified_objective_interval", "dynamic_comparison",
+            "composed_output"] }
+        )
+    }
+}
+impl AccuracyEvidenceMethod {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyEvidenceMethod),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyGoalStatus {
+    ///not_requested
+    #[serde(rename = "not_requested")]
+    #[strum(serialize = "not_requested")]
+    NotRequested,
+    ///satisfied
+    #[serde(rename = "satisfied")]
+    #[strum(serialize = "satisfied")]
+    Satisfied,
+    ///violated
+    #[serde(rename = "violated")]
+    #[strum(serialize = "violated")]
+    Violated,
+    ///unresolved
+    #[serde(rename = "unresolved")]
+    #[strum(serialize = "unresolved")]
+    Unresolved,
+}
+impl crate::SemanticEq for AccuracyGoalStatus {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyGoalStatus {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::NotRequested => 0usize,
+            Self::Satisfied => 1usize,
+            Self::Violated => 2usize,
+            Self::Unresolved => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::NotRequested => None,
+            Self::Satisfied => None,
+            Self::Violated => None,
+            Self::Unresolved => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyGoalStatus {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyGoalStatus))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyGoalStatus)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["not_requested", "satisfied", "violated",
+            "unresolved"] }
+        )
+    }
+}
+impl AccuracyGoalStatus {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyGoalStatus),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyGoalSubject {
+    ///selected_output
+    #[serde(rename = "selected_output")]
+    #[strum(serialize = "selected_output")]
+    SelectedOutput,
+    ///optimal_objective
+    #[serde(rename = "optimal_objective")]
+    #[strum(serialize = "optimal_objective")]
+    OptimalObjective,
+}
+impl crate::SemanticEq for AccuracyGoalSubject {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyGoalSubject {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::SelectedOutput => 0usize,
+            Self::OptimalObjective => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::SelectedOutput => None,
+            Self::OptimalObjective => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyGoalSubject {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyGoalSubject))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyGoalSubject)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["selected_output", "optimal_objective"] }
+        )
+    }
+}
+impl AccuracyGoalSubject {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyGoalSubject),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyGoalUse {
+    ///assess
+    #[serde(rename = "assess")]
+    #[strum(serialize = "assess")]
+    Assess,
+    ///require_satisfied
+    #[serde(rename = "require_satisfied")]
+    #[strum(serialize = "require_satisfied")]
+    RequireSatisfied,
+}
+impl crate::SemanticEq for AccuracyGoalUse {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyGoalUse {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Assess => 0usize,
+            Self::RequireSatisfied => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Assess => None,
+            Self::RequireSatisfied => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyGoalUse {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyGoalUse))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(AccuracyGoalUse)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["assess", "require_satisfied"] }
+        )
+    }
+}
+impl AccuracyGoalUse {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyGoalUse),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyObservation {
+    ///steady
+    #[serde(rename = "steady")]
+    #[strum(serialize = "steady")]
+    Steady,
+    ///sample
+    #[serde(rename = "sample")]
+    #[strum(serialize = "sample")]
+    Sample,
+    ///endpoint
+    #[serde(rename = "endpoint")]
+    #[strum(serialize = "endpoint")]
+    Endpoint,
+    ///integrated
+    #[serde(rename = "integrated")]
+    #[strum(serialize = "integrated")]
+    Integrated,
+}
+impl crate::SemanticEq for AccuracyObservation {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyObservation {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Steady => 0usize,
+            Self::Sample => 1usize,
+            Self::Endpoint => 2usize,
+            Self::Integrated => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Steady => None,
+            Self::Sample => None,
+            Self::Endpoint => None,
+            Self::Integrated => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyObservation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyObservation))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyObservation)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["steady", "sample", "endpoint", "integrated"]
+            }
+        )
+    }
+}
+impl AccuracyObservation {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyObservation),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyResolutionStatus {
+    ///not_requested
+    #[serde(rename = "not_requested")]
+    #[strum(serialize = "not_requested")]
+    NotRequested,
+    ///met
+    #[serde(rename = "met")]
+    #[strum(serialize = "met")]
+    Met,
+    ///unmet
+    #[serde(rename = "unmet")]
+    #[strum(serialize = "unmet")]
+    Unmet,
+    ///unavailable
+    #[serde(rename = "unavailable")]
+    #[strum(serialize = "unavailable")]
+    Unavailable,
+}
+impl crate::SemanticEq for AccuracyResolutionStatus {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyResolutionStatus {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::NotRequested => 0usize,
+            Self::Met => 1usize,
+            Self::Unmet => 2usize,
+            Self::Unavailable => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::NotRequested => None,
+            Self::Met => None,
+            Self::Unmet => None,
+            Self::Unavailable => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyResolutionStatus {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyResolutionStatus))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyResolutionStatus)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["not_requested", "met", "unmet",
+            "unavailable"] }
+        )
+    }
+}
+impl AccuracyResolutionStatus {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyResolutionStatus),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AccuracyUnavailableReason {
+    ///missing_observation
+    #[serde(rename = "missing_observation")]
+    #[strum(serialize = "missing_observation")]
+    MissingObservation,
+    ///missing_evidence
+    #[serde(rename = "missing_evidence")]
+    #[strum(serialize = "missing_evidence")]
+    MissingEvidence,
+    ///unsupported
+    #[serde(rename = "unsupported")]
+    #[strum(serialize = "unsupported")]
+    Unsupported,
+    ///unsupported_observation
+    #[serde(rename = "unsupported_observation")]
+    #[strum(serialize = "unsupported_observation")]
+    UnsupportedObservation,
+    ///evaluator_uncertainty
+    #[serde(rename = "evaluator_uncertainty")]
+    #[strum(serialize = "evaluator_uncertainty")]
+    EvaluatorUncertainty,
+    ///regularity
+    #[serde(rename = "regularity")]
+    #[strum(serialize = "regularity")]
+    Regularity,
+    ///invalid_validity
+    #[serde(rename = "invalid_validity")]
+    #[strum(serialize = "invalid_validity")]
+    InvalidValidity,
+    ///branch_ambiguity
+    #[serde(rename = "branch_ambiguity")]
+    #[strum(serialize = "branch_ambiguity")]
+    BranchAmbiguity,
+    ///boundary
+    #[serde(rename = "boundary")]
+    #[strum(serialize = "boundary")]
+    Boundary,
+    ///insufficient_strength
+    #[serde(rename = "insufficient_strength")]
+    #[strum(serialize = "insufficient_strength")]
+    InsufficientStrength,
+    ///insufficient_accuracy
+    #[serde(rename = "insufficient_accuracy")]
+    #[strum(serialize = "insufficient_accuracy")]
+    InsufficientAccuracy,
+    ///nonfinite
+    #[serde(rename = "nonfinite")]
+    #[strum(serialize = "nonfinite")]
+    Nonfinite,
+    ///precision_limit
+    #[serde(rename = "precision_limit")]
+    #[strum(serialize = "precision_limit")]
+    PrecisionLimit,
+    ///resource_limit
+    #[serde(rename = "resource_limit")]
+    #[strum(serialize = "resource_limit")]
+    ResourceLimit,
+    ///budget
+    #[serde(rename = "budget")]
+    #[strum(serialize = "budget")]
+    Budget,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
+    Cancelled,
+    ///nonprogress
+    #[serde(rename = "nonprogress")]
+    #[strum(serialize = "nonprogress")]
+    Nonprogress,
+    ///fixed_error_floor
+    #[serde(rename = "fixed_error_floor")]
+    #[strum(serialize = "fixed_error_floor")]
+    FixedErrorFloor,
+    ///refinement_disallowed
+    #[serde(rename = "refinement_disallowed")]
+    #[strum(serialize = "refinement_disallowed")]
+    RefinementDisallowed,
+    ///failed
+    #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
+    Failed,
+}
+impl crate::SemanticEq for AccuracyUnavailableReason {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AccuracyUnavailableReason {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 20usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<20usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::MissingObservation => 0usize,
+            Self::MissingEvidence => 1usize,
+            Self::Unsupported => 2usize,
+            Self::UnsupportedObservation => 3usize,
+            Self::EvaluatorUncertainty => 4usize,
+            Self::Regularity => 5usize,
+            Self::InvalidValidity => 6usize,
+            Self::BranchAmbiguity => 7usize,
+            Self::Boundary => 8usize,
+            Self::InsufficientStrength => 9usize,
+            Self::InsufficientAccuracy => 10usize,
+            Self::Nonfinite => 11usize,
+            Self::PrecisionLimit => 12usize,
+            Self::ResourceLimit => 13usize,
+            Self::Budget => 14usize,
+            Self::Cancelled => 15usize,
+            Self::Nonprogress => 16usize,
+            Self::FixedErrorFloor => 17usize,
+            Self::RefinementDisallowed => 18usize,
+            Self::Failed => 19usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::MissingObservation => None,
+            Self::MissingEvidence => None,
+            Self::Unsupported => None,
+            Self::UnsupportedObservation => None,
+            Self::EvaluatorUncertainty => None,
+            Self::Regularity => None,
+            Self::InvalidValidity => None,
+            Self::BranchAmbiguity => None,
+            Self::Boundary => None,
+            Self::InsufficientStrength => None,
+            Self::InsufficientAccuracy => None,
+            Self::Nonfinite => None,
+            Self::PrecisionLimit => None,
+            Self::ResourceLimit => None,
+            Self::Budget => None,
+            Self::Cancelled => None,
+            Self::Nonprogress => None,
+            Self::FixedErrorFloor => None,
+            Self::RefinementDisallowed => None,
+            Self::Failed => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AccuracyUnavailableReason {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AccuracyUnavailableReason))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(AccuracyUnavailableReason)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["missing_observation", "missing_evidence",
+            "unsupported", "unsupported_observation", "evaluator_uncertainty",
+            "regularity", "invalid_validity", "branch_ambiguity", "boundary",
+            "insufficient_strength", "insufficient_accuracy", "nonfinite",
+            "precision_limit", "resource_limit", "budget", "cancelled", "nonprogress",
+            "fixed_error_floor", "refinement_disallowed", "failed"] }
+        )
+    }
+}
+impl AccuracyUnavailableReason {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(AccuracyUnavailableReason),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ArtifactReconstruction {
     ///none
     #[serde(rename = "none")]
@@ -1016,6 +2149,18 @@ pub enum CandidateQualifier {
     #[serde(rename = "applicability_extrapolation_allowed")]
     #[strum(serialize = "applicability_extrapolation_allowed")]
     ApplicabilityExtrapolationAllowed,
+    ///accuracy_estimated
+    #[serde(rename = "accuracy_estimated")]
+    #[strum(serialize = "accuracy_estimated")]
+    AccuracyEstimated,
+    ///accuracy_empirical
+    #[serde(rename = "accuracy_empirical")]
+    #[strum(serialize = "accuracy_empirical")]
+    AccuracyEmpirical,
+    ///engineering_canonical_fallback
+    #[serde(rename = "engineering_canonical_fallback")]
+    #[strum(serialize = "engineering_canonical_fallback")]
+    EngineeringCanonicalFallback,
 }
 impl crate::SemanticEq for CandidateQualifier {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1024,8 +2169,8 @@ impl crate::SemanticEq for CandidateQualifier {
 }
 impl CandidateQualifier {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+    pub const ALL: [Self; 8usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<8usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -1042,6 +2187,9 @@ impl CandidateQualifier {
             Self::ClosureAllowed => 2usize,
             Self::ApplicabilityUnknownAllowed => 3usize,
             Self::ApplicabilityExtrapolationAllowed => 4usize,
+            Self::AccuracyEstimated => 5usize,
+            Self::AccuracyEmpirical => 6usize,
+            Self::EngineeringCanonicalFallback => 7usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -1057,6 +2205,9 @@ impl CandidateQualifier {
             Self::ClosureAllowed => None,
             Self::ApplicabilityUnknownAllowed => None,
             Self::ApplicabilityExtrapolationAllowed => None,
+            Self::AccuracyEstimated => None,
+            Self::AccuracyEmpirical => None,
+            Self::EngineeringCanonicalFallback => None,
         }
     }
 }
@@ -1075,7 +2226,9 @@ impl schemars::JsonSchema for CandidateQualifier {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["accepted_incumbent_feasible",
             "accepted_incumbent_within_gap", "closure_allowed",
-            "applicability_unknown_allowed", "applicability_extrapolation_allowed"] }
+            "applicability_unknown_allowed", "applicability_extrapolation_allowed",
+            "accuracy_estimated", "accuracy_empirical", "engineering_canonical_fallback"]
+            }
         )
     }
 }
@@ -1190,6 +2343,14 @@ pub enum CandidateRefusal {
     #[serde(rename = "feasibility_unavailable")]
     #[strum(serialize = "feasibility_unavailable")]
     FeasibilityUnavailable,
+    ///accuracy_unresolved
+    #[serde(rename = "accuracy_unresolved")]
+    #[strum(serialize = "accuracy_unresolved")]
+    AccuracyUnresolved,
+    ///accuracy_violated
+    #[serde(rename = "accuracy_violated")]
+    #[strum(serialize = "accuracy_violated")]
+    AccuracyViolated,
 }
 impl crate::SemanticEq for CandidateRefusal {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -1198,8 +2359,8 @@ impl crate::SemanticEq for CandidateRefusal {
 }
 impl CandidateRefusal {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 18usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<18usize>() {
+    pub const ALL: [Self; 20usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<20usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -1229,6 +2390,8 @@ impl CandidateRefusal {
             Self::RelaxedIncumbent => 15usize,
             Self::IncumbentRefused => 16usize,
             Self::FeasibilityUnavailable => 17usize,
+            Self::AccuracyUnresolved => 18usize,
+            Self::AccuracyViolated => 19usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -1257,6 +2420,8 @@ impl CandidateRefusal {
             Self::RelaxedIncumbent => None,
             Self::IncumbentRefused => None,
             Self::FeasibilityUnavailable => None,
+            Self::AccuracyUnresolved => None,
+            Self::AccuracyViolated => None,
         }
     }
 }
@@ -1276,7 +2441,8 @@ impl schemars::JsonSchema for CandidateRefusal {
             "closure_unavailable", "closure_unclosed", "applicability_unavailable",
             "applicability_denied", "endpoint_unavailable", "coverage_unavailable",
             "bound_unavailable", "gap_exceeded", "least_infeasible", "relaxed_incumbent",
-            "incumbent_refused", "feasibility_unavailable"] }
+            "incumbent_refused", "feasibility_unavailable", "accuracy_unresolved",
+            "accuracy_violated"] }
         )
     }
 }
@@ -3502,6 +4668,115 @@ impl EndpointPolicy {
     fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
         pse_diagnostics::VocabularyError::UnknownMember {
             vocabulary: stringify!(EndpointPolicy),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum EngineeringScaleKind {
+    ///magnitude
+    #[serde(rename = "magnitude")]
+    #[strum(serialize = "magnitude")]
+    Magnitude,
+    ///range_width
+    #[serde(rename = "range_width")]
+    #[strum(serialize = "range_width")]
+    RangeWidth,
+    ///reference_difference
+    #[serde(rename = "reference_difference")]
+    #[strum(serialize = "reference_difference")]
+    ReferenceDifference,
+}
+impl crate::SemanticEq for EngineeringScaleKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl EngineeringScaleKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Magnitude => 0usize,
+            Self::RangeWidth => 1usize,
+            Self::ReferenceDifference => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Magnitude => None,
+            Self::RangeWidth => None,
+            Self::ReferenceDifference => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for EngineeringScaleKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(EngineeringScaleKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(EngineeringScaleKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["magnitude", "range_width",
+            "reference_difference"] }
+        )
+    }
+}
+impl EngineeringScaleKind {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(EngineeringScaleKind),
             value: value.to_owned(),
         }
     }
@@ -6380,6 +7655,22 @@ pub enum ModelingAnnotationKind {
     #[serde(rename = "connectivity")]
     #[strum(serialize = "connectivity")]
     Connectivity,
+    ///accuracy_goal
+    #[serde(rename = "accuracy_goal")]
+    #[strum(serialize = "accuracy_goal")]
+    AccuracyGoal,
+    ///engineering_scale
+    #[serde(rename = "engineering_scale")]
+    #[strum(serialize = "engineering_scale")]
+    EngineeringScale,
+    ///engineering_default
+    #[serde(rename = "engineering_default")]
+    #[strum(serialize = "engineering_default")]
+    EngineeringDefault,
+    ///engineering_rule
+    #[serde(rename = "engineering_rule")]
+    #[strum(serialize = "engineering_rule")]
+    EngineeringRule,
 }
 impl crate::SemanticEq for ModelingAnnotationKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6388,8 +7679,8 @@ impl crate::SemanticEq for ModelingAnnotationKind {
 }
 impl ModelingAnnotationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
+    pub const ALL: [Self; 13usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<13usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -6410,6 +7701,10 @@ impl ModelingAnnotationKind {
             Self::Check => 6usize,
             Self::Objective => 7usize,
             Self::Connectivity => 8usize,
+            Self::AccuracyGoal => 9usize,
+            Self::EngineeringScale => 10usize,
+            Self::EngineeringDefault => 11usize,
+            Self::EngineeringRule => 12usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6429,6 +7724,10 @@ impl ModelingAnnotationKind {
             Self::Check => None,
             Self::Objective => None,
             Self::Connectivity => None,
+            Self::AccuracyGoal => None,
+            Self::EngineeringScale => None,
+            Self::EngineeringDefault => None,
+            Self::EngineeringRule => None,
         }
     }
 }
@@ -6446,7 +7745,8 @@ impl schemars::JsonSchema for ModelingAnnotationKind {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["start", "nominal", "bounds", "scale",
-            "report", "valid", "check", "objective", "connectivity"] }
+            "report", "valid", "check", "objective", "connectivity", "accuracy_goal",
+            "engineering_scale", "engineering_default", "engineering_rule"] }
         )
     }
 }
@@ -24358,6 +25658,96 @@ impl WithheldReason {
         }
     }
 }
+impl crate::HeapUsage for AccuracyCriterionStatus {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyCriterionStatus {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyEvidenceInterpretation {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyEvidenceInterpretation {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyEvidenceMethod {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyEvidenceMethod {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyGoalStatus {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyGoalStatus {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyGoalSubject {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyGoalSubject {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyGoalUse {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyGoalUse {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyObservation {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyObservation {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyResolutionStatus {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyResolutionStatus {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AccuracyUnavailableReason {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyUnavailableReason {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ArtifactReconstruction {
     fn heap_bytes(&self) -> usize {
         0
@@ -24644,6 +26034,16 @@ impl crate::HeapUsage for EndpointPolicy {
     }
 }
 impl crate::SemanticFrame for EndpointPolicy {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for EngineeringScaleKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for EngineeringScaleKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

@@ -679,12 +679,14 @@ impl MathService {
             },
         )?;
         let mut candidate = values;
-        if !commit_block(
+        if commit_block(
             &mut candidate,
             &prepared.view.boundary,
             Some(&report),
             &prepared.profile.numerics,
-        ) {
+        )
+        .is_err()
+        {
             return Err(conditional_failure(&report));
         }
         // Teardown releases native state, temporary evaluator values and its budget
@@ -697,10 +699,7 @@ impl MathService {
 /// Preserve actual evaluation witnesses before lowering an unqualified native exit.
 #[cfg(feature = "solver-kinsol")]
 fn conditional_failure(report: &SolveReport) -> native::ProblemError {
-    if let Some(cause) = report
-        .shared_validation_failure()
-        .or_else(|| report.shared_callback_failure())
-    {
+    if let Some(cause) = report.shared_effective_failure() {
         return native::ProblemError::Math(pse_math::MathError::Typed {
             retained: cause.retained_bytes(),
             cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
@@ -1171,7 +1170,8 @@ impl Blocks<'_> {
                     boundary,
                     result.as_deref().ok(),
                     &self.numerics.policy,
-                );
+                )
+                .is_ok();
                 self.attempts.push(BlockAttempt {
                     stage,
                     strategy: self.strategies[index],
@@ -1448,24 +1448,101 @@ fn block_binding_bytes(bound: &pse_compiler::workspace::PreparedCase) -> usize {
             .map_or(0, |c| c.retained_bytes() + 32)
 }
 
+/// Commit once, retaining the actual refusal in the production diagnostic surface.
 pub(crate) fn commit_block(
     values: &mut CaseValues,
     b: &pse_structural::initialization::Block,
     report: Option<&SolveReport>,
     policy: &pse_model::numerics::NumericalPolicy,
-) -> bool {
-    let Some(r) = report else { return false };
+) -> Result<(), Arc<native::ProblemError>> {
+    let Some(r) = report else {
+        return Err(Arc::new(native::ProblemError::Contract(
+            "conditional block native report unavailable".into(),
+        )));
+    };
+    // Preserve the shared witness and its classification before deriving presentation.
+    if let Some(cause) = r.shared_effective_failure() {
+        return Err(cause);
+    }
     // The native candidate-use decision is the only acceptance rule; commit adds the
     // block's own coordinate and finiteness checks.
-    if !crate::workflow::numerics::native_use(r, policy).permits_use()
-        || r.variables != b.members.columns
+    let decision = crate::workflow::numerics::native_use(r, policy);
+    let ordered = r.variables == b.members.columns;
+    let candidate_len = r.candidate.as_ref().map(|c| c.primal.len());
+    let nonfinite = r
+        .candidate
+        .as_ref()
+        .and_then(|c| c.primal.iter().position(|v| !v.is_finite()));
+    let malformed = !ordered
+        || (r.candidate.is_none()
+            && matches!(
+                r.termination.category,
+                Termination::Success | Termination::Acceptable | Termination::FeasibleOnly
+            ))
+        || r.candidate.as_ref().is_some_and(|c| {
+            c.primal.len() != b.members.columns.len() || nonfinite.is_some() || r.quality.is_none()
+        });
+    if !decision.permits_use()
+        || !ordered
+        || candidate_len != Some(b.members.columns.len())
+        || nonfinite.is_some()
     {
-        return false;
+        let mut reason = format!(
+            "conditional block candidate refused: usability={:?}; reasons={}; termination={:?} ({}: {}); qualification={:?}; candidate_present={}; candidate_length={candidate_len:?}; expected_length={}; variable_order_matches={ordered}; nonfinite_coordinate={nonfinite:?}; original_quality.normalized_max={:?}",
+            decision.usability,
+            decision.reason(),
+            r.termination.category,
+            r.termination.code,
+            r.termination.name,
+            r.qualification,
+            r.candidate.is_some(),
+            b.members.columns.len(),
+            r.quality.as_ref().map(|quality| quality.normalized_max),
+        );
+        if !ordered {
+            let mismatch = r
+                .variables
+                .iter()
+                .zip(&b.members.columns)
+                .position(|(actual, expected)| actual != expected)
+                .unwrap_or(r.variables.len().min(b.members.columns.len()));
+            reason.push_str(&format!(
+                "; variable_order_mismatch_at={mismatch}; actual={:?}; expected={:?}",
+                r.variables.get(mismatch),
+                b.members.columns.get(mismatch),
+            ));
+        }
+        if let Some(quality) = &r.quality {
+            // Bounded original-space witnesses; never concatenate every model row.
+            for (kind, violation) in quality
+                .rows
+                .iter()
+                .map(|v| ("row", v))
+                .chain(quality.bounds.iter().map(|v| ("bound", v)))
+                .chain(quality.integrality.iter().map(|v| ("integrality", v)))
+                .filter(|(_, v)| v.physical > v.tolerance)
+                .take(12)
+            {
+                reason.push_str(&format!(
+                    "; {kind}={} physical={} tolerance={}",
+                    violation.id, violation.physical, violation.tolerance,
+                ));
+            }
+        }
+        return Err(Arc::new(if malformed {
+            native::ProblemError::Contract(reason)
+        } else {
+            // A refused native iterate is a failed numerical trajectory, not a
+            // missing execution capability. Optional composition may try Direct;
+            // none of these coordinates have been committed or accepted.
+            native::ProblemError::numerical(reason)
+        }));
     }
-    let Some(c) = &r.candidate else { return false };
-    if c.primal.len() != b.members.columns.len() || c.primal.iter().any(|v| !v.is_finite()) {
-        return false;
-    }
+    let c = r.candidate.as_ref().ok_or_else(|| {
+        Arc::new(native::ProblemError::Contract(
+            "conditional block candidate unavailable".into(),
+        ))
+    })?;
     values.scalars.extend(
         b.members
             .columns
@@ -1473,7 +1550,7 @@ pub(crate) fn commit_block(
             .copied()
             .zip(c.primal.iter().copied()),
     );
-    true
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1647,6 +1724,54 @@ mod tests {
                 native::callback::classify(&failure),
                 native::callback::classify(original.as_ref())
             );
+        }
+        for callback_terminal in [false, true] {
+            let mut dual = SolveReport::new(
+                Backend::Kinsol,
+                &contract,
+                NativeTermination {
+                    code: -13,
+                    name: "callback fixture".into(),
+                    message: None,
+                    category: Termination::Evaluation,
+                    assurance: Assurance::None,
+                },
+                &execution,
+            );
+            let mut callbacks = native::callback::CallbackState::new(execution.clone());
+            let callback = if callback_terminal {
+                native::ProblemError::Contract("terminal callback contract".into())
+            } else {
+                native::ProblemError::Math(pse_math::MathError::Domain {
+                    source_id: id(72),
+                    requirement: "callback trial domain",
+                })
+            };
+            assert!(
+                callbacks
+                    .evaluate::<()>("residual", || Err(callback))
+                    .is_none()
+            );
+            callbacks.finish(&mut dual);
+            let callback = dual.shared_callback_failure().unwrap();
+            dual.record_validation_failure(native::ProblemError::memory("original validation"));
+            let expected = if callback_terminal {
+                callback
+            } else {
+                dual.shared_validation_failure().unwrap()
+            };
+            let failure = conditional_failure(&dual);
+            let native::ProblemError::Math(pse_math::MathError::Typed { cause, .. }) = &failure
+            else {
+                panic!("selected source was erased")
+            };
+            assert!(std::ptr::eq(
+                cause
+                    .as_error()
+                    .downcast_ref::<native::ProblemError>()
+                    .unwrap(),
+                expected.as_ref(),
+            ));
         }
     }
     #[tokio::test]
@@ -1827,30 +1952,108 @@ mod tests {
         let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap();
         r.termination.category = Termination::Limit;
         native::quality::qualify(&mut r, &accuracy);
-        assert!(!commit_block(
-            &mut values,
-            &boundary,
-            Some(&r),
-            &Default::default()
+        let error =
+            commit_block(&mut values, &boundary, Some(&r), &Default::default()).unwrap_err();
+        assert!(matches!(
+            error.as_ref(),
+            native::ProblemError::Numerical { .. }
         ));
+        assert!(error.to_string().contains("native_outcome"));
+        assert!(error.to_string().contains("termination=Limit"));
         assert_eq!(values.scalars[&id(1)], 1.0);
         r.termination.category = Termination::Success;
         native::quality::qualify(&mut r, &accuracy);
         r.candidate.as_mut().unwrap().primal[0] = f64::NAN;
-        assert!(!commit_block(
-            &mut values,
-            &boundary,
-            Some(&r),
-            &Default::default()
-        ));
+        let error =
+            commit_block(&mut values, &boundary, Some(&r), &Default::default()).unwrap_err();
+        assert!(matches!(error.as_ref(), native::ProblemError::Contract(_)));
+        assert!(error.to_string().contains("nonfinite_coordinate=Some(0)"));
         assert_eq!(values.scalars[&id(1)], 1.0);
         r.candidate.as_mut().unwrap().primal[0] = 2.0;
-        assert!(commit_block(
-            &mut values,
-            &boundary,
-            Some(&r),
-            &Default::default()
-        ));
+        assert!(commit_block(&mut values, &boundary, Some(&r), &Default::default()).is_ok());
         assert_eq!(values.scalars[&id(1)], 2.0);
+
+        // Every true refusal remains atomic; diagnostics distinguish the gate that
+        // failed without substituting a different numerical acceptance policy.
+        let refuse = |report: Option<&SolveReport>, reason: &str| {
+            let mut untouched = CaseValues {
+                scalars: BTreeMap::from([(id(1), 1.0)]),
+            };
+            let cause =
+                commit_block(&mut untouched, &boundary, report, &Default::default()).unwrap_err();
+            assert_eq!(untouched.scalars, BTreeMap::from([(id(1), 1.0)]));
+            assert!(cause.to_string().contains(reason), "{cause}");
+            cause
+        };
+        assert!(matches!(
+            refuse(None, "native report unavailable").as_ref(),
+            native::ProblemError::Contract(_)
+        ));
+        let mut rejected = r.clone();
+        rejected.candidate = None;
+        assert!(matches!(
+            refuse(Some(&rejected), "candidate_present=false").as_ref(),
+            native::ProblemError::Contract(_)
+        ));
+        let mut rejected = r.clone();
+        rejected.candidate.as_mut().unwrap().primal.clear();
+        assert!(matches!(
+            refuse(
+                Some(&rejected),
+                "candidate_length=Some(0); expected_length=1"
+            )
+            .as_ref(),
+            native::ProblemError::Contract(_)
+        ));
+        let mut rejected = r.clone();
+        rejected.variables = vec![id(3)];
+        assert!(matches!(
+            refuse(Some(&rejected), "variable_order_mismatch_at=0").as_ref(),
+            native::ProblemError::Contract(_)
+        ));
+        let mut rejected = r.clone();
+        rejected.quality = None;
+        assert!(matches!(
+            refuse(Some(&rejected), "feasibility_unavailable").as_ref(),
+            native::ProblemError::Contract(_)
+        ));
+        let mut rejected = r.clone();
+        rejected.qualification = Qualification::Unqualified;
+        refuse(Some(&rejected), "unqualified");
+        let mut rejected = r.clone();
+        rejected.quality = Some(
+            native::quality::Quality::new(
+                (2..=15)
+                    .map(|row| native::quality::Violation {
+                        id: id(row),
+                        physical: 2.0,
+                        tolerance: 1.0,
+                    })
+                    .collect(),
+                vec![],
+                vec![],
+            )
+            .unwrap(),
+        );
+        native::quality::qualify(&mut rejected, &accuracy);
+        let cause = refuse(Some(&rejected), "infeasible");
+        assert!(matches!(
+            cause.as_ref(),
+            native::ProblemError::Numerical { .. }
+        ));
+        let reason = cause.to_string();
+        assert!(reason.contains("original_quality.normalized_max=Some(2.0)"));
+        assert!(reason.contains(&format!("row={} physical=2 tolerance=1", id(2))));
+        assert_eq!(reason.matches("; row=").count(), 12);
+        assert!(!reason.contains(&format!("row={}", id(14))));
+
+        let mut rejected = r;
+        rejected.variables.clear();
+        rejected.record_validation_failure(native::ProblemError::numerical(
+            "independent original observation failed",
+        ));
+        let original = rejected.shared_validation_failure().unwrap();
+        let cause = refuse(Some(&rejected), "independent original observation failed");
+        assert!(Arc::ptr_eq(&original, &cause));
     }
 }

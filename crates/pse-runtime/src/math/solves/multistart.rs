@@ -3,7 +3,7 @@
 //! Fresh declared specifications for the common original numerical strategy.
 //! Each product is one seed, not an independent worker or a private retry loop.
 use super::*;
-use crate::math::prediction::Proposal;
+use crate::math::prediction::{Proposal, Screened};
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::ExecutionScope;
 use pse_model::strategy::{BranchPolicy, ProfileRef, StartOrigin};
@@ -242,12 +242,53 @@ impl MathService {
     /// Count actual original objective/constraint invocations, including those that
     /// return a cause before a native step exists. The caller retains this observation
     /// on failure; successful bindings record only the work of this screening call.
+    #[cfg(all(test, feature = "solver-kinsol"))]
     pub(crate) fn screen_multistart_worker_observed(
         &self,
         prepared: &PreparedMultistart,
         scope: ExecutionScope,
         budget: &Arc<WorkerBudget>,
         evaluations: &mut u64,
+    ) -> Result<BoundMultistart, MathRuntimeError> {
+        self.screen_multistart_bound_worker_observed(
+            prepared,
+            scope,
+            budget,
+            evaluations,
+            PreparedSolve::with_screened_start,
+        )
+    }
+    /// Bind a screened fresh seed under the actually dispatched original task's
+    /// admitted declaration, without rewriting the immutable source's entry grant.
+    pub(crate) fn screen_composed_multistart_worker_observed(
+        &self,
+        prepared: &PreparedMultistart,
+        scope: ExecutionScope,
+        budget: &Arc<WorkerBudget>,
+        evaluations: &mut u64,
+        admission: Arc<super::super::strategy::admission::TaskAdmission>,
+        declaration: &pse_model::strategy::NumericalStrategy,
+    ) -> Result<BoundMultistart, MathRuntimeError> {
+        let binding_scope = scope.clone();
+        self.screen_multistart_bound_worker_observed(
+            prepared,
+            scope,
+            budget,
+            evaluations,
+            |original, screened| {
+                original
+                    .within_admitted_task(binding_scope, admission)?
+                    .with_composed_recovery_start(screened, &declaration.start, declaration.branch)
+            },
+        )
+    }
+    fn screen_multistart_bound_worker_observed(
+        &self,
+        prepared: &PreparedMultistart,
+        scope: ExecutionScope,
+        budget: &Arc<WorkerBudget>,
+        evaluations: &mut u64,
+        bind: impl FnOnce(PreparedSolve, &Screened) -> Result<PreparedSolve, ProblemError>,
     ) -> Result<BoundMultistart, MathRuntimeError> {
         let before = *evaluations;
         scope.check().map_err(ProblemError::from)?;
@@ -291,7 +332,11 @@ impl MathService {
             budget,
             evaluations,
         )?;
-        let step = original.clone().with_screened_start(&screened)?;
+        let mut step = bind(original.clone(), &screened)?;
+        // Origin authorization belongs to the binder above. Only its screened
+        // execution clone consumes the already frozen explicit native seed policy;
+        // the immutable original keeps its separately admitted entry policy.
+        step.profile.controls.start = prepared.profile().controls.start;
         if step.strategy_profile()? != prepared.strategy_profile()?
             || step.original_identity()? != prepared.original_identity()?
         {

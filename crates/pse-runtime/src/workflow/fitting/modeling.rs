@@ -388,6 +388,8 @@ impl ModelingPackage {
                     nominal: Some(p.scale),
                     scaling_factor: None,
                     absolute_tolerance: None,
+                    shared_engineering_allowance: None,
+                    engineering_rule_id: None,
                     relative_tolerance: None,
                     unit_id: Some(port.unit.as_id()),
                     coordinates: NumericalCoordinates::Physical,
@@ -1015,15 +1017,30 @@ impl PreparedFit {
                             })
                             .map(|d| d.cause.clone())
                     });
-                crate::math::strategy::target::original_assessment(
-                    self.assess_completion(report).decision,
+                let policy = &problem.numerics.policy;
+                let original = super::super::numerics::original_completion(
+                    report.candidate_use(policy),
+                    super::super::numerics::CompletionEvidence::point(
+                        &report.checks,
+                        report.checks_complete && report.validation_error.is_none(),
+                        self.required_closure_checks(),
+                    ),
+                    policy,
+                );
+                let mut assessment = crate::math::strategy::target::original_assessment(
+                    original.decision,
                     original_failure,
                     report
                         .solve
                         .as_ref()
                         .and_then(crate::math::strategy::cause_native),
                     observed,
-                )
+                );
+                assessment.retention.candidate = report.completion.as_ref().map_or_else(
+                    || super::super::numerics::refused(pse_model::generated::enums::CandidateRefusal::ModelChecks),
+                    |completion| completion.decision.clone(),
+                );
+                assessment
             },
         )?;
         report.strategy = Some(trace);
@@ -1047,6 +1064,7 @@ impl PreparedFit {
             Some(admission),
         )?;
         let Some(candidate) = report.candidate.as_ref() else {
+            report.completion = Some(self.assess_completion(&report));
             return Ok(report);
         };
         let assess=|| -> Result<(Vec<super::super::ModelingCheck>,Vec<super::super::ModelingReport>),WorkflowError> {
@@ -1095,6 +1113,7 @@ impl PreparedFit {
             }
             Err(error) => report.validation_error = Some(error.boundary_diagnostic()),
         }
+        report.completion = Some(self.assess_completion(&report));
         Ok(report)
     }
 }

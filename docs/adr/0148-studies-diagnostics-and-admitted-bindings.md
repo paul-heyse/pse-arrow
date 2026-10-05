@@ -49,7 +49,7 @@ Focused matrices distinguish scientific usability, seed permission, operational 
 
 ### Confirmation
 
-**Implemented/Tested, 2026-10-01:** [Plan 25f Verification](../plans/25f-studies-diagnostics-and-continuation.md#verification) names the focused diagnostic, physical binding, shared policy, terminal-history, native occurrence and generated Python controls. The linked independent review assesses the implemented hashing/Python boundary at that bounded scope. This record remains proposed pending its decision-PR acceptance; integrated durable journeys and assembled qualification execute in 25k.
+**Implemented/Tested, 2026-10-01:** [Plan 25f Verification](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md#verification) names the focused diagnostic, physical binding, shared policy, terminal-history, native occurrence and generated Python controls. The linked independent review assesses the implemented hashing/Python boundary at that bounded scope. This record remains proposed pending its decision-PR acceptance; integrated durable journeys and assembled qualification execute in 25k.
 
 ## Pros and cons
 
@@ -57,7 +57,7 @@ The shared contract removes executor-dependent scientific policy and makes occur
 
 ## More information
 
-[Plan 25f](../plans/25f-studies-diagnostics-and-continuation.md), [series coordinator](../plans/25-design-remediation.md), ADR-0146 and the domain-alignment reviews.
+[Plan 25f](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md), [series coordinator](../plans/25-design-remediation.md), ADR-0146 and the domain-alignment reviews.
 
 ## Status history
 

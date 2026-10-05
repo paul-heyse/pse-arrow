@@ -362,7 +362,8 @@ implementation or general IDAES equivalence (§6.14).
 ### 9.1 Material declarations
 
 > Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md),
-> maintainer-authorized Plan 25b; execution status belongs to that plan.
+> maintainer-authorized Plan 25b implementation; current qualification is owned by
+> [§24.2](operations-and-validation.md#section-24-2).
 
 Conservation consumes an explicit complete composition claim, including complete-empty,
 not formula-row presence or molar-mass availability. Missing sparse coefficients are zero

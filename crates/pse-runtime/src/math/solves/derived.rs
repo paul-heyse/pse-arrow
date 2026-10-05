@@ -27,6 +27,10 @@ use pse_math::{
 use pse_model::strategy::{AccuracyEvidence, MechanismKind, ProfileRef, WorkObservation};
 use std::{cell::RefCell, collections::BTreeSet, rc::Rc, time::Instant};
 
+#[path = "derived_accuracy.rs"]
+mod certified;
+pub(crate) use certified::CertifiedReconstructionPoint;
+
 impl PreparedSolve {
     /// The actual current compiler coefficient projection, lowered by the native owner.
     /// Its lease admits the copied coefficient buffers and native coordinate metadata.
@@ -1251,19 +1255,13 @@ impl MathService {
         let Representation::Algebraic(source) = &original.representation else {
             return Ok(None);
         };
-        let normalized_point = original
-            .tolerances
-            .variables
-            .iter()
-            .zip(&original.normalization.variables)
-            .map(|(budget, scale)| budget / scale)
-            .fold(f64::INFINITY, f64::min);
+        let normalized_point = original.operational_point_allowance()?;
         if !accuracy.point.is_finite()
             || accuracy.point <= 0.0
             || accuracy.point > normalized_point
             || !accuracy.action.is_finite()
             || accuracy.action <= 0.0
-            || accuracy.action > original.numerics.policy.kkt.stationarity
+            || accuracy.action > original.numerics.policy.supplier_action_accuracy
         {
             return Err(ProblemError::Contract(
                 "automatic reconstruction allowance exceeds original consumer budget".into(),
@@ -2115,6 +2113,7 @@ impl MathService {
         report.evidence.original_bound = None;
         report.evidence.contradiction = None;
         report.evidence.local = None;
+        report.evidence.output_accuracy = None;
         report.evidence.sensitivity = None;
         report.evidence.root_response = None;
         report.evidence.root_predictor = None;
@@ -2329,43 +2328,70 @@ impl MathService {
                 allowance: accuracy.point,
                 class: accuracy.class,
             };
-            let point = math::ReconstructionOracle::point(
+            let optional_refinement = !p.original.numerics.policy.goals.is_empty()
+                && accuracy.refinement.rounds >= prepared.suppliers.len().saturating_mul(2)
+                && accuracy.refinement.proof_cells >= (prepared.suppliers.len() as u64).saturating_mul(2);
+            // Two consumed products share the declared finite round/proof-cell ceiling.
+            // No-goal execution retains its whole mandatory operational allowance.
+            let first_limits = if optional_refinement { math::RefinementLimits {
+                rounds: accuracy.refinement.rounds / 2,
+                proof_cells: accuracy.refinement.proof_cells / 2,
+            }} else { accuracy.refinement };
+            let mut point = math::ReconstructionOracle::point(
                 &mut reconstruction,
                 &[],
                 &demand,
-                accuracy.refinement,
+                first_limits,
             )?;
-            screen_bounds(&p.physical, &point.values)?;
             let eval = WorkEvidence {
                 evaluations: Some(1),
                 iterations: Some(0),
                 factorizations: Some(0),
                 proof_steps: Some(0),
             };
-            let mut rows = vec![0.0; m];
-            execution.counted(eval, || oracle.constraints(&point.values, &mut rows))?;
-            let objective = execution.counted(eval, || oracle.objective(&point.values))?;
-            let quality = quality::observed(
-                oracle.contract(),
-                oracle.constraint_bounds(),
-                &point.values,
-                &rows,
-                &p.original.tolerances,
+            let mut assess = |values: &[f64]| -> Result<_,ProblemError> {
+                screen_bounds(&p.physical,values)?;
+                let mut rows=vec![0.0;m];
+                execution.counted(eval,|| oracle.constraints(values,&mut rows))?;
+                let objective=execution.counted(eval,|| oracle.objective(values))?;
+                let quality=quality::observed(oracle.contract(),oracle.constraint_bounds(),values,&rows,&p.original.tolerances)?;
+                let objective=p.source.prepared.prepared.plan.structure().objective().map(|o| objective*o.sense.sign());
+                let mut observation=quality::Observation::from_values(objective,rows,oracle.constraint_bounds().to_vec())?;
+                observation.sources=oracle.constraint_sources()?;
+                Ok((quality,objective,observation))
+            };
+            let (mut quality,mut objective,mut observation)=assess(&point.values)?;
+            let mut certified_reconstruction = CertifiedReconstructionPoint::issue(
+                self,p,&point,math::ReconstructionOracle::realization(&reconstruction),
             )?;
-            let objective = p
-                .source
-                .prepared
-                .prepared
-                .plan
-                .structure()
-                .objective()
-                .map(|o| objective * o.sense.sign());
-            let mut observation = quality::Observation::from_values(
-                objective,
-                rows,
-                oracle.constraint_bounds().to_vec(),
-            )?;
-            observation.sources = oracle.constraint_sources()?;
+            if optional_refinement && quality.feasible() && let Some(receipt)=&certified_reconstruction {
+                let _values_charge=budget.charge(case_values_bytes(p.source.values.scalars.len()
+                    .checked_add(n).ok_or(MathRuntimeError::Limit("goal reconstruction values extent"))?)?)?;
+                let mut values=p.source.values.clone();
+                values.scalars.extend(p.physical.coordinates().iter().map(|coordinate| coordinate.id)
+                    .zip(point.values.iter().copied()));
+                let consuming=match receipt.refinement_demand(self,&p.original,&values,&scope,budget,&execution) {
+                    Ok(demand)=>demand,
+                    Err(error) if super::engineering_accuracy::optional_failure(&error)=>None,
+                    Err(error)=>return Err(error.into()),
+                };
+                if let Some(consuming)=consuming {
+                    let remaining=math::RefinementLimits { rounds:accuracy.refinement.rounds-first_limits.rounds,
+                        proof_cells:accuracy.refinement.proof_cells-first_limits.proof_cells };
+                    match math::ReconstructionOracle::point(&mut reconstruction,&[],&consuming,remaining) {
+                        Ok(refined)=> {
+                            point=refined;
+                            (quality,objective,observation)=assess(&point.values)?;
+                            certified_reconstruction=CertifiedReconstructionPoint::issue(self,p,&point,
+                                math::ReconstructionOracle::realization(&reconstruction))?;
+                        }
+                        // A bounded optional proof refusal retains the actual first
+                        // certificate and unmet goal; original checks remain mandatory.
+                        Err(ProblemError::Math(pse_math::MathError::Refinement {..}))=>{},
+                        Err(error)=>return Err(error.into()),
+                    }
+                }
+            }
             execution.check()?;
             let proposal_owner = self.reserve(
                 "math:complete-reconstruction-proposal",
@@ -2395,6 +2421,7 @@ impl MathService {
                     observation,
                     quality,
                     coordinates,
+                    certified_reconstruction,
                     // Actual nested root/proof totals remain unavailable, not invented zero.
                     work: WorkEvidence::default(),
                 })),

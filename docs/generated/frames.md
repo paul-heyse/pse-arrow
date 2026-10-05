@@ -49,6 +49,8 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `SchemaExecutionEncodingV1` | `pse.schema.execution-encoding.v1` | The exact observed native field layout. |
 | `NumericalPolicyV1` | `pse.numerical.policy.v1` | An effective numerical policy request. |
 | `NumericalPolicyV2` | `pse.numerical.policy.v2` | Numerical policy including incumbent permission; historical V1 remains unchanged. |
+| `NumericalPolicyV3` | `pse.numerical.policy.v3` | Numerical policy with contextual engineering defaults and declared goals. |
+| `EngineeringGoalV1` | `pse.engineering.goal.v1` | Bound engineering goal and observation dependencies. |
 | `ModelingAdmissionV2` | `pse.modeling.admission.v2` | Request-qualified structural and route admission over bound model and resolved policies. |
 | `ModelingAdmissionV1` | `pse.modeling.admission.v1` | Historical generic capability admission before contextual readiness. |
 | `ProviderV4` | `pse.provider.v4` | A kernel provider's physical, algorithm and data identity. |
@@ -98,6 +100,7 @@ Derived in: pse-math.
 | `NumericalProjectionV2` | `pse.numerical.projection.v2` | Projected magnitudes with characteristic scales in target unit coordinates. |
 | `NumericalDifferenceProjectionV1` | `pse.numerical.difference-projection.v1` | Resolved magnitudes projected to an admitted subtraction result. |
 | `NumericalResolvedV1` | `pse.numerical.resolved.v1` | Resolved numerical targets. |
+| `NumericalResolvedV2` | `pse.numerical.resolved.v2` | Frozen contextual engineering interpretation independent of conditioning. |
 | `ImplicitConfigurationV1` | `pse.implicit.configuration.v1` | An implicit block's configuration. |
 | `ImplicitConfigurationV2` | `pse.implicit.configuration.v2` | Implicit selection and resolved derivative requirements. |
 | `ImplicitFixedConfigurationV1` | `pse.implicit.fixed-configuration.v1` | An implicit block's fixed configuration. |
@@ -120,7 +123,7 @@ Derived in: pse-compiler.
 | `MathBodyV2` | `pse.math.body.v2` | A mathematical body including its retained physical admission product. |
 | `MathBodyV3` | `pse.math.body.v3` | Checked expression occurrences and complete contextual admission products. |
 | `MathPhysicalInventoryV5` | `pse.math.physical-inventory.v5` | A physical inventory, including unit compositions and derived-kind definitions (ADR-0124), and the names and typed conditions its quantity types and reference states are addressed by (ADR-0123 Outcome 6). |
-| `MathPhysicalInventoryV6` | `pse.math.physical-inventory.v6` | Selected physical declaration inventory with explicit lengths for every nested collection, including unit factors and reduction domains (Plan 25a/I1). |
+| `MathPhysicalInventoryV6` | `pse.math.physical-inventory.v6` | Selected physical declaration inventory with explicit lengths for every nested collection, including unit factors and reduction domains (blueprint §5.3). |
 | `ModelingPhysicalOperationV1` | `pse.modeling.physical-operation.v1` | Admitted owner-relative physical transformation specialized at an occurrence. |
 | `MathPhysicalPassV1` | `pse.math.physical-pass.v1` | A physical reduction pass. |
 | `MathTypedDefinitionV5` | `pse.math.typed-definition.v5` | A typed definition's admitted outputs; function validity predicates and the rejecting data-layer guards, each with its layer, the declaration stating it and its lineage (the parameter sets and arguments it reads), are framed in their canonical spelling, unit literals by their canonical products (ADR-0123 Outcomes 4 and 8, Plan 23 H5). |

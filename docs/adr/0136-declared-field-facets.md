@@ -94,7 +94,7 @@ Numeric admission controls are owned by the common quantity operation.
 ### Confirmation
 
 Implemented mechanism scope is recorded in blueprint §4.4, §5.3 and §8.2. Plan 25a owns
-focused [evidence](../plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation), with actual commands and zero-target results. This decision remains
+focused [evidence](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation), with actual commands and zero-target results. This decision remains
 Proposed; acceptance requires the decision route, and full integration remains Plan 25k
 work. No qualification follows from schema consistency or documentation alone.
 
@@ -105,7 +105,7 @@ bootstrap and the initial consumer migration cross several crates once.
 
 ## More information
 
-[Plan 25a](../plans/25a-physical-values-and-contextual-contracts.md), F34 and FU10;
+[Plan 25a](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25a-physical-values-and-contextual-contracts.md), F34 and FU10;
 blueprint §4.4, §5.3 and §8.2. Current finding status belongs to the Plan 25 coordinator.
 
 ## Status history

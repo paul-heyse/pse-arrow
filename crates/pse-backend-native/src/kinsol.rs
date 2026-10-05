@@ -1977,7 +1977,7 @@ mod tests {
                     reuse,
                     ..Controls::default()
                 },
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 execution(),
                 &Tolerances {
                     variables: vec![1e-8],
@@ -2202,7 +2202,7 @@ mod tests {
             .solve(
                 &[start],
                 &Controls::default(),
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 execution(),
                 &Tolerances {
                     variables: vec![1e-8],
@@ -2283,7 +2283,7 @@ mod tests {
                 .solve(
                     &[1.0],
                     &Controls::default(),
-                    &ResolvedAccuracy::nominal(),
+                    &ResolvedAccuracy::verification(),
                     scope,
                     &Tolerances {
                         variables: vec![1e-8],
@@ -2404,14 +2404,13 @@ mod tests {
                     unsafe { values(session.fs, 1) }.unwrap(),
                     if map { &[7.0] } else { &[0.0] }
                 );
-                if map {
-                    assert!(matches!(
-                        session.callback.state.last_failure,
-                        Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
-                    ));
-                } else {
-                    assert!(session.callback.state.last_failure.is_none());
-                }
+                assert_eq!(session.callback.state.terminal.is_some(), map);
+                assert_eq!(session.callback.state.trial_rejections, 1);
+                // A successful callback preserves the trial witness until native completion.
+                assert!(matches!(
+                    session.callback.state.last_failure,
+                    Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
+                ));
             }
         }
     }
@@ -2729,7 +2728,7 @@ mod tests {
                 .solve(
                     &[start],
                     &Controls::default(),
-                    &ResolvedAccuracy::nominal(),
+                    &ResolvedAccuracy::verification(),
                     execution(),
                     &Tolerances {
                         variables: vec![1e-8],
@@ -2861,7 +2860,7 @@ mod tests {
             .solve(
                 &[start],
                 &Controls::default(),
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 execution(),
                 &Tolerances {
                     variables: vec![1e-8],
@@ -2974,7 +2973,7 @@ mod tests {
             .solve(
                 &[2.0],
                 &Controls::default(),
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 execution(),
                 &Tolerances {
                     variables: vec![1e-8],
@@ -3058,7 +3057,7 @@ mod tests {
             .solve(
                 &[10.0],
                 &Controls::default(),
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 execution(),
                 &Tolerances {
                     variables: vec![1e-8],
@@ -3118,7 +3117,7 @@ mod tests {
                 .solve(
                     &[1.2],
                     &Controls::default(),
-                    &ResolvedAccuracy::nominal(),
+                    &ResolvedAccuracy::verification(),
                     execution(),
                     &Tolerances {
                         variables: vec![1e-8],

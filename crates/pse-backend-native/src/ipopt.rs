@@ -171,7 +171,7 @@ mod tests {
             feasibility: 1e-12,
             stationarity: 2e-8,
             complementarity: 3e-9,
-            ..ResolvedAccuracy::nominal()
+            ..ResolvedAccuracy::verification()
         };
         let tolerances = Tolerances {
             variables: vec![1e-8],

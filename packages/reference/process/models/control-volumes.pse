@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("35967416f406452a98e2d8798bc7c3eb") package control_volumes {
+@id("effedc6b569b4c5cb75bc8ac1cb16ac3") use numerical_policy @"1.0.0";
 @id("01a0ede58eca75b18609170950fe7e0d") use chemistry @"1.0.0";
 @id("06e61a91f30f4151873a54209bd83190") use equilibrium @"1.0.0";
 @id("bee5ac9c31614333966f869cce24e75a") enum MaterialBalance {@id("01a0eec94a7e70229fdabc155f05ce35") componentPhase, @id("01a0eec94a7e70229fdabc1624f82bfd") componentTotal, @id("01a0eec94a7e70229fdabc17007c4779") elementTotal, @id("01a0eec94a7e70229fdabc181f583a21") total}
@@ -16,6 +17,9 @@
 @id("090b2b2f6cd55055afb4be968183220f") entity kinds.port_set inlet_boundary {}
 @id("88de8f99f09f52cda6269f23f2b4cdc8") entity kinds.port_set outlet_boundary {}
 @id("95ceb9da026754e9bf6f5e73c3f957d2") interface IndexedBalances {
+// All balance modes share the global typed physical design allowances.
+// Conservation still imposes native row requirements; observation/accounting
+// remain distinct meanings rather than alternate ways to bypass conservation.
 @id("eea7622247ee5fce9347ce9f696827b8") param inlet_boundaries:Set<kinds.port_set>;
 @id("3c22663740b95635b4611e066249167a") param outlet_boundaries:Set<kinds.port_set>;
 @id("c97011f537d55951b235eb66bda530df") param components:Set<chemistry.species>;
@@ -35,26 +39,26 @@
 @id("8b880beef829548a88179196771bd295") let out_total[o in outlet_boundaries]:Flow;
 @id("75b6de4420155e64b4d59bccb2c68961") when material_basis==MaterialBalance.componentTotal {
 @id("2f92504cac5a57808558b118d30ba845") when algebraic_balances and not observe_balances {
-@id("24a82c6a754355f6b519c96985fc6329") accumulate material[j in components]:ComponentFlow conservation tolerance 1e-7{mol/s};
+@id("24a82c6a754355f6b519c96985fc6329") accumulate material[j in components]:ComponentFlow conservation tolerance numerical_policy.component_flow;
 }
 @id("db3567bff1225d67b610dae813e78080") when observe_balances {
-@id("bfdf74133c0652fd988fd741a12220dc") accumulate material[j in components]:ComponentFlow observation tolerance 1e-7{mol/s};
+@id("bfdf74133c0652fd988fd741a12220dc") accumulate material[j in components]:ComponentFlow observation tolerance numerical_policy.component_flow;
 }
 @id("986f97f726be5b228dc7cd92ab170df5") when not algebraic_balances and not observe_balances {
-@id("02395ac96f725b388b7169630af08ae1") accumulate material[j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
+@id("02395ac96f725b388b7169630af08ae1") accumulate material[j in components]:ComponentFlow accounting tolerance numerical_policy.component_flow;
 }
 @id("d619511d33c95dc185851ac7ea47a0d4") contribute [i in inlet_boundaries,j in components] material[j] role inflow=in_component[i,j];
 @id("b46f2cd061825bf2baacb214e49fdd67") contribute [o in outlet_boundaries,j in components] material[j] role outflow=out_component[o,j];
 }
 @id("9cf9c88c71fa5aaa811fbbf5b5dc2d2d") when material_basis==MaterialBalance.componentPhase {
 @id("9fd237cf270d55688ad2acd7d416d089") when algebraic_balances and not observe_balances {
-@id("2330f74fe2a65cc189e1007edb28a76d") accumulate phase_material[p in phases,j in components]:ComponentFlow conservation tolerance 1e-7{mol/s};
+@id("2330f74fe2a65cc189e1007edb28a76d") accumulate phase_material[p in phases,j in components]:ComponentFlow conservation tolerance numerical_policy.component_flow;
 }
 @id("dcf1a37515a15df98b3a7fbe62078c86") when observe_balances {
-@id("4125f9a4ded45998abebba10d22f1cfe") accumulate phase_material[p in phases,j in components]:ComponentFlow observation tolerance 1e-7{mol/s};
+@id("4125f9a4ded45998abebba10d22f1cfe") accumulate phase_material[p in phases,j in components]:ComponentFlow observation tolerance numerical_policy.component_flow;
 }
 @id("9cbc39ada5d957c3ac6bb0a78a7d1ad4") when not algebraic_balances and not observe_balances {
-@id("ce48121e648d5800bd762eaa9fac6c77") accumulate phase_material[p in phases,j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
+@id("ce48121e648d5800bd762eaa9fac6c77") accumulate phase_material[p in phases,j in components]:ComponentFlow accounting tolerance numerical_policy.component_flow;
 }
 @id("9724f1067ddf52a989b5d9ae689c5ed1") contribute [i in inlet_boundaries,p in phases,j in components] phase_material[p,j] role inflow=in_phase_component[i,p,j];
 @id("cfc9b81bdf85533f86107bb0a2cfdc0b") contribute [o in outlet_boundaries,p in phases,j in components] phase_material[p,j] role outflow=out_phase_component[o,p,j];
@@ -63,39 +67,39 @@
 @id("a5c32de27ea75823918d3abbe4b65a39") require sum(j in components | if j.composition==chemistry.CompositionKnowledge.Complete then 0 else 1)==0 : "IncompleteComposition: elemental balances require complete component composition";
 @id("cd35358cf65b5923aa11106d1e51c5a7") require sum(e in elements | 1)>0 : "element balances require a nonempty declared element set";
 @id("66a05abff63d5272b588db6ff655f46d") when algebraic_balances and not observe_balances {
-@id("3ccadbcfa493544baca299850594669a") accumulate element_material[e in elements]:ElementFlow conservation tolerance 1e-7{mol/s};
+@id("3ccadbcfa493544baca299850594669a") accumulate element_material[e in elements]:ElementFlow conservation tolerance numerical_policy.element_flow;
 }
 @id("0d49c954820b550ca773d6a589d26cb8") when observe_balances {
-@id("dc186e66bf8252238b527b731a365452") accumulate element_material[e in elements]:ElementFlow observation tolerance 1e-7{mol/s};
+@id("dc186e66bf8252238b527b731a365452") accumulate element_material[e in elements]:ElementFlow observation tolerance numerical_policy.element_flow;
 }
 @id("52e9861c63c55c30a0af6f8df6579170") when not algebraic_balances and not observe_balances {
-@id("f6cdcec7c3b05a8ba2871410069927e5") accumulate element_material[e in elements]:ElementFlow accounting tolerance 1e-7{mol/s};
+@id("f6cdcec7c3b05a8ba2871410069927e5") accumulate element_material[e in elements]:ElementFlow accounting tolerance numerical_policy.element_flow;
 }
 @id("3179567b6666534189196d4d9a90eae9") contribute [i in inlet_boundaries,e in elements] element_material[e] role inflow=sum(j in components | in_component[i,j]*element_coefficient(chemistry.element_count(j,e),j,e));
 @id("8573395b9f36560b8b30d2f1d63f7ca4") contribute [o in outlet_boundaries,e in elements] element_material[e] role outflow=sum(j in components | out_component[o,j]*element_coefficient(chemistry.element_count(j,e),j,e));
 }
 @id("d6613beb5fd052c699aff813c3044881") when material_basis==MaterialBalance.total {
 @id("6609df20a0dd5a0abe6edf385cd776eb") when algebraic_balances and not observe_balances {
-@id("8526bf09cf885326a2caf421ae9e4916") accumulate total_material:Flow conservation tolerance 1e-7{mol/s};
+@id("8526bf09cf885326a2caf421ae9e4916") accumulate total_material:Flow conservation tolerance numerical_policy.molar_flow;
 }
 @id("b7bf5c9ccf96556daa9fa0fca39a7d53") when observe_balances {
-@id("e42bcb8c493b58a99b74c7440c9397ad") accumulate total_material:Flow observation tolerance 1e-7{mol/s};
+@id("e42bcb8c493b58a99b74c7440c9397ad") accumulate total_material:Flow observation tolerance numerical_policy.molar_flow;
 }
 @id("380d43659949587682f159c43025b95b") when not algebraic_balances and not observe_balances {
-@id("6982903961325ec0934f374f2e05aed0") accumulate total_material:Flow accounting tolerance 1e-7{mol/s};
+@id("6982903961325ec0934f374f2e05aed0") accumulate total_material:Flow accounting tolerance numerical_policy.molar_flow;
 }
 @id("6788193f1d13512d9223990aefe9288c") contribute [i in inlet_boundaries] total_material role inflow=in_total[i];
 @id("bbb5887a6cb052e59ca1172bbc3b8fc3") contribute [o in outlet_boundaries] total_material role outflow=out_total[o];
 }
 @id("ec30a9f1a0325d10aa119a9fe5a3ceaa") when true {
 @id("c009f8e75656531e8a0ef7da396b8e37") when algebraic_balances and not observe_balances {
-@id("1a8a8d57c60a54f48e30750a70aadb8f") accumulate energy:Power boundary energy_boundary conservation tolerance 0.001{W};
+@id("1a8a8d57c60a54f48e30750a70aadb8f") accumulate energy:Power boundary energy_boundary conservation tolerance numerical_policy.power;
 }
 @id("456e0a3825ae552db06a47a0ac0a571b") when observe_balances {
-@id("3b694a67a208522e9785e5cfafdb77f8") accumulate energy:Power boundary energy_boundary observation tolerance 0.001{W};
+@id("3b694a67a208522e9785e5cfafdb77f8") accumulate energy:Power boundary energy_boundary observation tolerance numerical_policy.power;
 }
 @id("01464a08d4de5774b9d620f73ff09a80") when not algebraic_balances and not observe_balances {
-@id("f549e512c3495185884e0b52f34be847") accumulate energy:Power boundary energy_boundary accounting tolerance 0.001{W};
+@id("f549e512c3495185884e0b52f34be847") accumulate energy:Power boundary energy_boundary accounting tolerance numerical_policy.power;
 }
 @id("ee7bd047059d5f3f8cd21e211808b3a8") contribute [i in inlet_boundaries] energy role inflow=in_energy[i];
 @id("bccf42a494d25a6dbd9a33e6845966d3") contribute [o in outlet_boundaries] energy role outflow=out_energy[o];
@@ -154,18 +158,20 @@
 @id("b1cc1279d4e7541cb3cf2581f147dd83") override let out_total[o in outlet_boundaries]:Flow=outlet.flow;
 @id("72c50d1cf95257e1bd64e7f8aa23558a") contribute energy role directed=heat;
 @id("993bc29d3e1956f3ab3f272e53f7645e") contribute energy role directed=work;
+// Temporal closure uses the same global amount and energy allowances.
+// These physical mismatch limits are distinct from local integration error.
 @id("d5bd7cf7a012515dbc8d57e10342543d") when analysis.dynamic and has_holdup {
 @id("5ab68a7cbf2459c49964e79f1fbbf2a8") require sum(p in phases | 1)==1 : "stored control-volume transport requires an explicit phase allocation for multiple phases";
 @id("ea5814bf1a1e566b92370bd7f1fe1759") require material_basis==MaterialBalance.componentTotal or material_basis==MaterialBalance.componentPhase : "stored element/total bases require an explicit inventory projection and transfer allocation";
 @id("fee18c4ff2895fad85ee8ed402389f4b") when material_basis==MaterialBalance.componentTotal {
-@id("6066907899665626903ed5985f16c9bf") conserve temporal_material[i in time,p in phases,j in evolving_inventory]:Amount on time inventory phase_material_holdup[p,j] flux material[j] tolerance 1e-7{mol};
+@id("6066907899665626903ed5985f16c9bf") conserve temporal_material[i in time,p in phases,j in evolving_inventory]:Amount on time inventory phase_material_holdup[p,j] flux material[j] tolerance numerical_policy.amount;
 @id("e97e1ff8054d5db593069eeb74a168ba") eq constant_material[j in constant_inventory]:material[j]==0{mol/s};
 }
 @id("69d71d954a6152479aed1d371371b3a7") when material_basis==MaterialBalance.componentPhase {
-@id("ee144af05a0b5ddbb84e5a9b315f2f35") conserve temporal_material[i in time,p in phases,j in evolving_inventory]:Amount on time inventory phase_material_holdup[p,j] flux phase_material[p,j] tolerance 1e-7{mol};
+@id("ee144af05a0b5ddbb84e5a9b315f2f35") conserve temporal_material[i in time,p in phases,j in evolving_inventory]:Amount on time inventory phase_material_holdup[p,j] flux phase_material[p,j] tolerance numerical_policy.amount;
 @id("e555e1021d785480953884f7f97bdf3a") eq constant_material[p in phases,j in constant_inventory]:phase_material[p,j]==0{mol/s};
 }
-@id("09ff068d35e65cea9a688757463884d7") conserve temporal_energy[i in time,p in phases]:Energy on time inventory phase_energy_holdup[p] flux energy tolerance 0.001{J};
+@id("09ff068d35e65cea9a688757463884d7") conserve temporal_energy[i in time,p in phases]:Energy on time inventory phase_energy_holdup[p] flux energy tolerance numerical_policy.energy;
 }
 @id("c1f94440ae6c4941851e49f36ea25559") annotation report inlet.T("inlet.T");
 @id("67a3cc63b34f4e32a8c2c022e9f8f4e1") annotation report outlet.T("outlet.T");

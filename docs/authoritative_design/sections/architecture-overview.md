@@ -290,8 +290,11 @@ gauge-for-absolute errors. See [§8](physical-semantics.md#section-8).
 
 Symbolica atoms, evaluators and coefficient projections are derived specialization
 artifacts with explicit instance and case bindings. Real-algebra semantics apply on the
-admitted domain, after physical and original-domain obligations. A derived, non-evaluating factorable graph is transport for a backend representation.
-There is no independent expression evaluator or differentiator. *Because* library algorithms are more capable
+admitted domain, after physical and original-domain obligations. A derived factorable
+graph transports a backend representation. Its bounded readback evaluation verifies
+that export ([§18.10.1](numerical-execution.md#section-18-10-1)); original model evaluation
+and differentiation remain library-owned. There is no competing original-model evaluator
+or differentiator. *Because* library algorithms are more capable
 and better tested than a bespoke engine, and one authority avoids competing mathematics.
 See [§7](mathematics-and-compilation.md#section-7) and
 [§14](mathematics-and-compilation.md#section-14).

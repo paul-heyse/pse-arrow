@@ -438,6 +438,19 @@ mod tests {
             scales: scales.into(),
             objective,
             bound_rows: vec![].into(),
+            point: crate::square_response::point_key(&[x, p]),
+            variables: vec![id(10), id(12)].into(),
+            rows: if row {
+                vec![id(11)].into()
+            } else {
+                vec![].into()
+            },
+            variable_bounds: vec![(f64::NEG_INFINITY, f64::INFINITY), (p, p)].into(),
+            normalization: pse_math::normalization::Normalization::identity(2, usize::from(row))
+                .key(),
+            row_dual: if row { vec![p.min(0.)].into() } else { vec![].into() },
+            lower_dual: vec![(-p).max(0.), 0.].into(),
+            upper_dual: vec![0., 0.].into(),
         };
         Point {
             factor,

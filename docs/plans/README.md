@@ -9,38 +9,38 @@ and the later full-case compilation/solver-routing review. Its companion plans d
 implementation packets, dependency order and final qualification. The coordinator owns the
 original finding dispositions; the later solver reviews have their disposition owners
 in 25m and 25n. The linked plans own packet progress.
-[25a is complete](25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation),
+[25a is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation),
 with focused verification recorded in its Outcome.
-[25b is complete](25b-scientific-knowledge-and-applicability.md#outcome-recorded-after-implementation),
+[25b is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md#outcome-recorded-after-implementation),
 with its scientific contracts, composite focused verification and handoff recorded in its
-Outcome. [25c is complete](25c-process-composition-and-conservation.md#outcome-recorded-after-implementation),
+Outcome. [25c is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25c-process-composition-and-conservation.md#outcome-recorded-after-implementation),
 with focused verification, final workspace/native-contract compilation and explicit limits.
-[25d is complete](25d-mathematical-realization-and-response.md#outcome-recorded-after-implementation),
+[25d is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25d-mathematical-realization-and-response.md#outcome-recorded-after-implementation),
 with selected mathematical meaning, exact export, shared response and composite focused evidence.
-[25e is complete](25e-declared-analyses-and-qualification.md#outcome-recorded-after-implementation),
+[25e is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25e-declared-analyses-and-qualification.md#outcome-recorded-after-implementation),
 with declared execution, composed permission, actual endpoints, supervised shooting and the
 required preserving operational transition.
-[25f is complete](25f-studies-diagnostics-and-continuation.md#outcome-recorded-after-implementation),
+[25f is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md#outcome-recorded-after-implementation),
 with shared occurrence policy/definitions, typed diagnostics, physical binding admission,
 durable effect recovery and generated study boundaries. Required 25g/25h/25i/25j slices are
 implemented and tested; subsequent companion closure is linked below.
-[25g is complete](25g-durable-contract-evolution.md#outcome-recorded-after-implementation),
+[25g is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25g-durable-contract-evolution.md#outcome-recorded-after-implementation),
 with recorded interpretation, separate reader/writer/migration capabilities, portable predicates,
 explicit store lifecycle, inventory-backed reset and protected bounded orphan discovery.
 The integrated
-[25h](25h-authoring-and-admission-ownership.md#outcome-recorded-after-implementation),
-[25i](25i-identity-reuse-and-resource-ownership.md#outcome-recorded-after-implementation)
-and [25j](25j-generated-boundaries-and-library-consolidation.md#outcome-recorded-after-implementation)
+[25h](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25h-authoring-and-admission-ownership.md#outcome-recorded-after-implementation),
+[25i](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md#outcome-recorded-after-implementation)
+and [25j](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25j-generated-boundaries-and-library-consolidation.md#outcome-recorded-after-implementation)
 implementation is complete, with scoped verification and remaining qualification limits in
 those Outcomes.
-[25l functional implementation is complete](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
+[25l functional implementation is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
 with demand-driven compilation, contextual solver readiness and focused boundary evidence.
 The subsequent solver reviews are integrated in
 [25m: Integrated solve pipeline](25m-integrated-solve-pipeline.md), which owns their adopted
 findings, functional packages and migration. Its functional handoff has resumed the
 [25k campaign](25k-integrated-qualification-and-closure.md#review-boundary--integrated-solve-pipeline),
 including repairs from assembled qualification; 25k remains the sole full campaign and closure owner.
-Execution is paused at the maintainer's request (2026-10-04); the
+Execution resumed at the maintainer's request (2026-10-05); the
 [25m checkpoint](25m-integrated-solve-pipeline.md#execution-checkpoint) records integrated
 repairs, targeted verification and the dependency order for resumption.
 The [automatic simulation/solve pipeline review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md)
@@ -52,6 +52,15 @@ The maintainer resumed 25n implementation on 2026-10-04 and waived the prelimina
 its [checkpoint](25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
 owns implemented slices and remaining scope.
 Full qualification resumes through 25k after the functional handoff.
+The [current 25k execution checkpoint](25k-integrated-qualification-and-closure.md#current-execution-checkpoint)
+owns the resumed campaign, selected dev measurements and final closure order.
+The requested [contextual-accuracy design review](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md)
+is complete. [Plan 27: Contextual engineering accuracy](27-contextual-engineering-accuracy.md)
+and its companions develop shared contextual defaults, declared output/decision goals,
+error allocation and bounded refinement. Its package owners hold authorized execution;
+[25k's dispositions](25k-integrated-qualification-and-closure.md#contextual-accuracy-review-dispositions)
+remain the sole finding status and full qualification owner. The maintainer authorized
+implementation on 2026-10-05; final campaign work follows the functional handoff.
 The series reserves full integration and qualification for 25k after all functional
 work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
 checks and immediate deletion of replaced mechanisms during the pivot.
@@ -59,7 +68,7 @@ checks and immediate deletion of replaced mechanisms during the pivot.
 [Plan 26](26-testing-architecture.md) (testing architecture) and its companions are **done**
 (2026-10-05). Its [Outcome](26-testing-architecture.md#outcome) records implemented delivery,
 composite scoped Q1 acceptance and the independent conformance review's accepted remedies.
-It is retained as the highest-numbered plan and links still-consumed decision/review evidence;
+It remains retained for still-consumed decision/review evidence;
 it creates no active work and does not resume Plan 25k.
 
 [Plan 23](23-thermodynamic-domain-and-campaign.md) (the thermodynamic domain model and

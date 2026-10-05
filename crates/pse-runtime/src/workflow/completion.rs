@@ -15,6 +15,9 @@ use pse_model::generated::{
 pub struct Completion {
     /// Final physical closure and usability decisions, never recomputed by an exporter.
     pub assessments: Vec<pse_model::generated::runtime::candidate_assessments::Row>,
+    /// Retained engineering outcomes; historical no-goal products have an empty collection.
+    #[serde(default)]
+    pub accuracy_goals: Vec<pse_model::engineering_accuracy::GoalAssessment>,
     /// Source-attributed final errors and unavailable fit diagnostics.
     pub diagnostics: Vec<pse_model::diagnostic::BoundaryDiagnostic>,
     /// Algebraic outcomes, including requested steps that were not attempted.
@@ -45,6 +48,20 @@ impl RunResult {
             RunRequest::Modeling(requests) => {
                 for (ordinal, request) in requests.iter().enumerate() {
                     let step = ordinal as i64;
+                    if let Some(result) = self.modeling_result(ordinal) {
+                        product.accuracy_goals.extend(
+                            result
+                                .completion
+                                .accuracy
+                                .iter()
+                                .map(|g| g.row(self.run_id, step)),
+                        );
+                    } else {
+                        product.accuracy_goals.extend(request.solve.numerics().policy.goals.iter()
+                            .cloned().map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
+                                goal, pse_model::generated::enums::AccuracyUnavailableReason::MissingEvidence
+                            ).row(self.run_id, step)));
+                    }
                     let solved = request.model.model.solved();
                     let declaration = request.model.case.compiled().plan.structure();
                     let outcome = self.modeling_result(ordinal).map(|result| &result.outcome);
@@ -191,6 +208,19 @@ impl RunResult {
                     Ok(RunReport::Simulation(r)) => Some(r.as_ref()),
                     _ => None,
                 };
+                if let Some(t) = trajectory {
+                    product.accuracy_goals.extend(
+                        t.completion()
+                            .accuracy
+                            .iter()
+                            .map(|g| g.row(self.run_id, 0)),
+                    );
+                } else {
+                    product.accuracy_goals.extend(p.numerics().policy.goals.iter().cloned()
+                        .map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
+                            goal, pse_model::generated::enums::AccuracyUnavailableReason::MissingEvidence
+                        ).row(self.run_id, 0)));
+                }
                 let profile_identity = match trajectory {
                     Some(t) => t.header().profile_identity,
                     None => super::dynamics::profile_identity(p.profile())
@@ -249,6 +279,16 @@ impl RunResult {
                     Ok(RunReport::Shooting(r)) => Some(r.as_ref()),
                     _ => None,
                 };
+                if let Some(r) = report {
+                    product
+                        .accuracy_goals
+                        .extend(r.completion.accuracy.iter().map(|g| g.row(self.run_id, 0)));
+                } else {
+                    product.accuracy_goals.extend(p.numerics().policy.goals.iter()
+                        .cloned().map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
+                            goal, AccuracyUnavailableReason::MissingEvidence,
+                        ).row(self.run_id, 0)));
+                }
                 let native = report.and_then(|r| r.solve.as_ref());
                 let trajectory = report.and_then(|r| r.trajectory.as_ref());
                 let source = &p.simulation.source;
@@ -326,6 +366,21 @@ impl RunResult {
                 });
             }
             RunRequest::Fit(p) => {
+                let retained = match &self.report {
+                    Ok(RunReport::Fit(r)) => r.completion.as_ref(),
+                    _ => None,
+                };
+                if let Some(completion) = retained {
+                    product.accuracy_goals.extend(
+                        completion.accuracy.iter()
+                            .map(|g| g.row(self.run_id, 0)),
+                    );
+                } else {
+                    product.accuracy_goals.extend(p.problem.numerics.policy.goals.iter()
+                        .cloned().map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
+                            goal, AccuracyUnavailableReason::MissingEvidence,
+                        ).row(self.run_id, 0)));
+                }
                 let r = match &self.report {
                     Ok(RunReport::Fit(r)) => Some(r.as_ref()),
                     _ => None,
@@ -633,11 +688,15 @@ mod tests {
             report.record_validation_failure(failure);
             let outcome = Outcome::Native(Box::new(report));
             let point = super::super::modeling::assessment::AssessedPoint {
+                accuracy: Vec::new(),
+                original: None,
+                canonical_fallback: false,
                 work: Vec::new(),
                 values: prepared.model.values.clone(),
                 checks: vec![],
                 reports: vec![],
                 error: None,
+                unavailable_cause: None,
                 complete: true,
                 required_closure: 0,
                 owner: owner.clone(),

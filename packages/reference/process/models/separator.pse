@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("aa27a40dab7e4909ba5f8b561c17fe21") package separation {
+@id("b35f7f1b67ef40518e10807a6cabe1e7") use numerical_policy @"1.0.0";
 @id("888a35cff66942cd8dcabe4e70966e4c") use kinds @"1.0.0";
 @id("01a0ede58ecb740c9dfc7a1c08fa33a6") use chemistry @"1.0.0";
 @id("b3e046733e624badab90577f49b10991") use equilibrium @"1.0.0";
@@ -66,12 +67,13 @@
 @id("b44efebe107b5548beefd1f1b6187975") override let in_total[i in inlet_boundaries]:Flow=inlet.flow;
 @id("ca868c5ffd8a5fb981f636b0af5a767d") override let out_total[o in outlet_boundaries]:Flow=outlet_flow[o];
 @id("a47ba7249ef150609200fc5cbe26165f") material port inlet_port=inlet.material_state;
+// Port transport uses the same global typed physical allowances as balances.
 @id("b89310258c845b1b90cabf28c5eb8dc1") state outlet_state[o in outlets] supplied(true) {
 coordinate component[j in components]=outlet_component_flow[o,j];
 coordinate temperature=inlet.T;
 coordinate pressure=inlet.pressure;
-transport component[j in components]=outlet_component_flow[o,j] tolerance 1e-7{mol/s};
-transport energy=outlet_energy_flow[o] tolerance 0.001{W};
+transport component[j in components]=outlet_component_flow[o,j] tolerance numerical_policy.component_flow;
+transport energy=outlet_energy_flow[o] tolerance numerical_policy.power;
 }
 @id("cb257078db22593ca92573bdd423eff8") material port outlet_ports[o in outlets]=outlet_state[o];
 @id("20ea60fd45da555a8817d46adc1c22b5") annotation connectivity inlet_port(1,0);

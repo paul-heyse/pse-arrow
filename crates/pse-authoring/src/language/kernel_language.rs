@@ -962,6 +962,61 @@ fn objective_members_parse_and_render() {
 }
 
 #[test]
+fn accuracy_goals_engineering_scales_and_shared_selectors_roundtrip() {
+    let source = r#"package p {
+ annotation engineering_rule numerical_policy.temperature;
+ def D {
+  var temperature: Temperature;
+  annotation accuracy_goal temperature(selected_output, steady, resolution=0.01{K}, criterion_lower=273.15{K}, criterion_upper=373.15{K});
+  annotation engineering_scale temperature(kind=range_width, value=20{K});
+  annotation engineering_default temperature(numerical_policy.temperature);
+ }
+}"#;
+    let rows = parse_named(source);
+    let printed = render(&rows).unwrap();
+    assert!(printed.contains("annotation engineering_rule numerical_policy.temperature;"));
+    assert!(printed.contains("annotation accuracy_goal temperature(selected_output, steady, resolution = 0.01{K}, criterion_lower = 273.15{K}, criterion_upper = 373.15{K}, required_class = estimated, use_policy = assess, refine = true);"));
+    assert!(
+        printed.contains(
+            "annotation engineering_scale temperature(kind = range_width, value = 20{K});"
+        )
+    );
+    assert!(
+        printed
+            .contains("annotation engineering_default temperature(numerical_policy.temperature);")
+    );
+    let again = parse(
+        &printed,
+        SemanticId::NIL,
+        IdentityPolicy::Explicit,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        rows.iter().map(|row| &row.value).collect::<Vec<_>>(),
+        again.iter().map(|row| &row.value).collect::<Vec<_>>()
+    );
+    for invalid in [
+        "package p { def D { annotation accuracy_goal x(selected_output, steady, resolution=1, resolution=2); } }",
+        "package p { def D { annotation accuracy_goal x(selected_output, steady, nonsense=1); } }",
+        "package p { def D { annotation engineering_scale x(kind=magnitude); } }",
+        "package p { def D { annotation engineering_default x(); } }",
+        "package p { def D { annotation engineering_rule p.allowance; } }",
+    ] {
+        assert!(
+            parse(
+                invalid,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{invalid}"
+        );
+    }
+}
+
+#[test]
 fn complements_parses_and_renders() {
     use pse_model::generated::enums::{
         ModelingDeclarationKind as Kind, ModelingRealizationPolicy as Policy,
@@ -1163,7 +1218,11 @@ fn annotation_kinds_parse_typed_members() {
  annotation check x(x > 0{kg});
  annotation objective x(minimize);
  annotation connectivity o(1, many);
+ annotation accuracy_goal x(selected_output, steady, resolution=1{kg});
+ annotation engineering_scale x(kind=magnitude, value=2{kg});
+ annotation engineering_default x(mass_accuracy);
  }
+ annotation engineering_rule mass_accuracy;
 }"#;
     let rows = parse_named(source);
     let annotations = rows
@@ -1395,6 +1454,61 @@ fn fixture_route_procedure_endpoint_roundtrip_and_legacy_refusal() {
             "{clauses}"
         );
     }
+}
+
+#[test]
+fn fixture_integration_accuracy_inherits_global_with_independent_overrides() {
+    let global = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
+    for (relative, absolute, quadrature, expected) in [
+        ("global", "global", "global", [global, global, global]),
+        ("global", "0.004", "0.002", [global, 0.004, 0.002]),
+        ("0.006", "global", "global", [0.006, global, global]),
+    ] {
+        let source = format!(
+            "package p {{ test t fixture {{ dof 0; route integrated; procedure integrate; integrate samples(0{{s}}, 1{{s}}) relative({relative}) normalized_absolute({absolute}) step(0.01{{s}}) quadrature_relative({quadrature}); }} {{ }} }}"
+        );
+        let rows = parse_named(&source);
+        let integration = rows
+            .iter()
+            .find(|row| row.name == "t")
+            .unwrap()
+            .value
+            .scope
+            .as_ref()
+            .unwrap()
+            .fixture
+            .as_ref()
+            .unwrap()
+            .integration
+            .as_ref()
+            .unwrap();
+        assert_eq!(
+            [
+                integration.relative_tolerance,
+                integration.normalized_absolute_tolerance,
+                integration.quadrature_relative_tolerance.unwrap(),
+            ],
+            expected
+        );
+        // Canonical declarations retain the resolved numeric controls. The
+        // alias does not create a second numerical type or affect explicit values.
+        let rendered = render(&rows).unwrap();
+        let again = parse_named(&rendered);
+        assert_eq!(
+            rows.iter().map(|row| &row.value).collect::<Vec<_>>(),
+            again.iter().map(|row| &row.value).collect::<Vec<_>>()
+        );
+    }
+    let malformed = "package p { test t fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s}, 1{s}) relative(unknown) normalized_absolute(global) step(0.01{s}); } { } }";
+    assert!(
+        parse(
+            malformed,
+            SemanticId::NIL,
+            IdentityPolicy::Named,
+            ParseBudget::default()
+        )
+        .is_err()
+    );
 }
 
 #[test]

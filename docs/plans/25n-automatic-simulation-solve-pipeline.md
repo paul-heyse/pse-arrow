@@ -361,24 +361,25 @@ dependency pins alone need no ADR or governance relaxation. No library/license i
 
 ## Execution packets
 
-Execution resumed at the maintainer’s request with the preliminary review waived. The table distinguishes landed slices from remaining packet obligations. Early contract readiness is
-not consumer acceptance; packages close only after their actual targeted consumers and deletion
-obligations pass. Static checks and assembled integration wait until all functional scope lands.
+Execution resumed at the maintainer’s request with the preliminary review waived. Functional
+corrections and their actual consumer/deletion controls are now integrated. The table records that
+functional state separately from the enclosing 25k qualification and final acceptance; N11 remains
+the pending handoff boundary. Earlier scoped receipts retain their original conditions.
 
 | Packet | Actual prerequisite | Result and responsible boundary | Closeout state |
 |---|---|---|---|
 | <a id="n0"></a>N0 Decisions and shared contracts | Current review and confirmed Auto default | Decision proposals/owner amendment route; exact request, dependency, assessment, product and observation meanings. Coordinator owns shared contracts and identities. | Proposed decisions amended and bounded target review Accept; ADR acceptance remains separate. |
-| <a id="n1"></a>N1 Mathematical fidelity and demand | N0 dependency/reconstruction contracts | Compiler/math projections, valid block scheduling, original block completion, local consumer demand and empty-row reduction. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n2"></a>N2 Assessment and inclusive work | N0 assessment/observation contract | Runtime/native/workflow assessor transport; actual original cause and disjoint accounting, including failed/final checks. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n3"></a>N3 Conditional capabilities and actual products | N0 product/request contract; N2 charges | Common producer binder, operation-bound accuracy and one owned execution product state; existing real reduced/root producer consumed. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n4"></a>N4 Derived decomposition and reconstruction | N1 complete projections; N3 producer admission | Compiler-derived causal/block/reduced candidates, composite supplier and full non-port original-state reconstruction. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n5"></a>N5 Native profiles and visible recovery | N2 original cause/work; N3 demand contract | Native POUNCE second-opinion profiles, typed partitioned/FD support and actual compiler/oracle consumers. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n6"></a>N6 Observed solve Schur | N0 binding contract; N2/N3 admission; N4 semantic separator slice | Source-owned observer artifact, coherent pins, actual native layout/lowering/use/fallback and complete storage/work. Source seam can proceed before final partition consumer. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n7"></a>N7 Qualified proposal selection | N3 product state; existing predictor/transport interfaces | Common KKT/activity/QP/root/secant selector and real related-target/horizon consumers, with source/branch/start screening. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n8"></a>N8 Automatic resolution and driver | N2/N3 working semantics; N4–N7 applicability/production contracts | Pure deterministic next decisions, demand binding, observation-conditioned finite execution and explicit declaration binding on one path. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n9"></a>N9 Scientific consumer migration | N8 real target execution; relevant N4/N7 products | Modeling/init/recycle, studies, fitting, shooting, horizons and dynamic initialization use the common target contract while retaining scientific policy. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n10"></a>N10 Public and durable cutover | N8/N9 actual target binders; N0 version contract | Generated Rust/Python requests/inspection/trace, current versions/identity/readmission and coordinated activation of Auto default. | Audit repair and verification in progress; the earlier scoped controls remain historical evidence. |
-| <a id="n11"></a>N11 Functional handoff and retention | N1–N10 integrated and targeted checks complete | Delete replaced paths, reconcile evidence/status, register assembled fixtures and hand readiness/static refresh to 25k. | Functional fixtures and deletion are integrated; selected assembled journeys and scope-end static checks are running before final handoff. |
+| <a id="n1"></a>N1 Mathematical fidelity and demand | N0 dependency/reconstruction contracts | Compiler/math projections, valid block scheduling, original block completion, local consumer demand and empty-row reduction. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n2"></a>N2 Assessment and inclusive work | N0 assessment/observation contract | Runtime/native/workflow assessor transport; actual original cause and disjoint accounting, including failed/final checks. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n3"></a>N3 Conditional capabilities and actual products | N0 product/request contract; N2 charges | Common producer binder, operation-bound accuracy and one owned execution product state; existing real reduced/root producer consumed. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n4"></a>N4 Derived decomposition and reconstruction | N1 complete projections; N3 producer admission | Compiler-derived causal/block/reduced candidates, composite supplier and full non-port original-state reconstruction. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n5"></a>N5 Native profiles and visible recovery | N2 original cause/work; N3 demand contract | Native POUNCE second-opinion profiles, typed partitioned/FD support and actual compiler/oracle consumers. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n6"></a>N6 Observed solve Schur | N0 binding contract; N2/N3 admission; N4 semantic separator slice | Source-owned observer artifact, coherent pins, actual native layout/lowering/use/fallback and complete storage/work. Source seam can proceed before final partition consumer. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n7"></a>N7 Qualified proposal selection | N3 product state; existing predictor/transport interfaces | Common KKT/activity/QP/root/secant selector and real related-target/horizon consumers, with source/branch/start screening. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n8"></a>N8 Automatic resolution and driver | N2/N3 working semantics; N4–N7 applicability/production contracts | Pure deterministic next decisions, demand binding, observation-conditioned finite execution and explicit declaration binding on one path. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n9"></a>N9 Scientific consumer migration | N8 real target execution; relevant N4/N7 products | Modeling/init/recycle, studies, fitting, shooting, horizons and dynamic initialization use the common target contract while retaining scientific policy. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n10"></a>N10 Public and durable cutover | N8/N9 actual target binders; N0 version contract | Generated Rust/Python requests/inspection/trace, current versions/identity/readmission and coordinated activation of Auto default. | Functional correction implemented; named current controls passed in the enclosing native receipt. Final 25k acceptance remains pending. |
+| <a id="n11"></a>N11 Functional handoff and retention | N1–N10 integrated and targeted checks complete | Delete replaced paths, reconcile evidence/status, register assembled fixtures and hand readiness/static refresh to 25k. | Functional fixtures, corrections and deletion are integrated; current native/Python evidence is recorded below. Enclosing K3/K4/K5 qualification and final handoff remain pending. |
 
 N1/N2 and native source work can overlap after their shared contract slices are settled. Logical
 independence does not grant simultaneous edits to strategy declarations, registry, settings, IDs or
@@ -555,30 +556,33 @@ plan authoring or substitutes for tests passing.
 
 ## Finding dispositions and verification
 
-These findings remain **open**: landed slices and targeted controls do not yet satisfy every
-packet acceptance obligation. This table owns adoption and subsequent disposition; older 25m findings keep their existing owner and link the relevant corrections.
+This table owns the AF-01–AF-08 functional dispositions. Current corrections and named passing
+controls resolve their supported functional obligations; they do not close this plan or the
+assembled K3/K4/K5 qualification in 25k. Required dev-profile measurements, the complete authored
+manifest and final acceptance remain pending. Older F01–F17/IP01–IP12 keep their owner in
+[25m](25m-integrated-solve-pipeline.md#finding-dispositions).
 
-| Finding | Disposition | Planned owner | Evidence needed for resolution |
+| Finding | Disposition | Functional owner | Current correction and evidence |
 |---|---|---|---|
-| [AF-01](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-01) | open | N1/N4 | Control-sensitive original block completion, distinct dependency projection and full reconstruction |
-| [AF-02](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-02) | open | N2/N8/N9 | Actual original refusal/cause reaches transition and public trace without false permission or terminal retry |
-| [AF-03](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-03) | open | N2/N6 | Inclusive/disjoint work, pre-operation hard-cap admission, unknown/unbounded-total refusal and conservative reservation without a false measured count |
-| [AF-04](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-04) | open | N3/N8 | Actual producer evidence admitted and consumed; wrong point/source/class/normalization remains refused |
-| [AF-05](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-05) | open | N4/N7/N8/N9/N10 | Automatic full-case/related-target composition and actual scientific consumers with explicit constraints preserved |
-| [AF-06](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-06) | open | N5/N6 | Actual visible second opinions, solve Schur use/fallback/accounting, typed partitioned/FD execution and truthful profile limits |
-| [AF-07](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-07) | open | N1/N4 | Actual Value-only map preparation and genuine conditional derivative demand |
-| [AF-08](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-08) | open | N1/N4 | Objective-only and objective-free feasibility reductions; original bounds/assessment and underdetermined Root refusal |
+| [AF-01](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-01) | resolved | N1/N4 | Implemented: control/value dependency projection and original reconstruction are distinct; already-owned First support is reused without rebuilding exhausted bodies. Tested: `automatic_blocks_merge_domain_control_cycle_and_refuse_single_block`, `automatic_blocks_execute_complete_nonport_coupled_original_and_keep_actual_components` and `automatic_blocks_reuse_owned_first_support_with_restricted_formal_slots`. |
+| [AF-02](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-02) | resolved | N2/N8/N9 | Implemented: actual original refusal/cause survives native completion and workflow publication. Tested: `native_convergence_retains_original_refusal_and_terminal_assessor_cause`, `tagged_native_report_failures_are_terminal_under_declared_recovery`, `all_fixed_publication_keeps_constant_values_without_kkt_evidence` and failed modeling/horizon prefix publication controls. |
+| [AF-03](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-03) | resolved | N2/N6 | Implemented: one task admission, actual pre-operation callback/work checks, disjoint original assessment owners per execution occurrence, and completed-report allowance transfer. Tested: `actual_work_is_charged_once_unknown_is_not_zero_and_task_cap_is_terminal`, `strict_unknown_inclusive_work_refuses_before_dispatch_and_keeps_complete_reservation_unknown`, `actual_pounce_evaluation_cap_refuses_before_callbacks_and_preserves_work` and multistart/retention controls. Unknown work/reservations remain distinct from measurements. |
+| [AF-04](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-04) | resolved | N3/N8 | Implemented: actual producer products bind consumed point/source/order/class/normalization and effective caller output obligations. Tested: `actual_producer_state_consumes_exact_point_source_order_normalization_and_class`, `effective_output_obligations_precede_permission_and_preserve_dispatched_work`, `reduced_product_scope_includes_actual_point_direction_source_validity_sheet_and_outer_realization` and `reduced_compiler_source_refines_consumed_accuracy_then_original_corrector_qualifies`. |
+| [AF-05](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-05) | resolved | N4/N7/N8/N9/N10 | Implemented: automatic full-original supplier discovery/reconstruction, shared proposal screening and migrated scientific/public consumers. Tested: `original_supplier_projection_preserves_mixed_ledger_scatter_contracts`, `actual_single_root_full_reconstruction_preserves_native_factory_and_original_assessment`, `retained_root_action_screens_target_then_original_corrector_qualifies`, scientific fitting/shooting strict-work and horizon controls; full linked Python 210/210 plus the latest two public consumers. Fresh multistart still requires the enclosing recovery grant. |
+| [AF-06](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-06) | resolved | N5/N6 | Implemented: library-generated visible second opinions, actual Schur layout/use/fallback and typed partitioned/FD consumers. Tested: `actual_auto_pounce_stationary_failure_runs_generated_second_opinion`, `compiler_first_order_partitioned_and_fd_profiles_act_and_assess_original`, `actual_schur_assembled_profiles_and_typed_mc64_quality_reach_factors`, `actual_schur_unsuitable_separator_and_failed_ff_use_monolithic_disjointly` and native storage/terminal probe controls. No convergence or speedup is inferred. |
+| [AF-07](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-07) | resolved | N1/N4 | Implemented: map eligibility uses control dependencies while genuine derivative demand follows the acted adapter. Tested: `explicit_map_admission_requires_free_branch_controls_without_promoting_value`, `conditional_unit_derivative_demand_comes_from_adapter_capability` and `demanded_krylov_route_prepares_actions_from_value_under_a_narrow_jet_budget`; Value-only preparation does not acquire fabricated derivatives. |
+| [AF-08](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-08) | resolved | N1/N4 | Implemented: empty-row reductions retain objective/free-coordinate/bound obligations and independent original assessment. Tested: `reduced_zero_row_objective_and_full_reconstruction_retain_original_obligations`, `actual_zero_row_feasibility_retains_objective_and_objective_free_original_bounds` and `conditional_unit_reference_request_declares_original_inventories_and_root_refusal`; an underdetermined Root remainder remains refused. |
 
-**Proposed:** the target operations, source-owned observer addition, current document versions,
-packet acceptance controls and benefits above. **Interface-checked:** the review/focused authoring
-assessment inspected the existing generic reconstruction seam, native APIs, conditional routing,
-version-first boundaries and admitted immutable Git dependency route. **Implemented:** the baseline
-25m foundations exist with their source limitations and scoped evidence. The closeout checkpoint records new **Implemented** and scoped **Tested** evidence. No 25n
-assembled qualification, performance measurement or formal proof is claimed. Existing 25m receipts remain scoped to their
-original named commands/conditions and do not close these findings.
+**Implemented, scoped Tested:** the supported automatic operations, observer addition, current
+public/durable versions, producer/consumer bindings and corrections above have actual controls.
+**Interface-checked:** the review/focused source reconciliation inspected their contract boundaries;
+that judgment does not replace execution. Existing historical 25m receipts retain their conditions.
+No complete 25k scientific qualification, required performance measurement or formal proof is
+claimed by these functional dispositions.
 
-The original PR scientific runs, unfinished linked Python/assembled campaign and publication timeout
-retain their existing interpretation in 25m/25k. Do not infer a solver smoothness limitation from
+The earlier inconclusive PR scientific runs and publication timeout retain their original
+interpretation in 25m/25k. The current linked Python receipt is recorded below; full authored
+manifest and enclosing qualification acceptance remain separate. Do not infer a solver smoothness limitation from
 an attempt requesting a different derivative order, weaken original bounds/criteria, or increase
 budgets as a substitute for implementing this target. Use the repository's recipe-owned memory
 scope and the maintainer's workstation capacity for admitted runs; no arbitrary lower resource
@@ -591,6 +595,10 @@ implementation mistakes/corrections and deliberate deviations in the Outcome at 
 closure; do not prefill them with hypothetical success.
 
 ## Execution checkpoint
+
+Current examined source is `ad665a0222551196b1160e426f5242361215a6a0` plus integrated working-tree
+repairs. The historical audit baseline below records provenance, not the current qualification
+snapshot. K3/K4/K5 remain owned by 25k and pending its coordinator's final evidence.
 
 The maintainer committed and pushed the preceding implementation; the clean audit baseline is
 `72e589a27447a23b8fb2f485cf083418de1da74c`. The maintainer authorized a deep audit and repair of
@@ -613,12 +621,14 @@ The complete POUNCE family and FERAL use the corrective source artifact
 `ff6386944421e8037069e521222ada9f22d457e3`. Dependency discovery follows the resolved graph;
 KLU preparation no longer requires offline availability or a hardcoded SuiteSparse crate version.
 
-The selected linked controls and scope-end checks have passed, but the assembled flash study
-uncovered a remaining conditional-preparation defect: already-owned First support is rebuilt from
-bodies whose finite construction allowance is exhausted. Correct that projection without raising
-any authored budget, then rerun the affected mathematical/native controls and the original
-1,000-point Python journey before settling AF-01–AF-08 and the N11 handoff. Full 25k scientific
-and performance qualification remains separate. This checkpoint is not final signoff.
+The assembled flash study exposed rebuilding of already-owned First support from exhausted
+bodies. The compiler conditional projection now reuses that owned support, preserving restricted
+formal slots and every authored construction budget. The decisive compiler control and the original
+1,000-point linked Python flash journey pass. Completed block-report allowance retention, fresh-seed
+recovery permission/frozen native start profiles, Constant publication and per-execution original
+assessment charging were also corrected; their focused controls and enclosing native passes are
+current. This settles functional corrections, not the full 25k scientific/measurement/signoff scope.
+No original law, interval, feed, physical accuracy budget or acceptance check was relaxed.
 
 The earlier authorized stale-worktree assessment found ten obsolete secondary trees with no commits
 outside main. Their changes were integrated or superseded; all ten trees and their two obsolete local
@@ -626,19 +636,52 @@ branch refs were removed. Only the main checkout remains. No source transplant w
 
 ## Outcome
 
-**Implemented:** the deep-audit corrections described in the execution checkpoint. Packet and finding
-closure await the current linked and scope-end evidence.
+**Implemented:** N1–N10 supported functional corrections, actual producer/consumer bindings and
+replacement deletions are integrated. AF-01–AF-08 now link their decisive controls. N11 and the
+plan lifecycle remain pending the 25k assembled handoff and final evidence.
 
-**Tested:** on the repository's pinned nightly, dev/test profile and updated locked dependency graph,
-with explicit `pse-relations/force-validate`, `just unit-package pse-math 'package(pse-math)' --test-threads 2`
-passed 219/219 against a zero-failure baseline. `just unit-package pse-compiler 'package(pse-compiler)' --test-threads 2`
-passed 211/212 initially; after fixing the new fixture's qualified-symbol lookup, its failed scope
-`test(original_supplier_projection_preserves_mixed_ledger_scatter_contracts)` passed 1/1. This is
-composite compiler evidence with zero remaining failures, not an initially clean run.
-The first `just unit-native-selected` audit selection recorded 233 passes and 24 failures out of
-257 completed controls. Its reporter was stopped after a regression failure attempted an
-unbounded retained-model diagnostic; the assertion now uses a bounded message. These failures
-are being repaired and do not establish linked acceptance.
+**Tested (2026-10-05, zero-failure baseline):** the coordinator's final `just native-test --profile ci`
+with its archived configuration, pinned nightly/dev build, linked native graph, explicit
+`pse-relations/force-validate` and bounded Nextest concurrency passed all 2,823 selected/results in
+`build/plan25k-20261005/native-qualified-complete/checks.json` and `native-test.xml`.
+Nextest run `81ef7be6-8197-47c8-9705-3fc7d01feb6f` has zero failures, errors, selected skips or unrun
+controls; native execution took 834.667 seconds and assessment took 859.069 seconds. Two ignored,
+unselected standalone KKT/Clarabel timing controls are excluded. All 1,839 relevant Rust-product
+inputs and the environment were unchanged, independently verified by the reviewer; the global
+context guard observed documentation-only changes. This passed full gate is the primary current
+native evidence for the AF controls.
+
+The earlier receipts remain composite repair history: the initial full run had 13 failures, one
+timeout and 34 unrun controls; `native-qualified-final/native-test.xml` subsequently recorded 2,821
+passes and two stale codec failures; `codec-repair.xml` recorded 2/2 passing corrections before
+the clean full rerun. The full authored manifest launched at 12:14 UTC is still active without
+terminal reports at this reconciliation. K3's remaining scientific scope, K4 measurements and K5
+final acceptance remain pending; the native gate alone does not close the lifecycle.
+
+**Tested:** `just native-python build/plan25k-20261005/python-qualified` recorded 210/210 passing
+linked unit/component/integration tests in `python-qualified/native-python.xml`, including the
+unchanged 1,000-point flash study, physical heater/recycle and capped continuation consumers.
+Following the internal assessment charging-owner change, `just native-python
+build/plan25k-20261005/python-events-focused` with the declared-strategy and capped-related-root
+selectors recorded 2/2 passes against the refreshed linked extension. The full 210-test receipt
+predates that internal change; the two controls establish the affected public bridge, not a fresh
+full-suite run. Both use the pinned dev extension, native/force-validation graph and one
+BLAS/OpenMP thread. Scope and actual invocation details remain in the archived 25k artifacts.
+
+**Tested:** `just unit-native-selected` with the three `work_admission_tests` selectors (CI profile,
+two test threads, explicit force-validation/native graph) passed 3/3 in
+`build/plan25k-20261005/auto-pounce-junit.xml`, then passed within the enclosing native execution.
+The Auto POUNCE control executed the baseline and two real library-generated acted profiles with
+distinct profile identities, one original identity, positive callback work and noncumulative
+settings. Its final original conclusion is `RefusedDiagnosticOnly`; this proves visibility and
+preservation, not convergence or a speed benefit. The other two controls exercise pre-callback
+hard-cap refusal and actual first-order partitioned/FD behavior with original assessment.
+
+The multistart repair receipt records 8/8 selected passes and the completed-report retention receipt
+records 5/5 passes; the same corrected controls pass in the enclosing native run. Extracted component
+reports keep their storage grant after the outer report drops, known completed capacities release
+construction allowance, opaque extensions keep a conservative complete bound, and failed construction
+releases its allowance. Required K4 retained-resource measurements remain pending.
 
 **Interface-checked:** the independent source recheck found effective output demands enforced before
 permission, action receipts bound to the consumed original point, failed-run prefix retention with
@@ -655,6 +698,11 @@ caller obligation before permission while retaining actual failed work and recei
 receipts previously used a different point universe from the original consumer; both now use the
 actual consumed original point. Failed modeling and horizon runs previously lost completed traces;
 publication now retains the prefix and attributes errors only to targets that actually failed.
+The closeout also corrected Constant publication, oversized retained construction allowances,
+fresh-seed grant/profile transport and repeated assessment charging-owner identities. A recoverable
+trial remains typed through an attempt until native completion; genuine terminal callback failures
+remain terminal. Provider-focused tests explicitly bind direct composition where their intended
+observations require outer callbacks, preserving every scientific and derivative assertion.
 
 ### Deliberate limits and handoff
 
@@ -666,5 +714,8 @@ reconstruction can qualify without a redundant outer native solve; positive-dime
 remainders still refuse. The dependency update is preserved, and code is adapted to the resolved
 versions rather than holding back ordinary libraries.
 
-No full 25k K3/K4/K5 campaign, performance comparison, complete durable restart qualification or
-additional formal design review is claimed by this checkpoint. ADR acceptance remains separate.
+No final 25k K3/K4/K5 acceptance, performance comparison, complete authored manifest qualification
+or additional formal design review is claimed by this checkpoint. Durable controls and public
+boundaries retain only their actually exercised scope. Actual reuse/retention and method execution
+controls establish functional behavior; they do not substitute for required K4 measurements.
+ADR acceptance remains separate.

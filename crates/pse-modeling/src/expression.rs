@@ -1723,6 +1723,12 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
         if let Some(a) = &row.value.annotation {
             // Whole-family annotations bind the target's coordinates just like
             // specialization does; their expressions are scalar at each coordinate.
+            use crate::annotation::{AnnotationKind as Kind, Shape};
+            if a.kind == Kind::EngineeringRule {
+                // This package marker names an existing checked constant. It has no
+                // expression target; specialization resolves its stable constant identity.
+                continue;
+            }
             let mut env = env.clone();
             let target_declaration = crate::annotation::target_declaration(
                 p,
@@ -1770,7 +1776,6 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                 p.expression_at(*id, "annotation.target", 0)?,
                 &env,
             )?;
-            use crate::annotation::{AnnotationKind as Kind, Shape};
             let shape = crate::annotation::shape(a, *id)?;
             let equation_target = target_declaration
                 .is_some_and(|target| p.declarations[&target].value.equation.is_some());
@@ -1797,6 +1802,64 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                     }
                     continue;
                 }
+                Shape::AccuracyGoal => {
+                    let goal = a
+                        .accuracy_goal
+                        .as_ref()
+                        .ok_or_else(|| invalid(*id, "accuracy goal members"))?;
+                    let difference = Type::Quantity(Scheme::Concrete(Scheme::Delta(Box::new(
+                        target
+                            .quantity_scheme()
+                            .ok_or_else(|| invalid(*id, "accuracy goal target is physical"))?
+                            .clone(),
+                    )).resolve_with_evidence(context.quantities, &Substitution::new(), context.preconditions)
+                        .map_err(|error| invalid(*id, error.to_string()))?));
+                    for (role, expression, expected) in [
+                        ("time", &goal.time, None),
+                        ("resolution", &goal.resolution, Some(&difference)),
+                        ("criterion_lower", &goal.criterion_lower, Some(&target)),
+                        ("criterion_upper", &goal.criterion_upper, Some(&target)),
+                    ] {
+                        let Some(_expression) = expression else {
+                            continue;
+                        };
+                        let expression =
+                            p.expression_at(*id, &format!("annotation.accuracy_goal.{role}"), 0)?;
+                        let actual = infer(expression, &env, p, context, *id, expected)?;
+                        if actual.quantity_scheme().is_none()
+                            || expected.is_some_and(|expected| actual != *expected)
+                        {
+                            return Err(invalid(
+                                *id,
+                                "accuracy goal expression has an incompatible physical type",
+                            ));
+                        }
+                    }
+                    0
+                }
+                Shape::EngineeringScale => {
+                    let _scale = a
+                        .engineering_scale
+                        .as_ref()
+                        .ok_or_else(|| invalid(*id, "engineering scale members"))?;
+                    let difference = Type::Quantity(Scheme::Concrete(Scheme::Delta(Box::new(
+                        target
+                            .quantity_scheme()
+                            .ok_or_else(|| invalid(*id, "engineering scale target is physical"))?
+                            .clone(),
+                    )).resolve_with_evidence(context.quantities, &Substitution::new(), context.preconditions)
+                        .map_err(|error| invalid(*id, error.to_string()))?));
+                    let expression =
+                        p.expression_at(*id, "annotation.engineering_scale.value", 0)?;
+                    if infer(expression, &env, p, context, *id, Some(&difference))? != difference {
+                        return Err(invalid(
+                            *id,
+                            "engineering scale differs from target magnitude type",
+                        ));
+                    }
+                    0
+                }
+                Shape::EngineeringDefault | Shape::EngineeringRule => 0,
                 Shape::Objective => {
                     objective_members(a, &target, &env, p, context, *id)?;
                     continue;

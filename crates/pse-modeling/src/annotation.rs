@@ -10,6 +10,7 @@ use pse_authoring::{
 use pse_ids::SemanticId;
 /// Orientation of an authored objective member: the registry enumeration.
 pub use pse_model::generated::enums::NativeObjectiveSense as ObjectiveSense;
+use pse_quantity::scheme::Scheme;
 /// An `annotation objective` with its members evaluated to canonical values (ADR-0111).
 /// Grouping into levels, and every rule across members, belongs to the objective
 /// admission after specialization ([`crate::specialize::Objectives`]).
@@ -46,6 +47,14 @@ pub(crate) enum Shape {
     Scheme,
     /// The typed connection maxima of a port.
     Connectivity,
+    /// Authored physical accuracy goal attached to one scalar target.
+    AccuracyGoal,
+    /// Tagged engineering characteristic magnitude attached to one target.
+    EngineeringScale,
+    /// Inherited shared engineering rule selected by one target.
+    EngineeringDefault,
+    /// Package-level marker that makes an existing constant a shared engineering rule.
+    EngineeringRule,
 }
 /// The shape of a declared annotation. The match over the registry kinds is exhaustive:
 /// every kind states its argument count and exactly which typed members it carries.
@@ -54,23 +63,58 @@ pub(crate) enum Shape {
 pub(crate) fn shape(a: &Declared, at: DeclarationId) -> Result<Shape> {
     // (arguments, objective, scheme, connectivity)
     let (shape, expected) = match a.kind {
-        AnnotationKind::Start | AnnotationKind::Nominal => {
-            (Shape::Expressions(1), (1, false, false, false))
-        }
-        AnnotationKind::Bounds => (Shape::Expressions(2), (2, false, false, false)),
+        AnnotationKind::Start | AnnotationKind::Nominal => (
+            Shape::Expressions(1),
+            (1, false, false, false, false, false, false),
+        ),
+        AnnotationKind::Bounds => (
+            Shape::Expressions(2),
+            (2, false, false, false, false, false, false),
+        ),
         // Hard closure ranges have exactly two physical endpoints.
-        AnnotationKind::Valid => (Shape::Expressions(2), (2, false, false, false)),
-        AnnotationKind::Report => (Shape::Label, (1, false, false, false)),
-        AnnotationKind::Check => (Shape::Predicate, (1, false, false, false)),
-        AnnotationKind::Objective => (Shape::Objective, (0, true, false, false)),
-        AnnotationKind::Scale => (Shape::Scheme, (0, false, true, false)),
-        AnnotationKind::Connectivity => (Shape::Connectivity, (0, false, false, true)),
+        AnnotationKind::Valid => (
+            Shape::Expressions(2),
+            (2, false, false, false, false, false, false),
+        ),
+        AnnotationKind::Report => (Shape::Label, (1, false, false, false, false, false, false)),
+        AnnotationKind::Check => (
+            Shape::Predicate,
+            (1, false, false, false, false, false, false),
+        ),
+        AnnotationKind::Objective => (
+            Shape::Objective,
+            (0, true, false, false, false, false, false),
+        ),
+        AnnotationKind::Scale => (Shape::Scheme, (0, false, true, false, false, false, false)),
+        AnnotationKind::Connectivity => (
+            Shape::Connectivity,
+            (0, false, false, true, false, false, false),
+        ),
+        AnnotationKind::AccuracyGoal => (
+            Shape::AccuracyGoal,
+            (0, false, false, false, true, false, false),
+        ),
+        AnnotationKind::EngineeringScale => (
+            Shape::EngineeringScale,
+            (0, false, false, false, false, true, false),
+        ),
+        AnnotationKind::EngineeringDefault => (
+            Shape::EngineeringDefault,
+            (0, false, false, false, false, false, true),
+        ),
+        AnnotationKind::EngineeringRule => (
+            Shape::EngineeringRule,
+            (0, false, false, false, false, false, false),
+        ),
     };
     let actual = (
         a.arguments.len(),
         a.objective.is_some(),
         a.scheme.is_some(),
         a.connectivity.is_some(),
+        a.accuracy_goal.is_some(),
+        a.engineering_scale.is_some(),
+        a.engineering_default.is_some(),
     );
     if actual != expected {
         return Err(invalid(
@@ -110,6 +154,174 @@ pub enum AnnotationValue {
     },
     /// Knowledge-specific post-solve check, not a new equation.
     Check(Predicate),
+    /// Scoped scalar output or original-objective goal. Physical expressions retain their
+    /// parsed AST and are interpreted by the existing typed preparation path.
+    AccuracyGoal(AccuracyGoal),
+    /// Tagged physical characteristic magnitude, independent of conditioning scales.
+    EngineeringScale(EngineeringScale),
+    /// A shared default selected by the identity of its source constant.
+    EngineeringDefault {
+        /// The marked constant whose allowance is selected for this target.
+        rule_id: SemanticId,
+        /// Authored precedence from the actual declaring scope.
+        source: pse_model::generated::enums::NumericalSource,
+    },
+}
+/// One admitted accuracy-goal declaration after target and lexical specialization.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AccuracyGoal {
+    /// Stable identity derived from declaration identity and instantiated target identity.
+    pub id: SemanticId,
+    /// Target's physical quantity scheme.
+    pub quantity: Type,
+    /// Whether the goal concerns a selected output or the original optimum value.
+    pub subject: pse_model::generated::enums::AccuracyGoalSubject,
+    /// The supported result observation.
+    pub observation: pse_model::generated::enums::AccuracyObservation,
+    /// Optional admitted sample time.
+    pub time: Option<Expr>,
+    /// Optional physical error resolution; its expected type is the target difference.
+    pub resolution: Option<Expr>,
+    /// Inclusive physical lower criterion endpoint.
+    pub criterion_lower: Option<Expr>,
+    /// Inclusive physical upper criterion endpoint.
+    pub criterion_upper: Option<Expr>,
+    /// Evidence class the assessment must meet.
+    pub required_class: pse_model::generated::enums::NumericalAccuracyClass,
+    /// Whether a resolved violation may be returned or must refuse result use.
+    pub use_policy: pse_model::generated::enums::AccuracyGoalUse,
+    /// Whether the enclosing strategy may refine this goal under its existing grant.
+    pub refine: bool,
+    /// Authored precedence is derived from the declaration's actual owner chain.
+    pub source: pse_model::generated::enums::NumericalSource,
+}
+/// One explicitly declared engineering scale bound to an existing target.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EngineeringScale {
+    /// Stable identity derived from declaration identity and instantiated target identity.
+    pub id: SemanticId,
+    /// Physical type of the target's difference magnitude.
+    pub quantity: Type,
+    /// Whether value is a characteristic magnitude, range width, or reference difference.
+    pub kind: pse_model::generated::enums::EngineeringScaleKind,
+    /// Authored scale expression, specialized in its declaring context.
+    pub value: Expr,
+    /// Authored precedence is derived from the declaration's actual owner chain.
+    pub source: pse_model::generated::enums::NumericalSource,
+}
+/// A shared rule declared by marking a typed package constant.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EngineeringRule {
+    /// The marked constant identity is the rule identity.
+    pub id: SemanticId,
+    /// Full declared physical type of the constant, including point/difference meaning.
+    pub quantity: Type,
+    /// Admitted exact value of the constant.
+    pub value: crate::specialize::Value,
+    /// Marker declaration retained as provenance separately from rule identity.
+    pub marker: DeclarationId,
+}
+/// Materialize each package marker against its already-admitted typed constant.
+///
+/// The marker never owns a second numeric value: the rule ID is the constant ID and its
+/// type/value are read from the checked package's normal constant inventory.
+pub(crate) fn engineering_rules(package: &crate::CheckedPackage) -> Result<Vec<EngineeringRule>> {
+    use pse_authoring::language::Selected;
+    use pse_model::generated::enums::ModelingAnnotationKind as Kind;
+    let mut rules = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    for (marker, declaration) in &package.declarations {
+        let Selected::Annotation(annotation) = declaration
+            .value
+            .selected()
+            .map_err(|error| invalid(*marker, error.to_string()))?
+        else {
+            continue;
+        };
+        if annotation.kind != Kind::EngineeringRule {
+            continue;
+        }
+        shape(annotation, *marker)?;
+        let constant = package
+            .names
+            .get(annotation.target.trim())
+            .copied()
+            .ok_or_else(|| invalid(*marker, "engineering rule constant path is unresolved"))?;
+        if !seen.insert(constant) {
+            return Err(invalid(
+                *marker,
+                "a shared engineering rule has one source marker",
+            ));
+        }
+        if package.is_test_only(constant) {
+            return Err(invalid(
+                *marker,
+                "a shared engineering rule is not test-only data",
+            ));
+        }
+        let ty = package
+            .types
+            .get(&constant)
+            .cloned()
+            .ok_or_else(|| invalid(*marker, "engineering rule constant has no checked type"))?;
+        let scheme = ty.quantity_scheme().ok_or_else(|| {
+            invalid(
+                *marker,
+                "engineering rule constant has a physical quantity type",
+            )
+        })?;
+        let resolved = scheme
+            .resolve(&package.quantities, &Default::default())
+            .map_err(|error| invalid(*marker, error.to_string()))?;
+        let quantity = package
+            .quantities
+            .quantity_type(resolved)
+            .map_err(|error| invalid(*marker, error.to_string()))?;
+        if quantity.key.scale_kind != pse_quantity::ScaleKind::Difference
+            && !quantity.is_neutral_scalar(&package.quantities)
+        {
+            return Err(invalid(
+                *marker,
+                "engineering rule constant declares a physical difference type or dimensionless scalar",
+            ));
+        }
+        let typed = package
+            .constants
+            .get(&constant)
+            .ok_or_else(|| invalid(*marker, "engineering rule constant is not admitted"))?;
+        if typed.uncertainty.is_some() {
+            return Err(invalid(
+                *marker,
+                "engineering rule constant has no uncertainty",
+            ));
+        }
+        let crate::specialize::Value::Number { bits, quantity } = &typed.value else {
+            return Err(invalid(
+                *marker,
+                "engineering rule constant is a scalar quantity",
+            ));
+        };
+        let magnitude = f64::from_bits(*bits);
+        if !magnitude.is_finite() || magnitude <= 0.0 {
+            return Err(invalid(
+                *marker,
+                "engineering rule allowance is finite and positive",
+            ));
+        }
+        if resolved != *quantity {
+            return Err(invalid(
+                *marker,
+                "engineering rule value matches its declared type",
+            ));
+        }
+        rules.push(EngineeringRule {
+            id: constant.as_id(),
+            quantity: ty,
+            value: typed.value.clone(),
+            marker: *marker,
+        });
+    }
+    Ok(rules)
 }
 /// Explicit maximum incidences of a port; `None` means authored `many`.
 #[derive(Clone, Debug, PartialEq)]
@@ -159,6 +371,56 @@ pub(crate) fn label(source: &StaticValue, at: DeclarationId) -> Result<String> {
         }) if path.segments.iter().all(|s| s.indices.is_empty()) => Ok(dsl::render_path(path)),
         _ => Err(invalid(at, "annotation requires a label")),
     }
+}
+fn difference_type(target: &Type, quantities: &pse_quantity::QuantityRegistry, at: DeclarationId) -> Result<Type> {
+    let Some(scheme) = target.quantity_scheme() else {
+        return Err(invalid(
+            at,
+            "engineering magnitude target has a complete physical type",
+        ));
+    };
+    Ok(Type::Quantity(Scheme::Concrete(Scheme::Delta(Box::new(scheme.clone()))
+        .resolve(quantities, &Default::default())
+        .map_err(|error| invalid(at, error.to_string()))?)))
+}
+fn compatible_difference(
+    target: &Type,
+    rule: &Type,
+    quantities: &pse_quantity::QuantityRegistry,
+    at: DeclarationId,
+) -> Result<bool> {
+    let expected = difference_type(target, quantities, at)?;
+    let Some(expected) = expected.quantity_scheme() else {
+        return Err(invalid(at, "target difference type"));
+    };
+    let Some(rule) = rule.quantity_scheme() else {
+        return Ok(false);
+    };
+    let expected = expected
+        .resolve(quantities, &Default::default())
+        .map_err(|error| invalid(at, error.to_string()))?;
+    let rule = rule
+        .resolve(quantities, &Default::default())
+        .map_err(|error| invalid(at, error.to_string()))?;
+    Ok(expected == rule)
+}
+fn annotation_source(
+    package: &crate::CheckedPackage,
+    declaration: DeclarationId,
+) -> pse_model::generated::enums::NumericalSource {
+    use pse_model::generated::enums::{ModelingDeclarationKind as Kind, NumericalSource};
+    let mut cursor = package
+        .declarations
+        .get(&declaration)
+        .and_then(|row| row.parent_id);
+    while let Some(owner) = cursor {
+        let Some(row) = package.declarations.get(&owner) else { break };
+        if row.value.kind == Kind::Case {
+            return NumericalSource::Case;
+        }
+        cursor = row.parent_id;
+    }
+    NumericalSource::Model
 }
 impl Engine<'_, '_> {
     pub(super) fn check_connectivity(&self) -> Result<()> {
@@ -214,6 +476,11 @@ impl Engine<'_, '_> {
             .as_ref()
             .ok_or_else(|| invalid(at, "annotation payload"))?;
         let kind = shape(a, at)?;
+        // Shared rules are package constants and were admitted into the rule inventory
+        // before instance traversal; this marker does not resolve a coordinate target.
+        if a.kind == AnnotationKind::EngineeringRule {
+            return Ok(());
+        }
         let ports = kind == Shape::Connectivity;
         let targets = self.annotation_targets(
             instance,
@@ -261,15 +528,12 @@ impl Engine<'_, '_> {
                 });
                 continue;
             }
-            let expression = |engine: &mut Self, index: usize| -> Result<Expr> {
-                let _source = a
-                    .arguments
-                    .get(index)
-                    .ok_or_else(|| invalid(at, "annotation argument missing"))?;
-                let parsed = engine
-                    .p
-                    .expression_at(at, "annotation.arguments", index)?
-                    .clone();
+            let expression_as = |engine: &mut Self,
+                                 role: &str,
+                                 index: usize,
+                                 expected: Option<&Type>|
+             -> Result<Expr> {
+                let parsed = engine.p.expression_at(at, role, index)?.clone();
                 let value = engine.rewrite(instance, &parsed, env, &[at])?;
                 let types = engine
                     .model
@@ -277,19 +541,212 @@ impl Engine<'_, '_> {
                     .iter()
                     .map(|(id, s)| (crate::specialize::symbol_name(*id), s.ty.clone()))
                     .collect();
-                if crate::expression::infer(
+                let actual = crate::expression::infer(
                     &value,
                     &types,
                     &engine.model.function_contracts(engine.p),
                     engine.c,
                     at,
-                    Some(&ty),
-                )? != ty
+                    expected,
+                )?;
+                if expected.is_some_and(|expected| actual != *expected)
+                    || actual.quantity_scheme().is_none()
                 {
-                    return Err(invalid(at, "annotation physical type differs from target"));
+                    return Err(invalid(
+                        at,
+                        "annotation expression has an incompatible physical type",
+                    ));
                 }
                 Ok(value)
             };
+            let expression = |engine: &mut Self, index: usize| -> Result<Expr> {
+                if a.arguments.get(index).is_none() {
+                    return Err(invalid(at, "annotation argument missing"));
+                }
+                expression_as(engine, "annotation.arguments", index, Some(&ty))
+            };
+            if kind == Shape::AccuracyGoal {
+                if !self.model.symbols.contains_key(&target) {
+                    return Err(invalid(
+                        at,
+                        "accuracy goal target is an existing scalar member",
+                    ));
+                }
+                let members = a
+                    .accuracy_goal
+                    .as_ref()
+                    .ok_or_else(|| invalid(at, "accuracy goal members"))?;
+                if members.required_class
+                    == pse_model::generated::enums::NumericalAccuracyClass::Unresolved
+                {
+                    return Err(invalid(
+                        at,
+                        "accuracy goal requests estimated or certified evidence",
+                    ));
+                }
+                if members.resolution.is_none()
+                    && members.criterion_lower.is_none()
+                    && members.criterion_upper.is_none()
+                {
+                    return Err(invalid(at, "accuracy goal has resolution or a criterion"));
+                }
+                if members.use_policy
+                    == pse_model::generated::enums::AccuracyGoalUse::RequireSatisfied
+                    && members.criterion_lower.is_none()
+                    && members.criterion_upper.is_none()
+                {
+                    return Err(invalid(
+                        at,
+                        "require_satisfied accuracy goal has a criterion",
+                    ));
+                }
+                let sampled =
+                    members.observation == pse_model::generated::enums::AccuracyObservation::Sample;
+                if sampled != members.time.is_some() {
+                    return Err(invalid(at, "only sample observations carry a sample time"));
+                }
+                let difference = difference_type(&ty, self.c.quantities, at)?;
+                let time = members
+                    .time
+                    .as_ref()
+                    .map(|_| expression_as(self, "annotation.accuracy_goal.time", 0, None))
+                    .transpose()?;
+                let resolution = members
+                    .resolution
+                    .as_ref()
+                    .map(|_| {
+                        expression_as(
+                            self,
+                            "annotation.accuracy_goal.resolution",
+                            0,
+                            Some(&difference),
+                        )
+                    })
+                    .transpose()?;
+                let criterion_lower = members
+                    .criterion_lower
+                    .as_ref()
+                    .map(|_| {
+                        expression_as(
+                            self,
+                            "annotation.accuracy_goal.criterion_lower",
+                            0,
+                            Some(&ty),
+                        )
+                    })
+                    .transpose()?;
+                let criterion_upper = members
+                    .criterion_upper
+                    .as_ref()
+                    .map(|_| {
+                        expression_as(
+                            self,
+                            "annotation.accuracy_goal.criterion_upper",
+                            0,
+                            Some(&ty),
+                        )
+                    })
+                    .transpose()?;
+                let id = pse_ids::named_id(at.as_id(), &target.to_string());
+                let value = AnnotationValue::AccuracyGoal(AccuracyGoal {
+                    id,
+                    quantity: ty.clone(),
+                    subject: members.subject,
+                    observation: members.observation,
+                    time,
+                    resolution,
+                    criterion_lower,
+                    criterion_upper,
+                    required_class: members.required_class,
+                    use_policy: members.use_policy,
+                    refine: members.refine,
+                    source: annotation_source(self.p, at),
+                });
+                self.reserve(1)?;
+                self.model.annotations.push(Annotation {
+                    target,
+                    value,
+                    lineage: self.lineage(instance, row, &[at]),
+                });
+                continue;
+            }
+            if kind == Shape::EngineeringScale {
+                if !self.model.symbols.contains_key(&target) {
+                    return Err(invalid(
+                        at,
+                        "engineering scale target is an existing scalar member",
+                    ));
+                }
+                let members = a
+                    .engineering_scale
+                    .as_ref()
+                    .ok_or_else(|| invalid(at, "engineering scale members"))?;
+                let expected = difference_type(&ty, self.c.quantities, at)?;
+                let value = expression_as(
+                    self,
+                    "annotation.engineering_scale.value",
+                    0,
+                    Some(&expected),
+                )?;
+                let id = pse_ids::named_id(at.as_id(), &target.to_string());
+                self.reserve(1)?;
+                self.model.annotations.push(Annotation {
+                    target,
+                    value: AnnotationValue::EngineeringScale(EngineeringScale {
+                        id,
+                        quantity: expected,
+                        kind: members.kind,
+                        value,
+                        source: annotation_source(self.p, at),
+                    }),
+                    lineage: self.lineage(instance, row, &[at]),
+                });
+                continue;
+            }
+            if kind == Shape::EngineeringDefault {
+                if !self.model.symbols.contains_key(&target) {
+                    return Err(invalid(
+                        at,
+                        "engineering default target is an existing scalar member",
+                    ));
+                }
+                let path = &a
+                    .engineering_default
+                    .as_ref()
+                    .ok_or_else(|| invalid(at, "engineering default selector"))?
+                    .rule;
+                let rule_id = self
+                    .p
+                    .names
+                    .get(path.trim())
+                    .copied()
+                    .ok_or_else(|| invalid(at, "shared engineering rule path is unresolved"))?
+                    .as_id();
+                let rule = self
+                    .model
+                    .engineering_rules
+                    .iter()
+                    .find(|rule| rule.id == rule_id)
+                    .ok_or_else(|| {
+                        invalid(at, "selected constant is not a shared engineering rule")
+                    })?;
+                if !compatible_difference(&ty, &rule.quantity, self.c.quantities, at)? {
+                    return Err(invalid(
+                        at,
+                        "shared engineering rule has an incompatible physical quantity",
+                    ));
+                }
+                self.reserve(1)?;
+                self.model.annotations.push(Annotation {
+                    target,
+                    value: AnnotationValue::EngineeringDefault {
+                        rule_id,
+                        source: annotation_source(self.p, at),
+                    },
+                    lineage: self.lineage(instance, row, &[at]),
+                });
+                continue;
+            }
             let value = match a.kind {
                 AnnotationKind::Start => AnnotationValue::Start(expression(self, 0)?),
                 AnnotationKind::Nominal => AnnotationValue::Nominal(expression(self, 0)?),
@@ -326,7 +783,12 @@ impl Engine<'_, '_> {
                     )?;
                     AnnotationValue::Check(predicate)
                 }
-                AnnotationKind::Objective | AnnotationKind::Connectivity => {
+                AnnotationKind::Objective
+                | AnnotationKind::Connectivity
+                | AnnotationKind::AccuracyGoal
+                | AnnotationKind::EngineeringScale
+                | AnnotationKind::EngineeringDefault
+                | AnnotationKind::EngineeringRule => {
                     return Err(invalid(at, "annotation kind handled above"));
                 }
             };

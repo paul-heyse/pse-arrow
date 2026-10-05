@@ -88,6 +88,9 @@ def test_public_native_process_and_exact_results(
 
     result = asyncio.run(wait_twice())
     assert handle.wait().run_id == result.run_id
+    assert result.usable, tuple(
+        diagnostic.message for diagnostic in result.diagnostics()
+    )
     table = pa.RecordBatchReader.from_stream(
         result.table("runtime.solve_variables")
     ).read_all()

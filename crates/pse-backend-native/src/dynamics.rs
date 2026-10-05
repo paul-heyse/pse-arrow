@@ -923,6 +923,8 @@ pub struct EndpointAssessment {
 #[derive(Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
+    /// Required execution interpretation version; legacy unversioned requests need readmission.
+    pub version: Version<1>,
     /// Native method selected from the required trial semantics; automatic when absent.
     #[serde(default = "automatic")]
     pub method: Method,
@@ -2406,6 +2408,7 @@ const fn no_sensitivity() -> DynamicSensitivity {
 impl Default for Profile {
     fn default() -> Self {
         Self {
+            version: Version,
             method: automatic(),
             trial_failures: terminal(),
             numerics: Default::default(),

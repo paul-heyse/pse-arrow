@@ -21,6 +21,7 @@ from typing import TypeVar
 import attrs
 import cattrs
 import msgspec
+import msgspec.inspect
 import msgspec.json
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
@@ -145,6 +146,85 @@ def render_errors(exc: Exception) -> list[str]:
     return list(cattrs.transform_error(exc))
 
 
+def _version_children(info: msgspec.inspect.Type) -> tuple[msgspec.inspect.Type, ...]:
+    if isinstance(info, (
+        msgspec.inspect.StructType, msgspec.inspect.TypedDictType,
+        msgspec.inspect.DataclassType, msgspec.inspect.NamedTupleType,
+    )):
+        return tuple(field.type for field in info.fields)
+    if isinstance(info, msgspec.inspect.UnionType):
+        return info.types
+    if isinstance(info, msgspec.inspect.Metadata):
+        return (info.type,)
+    if isinstance(info, msgspec.inspect.DictType):
+        return (info.value_type,)
+    if isinstance(info, msgspec.inspect.CollectionType):
+        return (info.item_type,)
+    if isinstance(info, msgspec.inspect.TupleType):
+        return info.item_types
+    return ()
+
+
+def _has_required_version(info: msgspec.inspect.Type, seen: set[int]) -> bool:
+    if isinstance(info, msgspec.inspect.StructType) and isinstance(
+        getattr(info.cls, "_pse_required_version", None), int
+    ):
+        return True
+    identity = id(info)
+    if identity in seen:
+        return False
+    seen.add(identity)
+    return any(_has_required_version(child, seen) for child in _version_children(info))
+
+
+def _check_version_headers(
+    value: object, info: msgspec.inspect.Type, path: str
+) -> None:
+    """Check supplied schema-required headers before constructor defaults apply."""
+    if isinstance(info, msgspec.inspect.Metadata):
+        _check_version_headers(value, info.type, path)
+    elif isinstance(info, msgspec.inspect.UnionType):
+        for alternative in info.types:
+            _check_version_headers(value, alternative, path)
+    elif isinstance(info, msgspec.inspect.StructType) and isinstance(value, dict):
+        if info.tag_field is not None and value.get(info.tag_field) != info.tag:
+            return
+        expected = getattr(info.cls, "_pse_required_version", None)
+        if expected is not None:
+            if "version" not in value:
+                raise msgspec.ValidationError(
+                    f"Missing required document version - at `{path}.version`"
+                )
+            version = value["version"]
+            if not isinstance(version, int) or isinstance(version, bool) or version != expected:
+                raise msgspec.ValidationError(
+                    f"Unsupported document version (current: {expected}) - at `{path}.version`"
+                )
+        for field in info.fields:
+            if field.encode_name in value:
+                _check_version_headers(
+                    value[field.encode_name], field.type, f"{path}.{field.encode_name}"
+                )
+    elif isinstance(info, (msgspec.inspect.TypedDictType, msgspec.inspect.DataclassType)) and isinstance(value, dict):
+        for field in info.fields:
+            if field.encode_name in value:
+                _check_version_headers(
+                    value[field.encode_name], field.type, f"{path}.{field.encode_name}"
+                )
+    elif isinstance(info, msgspec.inspect.NamedTupleType) and isinstance(value, list):
+        for index, (item, field) in enumerate(zip(value, info.fields, strict=False)):
+            _check_version_headers(item, field.type, f"{path}[{index}]")
+    elif isinstance(info, msgspec.inspect.DictType) and isinstance(value, dict):
+        for key, item in value.items():
+            _check_version_headers(item, info.value_type, f"{path}[{key!r}]")
+    elif isinstance(info, msgspec.inspect.CollectionType) and isinstance(value, list):
+        for index, item in enumerate(value):
+            _check_version_headers(item, info.item_type, f"{path}[{index}]")
+    elif isinstance(info, msgspec.inspect.TupleType) and isinstance(value, list):
+        for index, (item, item_type) in enumerate(zip(value, info.item_types, strict=False)):
+            _check_version_headers(item, item_type, f"{path}[{index}]")
+
+
 def decode_json(data: bytes | str, type: type[T]) -> T:
     """Decode JSON into the selected generated document, refusing unknown fields.
 
@@ -159,6 +239,10 @@ def decode_json(data: bytes | str, type: type[T]) -> T:
         msgspec.ValidationError: If the document does not match the struct.
         msgspec.DecodeError: If the document is not well-formed JSON.
     """
+    info = msgspec.inspect.type_info(type)
+    if _has_required_version(info, set()):
+        raw: object = msgspec.json.decode(data, type=object)
+        _check_version_headers(raw, info, "$")
     return msgspec.json.decode(data, type=type)
 
 

@@ -4,6 +4,103 @@
 
 Member names are canonical string values; declaration order is presentation only.
 
+## `AccuracyCriterionStatus`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_requested` | `` | false |
+| `satisfied` | `` | false |
+| `violated` | `` | false |
+| `unresolved` | `` | false |
+
+## `AccuracyEvidenceInterpretation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `output_error` | `` | false |
+| `residual_error` | `` | false |
+| `linear_backward_error` | `` | false |
+| `local_integration_error` | `` | false |
+| `empirical_output_variation` | `` | false |
+| `objective_interval` | `` | false |
+
+## `AccuracyEvidenceMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `square_correction` | `` | false |
+| `kkt_correction` | `` | false |
+| `certified_enclosure` | `` | false |
+| `qualified_objective_interval` | `` | false |
+| `dynamic_comparison` | `` | false |
+| `composed_output` | `` | false |
+
+## `AccuracyGoalStatus`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_requested` | `` | false |
+| `satisfied` | `` | false |
+| `violated` | `` | false |
+| `unresolved` | `` | false |
+
+## `AccuracyGoalSubject`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `selected_output` | `` | false |
+| `optimal_objective` | `` | false |
+
+## `AccuracyGoalUse`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `assess` | `` | false |
+| `require_satisfied` | `` | false |
+
+## `AccuracyObservation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `steady` | `` | false |
+| `sample` | `` | false |
+| `endpoint` | `` | false |
+| `integrated` | `` | false |
+
+## `AccuracyResolutionStatus`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_requested` | `` | false |
+| `met` | `` | false |
+| `unmet` | `` | false |
+| `unavailable` | `` | false |
+
+## `AccuracyUnavailableReason`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `missing_observation` | `` | false |
+| `missing_evidence` | `` | false |
+| `unsupported` | `` | false |
+| `unsupported_observation` | `` | false |
+| `evaluator_uncertainty` | `` | false |
+| `regularity` | `` | false |
+| `invalid_validity` | `` | false |
+| `branch_ambiguity` | `` | false |
+| `boundary` | `` | false |
+| `insufficient_strength` | `` | false |
+| `insufficient_accuracy` | `` | false |
+| `nonfinite` | `` | false |
+| `precision_limit` | `` | false |
+| `resource_limit` | `` | false |
+| `budget` | `` | false |
+| `cancelled` | `` | false |
+| `nonprogress` | `` | false |
+| `fixed_error_floor` | `` | false |
+| `refinement_disallowed` | `` | false |
+| `failed` | `` | false |
+
 ## `ArtifactReconstruction`
 
 | Member | IDAES name | Deprecated |
@@ -116,6 +213,9 @@ Member names are canonical string values; declaration order is presentation only
 | `closure_allowed` | `` | false |
 | `applicability_unknown_allowed` | `` | false |
 | `applicability_extrapolation_allowed` | `` | false |
+| `accuracy_estimated` | `` | false |
+| `accuracy_empirical` | `` | false |
+| `engineering_canonical_fallback` | `` | false |
 
 ## `CandidateRefusal`
 
@@ -139,6 +239,8 @@ Member names are canonical string values; declaration order is presentation only
 | `relaxed_incumbent` | `` | false |
 | `incumbent_refused` | `` | false |
 | `feasibility_unavailable` | `` | false |
+| `accuracy_unresolved` | `` | false |
+| `accuracy_violated` | `` | false |
 
 ## `CandidateUse`
 
@@ -774,6 +876,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `fixed_horizon` | `` | false |
 | `declared_terminal_event` | `` | false |
 
+## `EngineeringScaleKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `magnitude` | `` | false |
+| `range_width` | `` | false |
+| `reference_difference` | `` | false |
+
 ## `EntityKind`
 
 | Member | IDAES name | Deprecated |
@@ -1046,6 +1156,10 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `check` | `` | false |
 | `objective` | `` | false |
 | `connectivity` | `` | false |
+| `accuracy_goal` | `` | false |
+| `engineering_scale` | `` | false |
+| `engineering_default` | `` | false |
+| `engineering_rule` | `` | false |
 
 ## `ModelingApplicabilityBasis`
 

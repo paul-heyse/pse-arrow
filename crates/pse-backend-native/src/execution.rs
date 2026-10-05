@@ -257,6 +257,31 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     fn capability(&self) -> &'static Capability;
     /// Native input this adapter consumes.
     fn representation(&self) -> Representation;
+    /// Project consumed physical residual allowances into this adapter's primal
+    /// work tolerance. Physical acceptance and its native scaling remain frozen.
+    /// Each pair names an original row position and its requested physical error.
+    ///
+    /// # Errors
+    /// A row is absent, or the projected positive tolerance is not representable.
+    fn residual_work_tolerance(
+        &self,
+        _settings: &BackendSettings,
+        budgets: Budgets<'_>,
+        demands: &[(usize, f64)],
+    ) -> Result<Option<f64>, ProblemError> {
+        let mut requested: Option<f64> = None;
+        for &(row, allowance) in demands {
+            let scale = budgets.normalization.rows.get(row)
+                .ok_or_else(|| ProblemError::Contract("work demand row is absent".into()))?;
+            if !allowance.is_finite() || allowance <= 0. || !scale.is_finite() || *scale <= 0. {
+                return Err(ProblemError::Contract("invalid residual work allowance or coordinate scale".into()));
+            }
+            let value = pse_math::normalization::checked_ratio(allowance, *scale)
+                .map_err(|_| ProblemError::numerical("residual work tolerance is not representable"))?;
+            requested = Some(requested.map_or(value, |held| held.min(value)));
+        }
+        Ok(requested)
+    }
     /// Whether this binary links the native implementation.
     fn linked(&self) -> bool;
     /// Complete pre-operation counters for the numerical callback route. Coefficient and

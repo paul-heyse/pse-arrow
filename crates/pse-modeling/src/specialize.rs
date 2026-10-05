@@ -340,6 +340,9 @@ pub struct SpecializedModel {
     pub functions: BTreeMap<String, crate::Function>,
     /// Typed authored annotations and their instantiated owner.
     pub annotations: Vec<crate::annotation::Annotation>,
+    /// Marked shared engineering-default constants visible in the checked package.
+    /// Rule identity is the constant declaration identity; marker rows are provenance.
+    pub engineering_rules: Vec<crate::annotation::EngineeringRule>,
     /// Named lowerings of constraint forms and disjunctions, inner-first (ADR-0104).
     pub lowerings: Vec<Lowering>,
     /// Constraints left to a backend's native handlers; routing refuses them elsewhere.
@@ -548,7 +551,10 @@ pub fn specialize_with_discretizer(
         p: package,
         c: &context,
         limits,
-        model: SpecializedModel::default(),
+        model: SpecializedModel {
+            engineering_rules: crate::annotation::engineering_rules(package)?,
+            ..SpecializedModel::default()
+        },
         states: BTreeMap::new(),
         numerical_sources: BTreeMap::new(),
         numerical_source_stack: Vec::new(),

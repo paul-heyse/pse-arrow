@@ -18,6 +18,7 @@ use pse_model::{
 use std::{collections::BTreeSet, sync::Arc};
 
 pub(crate) mod admission;
+pub(crate) mod accuracy_refinement;
 pub(crate) mod path_control;
 pub(crate) mod target;
 
@@ -50,6 +51,28 @@ pub(crate) struct AutoObservation {
     pub(crate) original: Option<OriginalConclusion>,
     pub(crate) permission: Option<pse_model::generated::enums::CandidateUse>,
 }
+/// Project the actual last dispatched operation, preserving its cause for continuation.
+pub(crate) fn automatic_observation(events: &[Event]) -> Option<AutoObservation> {
+    events
+        .iter()
+        .rev()
+        .filter(|event| {
+            !(event.kind == EventKind::Refused && event.transition == Some(Transition::Continue))
+        })
+        .find_map(|event| {
+            event.observation.map(|native| AutoObservation {
+                awaiting_assessment: false,
+                native,
+                original: event.original.clone().or_else(|| {
+                    event
+                        .cause
+                        .clone()
+                        .map(|cause| OriginalConclusion::Unavailable { cause })
+                }),
+                permission: event.permission,
+            })
+        })
+}
 pub(crate) fn next_automatic(
     request: &pse_model::strategy::CompositionRequest,
     start: &pse_model::strategy::StartRules,
@@ -72,15 +95,9 @@ pub(crate) fn next_automatic(
             .original
             .as_ref()
             .is_some_and(OriginalConclusion::satisfied)
-            && last.permission.is_some_and(|permission| {
-                matches!(
-                    permission,
-                    pse_model::generated::enums::CandidateUse::Usable
-                        | pse_model::generated::enums::CandidateUse::QualifiedUnclosed
-                        | pse_model::generated::enums::CandidateUse::SeedOnly
-                )
-            })
         {
+            // Output-goal permission is composed independently. An unresolved
+            // output cannot trigger an unrelated original-solver tournament.
             return AutoDecision::Finish;
         }
         if !permits_numerical_continuation(last.native)
@@ -410,7 +427,19 @@ pub(crate) struct Assessed<T> {
     pub(crate) original: OriginalConclusion,
     pub(crate) retention: StepRetention,
     pub(crate) work: Vec<WorkCharge>,
+    /// Retained output evidence; the session may grant supported accuracy work only
+    /// after independent original checks have passed.
+    pub(crate) accuracy: Vec<pse_math::engineering_accuracy::GoalResult>,
+    /// Pure retained-product update at a finite stopping boundary. This never
+    /// evaluates a model or executes a numerical producer.
+    pub(crate) accuracy_stop: Option<AccuracyStop<T>>,
 }
+pub(crate) type AccuracyStop<T> = fn(
+    &mut T,
+    &super::solves::Outcome,
+    &pse_model::numerics::NumericalPolicy,
+    pse_model::generated::enums::AccuracyUnavailableReason,
+);
 impl<T> Assessed<T> {
     /// Native-only consumer: original validation belongs to the native report owner.
     pub(crate) fn native(
@@ -430,6 +459,8 @@ impl<T> Assessed<T> {
             original,
             retention,
             work: Vec::new(),
+            accuracy: Vec::new(),
+            accuracy_stop: None,
         }
     }
 }
@@ -1364,9 +1395,10 @@ fn run_inner<T>(
                 let can_continue = enclosing.is_ok()
                     && (failed.local_expiry.is_some()
                         || failed.local_refinement
-                        || failed
+                        || (failed
                             .observation
-                            .is_some_and(permits_numerical_continuation))
+                            .is_some_and(permits_numerical_continuation)
+                            && permits_numerical_continuation(failure(&failed.cause))))
                     && !mechanism.required
                     && mechanism.transitions.contains(&Transition::Continue);
                 let cause = failed.cause;
@@ -1661,8 +1693,8 @@ pub(crate) fn observe_native(report: &pse_backend_native::solve::SolveReport) ->
         return Observation::Panic;
     }
     if report.evidence.callback.terminal_failure {
-        if let Some(cause) = report.callback_failure() {
-            return failure(cause);
+        if let Some(cause) = report.shared_effective_failure() {
+            return failure(&cause);
         }
         return match report.termination.category {
             T::Cancelled => Observation::Cancelled,
@@ -1671,8 +1703,10 @@ pub(crate) fn observe_native(report: &pse_backend_native::solve::SolveReport) ->
             _ => Observation::ContractFailure,
         };
     }
-    if let Some(cause) = report.validation_failure() {
-        return failure(cause);
+    if report.validation_failure().is_some()
+        && let Some(cause) = report.shared_effective_failure()
+    {
+        return failure(&cause);
     }
     match report.termination.category {
         T::Success | T::Acceptable => Observation::Converged,
@@ -1723,13 +1757,9 @@ pub(crate) fn work(outcome: &super::solves::Outcome) -> WorkObservation {
 pub(crate) fn cause_native(
     report: &pse_backend_native::solve::SolveReport,
 ) -> Option<Arc<ProblemError>> {
-    report
-        .evidence
-        .callback
-        .terminal_failure
-        .then(|| report.shared_callback_failure())
+    (report.evidence.callback.terminal_failure || report.validation_failure().is_some())
+        .then(|| report.shared_effective_failure())
         .flatten()
-        .or_else(|| report.shared_validation_failure())
 }
 pub(crate) fn work_native(report: &pse_backend_native::solve::SolveReport) -> WorkObservation {
     WorkObservation {

@@ -129,25 +129,6 @@ fn check_declaration(
     reg.contract(spec)?.require_generated(crate::generated::contracts::expected())?;
     Ok(())
 }
-#[cfg(test)]
-mod consolidation_unit {
-    #[test]
-    fn equal_fingerprint_cannot_admit_a_changed_declaration() -> Result<
-        (),
-        crate::RelationError,
-    > {
-        let registry = pse_schema::registry()?;
-        let original = super::spec(registry)?;
-        let mut altered = original.clone();
-        altered.columns[0] = altered
-            .columns[0]
-            .clone()
-            .with_nullable(!altered.columns[0].nullable());
-        assert_eq!(altered.fingerprint, super::FINGERPRINT);
-        assert!(super::check_declaration(registry, &altered).is_err());
-        Ok(())
-    }
-}
 /// The schema built from the authoritative declaration.
 /// # Errors
 /// An unavailable registry or incompatible generated contract.

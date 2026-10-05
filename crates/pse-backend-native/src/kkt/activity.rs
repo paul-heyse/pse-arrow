@@ -299,6 +299,14 @@ impl Factor {
                 scales: self.source.scales.clone(),
                 objective: self.source.objective,
                 bound_rows: self.source.bound_rows.clone(),
+                point: self.source.point,
+                variables: self.source.variables.clone(),
+                rows: self.source.rows.clone(),
+                variable_bounds: self.source.variable_bounds.clone(),
+                normalization: self.source.normalization,
+                row_dual: self.source.row_dual.clone(),
+                lower_dual: self.source.lower_dual.clone(),
+                upper_dual: self.source.upper_dual.clone(),
             };
             let bytes = factor.bytes();
             self.state.bytes.set(self.state.bytes.get().max(bytes));
@@ -430,6 +438,14 @@ mod tests {
             scales: Arc::from([1., 1.]),
             objective: 1.,
             bound_rows: Arc::from([]),
+            point: crate::square_response::point_key(&[0.]),
+            variables: Arc::from([]),
+            rows: Arc::from([]),
+            variable_bounds: Arc::from([(0., f64::INFINITY)]),
+            normalization: pse_math::normalization::Normalization::identity(1, 0).key(),
+            row_dual: Arc::from([]),
+            lower_dual: Arc::from([0.]),
+            upper_dual: Arc::from([0.]),
         }
     }
     fn activity(source: KktFactor, admission: Arc<Admission>) -> Factor {

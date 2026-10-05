@@ -119,7 +119,6 @@ impl RunResult {
             }
         }
         for (ordinal, request) in requests.iter().enumerate() {
-            let declaration = request.model.case.compiled().plan.structure();
             let step = ordinal as i64;
             let result = self.modeling_result(ordinal);
             let trace = result
@@ -145,6 +144,7 @@ impl RunResult {
             // A staged result owns the actual rebound case admitted for this attempt.
             // Unattempted requests still publish the admission completed at submission.
             let prepared = result.map_or(request, |result| &result.prepared);
+            let declaration = prepared.model.case.compiled().plan.structure();
             let admission = prepared
                 .solve
                 .route_decision()
@@ -196,18 +196,26 @@ impl RunResult {
                         .collect()
                 })
                 .unwrap_or_default();
+            let original_coordinates: BTreeMap<_, _> = constant
+                .map(|r| r.coordinates.iter().copied().collect())
+                .unwrap_or_default();
+            let dual_status = native
+                .and_then(|r| r.observation.as_ref())
+                .map_or(DualQualification::Unavailable, qualified);
             for v in declaration.variables() {
                 let p = &v.port;
                 let ix = coordinates.get(&p.id).copied();
                 let value = if v.fixed {
-                    request.model.values.scalars.get(&p.id).copied()
+                    prepared.model.values.scalars.get(&p.id).copied()
+                } else if constant.is_some() {
+                    original_coordinates.get(&p.id).copied()
                 } else {
                     ix.and_then(|i| candidate.and_then(|c| c.primal.get(i).copied()))
                 };
                 let tolerance = if v.fixed {
                     None
                 } else {
-                    let i = request
+                    let i = prepared
                         .model
                         .case
                         .compiled()
@@ -215,9 +223,8 @@ impl RunResult {
                         .columns()
                         .iter()
                         .position(|id| *id == p.id);
-                    i.and_then(|i| request.solve.tolerances().variables.get(i).copied())
+                    i.and_then(|i| prepared.solve.tolerances().variables.get(i).copied())
                 };
-                let dual_status = observation.map_or(DualQualification::Unavailable, qualified);
                 variable_rows
                     .push(variables::Row {
                         run_id: self.run_id,
@@ -269,7 +276,7 @@ impl RunResult {
                         fixed: true,
                         parameter: true,
                         domain: None,
-                        value: request.model.values.scalars.get(&p.id).copied(),
+                        value: prepared.model.values.scalars.get(&p.id).copied(),
                         lower: None,
                         upper: None,
                         lower_violation: None,
@@ -283,9 +290,9 @@ impl RunResult {
                     })
                     .map_err(relation)?;
             }
-            let rows = request.model.case.compiled().plan.structure().rows();
+            let rows = declaration.rows();
             for (i, r) in rows.iter().enumerate() {
-                let unit = request
+                let unit = prepared
                     .source
                     .physical
                     .quantities
@@ -309,11 +316,10 @@ impl RunResult {
                             .and_then(|o| o.lower_violations.get(i).copied()),
                         upper_violation: observation
                             .and_then(|o| o.upper_violations.get(i).copied()),
-                        tolerance: request.solve.tolerances().rows.get(i).copied(),
+                        tolerance: prepared.solve.tolerances().rows.get(i).copied(),
                         dual: candidate
                             .and_then(|c| c.row_dual.as_ref().and_then(|v| v.get(i).copied())),
-                        dual_qualification: observation
-                            .map_or(DualQualification::Unavailable, qualified),
+                        dual_qualification: dual_status,
                     })
                     .map_err(relation)?;
             }
@@ -518,6 +524,329 @@ mod tests {
     use super::*;
     use pse_relations::generated::authored::modeling_declarations as wire;
     use std::sync::Arc;
+
+    #[tokio::test]
+    async fn all_fixed_publication_keeps_constant_values_without_kkt_evidence() {
+        use super::super::tests as fixture;
+        use pse_relations::generated::enums::NativeRunState;
+        let runtime = fixture::runtime();
+        let declarations = pse_authoring::language::parse(
+            "package p { def Root { param p:Scalar=4; var x:Scalar; annotation start x(7); eq balance:x+p==11; annotation check x(x>0); } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
+        let mut case = pse_compiler::workspace::ModelingCaseBindings {
+            variables: BTreeMap::from([(
+                "x".into(),
+                pse_compiler::workspace::ModelingVariableState {
+                    fixed: Some(true),
+                    ..Default::default()
+                },
+            )]),
+            ..Default::default()
+        };
+        let requested = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                case.clone(),
+                pse_kernels::DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let symbol = |path: &str| {
+            let suffix = format!(".{path}");
+            requested
+                .model
+                .model
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .find(|s| s.lineage.path == path || s.lineage.path.ends_with(&suffix))
+                .unwrap()
+                .id
+        };
+        let (x, p) = (symbol("x"), symbol("p"));
+        case.values.extend([("x".into(), 5.), ("p".into(), 6.)]);
+        let rebound = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                case,
+                pse_kernels::DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let completed = package
+            .solve_case(
+                rebound,
+                fixture::compiler_profile(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let result = RunResult::joined(
+            completed.run_id,
+            runtime.clone(),
+            RunRequest::Modeling(vec![requested]),
+            None,
+            Ok(super::super::RunReport::Modeling(vec![completed])),
+        )
+        .finished(None, false)
+        .await;
+        assert!(result.usable());
+        let Outcome::Constant(report) = &result.modeling_result(0).unwrap().outcome else {
+            panic!("all-fixed original evaluation must have no native attempt");
+        };
+        assert!(report.coordinates.is_empty());
+        let rows = variables::Row::rows(&result.table("runtime.solve_variables").unwrap()).unwrap();
+        assert_eq!(rows.len(), 2);
+        let fixed = rows.iter().find(|r| r.symbol_id == x).unwrap();
+        assert_eq!(fixed.value, Some(5.));
+        assert!(fixed.fixed && !fixed.parameter);
+        assert_eq!(fixed.dual_qualification, DualQualification::Unavailable);
+        assert!(
+            fixed.lower_dual.is_none()
+                && fixed.upper_dual.is_none()
+                && fixed.stationarity.is_none()
+                && fixed.reduced_cost.is_none()
+        );
+        let parameter = rows.iter().find(|r| r.symbol_id == p).unwrap();
+        assert_eq!(parameter.value, Some(6.));
+        assert_eq!(
+            parameter.dual_qualification,
+            DualQualification::NotApplicableParameter
+        );
+        let rows =
+            constraints::Row::rows(&result.table("runtime.solve_constraints").unwrap()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].value, report.observation.values.first().copied());
+        assert_eq!(rows[0].equality_residual, Some(0.));
+        assert!(rows[0].dual.is_none());
+        assert_eq!(rows[0].dual_qualification, DualQualification::Unavailable);
+        let rows = runs::Row::rows(&result.table("runtime.solve_runs").unwrap()).unwrap();
+        assert_eq!(rows[0].state, NativeRunState::ConstantEvaluation);
+        assert!(
+            rows[0].backend.is_none()
+                && rows[0].termination.is_none()
+                && rows[0].native_code.is_none()
+                && rows[0].native_status.is_none()
+        );
+        assert!(
+            metrics::Row::rows(&result.table("runtime.solve_metrics").unwrap())
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn complete_original_publication_uses_reconstructed_and_rebound_values() {
+        use super::super::{ModelingAnalysis, RunReport, tests as fixture};
+        use pse_relations::generated::enums::NativeRunState;
+        for permitted in [true, false] {
+            let runtime = fixture::runtime_on(
+                512 << 20,
+                crate::math::MathPolicy {
+                    worker_bytes: 128 << 20,
+                    workspace_bytes: 128 << 20,
+                    foreign_bytes: 32 << 20,
+                    ..Default::default()
+                },
+            );
+            let pool = runtime.shared.pool();
+            let threshold = if permitted { 3 } else { 5 };
+            let declarations = pse_authoring::language::parse(
+                &format!("package p {{ def Root {{ param p:Scalar=2; var x:Scalar; var y:Scalar; var z:Scalar; annotation start x(0); annotation start y(0); annotation start z(0); eq first:x==1; eq second:y==x+1; eq third:z==2*y; annotation check p(p>{threshold}); annotation report p(\"bound parameter\"); }} }}"),
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                Default::default(),
+            ).unwrap();
+            let root = declarations
+                .iter()
+                .find(|r| r.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let package = runtime
+                .modeling_package(declarations, fixture::physical())
+                .unwrap();
+            let mut analysis = ModelingAnalysis {
+                root,
+                instance: pse_modeling::specialize::root_instance(root),
+                bindings: Default::default(),
+                limits: Default::default(),
+                case: Default::default(),
+                order: pse_kernels::DerivativeOrder::First,
+                compiler: fixture::compiler_profile(),
+                solver: crate::math::solves::SolverProfile {
+                    intent: pse_backend_native::solve::SolveIntent::Root,
+                    selection: pse_backend_native::solve::SolverSelection::Explicit(
+                        pse_backend_native::solve::Backend::Kinsol,
+                    ),
+                    ..Default::default()
+                },
+                numerical: Default::default(),
+            };
+            let cancel = crate::CancelSource::new();
+            let requested = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+            let symbol = |path: &str| {
+                let suffix = format!(".{path}");
+                requested
+                    .model
+                    .model
+                    .compiled()
+                    .model
+                    .symbols
+                    .values()
+                    .find(|s| s.lineage.path == path || s.lineage.path.ends_with(&suffix))
+                    .unwrap()
+                    .id
+            };
+            let (p, x, y, z) = (symbol("p"), symbol("x"), symbol("y"), symbol("z"));
+            // The executed step retains its rebound preparation; the submitted request
+            // remains immutable, as it does for staged workflows.
+            analysis.case.values.insert("p".into(), 4.);
+            let rebound = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+            assert_eq!(
+                rebound
+                    .solve
+                    .automatic_block_count(&Arc::default())
+                    .unwrap(),
+                3
+            );
+            let completed = package
+                .solve_case(rebound, analysis.compiler, &cancel)
+                .await
+                .unwrap_or_else(|error| panic!("{}", error));
+            assert_eq!(completed.accepted, permitted);
+            let expected = BTreeMap::from([(p, 4.), (x, 1.), (y, 2.), (z, 4.)]);
+            if permitted {
+                let Outcome::Constant(report) = &completed.outcome else {
+                    panic!("complete original block schedule must have no outer native attempt");
+                };
+                assert_eq!(report.coordinates.len(), 3);
+                assert_eq!(report.component_reports().len(), 3);
+                for (id, value) in &report.coordinates {
+                    assert!((value - expected[id]).abs() < 1e-7);
+                }
+            }
+            let result = RunResult::joined(
+                completed.run_id,
+                runtime.clone(),
+                RunRequest::Modeling(vec![requested]),
+                None,
+                Ok(RunReport::Modeling(vec![completed])),
+            )
+            .finished(None, false)
+            .await;
+            assert_eq!(result.usable(), permitted);
+            let completion_before = serde_json::to_value(result.completion().unwrap()).unwrap();
+            let escaped = result.table("runtime.solve_variables").unwrap();
+            let rows = variables::Row::rows(&escaped).unwrap();
+            assert_eq!(rows.len(), expected.len());
+            for row in &rows {
+                assert!(
+                    (row.value.unwrap() - expected[&row.symbol_id]).abs() < 1e-7,
+                    "{row:?}"
+                );
+                assert_eq!(row.parameter, row.symbol_id == p);
+                assert_eq!(row.fixed, row.symbol_id == p);
+                if permitted {
+                    assert!(
+                        row.lower_dual.is_none()
+                            && row.upper_dual.is_none()
+                            && row.reduced_cost.is_none()
+                            && row.stationarity.is_none()
+                    );
+                    assert_eq!(
+                        row.dual_qualification,
+                        if row.parameter {
+                            DualQualification::NotApplicableParameter
+                        } else {
+                            DualQualification::Unavailable
+                        }
+                    );
+                }
+            }
+            let constraints =
+                constraints::Row::rows(&result.table("runtime.solve_constraints").unwrap())
+                    .unwrap();
+            assert_eq!(constraints.len(), 3);
+            for row in constraints {
+                assert!(row.equality_residual.unwrap().abs() < 1e-7);
+                assert!(row.value.is_some());
+                if permitted {
+                    assert!(row.dual.is_none());
+                    assert_eq!(row.dual_qualification, DualQualification::Unavailable);
+                }
+            }
+            let checks =
+                modeling_checks::Row::rows(&result.table("runtime.modeling_checks").unwrap())
+                    .unwrap();
+            assert_eq!(checks.len(), 1);
+            assert_eq!(checks[0].satisfied, permitted);
+            let reports =
+                modeling_reports::Row::rows(&result.table("runtime.modeling_reports").unwrap())
+                    .unwrap();
+            assert_eq!(reports.len(), 1);
+            assert_eq!(reports[0].value, 4.);
+            let runs = runs::Row::rows(&result.table("runtime.solve_runs").unwrap()).unwrap();
+            if permitted {
+                assert_eq!(runs[0].state, NativeRunState::ConstantEvaluation);
+                assert!(
+                    runs[0].backend.is_none()
+                        && runs[0].termination.is_none()
+                        && runs[0].native_code.is_none()
+                        && runs[0].native_status.is_none()
+                );
+                assert!(
+                    metrics::Row::rows(&result.table("runtime.solve_metrics").unwrap())
+                        .unwrap()
+                        .is_empty()
+                );
+            }
+            assert_eq!(
+                serde_json::to_value(result.completion().unwrap()).unwrap(),
+                completion_before,
+                "publication cannot requalify the point"
+            );
+            drop((result, package, runtime));
+            assert!(
+                pool.reserved() > 0,
+                "escaped checked rows retain their owners"
+            );
+            assert_eq!(variables::Row::rows(&escaped).unwrap(), rows);
+            drop(escaped);
+            assert_eq!(
+                pool.reserved(),
+                0,
+                "last table releases the retained source, result and buffer charges"
+            );
+        }
+    }
 
     #[test]
     fn single_source_keeps_retained_buffers_and_sequence_conflicts_are_refused() {

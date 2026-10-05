@@ -15,6 +15,53 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeAccuracyGoalAssessmentsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    goal_id: i.AccuracyGoalId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    model_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    case_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    instance_id: i.InstanceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    fit_id: i.FitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    subject: e.AccuracyGoalSubject = attrs.field(validator=attrs.validators.instance_of(e.AccuracyGoalSubject))
+    observation: e.AccuracyObservation = attrs.field(validator=attrs.validators.instance_of(e.AccuracyObservation))
+    time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    interval_lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    interval_upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    error: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    accuracy_class: e.NumericalAccuracyClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NumericalAccuracyClass)))
+    required_class: e.NumericalAccuracyClass = attrs.field(validator=attrs.validators.instance_of(e.NumericalAccuracyClass))
+    status: e.AccuracyGoalStatus = attrs.field(validator=attrs.validators.instance_of(e.AccuracyGoalStatus))
+    resolution_status: e.AccuracyResolutionStatus = attrs.field(validator=attrs.validators.instance_of(e.AccuracyResolutionStatus))
+    criterion_status: e.AccuracyCriterionStatus = attrs.field(validator=attrs.validators.instance_of(e.AccuracyCriterionStatus))
+    use_policy: e.AccuracyGoalUse = attrs.field(validator=attrs.validators.instance_of(e.AccuracyGoalUse))
+    resolution: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    criterion_lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    criterion_upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    refine: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    context: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    product: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    point: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    branch: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    validity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    dependencies: b.tuple[v.ContentHash, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.ContentHash), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    interpretation: e.AccuracyEvidenceInterpretation | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.AccuracyEvidenceInterpretation)))
+    method: e.AccuracyEvidenceMethod | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.AccuracyEvidenceMethod)))
+    unavailable: e.AccuracyUnavailableReason | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.AccuracyUnavailableReason)))
+    limitation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.goal_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.subject), v.scalar_key(self.observation), v.optional_key(v.scalar_key)(self.time), v.optional_key(v.scalar_key)(self.value), v.optional_key(v.scalar_key)(self.interval_lower), v.optional_key(v.scalar_key)(self.interval_upper), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.accuracy_class), v.scalar_key(self.required_class), v.scalar_key(self.status), v.scalar_key(self.resolution_status), v.scalar_key(self.criterion_status), v.scalar_key(self.use_policy), v.optional_key(v.scalar_key)(self.resolution), v.optional_key(v.scalar_key)(self.criterion_lower), v.optional_key(v.scalar_key)(self.criterion_upper), v.scalar_key(self.refine), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.product), v.optional_key(v.scalar_key)(self.point), v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.scalar_key)(self.validity), v.sequence_key(v.scalar_key)(self.dependencies), v.optional_key(v.scalar_key)(self.interpretation), v.optional_key(v.scalar_key)(self.method), v.optional_key(v.scalar_key)(self.unavailable), v.scalar_key(self.limitation),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeArtifactDescriptorsFieldImplementation:
     """Declared relation row or nested value."""
 
@@ -2624,6 +2671,25 @@ class RuntimeReducedHessiansRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeResolvedNumericsFieldEngineering:
+    """Declared relation row or nested value."""
+
+    rule_id: i.EngineeringRuleId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    scale_id: i.EngineeringScaleId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    physical_allowance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    relative_fraction: b.float = attrs.field(validator=v.finite_float)
+    characteristic: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    scale_kind: e.EngineeringScaleKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.EngineeringScaleKind)))
+    source: e.NumericalSource = attrs.field(validator=attrs.validators.instance_of(e.NumericalSource))
+    budget: b.float = attrs.field(validator=v.finite_float)
+    canonical_fallback: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    limitation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.rule_id), v.optional_key(v.scalar_key)(self.scale_id), v.optional_key(v.scalar_key)(self.physical_allowance), v.scalar_key(self.relative_fraction), v.optional_key(v.scalar_key)(self.characteristic), v.optional_key(v.scalar_key)(self.scale_kind), v.scalar_key(self.source), v.scalar_key(self.budget), v.scalar_key(self.canonical_fallback), v.scalar_key(self.limitation),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeResolvedNumericsFieldProvenanceItem:
     """Declared relation row or nested value."""
 
@@ -2653,10 +2719,11 @@ class RuntimeResolvedNumericsRow:
     absolute: b.float = attrs.field(validator=v.finite_float)
     relative: b.float = attrs.field(validator=v.finite_float)
     budget: b.float = attrs.field(validator=v.finite_float)
+    engineering: RuntimeResolvedNumericsFieldEngineering | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeResolvedNumericsFieldEngineering)))
     provenance: b.tuple[RuntimeResolvedNumericsFieldProvenanceItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeResolvedNumericsFieldProvenanceItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.nominal), v.scalar_key(self.coordinate_scale), v.scalar_key(self.absolute), v.scalar_key(self.relative), v.scalar_key(self.budget), v.sequence_key(v.record_key)(self.provenance),))
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.nominal), v.scalar_key(self.coordinate_scale), v.scalar_key(self.absolute), v.scalar_key(self.relative), v.scalar_key(self.budget), v.optional_key(v.record_key)(self.engineering), v.sequence_key(v.record_key)(self.provenance),))
 
 
 @attrs.frozen(kw_only=True)

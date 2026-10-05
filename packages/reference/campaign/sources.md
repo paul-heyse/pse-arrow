@@ -11,11 +11,18 @@ source and role (ADR-0123 Outcome 5).
 `models/references.pse` (module `campaign_references`) declares the sources the
 campaign cites beyond the seed: the IDAES 2.13 `test_pfr` TestInitializers and
 `test_flash` TestInitializersCubicModularBTX oracle tests, and the analytic properties
-the studies check (backward-difference and Radau convergence order, the steady-state
+the studies check (engineering mesh stability, the steady-state
 limit of a stable CSTR and the tangent-plane stability of a phase in equilibrium). The
 IDAES 2.13 release, the `test_cstr` oracle and the SciPy CSTR/controller reference are
 the seed's `references` entities. The IDAES inputs and printed results used as data are
 `oracle_input`, so only test fixtures read them.
+
+Physical convergence and output comparisons consume the constants in the domain's
+`numerical_policy` module. The campaign does not define separate defaults per fixture.
+The independent reference calculations retain their original precision; precise oracle
+digits do not impose equally precise process-design acceptance. Integration uses the
+runtime's global relative and normalized absolute controls; physical sampled outputs
+and cumulative balance checks still reject results outside their own shared allowances.
 
 `models/cstr-dynamics.pse` solves one `reactors.CSTR` definition steady and dynamic.
 The control volume generates its holdup rates over the instant at which a flowsheet
@@ -30,13 +37,15 @@ fixture `cstr_saponification`.
 `models/pfr-studies.pse` holds the saponification PFR at the IDAES 2.13 `test_pfr`
 TestInitializers specification (1 m³/s, 100 mol/m³ of each reactant, no inlet products,
 303.15 K, 0.5 m by 0.1 m², adiabatic and isobaric). `pfr_initializers_oracle` compares
-20 backward elements with its outlet values at relative 1e-5 and with the
-TestSaponification conservation and heat-of-reaction checks. The refinement studies solve
-four meshes in one flowsheet and check the observed order of the outlet ethyl acetate
-against declared bounds: backward differences over 5, 10, 20 and 40 elements (first
-order), and three-point Radau over 1, 2, 4 and 8 elements (endpoint order five). The
-Radau differences reach the solver tolerance by eight elements, so a finer Radau study
-measures round-off rather than order.
+20 backward elements with its outlet values at engineering allowances and with the
+TestSaponification conservation and heat-of-reaction checks. The refinement studies compare
+two meshes: backward differences over 20 and 40 elements, and three-point Radau over 2
+and 4 elements. Doubling the mesh must change outlet concentration and temperature by
+no more than the shared typed physical design allowances. This is sampled stability for the analysis decision, not a certificate of
+discretization error or theoretical convergence order. Focused stencil, physical-spacing,
+boundary, continuity and quadrature tests check the implemented premises of the numerical
+method independently; the process study does not force solver accuracy to resolve tiny
+mesh-error ratios.
 
 `models/bt-pr-formulations.pse` solves one flowsheet, a Flash of the BT_PR binding at
 the IDAES 2.13 `test_flash` TestInitializersCubicModularBTX conditions (1 mol/s
@@ -47,7 +56,8 @@ bubble/dew formulation, the complementarity closure `pr_equilibrium.Complementar
 realization), and the nested flash `nested_equilibrium.NestedPRFlash` (two-phase,
 liquid-only and vapor-only regimes solved on compressibility roots and selected by
 eligibility and the minimum Gibbs energy of the split). Each compares with the test's
-outlet flows, compositions, temperature and pressure at its absolute 1e-3.
+outlet flows, compositions, temperature and pressure at the shared typed physical
+design allowances.
 The smooth relational-density fixture declares the inherited `ideal-K` initialization
 stage before the original PR specification. It supplies an approximate physical start
 for the coupled inlet and outlet equilibrium states; it does not replace the final

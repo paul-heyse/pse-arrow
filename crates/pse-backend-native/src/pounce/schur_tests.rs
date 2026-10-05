@@ -186,7 +186,7 @@ fn run(
             &vec![0.; n],
             ObjectiveSense::Minimize,
             &controls,
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             settings,
             execution,
             &Tolerances {

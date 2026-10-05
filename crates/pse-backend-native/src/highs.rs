@@ -1618,7 +1618,7 @@ mod tests {
                 p.contract.rows.len(),
             ),
             &controls,
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             &Settings {
                 method,
                 ..Settings::default()

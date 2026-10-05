@@ -4,25 +4,161 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#runtime::r#resolved_numerics::{
-    RuntimeResolvedNumericsFieldProvenanceItem, RuntimeResolvedNumericsRow, Row,
+    RuntimeResolvedNumericsFieldEngineering, RuntimeResolvedNumericsFieldProvenanceItem,
+    RuntimeResolvedNumericsRow, Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    235u8, 132u8, 190u8, 98u8, 165u8, 69u8, 41u8, 119u8, 173u8, 161u8, 174u8, 241u8,
-    101u8, 122u8, 240u8, 211u8,
+    223u8, 232u8, 152u8, 122u8, 176u8, 96u8, 73u8, 2u8, 12u8, 51u8, 54u8, 169u8, 226u8,
+    173u8, 43u8, 163u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "resolved_numerics";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    61u8, 236u8, 95u8, 83u8, 68u8, 98u8, 238u8, 236u8, 104u8, 176u8, 169u8, 64u8, 250u8,
-    85u8, 177u8, 81u8, 204u8, 69u8, 53u8, 15u8, 183u8, 74u8, 129u8, 24u8, 0u8, 71u8,
-    119u8, 127u8, 225u8, 70u8, 200u8, 231u8,
+    165u8, 151u8, 148u8, 224u8, 113u8, 103u8, 71u8, 93u8, 9u8, 132u8, 196u8, 232u8, 0u8,
+    92u8, 25u8, 45u8, 21u8, 250u8, 211u8, 153u8, 201u8, 180u8, 251u8, 208u8, 28u8, 69u8,
+    36u8, 30u8, 246u8, 21u8, 98u8, 175u8,
 ]);
+impl crate::columnar::ArrowValue for RuntimeResolvedNumericsFieldEngineering {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#rule_id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#scale_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#physical_allowance,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relative_fraction,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#characteristic,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#scale_kind,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#source, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#budget, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#canonical_fallback,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#limitation,
+            children[9usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Option<
+            crate::generated::identities::EngineeringRuleId,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Option<
+            crate::generated::identities::EngineeringScaleId,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            crate::generated::enums::EngineeringScaleKind,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <crate::generated::enums::NumericalSource as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#rule_id: <Option<
+                crate::generated::identities::EngineeringRuleId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#scale_id: <Option<
+                crate::generated::identities::EngineeringScaleId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#physical_allowance: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#relative_fraction: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#characteristic: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#scale_kind: <Option<
+                crate::generated::enums::EngineeringScaleKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#source: <crate::generated::enums::NumericalSource as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#budget: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#canonical_fallback: <bool as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#limitation: <String as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for RuntimeResolvedNumericsFieldProvenanceItem {
     fn append(
         &self,
@@ -147,8 +283,12 @@ impl crate::columnar::ArrowValue for RuntimeResolvedNumericsRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#budget, children[10usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#provenance,
+            &self.r#engineering,
             children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#provenance,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -181,9 +321,12 @@ impl crate::columnar::ArrowValue for RuntimeResolvedNumericsRow {
         <f64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            RuntimeResolvedNumericsFieldEngineering,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Vec<
             RuntimeResolvedNumericsFieldProvenanceItem,
-        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -238,10 +381,16 @@ impl crate::columnar::ArrowValue for RuntimeResolvedNumericsRow {
                 input.column(10usize).as_ref(),
                 index,
             )?,
+            r#engineering: <Option<
+                RuntimeResolvedNumericsFieldEngineering,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
             r#provenance: <Vec<
                 RuntimeResolvedNumericsFieldProvenanceItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -324,8 +473,12 @@ impl crate::columnar::RelationRow for RuntimeResolvedNumericsRow {
         crate::columnar::ArrowValue::append(&self.r#relative, columns[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#budget, columns[10usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#provenance,
+            &self.r#engineering,
             columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#provenance,
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -362,10 +515,10 @@ impl crate::columnar::RelationRow for RuntimeResolvedNumericsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        41_984_usize + size_of::<Self::Builder>()
+        65_536_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        328usize
+        512usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -412,6 +565,101 @@ impl crate::columnar::RelationRow for RuntimeResolvedNumericsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#engineering).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    {
+                        let mut bytes = 1usize;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            if ((value).r#rule_id).is_some() {
+                                crate::columnar::allocation_add(
+                                    1,
+                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                )
+                            } else {
+                                Ok::<usize, crate::RelationError>(1)
+                            }?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            if ((value).r#scale_id).is_some() {
+                                crate::columnar::allocation_add(
+                                    1,
+                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                )
+                            } else {
+                                Ok::<usize, crate::RelationError>(1)
+                            }?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            if ((value).r#physical_allowance).is_some() {
+                                crate::columnar::allocation_add(
+                                    1,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )
+                            } else {
+                                Ok::<usize, crate::RelationError>(1)
+                            }?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            if ((value).r#characteristic).is_some() {
+                                crate::columnar::allocation_add(
+                                    1,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )
+                            } else {
+                                Ok::<usize, crate::RelationError>(1)
+                            }?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            if let Some(value) = ((value).r#scale_kind).as_ref() {
+                                crate::columnar::allocation_add(
+                                    1,
+                                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                )
+                            } else {
+                                Ok::<usize, crate::RelationError>(1)
+                            }?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            crate::columnar::allocation_add(
+                                8,
+                                ((value).r#source).as_str().len(),
+                            )?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )?;
+                        bytes = crate::columnar::allocation_add(
+                            bytes,
+                            crate::columnar::allocation_add(
+                                8,
+                                ((value).r#limitation).len(),
+                            )?,
+                        )?;
+                        Ok::<usize, crate::RelationError>(bytes)
+                    }?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -478,7 +726,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -536,8 +784,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "provenance",
+        name: "engineering",
         position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "provenance",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -564,8 +817,10 @@ pub mod columns {
     pub const RELATIVE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///budget
     pub const BUDGET: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///engineering
+    pub const ENGINEERING: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///provenance
-    pub const PROVENANCE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const PROVENANCE: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -583,6 +838,7 @@ pub struct RuntimeResolvedNumericsView<'a> {
     absolute_column: &'a arrow_array::Float64Array,
     relative_column: &'a arrow_array::Float64Array,
     budget_column: &'a arrow_array::Float64Array,
+    engineering_column: &'a arrow_array::StructArray,
     provenance_column: &'a arrow_array::ListArray,
 }
 impl<'a> RuntimeResolvedNumericsView<'a> {
@@ -658,9 +914,12 @@ impl<'a> RuntimeResolvedNumericsView<'a> {
             budget_column: crate::columnar::array::<
                 arrow_array::Float64Array,
             >(batch.column(10usize).as_ref())?,
+            engineering_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(11usize).as_ref())?,
             provenance_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -809,6 +1068,18 @@ impl<'a> RuntimeResolvedNumericsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "engineering",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn engineering_column(&self) -> &'a arrow_array::StructArray {
+        self.engineering_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "engineering", "`.")]
+    pub fn engineering_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "provenance",
         "`, including its offsets and validity bitmap.",
     )]
@@ -817,7 +1088,7 @@ impl<'a> RuntimeResolvedNumericsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "provenance", "`.")]
     pub fn provenance_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -854,6 +1125,10 @@ impl<'a> RuntimeResolvedNumericsView<'a> {
             r#absolute: crate::columnar::ArrowValue::read(self.absolute_column, index)?,
             r#relative: crate::columnar::ArrowValue::read(self.relative_column, index)?,
             r#budget: crate::columnar::ArrowValue::read(self.budget_column, index)?,
+            r#engineering: crate::columnar::ArrowValue::read(
+                self.engineering_column,
+                index,
+            )?,
             r#provenance: crate::columnar::ArrowValue::read(
                 self.provenance_column,
                 index,

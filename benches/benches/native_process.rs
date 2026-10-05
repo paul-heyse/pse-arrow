@@ -14,6 +14,8 @@ mod extended;
 mod fixture;
 #[path = "k4/studies.rs"]
 mod k4_studies;
+#[path = "k4/accuracy.rs"]
+mod k4_accuracy;
 #[path = "native_process/observations.rs"]
 mod observations;
 #[path = "native_process/phases.rs"]
@@ -85,6 +87,10 @@ fn process(c: &mut Criterion) {
     let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
     if operation == "k4-study" {
         k4_studies::measure(c, &spec, &output, &compiler_phases);
+        return;
+    }
+    if operation == "k4-accuracy" {
+        k4_accuracy::measure(c, &spec, &output, &compiler_phases);
         return;
     }
     if spec["extended"].as_bool() == Some(true) || matches!(operation, "vessel" | "fit") {

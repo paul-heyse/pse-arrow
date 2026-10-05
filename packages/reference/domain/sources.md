@@ -46,3 +46,21 @@ exact since the 2019 SI redefinition, citing the CODATA 2018 recommended values.
 
 The schema's refusal corpus is `tests/fixtures/domain-refusals`; its pure fixtures are the
 `pse.domain-fixtures` distribution.
+
+`models/numerical-policy.pse` owns the shared engineering-design physical allowances
+used by the process, thermodynamic and campaign models. The typed constants retain
+separate molar bases, physical dimensions and point/difference meanings; they are
+maintainer-selected analysis resolution, not empirical constants or uncertainty bounds.
+Temperature resolves to 0.1 K, concentration to 1 mol/m³ (0.001 mol/L), power to 1 W,
+pressure to 100 Pa, molar flow and inventory to 0.001 mol/s and 0.001 mol, inventory
+energy to 100 J, and composition to 0.001. The energy allowance is approximately
+0.016 K for the small 1.5 L reference water CSTR; it does not imply the same temperature
+error for every inventory. No selected model has a mass quantity contract, so the
+process-scale 1 kg guideline introduces no unused quantity declaration.
+
+These physical original-space allowances differ from the runtime's global normalized
+numerical policy. Authored integration requests `relative(global)` and
+`normalized_absolute(global)` to consume that runtime policy. Explicit tighter literals
+remain available for trace concentrations, small inventories, decisions near thresholds
+and numerical verification. Smoothing, finite-difference perturbations, work limits,
+physical domains and exact mathematical identities keep their separate meanings.

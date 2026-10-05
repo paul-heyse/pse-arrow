@@ -240,6 +240,9 @@ pub struct PreparedFit {
 /// Joined native fit plus independently re-evaluated physical predictions.
 #[derive(Debug)]
 pub struct FitReport {
+    /// Final original checks and requested goal permission, composed once after
+    /// the authored assessment. Absent while the native report is being built.
+    pub(crate) completion: Option<super::numerics::Completed>,
     /// Actual shared numerical-driver events, owned independently of result copies.
     pub strategy: Option<Arc<crate::math::strategy::Trace>>,
     /// Original authored checks evaluated at the final physical candidate.
@@ -338,6 +341,18 @@ impl FitReport {
     /// Known result buffers; the solver's finite report allowance owns diagnostics.
     pub(crate) fn numeric_bytes(&self) -> usize {
         size_of::<Self>()
+            + self.completion.as_ref().map_or(0, |completion| {
+                completion.decision.qualifiers.capacity() * size_of::<pse_model::generated::enums::CandidateQualifier>()
+                    + completion.decision.refusals.capacity() * size_of::<pse_model::generated::enums::CandidateRefusal>()
+                    + completion.accuracy.capacity() * size_of::<pse_math::engineering_accuracy::GoalResult>()
+                    + completion.accuracy.iter().map(|goal| {
+                        pse_model::HeapUsage::heap_bytes(&goal.goal)
+                            + goal.evidence.as_ref().map_or(0, |evidence| evidence.limitation.capacity())
+                            + goal.work_demand.as_ref().map_or(0, |demand| {
+                                demand.rows.capacity() * size_of::<pse_math::engineering_accuracy::ResidualRowDemand>()
+                            })
+                    }).sum::<usize>()
+            })
             + self.checks.capacity() * size_of::<super::ModelingCheck>()
             + self.reports.iter().map(pse_model::HeapUsage::owned_bytes).sum::<usize>()
             + self.validation_error.as_ref().map_or(0, pse_model::HeapUsage::owned_bytes)
@@ -510,15 +525,22 @@ impl PreparedFit {
     /// The original scientific permission used by the numerical driver and run completion.
     pub(crate) fn assess_completion(&self, report: &FitReport) -> super::numerics::Completed {
         let policy = &self.problem.numerics.policy;
+        let accuracy = policy.goals.iter().cloned().map(|goal| {
+            pse_math::engineering_accuracy::GoalResult::unavailable(
+                goal, pse_model::generated::enums::AccuracyUnavailableReason::Unsupported,
+            )
+        }).collect::<Vec<_>>();
+        let mut evidence = super::numerics::CompletionEvidence::point(
+            &report.checks,
+            report.checks_complete && report.validation_error.is_none(),
+            self.required_closure_checks(),
+        );
+        evidence.accuracy = &accuracy;
         super::numerics::complete(
             report.candidate_use(policy),
-            super::numerics::CompletionEvidence::point(
-                &report.checks,
-                report.checks_complete && report.validation_error.is_none(),
-                self.required_closure_checks(),
-            ),
+            evidence,
             policy,
-        )
+        ).with_context(&self.problem.numerics)
     }
     pub(crate) fn required_closure_checks(&self) -> usize {
         self.assessments

@@ -137,6 +137,24 @@ async fn package(
     Ok((runtime.modeling_from_documents(&closure, physical)?, spill))
 }
 
+/// The current authored seed closure, shared with focused initialization controls.
+pub(super) async fn reference_seed_package() -> TestResult<(
+    ModelingPackage,
+    tempfile::TempDir,
+    crate::workflow::PreparationSettings,
+)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
+    let manifest: Manifest =
+        toml::from_str(&std::fs::read_to_string(root.join("conformance.toml"))?)?;
+    let source = manifest
+        .runs
+        .iter()
+        .find(|r| r.name == "seed")
+        .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
+    let (package, spill) = package(&manifest.settings, source, &root).await?;
+    Ok((package, spill, manifest.settings.preparation))
+}
+
 #[derive(Clone, Serialize)]
 struct Member {
     id: SemanticId,

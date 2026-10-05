@@ -19,7 +19,7 @@ Behavioral and semantic adequacy of the **proposed contracts** is accepted. Arch
 
 ## Scope and evidence
 
-Independent delegated review by the design-reviewer role, completed 2026-10-02. The assigned filename retains the decision drafts' 2026-10-01 date. The selected standard is Core 3.3, process-simulator 1.3 and the pse-arrow binding. This is a design-tier, target-purpose review of [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md) and [ADR-0151](../../adr/0151-generated-operation-boundaries.md), including their contracts in [25h](../../plans/25h-authoring-and-admission-ownership.md), [25i](../../plans/25i-identity-reuse-and-resource-ownership.md) and [25j](../../plans/25j-generated-boundaries-and-library-consolidation.md).
+Independent delegated review by the design-reviewer role, completed 2026-10-02. The assigned filename retains the decision drafts' 2026-10-01 date. The selected standard is Core 3.3, process-simulator 1.3 and the pse-arrow binding. This is a design-tier, target-purpose review of [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md) and [ADR-0151](../../adr/0151-generated-operation-boundaries.md), including their contracts in [25h](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25h-authoring-and-admission-ownership.md), [25i](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md) and [25j](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25j-generated-boundaries-and-library-consolidation.md).
 
 Source evidence uses clean `bbd7e0d85`; concurrent H/I edits were excluded from implementation judgment. Inspected neighbors include source occurrence/checking, compiler workspace and selected-flow preparation, runtime preparation/rebinding and package view retention, engine policy and validation, rule invariant lowering, operational attempt/schema owners, Python flow decoding and generator collection validation. Architecture owners examined were blueprint §4.6, §5.3, §7.7, §14.3/§14.4, §18.8 and §21.5, with ADR-0146's preservation contract. Pinned Salsa 0.28.4 capability evidence and the existing native DataFusion cache envelope support library fit, not performance claims.
 
@@ -136,6 +136,6 @@ unwind and is recovered as its typed front-door cause. It is not memoized as a s
 so retry with the same inputs remains possible. Confirmation belongs to the targeted controls
 `effect_refusal_does_not_poison_incremental_body_admission` and
 `foreign_retention_cannot_supply_a_body_for_another_dependency_closure`, together with the
-complete-key reuse and owner-release controls in [25i](../../plans/25i-identity-reuse-and-resource-ownership.md).
+complete-key reuse and owner-release controls in [25i](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md).
 Their execution evidence and any remaining failures stay with that plan; this static assessment
 does not claim performance, integrated qualification or full-plan closure.

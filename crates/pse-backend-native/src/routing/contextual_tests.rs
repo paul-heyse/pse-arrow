@@ -707,7 +707,7 @@ fn contextual_unit_highs_conditional_method_and_scaling_are_assessed_before_effe
         bounds: vec![],
         objectives: vec![],
     };
-    let mut accuracy = crate::solve::ResolvedAccuracy::nominal();
+    let mut accuracy = crate::solve::ResolvedAccuracy::verification();
     accuracy.native_scaling = false;
     let normalization = pse_math::normalization::Normalization {
         variables: vec![1.0],
@@ -766,7 +766,7 @@ fn contextual_unit_highs_conditional_method_and_scaling_are_assessed_before_effe
             method: Method::Simplex,
             ..Settings::default()
         }
-        .admit_model(&discrete, &crate::solve::ResolvedAccuracy::nominal())
+        .admit_model(&discrete, &crate::solve::ResolvedAccuracy::verification())
         .is_err()
     );
     let mut quadratic = p.clone();
@@ -783,12 +783,12 @@ fn contextual_unit_highs_conditional_method_and_scaling_are_assessed_before_effe
             method: Method::Simplex,
             ..Settings::default()
         }
-        .admit_model(&quadratic, &crate::solve::ResolvedAccuracy::nominal())
+        .admit_model(&quadratic, &crate::solve::ResolvedAccuracy::verification())
         .is_err()
     );
     assert!(
         Settings::default()
-            .admit_model(&quadratic, &crate::solve::ResolvedAccuracy::nominal())
+            .admit_model(&quadratic, &crate::solve::ResolvedAccuracy::verification())
             .is_ok()
     );
     assert!(
@@ -838,7 +838,7 @@ fn contextual_unit_pounce_threshold_uses_original_keyed_bounds_and_selected_coor
             identity: None,
         },
     );
-    let accuracy = crate::solve::ResolvedAccuracy::nominal();
+    let accuracy = crate::solve::ResolvedAccuracy::verification();
     let tolerances = crate::quality::Tolerances {
         variables: vec![1e-8],
         rows: vec![1e-8],

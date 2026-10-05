@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("58446734fc0a5b67a26804f7e94fd975") package homogeneous_units {
+@id("e17b7edacb1545458fd997ae81d73274") use numerical_policy @"1.0.0";
 @id("01a0f14ead4c77ab98c5380ed6bb4ed2") use constants @"1.0.0";
 @id("01a0ee04daa670cda7ed74af139a9a12") use chemistry @"1.0.0";
 @id("41d6ef942c9852b48bf8e9d69db9bf9c") use helmholtz @"1.0.0";
@@ -22,12 +23,12 @@
 @id("89d10c125b585424944288464b702f0f") let enthalpy:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
 @id("7113433fe9485ccd8019fd9311ef726d") eq composition_binding[j in components]:phase.amount[j]==constants.amount_unit*composition(j);
 @id("22e13fab9fb75e96b8cb2bcf4e06495f") eq pressure_binding:phase.pressure==pressure;
-@id("ebf52965a78d5655b88cac808e48260b") accumulate material:Flow conservation tolerance 1e-7{mol/s};
+@id("ebf52965a78d5655b88cac808e48260b") accumulate material:Flow conservation tolerance numerical_policy.molar_flow;
 @id("7e3054b0e8415aac8fd22042aa493d46") contribute material role inflow=feed;
 @id("919337f9dc9357259c72289621a077b1") contribute material role inflow=auxiliary_feed;
 @id("0ed2b62ea07d570bb1db5f48ec53354e") contribute material role inflow=fraction*recycle;
 @id("bb2c983f9f9b52089c9f924477f4e428") contribute material role outflow=recycle;
-@id("76ab1daed20358bbae083064ed7ec77a") accumulate energy:Power boundary energy_boundary conservation tolerance 0.0001{W};
+@id("76ab1daed20358bbae083064ed7ec77a") accumulate energy:Power boundary energy_boundary conservation tolerance numerical_policy.power;
 @id("e216a54635b754f38a13b922bbd205f9") contribute energy role inflow=recycle*inlet_enthalpy;
 @id("ffbf00e0648b545cb19b3f3444cd50cc") contribute energy role directed=duty;
 @id("b83048504b5756cda535bd343868d2f6") contribute energy role outflow=recycle*enthalpy;

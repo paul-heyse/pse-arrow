@@ -324,12 +324,59 @@ tolerances or infer magnitudes from trial values.
 
 ### 16.1 Resolved numerical policy and normalization
 
+> Decision: ADR-0163 (proposed; authorized implementation).
+
+The contextual engineering target separates conditioning from useful physical accuracy.
+An inherited allowance resolves as `max(F,r*S)`, using the applicable shared physical
+allowance, shared fraction and an independently admitted engineering characteristic scale.
+Explicit requirements retain their existing absolute-plus-relative-times-nominal meaning.
+The scale never follows an iterate or an untagged conditioning nominal.
+
 `pse-model::numerics::NumericalPolicy` holds library-neutral controls: ID-keyed
 analysis requirements, `strict_nominals`, `native_scaling`, independent KKT budgets
 (stationarity, complementarity), an optional separately qualified acceptable-stop
 budget, integrality, continuous and MIP gaps, and independent closure/incumbent policies.
 `pse-math::numerics::resolve` combines it with the selected targets and sourced
 declarations into an immutable `ResolvedNumericalPolicy`.
+
+
+Ordinary engineering design starts with a normalized accuracy of `1e-3` (0.1% of a
+meaningful frozen characteristic scale). The model-owned default supplies physical
+fallback `absolute = 1e-3 * nominal`, independent stationarity/complementarity and
+continuous/MIP gap budgets; explicit sourced requirements retain precedence. Integrality
+keeps its separate `1e-8` discrete-feasibility requirement. These budgets do not establish
+an output-error bound or make the same raw number meaningful in different units.
+
+The reference packages use one shared physical accuracy policy in
+`domain/models/numerical-policy.pse`. Individual reconstruction, transport, balance,
+inventory and output-check slots reference its typed defaults. A distinct explicit value
+remains an override; defaults are changed at the shared owner rather than tuned per fixture.
+The initial temperature and power allowances are 0.1 K and 1 W. A 1 kg process-mass
+allowance is the maintainer's guideline for mass-based analyses; the selected reference
+models currently use molar quantities and have no mass-inventory policy slot. Other typed
+magnitudes account for the small reference simulations; these provisional
+settings are not an output-error certificate or a completed process qualification.
+Authored integration `relative(global)` and `normalized_absolute(global)` select the
+model-owned normalized default at source parsing; explicit numeric controls retain their
+own values. Canonical declarations store the resolved numbers: changing a default requires
+reparsing/recompiling authored sources, not mutating already-persisted declaration rows.
+Generated conservation quadratures initially share the tightest consuming physical
+inventory allowance, without an additional automatic tightening factor.
+
+An analysis can later choose a distinct physical resolution for a decision threshold,
+trace quantity, sensitivity or other named requirement. Integration local error, cumulative
+closure, reference comparisons and native stopping retain independent meanings even when
+their default values share an owner. Fixture output expectations are independent original
+checks; they do not themselves become solver accuracy requests. A needed tighter solve uses
+explicit numerical requirements.
+Production tests check the implemented conditions and declared behavior: numerical stencil
+coefficients and physical mesh spacing, assembly/boundaries, supported derivative/domain
+conditions, termination and original-space acceptance. A process mesh-refinement journey
+checks sampled output stability at a declared decision resolution, not empirical reproduction
+of a theoretical convergence order. Focused numerical verification can use explicit finer
+precision to distinguish implementation errors; it does not set ordinary simulation defaults.
+Finite-difference step size, exact identities and interval-proof controls are not engineering
+output tolerances. Estimated acceptance does not become certified evidence by changing a number.
 
 A target is a variable, row, objective, observable or closure coordinate with its full
 quantity type and unit. Each resolved target records:
@@ -367,6 +414,14 @@ fallback rebuilds them. *Tested* by
 
 ### 16.2 Sources and precedence
 
+> Decision: ADR-0163 (proposed; authorized implementation).
+
+Engineering scale selection has its own precedence: analysis, case, model, applicable
+provider, explicitly tagged range/capacity/reference difference, tagged quantity magnitude.
+Equal-precedence conflicts refuse admission. Affine points use differences/ranges; cancelling
+outputs use their own scale. Zero scale is valid; missing meaningful context uses a recorded
+canonical fallback unless strict engineering completeness is requested.
+
 | Rank | `NumericalSource` | Origin |
 |---|---|---|
 | 7 | `Analysis` | Requirements in the request's `NumericalPolicy` |
@@ -388,6 +443,14 @@ policy. Block and causal/recycle projections carry original units, physical boun
 integrality and provenance; they cannot manufacture a second default interpretation.
 
 ### 16.5 Identity, provenance and persistence
+
+> Decision: ADR-0163 (proposed; authorized implementation).
+
+Admitted goals, physical conversions, selected engineering context and provenance enter the
+frozen acceptance identity. Refinement demands have a distinct consumed-work identity and
+cannot loosen admission. Study members may bind a new context; iterations cannot. Generated
+boundaries carry retained goal assessments and preserve supported older no-goal interpretation
+without rewriting stored bytes; unsupported contract versions refuse explicitly.
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > completion records the actual request, effective settings and submitted start. Plan 22
@@ -428,6 +491,22 @@ performs no second evaluation. Authored scaling schemes and diagnostics consume 
 same resolved policy; comparing policies is a sequence of explicitly prepared analyses.
 
 ### 16.6 Derived native controls and original-space acceptance
+
+> Decision: ADR-0163 (proposed; authorized implementation).
+
+Declared scalar goals independently request output resolution, an inclusive quantitative
+criterion, or both. Estimated evidence is the default; Certified needs an actual valid
+certificate. Criterion-only goals add no unrelated digit requirement. Native feasibility and
+root-selection obligations remain independent of output evidence. Compatible goals share
+residual/factor preparation and output actions. Reserve fixed error before allocating
+reducible contributions; conservative deterministic composition does not use statistical RSS.
+
+Execution selectively refines within existing finite grants, stopping on resolution (including
+a resolved violation), unavailable capability, nonprogress, precision limits or exhausted
+permission. Completion consumes the final assessment once. Assess permits resolved violation
+subject to other obligations; RequireSatisfied additionally refuses it. Unresolved goals retain
+diagnostics and refuse the requested goal-qualified result. No goals means NotRequested and
+adds no accuracy-only factors, proof searches or comparator solves.
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > `CandidateUse` gains `seed_only` and `diagnostic_only` and becomes the only acceptance
@@ -1382,6 +1461,18 @@ native stack, live jobs and flights.
   split of the job reservation to an `AllocationLease` that lives with the result; a
   product larger than the job's working allowance first grows the reservation to its
   extent, and one the pool cannot admit is refused as a pool limit.
+  Conditional block execution reserves the complete original and component result
+  allowance before starting. After all components and the original assessment finish,
+  its unique lease may be partitioned before any report escapes: known report envelopes
+  count actual owned vector/string capacities and conservative map storage, together
+  with conservative source-derived dimension headroom, bounded by the prior complete
+  admission after checking the visible envelope. Excess capacity and arithmetic overflow
+  refuse with a typed memory failure; an opaque extension keeps its complete admission.
+  The partition releases only unused reporting capacity and attaches the retained owner
+  in place. Native scratch, session and analysis owners retain their separate lifetimes.
+  Extracted managed component reports share that owner through teardown. A caller's
+  explicit deep clone copies its payload outside automatic engine admission; sharing
+  the producer's owner does not separately charge or bound those caller allocations.
 - A staged sequence runs on one `NativeSession` (`math/staged.rs`, Plan 22 A6). Opening it
   takes one job slot and a pool reservation for its thread's stack, the foreign allowance
   and the inner-session cache, held until the session closes. Its evaluators draw their

@@ -60,6 +60,7 @@
   },
   "event_ended_trajectory": {
     "assessments": [],
+    "accuracy_goals": [],
     "diagnostics": [],
     "solves": [],
     "computation": {
@@ -183,6 +184,7 @@
   },
   "qualified_incumbent": {
     "assessments": [],
+    "accuracy_goals": [],
     "diagnostics": [],
     "solves": [
       {

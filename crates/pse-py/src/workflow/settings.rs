@@ -23,7 +23,7 @@ fn document<T: DeserializeOwned>(py: Python<'_>, what: &str, bytes: &[u8]) -> Py
 /// The solver profile of an encoded `SolveSettings` document, after native admission of the
 /// rules that relate its fields.
 pub(super) fn solve_profile(py: Python<'_>, bytes: &[u8]) -> PyResult<SolverProfile> {
-    super::documents::decode_versioned::<SolveSettings, 3>(
+    super::documents::decode_versioned::<SolveSettings, 4>(
         py,
         "solve settings",
         bytes,

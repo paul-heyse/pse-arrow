@@ -65,6 +65,7 @@ struct Owned {
     numeric: NumericLu<usize, f64>,
     matrix: SparseColMat<usize, f64>,
     states: Vec<SemanticId>,
+    rows: Vec<SemanticId>,
     point: Vec<f64>,
     scales: Normalization,
     key: SemanticProductKey,
@@ -219,6 +220,7 @@ impl SparseFactor {
                             .iter()
                             .map(|v| v.id)
                             .collect(),
+                        rows: request.scope.contract.rows.clone(),
                         point: request.point.to_vec(),
                         scales: request.normalization.clone(),
                         key: request.key,
@@ -248,6 +250,10 @@ impl SparseFactor {
     /// Ordered original state coordinates.
     pub fn states(&self) -> &[SemanticId] {
         &self.held.states
+    }
+    /// Ordered original equality rows, matching residuals and physical row scales.
+    pub fn rows(&self) -> &[SemanticId] {
+        &self.held.rows
     }
     /// Fresh physical point at which the factor was constructed.
     pub fn point(&self) -> &[f64] {
@@ -352,6 +358,93 @@ impl SparseFactor {
             })?;
         }
     }
+    /// Apply the physical transpose action `J^-T q_x` using the already retained
+    /// normalized sparse factor. This is an estimated adjoint, not a certificate.
+    /// # Errors
+    /// Shape/nonfinite, scope, scratch or backward-error failure.
+    pub fn transpose_action(
+        &self,
+        rhs: &[f64],
+        execution: &Execution,
+    ) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
+        execution.check()?;
+        let n = self.held.point.len();
+        if rhs.len() != n || rhs.iter().any(|x| !x.is_finite()) {
+            return Err(ProblemError::Contract(
+                "sparse response transpose action shape or nonfinite values".into(),
+            ));
+        }
+        let req = self
+            .held
+            .symbolic
+            .solve_in_place_scratch::<f64>(1, Par::Seq);
+        if req.size_bytes() > self.held.allowance {
+            return Err(ProblemError::memory("sparse response transpose scratch"));
+        }
+        let mut memory =
+            MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
+        // J = D_r A D_x^-1, hence J^T lambda=q_x iff
+        // A^T (D_r lambda)=D_x q_x.
+        let b = Mat::from_fn(n, 1, |i, _| rhs[i] * self.held.scales.variables[i]);
+        let mut z = b.clone();
+        let lu = LuRef::new_unchecked(&self.held.symbolic, &self.held.numeric);
+        execution.counted(work_unit(0, 0), || {
+            lu.solve_transpose_in_place_with_conj(
+                Conj::No,
+                z.as_mut(),
+                Par::Seq,
+                MemStack::new(&mut memory),
+            );
+            Ok(())
+        })?;
+        let limit = 64. * n.max(1) as f64 * f64::EPSILON;
+        let mut backsolves = 1;
+        loop {
+            execution.check()?;
+            if z.col(0).iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical(
+                    "nonfinite sparse response transpose action",
+                ));
+            }
+            let mut residual = b.clone();
+            for column in 0..n {
+                for entry in self.held.matrix.symbolic().col_range(column) {
+                    let row = self.held.matrix.symbolic().row_idx()[entry];
+                    residual[(column, 0)] -= self.held.matrix.val()[entry] * z[(row, 0)];
+                }
+            }
+            let error = transpose_backward(self.held.matrix.as_ref(), z.as_ref(), b.as_ref(), residual.as_ref());
+            if error.is_finite() && error <= limit {
+                let values = (0..n)
+                    .map(|i| z[(i, 0)] / self.held.scales.rows[i])
+                    .collect::<Vec<_>>();
+                if values.iter().any(|v| !v.is_finite()) {
+                    return Err(ProblemError::numerical(
+                        "nonfinite physical sparse response transpose",
+                    ));
+                }
+                return Ok((values, ActionEvidence { backward_error: error, limit, backsolves }));
+            }
+            if backsolves == 3 {
+                return Err(ProblemError::numerical(
+                    "sparse response transpose backward-error allowance",
+                ));
+            }
+            execution.counted(work_unit(1, 0), || {
+                lu.solve_transpose_in_place_with_conj(
+                    Conj::No,
+                    residual.as_mut(),
+                    Par::Seq,
+                    MemStack::new(&mut memory),
+                );
+                for i in 0..n {
+                    z[(i, 0)] += residual[(i, 0)];
+                }
+                backsolves += 1;
+                Ok(())
+            })?;
+        }
+    }
 }
 
 fn work_unit(iterations: u64, factorizations: u64) -> WorkEvidence {
@@ -382,6 +475,25 @@ fn backward(
     } else {
         norm(r) / denominator
     }
+}
+
+fn transpose_backward(
+    a: SparseColMatRef<'_, usize, f64>,
+    x: faer::MatRef<'_, f64>,
+    b: faer::MatRef<'_, f64>,
+    r: faer::MatRef<'_, f64>,
+) -> f64 {
+    let norm = |m: faer::MatRef<'_, f64>| m.col(0).iter().map(|v| v.abs()).fold(0., f64::max);
+    // ||A^T||_inf is the largest absolute column sum of A.
+    let mut columns = vec![0.; a.ncols()];
+    for column in 0..a.ncols() {
+        for entry in a.symbolic().col_range(column) {
+            columns[column] += a.val()[entry].abs();
+        }
+    }
+    let denominator = columns.into_iter().fold(0., f64::max) * norm(x) + norm(b);
+    let residual = norm(r);
+    if denominator == 0. { residual } else { residual / denominator }
 }
 /// A fresh sparse state factor paired with the parameter partials evaluated at that
 /// same original point. Every prediction reuses this factor and performs only a
@@ -712,6 +824,22 @@ mod tests {
             held.action(&[-1., 1.], &execution),
             Err(ProblemError::Cancelled)
         ));
+    }
+    #[test]
+    fn transpose_action_applies_physical_scaling_and_charges_only_backsolves() {
+        let admission = Arc::new(Admission { factors: Some(1), ..Default::default() });
+        let execution = admitted(admission.clone());
+        let held = factor(1 << 20, &[2., 1.], &execution).unwrap();
+        // J = [[4, 3], [1, 1]], so J^T [-1, 5] = [1, 2].
+        let (lambda, evidence) = held.transpose_action(&[1., 2.], &execution).unwrap();
+        assert!((lambda[0] + 1.).abs() < 1e-12);
+        assert!((lambda[1] - 5.).abs() < 1e-12);
+        assert!(evidence.backward_error <= evidence.limit);
+        assert_eq!(evidence.backsolves, 1);
+        assert_eq!(
+            *admission.seen.lock().unwrap(),
+            [work_unit(0, 1), work_unit(0, 0)]
+        );
     }
     #[test]
     fn fresh_sparse_action_refuses_allowance_exterior_and_bad_directions() {

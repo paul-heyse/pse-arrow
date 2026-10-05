@@ -12,7 +12,7 @@ decision: Accept
 
 ## 1. Scope, drivers and coverage
 
-This independent review assesses the **Proposed** target in [Plan 25b](../../plans/25b-scientific-knowledge-and-applicability.md), [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md), before implementation. The selected standard is core 3.3 with process-simulator 1.3 and the pse-arrow binding. The boundary is B1–B4: scientific composition evidence, derived reaction/material admission, parameter-record selection/coherence, and applicability evidence with named record/family permissions.
+This independent review assesses the **Proposed** target in [Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md), [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md), before implementation. The selected standard is core 3.3 with process-simulator 1.3 and the pse-arrow binding. The boundary is B1–B4: scientific composition evidence, derived reaction/material admission, parameter-record selection/coherence, and applicability evidence with named record/family permissions.
 
 **Architectural fitness: satisfied for the proposed target. Semantic adequacy: satisfied at document-contract evidence. Overall decision: Accept at Proposed evidence.** This accepts the contracts and their implementation direction; it does not accept the current implementation or establish numerical/scientific qualification.
 
@@ -159,7 +159,7 @@ No passing test count, numerical fidelity, performance or complete family migrat
 
 ADR-0140/0141 precede implementation and route the changed scientific identity, applicability and generated boundary contracts. ADR-0127 remains immutable: the new record amends its parameter/selection consequences while preserving chemical-core placement. Blueprint §9.1/§9.3/§9.7/§9.9/§9.10 and §14.3 take enduring meaning through the decision/design route, including the collection revision. Existing blueprint §20.5 remains the boundary against silent reinterpretation; this review authorizes no persisted-history migration.
 
-[Plan 25's disposition table](../../plans/25-design-remediation.md#finding-dispositions) is the current finding owner; [Plan 25b](../../plans/25b-scientific-knowledge-and-applicability.md) owns B1–B4 implementation state and focused evidence. This review adds no independently maintained backlog. ADR acceptance does not resolve implementation findings or qualify behavior. E3 consumes observations without becoming a second applicability evaluator; G/25k retain their stated durable/integrated responsibilities.
+[Plan 25's disposition table](../../plans/25-design-remediation.md#finding-dispositions) is the current finding owner; [Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md) owns B1–B4 implementation state and focused evidence. This review adds no independently maintained backlog. ADR acceptance does not resolve implementation findings or qualify behavior. E3 consumes observations without becoming a second applicability evaluator; G/25k retain their stated durable/integrated responsibilities.
 
 ## 12. Decision
 

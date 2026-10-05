@@ -32,6 +32,10 @@ pub struct AuthoredNumericalRequirementsRow {
     pub r#absolute_tolerance: Option<f64>,
     ///relative_tolerance
     pub r#relative_tolerance: Option<f64>,
+    ///shared_engineering_allowance
+    pub r#shared_engineering_allowance: Option<bool>,
+    ///engineering_rule_id
+    pub r#engineering_rule_id: Option<crate::generated::identities::EngineeringRuleId>,
     ///unit_id
     pub r#unit_id: Option<pse_ids::SemanticId>,
     ///coordinates
@@ -64,6 +68,14 @@ impl crate::SemanticEq for AuthoredNumericalRequirementsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#relative_tolerance,
                 &other.r#relative_tolerance,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#shared_engineering_allowance,
+                &other.r#shared_engineering_allowance,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#engineering_rule_id,
+                &other.r#engineering_rule_id,
             ) && crate::SemanticEq::semantic_eq(&self.r#unit_id, &other.r#unit_id)
             && crate::SemanticEq::semantic_eq(&self.r#coordinates, &other.r#coordinates)
             && crate::SemanticEq::semantic_eq(&self.r#priority, &other.r#priority)
@@ -102,6 +114,10 @@ impl crate::SemanticFrame for AuthoredNumericalRequirementsRow {
         crate::SemanticFrame::frame(&self.r#absolute_tolerance, hash);
         hash.str(stringify!(r#relative_tolerance));
         crate::SemanticFrame::frame(&self.r#relative_tolerance, hash);
+        hash.str(stringify!(r#shared_engineering_allowance));
+        crate::SemanticFrame::frame(&self.r#shared_engineering_allowance, hash);
+        hash.str(stringify!(r#engineering_rule_id));
+        crate::SemanticFrame::frame(&self.r#engineering_rule_id, hash);
         hash.str(stringify!(r#unit_id));
         crate::SemanticFrame::frame(&self.r#unit_id, hash);
         hash.str(stringify!(r#coordinates));
@@ -128,6 +144,10 @@ impl crate::HeapUsage for AuthoredNumericalRequirementsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scaling_factor))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#absolute_tolerance))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#relative_tolerance))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#shared_engineering_allowance),
+            )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#engineering_rule_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coordinates))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#priority))

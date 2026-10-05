@@ -65,4 +65,4 @@ No end-to-end solver run, library documentation/API assessment, static/hygiene c
 
 Review result: **Revise for B4 implementation acceptance**, with concrete controls above. Architectural target acceptance is unchanged; static inspection does not establish Tested or integrated qualification.
 
-Current dispositions and correction evidence belong to [Plan 25b](../../plans/25b-scientific-knowledge-and-applicability.md#execution-checkpoint).
+Current dispositions and correction evidence belong to [Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md#execution-checkpoint).

@@ -36,6 +36,36 @@ use pse_model::generated::identities::RunId;
 use pse_modeling::specialize::Value;
 use std::{collections::BTreeMap, future::Future, sync::Arc, time::Instant};
 
+/// Keep the final observed facts while recording why optional accuracy work stopped.
+fn accuracy_stop(
+    product: &mut (
+        super::modeling::assessment::AssessedPoint,
+        super::numerics::Completed,
+    ),
+    outcome: &Outcome,
+    policy: &pse_model::numerics::NumericalPolicy,
+    reason: pse_model::generated::enums::AccuracyUnavailableReason,
+) {
+    for goal in &mut product.0.accuracy {
+        if goal.classification.status == pse_model::generated::enums::AccuracyGoalStatus::Unresolved {
+            goal.classification.unavailable = Some(reason);
+        }
+    }
+    product.1 = product.0.completion(outcome, policy);
+}
+
+fn batch_accuracy_stop(
+    product: &mut Option<(
+        super::modeling::assessment::AssessedPoint,
+        super::numerics::Completed,
+    )>,
+    outcome: &Outcome,
+    policy: &pse_model::numerics::NumericalPolicy,
+    reason: pse_model::generated::enums::AccuracyUnavailableReason,
+) {
+    if let Some(product) = product { accuracy_stop(product, outcome, policy, reason); }
+}
+
 /// Where a step starts. Starts are typed; nothing is inferred from a label (F14, F25).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(in crate::workflow) enum Start {
@@ -223,7 +253,7 @@ impl Staged {
     }
     async fn execute(
         &self,
-        prepared: ModelingSolvePreparation,
+        mut prepared: ModelingSolvePreparation,
         obligations: Obligations,
         run_id: RunId,
         attempt: usize,
@@ -235,6 +265,8 @@ impl Staged {
             .assessment(&prepared, obligations, cancel)
             .await?;
         let service = self.runtime.native();
+        prepared.solve = prepared.solve.with_point_accuracy(service)
+            .map_err(crate::math::MathRuntimeError::from)?;
         let owner = service.reserve("math:solve-results", prepared.solve.result_bytes()?)?;
         let point_owner = service.reserve(
             "modeling:qualified-result",
@@ -270,6 +302,8 @@ impl Staged {
                         session: SessionDisposition::RetainCompatible,
                     };
                     crate::math::strategy::Assessed {
+                        accuracy: point.accuracy.clone(),
+                        accuracy_stop: Some(accuracy_stop),
                         original: point.conclusion(&completion),
                         work: point.work.clone(),
                         product: (point, completion),
@@ -393,7 +427,9 @@ impl Staged {
         let mut members = Vec::new();
         for prepared in preparations {
             let point = async {
-                let prepared = prepared.clone();
+                let mut prepared = prepared.clone();
+                prepared.solve = prepared.solve.with_point_accuracy(service)
+                    .map_err(crate::math::MathRuntimeError::from)?;
                 let assessment = prepared
                     .source
                     .assessment(&prepared, obligations, cancel)
@@ -452,6 +488,8 @@ impl Staged {
                             session: SessionDisposition::RetainCompatible,
                         };
                         crate::math::strategy::Assessed {
+                            accuracy: point.accuracy.clone(),
+                            accuracy_stop: Some(batch_accuracy_stop),
                             original: point.conclusion(&completion),
                             work: point.work.clone(),
                             product: Some((point, completion)),
@@ -459,6 +497,8 @@ impl Staged {
                         }
                     }
                     None => crate::math::strategy::Assessed {
+                        accuracy: Vec::new(),
+                        accuracy_stop: None,
                         product: None,
                         original: crate::math::strategy::OriginalConclusion::Unavailable {
                             cause: Arc::new(pse_backend_native::ProblemError::Unsupported(

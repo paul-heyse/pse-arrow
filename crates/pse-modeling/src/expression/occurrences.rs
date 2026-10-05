@@ -747,8 +747,10 @@ pub(crate) fn collect(
             )?;
         }
         if let Some(a) = &v.annotation {
-            c.expression("annotation.target", 0, &a.target)?;
             use crate::annotation::Shape;
+            if a.kind != pse_model::generated::enums::ModelingAnnotationKind::EngineeringRule {
+                c.expression("annotation.target", 0, &a.target)?;
+            }
             match crate::annotation::shape(a, row.declaration_id)? {
                 Shape::Expressions(count) => {
                     for (i, source) in a.arguments[..count].iter().enumerate() {
@@ -770,6 +772,30 @@ pub(crate) fn collect(
                         }
                     }
                 }
+                Shape::AccuracyGoal => {
+                    if let Some(goal) = &a.accuracy_goal {
+                        for (role, source) in [
+                            ("time", &goal.time),
+                            ("resolution", &goal.resolution),
+                            ("criterion_lower", &goal.criterion_lower),
+                            ("criterion_upper", &goal.criterion_upper),
+                        ] {
+                            if let Some(source) = source {
+                                c.expression(
+                                    &format!("annotation.accuracy_goal.{role}"),
+                                    0,
+                                    source,
+                                )?;
+                            }
+                        }
+                    }
+                }
+                Shape::EngineeringScale => {
+                    if let Some(scale) = &a.engineering_scale {
+                        c.expression("annotation.engineering_scale.value", 0, &scale.value)?;
+                    }
+                }
+                Shape::EngineeringDefault | Shape::EngineeringRule => {}
                 Shape::Label => c.static_value("annotation.arguments", 0, &a.arguments[0])?,
                 _ => {}
             }

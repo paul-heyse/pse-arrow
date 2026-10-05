@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e16f32a3739a874c126cc515f27f") package peng_robinson {
+@id("3d24a5e33fdb43e9ae4e5f2ef64d6389") use numerical_policy @"1.0.0";
 @id("15b3790224654c03b371661250d81f8c") use properties @"1.0.0";
 @id("4362a717cefc4e6787f67e9b4532b147") use interactions @"1.0.0";
 
@@ -51,7 +52,7 @@
 @id("01a0e17a4587742dba3702a74b2f5e34") annotation start rho(density_start*constants.density_unit);
 @id("01a0e1b78065727b91c0d5d969c5a0c2") annotation nominal rho(density_start*constants.density_unit);
 @id("01a0e17a4587742dba3702a3987c3535") annotation valid rho(density_lower*constants.density_unit,density_upper*constants.density_unit);
-@id("01a0e17a4587742dba3702a8903e21fb") annotation check rho(abs(pressure-target_pressure)<0.001{Pa});
+@id("01a0e17a4587742dba3702a8903e21fb") annotation check rho(abs(pressure-target_pressure)<=numerical_policy.pressure);
 }
 // Operational selection retains its own density unknown, policy and selected-function binding.
 @id("01a0e17a4587742dba37029883951354") interface DensityRoot extends PressureDensityPhase {
@@ -170,8 +171,8 @@
 coordinate temperature=T;
 coordinate pressure=target_pressure;
 coordinate amount[j in components]=amount[j];
-reconstruct density:pressure==target_pressure tolerance 0.0001{Pa};
-transport pressure=pressure tolerance 0.0001{Pa};
+reconstruct density:pressure==target_pressure tolerance numerical_policy.pressure;
+transport pressure=pressure tolerance numerical_policy.pressure;
 }
 @id("65d7e828d64f4f1c96f4738fe795e6e8") annotation bounds rho(density_lower*constants.density_unit,density_upper*constants.density_unit);
 }

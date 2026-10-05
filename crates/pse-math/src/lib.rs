@@ -13,6 +13,7 @@ pub mod convexity;
 pub mod curvature;
 pub mod derived;
 pub mod diagnostics;
+pub mod engineering_accuracy;
 mod error;
 mod execution;
 pub mod factorable;

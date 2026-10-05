@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("0c743f676d4141ceb2f7b2f0a54fb5d9") package vessels {
+@id("067fb6749d4e4508b2a32232e4d3f04a") use numerical_policy @"1.0.0";
 @id("01a0f14ead4d7118a57e36614af0de22") use constants @"1.0.0";
 @id("01a0ee04daa773329a4687dad894a4c0") use chemistry @"1.0.0";
 @id("a69097f8f9404758a9102eecb2c81c16") use helmholtz @"1.0.0";
@@ -62,12 +63,12 @@
 @id("a15aaedd439f4aeb92830221be9b337a") let outflow[i in t]:Flow=if valve then reference_flow*math.valve_characteristic((cell[i].pressure-downstream)/pressure_width) else prescribed_outflow;
 @id("b395a4932acf491ca597c851f0afef1f") let amount_rate[i in t]:Flow=inflow-outflow[i];
 @id("543eb78f112a4152befe96da45dc70a7") boundary energy_boundary[i in t];
-@id("fc4dff8aacdb47bd9cc0ad4cea69849c") accumulate energy_rate[i in t]:Power boundary energy_boundary[i] accounting tolerance 0.001{W};
+@id("fc4dff8aacdb47bd9cc0ad4cea69849c") accumulate energy_rate[i in t]:Power boundary energy_boundary[i] accounting tolerance numerical_policy.power;
 @id("260992401567437bbd66e7e4350be75b") contribute [i in t] energy_rate[i] role inflow=inflow*inlet_enthalpy;
 @id("f0018b8d97bb4f1dafe5dc14ae8a2007") contribute [i in t] energy_rate[i] role outflow=outflow[i]*cell[i].enthalpy;
 @id("2213bec65dca412396186f0103b9483a") contribute [i in t] energy_rate[i] role directed=transfer(heat,energy_boundary[i],Into);
-@id("88d8f985c7be49988c7612fd0ac051df") conserve amount_balance[i in t]:TotalAmount on t inventory cell[i].amount flux amount_rate[i] tolerance 1e-6{mol};
-@id("1d549832b88f490b8be2c494c7448cad") conserve energy_balance[i in t]:Energy on t inventory cell[i].energy flux energy_rate[i] tolerance 0.001{J};
+@id("88d8f985c7be49988c7612fd0ac051df") conserve amount_balance[i in t]:TotalAmount on t inventory cell[i].amount flux amount_rate[i] tolerance numerical_policy.total_amount;
+@id("1d549832b88f490b8be2c494c7448cad") conserve energy_balance[i in t]:Energy on t inventory cell[i].energy flux energy_rate[i] tolerance numerical_policy.energy;
 @id("b940f28b773b4a2d9a8cc69d711ec871") eq amount_initial:cell[0{s}].amount==initial_amount;
 @id("b8985d9cef2942e1b039e67761699e40") eq energy_initial:cell[0{s}].energy==initial_energy;
 @id("848d4d8b34f64405b8d89cca63de00cf") let accumulated_amount:TotalAmount=integral(i in t | amount_rate[i]);

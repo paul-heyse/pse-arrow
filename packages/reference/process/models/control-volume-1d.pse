@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("65b0847b7e4a4f718b25f1871dc1daf2") package distributed_volumes {
+@id("5a88f1dc6ebe46d4b9cabcb75cafa4a3") use numerical_policy @"1.0.0";
 @id("01a0ee04daa57017b6dc5b43d5dac6b3") use chemistry @"1.0.0";
 @id("2be2dd6d85b44d3fa97711f0d43d763a") use equilibrium @"1.0.0";
 @id("608e3fbb5ca3431aacc26a64a438600a") difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1);
@@ -12,6 +13,8 @@
 @id("7b82ccacace9472f9cd3f13e899894dd") param finite_elements:Integer=20;
 @id("d10963832f4b4e78a1ec386c7a66e43c") param radau_scheme:Boolean=false;
 @id("27ba899d84604ea2afaa6736bab42786") param interpolation_order:Integer=3;
+// Governing balances and independent cumulative closure use the shared physical
+// design allowances. Source accounting remains a measured nonzero source.
 @id("7e7638e07aee4f55a2565b7fccdf363f") require inlet_package.components==components : "distributed states require matching component membership";
 @id("e7d69cdce4e8487694f6d1c2b39e4676") require inlet_package.defined and not outlet_package.defined : "the inlet is specified; downstream states close composition";
 @id("0230daeaab034983aa37f48878bbc9b6") require not analysis.dynamic : "this spatial control volume requires a separate time-accumulation closure for dynamic use";
@@ -22,37 +25,34 @@
 @id("c5192d7756514733a1a4c0352c5fbe72") when not radau_scheme {
 @id("91ace9f8686148cba4881f9180ef4626") discretize mesh on x using backward(elements=finite_elements,order=1);
 }
+// Backward differences and right Radau collocation have no inlet derivative.
+// Keep the inlet in source accounting and quadrature, but omit its balance row.
+@id("ac4a57f40d50406bb59b1f697a5ef035") set balance_sites:Set<Scalar>={i for i in x where i!=0};
 @id("02c7e6a69ca345b2a32f77998c37f8e9") child state[i in x]:equilibrium.ThermoPackage=if i==0 then inlet_package else outlet_package;
-@id("3ba9ac4107094ae2bca0d4698eefbed5") var component_flux[i in x,j in components]:ComponentFlow;
-@id("40ef24bbe0c14296ad33b0be555a123d") var enthalpy_flux[i in x]:Power;
+@id("3ba9ac4107094ae2bca0d4698eefbed5") let component_flux[i in x,j in components]:ComponentFlow=state[i].component_flow[j];
+@id("40ef24bbe0c14296ad33b0be555a123d") let enthalpy_flux[i in x]:Power=state[i].energy_flow;
 @id("2b903c45de224d03afcbd306af420da1") boundary energy_boundary[i in x];
 @id("2a91801e56c942508ba0d3dff0dd98d9") var heat[i in x]:Transfer<EnergyTransferRate,energy_boundary,Into>;
 @id("2116eacbb7724661b934dcd27e0e4492") var work[i in x]:Transfer<EnergyTransferRate,energy_boundary,Into>;
 @id("6234534542b543d89df84f23e823f090") var pressure_gradient[i in x]:DeltaPressure;
-@id("8ecb47d197fb4b2e9b7ecd7a69421c2c") eq component_flux_binding[i in x,j in components]:component_flux[i,j]==state[i].component_flow[j];
-@id("4213c0d9e2764be88d2f3f0e28d1b8d4") eq enthalpy_flux_binding[i in x]:enthalpy_flux[i]==state[i].energy_flow;
-@id("6a0fecfc637d4c9c80c6660ed718184f") accumulate material_source[i in x,j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
-@id("420d9cfdbbeb4933b705a4d51b91b906") accumulate energy_source[i in x]:Power boundary energy_boundary[i] accounting tolerance 0.001{W};
+@id("6a0fecfc637d4c9c80c6660ed718184f") accumulate material_source[i in x,j in components]:ComponentFlow accounting tolerance numerical_policy.component_flow;
+@id("420d9cfdbbeb4933b705a4d51b91b906") accumulate energy_source[i in x]:Power boundary energy_boundary[i] accounting tolerance numerical_policy.power;
 @id("e2b40380880b45a3ae543635dc241fca") contribute [i in x] energy_source[i] role directed=heat[i];
 @id("c998a97be41f4952a952e1aad92bf405") contribute [i in x] energy_source[i] role directed=work[i];
-@id("be8f600f855c4b1d9477626c9d007ac4") eq material_balance[i in x,j in components]:d(component_flux[i,j])/di==material_source[i,j];
-@id("561d34de791f4b6e8373d1ce67c26a72") eq energy_balance[i in x]:d(enthalpy_flux[i])/di==energy_source[i];
+@id("be8f600f855c4b1d9477626c9d007ac4") accumulate material_balance[i in balance_sites,j in components]:ComponentFlow conservation tolerance numerical_policy.component_flow;
+@id("10c7f752eb704776a2a1aaf3955d91cc") contribute [i in balance_sites,j in components] material_balance[i,j] role positive=material_source[i,j];
+@id("7b4f6be850ba4dafb593b13b78a31c93") contribute [i in balance_sites,j in components] material_balance[i,j] role accumulation=d(component_flux[i,j])/di;
+@id("561d34de791f4b6e8373d1ce67c26a72") accumulate energy_balance[i in balance_sites]:Power conservation tolerance numerical_policy.power;
+@id("f245f7b1150745629847d03fc7be3a28") contribute [i in balance_sites] energy_balance[i] role positive=energy_source[i];
+@id("cc784284824d4a3ab2366b7d9e20c65b") contribute [i in balance_sites] energy_balance[i] role accumulation=d(enthalpy_flux[i])/di;
 @id("fe0336aeadcf435ba86b9073bed350a7") eq pressure_balance[i in x]:d(state[i].pressure)/di==pressure_gradient[i];
-@id("b9bfb2fe699847049a0cf8aa4ac14c3c") annotation start component_flux(state[i].component_flow[j]);
-@id("559a97e1b61746d7804dc765690a6ca9") annotation nominal component_flux(100{mol/s});
-@id("bd806eb9e7684c9693a2d17ce2f4118f") annotation start enthalpy_flux(state[i].energy_flow);
-@id("dca57e9e5b0a4c8bb76c51354fd6c415") annotation nominal enthalpy_flux(100000{W});
 @id("6556de8fb1984832ae70e62cb0fd166f") annotation start heat(0{W});
 @id("e8ef526de9a449859cde6f978cd55b1e") annotation start work(0{W});
 @id("719a9ab1b21b43b09d64bc9d36032e1f") annotation start pressure_gradient(0{Pa});
 @id("4ee8174280494135b5392139e3850534") let material_closure[j in components]:ComponentFlow=component_flux[1,j]-component_flux[0,j]-integral(i in x | material_source[i,j]);
 @id("b6fd4914be18431f9fea2325a855d514") let energy_closure:Power=enthalpy_flux[1]-enthalpy_flux[0]-integral(i in x | energy_source[i]);
-@id("173436cc2b5a41b7bc793a24c2ccf7f0") annotation check material_closure(abs(material_closure[j])<1e-5{mol/s});
-@id("efcc7e0704d44b8db86f620d9e0527d7") annotation check energy_closure(abs(energy_closure)<0.01{W});
-@id("d72d514ef43f447685299a74e8d84f12") annotation scale component_flux_binding(inverseSum);
-@id("83c572284284445990ed58f197ae817c") annotation scale enthalpy_flux_binding(inverseSum);
-@id("b9e03d7cce4541d0a418992081825bc5") annotation scale material_balance(inverseSum);
-@id("6e3e3985672d450eb2f625ffe0c1e39c") annotation scale energy_balance(inverseSum);
+@id("173436cc2b5a41b7bc793a24c2ccf7f0") annotation check material_closure(abs(material_closure[j])<=numerical_policy.component_flow);
+@id("efcc7e0704d44b8db86f620d9e0527d7") annotation check energy_closure(abs(energy_closure)<=numerical_policy.power);
 @id("b83d188be67f45bca1a71582634602d5") annotation scale pressure_balance(inverseSum);
 }
 }

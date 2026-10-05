@@ -629,6 +629,14 @@ def test_flash_sweep_prepares_structure_once(
     for index in range(len(temperatures)):
         result = study.result(index)
         assert result is not None, study.failure(index)
+        if not result.usable:
+            checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
+            failed_checks = [row for row in checks if not row["satisfied"]]
+            pytest.fail(
+                f"point {index}, inlet temperature {temperatures[index]} K: "
+                f"{tuple(diagnostic.message for diagnostic in result.diagnostics())}; "
+                f"failed physical checks {failed_checks}"
+            )
         # Independent points retain physical checks; the original oracle fixture remains
         # qualified separately at its single 368 K feed.
         (attempt,) = pa.table(result.table("runtime.solve_runs")).to_pylist()
@@ -655,14 +663,6 @@ def test_flash_sweep_prepares_structure_once(
             )
         else:
             assert attempt["termination"] == NativeTermination.SUCCESS
-        if not result.usable:
-            checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
-            failed_checks = [row for row in checks if not row["satisfied"]]
-            pytest.fail(
-                f"point {index}, inlet temperature {temperatures[index]} K: "
-                f"{tuple(diagnostic.message for diagnostic in result.diagnostics())}; "
-                f"failed physical checks {failed_checks}"
-            )
         values.append(
             pa.table(result.table("runtime.solve_variables"))
             .column("value")

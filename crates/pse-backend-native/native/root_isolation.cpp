@@ -31,6 +31,9 @@ struct PseChartChainResult { uint32_t status; uint64_t proof_cells, charts, conn
 struct PseRootResult {
     uint32_t status; uint64_t cells, solution, boundary, unknown, pending;
 };
+struct PsePointArithmeticResult {
+    uint32_t status; uint64_t guard_evaluations, value_evaluations, jacobian_evaluations, hessian_evaluations;
+};
 // status: 0 unique selection, 2 chart, 3 coverage, 4 resource, 5 boundary, 6 unsupported.
 int32_t pse_ibex_certify(const PseRootRequest*, uint32_t count, uint32_t winner,
     PseRootResult*, double* parameter_lower,
@@ -76,7 +79,8 @@ struct Graph {
     std::unique_ptr<System> equations;
     std::vector<std::unique_ptr<Function>> guard_values;
     std::unique_ptr<Function> score_value, tolerance_value;
-    Graph(const PseRootRequest& r,Budget& budget,bool competitive=false,double threshold=0.0) {
+    Graph(const PseRootRequest& r,Budget& budget,bool competitive=false,double threshold=0.0,
+        uint32_t arithmetic_outputs=0) {
         const int dimension=static_cast<int>(r.unknown_count+r.parameter_count);
         const Dim input_dimension=Dim::col_vec(dimension);
         const ExprSymbol& x=ExprSymbol::new_("coordinates",input_dimension);
@@ -94,11 +98,12 @@ struct Graph {
             case 2: case 3: {
                 if(n.begin>r.edge_count||n.count>r.edge_count-n.begin) throw std::invalid_argument("edges");
                 std::vector<const ExprNode*> layer; layer.reserve(n.count);
-                for(uint32_t j=0;j<n.count;++j) layer.push_back(&child(r.edges[n.begin+j]));
+                for(uint32_t j=0;j<n.count;++j) { budget.check();layer.push_back(&child(r.edges[n.begin+j])); }
                 if(layer.empty()) layer.push_back(&arena.keep(ExprConstant::new_scalar(Interval(n.op==2?0.0:1.0))));
                 while(layer.size()>1) {
                     std::vector<const ExprNode*> next; next.reserve((layer.size()+1)/2);
                     for(size_t j=0;j<layer.size();j+=2) {
+                        budget.check();
                         if(j+1==layer.size()) next.push_back(layer[j]);
                         else if(n.op==2) next.push_back(&arena.keep(*layer[j]+*layer[j+1]));
                         else next.push_back(&arena.keep(*layer[j]* *layer[j+1]));
@@ -118,7 +123,8 @@ struct Graph {
             expr.push_back(e);
         }
         SystemFactory factory; factory.set_simplification_level(0); factory.add_var(x);
-        for(uint32_t i=0;i<r.unknown_count;++i) {
+        const uint32_t output_count=arithmetic_outputs?arithmetic_outputs:r.unknown_count;
+        for(uint32_t i=0;i<output_count;++i) {
             if(r.residuals[i]>=expr.size()) throw std::invalid_argument("residual");
             factory.add_ctr(ExprCtr(*expr[r.residuals[i]],LEQ));
             factory.add_ctr(ExprCtr(*expr[r.residuals[i]],GEQ));
@@ -149,7 +155,7 @@ struct Graph {
         }
         residual=std::make_unique<System>(factory);
         SystemFactory equations_factory; equations_factory.set_simplification_level(0); equations_factory.add_var(x);
-        for(uint32_t i=0;i<r.unknown_count;++i) equations_factory.add_ctr_eq(*expr[r.residuals[i]]);
+        for(uint32_t i=0;i<output_count;++i) equations_factory.add_ctr_eq(*expr[r.residuals[i]]);
         equations=std::make_unique<System>(equations_factory);
         Array<const ExprNode> outputs(static_cast<int>(expr.size()+closure.size()));
         for(size_t i=0;i<expr.size();++i) outputs.set_ref(static_cast<int>(i),*expr[i]);
@@ -177,15 +183,21 @@ struct Graph {
     }
 };
 enum class GuardState { Admitted, Invalid, Crossing };
-GuardState guards(const PseRootRequest& r, Graph& graph, const IntervalVector& box, bool chart,bool domain_only=false) {
+GuardState guards(const PseRootRequest& r, Graph& graph, const IntervalVector& box, bool chart,bool domain_only=false,
+    Budget* budget=nullptr,uint64_t* evaluations=nullptr) {
     bool crossing=false;
     for(uint32_t i=0;i<r.guard_count;++i) {
         const auto& g=r.guards[i]; if((g.chart_only&&!chart)||(domain_only&&!g.domain)) continue;
+        if(budget) budget->check();
         if(g.node>=r.node_count||g.kind>4) throw std::invalid_argument("guard");
         Interval image;
-        try { image=graph.guard_values[i]->eval(box); }
+        try {
+            if(evaluations) ++*evaluations;
+            image=graph.guard_values[i]->eval(box);
+        }
         catch (const std::bad_alloc&) { throw; }
         catch (...) { throw Boundary(); }
+        if(budget) budget->check();
         if(image.is_empty()||!std::isfinite(image.lb())||!std::isfinite(image.ub())) {
             crossing=true; continue;
         }
@@ -417,6 +429,81 @@ bool predictive_seed(const PseRootRequest& r,Graph& graph,const IntervalVector& 
     const bool admitted=guards(r,graph,seed,true)==GuardState::Admitted;
     budget.check();return admitted;
 }
+}
+// Original-point arithmetic only: no contraction, inverse, root search or tolerance.
+// Rectangular outputs retain row order; the library owns outward evaluation and AD.
+extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
+    uint32_t output_count,uint32_t order,PsePointArithmeticResult* out,double* value_lower,
+    double* value_upper,double* jacobian_lower,double* jacobian_upper,
+    double* hessian_lower,double* hessian_upper) noexcept {
+    if(!request||!out) return -1;
+    *out={6,0,0,0,0};
+    try {
+        const auto& r=*request;
+        if(!r.nodes||!r.edges||!r.residuals||!r.lower||!r.upper||(r.guard_count&&!r.guards)||
+            !value_lower||!value_upper||(order!=0&&(!jacobian_lower||!jacobian_upper))||
+            r.node_count==0||r.node_count>65536||r.edge_count>1048576||r.guard_count>8192||
+            r.unknown_count==0||r.unknown_count>128||r.parameter_count!=0||
+            output_count==0||output_count>512||r.score>=r.node_count||r.tolerance>=r.node_count||
+            !std::isfinite(r.seconds)||r.seconds<=0||order>2) return 0;
+        if(order==2&&(!hessian_lower||!hessian_upper||r.unknown_count>32||output_count>128||
+            static_cast<uint64_t>(output_count)*r.unknown_count*r.unknown_count>32768)) {
+            out->status=4;return 0;
+        }
+        Budget budget{r};budget.check();
+        IntervalVector point(static_cast<int>(r.unknown_count));
+        for(uint32_t i=0;i<r.unknown_count;++i) {
+            if(!std::isfinite(r.lower[i])||!std::isfinite(r.upper[i])||r.lower[i]>r.upper[i]) return 0;
+            point[i]=Interval(r.lower[i],r.upper[i]);
+        }
+        Graph graph(r,budget,false,0.0,output_count);budget.check();
+        if(guards(r,graph,point,order!=0,false,&budget,&out->guard_evaluations)!=GuardState::Admitted)
+            throw Boundary();
+        budget.check();++out->value_evaluations;
+        const auto values=graph.equations->f_ctrs.eval_vector(point);budget.check();
+        if(values.is_empty()||values.size()!=static_cast<int>(output_count)) throw Boundary();
+        for(uint32_t i=0;i<output_count;++i) {
+            budget.check();
+            if(!std::isfinite(values[i].lb())||!std::isfinite(values[i].ub())) throw Boundary();
+            value_lower[i]=values[i].lb();value_upper[i]=values[i].ub();
+        }
+        if(order!=0) {
+            budget.check();++out->jacobian_evaluations;
+            const auto jacobian=graph.equations->f_ctrs.jacobian(point);budget.check();
+            if(jacobian.is_empty()||jacobian.nb_rows()!=static_cast<int>(output_count)||
+                jacobian.nb_cols()!=static_cast<int>(r.unknown_count)) throw Boundary();
+            for(uint32_t i=0;i<output_count;++i) for(uint32_t j=0;j<r.unknown_count;++j) {
+                budget.check();
+                const auto& entry=jacobian[i][j];
+                if(entry.is_empty()||!std::isfinite(entry.lb())||!std::isfinite(entry.ub())) throw Boundary();
+                const size_t offset=static_cast<size_t>(i)*r.unknown_count+j;
+                jacobian_lower[offset]=entry.lb();jacobian_upper[offset]=entry.ub();
+            }
+        }
+        if(order==2) for(uint32_t i=0;i<output_count;++i) {
+            // Scalar component differential is the library-owned gradient;
+            // differentiating it at the same point supplies the dense Hessian.
+            budget.check();
+            const Function& component=graph.equations->f_ctrs[static_cast<int>(i)];
+            const Function& gradient=component.diff();budget.check();
+            ++out->hessian_evaluations;
+            const auto hessian=gradient.jacobian(point);budget.check();
+            if(hessian.is_empty()||hessian.nb_rows()!=static_cast<int>(r.unknown_count)||
+                hessian.nb_cols()!=static_cast<int>(r.unknown_count)) throw Boundary();
+            for(uint32_t j=0;j<r.unknown_count;++j) for(uint32_t k=0;k<r.unknown_count;++k) {
+                const auto& entry=hessian[j][k];
+                if(entry.is_empty()||!std::isfinite(entry.lb())||!std::isfinite(entry.ub())) throw Boundary();
+                const size_t offset=(static_cast<size_t>(i)*r.unknown_count+j)*r.unknown_count+k;
+                hessian_lower[offset]=entry.lb();hessian_upper[offset]=entry.ub();
+            }
+        }
+        budget.check();out->status=0;
+    } catch(const Resource&) {out->status=4;}
+      catch(const Boundary&) {out->status=5;}
+      catch(const std::bad_alloc&) {out->status=4;}
+      catch(const std::invalid_argument&) {out->status=6;}
+      catch(...) {out->status=6;}
+    return 0;
 }
 extern "C" int32_t pse_ibex_certify(const PseRootRequest* requests,uint32_t count,uint32_t winner,PseRootResult* out,
     double* pl,double* pu,double* el,double* eu,double* ul,double* uu) noexcept {

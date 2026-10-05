@@ -6,8 +6,11 @@
 
 | Relation | Invariant | Native SQL |
 |---|---|---|
+| `authored.accuracy_goals` | `unique:pk` | `SELECT s."goal_id" FROM "authored"."accuracy_goals" s GROUP BY s."goal_id" HAVING COUNT(*) > 1` |
 | `authored.documents` | `foreign_key:package_id` | `SELECT DISTINCT s."document_id" FROM (SELECT * FROM (SELECT s."document_id", s."package_id" AS "__pse_value" FROM "authored"."documents" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."__pse_value" = t."package_id")` |
 | `authored.documents` | `unique:pk` | `SELECT s."document_id" FROM "authored"."documents" s GROUP BY s."document_id" HAVING COUNT(*) > 1` |
+| `authored.engineering_default_rules` | `unique:pk` | `SELECT s."rule_id" FROM "authored"."engineering_default_rules" s GROUP BY s."rule_id" HAVING COUNT(*) > 1` |
+| `authored.engineering_scales` | `unique:pk` | `SELECT s."scale_id" FROM "authored"."engineering_scales" s GROUP BY s."scale_id" HAVING COUNT(*) > 1` |
 | `authored.entities` | `foreign_key:package_id` | `SELECT DISTINCT s."entity_id" FROM (SELECT * FROM (SELECT s."entity_id", s."package_id" AS "__pse_value" FROM "authored"."entities" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."__pse_value" = t."package_id")` |
 | `authored.entities` | `foreign_key:parent_entity_id` | `SELECT DISTINCT s."entity_id" FROM (SELECT * FROM (SELECT s."entity_id", s."parent_entity_id" AS "__pse_value" FROM "authored"."entities" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."entities" t WHERE s."__pse_value" = t."entity_id")` |
 | `authored.entities` | `unique:pk` | `SELECT s."entity_id" FROM "authored"."entities" s GROUP BY s."entity_id" HAVING COUNT(*) > 1` |
@@ -91,6 +94,7 @@
 | `reference.unit_sets` | `unique:pk` | `SELECT s."unit_set_id" FROM "reference"."unit_sets" s GROUP BY s."unit_set_id" HAVING COUNT(*) > 1` |
 | `reference.units` | `foreign_key:reference_state_id` | `SELECT DISTINCT s."unit_id" FROM (SELECT * FROM (SELECT s."unit_id", s."reference_state_id" AS "__pse_value" FROM "reference"."units" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "reference"."reference_states" t WHERE s."__pse_value" = t."reference_state_id")` |
 | `reference.units` | `unique:pk` | `SELECT s."unit_id" FROM "reference"."units" s GROUP BY s."unit_id" HAVING COUNT(*) > 1` |
+| `runtime.accuracy_goal_assessments` | `unique:pk` | `SELECT s."run_id", s."step", s."goal_id" FROM "runtime"."accuracy_goal_assessments" s GROUP BY s."run_id", s."step", s."goal_id" HAVING COUNT(*) > 1` |
 | `runtime.artifact_descriptors` | `unique:pk` | `SELECT s."artifact_id" FROM "runtime"."artifact_descriptors" s GROUP BY s."artifact_id" HAVING COUNT(*) > 1` |
 | `runtime.artifact_migration_lineage` | `unique:pk` | `SELECT s."source_publication_id", s."target_relation_id", s."output_catalog", s."output_schema", s."output_table" FROM "runtime"."artifact_migration_lineage" s GROUP BY s."source_publication_id", s."target_relation_id", s."output_catalog", s."output_schema", s."output_table" HAVING COUNT(*) > 1` |
 | `runtime.cache_entry_statistics` | `unique:pk` | `SELECT s."cache", s."key" FROM "runtime"."cache_entry_statistics" s GROUP BY s."cache", s."key" HAVING COUNT(*) > 1` |

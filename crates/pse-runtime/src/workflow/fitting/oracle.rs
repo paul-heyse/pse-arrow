@@ -731,6 +731,7 @@ impl FitProblem {
             (Some(report), candidate)
         };
         let mut report = FitReport {
+            completion: None,
             strategy: None,
             checks: vec![],
             reports: vec![],

@@ -427,7 +427,7 @@ fn run_normalized(
 ) -> Result<SolveReport, ProblemError> {
     let n = program.variables.len();
     let m = program.rows.len();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(n, m);
     let mut original = Original(case);
     let mut relaxed = || case.relaxed_oracle();
@@ -840,7 +840,7 @@ fn certify_known_global_optimum() {
     assert!(quartic_value(global) < quartic_value(local) - 2.0);
     // A local solve from the start point stays in the local basin.
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(2, 1);
     let normalization = Normalization::identity(2, 1);
     let ipopt = execution::nlp(
@@ -1210,7 +1210,7 @@ fn unbounded_variable_refused_for_spatial_branching() {
 #[test]
 fn scip_internal_ipopt_uses_typed_linear_solver() {
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     // The nested Ipopt's linear solver comes from the typed setting, default MUMPS.
     let defaults =
         scip::testing::configured(&ScipSettings::default(), &controls, &accuracy).unwrap();
@@ -1441,7 +1441,7 @@ fn run_budgeted(
     let (n, m) = (program.variables.len(), program.rows.len());
     let accuracy = ResolvedAccuracy {
         feasibility: budget,
-        ..ResolvedAccuracy::nominal()
+        ..ResolvedAccuracy::verification()
     };
     let tolerances = Tolerances {
         variables: vec![budget; n],
@@ -1612,7 +1612,7 @@ fn scip_falsely_proves_the_bt_pr_liquid_tpd_infeasible() {
         .join("../../tests/fixtures/scip/bt-pr-liquid-tpd.cip");
     let accuracy = ResolvedAccuracy {
         feasibility: 1e-8,
-        ..ResolvedAccuracy::nominal()
+        ..ResolvedAccuracy::verification()
     };
     // x1 is the reference density, x3 the temperature, x5 and x6 the feed amounts; x0 and
     // x4 enter only bound rows.
@@ -1991,6 +1991,54 @@ fn exact_mode_on_delicate_milp() {
         ),
         Err(ProblemError::Unsupported(m)) if m.contains("exact")
     ));
+}
+
+#[test]
+fn exact_optimal_objective_transport_requires_original_affine_source() {
+    use pse_math::factorable::{Constant, Node, Rational};
+    let registry = standard_registry().unwrap();
+    let case = delicate(&registry);
+    let native = case.program(&FactorableRequest::default());
+    let report = run_with(&case, &native, SolveIntent::Certify, false, false,
+        &ScipSettings {exact: true, ..ScipSettings::default()}, &Controls::default(),
+        &mut Retained::default()).unwrap();
+    let receipt = report.global.as_ref().unwrap().exact_objective_transport.as_ref().unwrap();
+    let execution = Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default());
+    let original = case.assembly.exact_value_factorable_program(&case.values, 256, &execution.cancel).unwrap();
+    let point = &report.candidate.as_ref().unwrap().primal;
+    let enclosed = receipt.original_interval(&original, point, &execution).unwrap().unwrap();
+    assert_eq!((enclosed.lower, enclosed.upper), (1., 1.));
+    #[cfg(feature = "root-isolation")]
+    {
+        use crate::root_isolation::{Ibex, PointArithmeticEvidence};
+        assert!(case.assembly.point_arithmetic_program(&case.values, 256, &execution.cancel).unwrap().is_none(),
+            "discrete First arithmetic makes no derivative regularity claim");
+        let program = case.assembly.point_arithmetic_program_for_order(&case.values,
+            DerivativeOrder::Value, 256, &execution.cancel).unwrap().unwrap();
+        let bytes = Ibex.point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value).unwrap();
+        let region = point.iter().map(|v| pse_math::implicit::ProofInterval {lower: *v, upper: *v}).collect::<Vec<_>>();
+        let PointArithmeticEvidence::Enclosed {values, jacobian, hessian, work} =
+            Ibex.enclose_arithmetic_box_values_with_execution(&program, &region, bytes, &execution).unwrap()
+            else { panic!("actual discrete singleton Value arithmetic withheld"); };
+        let objective = values[program.objective.unwrap()];
+        assert!(objective.lower <= 1. && objective.upper >= 1.);
+        assert!(jacobian.is_empty() && hessian.is_none());
+        assert_eq!(work.value_evaluations, 1);
+        assert_eq!(work.jacobian_evaluations + work.hessian_evaluations, 0);
+    }
+    let mut rational_mismatch = original.clone();
+    let constant = rational_mismatch.nodes.iter_mut().find(|node|
+        matches!(node, Node::Const(value) if value.value() == 1e9)).unwrap();
+    *constant = Node::Const(Constant::Rational(Rational::new(1, 3)));
+    assert!(receipt.original_interval(&rational_mismatch, point, &execution).unwrap().is_none());
+    let mut bounds = original.clone(); bounds.rows[0].upper += 1.;
+    assert!(receipt.original_interval(&bounds, point, &execution).unwrap().is_none());
+    let mut other_point = point.clone(); other_point[0] += 1.;
+    assert!(receipt.original_interval(&original, &other_point, &execution).unwrap().is_none());
+    execution.cancel.store(true, Ordering::Release);
+    assert!(matches!(receipt.original_interval(&original, point, &execution), Err(ProblemError::Cancelled)));
+    let float = run(&case, &native, SolveIntent::Certify, false, false).unwrap();
+    assert!(float.global.as_ref().unwrap().exact_objective_transport.is_none());
 }
 
 /// A price sequence on one commitment MILP: max Σ pₜ·xₜ − 3·Σ uₜ with xₜ ≤ 5uₜ,
@@ -2432,7 +2480,7 @@ fn scip_incumbent_events_apply_offset() {
             ..ScipSettings::default()
         };
         let controls = Controls::default();
-        let accuracy = ResolvedAccuracy::nominal();
+        let accuracy = ResolvedAccuracy::verification();
         let tolerances = tolerances(n, m);
         let normalization = Normalization::identity(n, m);
         let mut original = Original(&case);
@@ -2581,7 +2629,7 @@ fn highs_native(case: &Case) -> SolveReport {
     let n = problem.contract.variables.len();
     let m = problem.bounds.len();
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let row_bounds = case
@@ -2964,7 +3012,7 @@ fn epigraph_incumbent_reports_function_value() {
         ..ScipSettings::default()
     };
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(1, 0);
     let normalization = Normalization::identity(1, 0);
     let mut original = Original(&case);
@@ -3115,7 +3163,7 @@ fn scip_concurrent_solve_cancels() {
     let program = case.program(&FactorableRequest::default());
     let n = program.variables.len();
     let m = program.rows.len();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let initial = case.initial();
@@ -3177,7 +3225,7 @@ fn scip_concurrent_streams_incumbents() {
     let program = case.program(&FactorableRequest::default());
     let n = program.variables.len();
     let m = program.rows.len();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let initial = case.initial();

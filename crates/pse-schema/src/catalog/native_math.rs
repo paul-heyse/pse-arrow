@@ -160,6 +160,102 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ["variable", "row", "objective", "observable", "closure"],
     );
     enumeration(b, "NumericalCoordinates", ["physical", "normalized"]);
+    identity(
+        b,
+        "accuracy_goal",
+        "A scoped engineering output accuracy or decision goal.",
+    );
+    identity(
+        b,
+        "engineering_scale",
+        "An explicitly declared engineering characteristic magnitude.",
+    );
+    identity(
+        b,
+        "engineering_rule",
+        "A typed shared engineering allowance rule.",
+    );
+    enumeration(
+        b,
+        "AccuracyGoalSubject",
+        ["selected_output", "optimal_objective"],
+    );
+    enumeration(
+        b,
+        "AccuracyObservation",
+        ["steady", "sample", "endpoint", "integrated"],
+    );
+    enumeration(b, "AccuracyGoalUse", ["assess", "require_satisfied"]);
+    enumeration(
+        b,
+        "AccuracyGoalStatus",
+        ["not_requested", "satisfied", "violated", "unresolved"],
+    );
+    enumeration(
+        b,
+        "AccuracyResolutionStatus",
+        ["not_requested", "met", "unmet", "unavailable"],
+    );
+    enumeration(
+        b,
+        "AccuracyCriterionStatus",
+        ["not_requested", "satisfied", "violated", "unresolved"],
+    );
+    enumeration(
+        b,
+        "EngineeringScaleKind",
+        ["magnitude", "range_width", "reference_difference"],
+    );
+    enumeration(
+        b,
+        "AccuracyEvidenceInterpretation",
+        [
+            "output_error",
+            "residual_error",
+            "linear_backward_error",
+            "local_integration_error",
+            "empirical_output_variation",
+            "objective_interval",
+        ],
+    );
+    enumeration(
+        b,
+        "AccuracyEvidenceMethod",
+        [
+            "square_correction",
+            "kkt_correction",
+            "certified_enclosure",
+            "qualified_objective_interval",
+            "dynamic_comparison",
+            "composed_output",
+        ],
+    );
+    enumeration(
+        b,
+        "AccuracyUnavailableReason",
+        [
+            "missing_observation",
+            "missing_evidence",
+            "unsupported",
+            "unsupported_observation",
+            "evaluator_uncertainty",
+            "regularity",
+            "invalid_validity",
+            "branch_ambiguity",
+            "boundary",
+            "insufficient_strength",
+            "insufficient_accuracy",
+            "nonfinite",
+            "precision_limit",
+            "resource_limit",
+            "budget",
+            "cancelled",
+            "nonprogress",
+            "fixed_error_floor",
+            "refinement_disallowed",
+            "failed",
+        ],
+    );
     enumeration(
         b,
         "NumericalSource",
@@ -353,6 +449,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "closure_allowed",
             "applicability_unknown_allowed",
             "applicability_extrapolation_allowed",
+            "accuracy_estimated",
+            "accuracy_empirical",
+            "engineering_canonical_fallback",
         ],
     );
     enumeration(
@@ -377,6 +476,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "relaxed_incumbent",
             "incumbent_refused",
             "feasibility_unavailable",
+            "accuracy_unresolved",
+            "accuracy_violated",
         ],
     );
     enumeration(
@@ -440,8 +541,138 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     );
     relation(
         b,
+        N::Authored,
+        "accuracy_goals",
+        S::Model,
+        &["goal_id"],
+        vec![
+            column("goal_id", T::id()).with_owned_identity("accuracy_goal"),
+            model_id("The definition selecting this engineering goal.").optional(),
+            case_id("The selected case declaring this goal."),
+            instance_id("The selected instance declaring this goal."),
+            fit_id("The fit declaring this goal."),
+            column("target_id", T::id()),
+            column("target_kind", T::enumeration("NumericalTarget")),
+            column("quantity_id", T::id()),
+            column("unit_id", T::id()),
+            column("subject", T::enumeration("AccuracyGoalSubject")),
+            column("observation", T::enumeration("AccuracyObservation")),
+            column("time", real()).optional(),
+            column("resolution", real()).optional(),
+            column("criterion_lower", real()).optional(),
+            column("criterion_upper", real()).optional(),
+            column("required_class", T::enumeration("NumericalAccuracyClass")),
+            column("use_policy", T::enumeration("AccuracyGoalUse")),
+            column("refine", flag()),
+            column("source", T::enumeration("NumericalSource")),
+            column("priority", T::native(D::Int32)),
+            column("provenance", text()),
+        ],
+        "Scoped selected scalar output or original optimal-objective goal. Admission requires resolution or an inclusive criterion, a finite positive physical resolution when present, compatible point conversion for limits and magnitude conversion for errors, an admitted observation, and Estimated or Certified requested strength. RequireSatisfied requires a criterion. Refinement permission is bounded by the enclosing execution grant; declarations prescribe no estimator or native iteration policy.",
+    );
+    relation(
+        b,
+        N::Authored,
+        "engineering_scales",
+        S::Model,
+        &["scale_id"],
+        vec![
+            column("scale_id", T::id()).with_owned_identity("engineering_scale"),
+            model_id("The definition selecting this engineering scale.").optional(),
+            case_id("The selected case declaring this engineering scale."),
+            instance_id("The selected instance declaring this engineering scale."),
+            fit_id("The fit declaring this engineering scale."),
+            column("target_id", T::id()),
+            column("target_kind", T::enumeration("NumericalTarget")),
+            column("quantity_id", T::id()),
+            column("unit_id", T::id()),
+            column("kind", T::enumeration("EngineeringScaleKind")),
+            column("value", real()),
+            column("source", T::enumeration("NumericalSource")),
+            column("priority", T::native(D::Int32)),
+            column("provenance", text()),
+        ],
+        "Explicit engineering characteristic magnitude in the declared unit representation, converted once during resolution. Admission requires a finite nonnegative value and full quantity compatibility. Zero is valid. Range widths and reference differences retain their interpretation; a conditioning nominal, arbitrary bound or unknown solution coordinate is not implicitly an engineering scale. Source selection and conflict semantics belong to model admission.",
+    );
+    relation(
+        b,
+        N::Authored,
+        "engineering_default_rules",
+        S::Model,
+        &["rule_id"],
+        vec![
+            column("rule_id", T::id()).with_owned_identity("engineering_rule"),
+            column("quantity_id", T::id()),
+            column("unit_id", T::id()),
+            column("physical_allowance", real()).optional(),
+            column("relative_fraction", real()).optional(),
+            column("provenance", text()),
+        ],
+        "Typed shared engineering defaults selected by full quantity meaning rather than SI dimensions alone. Physical allowances are positive magnitudes in the declared unit representation and relative fractions are nonnegative when present. Admission owns validity, applicability and default inheritance; referencing a rule does not convert an inherited allowance into an explicit numeric override.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "accuracy_goal_assessments",
+        S::Derived,
+        &["run_id", "step", "goal_id"],
+        vec![
+            run_id(),
+            column("step", ordinal()),
+            column("goal_id", T::id()).with_identity("accuracy_goal"),
+            model_id("The definition whose selected goal was assessed.").optional(),
+            case_id("The selected case whose goal was assessed."),
+            instance_id("The selected instance whose goal was assessed."),
+            fit_id("The fit whose goal was assessed."),
+            column("target_id", T::id()),
+            column("target_kind", T::enumeration("NumericalTarget")),
+            column("quantity_id", T::id()),
+            column("unit_id", T::id()),
+            column("subject", T::enumeration("AccuracyGoalSubject")),
+            column("observation", T::enumeration("AccuracyObservation")),
+            column("time", real()).optional(),
+            column("value", real()).optional(),
+            column("interval_lower", real()).optional(),
+            column("interval_upper", real()).optional(),
+            column("error", real()).optional(),
+            column("accuracy_class", T::enumeration("NumericalAccuracyClass")).optional(),
+            column("required_class", T::enumeration("NumericalAccuracyClass")),
+            column("status", T::enumeration("AccuracyGoalStatus")),
+            column(
+                "resolution_status",
+                T::enumeration("AccuracyResolutionStatus"),
+            ),
+            column(
+                "criterion_status",
+                T::enumeration("AccuracyCriterionStatus"),
+            ),
+            column("use_policy", T::enumeration("AccuracyGoalUse")),
+            column("resolution", real()).optional(),
+            column("criterion_lower", real()).optional(),
+            column("criterion_upper", real()).optional(),
+            column("refine", flag()),
+            column("context", T::hash()).optional(),
+            column("product", T::hash()).optional(),
+            column("point", T::hash()).optional(),
+            column("branch", T::hash()).optional(),
+            column("validity", T::hash()).optional(),
+            column("dependencies", T::list(T::hash())),
+            column(
+                "interpretation",
+                T::enumeration("AccuracyEvidenceInterpretation"),
+            )
+            .optional(),
+            column("method", T::enumeration("AccuracyEvidenceMethod")).optional(),
+            column("unavailable", T::enumeration("AccuracyUnavailableReason")).optional(),
+            column("limitation", text()),
+        ],
+        "Completion-owned engineering goal assessment retaining the actual physical observation, requested subject, strength, method and validity dependencies. Missing observation or evidence is Unresolved, never NotRequested. Only admitted output-error or optimum-value evidence can satisfy its corresponding goal; residual, backward and local integration error retain their separate interpretations. Estimates never acquire certification from native success or a zero residual. Physical acceptance and native termination remain independently owned.",
+    );
+    relation_version(
+        b,
         N::Runtime,
         "resolved_numerics",
+        2,
         S::Derived,
         &["run_id", "step", "target_kind", "target_id"],
         vec![
@@ -457,6 +688,31 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("relative", real()),
             column("budget", real()),
             column(
+                "engineering",
+                record(vec![
+                    (
+                        "rule_id",
+                        T::id().with_identity("engineering_rule").optional(),
+                    ),
+                    (
+                        "scale_id",
+                        T::id().with_identity("engineering_scale").optional(),
+                    ),
+                    ("physical_allowance", real().optional()),
+                    ("relative_fraction", real()),
+                    ("characteristic", real().optional()),
+                    (
+                        "scale_kind",
+                        T::enumeration("EngineeringScaleKind").optional(),
+                    ),
+                    ("source", T::enumeration("NumericalSource")),
+                    ("budget", real()),
+                    ("canonical_fallback", flag()),
+                    ("limitation", text()),
+                ]),
+            )
+            .optional(),
+            column(
                 "provenance",
                 T::list(record(vec![
                     ("declaration", T::id().optional()),
@@ -468,13 +724,13 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
                 ])),
             ),
         ],
-        "Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling.",
+        "Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling. Optional engineering context retains the selected shared rule, physical allowance, relative fraction, explicit characteristic magnitude and source, derived budget and fallback limitation. Historical rows without this context do not acquire contextual accuracy evidence.",
     );
     relation_version(
         b,
         N::Authored,
         "numerical_requirements",
-        2,
+        3,
         S::Model,
         &["requirement_id"],
         vec![
@@ -496,13 +752,15 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("scaling_factor", real()).optional(),
             column("absolute_tolerance", real()).optional(),
             column("relative_tolerance", real()).optional(),
+            column("shared_engineering_allowance", flag()).optional(),
+            column("engineering_rule_id", T::id()).with_identity("engineering_rule").optional(),
             column("unit_id", T::id()).optional(),
             column("coordinates", T::enumeration("NumericalCoordinates")),
             column("priority", T::native(D::Int32)),
             column("required", flag()),
             column("provenance", text()),
         ],
-        "P05 declarative numerical meaning; selected ID targets, magnitude units and frozen relative budgets. Model/case selection establishes source precedence; runtime analysis overrides use the same row type.",
+        "P05 declarative numerical meaning; selected ID targets, magnitude units and frozen relative budgets. Model/case selection establishes source precedence; runtime analysis overrides use the same row type. Omitted shared_engineering_allowance preserves explicitly authored numeric absolute semantics; true selects the inherited engineering allowance through the optional typed rule reference. Admission rejects incompatible or contradictory declarations rather than silently replacing explicit values.",
     );
     // ADR-0106 (DP-21): algorithmic numerical failure and inconclusive outcomes are
     // classes of their own; every diagnostic also carries a severity.

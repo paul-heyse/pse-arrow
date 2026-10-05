@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e18b78db742e8fd36e110ff14989") package equilibrium {
+@id("354ba0b61b2e42c3a9dd96101647972f") use numerical_policy @"1.0.0";
 @id("01a0f1955e96736397df7b58f77f6f9c") use compatibility @"1.0.0";
 @id("01a0f14ead4e761899b3c3a9dc2b6f7f") use constants @"1.0.0";
 @id("01a0ede58ecf75039afc471668012ddd") use chemistry @"1.0.0";
@@ -34,19 +35,22 @@
 @id("23dfe7f65a774ea3bd55a29ccca659f4") fn ideal_entropy_increment(p:Pressure,p0:Pressure,x:MoleFraction[chemistry.species],members:Set<chemistry.species>)->DeltaS=reconstruct(ideal_entropy,ideal_entropy_reduced,p,p0,x,members);
 @id("01a0e18b78db742e8fd36e17b5a6be89") interface MaterialState {
 @id("01a0e1db89d8722baac398bf7f110f21") param defined:Boolean=true;
+// Normalization uses the shared dimensionless design allowance; positivity
+// and logarithmic domain guards keep their independent exact meanings.
 @id("01a0e18b78db742e8fd36e18c7e3ae74") param components:Set<chemistry.species>;
 @id("01a0e18b78db742e8fd36e19bdd385fa") var flow:Flow;
 @id("01a0e18b78db742e8fd36e1ad23fe387") var T:Temperature;
 @id("01a0e18b78db742e8fd36e1b607f0363") var pressure:Pressure;
 @id("01a0e18b78db742e8fd36e1c320e73d7") var z[j in components]:MoleFraction;
 @id("01a0e18b78db742e8fd36e1d1a2ebc35") let component_flow[j in components]:ComponentFlow=flow*z[j];
-@id("01a0e18b78db742e8fd36e1e9159c2a3") annotation check flow(sum(j in components | z[j]/fraction_unit())>0.999999999 and sum(j in components | z[j]/fraction_unit())<1.000000001);
+@id("01a0e18b78db742e8fd36e1e9159c2a3") annotation check flow(abs(sum(j in components | z[j]/fraction_unit())-1)<=numerical_policy.dimensionless);
 @id("00fc4b5bb0355ab4a3073f493c61c1a2") state component_state supplied(defined) {
 coordinate component[j in components]=component_flow[j];
 coordinate temperature=T;
 coordinate pressure=pressure;
-reconstruct normalization:sum(j in components | z[j]/fraction_unit())==1 tolerance 1e-9;
-transport component[j in components]=component_flow[j] tolerance 1e-7{mol/s};
+reconstruct normalization:sum(j in components | z[j]/fraction_unit())==1 tolerance numerical_policy.dimensionless;
+// Transport shares the global physical component-flow allowance.
+transport component[j in components]=component_flow[j] tolerance numerical_policy.component_flow;
 }
 
 }
@@ -180,7 +184,7 @@ transport component[j in components]=component_flow[j] tolerance 1e-7{mol/s};
 @id("01a0e1971f90755199259812ebf22d4a") var h:MolarEnthalpy;
 @id("01a0e1db89d774f6b2eec088e3c2ac5b") let energy_flow:Power=flow*h;
 @id("1e2502720f3a5af88fef22cc093af3dc") state material_state extends component_state supplied(defined) {
-transport energy=energy_flow tolerance 0.001{W};
+transport energy=energy_flow tolerance numerical_policy.power;
 }
 
 }

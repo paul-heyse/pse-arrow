@@ -5,8 +5,16 @@
 /// Typed relation values at the synchronous/relational compiler boundary.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FactBatch {
+    #[doc = stringify!(r#AuthoredAccuracyGoals)]
+    r#AuthoredAccuracyGoals(Vec<super::r#authored::r#accuracy_goals::Row>),
     #[doc = stringify!(r#AuthoredDocuments)]
     r#AuthoredDocuments(Vec<super::r#authored::r#documents::Row>),
+    #[doc = stringify!(r#AuthoredEngineeringDefaultRules)]
+    r#AuthoredEngineeringDefaultRules(
+        Vec<super::r#authored::r#engineering_default_rules::Row>,
+    ),
+    #[doc = stringify!(r#AuthoredEngineeringScales)]
+    r#AuthoredEngineeringScales(Vec<super::r#authored::r#engineering_scales::Row>),
     #[doc = stringify!(r#AuthoredEntities)]
     r#AuthoredEntities(Vec<super::r#authored::r#entities::Row>),
     #[doc = stringify!(r#AuthoredFitCases)]
@@ -95,6 +103,10 @@ pub enum FactBatch {
     r#ReferenceUnitSets(Vec<super::r#reference::r#unit_sets::Row>),
     #[doc = stringify!(r#ReferenceUnits)]
     r#ReferenceUnits(Vec<super::r#reference::r#units::Row>),
+    #[doc = stringify!(r#RuntimeAccuracyGoalAssessments)]
+    r#RuntimeAccuracyGoalAssessments(
+        Vec<super::r#runtime::r#accuracy_goal_assessments::Row>,
+    ),
     #[doc = stringify!(r#RuntimeArtifactDescriptors)]
     r#RuntimeArtifactDescriptors(Vec<super::r#runtime::r#artifact_descriptors::Row>),
     #[doc = stringify!(r#RuntimeArtifactMigrationLineage)]
@@ -340,10 +352,28 @@ impl FactBatch {
     /// Exact declared relation identity.
     pub fn relation(&self) -> pse_ids::SemanticId {
         match self {
+            Self::r#AuthoredAccuracyGoals(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    64u8, 222u8, 149u8, 228u8, 104u8, 172u8, 79u8, 32u8, 46u8, 37u8,
+                    53u8, 0u8, 240u8, 171u8, 53u8, 189u8,
+                ])
+            }
             Self::r#AuthoredDocuments(_) => {
                 pse_ids::SemanticId::from_bytes([
                     169u8, 137u8, 17u8, 254u8, 21u8, 234u8, 253u8, 79u8, 101u8, 32u8,
                     114u8, 94u8, 91u8, 80u8, 247u8, 209u8,
+                ])
+            }
+            Self::r#AuthoredEngineeringDefaultRules(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    126u8, 14u8, 117u8, 32u8, 226u8, 211u8, 133u8, 190u8, 244u8, 210u8,
+                    85u8, 58u8, 70u8, 48u8, 228u8, 93u8,
+                ])
+            }
+            Self::r#AuthoredEngineeringScales(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    64u8, 108u8, 214u8, 252u8, 11u8, 184u8, 225u8, 117u8, 175u8, 40u8,
+                    163u8, 13u8, 64u8, 215u8, 55u8, 73u8,
                 ])
             }
             Self::r#AuthoredEntities(_) => {
@@ -360,14 +390,14 @@ impl FactBatch {
             }
             Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    132u8, 7u8, 63u8, 101u8, 60u8, 157u8, 201u8, 121u8, 236u8, 12u8,
-                    41u8, 146u8, 235u8, 66u8, 94u8, 128u8,
+                    128u8, 35u8, 121u8, 140u8, 205u8, 240u8, 108u8, 57u8, 208u8, 186u8,
+                    219u8, 247u8, 37u8, 15u8, 20u8, 75u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    241u8, 148u8, 69u8, 225u8, 139u8, 74u8, 50u8, 54u8, 64u8, 108u8,
-                    59u8, 29u8, 109u8, 40u8, 45u8, 165u8,
+                    100u8, 73u8, 163u8, 191u8, 158u8, 132u8, 244u8, 124u8, 35u8, 81u8,
+                    86u8, 240u8, 23u8, 247u8, 19u8, 52u8,
                 ])
             }
             Self::r#AuthoredPackageUnitSets(_) => {
@@ -578,6 +608,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     107u8, 103u8, 120u8, 145u8, 89u8, 158u8, 19u8, 39u8, 183u8, 145u8,
                     183u8, 174u8, 173u8, 134u8, 41u8, 49u8,
+                ])
+            }
+            Self::r#RuntimeAccuracyGoalAssessments(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    144u8, 18u8, 65u8, 157u8, 100u8, 193u8, 130u8, 172u8, 152u8, 193u8,
+                    236u8, 230u8, 255u8, 216u8, 152u8, 12u8,
                 ])
             }
             Self::r#RuntimeArtifactDescriptors(_) => {
@@ -990,8 +1026,8 @@ impl FactBatch {
             }
             Self::r#RuntimeResolvedNumerics(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    235u8, 132u8, 190u8, 98u8, 165u8, 69u8, 41u8, 119u8, 173u8, 161u8,
-                    174u8, 241u8, 101u8, 122u8, 240u8, 211u8,
+                    223u8, 232u8, 152u8, 122u8, 176u8, 96u8, 73u8, 2u8, 12u8, 51u8, 54u8,
+                    169u8, 226u8, 173u8, 43u8, 163u8,
                 ])
             }
             Self::r#RuntimeResponseDirections(_) => {
@@ -1113,7 +1149,10 @@ impl FactBatch {
     /// Number of values, preserving empty relation membership.
     pub fn len(&self) -> usize {
         match self {
+            Self::r#AuthoredAccuracyGoals(rows) => rows.len(),
             Self::r#AuthoredDocuments(rows) => rows.len(),
+            Self::r#AuthoredEngineeringDefaultRules(rows) => rows.len(),
+            Self::r#AuthoredEngineeringScales(rows) => rows.len(),
             Self::r#AuthoredEntities(rows) => rows.len(),
             Self::r#AuthoredFitCases(rows) => rows.len(),
             Self::r#AuthoredModelingDeclarations(rows) => rows.len(),
@@ -1153,6 +1192,7 @@ impl FactBatch {
             Self::r#ReferenceSchemaRelations(rows) => rows.len(),
             Self::r#ReferenceUnitSets(rows) => rows.len(),
             Self::r#ReferenceUnits(rows) => rows.len(),
+            Self::r#RuntimeAccuracyGoalAssessments(rows) => rows.len(),
             Self::r#RuntimeArtifactDescriptors(rows) => rows.len(),
             Self::r#RuntimeArtifactMigrationLineage(rows) => rows.len(),
             Self::r#RuntimeCacheEntryStatistics(rows) => rows.len(),
@@ -1253,7 +1293,22 @@ impl FactBatch {
         let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::TypedFactsV1);
         hash.id(&self.relation()).u64(self.len() as u64);
         match self {
+            Self::r#AuthoredAccuracyGoals(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#AuthoredDocuments(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#AuthoredEngineeringDefaultRules(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#AuthoredEngineeringScales(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1449,6 +1504,11 @@ impl FactBatch {
                 }
             }
             Self::r#ReferenceUnits(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeAccuracyGoalAssessments(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1899,8 +1959,22 @@ impl FactBatch {
     /// One exact generated row, retaining its relation identity.
     pub fn row(&self, index: usize) -> Option<Self> {
         match self {
+            Self::r#AuthoredAccuracyGoals(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredAccuracyGoals(vec![row.clone()]))
+            }
             Self::r#AuthoredDocuments(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredDocuments(vec![row.clone()]))
+            }
+            Self::r#AuthoredEngineeringDefaultRules(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredEngineeringDefaultRules(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#AuthoredEngineeringScales(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredEngineeringScales(vec![row.clone()]))
             }
             Self::r#AuthoredEntities(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredEntities(vec![row.clone()]))
@@ -2052,6 +2126,10 @@ impl FactBatch {
             }
             Self::r#ReferenceUnits(rows) => {
                 rows.get(index).map(|row| Self::r#ReferenceUnits(vec![row.clone()]))
+            }
+            Self::r#RuntimeAccuracyGoalAssessments(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeAccuracyGoalAssessments(vec![row.clone()]))
             }
             Self::r#RuntimeArtifactDescriptors(rows) => {
                 rows.get(index)
@@ -2443,7 +2521,40 @@ impl FactBatch {
     /// Full canonical semantic comparison without allocating row copies.
     pub fn same_row(&self, index: usize, other: &Self, other_index: usize) -> bool {
         match (self, other) {
+            (
+                Self::r#AuthoredAccuracyGoals(left),
+                Self::r#AuthoredAccuracyGoals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredEngineeringDefaultRules(left),
+                Self::r#AuthoredEngineeringDefaultRules(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredEngineeringScales(left),
+                Self::r#AuthoredEngineeringScales(right),
+            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -2837,6 +2948,17 @@ impl FactBatch {
                 }
             }
             (Self::r#ReferenceUnits(left), Self::r#ReferenceUnits(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeAccuracyGoalAssessments(left),
+                Self::r#RuntimeAccuracyGoalAssessments(right),
+            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3785,7 +3907,28 @@ impl FactBatch {
     /// Conservative clone extent, checked before allocating a one-row batch.
     pub fn row_bytes(&self, index: usize) -> Option<usize> {
         match self {
+            Self::r#AuthoredAccuracyGoals(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#AuthoredDocuments(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#AuthoredEngineeringDefaultRules(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#AuthoredEngineeringScales(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4059,6 +4202,13 @@ impl FactBatch {
                     })
             }
             Self::r#ReferenceUnits(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeAccuracyGoalAssessments(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4686,12 +4836,48 @@ impl FactBatch {
     /// Complete primary-key equality; hash collisions do not merge keys.
     pub fn same_key(&self, index: usize, other: &Self, other_index: usize) -> bool {
         match (self, other) {
+            (
+                Self::r#AuthoredAccuracyGoals(left),
+                Self::r#AuthoredAccuracyGoals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#goal_id, &right.r#goal_id)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(
                             &left.r#document_id,
                             &right.r#document_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredEngineeringDefaultRules(left),
+                Self::r#AuthoredEngineeringDefaultRules(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#rule_id, &right.r#rule_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredEngineeringScales(left),
+                Self::r#AuthoredEngineeringScales(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#scale_id,
+                            &right.r#scale_id,
                         )
                     }
                     _ => false,
@@ -5199,6 +5385,25 @@ impl FactBatch {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(&left.r#unit_id, &right.r#unit_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeAccuracyGoalAssessments(left),
+                Self::r#RuntimeAccuracyGoalAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#goal_id,
+                                &right.r#goal_id,
+                            )
                     }
                     _ => false,
                 }
@@ -6673,9 +6878,21 @@ impl FactBatch {
         let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::TypedRowKeyV1);
         hash.id(&self.relation());
         match self {
+            Self::r#AuthoredAccuracyGoals(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#goal_id, &mut hash);
+            }
             Self::r#AuthoredDocuments(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
+            }
+            Self::r#AuthoredEngineeringDefaultRules(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#rule_id, &mut hash);
+            }
+            Self::r#AuthoredEngineeringScales(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#scale_id, &mut hash);
             }
             Self::r#AuthoredEntities(rows) => {
                 let row = rows.get(index)?;
@@ -6839,6 +7056,12 @@ impl FactBatch {
             Self::r#ReferenceUnits(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#unit_id, &mut hash);
+            }
+            Self::r#RuntimeAccuracyGoalAssessments(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#goal_id, &mut hash);
             }
             Self::r#RuntimeArtifactDescriptors(rows) => {
                 let row = rows.get(index)?;
@@ -7319,7 +7542,28 @@ impl FactBatch {
     /// The incoming relation identity differs.
     pub fn append(&mut self, other: Self) -> Result<(), crate::ModelError> {
         match (self, other) {
+            (
+                Self::r#AuthoredAccuracyGoals(left),
+                Self::r#AuthoredAccuracyGoals(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(mut right)) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#AuthoredEngineeringDefaultRules(left),
+                Self::r#AuthoredEngineeringDefaultRules(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#AuthoredEngineeringScales(left),
+                Self::r#AuthoredEngineeringScales(mut right),
+            ) => {
                 left.append(&mut right);
                 Ok(())
             }
@@ -7569,6 +7813,13 @@ impl FactBatch {
                 Ok(())
             }
             (Self::r#ReferenceUnits(left), Self::r#ReferenceUnits(mut right)) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeAccuracyGoalAssessments(left),
+                Self::r#RuntimeAccuracyGoalAssessments(mut right),
+            ) => {
                 left.append(&mut right);
                 Ok(())
             }
@@ -8186,7 +8437,12 @@ impl FactBatch {
 impl crate::HeapUsage for FactBatch {
     fn heap_bytes(&self) -> usize {
         match self {
+            Self::r#AuthoredAccuracyGoals(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDocuments(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#AuthoredEngineeringDefaultRules(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#AuthoredEngineeringScales(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredEntities(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredFitCases(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredModelingDeclarations(rows) => {
@@ -8244,6 +8500,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#ReferenceSchemaRelations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceUnitSets(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceUnits(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeAccuracyGoalAssessments(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeArtifactDescriptors(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

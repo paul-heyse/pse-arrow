@@ -241,7 +241,7 @@ fn kernel_presolve_retains_the_typed_failed_trial_witness() {
         &[1., 3.],
         &Policy::Auto,
         &tolerances(),
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -265,7 +265,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
             feasibility: 1e-10,
             stationarity: 1e-10,
             complementarity: 1e-10,
-            ..ResolvedAccuracy::nominal()
+            ..ResolvedAccuracy::verification()
         };
         let mut pipeline = Pipeline::new(
             Box::new(Mixed::new()),
@@ -422,7 +422,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                     &[1., 3.],
                     &policy,
                     &tolerances(),
-                    &ResolvedAccuracy::nominal(),
+                    &ResolvedAccuracy::verification(),
                     execution(),
                     Some(&incompatible),
                     compatibility,
@@ -440,7 +440,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         &[1.0, 3.0],
         &Policy::Auto,
         &tolerances(),
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -559,7 +559,7 @@ fn off_is_identity_and_only_tape_edits_invalidate_native_reuse() {
         &[1.0, 3.0],
         &Policy::Off,
         &tolerances(),
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -576,7 +576,7 @@ fn off_is_identity_and_only_tape_edits_invalidate_native_reuse() {
             &[1.0, 3.0],
             &Policy::Off,
             &tolerances(),
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             execution(),
             None,
             stamp(),
@@ -691,7 +691,7 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
         &[1.0, 3.0],
         &Policy::Off,
         &tolerances(),
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         Some(&warm),
         stamp(),
@@ -759,7 +759,7 @@ fn fully_determined_library_standdown_preserves_the_original_problem() {
         &[2.0, 2.0],
         &policy,
         &tolerances(),
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -808,7 +808,7 @@ fn normalization_callbacks_and_original_duals_round_trip() {
         &[2.0, 2.0],
         &Policy::Off,
         &tolerance,
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         Some(&warm),
         stamp(),
@@ -888,7 +888,7 @@ fn presolve_certificate_respects_each_bound_budget() {
         &[2.0, 2.0],
         &Policy::Auto,
         &allowed,
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -913,7 +913,7 @@ fn presolve_certificate_respects_each_bound_budget() {
         &[2.0, 2.0],
         &Policy::Auto,
         &distinct,
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -1028,7 +1028,7 @@ fn automatic_presolve_declines_untracked_barriers_and_retains_affine_reduction()
         &[1.5, 1.5, 1.5],
         &Policy::Auto,
         &tolerance,
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -1066,7 +1066,7 @@ fn automatic_presolve_declines_untracked_barriers_and_retains_affine_reduction()
             &[1.5, 1.5, 1.5],
             &required,
             &tolerance,
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             execution(),
             None,
             stamp(),
@@ -1170,7 +1170,7 @@ fn automatic_presolve_propagates_an_affine_row_by_its_proof() {
         &[1.0, 1.5],
         &Policy::Auto,
         &tolerances(),
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -1229,7 +1229,7 @@ fn pipeline_original_callbacks_and_fresh_validation_are_charged_once() {
         }
     }
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let count = Arc::new(Count::default());
     let mut original_execution = execution();
     original_execution.work_admission = Some(count.clone());

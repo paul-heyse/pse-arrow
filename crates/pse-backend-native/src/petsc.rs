@@ -1039,7 +1039,7 @@ mod tests {
         };
         let accuracy = ResolvedAccuracy {
             native_scaling: false,
-            ..ResolvedAccuracy::nominal()
+            ..ResolvedAccuracy::verification()
         };
         let settings = Settings {
             trust: crate::settings::petsc::TrustRegion {

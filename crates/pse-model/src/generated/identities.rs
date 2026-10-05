@@ -4,6 +4,11 @@
 
 pse_ids::semantic_id_newtype! {
     #[doc =
+    "A scoped engineering output accuracy or decision goal (entity identity `accuracy_goal`, ADR-0115)."]
+    AccuracyGoalId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
     "One durable attempt: a single try of a run (entity identity `attempt`, ADR-0115)."]
     AttemptId
 }
@@ -11,6 +16,16 @@ pse_ids::semantic_id_newtype! {
     #[doc =
     "One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`, ADR-0115)."]
     DeclarationId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
+    "A typed shared engineering allowance rule (entity identity `engineering_rule`, ADR-0115)."]
+    EngineeringRuleId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
+    "An explicitly declared engineering characteristic magnitude (entity identity `engineering_scale`, ADR-0115)."]
+    EngineeringScaleId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
@@ -79,6 +94,21 @@ pse_ids::semantic_id_newtype! {
     "One publication workspace in the catalog (entity identity `workspace`, ADR-0115)."]
     WorkspaceId
 }
+impl crate::SemanticEq for AccuracyGoalId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for AccuracyGoalId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AccuracyGoalId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
 impl crate::SemanticEq for AttemptId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -105,6 +135,36 @@ impl crate::HeapUsage for DeclarationId {
     }
 }
 impl crate::SemanticFrame for DeclarationId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for EngineeringRuleId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for EngineeringRuleId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for EngineeringRuleId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for EngineeringScaleId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for EngineeringScaleId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for EngineeringScaleId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }

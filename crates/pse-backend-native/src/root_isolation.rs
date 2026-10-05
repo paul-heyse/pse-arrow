@@ -7,7 +7,7 @@ use pse_math::{
     MathError,
     factorable::{
         Constant, Constraint, Fidelity, Node, ObligationKind, ObligationScope, ProjectedObligation,
-        Rational, RootIsolationProgram,
+        PointArithmeticProgram, Rational, RootIsolationProgram,
     },
     guarded::Condition,
     implicit::{
@@ -23,7 +23,7 @@ use std::{
         Arc, Mutex, TryLockError,
         atomic::{AtomicBool, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 const MAX_CELLS: u64 = 1_048_576;
@@ -32,6 +32,10 @@ const MAX_EDGES: usize = 1_048_576;
 const MAX_GUARDS: usize = 8192;
 const MAX_INPUTS: usize = 128;
 const MAX_ALTERNATIVES: usize = 64;
+const MAX_ARITHMETIC_OUTPUTS: usize = 512;
+const MAX_SECOND_INPUTS: usize = 32;
+const MAX_SECOND_OUTPUTS: usize = 128;
+const MAX_HESSIAN_ENTRIES: usize = 32_768;
 // IBEX 2.9.1 has process-global random/contractor state. All calls through this adapter
 // share this lock; it owns no retained session or cached evidence.
 static IBEX: Mutex<()> = Mutex::new(());
@@ -100,11 +104,70 @@ struct NativeResult {
     unknown: u64,
     pending: u64,
 }
+/// Actual library calls attempted for an original-point arithmetic operation.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PointArithmeticWork {
+    /// Guard scalar evaluations (including calls that fail).
+    pub guard_evaluations: u64,
+    /// Vector value evaluations (at most one).
+    pub value_evaluations: u64,
+    /// Rectangular First/Jacobian evaluations (at most one).
+    pub jacobian_evaluations: u64,
+    /// Scalar-output Hessian evaluations (zero for First; at most one per output for Second).
+    pub hessian_evaluations: u64,
+}
+#[repr(C)]
+#[derive(Default)]
+struct NativePointArithmeticResult {
+    status: u32,
+    work: PointArithmeticWork,
+}
+/// Actual outward arithmetic at an original physical point, without a root claim.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PointArithmeticEvidence {
+    /// Every Value and First guard was admitted, with finite outward outputs.
+    Enclosed {
+        /// Graph output order; row positions are declared by the source projection.
+        values: Vec<ProofInterval>,
+        /// Dense row-major output-by-original-input First enclosures.
+        jacobian: Vec<ProofInterval>,
+        /// Requested Second arithmetic, dense output-by-input-by-input in row-major
+        /// order. First supplies `None`; no Third arithmetic is implemented.
+        hessian: Option<Vec<ProofInterval>>,
+        /// Actual attempted native calls.
+        work: PointArithmeticWork,
+    },
+    /// No arithmetic enclosure is supplied; the actual refusal remains visible.
+    Incomplete {
+        /// Unsupported representation, domain boundary or bounded resources.
+        reason: SelectionProofRefusal,
+        /// Actual attempted native calls.
+        work: PointArithmeticWork,
+    },
+    /// Cancellation interrupts admission, mutex waiting or native arithmetic.
+    Interrupted {
+        /// Actual attempted native calls.
+        work: PointArithmeticWork,
+    },
+}
 #[expect(
     unsafe_code,
     reason = "bounded request buffers are borrowed synchronously by the catch-all C++ adapter"
 )]
 unsafe extern "C" {
+    fn pse_ibex_point_arithmetic(
+        request: *const NativeRequest,
+        output_count: u32,
+        order: u32,
+        result: *mut NativePointArithmeticResult,
+        value_lower: *mut f64,
+        value_upper: *mut f64,
+        jacobian_lower: *mut f64,
+        jacobian_upper: *mut f64,
+        hessian_lower: *mut f64,
+        hessian_upper: *mut f64,
+    ) -> i32;
     fn pse_ibex_certify(
         requests: *const NativeRequest,
         count: u32,
@@ -234,6 +297,26 @@ fn constant_bounds(value: &Constant) -> Result<(f64, f64), SelectionProofRefusal
         Constant::Float(value) if value.is_finite() => Ok((*value, *value)),
         Constant::Float(_) => Err(SelectionProofRefusal::Unsupported),
     }
+}
+fn arithmetic_guard_ceiling(program: &RootIsolationProgram, order: DerivativeOrder) -> Option<usize> {
+    let guards = program.obligations.iter()
+        .chain(program.derivative_obligations.iter().filter(|(minimum,_)| *minimum <= order).map(|(_,g)| g))
+        .try_fold(program.eligibility.len(), |n,g| {
+            n.checked_add(g.constraints.len())?.checked_add(usize::from(g.argument.is_some()))
+        })?;
+    program.nodes.iter().try_fold(guards, |n,node| n.checked_add(match node {
+        Node::Log(_) => 1,
+        Node::Pow { exponent, .. } if exponent.value() == 0.5 => 2,
+        Node::Pow { exponent, .. } if exponent.value() < 0.0 => 1,
+        _ => 0,
+    }))
+}
+#[expect(unsafe_code,reason = "synchronous point-arithmetic callback borrows its live Execution without retaining it")]
+extern "C" fn execution_cancelled(context: *const c_void) -> i32 {
+    if context.is_null() { return 1; }
+    // SAFETY: the wrapper lends its immutable live Execution for the synchronous
+    // call. stopped reads only atomics and clocks, and neither allocates nor panics.
+    i32::from(unsafe { &*context.cast::<crate::solve::Execution>() }.stopped().is_some())
 }
 fn constraint(
     value: &Constraint,
@@ -465,6 +548,280 @@ fn encode(
     Ok(transport)
 }
 impl Ibex {
+    /// Checked, conservative transient admission extent for point transport, complete
+    /// interval DAG/guard copies, rectangular AD and output buffers. Source projection
+    /// bytes remain owned by the caller. The caller's byte ceiling is enforced before
+    /// encoding or entering IBEX; there is no covering allocation in this operation.
+    /// # Errors
+    /// Resource extents outside the bounded transport or checked-size overflow.
+    pub fn point_arithmetic_workspace_bytes(
+        &self,
+        program: &PointArithmeticProgram,
+    ) -> Result<usize, MathError> {
+        self.point_arithmetic_workspace_bytes_for_order(program,DerivativeOrder::First)
+    }
+    /// Checked Value, First or Second arithmetic admission. Second retains every Second
+    /// guard and bounds dense output Hessians to 32 inputs, 128 outputs and 32768
+    /// entries. The complete source identity is independent of the requested order.
+    /// # Errors
+    /// Unsupported order or bounded resource/checked-size overflow.
+    pub fn point_arithmetic_workspace_bytes_for_order(
+        &self,
+        program: &PointArithmeticProgram,
+        order: DerivativeOrder,
+    ) -> Result<usize, MathError> {
+        let graph = &program.graph;
+        let edges = graph.nodes.iter().try_fold(0usize, |n, node| {
+            n.checked_add(match node { Node::Sum(v) | Node::Product(v) => v.len(), _ => 0 })
+        });
+        let guards = arithmetic_guard_ceiling(graph,order);
+        let checked = || {
+            let edges = edges?;
+            let guards = guards?;
+            let outputs = graph.residuals.len(); let width = graph.inputs;
+            if width == 0 || width > MAX_INPUTS || outputs == 0 || outputs > MAX_ARITHMETIC_OUTPUTS
+                || graph.nodes.is_empty() || graph.nodes.len() > MAX_NODES
+                || edges > MAX_EDGES || guards > MAX_GUARDS { return None; }
+            let hessian_entries = if order == DerivativeOrder::Second {
+                let entries = outputs.checked_mul(width)?.checked_mul(width)?;
+                if width > MAX_SECOND_INPUTS || outputs > MAX_SECOND_OUTPUTS || entries > MAX_HESSIAN_ENTRIES {
+                    return None;
+                }
+                entries
+            } else { 0 };
+            let derivative_width = if order == DerivativeOrder::Second {
+                width.checked_mul(width)?.checked_add(width)?.checked_add(1)?
+            } else if order == DerivativeOrder::First { width.checked_add(1)? } else { 1 };
+            let native_nodes = graph.nodes.len().checked_add(edges)?.checked_add(guards.checked_mul(4)?)?;
+            let native = native_nodes.checked_mul(derivative_width)?
+                .checked_mul(outputs.checked_add(guards)?.checked_add(4)?)?.checked_mul(1024)?;
+            let transport = width.checked_mul(2 * size_of::<f64>())?
+                .checked_add(graph.nodes.len().checked_mul(size_of::<NativeNode>() + size_of::<usize>())?)?
+                .checked_add(edges.checked_mul(2 * size_of::<u32>())?)?
+                .checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?)?
+                .checked_add(outputs.checked_mul(size_of::<u32>())?)?
+                .checked_add(outputs.checked_mul(width.checked_add(1)?)?.checked_add(hessian_entries)?.checked_mul(64)?)?;
+            native.checked_add(transport)?.checked_add(1024 * 1024)
+        };
+        checked().ok_or(MathError::Limit("IBEX point arithmetic workspace extent"))
+    }
+
+    /// Enclose all projected original row residuals and First entries at a finite
+    /// binary64 physical point. Binary64 inputs are exact dyadic values; arithmetic
+    /// and rational conversion uncertainty comes from IBEX/FILIB's outward DAG.
+    /// No tolerance, binary spacing, contraction or root search supplies uncertainty.
+    /// # Errors
+    /// Incorrect point dimensions/nonfinite coordinates or native transport failure.
+    pub fn enclose_point_arithmetic(
+        &self,
+        program: &PointArithmeticProgram,
+        point: &[f64],
+        time_limit: Duration,
+        cancel: &Arc<AtomicBool>,
+        max_workspace_bytes: usize,
+    ) -> Result<PointArithmeticEvidence, MathError> {
+        self.point_arithmetic_core(program,point,point,DerivativeOrder::First,time_limit,cancel,max_workspace_bytes,None)
+    }
+
+    /// Reserve the bounded native call ceiling before encoding, then reconcile the
+    /// actual calls on every returned enclosure/refusal/interruption. Unreceipted
+    /// failure leaves the evaluation counter unknown; no estimate becomes an observation.
+    /// The original Execution owns cancellation, abandonment and absolute deadline.
+    /// # Errors
+    /// Actual execution stop, work admission/reconciliation or arithmetic failure.
+    pub fn enclose_point_arithmetic_with_execution(
+        &self,
+        program: &PointArithmeticProgram,
+        point: &[f64],
+        max_workspace_bytes: usize,
+        execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        self.enclose_point_arithmetic_order_with_execution(program,point,DerivativeOrder::First,max_workspace_bytes,execution)
+    }
+    /// Requested First or Second original-point arithmetic with source-owned work
+    /// reservation and actual observations. Second uses IBEX component differentiation
+    /// and interval Jacobians; no local AD or Hessian approximation is involved.
+    /// # Errors
+    /// Actual execution stop, admission/reconciliation or arithmetic failure.
+    pub fn enclose_point_arithmetic_order_with_execution(
+        &self,
+        program: &PointArithmeticProgram,
+        point: &[f64],
+        order: DerivativeOrder,
+        max_workspace_bytes: usize,
+        execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        execution.check()?;
+        if order == DerivativeOrder::Value {
+            return Ok(PointArithmeticEvidence::Incomplete {
+                reason:SelectionProofRefusal::Unsupported,work:PointArithmeticWork::default(),
+            });
+        }
+        self.arithmetic_with_execution(program,point,point,order,max_workspace_bytes,execution)
+    }
+    /// Enclose source values on an actual certified coordinate box. First additionally
+    /// encloses the library-owned Jacobian uniformly across that same box. Every requested
+    /// guard must hold on the whole region; no point gradient is promoted to a region bound.
+    /// # Errors
+    /// Invalid box, actual execution stop, work admission or transport failure.
+    pub fn enclose_arithmetic_box_with_execution(
+        &self, program: &PointArithmeticProgram, region: &[ProofInterval], order: DerivativeOrder,
+        max_workspace_bytes: usize, execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        execution.check()?;
+        if order == DerivativeOrder::Second {
+            return Ok(PointArithmeticEvidence::Incomplete { reason: SelectionProofRefusal::Unsupported,
+                work: PointArithmeticWork::default() });
+        }
+        if region.len() != program.graph.inputs || region.iter().any(|interval| !interval.valid()) {
+            return Err(MathError::Contract("IBEX arithmetic box coordinates".into()).into());
+        }
+        if self.point_arithmetic_workspace_bytes_for_order(program,order).map_or(true, |bytes| bytes > max_workspace_bytes) {
+            return Ok(PointArithmeticEvidence::Incomplete { reason: SelectionProofRefusal::Resource,
+                work: PointArithmeticWork::default() });
+        }
+        let lower = region.iter().map(|interval| interval.lower).collect::<Vec<_>>();
+        let upper = region.iter().map(|interval| interval.upper).collect::<Vec<_>>();
+        self.arithmetic_with_execution(program,&lower,&upper,order,max_workspace_bytes,execution)
+    }
+    /// Value-only convenience for selected authored outputs over certified coordinates.
+    /// # Errors
+    /// Invalid box, actual execution stop, work admission or transport failure.
+    pub fn enclose_arithmetic_box_values_with_execution(
+        &self, program: &PointArithmeticProgram, region: &[ProofInterval], max_workspace_bytes: usize,
+        execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        self.enclose_arithmetic_box_with_execution(program,region,DerivativeOrder::Value,max_workspace_bytes,execution)
+    }
+    fn arithmetic_with_execution(
+        &self, program: &PointArithmeticProgram, lower: &[f64], upper: &[f64], order: DerivativeOrder,
+        max_workspace_bytes: usize, execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        use crate::solve::WorkEvidence;
+        execution.check()?;
+        // A preflight resource refusal allocates no transport and performs no arithmetic.
+        if self.point_arithmetic_workspace_bytes_for_order(program,order).map_or(true, |bytes| bytes > max_workspace_bytes) {
+            return Ok(PointArithmeticEvidence::Incomplete {
+                reason:SelectionProofRefusal::Resource,work:PointArithmeticWork::default(),
+            });
+        }
+        let ceiling = arithmetic_guard_ceiling(&program.graph,order)
+            .and_then(|guards| guards.checked_add(if order == DerivativeOrder::Value {1} else {2}))
+            .and_then(|n| n.checked_add(if order == DerivativeOrder::Second {program.graph.residuals.len()} else {0}))
+            .and_then(|n| u64::try_from(n).ok())
+            .ok_or(MathError::Limit("IBEX point arithmetic work extent"))?;
+        let unit = |evaluations| WorkEvidence {
+            evaluations,iterations:Some(0),factorizations:Some(0),proof_steps:Some(0),
+        };
+        if let Some(owner) = &execution.work_admission {
+            crate::quality::contained(|| owner.admit(unit(Some(ceiling))))?;
+        }
+        let result = crate::quality::contained(|| {
+            let remaining = execution.scope()?.remaining(execution.time_limit)?;
+            self.point_arithmetic_core(program,lower,upper,order,remaining,&execution.cancel,max_workspace_bytes,Some(execution))
+                .map_err(crate::ProblemError::from)
+        });
+        let evaluations = result.as_ref().ok().map(|evidence| {
+            let work = match evidence {
+                PointArithmeticEvidence::Enclosed {work,..} | PointArithmeticEvidence::Incomplete {work,..}
+                    | PointArithmeticEvidence::Interrupted {work} => work,
+            };
+            work.guard_evaluations + work.value_evaluations + work.jacobian_evaluations + work.hessian_evaluations
+        });
+        let reconciled = execution.work_admission.as_ref().map_or(Ok(()), |owner|
+            crate::quality::contained(|| owner.observe(unit(evaluations))));
+        let evidence = result?;
+        reconciled?;
+        execution.check()?;
+        Ok(evidence)
+    }
+    fn point_arithmetic_core(
+        &self,
+        program: &PointArithmeticProgram,
+        lower: &[f64],
+        upper: &[f64],
+        order: DerivativeOrder,
+        time_limit: Duration,
+        cancel: &Arc<AtomicBool>,
+        max_workspace_bytes: usize,
+        execution: Option<&crate::solve::Execution>,
+    ) -> Result<PointArithmeticEvidence, MathError> {
+        let started = Instant::now();
+        let empty_work = PointArithmeticWork::default();
+        let incomplete = |reason,work| PointArithmeticEvidence::Incomplete {reason,work};
+        if cancel.load(Ordering::Acquire) { return Ok(PointArithmeticEvidence::Interrupted {work:empty_work}); }
+        if lower.len() != program.graph.inputs || upper.len() != lower.len()
+            || lower.iter().zip(upper).any(|(l,u)| !l.is_finite() || !u.is_finite() || l > u) {
+            return Err(MathError::Contract("IBEX original point arithmetic coordinates".into()));
+        }
+        if time_limit.is_zero() || self.point_arithmetic_workspace_bytes_for_order(program,order)
+            .map_or(true, |bytes| bytes > max_workspace_bytes) {
+            return Ok(incomplete(SelectionProofRefusal::Resource,empty_work));
+        }
+        let transport = match encode(&program.graph,order) {
+            Ok(t) => t, Err(reason) => return Ok(incomplete(reason,empty_work)),
+        };
+        let library_guard = loop {
+            if cancel.load(Ordering::Acquire) { return Ok(PointArithmeticEvidence::Interrupted {work:empty_work}); }
+            if started.elapsed() >= time_limit { return Ok(incomplete(SelectionProofRefusal::Resource,empty_work)); }
+            if execution.is_some_and(|e| e.stopped().is_some()) {
+                return Ok(incomplete(SelectionProofRefusal::Resource,empty_work));
+            }
+            match IBEX.try_lock() {
+                Ok(g) => break g,
+                Err(TryLockError::Poisoned(_)) => return Ok(incomplete(SelectionProofRefusal::Resource,empty_work)),
+                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
+            }
+        };
+        let outputs = transport.residuals.len();
+        let entries = if order == DerivativeOrder::Value {0} else {outputs * lower.len()}; // Bounded before encoding.
+        let mut vl = vec![0.0;outputs]; let mut vu = vec![0.0;outputs];
+        let mut jl = vec![0.0;entries]; let mut ju = vec![0.0;entries];
+        let second = order == DerivativeOrder::Second;
+        let hessian_entries = if second {entries * lower.len()} else {0}; // Second preflight checked this product.
+        let mut hl = vec![0.0;hessian_entries]; let mut hu = vec![0.0;hessian_entries];
+        let native = NativeRequest {
+            nodes: transport.nodes.as_ptr(),node_count: transport.nodes.len() as u32,
+            edges: transport.edges.as_ptr(),edge_count: transport.edges.len() as u32,
+            residuals: transport.residuals.as_ptr(),unknown_count: lower.len() as u32,parameter_count: 0,
+            score: program.graph.criterion[0] as u32,tolerance: program.graph.criterion[1] as u32,
+            guards: transport.guards.as_ptr(),guard_count: transport.guards.len() as u32,
+            lower: lower.as_ptr(),upper: upper.as_ptr(),parameters: lower.as_ptr(),candidate: lower.as_ptr(),
+            max_cells: 0,seconds: time_limit.saturating_sub(started.elapsed()).as_secs_f64(),
+            cancelled: if execution.is_some() { execution_cancelled } else { cancelled },
+            cancel_context: execution.map_or(std::ptr::from_ref(cancel.as_ref()).cast(), |e| std::ptr::from_ref(e).cast()),
+        };
+        let mut result = NativePointArithmeticResult::default();
+        #[expect(unsafe_code,reason = "bounded borrowed point/DAG/output buffers enter serialized synchronous caught IBEX arithmetic")]
+        // SAFETY: bounded dimensions and all borrowed buffers remain live through the
+        // serialized synchronous adapter; C++ catches every exception and retains nothing.
+        let code = unsafe { pse_ibex_point_arithmetic(&native,outputs as u32,match order {
+            DerivativeOrder::Value => 0, DerivativeOrder::First => 1, DerivativeOrder::Second => 2 },&mut result,
+            vl.as_mut_ptr(),vu.as_mut_ptr(),jl.as_mut_ptr(),ju.as_mut_ptr(),hl.as_mut_ptr(),hu.as_mut_ptr()) };
+        drop(library_guard);
+        let work = result.work;
+        if cancel.load(Ordering::Acquire) { return Ok(PointArithmeticEvidence::Interrupted {work}); }
+        if started.elapsed() >= time_limit { return Ok(incomplete(SelectionProofRefusal::Resource,work)); }
+        if code != 0 { return Err(MathError::Contract("IBEX point arithmetic transport".into())); }
+        if result.status != 0 {
+            return Ok(incomplete(match result.status {
+                4 => SelectionProofRefusal::Resource,5 => SelectionProofRefusal::Boundary,
+                _ => SelectionProofRefusal::Unsupported,
+            },work));
+        }
+        let intervals = |lower:Vec<f64>,upper:Vec<f64>| lower.into_iter().zip(upper)
+            .map(|(lower,upper)| ProofInterval {lower,upper}).collect::<Vec<_>>();
+        let values = intervals(vl,vu); let jacobian = intervals(jl,ju);
+        let hessian = second.then(|| intervals(hl,hu));
+        if work.guard_evaluations > transport.guards.len() as u64
+            || work.value_evaluations != 1 || work.jacobian_evaluations != u64::from(order != DerivativeOrder::Value)
+            || work.hessian_evaluations != if second {outputs as u64} else {0}
+            || values.iter().chain(&jacobian).chain(hessian.iter().flatten()).any(|i| !i.valid()) {
+            return Err(MathError::Contract("IBEX point arithmetic result extent".into()));
+        }
+        Ok(PointArithmeticEvidence::Enclosed {values,jacobian,hessian,work})
+    }
+
     /// Actual native ceiling for attempted interval proof cells in one chain. The
     /// shared outer time/cancellation limit may refuse earlier; this is no guarantee
     /// of certification. Only root-sheet coverage is currently implemented.
@@ -1713,6 +2070,232 @@ mod tests {
             assert!(Rational::try_from(upper).unwrap() >= value);
         }
         assert!(constant_bounds(&Constant::Float(f64::NAN)).is_err());
+    }
+    fn arithmetic_program(nodes: Vec<Node>, outputs: Vec<usize>) -> PointArithmeticProgram {
+        PointArithmeticProgram {
+            key: ContentHash::from_bytes([19;32]),
+            rows: vec![pse_math::factorable::PointArithmeticRow {
+                value: 0,lower_residual: Some(0),upper_residual: Some(0),
+            }],
+            objective: None,
+            graph: RootIsolationProgram {
+                inputs: 1,criterion: [nodes.len()-1,nodes.len()-1],nodes,
+                residuals: outputs,eligibility: vec![],obligations: vec![],derivative_obligations: vec![],
+            },
+        }
+    }
+    fn point_arithmetic(program: &PointArithmeticProgram, x:f64) -> PointArithmeticEvidence {
+        let bytes = Ibex.point_arithmetic_workspace_bytes(program).unwrap();
+        Ibex.enclose_point_arithmetic(program,&[x],Duration::from_secs(10),
+            &Arc::new(AtomicBool::new(false)),bytes).unwrap()
+    }
+    #[test]
+    fn native_point_arithmetic_encloses_catastrophic_cancellation_residual() {
+        let program = arithmetic_program(vec![
+            Node::Var(0),Node::Exp(0),Node::Const(Constant::Float(1e16)),
+            Node::Sum(vec![1,2]),Node::Const(Constant::Float(-(1e16+2.0))),
+            Node::Sum(vec![3,4]),Node::Const(Constant::Float(0.0)),
+        ],vec![5]);
+        assert_eq!((0.5_f64.exp()+1e16)-(1e16+2.0),0.0);
+        let PointArithmeticEvidence::Enclosed {values,jacobian,work,..} = point_arithmetic(&program,0.5)
+            else { panic!("original point arithmetic absent"); };
+        let exact = 0.5_f64.exp()-2.0;
+        assert!(values[0].lower <= exact && values[0].upper >= exact);
+        assert!(values[0].lower < 0.0);
+        assert!(jacobian[0].lower <= 0.5_f64.exp() && jacobian[0].upper >= 0.5_f64.exp());
+        assert_eq!(work.value_evaluations,1);assert_eq!(work.jacobian_evaluations,1);
+    }
+    #[test]
+    fn native_point_arithmetic_box_covers_nonlinear_values_and_uniform_first() {
+        let program=arithmetic_program(vec![Node::Var(0),Node::Pow {base:0,
+            exponent:Constant::Rational(Rational::from(2))},Node::Exp(0),Node::Const(Constant::Float(0.0))],vec![1,2]);
+        let flag=Arc::new(AtomicBool::new(false));
+        let execution=crate::solve::Execution::within(flag.clone(),&crate::solve::Controls::default(),
+            pse_kernels::ExecutionScope::new(flag,None)).unwrap();
+        let region=[ProofInterval {lower:1.0,upper:2.0}];
+        for order in [DerivativeOrder::Value,DerivativeOrder::First] {
+            let bytes=Ibex.point_arithmetic_workspace_bytes_for_order(&program,order).unwrap();
+            let PointArithmeticEvidence::Enclosed {values,jacobian,work,hessian}=Ibex
+                .enclose_arithmetic_box_with_execution(&program,&region,order,bytes,&execution).unwrap()
+                else {panic!("actual source box arithmetic unavailable");};
+            assert!(values[0].lower<=1.0&&values[0].upper>=4.0);
+            assert!(values[1].lower<=1.0_f64.exp()&&values[1].upper>=2.0_f64.exp());
+            assert_eq!(work.value_evaluations,1);assert_eq!(work.jacobian_evaluations,u64::from(order==DerivativeOrder::First));
+            assert!(hessian.is_none());
+            if order==DerivativeOrder::First {assert!(jacobian[0].lower<=2.0&&jacobian[0].upper>=4.0);}
+            else {assert!(jacobian.is_empty());}
+        }
+        assert!(matches!(Ibex.enclose_arithmetic_box_values_with_execution(&program,&region,0,&execution).unwrap(),
+            PointArithmeticEvidence::Incomplete {reason:SelectionProofRefusal::Resource,work:PointArithmeticWork {value_evaluations:0,..}}));
+    }
+    #[test]
+    fn native_point_arithmetic_box_checks_whole_domain_and_value_needs_no_first_regularity() {
+        let program=arithmetic_program(vec![Node::Var(0),Node::Pow {base:0,
+            exponent:Constant::Rational(Rational::from((1,2)))},Node::Const(Constant::Float(0.0))],vec![1]);
+        let flag=Arc::new(AtomicBool::new(false));
+        let execution=crate::solve::Execution::within(flag.clone(),&crate::solve::Controls::default(),
+            pse_kernels::ExecutionScope::new(flag,None)).unwrap();
+        let region=[ProofInterval {lower:0.0,upper:1.0}];
+        let bytes=Ibex.point_arithmetic_workspace_bytes_for_order(&program,DerivativeOrder::First).unwrap();
+        assert!(matches!(Ibex.enclose_arithmetic_box_values_with_execution(&program,&region,bytes,&execution).unwrap(),
+            PointArithmeticEvidence::Enclosed {work:PointArithmeticWork {jacobian_evaluations:0,..},..}));
+        assert!(matches!(Ibex.enclose_arithmetic_box_with_execution(&program,&region,DerivativeOrder::First,bytes,&execution).unwrap(),
+            PointArithmeticEvidence::Incomplete {reason:SelectionProofRefusal::Boundary,..}));
+        assert!(matches!(Ibex.enclose_arithmetic_box_values_with_execution(&program,
+            &[ProofInterval {lower:-1.0,upper:1.0}],bytes,&execution).unwrap(),
+            PointArithmeticEvidence::Incomplete {reason:SelectionProofRefusal::Boundary,..}));
+    }
+    #[test]
+    fn native_point_arithmetic_preserves_rational_uncertainty_and_rectangular_first() {
+        let mut program = arithmetic_program(vec![
+            Node::Var(0),Node::Const(Constant::Rational(Rational::from((1,3)))),
+            Node::Sum(vec![0,1]),Node::Exp(0),Node::Const(Constant::Float(0.0)),
+        ],vec![2,3]);
+        program.objective=Some(1);
+        let PointArithmeticEvidence::Enclosed {values,jacobian,..} = point_arithmetic(&program,0.0)
+            else { panic!("rectangular arithmetic absent"); };
+        assert_eq!(values.len(),2);assert_eq!(jacobian.len(),2);
+        assert!(Rational::try_from(values[0].lower).unwrap() <= Rational::from((1,3)));
+        assert!(Rational::try_from(values[0].upper).unwrap() >= Rational::from((1,3)));
+        assert!(values[0].lower < values[0].upper);
+        assert!(jacobian.iter().all(|i| i.lower <= 1.0 && i.upper >= 1.0));
+    }
+    #[test]
+    fn native_point_arithmetic_refuses_unsupported_and_first_boundary() {
+        let unsupported = arithmetic_program(vec![Node::Aux(0),Node::Const(Constant::Float(0.0))],vec![0]);
+        assert!(matches!(point_arithmetic(&unsupported,0.0),PointArithmeticEvidence::Incomplete {
+            reason:SelectionProofRefusal::Unsupported,work:PointArithmeticWork {guard_evaluations:0,value_evaluations:0,jacobian_evaluations:0,hessian_evaluations:0},
+        }));
+        let square_root = arithmetic_program(vec![Node::Var(0),Node::Pow {
+            base:0,exponent:Constant::Rational(Rational::from((1,2))),
+        },Node::Const(Constant::Float(0.0))],vec![1]);
+        assert!(matches!(point_arithmetic(&square_root,0.0),PointArithmeticEvidence::Incomplete {
+            reason:SelectionProofRefusal::Boundary,work:PointArithmeticWork {value_evaluations:0,jacobian_evaluations:0,..},
+        }));
+    }
+    #[test]
+    fn native_point_arithmetic_observes_cancellation_and_byte_admission_before_work() {
+        let program = arithmetic_program(vec![Node::Var(0),Node::Const(Constant::Float(0.0))],vec![0]);
+        let cancelled = Arc::new(AtomicBool::new(true));
+        assert_eq!(Ibex.enclose_point_arithmetic(&program,&[0.0],Duration::from_secs(10),&cancelled,usize::MAX).unwrap(),
+            PointArithmeticEvidence::Interrupted {work:PointArithmeticWork::default()});
+        cancelled.store(false,Ordering::Release);
+        for (duration,bytes) in [(Duration::ZERO,usize::MAX),(Duration::from_secs(10),0)] {
+            assert_eq!(Ibex.enclose_point_arithmetic(&program,&[0.0],duration,&cancelled,bytes).unwrap(),
+                PointArithmeticEvidence::Incomplete {reason:SelectionProofRefusal::Resource,work:PointArithmeticWork::default()});
+        }
+    }
+    #[test]
+    fn native_point_arithmetic_cancels_while_waiting_for_process_mutex() {
+        let held=IBEX.lock().unwrap();
+        let program=arithmetic_program(vec![Node::Var(0),Node::Const(Constant::Float(0.0))],vec![0]);
+        let bytes=Ibex.point_arithmetic_workspace_bytes(&program).unwrap();
+        let cancel=Arc::new(AtomicBool::new(false));let worker_cancel=cancel.clone();
+        let (started_tx,started_rx)=std::sync::mpsc::channel();
+        let (result_tx,result_rx)=std::sync::mpsc::channel();
+        let worker=std::thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            let result=Ibex.enclose_point_arithmetic(&program,&[0.0],Duration::from_secs(10),&worker_cancel,bytes);
+            result_tx.send(result).unwrap();
+        });
+        started_rx.recv().unwrap();std::thread::sleep(Duration::from_millis(20));
+        cancel.store(true,Ordering::Release);
+        let result=result_rx.recv_timeout(Duration::from_secs(1));
+        drop(held);worker.join().unwrap();
+        assert_eq!(result.unwrap().unwrap(),PointArithmeticEvidence::Interrupted {work:PointArithmeticWork::default()});
+    }
+    #[test]
+    fn native_point_arithmetic_execution_reserves_ceiling_and_observes_actual_calls() {
+        use crate::solve::{Controls,Execution,WorkAdmission,WorkEvidence};
+        #[derive(Debug,Default)]
+        struct Ledger { admitted: Mutex<Vec<WorkEvidence>>,observed: Mutex<Vec<WorkEvidence>> }
+        impl WorkAdmission for Ledger {
+            fn admit(&self,work:WorkEvidence) -> Result<(),crate::ProblemError> {
+                self.admitted.lock().unwrap().push(work);Ok(())
+            }
+            fn observe(&self,work:WorkEvidence) -> Result<(),crate::ProblemError> {
+                self.observed.lock().unwrap().push(work);Ok(())
+            }
+        }
+        let owner=Arc::new(Ledger::default());
+        let mut execution=Execution::new(Arc::new(AtomicBool::new(false)),&Controls::default());
+        execution.work_admission=Some(owner.clone());
+        let unsupported=arithmetic_program(vec![Node::Aux(0),Node::Const(Constant::Float(0.0))],vec![0]);
+        let bytes=Ibex.point_arithmetic_workspace_bytes(&unsupported).unwrap();
+        assert!(matches!(Ibex.enclose_point_arithmetic_with_execution(&unsupported,&[0.0],bytes,&execution).unwrap(),
+            PointArithmeticEvidence::Incomplete {reason:SelectionProofRefusal::Unsupported,..}));
+        let valid=arithmetic_program(vec![Node::Var(0),Node::Const(Constant::Float(0.0))],vec![0]);
+        let bytes=Ibex.point_arithmetic_workspace_bytes(&valid).unwrap();
+        assert!(matches!(Ibex.enclose_point_arithmetic_with_execution(&valid,&[0.5],bytes,&execution).unwrap(),
+            PointArithmeticEvidence::Enclosed {..}));
+        assert!(Ibex.enclose_point_arithmetic_with_execution(&valid,&[],bytes,&execution).is_err());
+        let bytes=Ibex.point_arithmetic_workspace_bytes_for_order(&valid,DerivativeOrder::Second).unwrap();
+        assert!(matches!(Ibex.enclose_point_arithmetic_order_with_execution(&valid,&[0.5],DerivativeOrder::Second,bytes,&execution).unwrap(),
+            PointArithmeticEvidence::Enclosed {hessian:Some(_),..}));
+        let admitted=owner.admitted.lock().unwrap();
+        let observed=owner.observed.lock().unwrap();
+        assert_eq!(admitted.iter().map(|w| w.evaluations).collect::<Vec<_>>(),vec![Some(2),Some(2),Some(2),Some(3)]);
+        assert_eq!(observed.iter().map(|w| w.evaluations).collect::<Vec<_>>(),vec![Some(0),Some(2),None,Some(3)]);
+        assert!(admitted.iter().chain(observed.iter()).all(|w|
+            w.iterations==Some(0)&&w.factorizations==Some(0)&&w.proof_steps==Some(0)));
+    }
+    fn point_arithmetic_second(program:&PointArithmeticProgram,point:&[f64]) -> PointArithmeticEvidence {
+        let execution=crate::solve::Execution::new(Arc::new(AtomicBool::new(false)),&crate::solve::Controls::default());
+        let bytes=Ibex.point_arithmetic_workspace_bytes_for_order(program,DerivativeOrder::Second).unwrap();
+        Ibex.enclose_point_arithmetic_order_with_execution(program,point,DerivativeOrder::Second,bytes,&execution).unwrap()
+    }
+    #[test]
+    fn native_point_arithmetic_second_encloses_polynomial_and_objective_hessians() {
+        let mut program=arithmetic_program(vec![
+            Node::Var(0),Node::Var(1),Node::Pow {base:0,exponent:Constant::Rational(Rational::from(2))},
+            Node::Product(vec![0,1]),Node::Pow {base:1,exponent:Constant::Rational(Rational::from(2))},
+            Node::Const(Constant::Float(3.0)),Node::Product(vec![5,4]),Node::Sum(vec![2,3,6]),
+            Node::Exp(0),Node::Const(Constant::Float(0.0)),
+        ],vec![7,8]);
+        program.graph.inputs=2;program.objective=Some(1);
+        let PointArithmeticEvidence::Enclosed {hessian:Some(hessian),work,..}=point_arithmetic_second(&program,&[0.5,1.0])
+            else { panic!("Second arithmetic absent"); };
+        assert_eq!(hessian.len(),8);
+        for (interval,exact) in hessian.iter().zip([2.0,1.0,1.0,6.0,0.5_f64.exp(),0.0,0.0,0.0]) {
+            assert!(interval.contains(exact),"{interval:?} does not enclose {exact}");
+        }
+        assert_eq!(work.hessian_evaluations,2);
+        assert_eq!(work.value_evaluations,1);assert_eq!(work.jacobian_evaluations,1);
+    }
+    #[test]
+    fn native_point_arithmetic_second_enforces_second_and_intrinsic_domain_guards() {
+        for node in [Node::Log(0),Node::Pow {base:0,exponent:Constant::Rational(Rational::from((1,2)))}] {
+            let program=arithmetic_program(vec![Node::Var(0),node,Node::Const(Constant::Float(0.0))],vec![1]);
+            assert!(matches!(point_arithmetic_second(&program,&[0.0]),PointArithmeticEvidence::Incomplete {
+                reason:SelectionProofRefusal::Boundary,work:PointArithmeticWork {value_evaluations:0,jacobian_evaluations:0,hessian_evaluations:0,..},
+            }));
+        }
+        let mut program=arithmetic_program(vec![Node::Var(0),Node::Const(Constant::Float(0.0))],vec![0]);
+        program.graph.derivative_obligations.push((DerivativeOrder::Second,ProjectedObligation {
+            instance:source(),source:source(),kind:ObligationKind::Require(Condition::Nonzero),
+            scope:ObligationScope::Unconditional,argument:Some(0),constraints:vec![],represented:true,fidelity:Fidelity::Exact,
+        }));
+        assert!(matches!(point_arithmetic(&program,0.0),PointArithmeticEvidence::Enclosed {hessian:None,..}));
+        assert!(matches!(point_arithmetic_second(&program,&[0.0]),PointArithmeticEvidence::Incomplete {
+            reason:SelectionProofRefusal::Boundary,work:PointArithmeticWork {guard_evaluations:1,value_evaluations:0,jacobian_evaluations:0,hessian_evaluations:0},
+        }));
+        program.graph.derivative_obligations[0].1.scope=ObligationScope::Conditional;
+        assert!(matches!(point_arithmetic_second(&program,&[1.0]),PointArithmeticEvidence::Incomplete {
+            reason:SelectionProofRefusal::Unsupported,work:PointArithmeticWork {guard_evaluations:0,value_evaluations:0,jacobian_evaluations:0,hessian_evaluations:0},
+        }));
+    }
+    #[test]
+    fn native_point_arithmetic_second_refuses_dense_extent_before_work() {
+        let execution=crate::solve::Execution::new(Arc::new(AtomicBool::new(false)),&crate::solve::Controls::default());
+        for (width,outputs) in [(33,1),(1,129),(17,128)] {
+            let mut program=arithmetic_program(vec![Node::Var(0),Node::Const(Constant::Float(0.0))],vec![0;outputs]);
+            program.graph.inputs=width;
+            assert!(Ibex.point_arithmetic_workspace_bytes_for_order(&program,DerivativeOrder::Second).is_err());
+            assert!(matches!(Ibex.enclose_point_arithmetic_order_with_execution(&program,&vec![0.0;width],
+                DerivativeOrder::Second,usize::MAX,&execution).unwrap(),PointArithmeticEvidence::Incomplete {
+                reason:SelectionProofRefusal::Resource,work:PointArithmeticWork {guard_evaluations:0,value_evaluations:0,jacobian_evaluations:0,hessian_evaluations:0},
+            }));
+        }
     }
     use pse_ids::SemanticId;
     use pse_math::{

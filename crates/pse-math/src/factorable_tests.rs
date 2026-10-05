@@ -173,6 +173,42 @@ fn project(assembly: &CaseAssembly, request: &FactorableRequest) -> FactorablePr
         )
         .unwrap()
 }
+#[test]
+fn point_arithmetic_projects_original_bounds_rectangular_objective_and_first_guards() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry,1);
+    let x = inputs(&mut b,1).remove(0);
+    let exp = unary(&mut b,Function::Exp,&x);
+    let large = number(Atom::num(10_000_000_000_000_000_i64));
+    let row = op(&mut b,Binary::Add,&exp,&large);
+    let sqrt = unary(&mut b,Function::Sqrt,&x);
+    let objective = op(&mut b,Binary::Mul,&x,&x);
+    let assembly = case(&registry,b.prepare(&[row,sqrt,objective]).unwrap(),&[(0.0,2.0)],&[2]);
+    let mut rows = assembly.structure().rows().to_vec();
+    rows[0].lower = 1e16+2.0;rows[0].upper = 1e16+2.0;
+    let structure = Arc::new(CaseStructure::new(
+        assembly.structure().variables().to_vec(),assembly.structure().parameters().to_vec(),
+        assembly.structure().instances().to_vec(),rows,assembly.structure().objective().cloned(),
+        CaseLimits::default(),
+    ).unwrap());
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(structure,assembly.bodies().clone(),&registry,
+        DerivativeOrder::Value,AssemblyLimits::default(),&cancel).unwrap();
+    let program = plan.point_arithmetic_program(&CaseValues::default(),100_000,&cancel).unwrap().unwrap();
+    assert_eq!(program.graph.inputs,1);assert_eq!(program.rows.len(),2);
+    assert!(program.objective.is_some());
+    let first = &program.rows[0];
+    assert_eq!(first.lower_residual,first.upper_residual);
+    let node = program.graph.residuals[first.lower_residual.unwrap()];
+    let Node::Sum(children) = &program.graph.nodes[node] else { panic!("bound subtraction outside DAG"); };
+    assert_eq!(children[0],program.graph.residuals[first.value]);
+    assert!(matches!(program.graph.nodes[children[1]],Node::Const(Constant::Float(bound)) if bound == -(1e16+2.0)));
+    assert!(program.graph.derivative_obligations.iter().any(|(order,g)|
+        *order == DerivativeOrder::First && g.represented && g.kind == ObligationKind::Require(crate::guarded::Condition::Positive)));
+    cancel.store(true,std::sync::atomic::Ordering::Release);
+    assert!(matches!(plan.point_arithmetic_program(&CaseValues::default(),100_000,&cancel),
+        Err(FactorableError::Math(MathError::Cancelled))));
+}
 /// Deterministic points in a box (splitmix64); no test dependency.
 struct Points(u64);
 impl Points {

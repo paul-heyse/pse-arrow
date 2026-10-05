@@ -720,7 +720,7 @@ mod qualification_tests {
         o.complementarity = Some(vec![1e-4]);
         r.observation = Some(o);
         let n = pse_math::normalization::Normalization::identity(1, 0);
-        let mut accuracy = ResolvedAccuracy::nominal();
+        let mut accuracy = ResolvedAccuracy::verification();
         record_kkt(&mut r, &n, &accuracy);
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::Feasible);
@@ -774,7 +774,7 @@ mod qualification_tests {
         assert!(r.validation_failure().is_none());
         assert!(r.quality.as_ref().unwrap().feasible());
         assert_eq!(r.observation.as_ref().unwrap().objective, Some(1.0));
-        qualify(&mut r, &ResolvedAccuracy::nominal());
+        qualify(&mut r, &ResolvedAccuracy::verification());
         assert_eq!(r.qualification, Qualification::Feasible);
         assert!(
             matches!(retained.validation_failure(),Some(ProblemError::Math(pse_math::MathError::Domain {source_id:id,..})) if *id==source_id)
@@ -798,7 +798,7 @@ mod qualification_tests {
     fn quality_reads_typed_evidence_only() {
         let accuracy = ResolvedAccuracy {
             mip_relative_gap: 0.03,
-            ..ResolvedAccuracy::nominal()
+            ..ResolvedAccuracy::verification()
         };
         // Observational metrics under the former keys grant nothing.
         let mut r = report(Backend::Highs, Termination::Success);
@@ -881,7 +881,7 @@ mod qualification_tests {
     /// it; a contradicted one grants nothing, and the native stop is kept.
     #[test]
     fn contradicted_infeasibility_grants_no_assurance() {
-        let accuracy = ResolvedAccuracy::nominal();
+        let accuracy = ResolvedAccuracy::verification();
         let mut r = report(Backend::Scip, Termination::Infeasible);
         r.candidate = None;
         r.quality = None;
@@ -929,7 +929,7 @@ mod qualification_tests {
         r.evidence.coefficient = Some(coefficient());
         let accuracy = ResolvedAccuracy {
             mip_relative_gap: 0.03,
-            ..ResolvedAccuracy::nominal()
+            ..ResolvedAccuracy::verification()
         };
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::GapQualified);

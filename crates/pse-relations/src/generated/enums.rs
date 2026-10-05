@@ -4,15 +4,18 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#enums::{
-    ArtifactReconstruction, AssertionStatus, AttemptKind, AttemptState, Authority,
-    BasisKind, BasisRule, BoundActivity, BoundKind, BoundStatus, CandidateBoundOrigin,
-    CandidateQualifier, CandidateRefusal, CandidateUse, ChangeKind, ClarabelDirect,
-    ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole,
-    CompositionBasis, ComputationKind, ConstraintScalingScheme, ConversionKind,
-    CovarianceApproximation, DerivationGranularity, DerivedQuantity, Determinism,
-    DiagnosticCode, DiagnosticNonfiniteObservation, DiagnosticObservationKind,
-    DiagnosticRule, DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod,
-    DualQualification, DynamicSensitivity, DynamicsMethod, EndpointPolicy, EntityKind,
+    AccuracyCriterionStatus, AccuracyEvidenceInterpretation, AccuracyEvidenceMethod,
+    AccuracyGoalStatus, AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation,
+    AccuracyResolutionStatus, AccuracyUnavailableReason, ArtifactReconstruction,
+    AssertionStatus, AttemptKind, AttemptState, Authority, BasisKind, BasisRule,
+    BoundActivity, BoundKind, BoundStatus, CandidateBoundOrigin, CandidateQualifier,
+    CandidateRefusal, CandidateUse, ChangeKind, ClarabelDirect, ClarabelMergeMethod,
+    ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole, CompositionBasis,
+    ComputationKind, ConstraintScalingScheme, ConversionKind, CovarianceApproximation,
+    DerivationGranularity, DerivedQuantity, Determinism, DiagnosticCode,
+    DiagnosticNonfiniteObservation, DiagnosticObservationKind, DiagnosticRule,
+    DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod, DualQualification,
+    DynamicSensitivity, DynamicsMethod, EndpointPolicy, EngineeringScaleKind, EntityKind,
     EventDirection, EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass,
     FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives, HessianMode,
     HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy, InputConsumptionKind,
@@ -63,6 +66,267 @@ pub use pse_model::generated::r#enums::{
     SubjectRule, TearMethod, TearPolicy, TerminationClass, TimeCoordinateKind,
     TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
+impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyCriterionStatus).to_owned(),
+                enumeration: stringify!(AccuracyCriterionStatus).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyEvidenceInterpretation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyEvidenceInterpretation).to_owned(),
+                enumeration: stringify!(AccuracyEvidenceInterpretation).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyEvidenceMethod {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyEvidenceMethod).to_owned(),
+                enumeration: stringify!(AccuracyEvidenceMethod).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyGoalStatus {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyGoalStatus).to_owned(),
+                enumeration: stringify!(AccuracyGoalStatus).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyGoalSubject {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyGoalSubject).to_owned(),
+                enumeration: stringify!(AccuracyGoalSubject).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyGoalUse {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyGoalUse).to_owned(),
+                enumeration: stringify!(AccuracyGoalUse).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyObservation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyObservation).to_owned(),
+                enumeration: stringify!(AccuracyObservation).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyResolutionStatus {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyResolutionStatus).to_owned(),
+                enumeration: stringify!(AccuracyResolutionStatus).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for AccuracyUnavailableReason {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(AccuracyUnavailableReason).to_owned(),
+                enumeration: stringify!(AccuracyUnavailableReason).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
         &self,
@@ -1196,6 +1460,35 @@ impl crate::columnar::ArrowValue for EndpointPolicy {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(EndpointPolicy).to_owned(),
                 enumeration: stringify!(EndpointPolicy).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for EngineeringScaleKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(EngineeringScaleKind).to_owned(),
+                enumeration: stringify!(EngineeringScaleKind).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

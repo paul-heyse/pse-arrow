@@ -1006,12 +1006,19 @@ fn annotation_kind_dispatch_is_exhaustive() {
             V::Valid { .. } => Kind::Valid,
             V::Check(_) => Kind::Check,
             V::Objective(_) => Kind::Objective,
+            V::AccuracyGoal(_) => Kind::AccuracyGoal,
+            V::EngineeringScale(_) => Kind::EngineeringScale,
+            V::EngineeringDefault { .. } => Kind::EngineeringDefault,
         })
         .collect::<std::collections::BTreeSet<_>>();
     let mut expected = Kind::ALL
         .into_iter()
         .collect::<std::collections::BTreeSet<_>>();
     expected.remove(&Kind::Connectivity);
+    expected.remove(&Kind::AccuracyGoal);
+    expected.remove(&Kind::EngineeringScale);
+    expected.remove(&Kind::EngineeringDefault);
+    expected.remove(&Kind::EngineeringRule);
     assert_eq!(values, expected);
     assert_eq!(model.connectivity.len(), 1);
     let (_, limits) = model.connectivity.first_key_value().unwrap();
@@ -1032,6 +1039,10 @@ fn annotation_kind_dispatch_is_exhaustive() {
                 Kind::Objective => Shape::Objective,
                 Kind::Scale => Shape::Scheme,
                 Kind::Connectivity => Shape::Connectivity,
+                Kind::AccuracyGoal => Shape::AccuracyGoal,
+                Kind::EngineeringScale => Shape::EngineeringScale,
+                Kind::EngineeringDefault => Shape::EngineeringDefault,
+                Kind::EngineeringRule => Shape::EngineeringRule,
             }
         );
         let mut extra = row.clone();
@@ -1045,6 +1056,95 @@ fn annotation_kind_dispatch_is_exhaustive() {
         }
         assert!(shape(&foreign, at).is_err(), "{:?}", row.kind);
     }
+}
+
+#[test]
+fn authored_accuracy_and_engineering_annotations_specialize_to_typed_meaning() {
+    use crate::annotation::AnnotationValue;
+    use pse_model::generated::enums::{AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation};
+    let text = r#"package p {
+        entity kind source provenance { attribute title: Text; }
+        enum role { published }
+        entity source maintainer { title = "engineering policy" }
+        constant temperature_allowance: DeltaTemperature = 0.1{K} provenance(maintainer, role.published);
+        annotation engineering_rule p.temperature_allowance;
+        def Root {
+            var temperature: Temperature;
+            annotation accuracy_goal temperature(selected_output, sample, time=1{s}, resolution=0.01{K}, criterion_lower=273.15{K}, criterion_upper=373.15{K}, required_class=certified, use_policy=require_satisfied, refine=false);
+            annotation engineering_scale temperature(kind=range_width, value=20{K});
+            annotation engineering_default temperature(p.temperature_allowance);
+        }
+    }"#;
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    assert_eq!(model.engineering_rules.len(), 1);
+    let rule = &model.engineering_rules[0];
+    assert_eq!(rule.id, p_id(text, "p.temperature_allowance"));
+    assert_ne!(rule.marker.as_id(), rule.id);
+    let goal = model
+        .annotations
+        .iter()
+        .find_map(|annotation| match &annotation.value {
+            AnnotationValue::AccuracyGoal(goal) => Some(goal),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(goal.subject, AccuracyGoalSubject::SelectedOutput);
+    assert_eq!(goal.observation, AccuracyObservation::Sample);
+    assert_eq!(
+        goal.required_class,
+        pse_model::generated::enums::NumericalAccuracyClass::Certified
+    );
+    assert_eq!(goal.use_policy, AccuracyGoalUse::RequireSatisfied);
+    assert!(!goal.refine);
+    assert_eq!(
+        goal.source,
+        pse_model::generated::enums::NumericalSource::Model
+    );
+    assert!(goal.time.is_some());
+    assert!(goal.resolution.is_some());
+    assert!(goal.criterion_lower.is_some() && goal.criterion_upper.is_some());
+    let scale = model
+        .annotations
+        .iter()
+        .find_map(|annotation| match &annotation.value {
+            AnnotationValue::EngineeringScale(scale) => Some(scale),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(
+        scale.kind,
+        pse_model::generated::enums::EngineeringScaleKind::RangeWidth
+    );
+    assert_eq!(
+        scale.source,
+        pse_model::generated::enums::NumericalSource::Model
+    );
+    assert!(model.annotations.iter().any(|annotation| matches!(
+        annotation.value,
+        AnnotationValue::EngineeringDefault { rule_id: id, source: pse_model::generated::enums::NumericalSource::Model } if id == rule.id
+    )));
+    for invalid in [
+        text.replace(
+            "time=1{s}, resolution=0.01{K}, criterion_lower=273.15{K}, criterion_upper=373.15{K}, required_class=certified, use_policy=require_satisfied, refine=false",
+            "",
+        ),
+        text.replace("p.temperature_allowance", "p.unmarked_allowance"),
+        text.replace("DeltaTemperature = 0.1{K}", "Energy = 0.1{J}"),
+    ] {
+        assert!(run(&invalid, "p.Root", Bindings::default()).is_err(), "{invalid}");
+    }
+}
+
+fn p_id(text: &str, path: &str) -> SemanticId {
+    let (registry, _) = physical();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
+        quantities: &registry,
+        scope: &PhysicalScope::default(),
+    };
+    check(&source(text), &context).unwrap().names[path].as_id()
 }
 
 /// ADR-0123 Outcome 6: a package addresses a named reference state of the physical document

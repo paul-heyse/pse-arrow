@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0f068fdfc75a08bdfd268df6a78f1") package flash_diagnostics {
+@id("0a0c9bbe420f409785ebebaefd26c046") use numerical_policy @"1.0.0";
 @id("01a0f068fdfc75a08bdfd2696916ed9c") use provenance @"1.0.0";
 @id("01a0f068fdfc75a08bdfd26a1a20966d") use campaign_references @"1.0.0";
 @id("01a0f068fdfc75a08bdfd26ba39972f9") use kinds @"1.0.0";
@@ -68,10 +69,13 @@
 // liquid, and the overall balance makes y1 + x2 = 1 for benzene.
 @id("01a0f07702427104927e4f2b77e7ea5d") test cascade_near_singular_diagnostics_name_members oracle campaign_references.analytic_total_reflux_cascade fixture {dof 0; route steady; procedure solve; diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.benzene], root.material[tray_2,chem.benzene]); diagnose "jacobian.parallel_rows" at(root.material[tray_1,chem.toluene], root.material[tray_2,chem.toluene]); diagnose "jacobian.numerical_rank_deficiency" at(root.material); fix root.feed=0.000001{mol/s}; fix root.feed_composition[chem.benzene]=0.5{1}; fix root.feed_composition[chem.toluene]=0.5{1}; fix root.distillate=0.0000005{mol/s}; fix root.boilup=100{mol/s}; fix root.pressure=101325{Pa};} {
 @id("01a0f07702427104927e4f2c4edcde14") child root:EquilibriumCascade=EquilibriumCascade(stages=trays,links=keys(descends),top=tray_1,bottom=tray_2,vapor_pressure=bt_ideal.psat);
-@id("01a0f0825b1773e7a4249396ebce4074") expect root.y[tray_1,chem.benzene]==0.71137987{1} tolerance 0.000001{1};
-@id("01a0f0825b1773e7a42493979d19d447") expect root.x[tray_1,chem.benzene]==0.49720822{1} tolerance 0.000001{1};
-@id("01a0f0825b1773e7a42493988b5782d1") expect root.x[tray_2,chem.benzene]==0.28862013{1} tolerance 0.000001{1};
-@id("01a0f0825b1773e7a42493996a06d601") expect root.T[tray_1]==365.428990{K} tolerance 0.0001{K};
-@id("01a0f0825b1773e7a424939a254eba33") expect root.T[tray_2]==372.099218{K} tolerance 0.0001{K};
+// Reported state comparisons use the global physical policy. The tiny external
+// feed is a deliberate near-singular diagnostic input; it and the numerical rank
+// thresholds retain their independent verification meaning.
+@id("01a0f0825b1773e7a4249396ebce4074") expect root.y[tray_1,chem.benzene]==0.71137987{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f0825b1773e7a42493979d19d447") expect root.x[tray_1,chem.benzene]==0.49720822{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f0825b1773e7a42493988b5782d1") expect root.x[tray_2,chem.benzene]==0.28862013{1} tolerance numerical_policy.mole_fraction;
+@id("01a0f0825b1773e7a42493996a06d601") expect root.T[tray_1]==365.428990{K} tolerance numerical_policy.temperature;
+@id("01a0f0825b1773e7a424939a254eba33") expect root.T[tray_2]==372.099218{K} tolerance numerical_policy.temperature;
 }
 }

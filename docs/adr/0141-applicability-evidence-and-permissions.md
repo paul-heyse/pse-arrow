@@ -72,7 +72,7 @@ Plan 25b tests unknown/unrestricted distinctions, the two permissions independen
 `just unit-package pse-runtime 'test(applicability_tests)' --test-threads 1` passed 13, 7 and
 4 controls respectively against zero, with explicit force-validation in the optimized test
 profile. Demanded source/permission compiler controls and the isolated generated Python codec
-control have successful receipts in the [Plan 25b Outcome](../plans/25b-scientific-knowledge-and-applicability.md#verification).
+control have successful receipts in the [Plan 25b Outcome](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md#verification).
 Complete product/scientific qualification remains Plan 25k. This record remains proposed pending its decision PR.
 
 ## Pros and cons
@@ -81,7 +81,7 @@ A generic claim/observation boundary preserves meaning for every scientific fami
 
 ## More information
 
-[Plan 25b](../plans/25b-scientific-knowledge-and-applicability.md), F12/R2, blueprint §9.10 and §14.3.
+[Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md), F12/R2, blueprint §9.10 and §14.3.
 
 ## Status history
 

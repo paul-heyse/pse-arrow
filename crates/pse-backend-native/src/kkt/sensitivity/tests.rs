@@ -258,7 +258,7 @@ fn retaining(
         slacks: None,
         commitment: None,
     });
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = Tolerances {
         variables: vec![bound_tolerance; n],
         ..tolerances(n, m)
@@ -548,6 +548,7 @@ mod solved {
                 second_order: true,
                 sensitivity: Some(request(Analytic::new(p, 2.0, false, true), true)),
                 inverse_reduced_hessian: None,
+                output_accuracy: None,
             },
         )
         .unwrap()
@@ -613,6 +614,7 @@ mod solved {
                     second_order,
                     sensitivity: None,
                     inverse_reduced_hessian: Some(columns.clone()),
+                    output_accuracy: None,
                 },
             )
         };
@@ -648,6 +650,7 @@ mod solved {
                 second_order: true,
                 sensitivity: None,
                 inverse_reduced_hessian: Some(vec![OriginalCol::new(0), OriginalCol::new(0)]),
+                output_accuracy: None,
             },
         );
         assert!(matches!(repeated, Err(ProblemError::Contract(_))));

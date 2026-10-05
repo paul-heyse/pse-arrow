@@ -401,8 +401,8 @@ impl super::ModelingSimulation {
                 return;
             }
             let report = match handle.finish().await {
-                Ok(((report, checks), owner)) => prepared
-                    .finish(run_id, report, checks, owner)
+                Ok(((report, checks, accuracy), owner)) => prepared
+                    .finish(run_id, report, checks, accuracy, owner)
                     .map(|trajectory| RunReport::Simulation(Box::new(trajectory)))
                     .map_err(Arc::new),
                 Err(error) => Err(Arc::new(WorkflowError::Math(error))),

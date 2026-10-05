@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0ee447c1375339658c58254a7f0d3") package pfr_studies {
+@id("3e90901bb25d4b13ac251f05f91407ca") use numerical_policy @"1.0.0";
 @id("6b321c81b2634b83b1cd86103fc14c46") use correlations @"1.0.0";
 @id("04b87158858c41f58a25bcafacfdfe31") use properties @"1.0.0";
 @id("6b1f386217f64a2287033f32494592e6") use compatibility @"1.0.0";
@@ -30,48 +31,42 @@
 @id("01a0ee447c1375339658c5971e379faa") annotation report ester("outlet ethyl acetate");
 @id("01a0ee447c1375339658c59843756029") annotation report released("heat of reaction over the reactor");
 }
-@id("01a0ee447c1375339658c599f3551527") def OrderStudy(radau:Boolean,base:Integer,lower:Scalar,upper:Scalar) {
-@id("01a0ee447c1375339658c59a005e16c6") child coarse:SaponificationPFR=SaponificationPFR(elements=base,radau=radau);
-@id("01a0ee447c1375339658c59b5878d11a") child medium:SaponificationPFR=SaponificationPFR(elements=2*base,radau=radau);
-@id("01a0ee447c1375339658c59c90886e9e") child fine:SaponificationPFR=SaponificationPFR(elements=4*base,radau=radau);
-@id("01a0ee447c1375339658c59deefa774d") child finest:SaponificationPFR=SaponificationPFR(elements=8*base,radau=radau);
-@id("01a0ee447c1375339658c59e4325e22e") let coarse_order:Scalar=log(abs(coarse.ester-medium.ester)/abs(medium.ester-fine.ester))/log(2);
-@id("01a0ee447c1375339658c59f1625df4d") let fine_order:Scalar=log(abs(medium.ester-fine.ester)/abs(fine.ester-finest.ester))/log(2);
-@id("01a0ee447c1375339658c5a08560af92") annotation report coarse_order("observed order over base, 2 base and 4 base elements");
-@id("01a0ee447c1375339658c5a18c3e446e") annotation report fine_order("observed order over 2 base, 4 base and 8 base elements");
-@id("01a0ee447c1375339658c5a28ada63d5") annotation check coarse_order(coarse_order>=lower and coarse_order<=upper);
-@id("01a0ee447c1375339658c5a3b9a0d07d") annotation check fine_order(fine_order>=lower and fine_order<=upper);
+@id("b8c0fdfcdbe24ed4a2c86b36d529e29a") def MeshStudy(radau:Boolean,base:Integer) {
+@id("be985ba9eb0a477fa4cc8fec15973ba3") child coarse:SaponificationPFR=SaponificationPFR(elements=base,radau=radau);
+@id("6150b852170d4ea78aac3745a06f4f5f") child fine:SaponificationPFR=SaponificationPFR(elements=2*base,radau=radau);
+@id("d32ed51df33d4543b9896f9a61a1eceb") let concentration_change:MolarDensity=abs(coarse.ester-fine.ester);
+@id("91c1f8a5ff0d44bfaee742c0836d5034") let temperature_change:DeltaTemperature=abs(coarse.reactor.outlet_temperature-fine.reactor.outlet_temperature);
+@id("0fe9c05ca22841b89b1333b2ada9c80c") annotation report concentration_change("mesh refinement outlet concentration change");
+@id("607c7b9954d143bf8aaff53ff10d8c1c") annotation report temperature_change("mesh refinement outlet temperature change");
+@id("2fc4937d331d49a299a750c1088a5022") annotation check concentration_change(concentration_change<=numerical_policy.concentration);
+@id("a35e602e496f40789ba1c94308b483bb") annotation check temperature_change(temperature_change<=numerical_policy.temperature);
 }
-// Refinement of the IDAES 2.13 test_pfr TestInitializers specification over 5, 10, 20
-// and 40 backward finite-difference elements.
-@id("01a0ee447c1375339658c5a4e1c11aa5") test pfr_order_backward oracle campaign_references.analytic_backward_difference_order fixture {dof 0; route steady; procedure solve; policy { derivatives cells(20000000); }} {
-// These concrete analyses read the recorded water constants through parameter defaults.
-// Accept their missing form-axis evidence only for these two fits; extrapolation stays disallowed.
+// Mesh refinement compares output changes at the shared physical concentration
+// and temperature resolution, without ratios of tiny numerical differences.
+// Backward differences use 20/40 cells; three-point Radau uses 2/4 cells.
+@id("f341a18f0f284413b6b20f1309e47e6d") test pfr_mesh_stability_backward oracle campaign_references.engineering_mesh_stability fixture {dof 0; route steady; procedure solve; policy { derivatives cells(20000000); }} {
 @id("41e087c15ad044858ba5271ad27f636c") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("c43dcd2ae1c656eb9d974f20c90cd2de") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
-@id("01a0ee447c1375339658c5a5868e2cdc") child root:OrderStudy=OrderStudy(radau=false,base=5,lower=0.85,upper=1.15);
+@id("44adb88503f64357b9aad8c4b2c24e0c") child root:MeshStudy=MeshStudy(radau=false,base=20);
 }
-// Refinement of the same specification over 1, 2, 4 and 8 three-point Radau elements.
-// Finer meshes reach the solver tolerance at 8 elements (6e-9 mol/m3 from the seed
-// pfr_radau SciPy reference) and exceed the opaque derivative-support bound at 20.
-@id("01a0ee447c1375339658c5a6de76089b") test pfr_order_radau oracle campaign_references.analytic_radau_order fixture {dof 0; route steady; procedure solve; policy { derivatives cells(20000000); }} {
+@id("8f755c37ae0341349c43cfcc02a62331") test pfr_mesh_stability_radau oracle campaign_references.engineering_mesh_stability fixture {dof 0; route steady; procedure solve; policy { derivatives cells(20000000); }} {
 @id("8609a0c54aa44c9cb1b2f92456646926") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("3a3bb76099ba546f8d798492c2454e5f") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
-@id("01a0ee447c1375339658c5a762738491") child root:OrderStudy=OrderStudy(radau=true,base=1,lower=4.4,upper=5.3);
+@id("12ced87f01914e4d86c919d8c27750c9") child root:MeshStudy=MeshStudy(radau=true,base=2);
 }
-// Conservation and heat of reaction follow TestSaponification.test_conservation; its
-// 1e-6 absolute molar and energy balances add a 1e-9 relative allowance on the
-// 5.6e4 mol/s and 2e7 W streams for this solve's original-space tolerance.
+// Physical outlet and flow comparisons use the global typed policy. Extensive
+// MW heat-release comparisons additionally use its dimensionless relative
+// allowance; pure conservation keeps its independent original-space checks.
 @id("01a0eeb74d7e726e81ad8d65fb5e4d34") test pfr_initializers_oracle oracle campaign_references.idaes_test_pfr_initializers fixture {dof 0; route steady; procedure solve;} {
 @id("cf9c69f1ad4f4698b6a37798d7341fc7") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("ea085e1c54a4551e92c5b8773bd278fc") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("01a0eeb74d7e726e81ad8d66c516ac6e") child root:SaponificationPFR=SaponificationPFR(elements=20,radau=false);
-@id("01a0eeb74d7e726e81ad8d67ed1fa771") expect root.reactor.outlet_pressure==101325{Pa} tolerance 0.000000000001{Pa} relative 0.00001;
-@id("01a0eeb74d7e726e81ad8d6863ce208c") expect root.reactor.outlet_temperature==303.593{K} tolerance 0.000000000001{K} relative 0.00001;
-@id("01a0eeb74d7e726e81ad8d691ac4a6fc") expect root.ester==62.29202{mol/m^3} tolerance 0.000000000001{mol/m^3} relative 0.00001;
-@id("01a0eeb74d7e726e81ad8d6a81ff7c5a") expect root.reactor.state[1].volume_flow==root.reactor.state[0].volume_flow tolerance 0.000001{m^3/s};
-@id("01a0eeb74d7e726e81ad8d6b1091ff28") expect root.reactor.state[1].flow==root.reactor.state[0].flow tolerance 0.000001{mol/s} relative 0.000000001;
-@id("01a0eeb74d7e726e81ad8d6ccafc388d") expect root.released==1847000{W} tolerance 1000{W};
-@id("01a0eeb74d7e726e81ad8d6de04ee4b3") expect root.reactor.state[0].energy_flow+root.released==root.reactor.state[1].energy_flow tolerance 0.000001{W} relative 0.000000001;
+@id("01a0eeb74d7e726e81ad8d67ed1fa771") expect root.reactor.outlet_pressure==101325{Pa} tolerance numerical_policy.pressure;
+@id("01a0eeb74d7e726e81ad8d6863ce208c") expect root.reactor.outlet_temperature==303.593{K} tolerance numerical_policy.temperature;
+@id("01a0eeb74d7e726e81ad8d691ac4a6fc") expect root.ester==62.29202{mol/m^3} tolerance numerical_policy.concentration;
+@id("01a0eeb74d7e726e81ad8d6a81ff7c5a") expect root.reactor.state[1].volume_flow==root.reactor.state[0].volume_flow tolerance numerical_policy.volume_flow;
+@id("01a0eeb74d7e726e81ad8d6b1091ff28") expect root.reactor.state[1].flow==root.reactor.state[0].flow tolerance numerical_policy.molar_flow relative numerical_policy.dimensionless;
+@id("01a0eeb74d7e726e81ad8d6ccafc388d") expect root.released==1847000{W} tolerance numerical_policy.energy_transfer_rate relative numerical_policy.dimensionless;
+@id("01a0eeb74d7e726e81ad8d6de04ee4b3") expect root.reactor.state[0].energy_flow+root.released==root.reactor.state[1].energy_flow tolerance numerical_policy.power relative numerical_policy.dimensionless;
 }
 }

@@ -120,3 +120,11 @@ bound decide it within the recorded box, tolerances and export fidelity. The che
 `tpd > −tolerance` then holds at the certified minimizer, and a certified minimum below
 it, or any original-qualified trial point with negative distance, shows instability.
 The check itself is a predicate over the solved point; it does not run a solve.
+
+Physical reconstruction, material/energy transport and ordinary thermodynamic output
+checks consume the shared typed `numerical_policy` constants from the domain package.
+Composition normalization keeps its equation and independently checks the same global
+dimensionless allowance. Pressure reconstruction and its independent pressure check
+share one physical pressure allowance. Strict positivity, admissible physical domains,
+phase-selection assurance, smoothing parameters and mathematical identity tests retain
+their own meanings. A tighter explicit analysis can override the ordinary design values.

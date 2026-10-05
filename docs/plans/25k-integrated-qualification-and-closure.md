@@ -3,7 +3,7 @@ title: "25k: Integrated qualification and closure"
 status: in-progress
 date: 2026-09-30
 adrs: [ADR-0153]
-review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md]
+review_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md, docs/design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md]
 scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alignment_2026-09-30.md#s01, docs/design_review/reviews/design_review_codebase-domain-alignment-follow-up_2026-09-30.md#fs11]
 ---
 
@@ -15,10 +15,10 @@ This is the **only full qualification stage** of the [Plan 25 series](25-design-
 Plans 25a–25j implement the target directly, use compilation and focused behavioral checks,
 and delete replaced mechanisms as their callers move. They do not repeat this campaign at
 section or document boundaries. This plan starts after all their functional packets are complete.
-The later [25l functional follow-up](25l-flowsheet-compilation-and-solver-routing.md) supplies
+The later [25l functional follow-up](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25l-flowsheet-compilation-and-solver-routing.md) supplies
 the corrections required at the full-case review boundary. The subsequent
 [25m pipeline follow-up](25m-integrated-solve-pipeline.md) supplies the combined solver-review
-functional handoff. The draft
+functional handoff. The
 [25n automatic-pipeline correction](25n-automatic-simulation-solve-pipeline.md) adds the corrected
 functional prerequisite before K3 next resumes.
 
@@ -68,7 +68,7 @@ and fixture inputs authored alongside the implementation that supplies the behav
 |---|---|---|---|
 | <a id="k1"></a>K1 Functional readiness | All functional packets in 25a–25j | Confirm target consumers are migrated, replacement/deletion obligations are complete, required decision routes are satisfied and fixtures exist for the journeys above. Resolve remaining functional work in its owning plan before starting K2 | done |
 | <a id="k2"></a>K2 Format and static qualification | K1 | Run the single series-wide formatting/lint pass and relevant Rust/Python compilation, generation, family, governance and documentation checks; repair to zero | done |
-| <a id="k3"></a>K3 Behavioral and scientific qualification | K2; 25l L6, 25m P11 and 25n N11 functional handoffs, with refreshed static evidence for affected source | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress; paused |
+| <a id="k3"></a>K3 Behavioral and scientific qualification | K2; 25l L6, 25m P11 and 25n N11 functional handoffs, with refreshed static evidence for affected source | Run the selected Rust, native, Python, conformance and compatibility journeys; independently assess physical closure, domains, original-space residuals, outcome truth and durable lifecycle | in progress |
 | <a id="k4"></a>K4 Reuse and performance measurement | K3 | Measure cold/warm preparation, one-body edits, in-process/durable value studies, retention after eviction and worker admission; report counts, timing distributions, memory and all refusals/failures | planned |
 | <a id="k5"></a>K5 Architectural assessment and closure | K3/K4 | Conduct one bounded target-design review of the assembled change, reconcile every finding with its evidence, update enduring owners and close only demonstrated scope | planned |
 
@@ -88,8 +88,8 @@ K3 remains incomplete; K4 and closure remain pending. This requested review is b
 its compilation/routing inquiry than the planned final K5 evidence assessment and does not
 complete that packet. Its findings are now scheduled in the
 [coordinator's existing disposition owner](25-design-remediation.md#full-case-compilation-and-solver-routing-follow-up)
-through the [25l implementation plan](25l-flowsheet-compilation-and-solver-routing.md).
-**Implemented/Tested, 2026-10-02:** [25l L0–L6 functional scope is complete](25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
+through the [25l implementation plan](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25l-flowsheet-compilation-and-solver-routing.md).
+**Implemented/Tested, 2026-10-02:** [25l L0–L6 functional scope is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
 with selective support, contextual readiness, completion and generated/recorded boundaries,
 124 focused Rust tests, five Python codec tests and final default/linked compilation.
 Its four runtime preparation controls start no native attempt and use no storage.
@@ -336,7 +336,7 @@ harnesses for the resumed K3 campaign:
 |---|---|---|
 | Connected process topology and coupled original completion | Runtime `workflow::strategies::conditional::tests::automatic_workflow_causal_` and `math::solves::derived::tests::automatic_blocks_`; seed `campaign/models/recycle-flash.pse` | Successful and failed local sweeps, all non-port states, original residuals/bounds, no partial commit; topology does not establish connected-sheet transport |
 | Stiff/ill-conditioned reconstruction and supplier chains | Runtime `compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_native_reference`, `actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_chain_actions`, and full Root reconstruction controls | Actual consumed accuracy, chain actions, finite proof workspace and independent original comparison |
-| Original PR/CSTR science | Unchanged `campaign/models/bt-pr-formulations.pse`, `recycle-flash.pse`, `cstr-dynamics.pse` under `packages/reference/conformance.toml` | Original criteria and budgets remain binding; targeted mechanism controls do not qualify these fixtures |
+| Original PR/CSTR science | `campaign/models/bt-pr-formulations.pse`, `recycle-flash.pse`, `cstr-dynamics.pse` under `packages/reference/conformance.toml` | Original physical laws, bounds and independent values remain binding; decision-relevant criteria follow the authorized convergence review; targeted mechanism controls do not qualify these fixtures |
 | Changed active set and related targets | Runtime `advanced_step_falls_back_on_active_set_change`, `advanced_step_activity_start_is_corrected_before_move_authorization`, `related_case_study_uses_secant_then_original_correction` | Proposal permission, original correction and separate control-move authorization |
 | Resource, terminal cause and accuracy refusals | Runtime `math::strategy::admission`, `workflow::modeling::work_admission_tests`, derived original/refinement controls; native `pounce::schur_tests` | Pre-operation admission, retained allocation lifetimes, truthful unknown composed work, terminal no-retry and wrong-point/class refusal |
 | Public/current recorded interpretation | Python `test_native_workflow.py`, `test_native_boundary_contracts.py`; runtime `workflow::worker_tests` and historical readmission controls | Inspection/request/result transport; full durable restart and mixed-operation lifecycle remain K3 journeys |
@@ -413,7 +413,7 @@ policy checks used during implementation. New cross-plan fixtures should be regi
 existing harnesses by their functional owners. Update a recipe if the target changes its required
 feature/environment selection; do not work around it with an unrecorded long command line.
 
-The [25g handoff](25g-durable-contract-evolution.md#verification) supplies authored, unexecuted
+The [25g handoff](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25g-durable-contract-evolution.md#verification) supplies authored, unexecuted
 storage controls in `pse-catalog/tests/native_artifact_migration.rs` and the operations migration/
 retirement harnesses. K3 must exercise exact frozen-25f preservation, interrupted committed prefixes,
 malformed history, reset rollback/lost acknowledgement, prior unresolved inventory, export expiry,
@@ -483,20 +483,252 @@ Move enduring contracts and rationale into their architecture/ADR owners through
 routes; then retire completed plans and resolved reviews only when their readers are redirected.
 No commit, push or publication is implied by this campaign description.
 
+## Current K5 finding dispositions
+
+The scheduled closeout review owns the diagnosis; this table owns its execution status.
+Its original assessment remains distinct from subsequent remedy acceptance.
+
+| Finding | Status | Correction and acceptance obligation |
+|---|---|---|
+| K5-F01: original-point publication assumes a native candidate | resolved | **Implemented/Tested:** authoritative original coordinates and rebound values now reach joined result tables without fabricated native fields. The three modeling-result controls and full `just native-python` pass, including the original heater/recycle and flash journeys; independent remedy assessment confirms these public consequences. |
+| K5-F02: complete block admission remains retained after execution | resolved | **Implemented/Tested:** complete pre-operation admission survives all work; checked completed capacity partitions its unique owner before escape. Short-pool, excess-capacity, failed-block, panic and extracted-owner controls pass. Full `just native-python` passes the unchanged 1,000-point sweep and following capped study. Opaque payloads retain complete admission; native scratch/session ownership is unchanged. |
+| K5-F03: multistart uses the source grant instead of the dispatched declaration | resolved | **Implemented/Tested:** binding consumes the enclosing admitted start rules, then the frozen explicit native profile; immutable source policy and exact identity checks survive. Actual multistart recovery and absent-source/outer-grant controls pass in the eight-control native selection; independent remedy assessment accepts this focused correction. |
+| K5-F04: repeated original assessments collide in work ownership | resolved | **Implemented/Tested:** the dispatched mechanism occurrence enters the assessment charging identity. The actual chain retains three distinct assessment owners without inventing callback counts; the same-owner duplicate remains a terminal internal failure. Both controls pass in the eight-control native selection; independent remedy assessment accepts this focused correction. |
+
+## Contextual accuracy review dispositions
+
+The maintainer requested and authorized the broader accuracy design review on 2026-10-05.
+The maintainer then authorized authoring the full CA-F01–CA-F04 follow-up in
+[Plan 27](27-contextual-engineering-accuracy.md), and subsequently authorized implementation.
+The findings remain scheduled until the corrective packages and assembled acceptance meet
+their obligations. Implementation does not establish measured optimal tolerance values.
+This table remains the sole disposition owner. The review's independent
+judgment and inspected baseline remain in its principal document.
+
+| Finding reference | Scenario | Disposition | Decision/work owner | Evidence or settling obligation |
+|---|---|---|---|---|
+| [CA-F01](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md#ca-f01) | S01, S03, S06 | scheduled | [27a A0/A1/A3](27a-accuracy-intent-and-contextual-policy.md#packages-and-local-acceptance), [27c C1/C4](27c-selective-refinement-and-completion.md#packages-and-qualification-handoff); analysis/policy and completion owners | Working output/decision contract, strength and lawful no-goal operation, then independent integrated acceptance; a proposed contract is not a landed correction |
+| [CA-F02](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md#ca-f02) | S01, S02 | scheduled | [27a A2/A3](27a-accuracy-intent-and-contextual-policy.md#packages-and-local-acceptance); numerical resolution/shared policy owners | Contextual scale/default rationale independent of conditioning, inherited defaults versus explicit overrides, unit/datum/cancellation controls; provisional constants are not measured optima |
+| [CA-F03](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md#ca-f03) | S04 | scheduled | [27b B1–B4](27b-error-allocation-and-numerical-evidence.md#packages-and-local-acceptance); math/implicit/reconstruction/dynamics owners | Goal-derived allocation and valid actual evidence within the stated producer-support matrix; preserve certification and original checks; qualify assembled consumers |
+| [CA-F04](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md#ca-f04) | S03, S04 | scheduled | [27c C1–C4](27c-selective-refinement-and-completion.md#packages-and-qualification-handoff); strategy/completion/boundary owners | Quantitative outcomes, finite permitted refinement and immutable retained completion; actual threshold/resource/nonprogress/refusal controls and assembled acceptance |
+
 ## Outcome (recorded after implementation)
+
+### Current execution checkpoint
+
+Review checkpoint, 2026-10-05: the maintainer paused implementation/qualification for the broader
+[contextual-accuracy design review](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md).
+The independent review is complete: **Revise** the architecture for the requested target; its
+contextual-accuracy behavioral claim is **Not Accept** at source/literature evidence strength.
+Current physical-feasibility support remains a preservation constraint. The recommendations
+are now developed in the authorized [Plan 27 series](27-contextual-engineering-accuracy.md),
+which is being implemented at the maintainer's request. Its
+[checkpoint](27-contextual-engineering-accuracy.md#current-checkpoint) owns the current
+functional state; producer integration and real native/transport validation precede
+the full campaign. K3/K4/K5 remain incomplete. The
+[disposition table](#contextual-accuracy-review-dispositions) owns this follow-up. Next authorized
+production work follows 27's A0/C0 decision route and working prerequisites; the full campaign
+remains here after its functional handoff.
+
+Execution resumed on 2026-10-05 at the maintainer's request from clean main
+`ad665a0222551196b1160e426f5242361215a6a0`, after Plan 26's completed testing-architecture
+handoff. The committed conditional-support correction is present; 25n's N11 acceptance
+and finding reconciliation precede the assembled campaign. PostgreSQL 18.6 reports the
+current schema ready. Stale-worktree cleanup is already complete in 25n and is not pending.
+
+Run one composite campaign using the existing recipe owners: scope-end hygiene and its
+uncovered leaves, a version-5 full-native functional assessment, focused default-feature
+absence and doctests, complete linked Python, IDAES parity, and the complete seed/domain
+manifest. Serialize heavy execution and preserve original criteria and budgets. Repair
+failures in their owners and refresh affected evidence before the required dev-profile K4
+measurements. K4 selects cold/warm small cases at one/four threads, medium structure and
+specialization edits at one thread, both eight-point studies, the five scalar K4 cases and
+document admission (14 cases). Three additional scalar accuracy controls use the same model
+with no goal, a separated decision, and active output refinement. Their existing case-measure
+owner records actual work, memory, retained outcomes and independent root differences; the
+selectors are prepared, not measured. K5 then assesses the stable assembled target and closes the
+owning findings and records. Earlier partial receipts retain their historical scope.
+
+The resumed public campaign now succeeds after original-point publication and completed
+block-report accounting corrections. The unchanged 1,000-point flash sweep and following
+capped related-root study both pass. The independent closeout assessment confirms the public
+consequences of K5-F01/F02. The real automatic POUNCE second-opinion control now passes.
+The enclosing native run exposed multistart grant/profile binding and repeated-assessment
+charging-identity defects; their actual positive, refusal and duplicate-charge controls now
+pass after repair. Callback, document-version, nested-provider and limited-native fixtures
+now express their intended current paths without changing scientific criteria or budgets.
+Affected static checks and the two selected public strategy/study consumers now pass.
+The subsequent full native graph exercised every selected functional control; only stale
+study/job codec-version assertions failed. Those controls now pass with current-version
+round trips and prior-version refusal; the fresh exact-source functional graph has passed
+completely. The full authored manifest completed with 113 passed seed fixtures, three failed
+and two inconclusive; all six domain fixtures passed. Remaining repairs concern nested
+selection proof deadlines and recycle initialization scope/provenance. The maintainer
+requested a decision-relevant convergence review before further changes or probes. The
+provisional edit of two steady CSTR concentration comparisons from 1e-6 to 5e-6 mol/m³
+is not an accepted or qualified engineering accuracy policy. Their observed deviation
+was 1.9592909978882744e-6. An independent reduction of
+the authored material, caloric and Arrhenius laws reproduces the reference concentration
+20.316088036339778 mol/m³ and temperature 304.085837345337 K. The
+[bounded convergence review](../design_review/reviews/design_review_convergence-criteria_2026-10-05.md)
+findings F01–F03 are adopted for this packet. Shared physical fallback, KKT and gap defaults
+use the model-owned normalized 1e-3 engineering accuracy; discrete integrality retains its
+separate meaning. The maintainer rejected per-fixture convergence tuning and selected shared
+physical defaults, initially 0.1 K and 1 W, with 1 kg as a guideline for process mass analyses.
+Individual authored policy slots retain their meanings and reference one shared typed policy;
+distinct values remain explicit overrides. The selected models use molar inventories rather
+than a mass-inventory contract. Integration global aliases inherit the normalized default,
+and generated conservation quadratures share their consuming inventory allowance without
+an additional automatic tightening factor. Earlier internal allocations and their selected
+receipts retain their prior scope; they do not qualify this revised shared policy.
+Four-mesh PFR theoretical-order ratios and their oracle declarations are deleted; two-mesh
+output-stability checks replace them while focused coefficient, spacing, boundary, continuity
+and quadrature premise controls remain. The provisional contractor-order experiment is removed.
+Fixture expectations are independent checks, not implicit solver accuracy requests. Selected
+shared-policy unit controls pass. The representative steady and controlled dynamic CSTR
+journeys pass; both selected PFR journeys refuse with a conditional-block usable-original-
+coordinates error, rather than a theoretical-order assertion. Production refusal evidence now
+identifies local Ipopt infeasibility with valid candidate coordinates and violated original rows.
+Pipeline analysis found that an optional block's numerical refusal was classified as a terminal
+capability refusal at the automatic handoff, stopping its already-catalogued Direct operation.
+That classification is repaired and the production event-to-selection regression passes. The
+maintainer requested whole-pipeline debugging, including characterization, scoping, presolve
+and admitted solver alternatives. Cross-backend Auto recovery remains a concrete analysis gap:
+current native profile recovery is POUNCE-specific. Keep explicit solver choices, original
+acceptance, shared thresholds and enclosing budgets intact while resolving it. No speedup or
+enclosing campaign closure is established. Refresh affected conformance and exact-source qualification before the selected
+K4 measurements and assembled K5 assessment.
+Earlier failed receipts retain their actual scope and do not establish enclosing qualification.
 
 ### What was built
 
-**Implemented, scoped Tested:** composition fixtures and qualification repairs are present,
-and targeted original scientific cases and solver/resource controls have executed. These
-results do not establish the final assembled campaign. The current frozen complete gate,
-full authored campaign, required dev-profile measurements, bounded closure and obsolete
-worktree retirement remain incomplete. Record their actual scope and conditions at closure.
+**Implemented:** original result publication consumes the actual rebound preparation and
+complete reconstructed coordinates. Block completion reserves every report before execution,
+then partitions its unique owner using checked capacities and conservative headroom; unknown
+extensions retain their full admission. The actual unavailable cause survives workflow
+assessment. Replaced assumptions and duplicate ownership are removed.
+
+**Implemented, convergence-policy correction:** normalized ordinary design stopping defaults
+use 1e-3 of a meaningful frozen characteristic scale. Authored production policy slots now
+reference shared physical defaults rather than separately tuned literals. The policy's initial
+temperature/duty allowances are 0.1 K and 1 W; molar flow, concentration and inventory values
+account for the smaller reference models. These provisional defaults and retained overrides
+are distinct from claims of process qualification. Integration global aliases reference the
+same normalized default, with numeric overrides preserved; generated flux quadrature uses
+its consuming closure allowance without an extra precision multiplier. Synthetic native
+contract tests use explicit verification budgets. Blueprint §16.1 and §13.3 own the meanings.
+
+**Tested, 2026-10-05, zero-test-failure baseline:** `just unit-native-selected` with CI profile,
+one test thread, native-solvers and explicit force-validation passed all 23 selected tests:
+model engineering defaults, math numerical resolution, native stopping/original acceptance,
+implicit nominal precedence, collocation coefficients, backward physical spacing and compiled
+collocation assembly/continuity/quadrature. The initially reported unused qualification in a
+new test is corrected; a fresh `just unit-native-selected` selection of the nine native
+numerical tests passed with zero failures and no warnings (CI profile, one test thread). This selected
+pass does not qualify the enclosing scientific campaign or establish faster execution.
+
+
+**Tested, shared-policy controls, 2026-10-05, zero-failure baseline:**
+`just unit-native-selected` with CI profile, one test thread, native-solvers and explicit
+force-validation passed all 13 selected tests: global integration inheritance with independent
+overrides and canonical round trips; conservation quadrature inheritance; conservation and
+state-reconstruction physical budget propagation; and the nine native numerical controls.
+`just codegen --only schemas` regenerated the seven affected numerical-policy JSON schema
+consumers, and `just py-sync-native` rebuilt the dev native extension successfully. These
+controls establish policy wiring, not whole-campaign scientific adequacy or improved timing.
+
+
+**Tested, selected shared-policy production journeys, 2026-10-05, zero-failure baseline:**
+`just modeling-conformance --manifest packages/reference/conformance.toml --run seed` with
+fixtures `01a0ee3de15373109faad8251c7d3424`, `7b4665c39e1748cb91118b24f3638f64`,
+`f341a18f0f284413b6b20f1309e47e6d` and `8f755c37ae0341349c43cfcc02a62331` completed
+732 checks: two fixtures passed and two failed. The steady and controlled integrated CSTR
+journeys passed. Both PFR mesh journeys failed during solve with `unsupported: conditional
+block did not establish usable original coordinates`; their physical deviations are unavailable
+in this receipt. This is unresolved production execution, not evidence that the physical
+thresholds should be tuned. Local reports are under
+`build/plan25k-20261005/global-accuracy-conformance`; dev native extension, explicit
+force-validation and native-solvers. The final authored admission was refreshed with the direct ideal-identity fixture
+`01a0e169482c760bbd985bb44116c72e`: `just modeling-conformance` completed all 13 checks
+and its single fixture passed. Other scientific and performance qualification is pending.
+
+**Tested, additional shared-policy production journeys, 2026-10-05, zero-failure baseline:**
+`just modeling-conformance --manifest packages/reference/conformance.toml --run seed` with
+fixtures `29dd6a1a3e444acfbf14992087f9d32c`, `3bf1cbaf35734fba8b97994a915d8032`,
+`01a0e17a4587742dba3702b20fe8c77f`, `01a0e17a4587742dba3702b641de44be`,
+`01a0e17a4587742dba3702bab24efca9` and `a76db9a26b384861b47436d9ff4aebb7` passed
+all six fixtures and 1,830 checks. These exercise the closed integrated/simultaneous vessel
+trajectories and inline, nested, accelerated and bounded-cubic density solves with the shared
+policy. Conditions are the dev native extension, native-solvers and explicit force-validation;
+local reports are under `build/plan25k-20261005/global-policy-additional`. This selected
+receipt does not resolve the PFR refusals or qualify the full manifest.
+
+**Implemented/Tested, conditional candidate refusal evidence, 2026-10-05:** the single
+block commit gate now retains the actual refusal cause, including native use policy,
+termination/qualification, coordinate shape/order/finiteness and bounded original residual
+witnesses. Shared callback and validation causes retain their identity. No acceptance or
+tolerance rule changed. `just unit-native-selected` with CI profile, one test thread,
+native-solvers and explicit force-validation passed both
+`block_commit_is_atomic_and_requires_native_success_plus_original_quality` and
+`conditional_failure_preserves_shared_terminal_causes_and_actual_native_status` against
+the zero-failure baseline. A refreshed selection passed without compiler warnings after
+correcting an unnecessary qualification in the new test.
+
+**Implemented/Tested, automatic numerical handoff repair, 2026-10-05, zero-failure baseline:**
+rejected native block candidates/quality retain a numerical cause; malformed coordinates or
+advertised report metadata retain a contract cause. Callback and validation causes remain
+shared. The actual event projection is used by both production dispatch and its regression,
+so an abandoned optional numerical Block operation can select the existing Direct operation
+without accepting or retaining its refused coordinates. `just unit-native-selected` with
+CI profile, one test thread, native-solvers and explicit force-validation passed all five
+selected controls: both block-refusal controls above,
+`abandoned_block_native_refusal_reaches_direct_through_production_projection`,
+`optional_component_numerical_failure_retains_observation_and_charges_before_direct` and
+`automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal`. There were
+no compiler warnings. Selected PFR and full campaign refresh remain pending this repair.
+
+**Tested, 2026-10-05, zero-failure baseline:** `just native-python
+build/plan25k-20261005/python-qualified`, after `just py-sync-native`, passed all 210 selected
+unit/component/integration tests with zero failures, errors or skips in 971.03 seconds.
+The original 1,000-point flash control took 695.893 seconds; the following capped related-root
+control passed in 0.869 seconds. Conditions were the dev native extension, Python 3.14.7,
+explicit force-validation, native-solvers and one BLAS/OpenMP thread. Current JUnit, selection,
+terminal and actual extension/provider provenance are retained locally in that output.
+This follows two earlier failed full runs (206/210 and 208/210 passes) and is composite
+remedy evidence, not an initially clean campaign. The current full native graph, authored
+campaign, K4 measurements and final assessment remain pending; these public results alone
+do not establish their completion. Only the main checkout remains after the previously
+authorized stale-worktree retirement.
 
 ### A mistake made and corrected
 
-Record an actual correction from execution; do not invent one during planning.
+The result exporter assumed that usable original coordinates must come from a native
+candidate. Complete reconstruction instead supplies a `ConstantReport`; its actual original
+coordinates and rebound preparation now own publication. The repeated flash journey also
+exposed retaining full construction allowances after all block reporting was complete.
+The correction keeps complete admission during work and refines only the unique completed
+report owner, rather than raising the pool or weakening the scientific checks.
+
+
+The first shared-profile source admission found a tolerance with the correct units but the
+wrong complete physical kind: heat-release `EnergyTransferRate` requires its own typed
+magnitude rather than `Power`. Its shared 1 W policy is now declared in the proper kind.
+The earlier runtime parameters used for structural tolerance selection were also removed in
+favor of admitted shared constants. Neither repair changes the chosen convergence levels.
 
 ### Deviations from the plan, deliberate
 
-None recorded. Explain any later scope or decision change with its owning route.
+The maintainer selected 14 dev-profile measurement cases after earlier large warm-up costs;
+the broader size-by-thread grid remains a stated measurement limit. Full native workspace
+selection covers the database, worker and publication recipe subsets, so those controls
+will be executed once in that graph. Proposed ADR acceptance remains separate from source
+conformance and functional qualification; no commit or push is part of this execution.
+On 2026-10-05 the maintainer redirected work to reviewing accuracy against analysis decisions,
+then authorized the correction and clarified that individual policy slots should initially
+share global values, with later explicit overrides. Per-fixture accuracy tuning and automatic
+inner tightening are removed from this approach. Production numerical tests check the implementation's
+premises and declared behavior; they do not require a full nonlinear process simulation to
+reproduce theoretical order ratios obscured by its selected solver tolerance. The provisional
+5e-6 mol/m³ CSTR comparison is replaced by the coherent physical design allowance and the
+contractor-order experiment is removed. Earlier manifest evidence retains its original criteria;
+accuracy-policy follow-up and refreshed qualification remain owned by this packet.

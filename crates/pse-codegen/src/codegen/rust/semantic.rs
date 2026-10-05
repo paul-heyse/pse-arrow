@@ -25,6 +25,11 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
         })
         .chain([
             "authored.numerical_requirements".into(),
+            "authored.accuracy_goals".into(),
+            "authored.engineering_scales".into(),
+            "authored.engineering_default_rules".into(),
+            "runtime.accuracy_goal_assessments".into(),
+            "runtime.resolved_numerics".into(),
             "runtime.publication_manifests".into(),
             "runtime.native_dependencies".into(),
             "runtime.solver_capabilities".into(),

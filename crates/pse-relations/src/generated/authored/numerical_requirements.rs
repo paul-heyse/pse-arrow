@@ -8,20 +8,20 @@ pub use pse_model::generated::r#authored::r#numerical_requirements::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    241u8, 148u8, 69u8, 225u8, 139u8, 74u8, 50u8, 54u8, 64u8, 108u8, 59u8, 29u8, 109u8,
-    40u8, 45u8, 165u8,
+    100u8, 73u8, 163u8, 191u8, 158u8, 132u8, 244u8, 124u8, 35u8, 81u8, 86u8, 240u8, 23u8,
+    247u8, 19u8, 52u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "numerical_requirements";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    44u8, 89u8, 190u8, 133u8, 184u8, 115u8, 151u8, 199u8, 164u8, 250u8, 196u8, 10u8,
-    57u8, 92u8, 92u8, 126u8, 40u8, 167u8, 154u8, 219u8, 74u8, 28u8, 107u8, 140u8, 137u8,
-    108u8, 244u8, 80u8, 105u8, 188u8, 187u8, 88u8,
+    86u8, 254u8, 112u8, 252u8, 168u8, 170u8, 190u8, 0u8, 239u8, 179u8, 194u8, 13u8,
+    136u8, 212u8, 245u8, 242u8, 158u8, 217u8, 75u8, 135u8, 141u8, 139u8, 220u8, 89u8,
+    68u8, 192u8, 4u8, 229u8, 199u8, 150u8, 12u8, 207u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredNumericalRequirementsRow {
     fn append(
@@ -68,24 +68,32 @@ impl crate::columnar::ArrowValue for AuthoredNumericalRequirementsRow {
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#unit_id,
+            &self.r#shared_engineering_allowance,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#coordinates,
+            &self.r#engineering_rule_id,
             children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#priority,
+            &self.r#unit_id,
             children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#required,
+            &self.r#coordinates,
             children[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#provenance,
+            &self.r#priority,
             children[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required,
+            children[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#provenance,
+            children[17usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -131,15 +139,21 @@ impl crate::columnar::ArrowValue for AuthoredNumericalRequirementsRow {
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            bool,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Option<
+            crate::generated::identities::EngineeringRuleId,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <crate::generated::enums::NumericalCoordinates as crate::columnar::ArrowValue>::append_null(
-            children[12usize].as_mut(),
+            children[14usize].as_mut(),
         )?;
-        <i32 as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <i32 as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(
-            children[15usize].as_mut(),
+            children[17usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -211,26 +225,38 @@ impl crate::columnar::ArrowValue for AuthoredNumericalRequirementsRow {
                 input.column(10usize).as_ref(),
                 index,
             )?,
-            r#unit_id: <Option<
-                pse_ids::SemanticId,
+            r#shared_engineering_allowance: <Option<
+                bool,
             > as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
                 index,
             )?,
-            r#coordinates: <crate::generated::enums::NumericalCoordinates as crate::columnar::ArrowValue>::read(
+            r#engineering_rule_id: <Option<
+                crate::generated::identities::EngineeringRuleId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(12usize).as_ref(),
                 index,
             )?,
-            r#priority: <i32 as crate::columnar::ArrowValue>::read(
+            r#unit_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(13usize).as_ref(),
                 index,
             )?,
-            r#required: <bool as crate::columnar::ArrowValue>::read(
+            r#coordinates: <crate::generated::enums::NumericalCoordinates as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
                 index,
             )?,
-            r#provenance: <String as crate::columnar::ArrowValue>::read(
+            r#priority: <i32 as crate::columnar::ArrowValue>::read(
                 input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#required: <bool as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
+                index,
+            )?,
+            r#provenance: <String as crate::columnar::ArrowValue>::read(
+                input.column(17usize).as_ref(),
                 index,
             )?,
         })
@@ -321,22 +347,30 @@ impl crate::columnar::RelationRow for AuthoredNumericalRequirementsRow {
             &self.r#relative_tolerance,
             columns[10usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#unit_id, columns[11usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#coordinates,
+            &self.r#shared_engineering_allowance,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#engineering_rule_id,
             columns[12usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#unit_id, columns[13usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#priority,
-            columns[13usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#required,
+            &self.r#coordinates,
             columns[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#provenance,
+            &self.r#priority,
             columns[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#required,
+            columns[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#provenance,
+            columns[17usize].as_mut(),
         )?;
         Ok(())
     }
@@ -373,10 +407,10 @@ impl crate::columnar::RelationRow for AuthoredNumericalRequirementsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        39_936_usize + size_of::<Self::Builder>()
+        45_056_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        312usize
+        352usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -482,6 +516,28 @@ impl crate::columnar::RelationRow for AuthoredNumericalRequirementsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if (self.r#shared_engineering_allowance).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#engineering_rule_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             if (self.r#unit_id).is_some() {
                 crate::columnar::allocation_add(
                     1,
@@ -517,7 +573,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 18usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "requirement_id",
@@ -575,28 +631,38 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "unit_id",
+        name: "shared_engineering_allowance",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "coordinates",
+        name: "engineering_rule_id",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "priority",
+        name: "unit_id",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "required",
+        name: "coordinates",
         position: 14usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "provenance",
+        name: "priority",
         position: 15usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "required",
+        position: 16usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "provenance",
+        position: 17usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -623,16 +689,20 @@ pub mod columns {
     pub const ABSOLUTE_TOLERANCE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///relative_tolerance
     pub const RELATIVE_TOLERANCE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///shared_engineering_allowance
+    pub const SHARED_ENGINEERING_ALLOWANCE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///engineering_rule_id
+    pub const ENGINEERING_RULE_ID: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///unit_id
-    pub const UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///coordinates
-    pub const COORDINATES: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const COORDINATES: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///priority
-    pub const PRIORITY: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const PRIORITY: crate::columnar::ColumnReference = super::COLUMNS[15usize];
     ///required
-    pub const REQUIRED: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const REQUIRED: crate::columnar::ColumnReference = super::COLUMNS[16usize];
     ///provenance
-    pub const PROVENANCE: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const PROVENANCE: crate::columnar::ColumnReference = super::COLUMNS[17usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -650,6 +720,8 @@ pub struct AuthoredNumericalRequirementsView<'a> {
     scaling_factor_column: &'a arrow_array::Float64Array,
     absolute_tolerance_column: &'a arrow_array::Float64Array,
     relative_tolerance_column: &'a arrow_array::Float64Array,
+    shared_engineering_allowance_column: &'a arrow_array::BooleanArray,
+    engineering_rule_id_column: &'a arrow_array::FixedSizeBinaryArray,
     unit_id_column: &'a arrow_array::FixedSizeBinaryArray,
     coordinates_column: &'a arrow_array::StringArray,
     priority_column: &'a arrow_array::Int32Array,
@@ -729,21 +801,27 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
             relative_tolerance_column: crate::columnar::array::<
                 arrow_array::Float64Array,
             >(batch.column(10usize).as_ref())?,
+            shared_engineering_allowance_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(11usize).as_ref())?,
+            engineering_rule_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(12usize).as_ref())?,
             unit_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             coordinates_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
             priority_column: crate::columnar::array::<
                 arrow_array::Int32Array,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
             required_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(16usize).as_ref())?,
             provenance_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -900,6 +978,42 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "shared_engineering_allowance",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn shared_engineering_allowance_column(
+        &self,
+    ) -> &'a arrow_array::BooleanArray {
+        self.shared_engineering_allowance_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "shared_engineering_allowance",
+        "`.",
+    )]
+    pub fn shared_engineering_allowance_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "engineering_rule_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn engineering_rule_id_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.engineering_rule_id_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "engineering_rule_id",
+        "`.",
+    )]
+    pub fn engineering_rule_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "unit_id",
         "`, including its offsets and validity bitmap.",
     )]
@@ -908,7 +1022,7 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "unit_id", "`.")]
     pub fn unit_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -920,7 +1034,7 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "coordinates", "`.")]
     pub fn coordinates_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -932,7 +1046,7 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "priority", "`.")]
     pub fn priority_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -944,7 +1058,7 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "required", "`.")]
     pub fn required_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[16usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -956,7 +1070,7 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "provenance", "`.")]
     pub fn provenance_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1000,6 +1114,14 @@ impl<'a> AuthoredNumericalRequirementsView<'a> {
             )?,
             r#relative_tolerance: crate::columnar::ArrowValue::read(
                 self.relative_tolerance_column,
+                index,
+            )?,
+            r#shared_engineering_allowance: crate::columnar::ArrowValue::read(
+                self.shared_engineering_allowance_column,
+                index,
+            )?,
+            r#engineering_rule_id: crate::columnar::ArrowValue::read(
+                self.engineering_rule_id_column,
                 index,
             )?,
             r#unit_id: crate::columnar::ArrowValue::read(self.unit_id_column, index)?,

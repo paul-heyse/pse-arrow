@@ -1276,7 +1276,7 @@ impl Rational {
         let mut buffer: Vec<c_char> = vec![0; 256];
         // SAFETY: SCIP writes at most `len` bytes including the terminator into the buffer.
         let written = unsafe { ffi::SCIPrationalToString(self.0, buffer.as_mut_ptr(), 256) };
-        if written < 0 {
+        if written < 0 || written >= 256 {
             return String::new();
         }
         // SAFETY: the buffer is NUL-terminated within its length.
@@ -3048,6 +3048,10 @@ pub(crate) fn solve(
     };
     let mut report = SolveReport::new(Backend::Scip, &contract, termination(status), r.execution);
     let readback = deviation <= READBACK_TOLERANCE;
+    let exact_objective_transport = if exact && readback && status == Status::Optimal {
+        exact_objective.as_deref().zip(candidate.as_ref()).and_then(|(optimum, candidate)|
+            crate::solve::ExactObjectiveTransport::issue(&plan, &candidate.primal, optimum, offset))
+    } else { None };
     report.evidence.start_submitted = submitted.is_some();
     report.evidence.reused_native_state = reoptimized;
     report.evidence.global = Some(GlobalEvidence {
@@ -3078,6 +3082,7 @@ pub(crate) fn solve(
         pool,
         iis: subsystem,
         exact_objective,
+        exact_objective_transport,
         reoptimized,
         // The runner records the plan's named transformations.
         transformations: Vec::new(),
@@ -3197,7 +3202,7 @@ pub(crate) mod testing {
             &instance,
             &Settings::default(),
             &Controls::default(),
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             execution,
             1e-6,
             &crate::execution::Snapshot::observe(&crate::execution::LINKED),

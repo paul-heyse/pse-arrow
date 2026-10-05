@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("575166cc6a2b47a199768431593b942c") package phase_stability {
+@id("f7c3e8307555444d8a6603f8d6745213") use numerical_policy @"1.0.0";
 @id("01a0f14ead4e761899b3c3aaf2068f70") use constants @"1.0.0";
 @id("01a0ee04daaa77568ef4eee5865a5e3f") use chemistry @"1.0.0";
 @id("9979e313cae34cf0bab68ec561f382f4") use helmholtz @"1.0.0";
@@ -13,7 +14,7 @@
 @id("dc87119428b744ad83535119b1b31427") param reference_upper:Density=18000{mol/m^3};
 @id("7e58a4531c4243be9f29eedf77e7c4e8") param trial_lower:Density=1{mol/m^3};
 @id("fa64885349e745a1b9c1111a580e0d56") param trial_upper:Density=18000{mol/m^3};
-@id("bf19d72e857b487b9c6511e09e60910f") param tolerance:ReducedGibbsEnergy=0.000001{1};
+@id("bf19d72e857b487b9c6511e09e60910f") param tolerance:ReducedGibbsEnergy=numerical_policy.reduced_gibbs_energy;
 @id("c7c6109c830d49b88714bcd471e0046a") child reference:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
 @id("447058ea639f4de197cd3e3e7a2cc145") child trial:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
 @id("ca8c7ce1acb24030b1f76382c4baf79b") eq reference_temperature:reference.T==temperature;

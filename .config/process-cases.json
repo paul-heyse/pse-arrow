@@ -441,6 +441,33 @@
         "process",
         "lifecycle"
       ]
+    },
+    {
+      "id": "k4-accuracy-ordinary-1",
+      "operation": "k4-accuracy",
+      "consumer": "ordinary",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "functional_scopes": ["process"]
+    },
+    {
+      "id": "k4-accuracy-separated-decision-1",
+      "operation": "k4-accuracy",
+      "consumer": "separated-decision",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "functional_scopes": ["process"]
+    },
+    {
+      "id": "k4-accuracy-refinement-1",
+      "operation": "k4-accuracy",
+      "consumer": "refinement",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "functional_scopes": ["process"]
     }
   ]
 }

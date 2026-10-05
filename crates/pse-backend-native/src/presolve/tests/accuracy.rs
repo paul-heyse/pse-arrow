@@ -24,7 +24,7 @@ fn prepare(rows: Vec<f64>) -> Pipeline {
         &[2.0, 2.0],
         &Policy::Off,
         &tolerances,
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         execution(),
         None,
         stamp(),
@@ -53,7 +53,7 @@ fn heterogeneous_row_budgets_transport_callbacks_bounds_and_original_duals() {
             working: None,
         },
     };
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let mut pipeline = Pipeline::new(
         Box::new(source),
         &[2.0, 2.0],
@@ -197,7 +197,7 @@ fn native_pipeline_rejects_invalid_physical_row_budget_projection() {
                 &[2.0, 2.0],
                 &Policy::Off,
                 &tolerance,
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 execution(),
                 None,
                 stamp(),
@@ -218,7 +218,7 @@ fn native_row_maps_refuse_an_insufficient_admitted_attempt_allowance() {
         &[2.0, 2.0],
         &Policy::Off,
         &tolerances(),
-        &ResolvedAccuracy::nominal(),
+        &ResolvedAccuracy::verification(),
         admitted,
         None,
         stamp(),
@@ -254,7 +254,7 @@ fn native_pipeline_refuses_layout_before_normalization_allocation() {
             initial,
             &Policy::Off,
             &tolerances(),
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             admitted,
             None,
             stamp(),
@@ -340,7 +340,7 @@ fn native_pressure_like_root_stops_with_heterogeneous_original_row_budgets() {
         rows: vec![1e-8, 1e-4],
         integrality: 1e-8,
     };
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let mut pipeline = Pipeline::new(
         Box::new(PressureRoot::new()),
         &[0.6, 1.1e5],

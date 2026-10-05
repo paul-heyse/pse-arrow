@@ -592,6 +592,12 @@ impl SpecializedModel {
             })
             + map(&self.connectivity, |_, v| lineage(&v.lineage))
             + map(&self.functions, |n, v| n.capacity() + function(v))
+            + self.engineering_rules.capacity() * size_of::<crate::annotation::EngineeringRule>()
+            + self
+                .engineering_rules
+                .iter()
+                .map(|rule| ty(&rule.quantity) + rule.value.retained_bytes())
+                .sum::<usize>()
             + self.objectives.members.capacity() * size_of::<crate::specialize::ObjectiveMember>()
             + self
                 .objectives
@@ -620,10 +626,18 @@ fn annotation(v: &crate::annotation::AnnotationValue) -> usize {
     match v {
         A::Start(e) | A::Nominal(e) => expression(e),
         A::Bounds(a, b) => expression(a) + expression(b),
-        A::Scale(_) | A::Objective(_) => 0,
+        A::Scale(_) | A::Objective(_) | A::EngineeringDefault { .. } => 0,
         A::Report(s) => s.capacity(),
         A::Valid { lower, upper, .. } => expression(lower) + expression(upper),
         A::Check(p) => predicate(p),
+        A::AccuracyGoal(goal) => {
+            ty(&goal.quantity)
+                + goal.time.as_ref().map_or(0, expression)
+                + goal.resolution.as_ref().map_or(0, expression)
+                + goal.criterion_lower.as_ref().map_or(0, expression)
+                + goal.criterion_upper.as_ref().map_or(0, expression)
+        }
+        A::EngineeringScale(scale) => ty(&scale.quantity) + expression(&scale.value),
     }
 }
 

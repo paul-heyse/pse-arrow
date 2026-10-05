@@ -1018,6 +1018,21 @@ impl Cursor<'_> {
         self.expect(name)?;
         self.fixture_literal()
     }
+    /// Resolve the authored alias into the existing numeric policy slot; an
+    /// explicit number continues to be an independent per-slot override.
+    fn fixture_accuracy(&mut self, name: &str) -> Result<f64> {
+        self.expect("(")?;
+        let value = self.until(&[")"])?;
+        let accuracy = if value == "global" {
+            pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY
+        } else {
+            value
+                .parse()
+                .map_err(|_| self.error(&format!("{name} tolerance number or global")))?
+        };
+        self.expect(")")?;
+        Ok(accuracy)
+    }
     /// A registry vocabulary word; a word outside it is refused at its own position.
     fn vocabulary<T: std::str::FromStr>(&mut self, expected: &str) -> Result<T> {
         let at = self.pos;
@@ -1314,6 +1329,112 @@ impl Cursor<'_> {
         }
         self.expect(")")?;
         Ok(objective)
+    }
+    /// Typed Plan 27 goal members. Subject and observation are required; the remaining
+    /// members use their shared policy defaults unless explicitly stated.
+    fn accuracy_goal_members(
+        &mut self,
+    ) -> Result<AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal> {
+        use pse_model::generated::enums::{
+            AccuracyGoalSubject as Subject, AccuracyGoalUse as Use,
+            AccuracyObservation as Observation, NumericalAccuracyClass as Class,
+        };
+        let subject = self.vocabulary::<Subject>("accuracy goal subject")?;
+        self.expect(",")?;
+        let observation = self.vocabulary::<Observation>("accuracy observation")?;
+        let mut goal = AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
+            subject,
+            observation,
+            time: None,
+            resolution: None,
+            criterion_lower: None,
+            criterion_upper: None,
+            required_class: Class::Estimated,
+            use_policy: Use::Assess,
+            refine: true,
+        };
+        let mut seen = BTreeSet::new();
+        while self.eat(",") {
+            let member = self.word()?;
+            if !seen.insert(member.clone()) {
+                return Err(self.error("each accuracy goal member at most once"));
+            }
+            self.expect("=")?;
+            let value = self.until(&[",", ")"])?;
+            match member.as_str() {
+                "time" => {
+                    goal.time = Some(value);
+                }
+                "resolution" => {
+                    goal.resolution = Some(value);
+                }
+                "criterion_lower" => {
+                    goal.criterion_lower = Some(value);
+                }
+                "criterion_upper" => {
+                    goal.criterion_upper = Some(value);
+                }
+                "required_class" => {
+                    goal.required_class = value
+                        .parse::<Class>()
+                        .map_err(|_| self.error("accuracy class estimated or certified"))?;
+                    if goal.required_class == Class::Unresolved {
+                        return Err(self.error("accuracy class estimated or certified"));
+                    }
+                }
+                "use_policy" => {
+                    goal.use_policy = value
+                        .parse::<Use>()
+                        .map_err(|_| self.error("accuracy goal use assess or require_satisfied"))?;
+                }
+                "refine" => {
+                    if value != "true" && value != "false" {
+                        return Err(self.error("accuracy goal refine true or false"));
+                    }
+                    goal.refine = value
+                        .parse()
+                        .map_err(|_| self.error("accuracy goal refine true or false"))?;
+                }
+                _ => return Err(self.error("accuracy goal member")),
+            }
+        }
+        self.expect(")")?;
+        Ok(goal)
+    }
+    /// A physical scale has one tagged interpretation and one authored expression.
+    fn engineering_scale_members(
+        &mut self,
+    ) -> Result<AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale> {
+        use pse_model::generated::enums::EngineeringScaleKind as Kind;
+        let mut kind = None;
+        let mut value = None;
+        while !self.eat(")") {
+            let member = self.word()?;
+            self.expect("=")?;
+            let raw = self.until(&[",", ")"])?;
+            match member.as_str() {
+                "kind" if kind.is_none() => {
+                    kind = Some(
+                        raw.parse::<Kind>()
+                            .map_err(|_| self.error("engineering scale kind"))?,
+                    );
+                }
+                "value" if value.is_none() => value = Some(raw),
+                "kind" | "value" => {
+                    return Err(self.error("each engineering scale member at most once"));
+                }
+                _ => return Err(self.error("engineering scale member kind or value")),
+            }
+            if self.peek() != ")" {
+                self.expect(",")?;
+            }
+        }
+        Ok(
+            AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
+                kind: kind.ok_or_else(|| self.error("engineering scale kind"))?,
+                value: value.ok_or_else(|| self.error("engineering scale value"))?,
+            },
+        )
     }
     /// `>= 0` closing one member of a complementarity pair; the zero may carry a unit.
     fn complement_zero(&mut self) -> Result<()> {
@@ -2134,25 +2255,16 @@ impl Cursor<'_> {
                             self.expect("samples")?;
                             let samples = self.expressions()?;
                             self.expect("relative")?;
-                            self.expect("(")?;
-                            let relative_tolerance = self
-                                .until(&[")"])?
-                                .parse()
-                                .map_err(|_| self.error("relative tolerance number"))?;
-                            self.expect(")")?;
+                            let relative_tolerance = self.fixture_accuracy("relative")?;
                             self.expect("normalized_absolute")?;
-                            self.expect("(")?;
-                            let normalized_absolute_tolerance = self
-                                .until(&[")"])?
-                                .parse()
-                                .map_err(|_| self.error("normalized absolute tolerance number"))?;
-                            self.expect(")")?;
+                            let normalized_absolute_tolerance =
+                                self.fixture_accuracy("normalized absolute")?;
                             self.expect("step")?;
                             self.expect("(")?;
                             let initial_step = self.until(&[")"])?;
                             self.expect(")")?;
                             let quadrature_relative_tolerance = if self.eat("quadrature_relative") {
-                                Some(self.fixture_literal()?)
+                                Some(self.fixture_accuracy("quadrature relative")?)
                             } else {
                                 None
                             };
@@ -3489,59 +3601,95 @@ impl Cursor<'_> {
             "annotation" => {
                 use pse_model::generated::enums::ModelingAnnotationKind as A;
                 let kind = self.vocabulary::<A>("annotation kind")?;
-                let target = self.until(&["("])?;
-                self.expect("(")?;
                 let mut annotation = AuthoredModelingDeclarationsFieldValueAnnotation {
                     kind,
-                    target,
+                    target: String::new(),
                     arguments: Vec::new(),
                     scheme: None,
                     connectivity: None,
                     objective: None,
+                    accuracy_goal: None,
+                    engineering_scale: None,
+                    engineering_default: None,
                 };
-                match kind {
-                    // ADR-0111: `annotation objective t(sense, member = value, ...)` carries
-                    // typed members, not positional arguments.
-                    A::Objective => annotation.objective = Some(self.objective_members()?),
-                    // A hard physical domain range has exactly two endpoints.
-                    A::Valid => {
-                        annotation.arguments.push(self.until(&[","])?);
-                        self.expect(",")?;
-                        annotation.arguments.push(self.until(&[",", ")"])?);
-                        self.expect(")")?;
+                // A shared engineering rule marks an existing typed constant at package
+                // scope. It is deliberately not target-attached: consumers select it by
+                // the constant's stable semantic identity.
+                if kind == A::EngineeringRule {
+                    if depth != 1 {
+                        return Err(self.error("engineering_rule belongs at package scope"));
                     }
-                    A::Scale => {
-                        annotation.scheme = Some(self.vocabulary("constraint scaling scheme")?);
-                        self.expect(")")?;
-                    }
-                    // `annotation connectivity port(incoming, outgoing)`, each a
-                    // nonnegative maximum or `many`.
-                    A::Connectivity => {
-                        let incoming = self.connection_maximum()?;
-                        self.expect(",")?;
-                        let outgoing = self.connection_maximum()?;
-                        self.expect(")")?;
-                        annotation.connectivity = Some(
-                            AuthoredModelingDeclarationsFieldValueAnnotationConnectivity {
-                                incoming,
-                                outgoing,
+                    annotation.target = self.until(&[";"])?;
+                    self.expect(";")?;
+                    Value::from_annotation(annotation)
+                } else {
+                    annotation.target = self.until(&["("])?;
+                    self.expect("(")?;
+                    match kind {
+                        // ADR-0111: `annotation objective t(sense, member = value, ...)` carries
+                        // typed members, not positional arguments.
+                        A::Objective => annotation.objective = Some(self.objective_members()?),
+                        // A hard physical domain range has exactly two endpoints.
+                        A::Valid => {
+                            annotation.arguments.push(self.until(&[","])?);
+                            self.expect(",")?;
+                            annotation.arguments.push(self.until(&[",", ")"])?);
+                            self.expect(")")?;
+                        }
+                        A::Scale => {
+                            annotation.scheme = Some(self.vocabulary("constraint scaling scheme")?);
+                            self.expect(")")?;
+                        }
+                        A::AccuracyGoal => {
+                            annotation.accuracy_goal = Some(self.accuracy_goal_members()?);
+                        }
+                        A::EngineeringScale => {
+                            annotation.engineering_scale = Some(self.engineering_scale_members()?);
+                        }
+                        A::EngineeringDefault => {
+                            let rule = self.until(&[")"])?;
+                            if rule.is_empty() {
+                                return Err(self.error("shared engineering rule path"));
+                            }
+                            self.expect(")")?;
+                            annotation.engineering_default = Some(
+                            AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
+                                rule,
                             },
                         );
-                    }
-                    A::Start | A::Nominal | A::Bounds | A::Report | A::Check => {
-                        if !self.eat(")") {
-                            loop {
-                                annotation.arguments.push(self.until(&[",", ")"])?);
-                                if self.eat(")") {
-                                    break;
+                        }
+                        A::EngineeringRule => {
+                            return Err(self.error("engineering_rule marker syntax"));
+                        }
+                        // `annotation connectivity port(incoming, outgoing)`, each a
+                        // nonnegative maximum or `many`.
+                        A::Connectivity => {
+                            let incoming = self.connection_maximum()?;
+                            self.expect(",")?;
+                            let outgoing = self.connection_maximum()?;
+                            self.expect(")")?;
+                            annotation.connectivity = Some(
+                                AuthoredModelingDeclarationsFieldValueAnnotationConnectivity {
+                                    incoming,
+                                    outgoing,
+                                },
+                            );
+                        }
+                        A::Start | A::Nominal | A::Bounds | A::Report | A::Check => {
+                            if !self.eat(")") {
+                                loop {
+                                    annotation.arguments.push(self.until(&[",", ")"])?);
+                                    if self.eat(")") {
+                                        break;
+                                    }
+                                    self.expect(",")?;
                                 }
-                                self.expect(",")?;
                             }
                         }
                     }
+                    self.expect(";")?;
+                    Value::from_annotation(annotation)
                 }
-                self.expect(";")?;
-                Value::from_annotation(annotation)
             }
             "expect" => {
                 let actual = self.until(&["=="])?;

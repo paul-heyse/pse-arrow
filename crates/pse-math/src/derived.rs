@@ -2541,7 +2541,16 @@ impl ErrorAmplification {
         let error = input
             .error
             .filter(|e| e.is_finite() && *e >= 0.0)
-            .map(|e| e * self.inverse_norm / (1.0 - self.remainder))
+            .map(|e| {
+                if class == AccuracyClass::Certified && e > 0.0 {
+                    // Upper error / lower positive contraction slack. Ordinary rounding
+                    // cannot establish a conservative certified forward allowance.
+                    ((e * self.inverse_norm).next_up() / (1.0 - self.remainder).next_down())
+                        .next_up()
+                } else {
+                    e * self.inverse_norm / (1.0 - self.remainder)
+                }
+            })
             .filter(|e| e.is_finite());
         Ok(AccuracyEvidence {
             product: demand.product,
@@ -2572,7 +2581,16 @@ impl ErrorAmplification {
                 "certified accuracy requires certified inverse/remainder evidence".into(),
             ));
         }
-        let allowance = demand.allowance * (1.0 - self.remainder) / self.inverse_norm;
+        let allowance = if demand.class == AccuracyClass::Certified && demand.allowance > 0.0 {
+            // Demands round down: returning a larger inner allowance would weaken
+            // the consumed certified contract. Clamp representational underflow to zero.
+            ((demand.allowance * (1.0 - self.remainder).next_down()).next_down()
+                / self.inverse_norm)
+                .next_down()
+                .max(0.0)
+        } else {
+            demand.allowance * (1.0 - self.remainder) / self.inverse_norm
+        };
         finite(&[allowance])?;
         Ok(allowance)
     }
@@ -3302,6 +3320,60 @@ mod tests {
                 )
                 .is_err()
         );
+    }
+    #[test]
+    fn engineering_certified_amplification_rounds_bounds_outward_and_demands_down() {
+        let demand = AccuracyDemand {
+            product: hash(11),
+            normalization: hash(2),
+            allowance: 6.0,
+            class: AccuracyClass::Certified,
+        };
+        let control = ErrorAmplification {
+            input_product: hash(10),
+            output_product: demand.product,
+            normalization: demand.normalization,
+            inverse_norm: 3.0,
+            remainder: 0.5,
+            class: AccuracyClass::Certified,
+        };
+        let input = AccuracyEvidence {
+            product: hash(10),
+            normalization: hash(2),
+            class: AccuracyClass::Certified,
+            error: Some(1.0),
+        };
+        // Independent exact arithmetic: 1 * 3 / (1 - 1/2) = 6;
+        // the greatest admissible exact backward error is 1.
+        assert!(control.propagate(input, &demand).unwrap().error.unwrap() >= 6.0);
+        let allowance = control.inner_allowance(&demand).unwrap();
+        assert!(allowance > 0.0 && allowance <= 1.0);
+        let zero = control
+            .propagate(
+                AccuracyEvidence {
+                    error: Some(0.0),
+                    ..input
+                },
+                &demand,
+            )
+            .unwrap();
+        assert_eq!(zero.error, Some(0.0));
+        assert_eq!(
+            control
+                .inner_allowance(&AccuracyDemand {
+                    allowance: 0.0,
+                    ..demand
+                })
+                .unwrap(),
+            0.0
+        );
+        let underflow = control
+            .inner_allowance(&AccuracyDemand {
+                allowance: f64::from_bits(1),
+                ..demand
+            })
+            .unwrap();
+        assert_eq!(underflow, 0.0);
     }
     #[test]
     fn inverse_amplification_controls_ill_conditioned_nested_accuracy_without_certification() {

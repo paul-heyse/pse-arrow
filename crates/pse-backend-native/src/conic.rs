@@ -1145,7 +1145,7 @@ mod tests {
             &p,
             &certificate,
             &Controls::default(),
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             &reusable,
             stamp.clone(),
         )
@@ -1344,7 +1344,7 @@ mod tests {
             presolve_enable: false,
             ..Settings::default()
         };
-        let accuracy = ResolvedAccuracy::nominal();
+        let accuracy = ResolvedAccuracy::verification();
         let mapped = settings(&custom, &Controls::default(), &accuracy, custom.mode).unwrap();
         assert_eq!(mapped.max_step_fraction, 0.9);
         assert!(!mapped.presolve_enable);

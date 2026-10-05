@@ -17,6 +17,8 @@ pub mod diagnostic;
 pub mod document;
 /// Declared variable-domain semantics over the generated registry enum (ADR-0103).
 pub mod domain;
+/// Admitted engineering goals and actual output evidence, separate from conditioning.
+pub mod engineering_accuracy;
 /// Constraint forms left to native constraint handlers (ADR-0104).
 pub mod forms;
 /// The model and case a run's lineage and its numerical requirements name.

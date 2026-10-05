@@ -95,13 +95,15 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
         points: vec![point(case, 7, vec![], StartPolicy::Fresh)],
     };
     let encoded = serde_json::to_value(request).unwrap();
-    assert_eq!(encoded["version"], 3);
+    assert_eq!(encoded["version"], 4);
     assert!(encoded["points"][0]["policy"].get("seed_need").is_none());
     let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
-    let mut historical = encoded.clone();
-    historical["version"] = serde_json::json!(1);
-    assert!(serde_json::from_value::<StudyRequest>(historical).is_err());
+    for version in [1, 3] {
+        let mut historical = encoded.clone();
+        historical["version"] = serde_json::json!(version);
+        assert!(serde_json::from_value::<StudyRequest>(historical).is_err());
+    }
     let mut bare = encoded;
     bare["points"][0]["overlay"] = serde_json::json!({"values":{"x":1}});
     assert!(serde_json::from_value::<StudyRequest>(bare).is_err());

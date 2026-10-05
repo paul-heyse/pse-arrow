@@ -216,7 +216,7 @@ fn stub_backend_routes_through_adapter_table() {
                 adapter,
                 settings: &BackendSettings::Default,
                 controls: &controls,
-                accuracy: &ResolvedAccuracy::nominal(),
+                accuracy: &ResolvedAccuracy::verification(),
                 execution: Execution::new(
                     std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                     &controls,

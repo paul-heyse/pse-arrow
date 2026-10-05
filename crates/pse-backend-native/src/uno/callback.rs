@@ -541,6 +541,11 @@ mod tests {
         });
         assert_eq!(out, 4.);
         assert_eq!(context.state.trial_rejections, 1);
-        assert!(context.state.last_failure.is_none());
+        assert!(context.state.terminal.is_none());
+        // The native attempt retains its latest failed trial until successful completion.
+        assert!(matches!(
+            context.state.last_failure,
+            Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
+        ));
     }
 }

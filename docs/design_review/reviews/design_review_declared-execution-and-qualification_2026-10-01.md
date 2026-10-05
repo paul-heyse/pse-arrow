@@ -65,7 +65,7 @@ An executor independently inspected untouched E1/E2/E4 source against `bc4e0d9b`
 coordinated Plan 25e tree. This is a bounded source review, separate from the original author
 judgment. M1 found public simulation admission accepting a Shooting procedure; M2 found ordinary
 run/conformance publication dropping retained route/structure facts; M3 found conformance
-reconstructing declared execution locally. All three were corrected. The [25e Verification](../../plans/25e-declared-analyses-and-qualification.md#verification)
+reconstructing declared execution locally. All three were corrected. The [25e Verification](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25e-declared-analyses-and-qualification.md#verification)
 records the executed controls; the reviewing executor's subsequent repairs are not independently
 reviewed by that same executor. Root retained integration/acceptance responsibility.
 

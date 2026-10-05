@@ -6,6 +6,103 @@
 from enum import StrEnum
 
 
+class AccuracyCriterionStatus(StrEnum):
+    """The declared AccuracyCriterionStatus enumeration."""
+
+    NOT_REQUESTED = "not_requested"
+    SATISFIED = "satisfied"
+    VIOLATED = "violated"
+    UNRESOLVED = "unresolved"
+
+
+class AccuracyEvidenceInterpretation(StrEnum):
+    """The declared AccuracyEvidenceInterpretation enumeration."""
+
+    OUTPUT_ERROR = "output_error"
+    RESIDUAL_ERROR = "residual_error"
+    LINEAR_BACKWARD_ERROR = "linear_backward_error"
+    LOCAL_INTEGRATION_ERROR = "local_integration_error"
+    EMPIRICAL_OUTPUT_VARIATION = "empirical_output_variation"
+    OBJECTIVE_INTERVAL = "objective_interval"
+
+
+class AccuracyEvidenceMethod(StrEnum):
+    """The declared AccuracyEvidenceMethod enumeration."""
+
+    SQUARE_CORRECTION = "square_correction"
+    KKT_CORRECTION = "kkt_correction"
+    CERTIFIED_ENCLOSURE = "certified_enclosure"
+    QUALIFIED_OBJECTIVE_INTERVAL = "qualified_objective_interval"
+    DYNAMIC_COMPARISON = "dynamic_comparison"
+    COMPOSED_OUTPUT = "composed_output"
+
+
+class AccuracyGoalStatus(StrEnum):
+    """The declared AccuracyGoalStatus enumeration."""
+
+    NOT_REQUESTED = "not_requested"
+    SATISFIED = "satisfied"
+    VIOLATED = "violated"
+    UNRESOLVED = "unresolved"
+
+
+class AccuracyGoalSubject(StrEnum):
+    """The declared AccuracyGoalSubject enumeration."""
+
+    SELECTED_OUTPUT = "selected_output"
+    OPTIMAL_OBJECTIVE = "optimal_objective"
+
+
+class AccuracyGoalUse(StrEnum):
+    """The declared AccuracyGoalUse enumeration."""
+
+    ASSESS = "assess"
+    REQUIRE_SATISFIED = "require_satisfied"
+
+
+class AccuracyObservation(StrEnum):
+    """The declared AccuracyObservation enumeration."""
+
+    STEADY = "steady"
+    SAMPLE = "sample"
+    ENDPOINT = "endpoint"
+    INTEGRATED = "integrated"
+
+
+class AccuracyResolutionStatus(StrEnum):
+    """The declared AccuracyResolutionStatus enumeration."""
+
+    NOT_REQUESTED = "not_requested"
+    MET = "met"
+    UNMET = "unmet"
+    UNAVAILABLE = "unavailable"
+
+
+class AccuracyUnavailableReason(StrEnum):
+    """The declared AccuracyUnavailableReason enumeration."""
+
+    MISSING_OBSERVATION = "missing_observation"
+    MISSING_EVIDENCE = "missing_evidence"
+    UNSUPPORTED = "unsupported"
+    UNSUPPORTED_OBSERVATION = "unsupported_observation"
+    EVALUATOR_UNCERTAINTY = "evaluator_uncertainty"
+    REGULARITY = "regularity"
+    INVALID_VALIDITY = "invalid_validity"
+    BRANCH_AMBIGUITY = "branch_ambiguity"
+    BOUNDARY = "boundary"
+    INSUFFICIENT_STRENGTH = "insufficient_strength"
+    INSUFFICIENT_ACCURACY = "insufficient_accuracy"
+    NONFINITE = "nonfinite"
+    PRECISION_LIMIT = "precision_limit"
+    RESOURCE_LIMIT = "resource_limit"
+    BUDGET = "budget"
+    CANCELLED = "cancelled"
+    NONPROGRESS = "nonprogress"
+    FIXED_ERROR_FLOOR = "fixed_error_floor"
+    REFINEMENT_DISALLOWED = "refinement_disallowed"
+    FAILED = "failed"
+
+
 class ArtifactReconstruction(StrEnum):
     """The declared ArtifactReconstruction enumeration."""
 
@@ -117,6 +214,9 @@ class CandidateQualifier(StrEnum):
     CLOSURE_ALLOWED = "closure_allowed"
     APPLICABILITY_UNKNOWN_ALLOWED = "applicability_unknown_allowed"
     APPLICABILITY_EXTRAPOLATION_ALLOWED = "applicability_extrapolation_allowed"
+    ACCURACY_ESTIMATED = "accuracy_estimated"
+    ACCURACY_EMPIRICAL = "accuracy_empirical"
+    ENGINEERING_CANONICAL_FALLBACK = "engineering_canonical_fallback"
 
 
 class CandidateRefusal(StrEnum):
@@ -140,6 +240,8 @@ class CandidateRefusal(StrEnum):
     RELAXED_INCUMBENT = "relaxed_incumbent"
     INCUMBENT_REFUSED = "incumbent_refused"
     FEASIBILITY_UNAVAILABLE = "feasibility_unavailable"
+    ACCURACY_UNRESOLVED = "accuracy_unresolved"
+    ACCURACY_VIOLATED = "accuracy_violated"
 
 
 class CandidateUse(StrEnum):
@@ -774,6 +876,14 @@ class EndpointPolicy(StrEnum):
     DECLARED_TERMINAL_EVENT = "declared_terminal_event"
 
 
+class EngineeringScaleKind(StrEnum):
+    """The declared EngineeringScaleKind enumeration."""
+
+    MAGNITUDE = "magnitude"
+    RANGE_WIDTH = "range_width"
+    REFERENCE_DIFFERENCE = "reference_difference"
+
+
 class EntityKind(StrEnum):
     """The declared EntityKind enumeration."""
 
@@ -1045,6 +1155,10 @@ class ModelingAnnotationKind(StrEnum):
     CHECK = "check"
     OBJECTIVE = "objective"
     CONNECTIVITY = "connectivity"
+    ACCURACY_GOAL = "accuracy_goal"
+    ENGINEERING_SCALE = "engineering_scale"
+    ENGINEERING_DEFAULT = "engineering_default"
+    ENGINEERING_RULE = "engineering_rule"
 
 
 class ModelingApplicabilityBasis(StrEnum):

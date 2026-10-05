@@ -9,7 +9,7 @@ types are the authority. Every enumeration is a registry vocabulary.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, ClassVar
 
 import msgspec
 
@@ -68,6 +68,8 @@ class AdjointSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     Their estimated bytes are charged against the caller's memory allowance before any
     native work.
     """
+
+    _pse_required_version: ClassVar[int] = 1
 
     #: Document version.
     version: Literal[1] = 1
@@ -261,6 +263,112 @@ class AssemblyLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.contributions), v.scalar_key(self.native_index), v.scalar_key(self.worker_bytes),))
+
+
+class AuthoredAccuracyGoalsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: The selected case declaring this goal.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: criterion_lower
+    criterion_lower: float | None = None
+    #: criterion_upper
+    criterion_upper: float | None = None
+    #: The fit declaring this goal.
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: goal_id
+    goal_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The selected instance declaring this goal.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The definition selecting this engineering goal.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: observation
+    observation: enums.AccuracyObservation
+    #: priority
+    priority: int
+    #: provenance
+    provenance: str
+    #: quantity_id
+    quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: refine
+    refine: bool
+    #: required_class
+    required_class: enums.NumericalAccuracyClass
+    #: resolution
+    resolution: float | None = None
+    #: source
+    source: enums.NumericalSource
+    #: subject
+    subject: enums.AccuracyGoalSubject
+    #: target_id
+    target_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: target_kind
+    target_kind: enums.NumericalTarget
+    #: time
+    time: float | None = None
+    #: unit_id
+    unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: use_policy
+    use_policy: enums.AccuracyGoalUse
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.criterion_lower), v.optional_key(v.scalar_key)(self.criterion_upper), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.goal_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.scalar_key(self.observation), v.scalar_key(self.priority), v.scalar_key(self.provenance), v.scalar_key(self.quantity_id), v.scalar_key(self.refine), v.scalar_key(self.required_class), v.optional_key(v.scalar_key)(self.resolution), v.scalar_key(self.source), v.scalar_key(self.subject), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.unit_id), v.scalar_key(self.use_policy),))
+
+
+class AuthoredEngineeringDefaultRulesRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: physical_allowance
+    physical_allowance: float | None = None
+    #: provenance
+    provenance: str
+    #: quantity_id
+    quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: relative_fraction
+    relative_fraction: float | None = None
+    #: rule_id
+    rule_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: unit_id
+    unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.physical_allowance), v.scalar_key(self.provenance), v.scalar_key(self.quantity_id), v.optional_key(v.scalar_key)(self.relative_fraction), v.scalar_key(self.rule_id), v.scalar_key(self.unit_id),))
+
+
+class AuthoredEngineeringScalesRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: The selected case declaring this engineering scale.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The fit declaring this engineering scale.
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The selected instance declaring this engineering scale.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: kind
+    kind: enums.EngineeringScaleKind
+    #: The definition selecting this engineering scale.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: priority
+    priority: int
+    #: provenance
+    provenance: str
+    #: quantity_id
+    quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: scale_id
+    scale_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: source
+    source: enums.NumericalSource
+    #: target_id
+    target_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: target_kind
+    target_kind: enums.NumericalTarget
+    #: unit_id
+    unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: value
+    value: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.instance_id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.model_id), v.scalar_key(self.priority), v.scalar_key(self.provenance), v.scalar_key(self.quantity_id), v.scalar_key(self.scale_id), v.scalar_key(self.source), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.scalar_key(self.unit_id), v.scalar_key(self.value),))
 
 
 class AuthoredFitCasesFieldExperimentsItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -486,10 +594,16 @@ class AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem(msgspec.Struc
 class AuthoredModelingDeclarationsFieldValueAnnotation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
+    #: accuracy_goal
+    accuracy_goal: AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal | None = None
     #: arguments
     arguments: tuple[str, ...]
     #: connectivity
     connectivity: AuthoredModelingDeclarationsFieldValueAnnotationConnectivity | None = None
+    #: engineering_default
+    engineering_default: AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault | None = None
+    #: engineering_scale
+    engineering_scale: AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale | None = None
     #: kind
     kind: enums.ModelingAnnotationKind
     #: objective
@@ -500,7 +614,33 @@ class AuthoredModelingDeclarationsFieldValueAnnotation(msgspec.Struct, frozen=Tr
     target: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.arguments), v.optional_key(v.record_key)(self.connectivity), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.objective), v.optional_key(v.scalar_key)(self.scheme), v.scalar_key(self.target),))
+        return (type(self), (v.optional_key(v.record_key)(self.accuracy_goal), v.sequence_key(v.scalar_key)(self.arguments), v.optional_key(v.record_key)(self.connectivity), v.optional_key(v.record_key)(self.engineering_default), v.optional_key(v.record_key)(self.engineering_scale), v.scalar_key(self.kind), v.optional_key(v.record_key)(self.objective), v.optional_key(v.scalar_key)(self.scheme), v.scalar_key(self.target),))
+
+
+class AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: criterion_lower
+    criterion_lower: str | None = None
+    #: criterion_upper
+    criterion_upper: str | None = None
+    #: observation
+    observation: enums.AccuracyObservation
+    #: refine
+    refine: bool
+    #: required_class
+    required_class: enums.NumericalAccuracyClass
+    #: resolution
+    resolution: str | None = None
+    #: subject
+    subject: enums.AccuracyGoalSubject
+    #: time
+    time: str | None = None
+    #: use_policy
+    use_policy: enums.AccuracyGoalUse
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.criterion_lower), v.optional_key(v.scalar_key)(self.criterion_upper), v.scalar_key(self.observation), v.scalar_key(self.refine), v.scalar_key(self.required_class), v.optional_key(v.scalar_key)(self.resolution), v.scalar_key(self.subject), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.use_policy),))
 
 
 class AuthoredModelingDeclarationsFieldValueAnnotationConnectivity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -513,6 +653,28 @@ class AuthoredModelingDeclarationsFieldValueAnnotationConnectivity(msgspec.Struc
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.incoming), v.optional_key(v.scalar_key)(self.outgoing),))
+
+
+class AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: rule
+    rule: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.rule),))
+
+
+class AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: kind
+    kind: enums.EngineeringScaleKind
+    #: value
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.value),))
 
 
 class AuthoredModelingDeclarationsFieldValueAnnotationObjective(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -2116,6 +2278,8 @@ class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unkno
     case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
     #: coordinates
     coordinates: enums.NumericalCoordinates
+    #: engineering_rule_id
+    engineering_rule_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
     #: The fit whose parameter requirement this is; absent otherwise.
     fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
     #: The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.
@@ -2136,6 +2300,8 @@ class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unkno
     requirement_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: scaling_factor
     scaling_factor: float | None = None
+    #: shared_engineering_allowance
+    shared_engineering_allowance: bool | None = None
     #: target_id
     target_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: target_kind
@@ -2144,7 +2310,7 @@ class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unkno
     unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.coordinates), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.nominal), v.scalar_key(self.priority), v.scalar_key(self.provenance), v.optional_key(v.scalar_key)(self.relative_tolerance), v.scalar_key(self.required), v.scalar_key(self.requirement_id), v.optional_key(v.scalar_key)(self.scaling_factor), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.unit_id),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.absolute_tolerance), v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.coordinates), v.optional_key(v.scalar_key)(self.engineering_rule_id), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.nominal), v.scalar_key(self.priority), v.scalar_key(self.provenance), v.optional_key(v.scalar_key)(self.relative_tolerance), v.scalar_key(self.required), v.scalar_key(self.requirement_id), v.optional_key(v.scalar_key)(self.scaling_factor), v.optional_key(v.scalar_key)(self.shared_engineering_allowance), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.unit_id),))
 
 
 class Basis(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -2446,6 +2612,8 @@ class ClosedDuration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable semantic projection shared by Arrow, Python and publication."""
 
+    #: Retained engineering outcomes; historical no-goal products have an empty collection.
+    accuracy_goals: tuple[RuntimeAccuracyGoalAssessmentsRow, ...] = msgspec.field(default_factory=tuple)
     #: Final physical closure and usability decisions, never recomputed by an exporter.
     assessments: tuple[RuntimeCandidateAssessmentsRow, ...]
     #: Dynamic or fitting outcome, with candidate evidence separate from qualification.
@@ -2458,7 +2626,7 @@ class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     solves: tuple[RuntimeSolveRunsRow, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.record_key)(self.solves),))
+        return (type(self), (v.sequence_key(v.record_key)(self.accuracy_goals), v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.record_key)(self.solves),))
 
 
 class CompositionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -2807,6 +2975,8 @@ class DiffsolSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     """Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
     the version is required, and absent fields take these defaults.
     """
+
+    _pse_required_version: ClassVar[int] = 1
 
     #: Document version.
     version: Literal[1] = 1
@@ -3381,6 +3551,8 @@ class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     ([`Contract::signs`], ADR-0119 Outcome 4).
     """
 
+    _pse_required_version: ClassVar[int] = 2
+
     #: Document version.
     version: Literal[2] = 2
     #: Public IDACalcIC phase controls, also applied to scheduled consistent restarts.
@@ -3701,6 +3873,8 @@ class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     and versions are refused.
     """
 
+    _pse_required_version: ClassVar[int] = 8
+
     #: Document version.
     version: Literal[8] = 8
     #: The task.
@@ -3924,6 +4098,8 @@ class KnowledgeControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
 class LegacyUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit historical marker; it never supplies current scientific permissions."""
+
+    _pse_required_version: ClassVar[int] = 1
 
     #: Marker codec version.
     version: Literal[1] = 1
@@ -4427,33 +4603,51 @@ class NumericObservationReal(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared semantic controls resolved before invoking any native adapter."""
 
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Required standalone and nested numerical-policy interpretation version.
+    version: Literal[1] = 1
     #: Optional separately qualified acceptable-termination budgets.
     acceptable: KktTolerances | None = None
     #: Physical acceptance, separate from native termination.
     closure: enums.ClosurePolicy = enums.ClosurePolicy.REQUIRE_CLOSED
+    #: Shared relative engineering fraction; an explicit selected rule may override it.
+    engineering_relative_fraction: float = 0.001
+    #: Shared rules matched by full quantity meaning, not dimensions alone.
+    engineering_rules: tuple[AuthoredEngineeringDefaultRulesRow, ...] = msgspec.field(default_factory=tuple)
+    #: Admitted explicitly tagged scales, with source and scope retained.
+    engineering_scales: tuple[AuthoredEngineeringScalesRow, ...] = msgspec.field(default_factory=tuple)
     #: Absolute continuous optimality gap in normalized objective coordinates.
-    gap_absolute: float = 1e-8
+    gap_absolute: float = 0.001
     #: Dimensionless relative continuous optimality gap.
-    gap_relative: float = 1e-8
+    gap_relative: float = 0.001
+    #: Selected output goals; empty does not assert decision invariance.
+    goals: tuple[AuthoredAccuracyGoalsRow, ...] = msgspec.field(default_factory=tuple)
     #: Whether a validated original-feasible limit incumbent may be used as a result.
     incumbent: enums.IncumbentPolicy = enums.IncumbentPolicy.REFUSE
     #: Integer-lattice violation budget in original variable coordinates.
     integrality: float = 1e-8
     #: Independent KKT budgets.
-    kkt: KktTolerances = msgspec.field(default_factory=lambda: msgspec.convert({"complementarity": 1e-8, "stationarity": 1e-8}, type=KktTolerances))
+    kkt: KktTolerances = msgspec.field(default_factory=lambda: msgspec.convert({"complementarity": 0.001, "stationarity": 0.001}, type=KktTolerances))
+    #: Implicit derivative linear-system backward error, independent of stationarity.
+    linear_backward_error: float = 0.001
     #: Absolute gap in normalized objective coordinates.
-    mip_absolute_gap: float = 1e-6
+    mip_absolute_gap: float = 0.001
     #: Dimensionless relative MIP gap.
-    mip_relative_gap: float = 0.0001
+    mip_relative_gap: float = 0.001
     #: Permit native algorithmic scaling after model normalization.
     native_scaling: bool = True
     #: ID-keyed analysis overrides, using the same declaration as model/case sources.
     requirements: tuple[AuthoredNumericalRequirementsRow, ...] = msgspec.field(default_factory=tuple)
+    #: Reject an engineering allowance relying on the canonical fallback.
+    strict_engineering_context: bool = False
     #: Refuse canonical-unit fallback where no authored or quantity nominal is known.
     strict_nominals: bool = False
+    #: Operational normalized supplier action error, independent of KKT acceptance.
+    supplier_action_accuracy: float = 0.001
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.acceptable), v.scalar_key(self.closure), v.scalar_key(self.gap_absolute), v.scalar_key(self.gap_relative), v.scalar_key(self.incumbent), v.scalar_key(self.integrality), v.record_key(self.kkt), v.scalar_key(self.mip_absolute_gap), v.scalar_key(self.mip_relative_gap), v.scalar_key(self.native_scaling), v.sequence_key(v.record_key)(self.requirements), v.scalar_key(self.strict_nominals),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.acceptable), v.scalar_key(self.closure), v.scalar_key(self.engineering_relative_fraction), v.sequence_key(v.record_key)(self.engineering_rules), v.sequence_key(v.record_key)(self.engineering_scales), v.scalar_key(self.gap_absolute), v.scalar_key(self.gap_relative), v.sequence_key(v.record_key)(self.goals), v.scalar_key(self.incumbent), v.scalar_key(self.integrality), v.record_key(self.kkt), v.scalar_key(self.linear_backward_error), v.scalar_key(self.mip_absolute_gap), v.scalar_key(self.mip_relative_gap), v.scalar_key(self.native_scaling), v.sequence_key(v.record_key)(self.requirements), v.scalar_key(self.strict_engineering_context), v.scalar_key(self.strict_nominals), v.scalar_key(self.supplier_action_accuracy),))
 
 
 class NumericalStrategy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4477,6 +4671,8 @@ class NumericalStrategy(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
 class NumericalStrategyDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Current strategy wire document. Historical bodies are not silently reinterpreted."""
+
+    _pse_required_version: ClassVar[int] = 3
 
     #: Exact current document version, checked before decoding its body.
     version: Literal[3] = 3
@@ -4910,6 +5106,10 @@ class ProductionDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite integration policy. Tolerances apply to the normalized state coordinates."""
 
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Required execution interpretation version; legacy unversioned requests need readmission.
+    version: Literal[1] = 1
     #: Checkpointing of the adjoint backward pass; used only by adjoint gradients.
     adjoint: AdjointSettings = msgspec.field(default_factory=lambda: msgspec.convert({"max_checkpoints": 400, "steps_between_checkpoints": 250, "version": 1}, type=AdjointSettings))
     #: Positive absolute tolerances in normalized state order.
@@ -4937,7 +5137,7 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     #: Native BDF/nonlinear/error-control settings.
     native: DiffsolOdeSolverOptions
     #: Physical acceptance and ID-keyed nominal requests, distinct from integration error controls.
-    numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "gap_absolute": 1e-8, "gap_relative": 1e-8, "incumbent": "refuse", "integrality": 1e-8, "kkt": {"complementarity": 1e-8, "stationarity": 1e-8}, "mip_absolute_gap": 1e-6, "mip_relative_gap": 0.0001, "native_scaling": True, "requirements": [], "strict_nominals": False}, type=NumericalPolicy))
+    numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "engineering_relative_fraction": 0.001, "engineering_rules": [], "engineering_scales": [], "gap_absolute": 0.001, "gap_relative": 0.001, "goals": [], "incumbent": "refuse", "integrality": 1e-8, "kkt": {"complementarity": 0.001, "stationarity": 0.001}, "linear_backward_error": 0.001, "mip_absolute_gap": 0.001, "mip_relative_gap": 0.001, "native_scaling": True, "requirements": [], "strict_engineering_context": False, "strict_nominals": False, "supplier_action_accuracy": 0.001, "version": 1}, type=NumericalPolicy))
     #: Absolute integrated-flux tolerances in canonical conserved quantities.
     out_atol: tuple[float, ...]
     #: Explicit integrated-flux relative tolerance; required when conservation is declared.
@@ -4964,7 +5164,7 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     trial_failures: enums.TrialPolicy = enums.TrialPolicy.TERMINAL
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.adjoint), v.sequence_key(v.scalar_key)(self.atol), v.record_key(self.diffsol), v.scalar_key(self.end), v.record_key(self.endpoint), v.record_key(self.idas), v.scalar_key(self.initial_step), v.record_key(self.initialization), v.scalar_key(self.max_cells), v.scalar_key(self.max_events), v.scalar_key(self.max_steps), v.scalar_key(self.method), v.record_key(self.native), v.record_key(self.numerics), v.sequence_key(v.scalar_key)(self.out_atol), v.optional_key(v.scalar_key)(self.out_rtol), v.sequence_key(v.scalar_key)(self.parameter_scales), v.scalar_key(self.rtol), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedule), v.scalar_key(self.sensitivity), v.scalar_key(self.start), v.record_key(self.time_limit), v.scalar_key(self.trial_failures),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.adjoint), v.sequence_key(v.scalar_key)(self.atol), v.record_key(self.diffsol), v.scalar_key(self.end), v.record_key(self.endpoint), v.record_key(self.idas), v.scalar_key(self.initial_step), v.record_key(self.initialization), v.scalar_key(self.max_cells), v.scalar_key(self.max_events), v.scalar_key(self.max_steps), v.scalar_key(self.method), v.record_key(self.native), v.record_key(self.numerics), v.sequence_key(v.scalar_key)(self.out_atol), v.optional_key(v.scalar_key)(self.out_rtol), v.sequence_key(v.scalar_key)(self.parameter_scales), v.scalar_key(self.rtol), v.sequence_key(v.scalar_key)(self.samples), v.sequence_key(v.record_key)(self.schedule), v.scalar_key(self.sensitivity), v.scalar_key(self.start), v.record_key(self.time_limit), v.scalar_key(self.trial_failures),))
 
 
 class ProfileChain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5417,6 +5617,90 @@ class RunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
         return (type(self), (v.scalar_key(self.continue_independent),))
 
 
+class RuntimeAccuracyGoalAssessmentsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: accuracy_class
+    accuracy_class: enums.NumericalAccuracyClass | None = None
+    #: branch
+    branch: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: The selected case whose goal was assessed.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: context
+    context: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: criterion_lower
+    criterion_lower: float | None = None
+    #: criterion_status
+    criterion_status: enums.AccuracyCriterionStatus
+    #: criterion_upper
+    criterion_upper: float | None = None
+    #: dependencies
+    dependencies: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: error
+    error: float | None = None
+    #: The fit whose goal was assessed.
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: goal_id
+    goal_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The selected instance whose goal was assessed.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: interpretation
+    interpretation: enums.AccuracyEvidenceInterpretation | None = None
+    #: interval_lower
+    interval_lower: float | None = None
+    #: interval_upper
+    interval_upper: float | None = None
+    #: limitation
+    limitation: str
+    #: method
+    method: enums.AccuracyEvidenceMethod | None = None
+    #: The definition whose selected goal was assessed.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: observation
+    observation: enums.AccuracyObservation
+    #: point
+    point: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: product
+    product: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: quantity_id
+    quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: refine
+    refine: bool
+    #: required_class
+    required_class: enums.NumericalAccuracyClass
+    #: resolution
+    resolution: float | None = None
+    #: resolution_status
+    resolution_status: enums.AccuracyResolutionStatus
+    #: The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: status
+    status: enums.AccuracyGoalStatus
+    #: step
+    step: int
+    #: subject
+    subject: enums.AccuracyGoalSubject
+    #: target_id
+    target_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: target_kind
+    target_kind: enums.NumericalTarget
+    #: time
+    time: float | None = None
+    #: unavailable
+    unavailable: enums.AccuracyUnavailableReason | None = None
+    #: unit_id
+    unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: use_policy
+    use_policy: enums.AccuracyGoalUse
+    #: validity
+    validity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: value
+    value: float | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.accuracy_class), v.optional_key(v.scalar_key)(self.branch), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.context), v.optional_key(v.scalar_key)(self.criterion_lower), v.scalar_key(self.criterion_status), v.optional_key(v.scalar_key)(self.criterion_upper), v.sequence_key(v.scalar_key)(self.dependencies), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.goal_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.interpretation), v.optional_key(v.scalar_key)(self.interval_lower), v.optional_key(v.scalar_key)(self.interval_upper), v.scalar_key(self.limitation), v.optional_key(v.scalar_key)(self.method), v.optional_key(v.scalar_key)(self.model_id), v.scalar_key(self.observation), v.optional_key(v.scalar_key)(self.point), v.optional_key(v.scalar_key)(self.product), v.scalar_key(self.quantity_id), v.scalar_key(self.refine), v.scalar_key(self.required_class), v.optional_key(v.scalar_key)(self.resolution), v.scalar_key(self.resolution_status), v.scalar_key(self.run_id), v.scalar_key(self.status), v.scalar_key(self.step), v.scalar_key(self.subject), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.time), v.optional_key(v.scalar_key)(self.unavailable), v.scalar_key(self.unit_id), v.scalar_key(self.use_policy), v.optional_key(v.scalar_key)(self.validity), v.optional_key(v.scalar_key)(self.value),))
+
+
 class RuntimeCandidateAssessmentsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -5815,8 +6099,10 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     default of [`SolverProfile::default`] when absent.
     """
 
+    _pse_required_version: ClassVar[int] = 4
+
     #: Document version.
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     #: An explicitly selected eligible backend; absent is deterministic routing.
     backend: enums.NativeBackend | None = None
     #: Requested composition; omission chooses automatic resolution without replacement starts.
@@ -5831,7 +6117,7 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Mathematical purpose.
     intent: enums.NativeSolveIntent = enums.NativeSolveIntent.OPTIMIZE
     #: ID-keyed numerical requirements and acceptance budgets.
-    numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "gap_absolute": 1e-8, "gap_relative": 1e-8, "incumbent": "refuse", "integrality": 1e-8, "kkt": {"complementarity": 1e-8, "stationarity": 1e-8}, "mip_absolute_gap": 1e-6, "mip_relative_gap": 0.0001, "native_scaling": True, "requirements": [], "strict_nominals": False}, type=NumericalPolicy))
+    numerics: NumericalPolicy = msgspec.field(default_factory=lambda: msgspec.convert({"acceptable": None, "closure": "require_closed", "engineering_relative_fraction": 0.001, "engineering_rules": [], "engineering_scales": [], "gap_absolute": 0.001, "gap_relative": 0.001, "goals": [], "incumbent": "refuse", "integrality": 1e-8, "kkt": {"complementarity": 0.001, "stationarity": 0.001}, "linear_backward_error": 0.001, "mip_absolute_gap": 0.001, "mip_relative_gap": 0.001, "native_scaling": True, "requirements": [], "strict_engineering_context": False, "strict_nominals": False, "supplier_action_accuracy": 0.001, "version": 1}, type=NumericalPolicy))
     #: Library presolve policy.
     presolve: enums.PresolvePolicyKind = enums.PresolvePolicyKind.AUTO
     #: Native presolve options; an explicit policy only.
@@ -5876,6 +6162,8 @@ class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
 class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Version 1 of a source bundle's manifest: the path of every document, in order."""
+
+    _pse_required_version: ClassVar[int] = 1
 
     #: Document version.
     version: Literal[1] = 1
@@ -6041,6 +6329,8 @@ class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     the study's request identity.
     """
 
+    _pse_required_version: ClassVar[int] = 6
+
     #: Document version.
     version: Literal[6] = 6
     #: The source bundles of the modeling package closure, in load order.
@@ -6057,8 +6347,10 @@ class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable request recorded by a study occurrence and replayed by either executor."""
 
+    _pse_required_version: ClassVar[int] = 5
+
     #: Interpretation of this operation descriptor.
-    version: Literal[4] = 4
+    version: Literal[5] = 5
     #: Canonical physical assignments; required for every horizon descriptor.
     admitted_horizon: AdmittedHorizonValues | None = None
     #: Existing operation-owned input document.
@@ -6142,6 +6434,8 @@ class StudyPointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
 class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Raw request admitted once into the immutable executable definition."""
+
+    _pse_required_version: ClassVar[int] = 4
 
     #: Document version.
     version: Literal[4] = 4
@@ -6303,6 +6597,8 @@ class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     termination-detail document (ADR-0116 Outcome 6): the typed values that explain why the
     try ended as it did.
     """
+
+    _pse_required_version: ClassVar[int] = 2
 
     #: Document version.
     version: Literal[2] = 2
@@ -6614,6 +6910,9 @@ __all__ = [
     "ApplicabilityPermission",
     "ArrivalDocument",
     "AssemblyLimits",
+    "AuthoredAccuracyGoalsRow",
+    "AuthoredEngineeringDefaultRulesRow",
+    "AuthoredEngineeringScalesRow",
     "AuthoredFitCasesFieldExperimentsItem",
     "AuthoredFitCasesFieldExperimentsItemBindingsItem",
     "AuthoredFitCasesFieldObservationsItem",
@@ -6623,7 +6922,10 @@ __all__ = [
     "AuthoredModelingDeclarationsFieldValueAccumulator",
     "AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem",
     "AuthoredModelingDeclarationsFieldValueAnnotation",
+    "AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal",
     "AuthoredModelingDeclarationsFieldValueAnnotationConnectivity",
+    "AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault",
+    "AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale",
     "AuthoredModelingDeclarationsFieldValueAnnotationObjective",
     "AuthoredModelingDeclarationsFieldValueApplicability",
     "AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem",
@@ -6975,6 +7277,7 @@ __all__ = [
     "RestartBarrierValue",
     "RouteDocument",
     "RunControls",
+    "RuntimeAccuracyGoalAssessmentsRow",
     "RuntimeCandidateAssessmentsRow",
     "RuntimeComputationRunsRow",
     "RuntimeRunLineageRow",

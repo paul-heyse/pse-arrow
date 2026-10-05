@@ -1178,7 +1178,7 @@ mod tests {
                     foreign_bytes: Some(64 << 20),
                     ..Default::default()
                 },
-                &ResolvedAccuracy::nominal(),
+                &ResolvedAccuracy::verification(),
                 settings,
                 execution,
                 &Tolerances {
@@ -1298,7 +1298,7 @@ mod tests {
             &[2.0],
             ObjectiveSense::Minimize,
             &controls,
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             &Settings::default(),
             crate::solver_tests::execution(),
             &Tolerances {
@@ -1366,7 +1366,7 @@ mod tests {
                 foreign_bytes: Some(64 << 20),
                 ..Controls::default()
             },
-            &ResolvedAccuracy::nominal(),
+            &ResolvedAccuracy::verification(),
             settings,
             crate::solver_tests::execution(),
             &Tolerances {

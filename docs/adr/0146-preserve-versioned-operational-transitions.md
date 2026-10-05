@@ -63,7 +63,7 @@ Focused checks cover exact source/target admission, checksum conflict, no mutati
 
 ### Confirmation
 
-The 25e/25f implementation and focused checks retain their original scope. The linked 25g review accepted the target at Proposed evidence before implementation. **Implemented/Tested, 2026-10-01:** recorded-domain/reader/writer, finite/composite migration, descriptor, manifest/inventory and confined-listing controls pass (47 durable controls plus three diagnostic assertion controls, local pinned toolchain and explicit force-validation); complete regeneration and workspace all-target compilation pass. [25g Verification](../plans/25g-durable-contract-evolution.md#verification) owns exact commands, repaired failures and the third-party future-incompatibility warning. PostgreSQL/storage/restart journeys are authored but not_run here. Decision acceptance remains a separate PR; full durable journeys remain 25k.
+The 25e/25f implementation and focused checks retain their original scope. The linked 25g review accepted the target at Proposed evidence before implementation. **Implemented/Tested, 2026-10-01:** recorded-domain/reader/writer, finite/composite migration, descriptor, manifest/inventory and confined-listing controls pass (47 durable controls plus three diagnostic assertion controls, local pinned toolchain and explicit force-validation); complete regeneration and workspace all-target compilation pass. [25g Verification](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25g-durable-contract-evolution.md#verification) owns exact commands, repaired failures and the third-party future-incompatibility warning. PostgreSQL/storage/restart journeys are authored but not_run here. Decision acceptance remains a separate PR; full durable journeys remain 25k.
 
 ## Pros and cons
 
@@ -71,7 +71,7 @@ Separate capabilities prevent a readable artifact from becoming writable by impl
 
 ## More information
 
-[Plan 25e](../plans/25e-declared-analyses-and-qualification.md), [Plan 25g](../plans/25g-durable-contract-evolution.md), ADR-0114 and ADR-0145.
+[Plan 25e](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25e-declared-analyses-and-qualification.md), [Plan 25g](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25g-durable-contract-evolution.md), ADR-0114 and ADR-0145.
 
 ## Status history
 

@@ -892,11 +892,17 @@ fn print_block(
                     v.objective.is_some(),
                     v.scheme.is_some(),
                     v.connectivity.is_some(),
+                    v.accuracy_goal.is_some(),
+                    v.engineering_scale.is_some(),
+                    v.engineering_default.is_some(),
                 );
                 let expected = (
                     v.kind == A::Objective,
                     v.kind == A::Scale,
                     v.kind == A::Connectivity,
+                    v.kind == A::AccuracyGoal,
+                    v.kind == A::EngineeringScale,
+                    v.kind == A::EngineeringDefault,
                 );
                 if typed != expected {
                     return Err(bad("an annotation carries exactly the typed members of its kind"));
@@ -920,6 +926,39 @@ fn print_block(
                     }
                     (A::Valid, [lower, upper]) => format!("{lower}, {upper}"),
                     (A::Scale, []) => v.scheme.map_or("", |s| s.as_str()).to_owned(),
+                    (A::AccuracyGoal, []) => {
+                        let goal = v.accuracy_goal.as_ref().ok_or_else(|| bad("accuracy goal members"))?;
+                        let mut members = vec![
+                            goal.subject.as_str().to_owned(),
+                            goal.observation.as_str().to_owned(),
+                        ];
+                        for (name, value) in [
+                            ("time", &goal.time),
+                            ("resolution", &goal.resolution),
+                            ("criterion_lower", &goal.criterion_lower),
+                            ("criterion_upper", &goal.criterion_upper),
+                        ] {
+                            members.extend(value.as_ref().map(|value| format!("{name} = {value}")));
+                        }
+                        members.push(format!("required_class = {}", goal.required_class.as_str()));
+                        members.push(format!("use_policy = {}", goal.use_policy.as_str()));
+                        members.push(format!("refine = {}", goal.refine));
+                        members.join(", ")
+                    }
+                    (A::EngineeringScale, []) => {
+                        let scale = v.engineering_scale.as_ref().ok_or_else(|| bad("engineering scale members"))?;
+                        format!("kind = {}, value = {}", scale.kind.as_str(), scale.value)
+                    }
+                    (A::EngineeringDefault, []) => v
+                        .engineering_default
+                        .as_ref()
+                        .ok_or_else(|| bad("engineering default rule"))?
+                        .rule
+                        .clone(),
+                    (A::EngineeringRule, []) if v.target.is_empty() => {
+                        return Err(bad("engineering rule names its source constant"));
+                    }
+                    (A::EngineeringRule, []) => String::new(),
                     (A::Connectivity, []) => {
                         let c = v.connectivity.as_ref().ok_or_else(|| bad("connectivity maxima"))?;
                         format!("{}, {}", maximum(c.incoming), maximum(c.outgoing))
@@ -929,11 +968,15 @@ fn print_block(
                     }
                     _ => return Err(bad("an annotation's arguments disagree with its kind")),
                 };
-                format!(
-                    "annotation {} {}({arguments});",
-                    v.kind.as_str(),
-                    v.target,
-                )
+                if v.kind == A::EngineeringRule {
+                    format!("annotation {} {};", v.kind.as_str(), v.target)
+                } else {
+                    format!(
+                        "annotation {} {}({arguments});",
+                        v.kind.as_str(),
+                        v.target,
+                    )
+                }
             }
             Selected::Expectation(v) => format!(
                 "expect {} == {} tolerance {}{};",

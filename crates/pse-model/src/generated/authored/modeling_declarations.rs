@@ -3087,6 +3087,106 @@ impl PartialEq for AuthoredModelingDeclarationsFieldValueAnnotationObjective {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
+    ///subject
+    pub r#subject: crate::generated::enums::AccuracyGoalSubject,
+    ///observation
+    pub r#observation: crate::generated::enums::AccuracyObservation,
+    ///time
+    pub r#time: Option<String>,
+    ///resolution
+    pub r#resolution: Option<String>,
+    ///criterion_lower
+    pub r#criterion_lower: Option<String>,
+    ///criterion_upper
+    pub r#criterion_upper: Option<String>,
+    ///required_class
+    pub r#required_class: crate::generated::enums::NumericalAccuracyClass,
+    ///use_policy
+    pub r#use_policy: crate::generated::enums::AccuracyGoalUse,
+    ///refine
+    pub r#refine: bool,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#subject, &other.r#subject)
+            && crate::SemanticEq::semantic_eq(&self.r#observation, &other.r#observation)
+            && crate::SemanticEq::semantic_eq(&self.r#time, &other.r#time)
+            && crate::SemanticEq::semantic_eq(&self.r#resolution, &other.r#resolution)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#criterion_lower,
+                &other.r#criterion_lower,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#criterion_upper,
+                &other.r#criterion_upper,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#required_class,
+                &other.r#required_class,
+            ) && crate::SemanticEq::semantic_eq(&self.r#use_policy, &other.r#use_policy)
+            && crate::SemanticEq::semantic_eq(&self.r#refine, &other.r#refine)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
+    ///kind
+    pub r#kind: crate::generated::enums::EngineeringScaleKind,
+    ///value
+    pub r#value: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
+    ///rule
+    pub r#rule: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#rule, &other.r#rule)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueAnnotation {
     ///kind
     pub r#kind: crate::generated::enums::ModelingAnnotationKind,
@@ -3102,6 +3202,18 @@ pub struct AuthoredModelingDeclarationsFieldValueAnnotation {
     >,
     ///objective
     pub r#objective: Option<AuthoredModelingDeclarationsFieldValueAnnotationObjective>,
+    ///accuracy_goal
+    pub r#accuracy_goal: Option<
+        AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal,
+    >,
+    ///engineering_scale
+    pub r#engineering_scale: Option<
+        AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale,
+    >,
+    ///engineering_default
+    pub r#engineering_default: Option<
+        AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault,
+    >,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueAnnotation {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -3113,6 +3225,18 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueAnnotation {
                 &self.r#connectivity,
                 &other.r#connectivity,
             ) && crate::SemanticEq::semantic_eq(&self.r#objective, &other.r#objective)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#accuracy_goal,
+                &other.r#accuracy_goal,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#engineering_scale,
+                &other.r#engineering_scale,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#engineering_default,
+                &other.r#engineering_default,
+            )
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueAnnotation {
@@ -12384,6 +12508,73 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAnnotationObject
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#relative_tolerance))
     }
 }
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#subject));
+        crate::SemanticFrame::frame(&self.r#subject, hash);
+        hash.str(stringify!(r#observation));
+        crate::SemanticFrame::frame(&self.r#observation, hash);
+        hash.str(stringify!(r#time));
+        crate::SemanticFrame::frame(&self.r#time, hash);
+        hash.str(stringify!(r#resolution));
+        crate::SemanticFrame::frame(&self.r#resolution, hash);
+        hash.str(stringify!(r#criterion_lower));
+        crate::SemanticFrame::frame(&self.r#criterion_lower, hash);
+        hash.str(stringify!(r#criterion_upper));
+        crate::SemanticFrame::frame(&self.r#criterion_upper, hash);
+        hash.str(stringify!(r#required_class));
+        crate::SemanticFrame::frame(&self.r#required_class, hash);
+        hash.str(stringify!(r#use_policy));
+        crate::SemanticFrame::frame(&self.r#use_policy, hash);
+        hash.str(stringify!(r#refine));
+        crate::SemanticFrame::frame(&self.r#refine, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#subject))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#resolution))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#criterion_lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#criterion_upper))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#required_class))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#use_policy))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#refine))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#rule));
+        crate::SemanticFrame::frame(&self.r#rule, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
+    fn heap_bytes(&self) -> usize {
+        0usize.saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule))
+    }
+}
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueAnnotation {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#kind));
@@ -12398,6 +12589,12 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueAnnotation {
         crate::SemanticFrame::frame(&self.r#connectivity, hash);
         hash.str(stringify!(r#objective));
         crate::SemanticFrame::frame(&self.r#objective, hash);
+        hash.str(stringify!(r#accuracy_goal));
+        crate::SemanticFrame::frame(&self.r#accuracy_goal, hash);
+        hash.str(stringify!(r#engineering_scale));
+        crate::SemanticFrame::frame(&self.r#engineering_scale, hash);
+        hash.str(stringify!(r#engineering_default));
+        crate::SemanticFrame::frame(&self.r#engineering_default, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAnnotation {
@@ -12409,6 +12606,9 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueAnnotation {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scheme))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#connectivity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#objective))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#accuracy_goal))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#engineering_scale))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#engineering_default))
     }
 }
 impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueRequirement {

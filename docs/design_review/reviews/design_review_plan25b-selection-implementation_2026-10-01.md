@@ -62,4 +62,4 @@ Targeted tests read include `scientific_composition_tests`, `scientific_reaction
 
 Findings require correction and focused executed controls before B3 implementation acceptance. No additional material B1/B2/source-costing declaration defect was found within the inspected scope.
 
-Current finding dispositions and executed corrections belong to [Plan 25b](../../plans/25b-scientific-knowledge-and-applicability.md#execution-checkpoint). This review retains its original snapshot and verdict.
+Current finding dispositions and executed corrections belong to [Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md#execution-checkpoint). This review retains its original snapshot and verdict.

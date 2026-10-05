@@ -221,6 +221,7 @@ fn nlp(case: &Parameterized, backend: Backend, presolve: &Policy) -> SolveReport
                 second_order: true,
                 sensitivity: Some(case.request()),
                 inverse_reduced_hessian: None,
+                output_accuracy: None,
             },
         },
     )
@@ -238,7 +239,7 @@ fn scip(case: &Parameterized) -> SolveReport {
         )
         .unwrap();
     let (n, m) = (program.variables.len(), program.rows.len());
-    let accuracy = ResolvedAccuracy::nominal();
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let mut original = Evaluated(case);

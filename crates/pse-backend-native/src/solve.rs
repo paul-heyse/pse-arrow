@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Library-neutral execution controls and faithful result envelopes.
+mod retention;
+mod exact_objective;
+pub use exact_objective::ExactObjectiveTransport;
 use crate::ProblemError;
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{
@@ -184,7 +187,7 @@ impl ResolvedAccuracy {
             .chain(&tolerance.rows)
             .copied()
             .reduce(f64::min)
-            .unwrap_or(1e-8);
+            .unwrap_or(pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY);
         Self::from_policy(policy, feasibility)
     }
     /// Resolve the policy's budgets against an already normalized feasibility budget, as
@@ -214,10 +217,24 @@ impl ResolvedAccuracy {
         resolved.validate()?;
         Ok(resolved)
     }
-    /// The default policy's budgets at a normalized feasibility budget of 1e-8.
+    /// Explicit test-only verification budgets for analytic solutions, derivative
+    /// checks and qualification semantics. These are not engineering defaults:
+    /// synthetic checks compare results at 1e-6 or tighter, so their solve error
+    /// must be smaller. MIP fixtures separately verify objective-gap handling.
     #[cfg(test)]
-    pub(crate) fn nominal() -> Self {
-        Self::from_policy(&Default::default(), 1e-8).unwrap_or_else(|e| panic!("{e}"))
+    pub(crate) fn verification() -> Self {
+        let policy = pse_model::numerics::NumericalPolicy {
+            kkt: pse_model::numerics::KktTolerances {
+                stationarity: 1e-8,
+                complementarity: 1e-8,
+            },
+            gap_absolute: 1e-8,
+            gap_relative: 1e-8,
+            mip_absolute_gap: 1e-6,
+            mip_relative_gap: 1e-4,
+            ..Default::default()
+        };
+        Self::from_policy(&policy, 1e-8).unwrap_or_else(|e| panic!("{e}"))
     }
     /// Native dimensionless controls must remain finite and strictly positive where required.
     ///
@@ -1713,6 +1730,9 @@ pub struct GlobalRecord {
     pub iis: Option<Iis>,
     /// Exact rational objective of the reported solution, as native text.
     pub exact_objective: Option<String>,
+    /// Sealed exact-optimal native export receipt. Original exact-real correspondence
+    /// and fresh original validation must still be checked before goal assessment.
+    pub exact_objective_transport: Option<ExactObjectiveTransport>,
     /// The attempt reused a retained native search tree (reoptimization).
     pub reoptimized: bool,
     /// Named transformations the export applied to the program, in column order.
@@ -1853,6 +1873,9 @@ pub struct Evidence {
     /// The requested KKT-point analysis of an NLP candidate (L-N6, PS-12), or why it
     /// produced none; `None` when none was requested or no candidate was observed.
     pub local: Option<crate::kkt::Local>,
+    /// Requested protected-output estimates from the actual original stationary KKT
+    /// correction, with typed reasons and exact action receipt. Absent with no request.
+    pub output_accuracy: Option<crate::engineering_accuracy::KktEstimates>,
     /// The derived quantities of a parametric sensitivity request (Plan 22 S1), each
     /// computed or withheld with its reason; `None` when none was requested or the step
     /// ended before its analysis.
@@ -1985,6 +2008,25 @@ impl SolveReport {
     pub fn shared_validation_failure(&self) -> Option<Arc<ProblemError>> {
         self.validation_failure.clone()
     }
+    /// Select the original failure shared with consumers: a terminal typed callback
+    /// cause takes precedence, then terminal validation, then a retained trial cause.
+    /// A trial witness does not itself make the native attempt terminal; native and
+    /// validation evidence retain that authority.
+    pub fn shared_effective_failure(&self) -> Option<Arc<ProblemError>> {
+        use crate::callback::{Failure, classify};
+        if let Some(cause) = &self.callback_failure
+            && classify(cause) != Failure::Trial
+        {
+            return Some(cause.clone());
+        }
+        if let Some(cause) = &self.validation_failure
+            && classify(cause) != Failure::Trial
+        {
+            return Some(cause.clone());
+        }
+        self.shared_callback_failure()
+            .or_else(|| self.shared_validation_failure())
+    }
     /// Record why independent validation failed. Original-space observations and
     /// qualification are withdrawn; the candidate and native evidence are preserved.
     pub fn record_validation_failure(&mut self, error: ProblemError) {
@@ -2008,6 +2050,10 @@ impl SolveReport {
             self.callback_failure(),
             self.validation_failure(),
             predictor_cause,
+            self.evidence
+                .output_accuracy
+                .as_ref()
+                .and_then(|accuracy| accuracy.failure.as_deref()),
         ]
         .into_iter()
         .flatten()
@@ -2026,8 +2072,12 @@ impl SolveReport {
     }
     /// Attach the outer runtime's retained-result admission to this owned envelope.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        self.owner = Some(owner);
+        self.retain_owner(owner);
         self
+    }
+    /// Retain a completed envelope's allocation grant without copying its owned buffers.
+    pub fn retain_owner(&mut self, owner: Arc<dyn pse_math::AllocationOwner>) {
+        self.owner = Some(owner);
     }
     /// Start an envelope without inventing unavailable metrics or candidates.
     pub fn new(
@@ -2135,6 +2185,259 @@ pub(crate) fn insert_native_metrics(
 
 #[cfg(test)]
 mod numerical_tests {
+    fn failure_report() -> SolveReport {
+        SolveReport::new(
+            Backend::Kinsol,
+            &crate::solver_tests::contract(),
+            NativeTermination {
+                code: -14,
+                name: "KIN_SYSFUNC_FAIL".into(),
+                message: None,
+                category: Termination::Evaluation,
+                assurance: Assurance::None,
+            },
+            &Execution::new(Arc::default(), &Controls::default()),
+        )
+    }
+    fn trial_failure() -> Arc<ProblemError> {
+        Arc::new(
+            pse_math::MathError::Domain {
+                source_id: SemanticId::NIL,
+                requirement: "positive trial coordinate",
+            }
+            .into(),
+        )
+    }
+    #[test]
+    fn effective_failure_terminal_validation_supersedes_trial_callback() {
+        for terminal_failure in [false, true] {
+            for validation in [
+                ProblemError::Contract("original-model contract".into()),
+                ProblemError::Limit {
+                    kind: crate::LimitKind::Memory,
+                    detail: "original-model allocation".into(),
+                },
+                ProblemError::Cancelled,
+            ] {
+                let mut report = failure_report();
+                let callback = trial_failure();
+                report.callback_failure = Some(callback.clone());
+                // KINSOL can set this during independent validation, after retaining
+                // an earlier numerical trial; it does not change that witness's type.
+                report.evidence.callback.terminal_failure = terminal_failure;
+                report.record_validation_failure(validation);
+                let validation = report.shared_validation_failure().unwrap();
+                let effective = report.shared_effective_failure().unwrap();
+                assert!(Arc::ptr_eq(&effective, &validation));
+                assert!(Arc::ptr_eq(
+                    &report.shared_callback_failure().unwrap(),
+                    &callback
+                ));
+                assert_eq!(report.evidence.callback.terminal_failure, terminal_failure);
+                assert_eq!(report.termination.category, Termination::Evaluation);
+            }
+        }
+    }
+    #[test]
+    fn effective_failure_terminal_callback_preserves_original_arc() {
+        for callback in [
+            ProblemError::Contract("terminal callback contract".into()),
+            ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                detail: "terminal callback allocation".into(),
+            },
+            ProblemError::Cancelled,
+        ] {
+            let mut report = failure_report();
+            let callback = Arc::new(callback);
+            report.callback_failure = Some(callback.clone());
+            report.evidence.callback.terminal_failure = true;
+            report.record_validation_failure(ProblemError::Contract(
+                "later original-model contract".into(),
+            ));
+            let validation = report.shared_validation_failure().unwrap();
+            let effective = report.shared_effective_failure().unwrap();
+            assert!(Arc::ptr_eq(&effective, &callback));
+            assert!(Arc::ptr_eq(
+                &report.shared_validation_failure().unwrap(),
+                &validation
+            ));
+        }
+    }
+    #[test]
+    fn effective_failure_numerical_witnesses_preserve_original_arcs() {
+        let mut report = failure_report();
+        assert!(report.shared_effective_failure().is_none());
+        let callback = trial_failure();
+        report.callback_failure = Some(callback.clone());
+        assert!(Arc::ptr_eq(
+            &report.shared_effective_failure().unwrap(),
+            &callback
+        ));
+        assert!(!report.evidence.callback.terminal_failure);
+        report.record_validation_failure(
+            pse_math::MathError::Domain {
+                source_id: SemanticId::NIL,
+                requirement: "positive original-model coordinate",
+            }
+            .into(),
+        );
+        let validation = report.shared_validation_failure().unwrap();
+        assert!(Arc::ptr_eq(
+            &report.shared_effective_failure().unwrap(),
+            &callback
+        ));
+        report.callback_failure = None;
+        assert!(Arc::ptr_eq(
+            &report.shared_effective_failure().unwrap(),
+            &validation
+        ));
+        assert!(!report.evidence.callback.terminal_failure);
+    }
+    #[test]
+    fn engineering_accuracy_reaches_native_stopping_including_empty_targets() {
+        use pse_model::numerics::{DEFAULT_ENGINEERING_ACCURACY, NumericalPolicy};
+        let policy = NumericalPolicy::default();
+        for normalization in [
+            pse_math::normalization::Normalization::identity(0, 0),
+            pse_math::normalization::Normalization {
+                variables: vec![100.0, 300.0],
+                rows: vec![10.0],
+                objective: 1.0,
+            },
+        ] {
+            let tolerances = crate::quality::Tolerances {
+                variables: normalization
+                    .variables
+                    .iter()
+                    .map(|s| s * DEFAULT_ENGINEERING_ACCURACY)
+                    .collect(),
+                rows: normalization
+                    .rows
+                    .iter()
+                    .map(|s| s * DEFAULT_ENGINEERING_ACCURACY)
+                    .collect(),
+                integrality: policy.integrality,
+            };
+            let accuracy = ResolvedAccuracy::resolve(&policy, &tolerances, &normalization).unwrap();
+            assert_eq!(accuracy.feasibility, DEFAULT_ENGINEERING_ACCURACY);
+            assert_eq!(accuracy.stationarity, DEFAULT_ENGINEERING_ACCURACY);
+            assert_eq!(accuracy.complementarity, DEFAULT_ENGINEERING_ACCURACY);
+            assert_eq!(accuracy.integrality, 1e-8);
+            assert_eq!(accuracy.gap_absolute, DEFAULT_ENGINEERING_ACCURACY);
+            assert_eq!(accuracy.gap_relative, DEFAULT_ENGINEERING_ACCURACY);
+            assert_eq!(accuracy.mip_absolute_gap, DEFAULT_ENGINEERING_ACCURACY);
+            assert_eq!(accuracy.mip_relative_gap, DEFAULT_ENGINEERING_ACCURACY);
+            for options in [accuracy.ipopt_options(), accuracy.pounce_options()] {
+                for name in ["tol", "constr_viol_tol", "dual_inf_tol", "compl_inf_tol"] {
+                    assert_eq!(
+                        options[name],
+                        OptionValue::Real(DEFAULT_ENGINEERING_ACCURACY)
+                    );
+                }
+                assert_eq!(options["acceptable_iter"], OptionValue::Integer(0));
+                assert_eq!(options["bound_relax_factor"], OptionValue::Real(0.0));
+            }
+        }
+        let policy = NumericalPolicy {
+            kkt: pse_model::numerics::KktTolerances {
+                stationarity: 1e-8,
+                complementarity: 2e-8,
+            },
+            ..policy
+        };
+        let tight = ResolvedAccuracy::resolve(
+            &policy,
+            &crate::quality::Tolerances {
+                variables: vec![0.001],
+                rows: vec![0.0001],
+                integrality: policy.integrality,
+            },
+            &pse_math::normalization::Normalization {
+                variables: vec![100.0],
+                rows: vec![10.0],
+                objective: 1.0,
+            },
+        )
+        .unwrap();
+        assert!((tight.feasibility - 1e-5).abs() < 1e-15);
+        assert_eq!(tight.stationarity, 1e-8);
+        assert_eq!(tight.complementarity, 2e-8);
+        assert_eq!(
+            tight.ipopt_options()["constr_viol_tol"],
+            OptionValue::Real(tight.feasibility)
+        );
+        assert_eq!(
+            tight.ipopt_options()["dual_inf_tol"],
+            OptionValue::Real(1e-8)
+        );
+    }
+    #[test]
+    fn engineering_accuracy_keeps_native_success_subject_to_original_feasibility() {
+        use crate::quality::{Quality, Violation};
+        let policy = pse_model::numerics::NumericalPolicy::default();
+        let tolerance = 100.0 * pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
+        let accuracy = ResolvedAccuracy::from_policy(&policy, tolerance / 100.0).unwrap();
+        let contract = crate::solver_tests::contract();
+        let execution = Execution::new(Arc::default(), &Controls::default());
+        let mut report = SolveReport::new(
+            Backend::Ipopt,
+            &contract,
+            NativeTermination {
+                code: 0,
+                name: "successful synthetic native stop".into(),
+                message: None,
+                category: Termination::Success,
+                assurance: Assurance::NativeOptimal,
+            },
+            &execution,
+        );
+        report.candidate = Some(Candidate {
+            kind: CandidateKind::FinalIterate,
+            primal: vec![0.0],
+            objective: None,
+            row_dual: None,
+            bound_dual: None,
+            reduced_costs: None,
+            slacks: None,
+            commitment: None,
+        });
+        // Independently measured physical residuals, not the native status,
+        // decide whether the engineering allowance was met.
+        for (physical, qualification) in [
+            (0.05, Qualification::Feasible),
+            (0.2, Qualification::Unqualified),
+        ] {
+            report.quality = Some(
+                Quality::new(
+                    vec![Violation {
+                        id: contract.rows[0],
+                        physical,
+                        tolerance,
+                    }],
+                    vec![],
+                    vec![],
+                )
+                .unwrap(),
+            );
+            crate::quality::qualify(&mut report, &accuracy);
+            assert_eq!(report.qualification, qualification);
+        }
+        report.quality = Some(
+            Quality::new(
+                vec![],
+                vec![],
+                vec![Violation {
+                    id: contract.variables[0].id,
+                    physical: 1e-4,
+                    tolerance: policy.integrality,
+                }],
+            )
+            .unwrap(),
+        );
+        crate::quality::qualify(&mut report, &accuracy);
+        assert_eq!(report.qualification, Qualification::Unqualified);
+    }
     #[test]
     fn attempt_abandonment_is_local_typed_and_first_write() {
         use pse_model::generated::enums::NumericalAttemptObservation as O;
@@ -2345,7 +2648,7 @@ mod numerical_tests {
             option(OptionValue::Text("yes".into()))
         );
         // Every resolved budget enters its identity as well.
-        let accuracy = ResolvedAccuracy::nominal();
+        let accuracy = ResolvedAccuracy::verification();
         let key = accuracy.key().unwrap();
         let ResolvedAccuracy {
             feasibility,
@@ -2418,7 +2721,7 @@ mod numerical_tests {
                 feasibility,
                 stationarity,
                 complementarity,
-                ..ResolvedAccuracy::nominal()
+                ..ResolvedAccuracy::verification()
             };
             let ipopt = accuracy.ipopt_options();
             let pounce = accuracy.pounce_options();
@@ -2454,7 +2757,7 @@ mod numerical_tests {
             feasibility: 1e-7,
             stationarity: 2e-8,
             complementarity: 3e-9,
-            ..ResolvedAccuracy::nominal()
+            ..ResolvedAccuracy::verification()
         };
         let options = accuracy.pounce_options();
         assert!(matches!(options["constr_viol_tol"],OptionValue::Real(v) if v==1e-7));

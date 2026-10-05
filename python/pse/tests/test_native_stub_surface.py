@@ -44,12 +44,7 @@ def _declared_in_stub() -> set[str]:
 
 
 def _exported_by_extension() -> set[str]:
-    return {
-        name
-        for name in dir(_native)
-        if name not in MODULE_DUNDERS
-        and (not name.startswith("_") or name.startswith("__"))
-    }
+    return {name for name in dir(_native) if name not in MODULE_DUNDERS}
 
 
 @pytest.mark.unit

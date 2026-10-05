@@ -61,6 +61,16 @@ pub enum ModelingHint {
     /// The decision-free side of an objective-bound check with the same target and
     /// declaration: the value the check compares the objective with (ADR-0119 Outcome 5).
     ObjectiveBound(ObjectiveBound),
+    /// Sample time of an authored engineering goal.
+    AccuracyGoalTime,
+    /// Requested output-error resolution of an authored engineering goal.
+    AccuracyGoalResolution,
+    /// Inclusive lower endpoint of an authored engineering criterion.
+    AccuracyGoalLower,
+    /// Inclusive upper endpoint of an authored engineering criterion.
+    AccuracyGoalUpper,
+    /// Authored engineering characteristic magnitude.
+    EngineeringScaleValue,
 }
 impl ModelingHint {
     /// Stable identity code for structural hashing; the unit variants keep their
@@ -76,6 +86,11 @@ impl ModelingHint {
             Self::Check => 6,
             Self::ObjectiveBound(ObjectiveBound::Lower { strict }) => 7 + strict as u64,
             Self::ObjectiveBound(ObjectiveBound::Upper { strict }) => 9 + strict as u64,
+            Self::AccuracyGoalTime => 11,
+            Self::AccuracyGoalResolution => 12,
+            Self::AccuracyGoalLower => 13,
+            Self::AccuracyGoalUpper => 14,
+            Self::EngineeringScaleValue => 15,
         }
     }
 }
@@ -853,6 +868,24 @@ fn projection(
                     },
                 );
             }
+            A::AccuracyGoal(goal) => {
+                if let Some(time) = &goal.time {
+                    push(ModelingHint::AccuracyGoalTime, time.clone());
+                }
+                if let Some(resolution) = &goal.resolution {
+                    push(ModelingHint::AccuracyGoalResolution, resolution.clone());
+                }
+                if let Some(lower) = &goal.criterion_lower {
+                    push(ModelingHint::AccuracyGoalLower, lower.clone());
+                }
+                if let Some(upper) = &goal.criterion_upper {
+                    push(ModelingHint::AccuracyGoalUpper, upper.clone());
+                }
+            }
+            A::EngineeringScale(scale) => {
+                push(ModelingHint::EngineeringScaleValue, scale.value.clone());
+            }
+            A::EngineeringDefault { .. } => {}
             A::Scale(_) | A::Report(_) | A::Objective(_) => {}
         }
     }
@@ -1003,6 +1036,29 @@ fn projection(
                     registry
                         .neutral_dimensionless()
                         .ok_or_else(|| CompileError::Missing("dimensionless check".into()))?,
+                )))
+            } else if *kind == ModelingHint::AccuracyGoalTime {
+                // The selected observation owner validates the physical time axis. Keep
+                // the expression typed but do not compare it to the observed output type.
+                None
+            } else if matches!(
+                *kind,
+                ModelingHint::AccuracyGoalResolution | ModelingHint::EngineeringScaleValue
+            ) {
+                let symbol = model.symbols.get(target).ok_or_else(|| {
+                    CompileError::Missing("goal/scale target is not a scalar member".into())
+                })?;
+                let scheme = symbol.ty.quantity_scheme().ok_or_else(|| {
+                    CompileError::Missing("goal/scale target has no physical type".into())
+                })?;
+                Some(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+                    pse_quantity::scheme::Scheme::Delta(Box::new(scheme.clone()))
+                        .resolve_with_evidence(
+                            registry,
+                            &Substitution::new(),
+                            inventory.preconditions(db).as_ref(),
+                        )
+                        .map_err(|e| CompileError::Missing(e.to_string()))?,
                 )))
             } else if let Some(symbol) = model.symbols.get(target) {
                 Some(symbol.ty.clone())

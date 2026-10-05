@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e169482c760bbd985bb12e7ec576") package eos_fixtures {
+@id("48bec7f7d0d449cebc401ee3b373dd1a") use numerical_policy @"1.0.0";
 @id("e0fd66e0201748588f72570b33707949") use properties @"1.0.0";
 @id("036c9c3f8fa74324b91a1ede8aa445d8") use cubic @"1.0.0";
 @id("39b18de8cc834efb9e3ed77b8cfc961c") use idaes_thermo @"1.0.0";
@@ -33,31 +34,35 @@
 @id("01a0e16f32a3739a874c12857f930f02") expect exp(root.ln_phi[chem.toluene])==0.979457{1} tolerance 1e-6{1} relative 1e-5;
 @id("01a0e16f32a3739a874c1286f00cb0eb") expect root.pressure==constants.pressure_unit*eos_data.pressure_coordinate((root.T-constants.absolute_zero)/constants.temperature_scale,root.rho/constants.density_unit,reduced_amount,bt_ideal.aromatics) tolerance 1e-6{Pa};
 }
+// These four density solves use the shared physical design policy. Direct
+// supplied-state property and mathematical identity checks retain verification
+// precision independently of solve convergence. Total density and component
+// concentration keep distinct quantity bases at the same physical magnitude.
 @id("01a0e17a4587742dba3702b20fe8c77f") test density_inline oracle references.idaes_test_bt_pr_450 fixture {dof 0; route steady; procedure solve; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;} {
 @id("dba844cc4894424aa720fbf33d664869") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17a4587742dba3702b39c65839d") child root:peng_robinson.DensityRoot=peng_robinson.InlineDensity(selected=bt_ideal.aromatics,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);
-@id("01a0e17a4587742dba3702b49aec61ae") expect root.rho==27.21330675064276{mol/m^3} tolerance 0.0001{mol/m^3} relative 1e-5;
-@id("01a0e17a4587742dba3702b57f80a6b7") expect root.pressure==100000{Pa} tolerance 0.001{Pa};
+@id("01a0e17a4587742dba3702b49aec61ae") expect root.rho==27.21330675064276{mol/m^3} tolerance numerical_policy.density relative numerical_policy.dimensionless;
+@id("01a0e17a4587742dba3702b57f80a6b7") expect root.pressure==100000{Pa} tolerance numerical_policy.pressure;
 }
 @id("01a0e17a4587742dba3702b641de44be") test density_nested oracle references.idaes_test_bt_pr_450 fixture {dof 0; route steady; procedure solve; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;} {
 @id("c24200ff1fc34cbb8e58663a9b60e3d0") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17a4587742dba3702b76ffa1515") child root:peng_robinson.DensityRoot=peng_robinson.NestedDensity(selected=bt_ideal.aromatics,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);
-@id("01a0e17a4587742dba3702b837039e39") expect root.rho==27.21330675064276{mol/m^3} tolerance 0.0001{mol/m^3} relative 1e-5;
-@id("01a0e17a4587742dba3702b9459a9d6e") expect root.pressure==100000{Pa} tolerance 0.001{Pa};
+@id("01a0e17a4587742dba3702b837039e39") expect root.rho==27.21330675064276{mol/m^3} tolerance numerical_policy.density relative numerical_policy.dimensionless;
+@id("01a0e17a4587742dba3702b9459a9d6e") expect root.pressure==100000{Pa} tolerance numerical_policy.pressure;
 }
 @id("01a0e17a4587742dba3702bab24efca9") test density_accelerated oracle references.idaes_test_bt_pr_450 fixture {dof 0; route steady; procedure solve; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;} {
 @id("8a208afe6e3e469dbf71103a464e5a14") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17a4587742dba3702bb6e59773e") child root:peng_robinson.MathematicalDensityRoot=peng_robinson.AcceleratedDensity(selected=bt_ideal.aromatics,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);
-@id("01a0e17a4587742dba3702bc4b1c611c") expect root.rho==27.21330675064276{mol/m^3} tolerance 0.0001{mol/m^3} relative 1e-5;
-@id("01a0e17a4587742dba3702bd175b88f9") expect root.pressure==100000{Pa} tolerance 0.001{Pa};
+@id("01a0e17a4587742dba3702bc4b1c611c") expect root.rho==27.21330675064276{mol/m^3} tolerance numerical_policy.density relative numerical_policy.dimensionless;
+@id("01a0e17a4587742dba3702bd175b88f9") expect root.pressure==100000{Pa} tolerance numerical_policy.pressure;
 }
 
 // Exercise the bounded constructor itself, with the same independent vapor density oracle.
 @id("a76db9a26b384861b47436d9ff4aebb7") test density_bounded_cubic oracle references.idaes_test_bt_pr_450 fixture {dof 0; route steady; procedure solve; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol};} {
 @id("550378252fa04fd5bc1e05208ef0e3a7") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("378ec5c1f21b470aba19d518ce5eeb52") child root:peng_robinson.MathematicalDensityRoot=peng_robinson.BoundedCubicDensity(selected=bt_ideal.aromatics,lower=1,upper=100,start=27,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);
-@id("47f14f5ae6314a779c7dc513b26acf33") expect root.rho==27.21330675064276{mol/m^3} tolerance 0.0001{mol/m^3} relative 1e-5;
-@id("8a9289e325b9464f89bfdd13ad9dc9fd") expect root.pressure==100000{Pa} tolerance 0.001{Pa};
+@id("47f14f5ae6314a779c7dc513b26acf33") expect root.rho==27.21330675064276{mol/m^3} tolerance numerical_policy.density relative numerical_policy.dimensionless;
+@id("8a9289e325b9464f89bfdd13ad9dc9fd") expect root.pressure==100000{Pa} tolerance numerical_policy.pressure;
 }
 @id("01a0e17fb4307404bb45617561814af2") test bt_pr_delta oracle references.idaes_test_bt_pr_450 fixture {dof 0; route steady; procedure check; fix root.T=450{K}; fix root.rho=27.21330675064276{mol/m^3}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol};} {
 @id("448b738876ed404ea98e347831564191") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;

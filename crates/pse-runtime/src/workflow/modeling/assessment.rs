@@ -8,6 +8,7 @@ use super::*;
 use crate::math::{ExecutableCase, WorkerBudget, solves::Outcome};
 use pse_math::binding::CaseValues;
 use pse_model::generated::identities::RunId;
+use pse_model::diagnostic::DiagnosticProjection;
 use std::sync::Arc;
 
 /// One assessed candidate: the complete values it implies, its original-model checks and
@@ -18,11 +19,17 @@ pub(in crate::workflow) struct AssessedPoint {
     pub checks: Vec<ModelingCheck>,
     pub reports: Vec<ModelingReport>,
     pub error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+    /// Actual failed operation that prevented a candidate from reaching original checks.
+    pub(in crate::workflow) unavailable_cause: Option<Arc<pse_backend_native::ProblemError>>,
     /// A candidate existed and was assessed; without one no check applies.
     pub complete: bool,
     pub required_closure: usize,
     pub owner: Arc<pse_columnar::AllocationLease>,
     pub work: Vec<pse_model::strategy::WorkCharge>,
+    pub accuracy: Vec<pse_math::engineering_accuracy::GoalResult>,
+    /// Original physical/native permission, before optional goal composition.
+    pub original: Option<crate::workflow::numerics::CandidateDecision>,
+    pub canonical_fallback: bool,
 }
 impl AssessedPoint {
     /// Preserve the original scientific refusal instead of deriving it from native status.
@@ -37,16 +44,18 @@ impl AssessedPoint {
             }
         } else if !self.complete {
             OriginalConclusion::Unavailable {
-                cause: Arc::new(pse_backend_native::ProblemError::numerical(
-                    "native trajectory produced no assessable original candidate",
-                )),
+                cause: self.unavailable_cause.clone().unwrap_or_else(|| {
+                    Arc::new(pse_backend_native::ProblemError::numerical(
+                        "native trajectory produced no assessable original candidate",
+                    ))
+                }),
             }
-        } else if completion.permits_use() {
+        } else if self.original.as_ref().unwrap_or(&completion.decision).permits_use() {
             OriginalConclusion::Satisfied
         } else {
             OriginalConclusion::Refused {
                 cause: Arc::new(pse_backend_native::ProblemError::numerical(
-                    completion.decision.reason(),
+                    self.original.as_ref().unwrap_or(&completion.decision).reason(),
                 )),
             }
         }
@@ -63,9 +72,11 @@ impl AssessedPoint {
                 &self.checks,
                 self.complete && self.error.is_none(),
                 self.required_closure,
-            ),
+            )
+            .with_accuracy(&self.accuracy),
             policy,
         )
+        .with_canonical_fallback(self.canonical_fallback)
     }
 }
 /// Which original-model obligations a step answers to.
@@ -149,10 +160,15 @@ impl Assessment {
             checks: vec![],
             reports: vec![],
             error: None,
+            unavailable_cause: None,
             complete: false,
             required_closure: self.required_closure,
             owner,
             work: Vec::new(),
+            accuracy: Vec::new(),
+            original: None,
+            canonical_fallback: prepared.solve.numerics().targets.iter().any(|t|
+                t.engineering.as_ref().is_some_and(|e| e.canonical_fallback)),
         };
         match outcome {
             Outcome::Constant(report) => {
@@ -172,15 +188,25 @@ impl Assessment {
                     );
                 }
                 Some(_) => {
+                    let _ = prepared.solve.clear_point_accuracy();
                     point.error =
                         Some(contract("native candidate coordinate extent").boundary_diagnostic());
                     return point;
                 }
-                None => return point,
+                None => {
+                    let _ = prepared.solve.clear_point_accuracy();
+                    point.unavailable_cause = crate::math::strategy::cause(outcome);
+                    return point;
+                }
             },
-            Outcome::Rejected(_) => return point,
+            Outcome::Rejected(_) => {
+                let _ = prepared.solve.clear_point_accuracy();
+                point.unavailable_cause = crate::math::strategy::cause(outcome);
+                return point;
+            }
         }
         let Some(execution) = execution else {
+            let _ = prepared.solve.clear_point_accuracy();
             point.error =
                 Some(contract("candidate assessment has no execution scope").boundary_diagnostic());
             return point;
@@ -203,6 +229,42 @@ impl Assessment {
                 point.reports = reports;
             }
             Err(error) => point.error = Some(error.boundary_diagnostic()),
+        }
+        let policy = &prepared.solve.numerics().policy;
+        let original = crate::workflow::numerics::original_completion(
+                outcome.candidate_use(policy),
+                crate::workflow::numerics::CompletionEvidence::point(
+                    &point.checks,
+                    point.complete && point.error.is_none(),
+                    point.required_closure,
+                ),
+                policy,
+            );
+        point.original = Some(original.decision.clone());
+        if !policy.goals.is_empty() {
+            if original.permits_use() {
+                match prepared.solve.coordinate_accuracy(
+                    prepared.source.runtime.native(),
+                    outcome,
+                    &point.values,
+                    execution,
+                    budget,
+                ) {
+                    Ok(goals) => point.accuracy = goals,
+                    Err(error) => {
+                        point.error =
+                            Some(error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingQualification));
+                        point.unavailable_cause = Some(Arc::new(error));
+                    }
+                }
+            }
+            else {
+                if let Err(error) = prepared.solve.clear_point_accuracy() {
+                    point.error = Some(error.boundary_diagnostic(
+                        pse_diagnostics::DiagnosticStage::ModelingQualification));
+                    point.unavailable_cause = Some(Arc::new(error));
+                }
+            }
         }
         let mut charging_owner = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
         if let Ok(original) = prepared.solve.original_identity() {

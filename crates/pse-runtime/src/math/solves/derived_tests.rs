@@ -2079,7 +2079,7 @@ async fn composition_retains_boxed_rung_bodies_and_refuses_a_short_pool() {
 ))]
 #[tokio::test]
 async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_attempt() {
-    full_reconstruction_kind(false).await;
+    full_reconstruction_kind(false, false, false).await;
 }
 #[cfg(all(
     feature = "solver-kinsol",
@@ -2088,14 +2088,19 @@ async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_
 ))]
 #[tokio::test]
 async fn actual_single_root_full_reconstruction_preserves_native_factory_and_original_assessment() {
-    full_reconstruction_kind(true).await;
+    full_reconstruction_kind(true, true, false).await;
+}
+#[cfg(all(feature = "solver-kinsol", feature = "solver-ipopt", feature = "solver-root-isolation"))]
+#[tokio::test]
+async fn actual_single_root_certifies_authored_observable_over_complete_coordinate_box() {
+    full_reconstruction_kind(true, true, true).await;
 }
 #[cfg(all(
     feature = "solver-kinsol",
     feature = "solver-ipopt",
     feature = "solver-root-isolation"
 ))]
-async fn full_reconstruction_kind(single_root: bool) {
+async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable: bool) {
     use pse_math::implicit::reconstruction::SelectedResidualRealization;
     use pse_math::{
         implicit::{Configuration, Factory, Options, RegimeFactoryBranch, Selection, Unknown},
@@ -2106,7 +2111,7 @@ async fn full_reconstruction_kind(single_root: bool) {
     // admits only its requested 64-cell proof workspace, within the ordinary small pool.
     let runtime = crate::workflow::tests::runtime_on(
         if single_root {
-            160usize << 20
+            192usize << 20
         } else {
             24usize << 30
         },
@@ -2125,14 +2130,60 @@ async fn full_reconstruction_kind(single_root: bool) {
             ..Default::default()
         },
     );
-    let (runtime, original) = original_order_on(runtime,
-        "package p { def Root { var x:Scalar; eq balance:x==3; annotation bounds x(1,4); annotation start x(2.5); } }",
-        DerivativeOrder::First, SolverProfile {
+    let text = if observable {
+        "package p { def Root { var x:Scalar; eq balance:x==3; annotation bounds x(1,4); annotation start x(2.5); let q:Scalar=x*x/3; annotation report q(\"computed q\"); } }"
+    } else {
+        "package p { def Root { var x:Scalar; eq balance:x==3; annotation bounds x(1,4); annotation start x(2.5); } }"
+    };
+    let rows = pse_authoring::language::parse(text, SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+    let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    let physical = crate::workflow::tests::physical();
+    let quantities = physical.quantities.clone();
+    let package = runtime.modeling_package(rows, physical).unwrap();
+    let solver = SolverProfile {
             intent: SolveIntent::Initialize,
             selection: SolverSelection::Explicit(Backend::Ipopt),
             controls: Controls { hessian: HessianMode::LimitedMemory, ..Default::default() },
             ..Default::default()
-        }).await;
+        };
+    let cancel = crate::CancelSource::new();
+    let initial = package.prepare_solve(root, pse_modeling::specialize::root_instance(root),
+        pse_modeling::Bindings::default(), pse_modeling::Limits::default(),
+        pse_compiler::workspace::ModelingCaseBindings::default(), DerivativeOrder::First,
+        crate::workflow::tests::compiler_profile(), solver.clone(), NumericalInputs::default(), &cancel).await.unwrap();
+    let mut original = initial.solve.clone();
+    if with_goal {
+        use pse_model::generated::enums::*;
+        let variable = original.numerics.targets.iter().find(|target| target.kind == NumericalTarget::Variable).unwrap();
+        let (target_id, target_kind, quantity_id, unit_id) = if observable {
+            let source = initial.model.model.compiled();
+            let target = source.model.symbols.iter().find(|(_, symbol)| symbol.lineage.path.ends_with(".q"))
+                .map(|(id, _)| *id).unwrap();
+            let row = source.admitted.case().rows().iter().find(|row|
+                row.id == pse_compiler::workspace::ModelingOutput::Member(target).row_id()).unwrap();
+            (target, NumericalTarget::Observable, row.quantity.as_id(),
+                quantities.quantity_type(row.quantity).unwrap().canonical_unit.as_id())
+        } else { (variable.id, variable.kind, variable.quantity, variable.unit) };
+        let goal = pse_model::engineering_accuracy::AccuracyGoal {
+            goal_id: SemanticId::from_bytes([85;16]).into(), model_id: None, case_id: None, instance_id: None, fit_id: None,
+            target_id, target_kind, quantity_id, unit_id,
+            subject: AccuracyGoalSubject::SelectedOutput, observation: AccuracyObservation::Steady, time: None,
+            resolution: Some(0.1), criterion_lower: Some(2.0), criterion_upper: Some(4.0),
+            required_class: AccuracyClass::Certified, use_policy: AccuracyGoalUse::Assess, refine: false,
+            source: NumericalSource::Analysis, priority: 0, provenance: "actual complete selected-root certificate".into(),
+        };
+        original.profile.numerics.goals.push(goal.clone());
+        Arc::make_mut(&mut original.numerics).policy.goals.push(goal);
+        if observable {
+            original = package.prepare_solve(root, pse_modeling::specialize::root_instance(root),
+                pse_modeling::Bindings::default(), pse_modeling::Limits::default(),
+                pse_compiler::workspace::ModelingCaseBindings::default(), DerivativeOrder::First,
+                crate::workflow::tests::compiler_profile(), original.profile.clone(),
+                NumericalInputs::default(), &cancel).await.unwrap().solve;
+            assert!(original.selected_output_program().is_some());
+        }
+    }
     let service = runtime.native();
     let Representation::Algebraic(source) = &original.representation else {
         panic!("authored source required")
@@ -2469,6 +2520,32 @@ async fn full_reconstruction_kind(single_root: bool) {
     assert!(report.quality.feasible());
     assert_eq!(report.coordinates, vec![(coordinate, 3.0)]);
     assert!(report.work.evaluations.is_none());
+    if with_goal {
+        let receipt = report.certified_reconstruction.as_ref().unwrap();
+        let mut values = prepared.source.values.clone();
+        values.scalars.extend(report.coordinates.iter().copied());
+        let scope = ExecutionScope::new(Arc::default(), None);
+        let goals = prepared.original.coordinate_accuracy(service, &result.outcome, &values, &scope, &budget).unwrap();
+        assert_eq!(goals.len(), 1);
+        assert_eq!(goals[0].classification.status, pse_model::generated::enums::AccuracyGoalStatus::Satisfied);
+        let evidence = goals[0].evidence.as_ref().unwrap();
+        assert_eq!(evidence.accuracy.class, AccuracyClass::Certified);
+        assert_eq!(evidence.method, pse_model::generated::enums::AccuracyEvidenceMethod::CertifiedEnclosure);
+        assert!(evidence.source.branch.is_some());
+        assert!(evidence.interval.unwrap().0 <= 3.0 && evidence.interval.unwrap().1 >= 3.0);
+        assert_eq!(evidence.target_kind, if observable {
+            pse_model::generated::enums::NumericalTarget::Observable
+        } else { pse_model::generated::enums::NumericalTarget::Variable });
+        assert_eq!(evidence.value, Some(3.0));
+        assert!(evidence.accuracy.error.unwrap() <= 0.1);
+        assert_eq!(receipt.coordinate_box(&prepared.original, &values).unwrap().unwrap().len(), 1);
+        values.scalars.insert(coordinate, 3.0_f64.next_up());
+        assert!(receipt.assess_coordinates(&prepared.original, &values).unwrap().is_none());
+        let mut changed = prepared.original.clone();
+        changed.normalization.variables[0] *= 2.0;
+        values.scalars.insert(coordinate, 3.0);
+        assert!(receipt.coordinate_box(&changed, &values).unwrap().is_none());
+    } else { assert!(report.certified_reconstruction.is_none()); }
     assert!(
         result
             .proposal
@@ -2481,6 +2558,356 @@ async fn full_reconstruction_kind(single_root: bool) {
             == AccuracyClass::Certified
     );
     assert_eq!(budget.used(), 0);
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
+    use crate::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
+    use crate::workflow::tests as fixture;
+    use std::{collections::BTreeMap, path::Path};
+    fn documents(root: &Path, at: &Path, values: &mut BTreeMap<String, Vec<u8>>) {
+        for entry in std::fs::read_dir(at).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                documents(root, &path, values);
+            } else if matches!(
+                path.extension().and_then(|value| value.to_str()),
+                Some("toml" | "yaml" | "yml" | "pse" | "parquet")
+            ) {
+                values.insert(
+                    path.strip_prefix(root)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned(),
+                    std::fs::read(&path).unwrap(),
+                );
+            }
+        }
+    }
+    let runtime = fixture::runtime_on(64usize << 30, Default::default());
+    let pool = runtime.shared.pool();
+    let reference = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
+    let token = pse_columnar::CancellationToken::new();
+    let load = |name: &str| {
+        let root = reference.join(name);
+        let mut values = BTreeMap::new();
+        documents(&root, &root, &mut values);
+        load_package_documents_owned(
+            &values,
+            &runtime.registry,
+            Default::default(),
+            &pool,
+            &token,
+            &runtime.validation_context().unwrap(),
+        )
+        .unwrap()
+    };
+    let physical_documents =
+        OwnedDocumentSet::try_from_bundles(vec![load("physical")], &pool, &token).unwrap();
+    let physical = runtime
+        .physical_from_documents(&physical_documents, &token)
+        .await
+        .unwrap();
+    let packages = [
+        "data/oracles/teqp-0.23.1",
+        "data/oracles/feos-0.10.1",
+        "data/gross-sadowski-2001",
+        "data/references",
+        "data/nist",
+        "data/perry7",
+        "data/poling2000",
+        "data/oracles/idaes-2.13",
+        "data/species",
+        "data/ciaaw",
+        "seed-data",
+        "campaign",
+        "process",
+        "thermodynamics",
+        "methods",
+        "domain",
+        "physical",
+    ];
+    let sources =
+        OwnedDocumentSet::try_from_bundles(packages.into_iter().map(load).collect(), &pool, &token)
+            .unwrap();
+    let package = runtime.modeling_from_documents(&sources, physical).unwrap();
+    let root = package
+        .declarations()
+        .iter()
+        .find(|row| row.name == "measurement_value_sweep")
+        .unwrap()
+        .declaration_id;
+    let cancel = crate::CancelSource::new();
+    let mut declared = package
+        .declared_execution(
+            root,
+            Default::default(),
+            SolverProfile {
+                intent: SolveIntent::FeasiblePoint,
+                selection: SolverSelection::Explicit(Backend::Ipopt),
+                ..Default::default()
+            },
+            Default::default(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    declared
+        .analysis
+        .case
+        .values
+        .insert("root.inlet.T".into(), 360.);
+    let prepared = package.prepare_declared(&declared, &cancel).await.unwrap();
+    let service = runtime.native();
+    let scope = ExecutionScope::new(
+        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        Some(Instant::now() + prepared.solve.controls().time_limit),
+    );
+    let blocks = service
+        .prepare_blocks(prepared.solve.clone(), scope, &cancel)
+        .await
+        .unwrap();
+    let admitted = blocks.result_bytes().unwrap();
+    let completed = package
+        .solve_case(prepared, declared.analysis.compiler, &cancel)
+        .await
+        .unwrap();
+    assert!(completed.accepted);
+    let Outcome::Constant(report) = &completed.outcome else {
+        panic!("reference flash must complete its block schedule");
+    };
+    let retained = report.owner.as_ref().unwrap().size();
+    let known = report
+        .component_reports()
+        .filter(|report| report.completed_report_allowance().unwrap().is_some())
+        .count();
+    println!(
+        "reference flash: blocks={}, known={}, admitted={}, retained={}",
+        blocks.block_count(),
+        known,
+        admitted,
+        retained
+    );
+    assert_eq!(report.component_reports().len(), blocks.block_count());
+    assert!(known > 0);
+    assert_eq!(retained, blocks.completed_result_bytes(report).unwrap());
+    assert!(retained < admitted / 2);
+    let tables = completed.tables().unwrap();
+    let retained_sources = pool.reserved();
+    drop(completed);
+    drop(blocks);
+    drop(declared);
+    drop(package);
+    drop(sources);
+    drop(physical_documents);
+    drop(runtime);
+    assert!(pool.reserved() > 0);
+    assert!(pool.reserved() < retained_sources);
+    assert!(!tables.is_empty());
+    drop(tables);
+    assert_eq!(pool.reserved(), 0);
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn repeated_completed_blocks_fit_short_pool_and_extracted_components_hold_grant() {
+    use crate::workflow::tests as fixture;
+    let runtime = fixture::runtime_with(16 << 20, 1 << 20, 128 << 20);
+    let (runtime, original) = original_order_on(runtime,
+        "package p { def Root { var x:Scalar; var y:Scalar; var z:Scalar; annotation start x(0); annotation start y(0); annotation start z(0); eq first:x==1; eq second:y==x+1; eq third:z==2*y; } }",
+        DerivativeOrder::First, fixture::profile()).await;
+    let pool = runtime.shared.pool();
+    let service = runtime.native();
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let scope = ExecutionScope::new(
+        flag.clone(),
+        Some(Instant::now() + std::time::Duration::from_secs(120)),
+    );
+    let prepared = service
+        .prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let admitted = prepared.result_bytes().unwrap();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &pool);
+    let execute = || {
+        execution::scoped(
+            &[execution::adapter(Backend::Kinsol)],
+            1,
+            service.policy.stack_bytes,
+            || {
+                let execution =
+                    Execution::within(flag.clone(), original.controls(), scope.clone()).unwrap();
+                let Outcome::Constant(report) = service
+                    .blocks_step(
+                        &prepared,
+                        execution,
+                        &mut Retained::default(),
+                        &budget,
+                        &[0., 0., 0.],
+                    )
+                    .unwrap_or_else(|failure| panic!("{}", failure.cause))
+                else {
+                    panic!("complete original evaluation required");
+                };
+                Ok::<_, ProblemError>(report)
+            },
+        )
+        .unwrap()
+    };
+    drop(execute());
+    let baseline = pool.reserved();
+    let mut completed = Vec::new();
+    for _ in 0..20 {
+        completed.push(execute());
+    }
+    assert!(pool.reserved() < baseline + admitted * 2);
+    let mut report = completed.pop().unwrap();
+    let weak = Arc::downgrade(report.owner.as_ref().unwrap());
+    let cloned = report.clone();
+    let extracted = report.components.pop().unwrap();
+    drop(report);
+    drop(completed);
+    assert!(weak.upgrade().is_some());
+    drop(cloned);
+    assert!(
+        weak.upgrade().is_some(),
+        "extracted native report keeps aggregate capacity"
+    );
+    std::thread::spawn(move || drop(extracted)).join().unwrap();
+    assert!(weak.upgrade().is_none());
+    assert_eq!(pool.reserved(), baseline);
+    drop(prepared);
+    drop(original);
+    drop(budget);
+    drop(runtime);
+    assert_eq!(pool.reserved(), 0);
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn completed_blocks_refuse_excess_capacity_and_keep_unknown_extensions_bounded() {
+    let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(0); eq first:x==1; eq second:y==x+1; } }").await;
+    let service = runtime.native();
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let scope = ExecutionScope::new(
+        flag.clone(),
+        Some(Instant::now() + std::time::Duration::from_secs(30)),
+    );
+    let prepared = service
+        .prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+    let mut report = execution::scoped(
+        &[execution::adapter(Backend::Kinsol)],
+        1,
+        service.policy.stack_bytes,
+        || {
+            let execution = Execution::within(flag, original.controls(), scope).unwrap();
+            let Outcome::Constant(report) = service
+                .blocks_step(
+                    &prepared,
+                    execution,
+                    &mut Retained::default(),
+                    &budget,
+                    &[0., 0.],
+                )
+                .unwrap_or_else(|failure| panic!("{}", failure.cause))
+            else {
+                panic!("complete original evaluation required");
+            };
+            Ok::<_, ProblemError>(report)
+        },
+    )
+    .unwrap();
+    let visible = prepared.completed_result_bytes(&report).unwrap();
+    // A bulky unmeasured extension preserves its full pre-admitted envelope. It is
+    // unavailable, never interpreted as zero bytes or a discharged analysis owner.
+    report.components[0].evidence.root_response =
+        Some(Err(native::square_response::Withheld::Memory));
+    assert!(prepared.completed_result_bytes(&report).unwrap() > visible);
+    assert!(prepared.completed_result_bytes(&report).unwrap() <= prepared.result_bytes().unwrap());
+    report.components[0].evidence.root_response = None;
+    // Pure sizing refusal before publication: even an empty string may retain a large
+    // allocation. Length-based counting would incorrectly accept this envelope.
+    let excess = String::with_capacity(prepared.result_bytes().unwrap());
+    report.components[0]
+        .metrics
+        .insert("oversized".into(), Metric::Text(excess));
+    let error = prepared
+        .completed_result_bytes(&report)
+        .unwrap_err()
+        .into_problem();
+    assert!(matches!(
+        error,
+        ProblemError::Limit {
+            kind: native::LimitKind::Memory,
+            ..
+        }
+    ));
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn failed_blocks_release_construction_allowance_and_preserve_original_cause() {
+    let (runtime, original) = original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(0); eq first:x==1; eq second:y==log(x-2); } }").await;
+    let service = runtime.native();
+    let pool = runtime.shared.pool();
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let scope = ExecutionScope::new(
+        flag.clone(),
+        Some(Instant::now() + std::time::Duration::from_secs(30)),
+    );
+    let prepared = service
+        .prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &pool);
+    let execute = || {
+        execution::scoped(
+            &[execution::adapter(Backend::Kinsol)],
+            1,
+            service.policy.stack_bytes,
+            || {
+                let execution =
+                    Execution::within(flag.clone(), original.controls(), scope.clone()).unwrap();
+                let failure = service
+                    .blocks_step(
+                        &prepared,
+                        execution,
+                        &mut Retained::default(),
+                        &budget,
+                        &[0., 0.],
+                    )
+                    .unwrap_err();
+                Ok::<_, ProblemError>(failure)
+            },
+        )
+        .unwrap()
+    };
+    let first = execute();
+    let cause = first.cause.clone();
+    assert!(
+        matches!(&*cause, ProblemError::Math(_)),
+        "original mathematical evaluation cause required: {cause:?}"
+    );
+    assert!(Arc::ptr_eq(&first.cause, &cause));
+    let baseline = pool.reserved();
+    for _ in 0..3 {
+        let failed = execute();
+        assert_eq!(pool.reserved(), baseline);
+        drop(failed);
+    }
+    drop(first);
+    drop(cause);
+    drop(prepared);
+    drop(original);
+    drop(budget);
+    drop(runtime);
+    assert_eq!(pool.reserved(), 0);
 }
 
 #[cfg(feature = "solver-kinsol")]

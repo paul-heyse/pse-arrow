@@ -128,8 +128,20 @@ async fn authored_publication_resource() {
     // A limited or cancelled attempt remains an attempt, never an optimum certificate.
     let mut limited = profile(Backend::Ipopt, false);
     limited.controls.iterations = 1;
-    let p = seed_prepare(&package, case, limited, &CancelSource::new())
+    let mut p = seed_prepare(&package, case, limited, &CancelSource::new())
         .await
+        .unwrap();
+    // Exercise a limited original native attempt. Auto conditional blocks may instead
+    // stop before complete original coordinates exist, which has a different failure API.
+    let original = p.solve.clone();
+    let mut direct = original.numerical_strategy();
+    direct.mechanisms[0].profile = Some(pse_model::strategy::ProfileRef {
+        backend: Backend::Ipopt,
+        key: original.strategy_profile().unwrap(),
+    });
+    p.solve = original
+        .clone()
+        .with_strategy(direct, vec![original.into()])
         .unwrap();
     let result = p.start().unwrap().wait().await.unwrap();
     let RunReport::Modeling(report) = result.report().unwrap() else {

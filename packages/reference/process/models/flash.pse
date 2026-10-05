@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("65729aa4c1204931a1331e7052930be9") package flashing {
+@id("b83b5513644244d5802f15b2849c3d01") use numerical_policy @"1.0.0";
 @id("01a0ede58eca75b18609170a440f3914") use chemistry @"1.0.0";
 @id("cd9787611e26439c9125da99c897ab4b") use equilibrium @"1.0.0";
 @id("2d99e2f21b6440c09855786741770a48") use control_volumes @"1.0.0";
@@ -19,20 +20,21 @@
 @id("a0972ef32c8b4ca1acc1c5a51fd07a93") let vapor_pressure:Pressure=outlet.pressure;
 @id("ed0119aedc65432a8346999928f6b9fa") let vapor_composition[j in components]:MoleFraction=outlet.y[j];
 @id("413945b85314456caa34c3eace0a4a0f") let vapor_component_flow[j in components]:ComponentFlow=outlet.phase_component_flow[chemistry.vapor,j];
+// Port transport uses the same global typed physical allowances as balances.
 @id("57016e5997b35b0da464e2617126110b") state liquid_state supplied(true) {
 coordinate component[j in components]=liquid_component_flow[j];
 coordinate temperature=outlet.T;
 coordinate pressure=outlet.pressure;
-transport component[j in components]=liquid_component_flow[j] tolerance 1e-7{mol/s};
-transport energy=outlet.phase_energy_flow[chemistry.liquid] tolerance 0.001{W};
+transport component[j in components]=liquid_component_flow[j] tolerance numerical_policy.component_flow;
+transport energy=outlet.phase_energy_flow[chemistry.liquid] tolerance numerical_policy.power;
 }
 @id("4c0d65c133bb57588554fbcd1efcb76b") material port liquid_port=liquid_state;
 @id("730c8661a7345e6aafd3449c52a28fd7") state vapor_state supplied(true) {
 coordinate component[j in components]=vapor_component_flow[j];
 coordinate temperature=outlet.T;
 coordinate pressure=outlet.pressure;
-transport component[j in components]=vapor_component_flow[j] tolerance 1e-7{mol/s};
-transport energy=outlet.phase_energy_flow[chemistry.vapor] tolerance 0.001{W};
+transport component[j in components]=vapor_component_flow[j] tolerance numerical_policy.component_flow;
+transport energy=outlet.phase_energy_flow[chemistry.vapor] tolerance numerical_policy.power;
 }
 @id("fa7d80e981775e8e8bfee0b6d535d16f") material port vapor_port=vapor_state;
 

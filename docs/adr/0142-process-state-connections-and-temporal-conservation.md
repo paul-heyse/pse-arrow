@@ -53,7 +53,7 @@ Semantic species correspondence, independent state bindings, derived transport a
 
 ### Confirmation
 
-**Implemented/Tested, 2026-10-01:** Maintainer-authorized C1–C5 implementation and its focused force-validated controls are recorded in [Plan 25c Verification](../plans/25c-process-composition-and-conservation.md#verification): authoring 1, quantity 1, modeling 22, numerical projection 2, compiler 8 composite, native backend 18 plus derivative-demand 1, and runtime 20 composite controls passed on local Linux with the documented licensed/native conditions. Full generation passed. Final workspace compilation remains the first restart step; full series qualification remains Plan 25k. This record remains proposed pending its decision PR.
+**Implemented/Tested, 2026-10-01:** Maintainer-authorized C1–C5 implementation and its focused force-validated controls are recorded in [Plan 25c Verification](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25c-process-composition-and-conservation.md#verification): authoring 1, quantity 1, modeling 22, numerical projection 2, compiler 8 composite, native backend 18 plus derivative-demand 1, and runtime 20 composite controls passed on local Linux with the documented licensed/native conditions. Full generation passed. Final workspace compilation remains the first restart step; full series qualification remains Plan 25k. This record remains proposed pending its decision PR.
 
 ## Pros and cons
 
@@ -61,7 +61,7 @@ One process occurrence composes physical and execution consumers; the necessary 
 
 ## More information
 
-[Plan 25c](../plans/25c-process-composition-and-conservation.md), blueprint §10/§12/§13/§17.4, and the Plan 25 coordinator's finding dispositions.
+[Plan 25c](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25c-process-composition-and-conservation.md), blueprint §10/§12/§13/§17.4, and the Plan 25 coordinator's finding dispositions.
 
 ## Status history
 
