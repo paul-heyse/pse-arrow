@@ -41,6 +41,15 @@ example, which solver owns nonlinear roots). This profile names none.
 
 ## Architecture remains the organizing question
 
+Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices. Consider relevant execution patterns
+before committing to physical organization, interfaces, preparation, assurance and lifecycles;
+address material mismatches while the design remains easy to change. Apply only relevant patterns
+qualitatively, without an exhaustive checklist, cost models or new proof machinery.
+Use the companion within AP-07/G9, preserving independent scientific judgments and required
+checks of each new numerical state.
+
 Start with modeled phenomena, owned domain operations, responsibilities, consumed contracts,
 composition and change scenarios under the core foundations. AP-04 requires the model to govern
 formulation, evaluation and outcome interpretation, including their contextual bindings and

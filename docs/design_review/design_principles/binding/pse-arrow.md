@@ -31,6 +31,15 @@ measurements. Qualitative reasoning can defeat acceptance without a benchmark; n
 probe mandate, lint or product qualification is introduced by this adoption. Scientific gates
 and PS-09's solver/composition ownership remain independently required.
 
+Use the [core principles](../core/design-principles.md) together with
+[Heuristics for Efficient Architecture](../core/efficient-architecture-heuristics.md), selected
+by `[core].heuristics`, for consequential choices. The companion maps to AP-07 and existing G9,
+not a new architectural judgment. Consider relevant execution patterns before physical
+organization, interfaces, preparation, assurance and lifecycles become fixed; address material
+mismatches early. During implementation, focus on choices left open or exposed mismatches
+without restarting settled reviews. Existing principles, twelve lenses and overlapping guidance
+remain; the companion introduces no exhaustive checklist, cost models or proof machinery.
+
 ## Reviews in this repository
 
 - **Location:** `docs/design_review/reviews/design_review_{slug}_{YYYY-MM-DD}.md`; supporting

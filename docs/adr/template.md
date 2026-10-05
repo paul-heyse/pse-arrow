@@ -45,6 +45,12 @@ IDs (`AP-nn`, `DP-nn`, `PS-nn`) go in `principles:`; scenario definitions retain
 
 ## Options
 
+Use the [design principles](../design_review/design_principles/core/design-principles.md) together
+with [Heuristics for Efficient Architecture](../design_review/design_principles/core/efficient-architecture-heuristics.md).
+Consider relevant execution patterns before physical organization, interfaces, preparation,
+assurance and lifecycles become fixed; address material mismatches while the design remains
+easy to change. Use qualitative reasoning without an exhaustive checklist or new proof machinery.
+
 Compare the current baseline, proposed design and simplest viable/library-owned alternatives
 as relevant. State change locality, contract and testing effects, integration cost and the
 reason for selecting or rejecting each option. Assess execution fit qualitatively from relevant

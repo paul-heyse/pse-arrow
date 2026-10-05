@@ -19,7 +19,9 @@ cadence. Ordinary implementation work does not itself initiate a domain-model re
 ## Find the standard
 
 Locate the repository's `standard.toml` through its agent instructions. Read the selected
-core principles and template, the binding, and each applicable profile and companion skill.
+core principles, the `[core].heuristics` companion and template, the binding, and each applicable
+profile and companion skill. Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md).
 If no declaration exists, apply the available core and say so. If the core is missing, report
 that limitation. Profiles refine or tighten the core; they never waive a MUST. Follow the
 binding's conflict route and state any effect on the verdict.
@@ -62,6 +64,12 @@ integration and finding disposition. Focused design advice for plan creation can
 in that plan and does not replace a formal review due under the binding.
 
 ## What to establish
+
+Use relevant companion heuristics to recognize material execution patterns before committing to
+physical organization, interfaces, preparation, assurance and lifecycles. Address material
+mismatches while the design remains easy to change. Assess them qualitatively within AP-07/G9;
+preserve the existing principles and lenses without an exhaustive checklist, cost models or
+new proof machinery.
 
 - **Architecture:** verdicts for the applicable foundations, grounded in responsibilities,
   contracts, composition and change scenarios. Name the context and dependencies needed to

@@ -290,6 +290,14 @@ resolved reviews; Git history is the archive, not a backlog (ADR-0096).
 
 ## Decisions and documentation
 
+Use [design principles](docs/design_review/design_principles/core/design-principles.md) together
+with [Heuristics for Efficient Architecture](docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+when making consequential architectural and implementation choices. Consider relevant execution
+patterns before committing to physical organization, interfaces, preparation, assurance and
+lifecycles; address material mismatches while the design remains easy to change. Apply this
+qualitatively to open choices or exposed mismatches, without an exhaustive checklist, cost
+models, new proof machinery or restarting settled reviews.
+
 Architectural reviews use the selected design principles and design-review skill within the
 bounded review periods defined by the repository binding (ADR-0129). The review template owns
 the detailed method; ordinary implementation does not require an unsolicited review. AP-07/G9

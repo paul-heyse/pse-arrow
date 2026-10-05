@@ -14,8 +14,19 @@ status: current
 > [ADR-0162](../../adr/0162-workload-fit-review-principles.md).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
-architecture review. Its core foundations organize assessment around separation of concerns,
-contracts, composition, explicit domain models and scoped semantic authority, constraints and
+architecture review.
+
+Use the [design principles](../../design_review/design_principles/core/design-principles.md) together
+with [Heuristics for Efficient Architecture](../../design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices. Consider relevant execution patterns
+before committing to physical organization, interfaces, preparation, assurance and lifecycles;
+address material mismatches while the design remains easy to change. The companion supports
+AP-07/G9 qualitatively without a new gate, exhaustive checklist, cost models or proof machinery.
+During execution, apply it to choices left open or exposed mismatches without restarting settled
+reviews.
+
+Its core foundations organize assessment around separation of concerns, contracts, composition,
+explicit domain models and scoped semantic authority, constraints and
 local reasoning and execution fit for supported workloads. The principles and review skill own the domain-model criterion; assess it
 within bounded design/review periods at the binding's cadence. AGENTS.md routes to that process
 without imposing a standing modeling mandate. AP-04/G9 retain model adequacy and authoritative

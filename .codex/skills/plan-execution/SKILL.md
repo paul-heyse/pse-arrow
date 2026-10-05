@@ -5,6 +5,16 @@ description: Develop a conversational approach to executing an existing approved
 
 # Plan the execution approach
 
+Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices. Consider relevant execution patterns
+before committing to physical organization, interfaces, preparation, assurance and lifecycles;
+address material mismatches while the design remains easy to change. Apply only relevant patterns
+qualitatively, without an exhaustive checklist, cost models or new proof machinery.
+Apply this during execution to consequential choices left open by the approved plan or to an
+exposed mismatch. Reuse settled review conclusions; do not restart settled reviews or repeat
+a whole-list assessment.
+
 Develop an execution approach that makes the existing plan actionable in the current tree.
 Concentrate advance reasoning on decisions whose consequences cross work boundaries,
 prerequisites that determine readiness, and uncertainties that could substantially change the

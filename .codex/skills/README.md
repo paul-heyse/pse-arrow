@@ -1,5 +1,13 @@
 # Local skills
 
+Use [design principles](../../docs/design_review/design_principles/core/design-principles.md) together
+with [Heuristics for Efficient Architecture](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices. Consider relevant execution patterns
+before committing to physical organization, interfaces, preparation, assurance and lifecycles;
+address material mismatches while the design remains easy to change. Judgment remains qualitative,
+without an exhaustive checklist, cost models or new proof machinery. Execution applies this to
+open choices or exposed mismatches without restarting settled reviews.
+
 Process skills are maintained in `.codex/skills/`. The `.claude/skills` and `.agents/skills`
 aliases expose the same sources to both runtimes. `just agent-config-sync` only materializes
 aliases on Windows when directory symlinks are unavailable and preserves live library links.

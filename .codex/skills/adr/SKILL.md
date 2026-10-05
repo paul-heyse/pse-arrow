@@ -8,6 +8,13 @@ model-baseline: claude-5 (2026-08)
 
 # Decision records
 
+Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices. Consider relevant execution patterns
+before committing to physical organization, interfaces, preparation, assurance and lifecycles;
+address material mismatches while the design remains easy to change. Apply only relevant patterns
+qualitatively, without an exhaustive checklist, cost models or new proof machinery.
+
 `docs/authoritative_design/README.md` routes to the design collection. **ADRs record
 why its contracts read the way they do.** Design reviews under `docs/design_review/reviews/` are
 evidence, not authority. Plans under `docs/plans/` record how work is sequenced

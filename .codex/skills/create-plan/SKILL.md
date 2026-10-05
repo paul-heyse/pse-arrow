@@ -5,6 +5,13 @@ description: Create or revise an implementation plan from a design review or exi
 
 # Create a plan
 
+Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices. Consider relevant execution patterns
+before committing to physical organization, interfaces, preparation, assurance and lifecycles;
+address material mismatches while the design remains easy to change. Apply only relevant patterns
+qualitatively, without an exhaustive checklist, cost models or new proof machinery.
+
 Develop a plan that gives an intelligent implementer a coherent understanding of the intended
 system, the reasoning behind its boundaries, and a credible path from the current state to
 completion. Explain consequential choices and leave room for implementation judgment.

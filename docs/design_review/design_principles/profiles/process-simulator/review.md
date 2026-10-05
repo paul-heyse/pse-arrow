@@ -6,6 +6,12 @@ sit within the core slots; no slot is added or removed. Everything here applies 
 subject touches the behaviour concerned. Architectural foundations and G9 remain visible;
 the numerical detail does not replace decomposition or change-scenario analysis.
 
+Use the [core principles](../../core/design-principles.md) together with
+[Heuristics for Efficient Architecture](../../core/efficient-architecture-heuristics.md) to
+assess relevant preparation, solve, reuse, assurance and lifecycle patterns within AP-07/G9.
+Address material mismatches while the design remains easy to change, qualitatively and without
+an exhaustive checklist, cost models or new proof machinery.
+
 | Core slot | Profile addition |
 |---|---|
 | 1 Scope | Name the analysis modes in scope (square simulation, optimization, dynamics, estimation) and the simulator workloads considered (principles: *Functional target*), including material scale, sparsity/stiffness, case count, concurrent use and resource envelope. |

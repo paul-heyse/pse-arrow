@@ -14,6 +14,12 @@ and storage capabilities. See the [relationship to IDAES](relationship-to-idaes.
 | Understand a decision | [Decision records](adr/README.md) |
 | Work on documentation | [Publishing documentation](dev/documentation.md) |
 
+For consequential architectural and implementation choices, use the
+[design principles](design_review/design_principles/core/design-principles.md) together with
+[Heuristics for Efficient Architecture](design_review/design_principles/core/efficient-architecture-heuristics.md).
+Consider relevant execution patterns before physical choices become fixed; keep assessment
+qualitative and scoped to material questions.
+
 Search defaults to **Current**: the architecture, development guides, the design standard and
 active work. **Reference** includes library maps, generated schemas, proposed decisions and the
 blueprint's former-anchor table. **History** holds only a few deliberately retained records;
@@ -68,8 +74,8 @@ Do not restate these; cite them.
 - **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
   `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.
 - **`docs/design_review/design_principles/standard.toml`** — the layered design standard
-  used by design reviews: six architectural foundations (`AP-nn`), operational refinements
-  (`DP-nn`, gates `G1`–`G9`), the
+  used by design reviews: seven architectural foundations (`AP-nn`), operational refinements
+  (`DP-nn`, gates `G1`–`G9`), the heuristic companion, the
   process-simulator profile (`PS-nn`, `PS-G1`–`PS-G3`) and the pse-arrow binding.
 - **`docs/dev/dependency-policy.md`** — what you may depend on and under what licence.
   Short answer: anything. Read it before assuming a library is off-limits.

@@ -5,6 +5,16 @@ description: Execute authorized scope in an existing implementation plan through
 
 # Execute a plan
 
+Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices. Consider relevant execution patterns
+before committing to physical organization, interfaces, preparation, assurance and lifecycles;
+address material mismatches while the design remains easy to change. Apply only relevant patterns
+qualitatively, without an exhaustive checklist, cost models or new proof machinery.
+Apply this during execution to consequential choices left open by the approved plan or to an
+exposed mismatch. Reuse settled review conclusions; do not restart settled reviews or repeat
+a whole-list assessment.
+
 Carry the authorized scope through implementation, integration and acceptance using the existing
 plan and established execution approach. Use [plan-execution](../plan-execution/SKILL.md) to
 resolve consequential gaps when needed, including on direct invocation, without requiring

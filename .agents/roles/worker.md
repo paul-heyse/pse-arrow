@@ -1,5 +1,14 @@
 # Shared worker contract
 
+Use [design principles](../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+when consequential architectural or implementation choices fall within the brief. Consider
+relevant execution patterns before committing to physical organization, interfaces, preparation,
+assurance and lifecycles; address material mismatches while the design remains easy to change.
+Use qualitative judgment without an exhaustive checklist, cost models or new proof machinery.
+Stay within assigned effects. During execution, focus on choices left open or exposed mismatches;
+do not restart settled reviews.
+
 Use applicable instructions already supplied in context; if AGENTS.md is absent, load it before
 acting. Load the common and assigned role contracts once, plus relevant workflow or library skills.
 The root's general startup tour is not repeated by workers: use the brief and relevant owners,

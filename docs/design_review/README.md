@@ -1,7 +1,10 @@
 # Design standard and reviews
 
 The [core principles](design_principles/core/design-principles.md) organize review around
-seven architectural foundations, including supported-workload execution fit through G9. The [template](design_principles/core/design-review-template.md)
+seven architectural foundations, including supported-workload execution fit through G9. Use them
+together with [Heuristics for Efficient Architecture](design_principles/core/efficient-architecture-heuristics.md)
+for consequential choices and material execution mismatches while the design remains easy to change.
+The companion guides qualitative judgment without a whole-list checklist or new proof machinery. The [template](design_principles/core/design-review-template.md)
 defines the review contract; [standard.toml](design_principles/standard.toml) selects its
 versions and profiles. The [repository binding](design_principles/binding/pse-arrow.md)
 provides local authority and scenario routes.

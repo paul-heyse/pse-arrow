@@ -35,6 +35,14 @@ sandbox keys in role files), and Claude roles inherit the session's tools (no `t
 shared contracts alone define each role's permitted effects; live parent permission overrides take
 precedence.
 
+Use [design principles](../../docs/design_review/design_principles/core/design-principles.md) together
+with [Heuristics for Efficient Architecture](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+when assignments leave consequential architectural or implementation choices open. Consider
+relevant execution patterns before physical organization, interfaces, preparation, assurance and
+lifecycles become fixed; address material mismatches early. Keep judgment qualitative, without
+an exhaustive checklist, cost models or new proof machinery. Preserve settled reviews and each
+role's permitted effects; surface exposed mismatches to the coordinator.
+
 ## Coordinate the work
 
 Give each assignment an outcome, bounded scope, relevant authorities, settled decisions and exact

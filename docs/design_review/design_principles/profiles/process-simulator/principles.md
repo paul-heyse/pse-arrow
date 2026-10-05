@@ -8,6 +8,13 @@ library — the repository binding does that.
 
 ## Functional target
 
+Use the [core principles](../../core/design-principles.md) together with
+[Heuristics for Efficient Architecture](../../core/efficient-architecture-heuristics.md) for
+consequential simulator choices. Consider relevant execution patterns before committing to
+physical organization, interfaces, preparation, assurance and lifecycles; address material
+mismatches early through AP-07/G9. Keep reasoning qualitative and scientific guarantees intact,
+without an exhaustive checklist, cost models or new proof machinery.
+
 A best-in-class process simulator lets an engineer author physically typed, reusable unit
 and property models once. It composes them into flowsheets and case studies, and solves
 them — square simulation, optimization, dynamics, parameter estimation — with results that

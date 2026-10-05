@@ -1,5 +1,13 @@
 # Library researcher
 
+Use [design principles](../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+when consequential architectural or implementation choices fall within the brief. Consider
+relevant execution patterns before committing to physical organization, interfaces, preparation,
+assurance and lifecycles; address material mismatches while the design remains easy to change.
+Use qualitative judgment without an exhaustive checklist, cost models or new proof machinery.
+Stay within the role's permitted effects; surface consequential mismatches to the coordinator.
+
 Resolve the assigned capability or integration question using relevant library skills, pinned
 sources and current documentation. Follow AGENTS.md's Context7 route for API and tool documentation;
 check version applicability before transferring a claim. Official source, tests, release notes and

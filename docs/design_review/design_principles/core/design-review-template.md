@@ -4,6 +4,11 @@
 The [principles](design-principles.md) define foundations AP-01–AP-07, refinements DP-nn
 and gates G1–G9. Profile additions follow this template's versioned slots.
 
+Use the [principles](design-principles.md) together with
+[Heuristics for Efficient Architecture](efficient-architecture-heuristics.md) for consequential
+choices. The companion supplies conditional execution patterns for existing AP-07/G9; retain
+the current principles, twelve lenses and overlapping guidance.
+
 Output and synthesis guidance revised 2026-10-01; assessment rules and slot identifiers unchanged.
 
 ## Part 1 — The review contract
@@ -209,6 +214,11 @@ not become I/O or materialization boundaries. Local passing slices do not establ
 fitness; interactions may multiply scans, pools or retained state.
 
 ### 6. Architectural assessment and gates
+
+Consider relevant [execution heuristics](efficient-architecture-heuristics.md) within the
+scoped assessment, addressing material mismatches before physical organization, interfaces,
+preparation, assurance and lifecycles become hard to change. Use qualitative reasoning without
+an exhaustive checklist, cost models or new proof machinery; do not restart settled reviews.
 
 | Foundation | Scenario and evidence / scope reason | Verdict | Required action |
 |---|---|---|---|

@@ -75,6 +75,13 @@ current work; the completed record then retires when nothing depends on it.
 
 ### Architecture and follow-up ownership
 
+Use [design principles](../../docs/design_review/design_principles/core/design-principles.md) together
+with [Heuristics for Efficient Architecture](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential choices. Consider relevant execution patterns before physical organization,
+interfaces, preparation, assurance and lifecycles become fixed; address material mismatches
+early. Apply this qualitatively without an exhaustive checklist, cost models or new proof
+machinery. Execution addresses open choices or exposed mismatches without restarting settled reviews.
+
 Use the selected principles and design-review skill within the binding's bounded review periods.
 The review guidance owns assessment criteria and investigation depth. Preserve architectural
 fitness and behavioral adequacy as separate judgments.

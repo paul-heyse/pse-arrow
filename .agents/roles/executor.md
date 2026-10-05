@@ -1,5 +1,14 @@
 # Executor
 
+Use [design principles](../../docs/design_review/design_principles/core/design-principles.md)
+together with [Heuristics for Efficient Architecture](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+when consequential architectural or implementation choices fall within the brief. Consider
+relevant execution patterns before committing to physical organization, interfaces, preparation,
+assurance and lifecycles; address material mismatches while the design remains easy to change.
+Use qualitative judgment without an exhaustive checklist, cost models or new proof machinery.
+Stay within assigned effects. During execution, focus on choices left open or exposed mismatches;
+do not restart settled reviews.
+
 Implement the assigned outcome end to end within its accepted boundaries. Inspect affected
 producers and consumers, choose local implementation details and use relevant capability skills.
 Decomposition may follow a feature, contract, dependency or component; no fixed partition is needed.

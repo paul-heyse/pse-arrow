@@ -15,6 +15,11 @@ correctness requirements and review lenses. A repository binding maps these to l
 authorities, commands and decision routes. The repository's `standard.toml` selects versions.
 Profiles and bindings may tighten the core; they may not waive it (§B).
 
+Use these principles together with [Heuristics for Efficient Architecture](efficient-architecture-heuristics.md)
+when making consequential architectural and implementation choices. The companion supplies
+conditional execution patterns; existing principles, overlapping guidance and assessment lenses
+remain in place.
+
 **Levels.** MUST is an obligation for the supported scope. An unmet MUST narrows that
 scope or leaves the design unresolved; it cannot be excused by a SHOULD exception.
 SHOULD is a strong default with a reasoned, proportionate exception (§H) when material.
@@ -31,6 +36,12 @@ the declared review cadence. The criterion concerns model adequacy and authority
 it does not require a separate modeling exercise for every implementation task. Reviewers choose
 the least investigation sufficient to settle the scoped question. Following a flow is an optional
 technique for resolving a concrete uncertainty, not a required sequence or exhaustive survey.
+
+Consider relevant [execution heuristics](efficient-architecture-heuristics.md) before committing
+to physical organization, interfaces, preparation, assurance or lifecycles. Address material
+mismatches while the design remains easy to change. This is qualitative judgment, without an
+exhaustive checklist, cost models or additional proof machinery; ordinary implementation uses
+it for consequential choices left open or exposed mismatches without restarting settled reviews.
 
 ## 1. Governing objective
 
@@ -230,6 +241,10 @@ machinery, instrumentation, formal cost proofs or additional proof artifacts. In
 mechanisms only for a separate concrete functional or operational requirement. No fixed batch
 size, capacity SLA or mandatory benchmark follows from this foundation. Quantitative performance
 or capacity claims still require measurements; semantic correctness obligations remain.
+
+[Heuristics for Efficient Architecture](efficient-architecture-heuristics.md) makes this
+foundation tangible through conditional execution patterns. Use the relevant patterns within
+AP-07/G9; they add no principle, gate or whole-list assessment obligation.
 
 **Assess.** What complete operation and workload are supported? What grows when input bytes,
 semantic kinds, degree or concurrent requests grow? Which scans, crossings, live representations,
