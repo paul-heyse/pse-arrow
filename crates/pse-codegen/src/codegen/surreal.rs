@@ -155,9 +155,15 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
                 reason: format!("index {} names an undeclared table", index.name),
             })?;
         for field in index.fields {
-            let (name,path)=field.split_once('.').map_or((*field,None),|(name,path)|(name,Some(path)));
-            if !relation.columns.iter().any(|column| column.name()==name && (path.is_none() || (path==Some("projection") && column.value_type().data_type()==DataType::Float64)))
-            {
+            let (name, path) = field
+                .split_once('.')
+                .map_or((*field, None), |(name, path)| (name, Some(path)));
+            if !relation.columns.iter().any(|column| {
+                column.name() == name
+                    && (path.is_none()
+                        || (path == Some("projection")
+                            && column.value_type().data_type() == DataType::Float64))
+            }) {
                 return Err(SchemaError::Codegen {
                     language: "surreal",
                     reason: format!("index {} names an undeclared field {field}", index.name),

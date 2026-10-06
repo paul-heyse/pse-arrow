@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Authored algebraic jobs retain native ownership through checks and canonical retention."""
+"""Authored algebraic jobs retain native ownership through checks and retention."""
 
 import asyncio
 from pathlib import Path
@@ -33,9 +33,7 @@ def test_authored_solve_join_warm_start_checks_and_retention(
     canonical_substrate: str,
 ) -> None:
     # Ordinary runs retain exact canonical attempt selections.
-    runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate
-    )
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -113,11 +111,16 @@ def test_authored_solve_join_warm_start_checks_and_retention(
         stream.close()
     run = result.canonical_run_key
     attempt = result.canonical_attempt_key
-    assert run is not None and attempt is not None
+    assert run is not None
+    assert attempt is not None
     assert attempt == handle.canonical_attempt_key
     (stored,) = pa.table(runtime.attempt_record(attempt)).to_pylist()
-    assert stored["run"] == run and stored["outcome"] == "succeeded"
-    assert pa.table(runtime.results(run, attempt, "runtime.modeling_checks")).to_pylist() == checks
+    assert stored["run"] == run
+    assert stored["outcome"] == "succeeded"
+    assert (
+        pa.table(runtime.results(run, attempt, "runtime.modeling_checks")).to_pylist()
+        == checks
+    )
     destination = tmp_path / "checks.arrow"
     runtime.export_results(run, attempt, "runtime.modeling_checks", destination)
     assert destination.is_file()
@@ -142,15 +145,29 @@ def test_authored_solve_join_warm_start_checks_and_retention(
     assert sequence.available_start(1) is not None
     assert sequence.canonical_run_key is not None
     assert sequence.canonical_attempt_key is not None
-    assert pa.table(runtime.results(sequence.canonical_run_key, sequence.canonical_attempt_key, "runtime.modeling_checks")).to_pylist() == sequence_checks
+    assert (
+        pa.table(
+            runtime.results(
+                sequence.canonical_run_key,
+                sequence.canonical_attempt_key,
+                "runtime.modeling_checks",
+            )
+        ).to_pylist()
+        == sequence_checks
+    )
     sequence_cancelled = runtime.start([prepared, following])
     sequence_cancelled.cancel()
     sequence_partial = sequence_cancelled.wait()
     assert sequence_partial.run_id == sequence_cancelled.wait().run_id
     assert pa.table(sequence_partial.table("runtime.solve_runs")).num_rows == 2
-    assert sequence_partial.canonical_attempt_key == sequence_cancelled.canonical_attempt_key
+    assert (
+        sequence_partial.canonical_attempt_key
+        == sequence_cancelled.canonical_attempt_key
+    )
     assert sequence_partial.canonical_attempt_key is not None
-    (stopped,) = pa.table(runtime.attempt_record(sequence_partial.canonical_attempt_key)).to_pylist()
+    (stopped,) = pa.table(
+        runtime.attempt_record(sequence_partial.canonical_attempt_key)
+    ).to_pylist()
     assert stopped["outcome"] in {"cancelled", "partial", "succeeded"}
     rejected = (
         runtime.modeling_from_documents(

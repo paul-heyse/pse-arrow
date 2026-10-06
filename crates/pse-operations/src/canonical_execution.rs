@@ -3,13 +3,24 @@
 
 //! Fenced durable execution and immutable closed result selections.
 
-use crate::{canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query}, canonical_codec, generated::surreal as wire};
+use crate::{
+    canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
+    canonical_codec,
+    generated::surreal as wire,
+};
 use pse_ids::{Frame, FramedHasher};
+pub use pse_model::generated::runtime::{
+    canonical_attempts::Row as CanonicalAttempt, canonical_result_batches::Row as ResultBatch,
+    canonical_result_manifests::Row as ResultManifest, canonical_runs::Row as CanonicalRun,
+};
+use pse_model::generated::runtime::{
+    canonical_result_block_outputs::Row as ResultOutput,
+    canonical_result_blocks::Row as ResultBlock, canonical_result_cells::Row as ResultCell,
+    canonical_result_sets::Row as ResultSet,
+};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use surrealdb::types::{Bytes, Object, Value};
-pub use pse_model::generated::runtime::{canonical_runs::Row as CanonicalRun, canonical_attempts::Row as CanonicalAttempt, canonical_result_batches::Row as ResultBatch, canonical_result_manifests::Row as ResultManifest};
-use pse_model::generated::runtime::{canonical_result_sets::Row as ResultSet, canonical_result_blocks::Row as ResultBlock, canonical_result_cells::Row as ResultCell,canonical_result_block_outputs::Row as ResultOutput};
 
 /// Independently submitted scientific block limit, below the protocol envelope.
 pub const RESULT_BATCH_BYTES: usize = 512 * 1024;
@@ -34,228 +45,690 @@ pub struct RunRequest {
     pub attestation: Vec<u8>,
 }
 
-#[cfg(all(test,feature="canonical-tests"))]
-#[allow(unsafe_code, reason = "controlled fixture scientific admission asserts outcomes without pointer or ABI operations")]
+#[cfg(all(test, feature = "canonical-tests"))]
+#[allow(
+    unsafe_code,
+    reason = "controlled fixture scientific admission asserts outcomes without pointer or ABI operations"
+)]
 mod canonical_execution_server_unit {
     use super::*;
     use crate::canonical::{CanonicalOptions, checked};
     use std::path::Path;
 
-    async fn fixture() -> (CanonicalStore,String,crate::canonical::Revision) {
-        let state=std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
-        let mut options=CanonicalOptions::from_state(Path::new(&state)).unwrap();
-        options.database=format!("canonical_execution_{}",uuid::Uuid::new_v4().simple());
-        let store=CanonicalStore::connect(&options).await.unwrap();
+    async fn fixture() -> (CanonicalStore, String, crate::canonical::Revision) {
+        let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
+        let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        options.database = format!("canonical_execution_{}", uuid::Uuid::new_v4().simple());
+        let store = CanonicalStore::connect(&options).await.unwrap();
         store.create().await.unwrap();
-        let revision=store.edit("problem",None,"initial-source",&[]).await.unwrap();
-        (store,options.database,revision)
+        let revision = store
+            .edit("problem", None, "initial-source", &[])
+            .await
+            .unwrap();
+        (store, options.database, revision)
     }
-    async fn remove(store:&CanonicalStore,database:&str) {store.db.query(format!("REMOVE DATABASE {database};")).await.and_then(checked).unwrap();}
-    async fn run(store:&CanonicalStore,revision:&crate::canonical::Revision,key:&str) -> CanonicalRun {
-        store.begin_run(&RunRequest{key:key.into(),revision:revision.clone(),sources:vec![],request:vec![1,2,3],source_selection:vec![4],attestation:vec![5]}).await.unwrap()
+    async fn remove(store: &CanonicalStore, database: &str) {
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+    async fn run(
+        store: &CanonicalStore,
+        revision: &crate::canonical::Revision,
+        key: &str,
+    ) -> CanonicalRun {
+        store
+            .begin_run(&RunRequest {
+                key: key.into(),
+                revision: revision.clone(),
+                sources: vec![],
+                request: vec![1, 2, 3],
+                source_selection: vec![4],
+                attestation: vec![5],
+            })
+            .await
+            .unwrap()
     }
     #[tokio::test]
     async fn canonical_execution_large_request_has_narrow_ordered_summary() {
-        let (store,database,revision)=fixture().await;
-        let request=RunRequest{key:"large-request".into(),revision,sources:vec![],request:vec![1;256*1024],source_selection:vec![2;256*1024],attestation:vec![3]};
-        let row=store.begin_run(&request).await.unwrap();
-        assert_eq!(row.request.as_slice(),request.request);
-        let summary=store.execution_run_page(&row.problem,None,64).await.unwrap();
-        assert_eq!(summary.len(),1);assert_eq!(summary[0].key,row.key);assert_eq!(summary[0].sequence,row.sequence);
-        assert!(summary[0].current_attempt.is_none()&&summary[0].terminal_class.is_none());
-        assert!(store.execution_run_page(&row.problem,Some(row.sequence),64).await.unwrap().is_empty());
-        let mut changed=request;changed.source_selection.push(3);
+        let (store, database, revision) = fixture().await;
+        let request = RunRequest {
+            key: "large-request".into(),
+            revision,
+            sources: vec![],
+            request: vec![1; 256 * 1024],
+            source_selection: vec![2; 256 * 1024],
+            attestation: vec![3],
+        };
+        let row = store.begin_run(&request).await.unwrap();
+        assert_eq!(row.request.as_slice(), request.request);
+        let summary = store
+            .execution_run_page(&row.problem, None, 64)
+            .await
+            .unwrap();
+        assert_eq!(summary.len(), 1);
+        assert_eq!(summary[0].key, row.key);
+        assert_eq!(summary[0].sequence, row.sequence);
+        assert!(summary[0].current_attempt.is_none() && summary[0].terminal_class.is_none());
+        assert!(
+            store
+                .execution_run_page(&row.problem, Some(row.sequence), 64)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let mut changed = request;
+        changed.source_selection.push(3);
         assert!(store.begin_run(&changed).await.is_err());
-        remove(&store,&database).await;
+        remove(&store, &database).await;
     }
     #[tokio::test]
     async fn canonical_execution_study_cancellation_revokes_live_and_closed_workers() {
-        use pse_model::study::{PointPolicy,OccurrenceKey,StartPolicy,SeedNeed};
-        use crate::canonical_studies::{NewOccurrence,point_key};
-        let (store,database,revision)=fixture().await;
-        let request=|key:&str|RunRequest{key:key.into(),revision:revision.clone(),sources:vec![],request:vec![1],source_selection:vec![2],attestation:vec![3]};
-        let points=(0..2).map(|index|NewOccurrence{policy:PointPolicy{key:OccurrenceKey(index),dependencies:vec![],start:StartPolicy::Fresh,seed_need:SeedNeed::NotNeeded,attempt_limit:1},descriptor:vec![42],run:request(&format!("study-point-{index}"))}).collect::<Vec<_>>();
-        store.create_study("cancel-study",&request("study-summary"),&[9],&points).await.unwrap();
-        let mut claims=Vec::new();
-        for index in 0..2 {let scope=store.study_scope(&point_key("cancel-study",OccurrenceKey(index))).await.unwrap();claims.push(store.claim_study_point(&scope,None,&format!("claim-{index}"),"worker",Duration::from_secs(60)).await.unwrap());}
-        let first=&claims[0].fence;
-        store.append_result_batch(first,"before-cancel","observations",0,&[7],1).await.unwrap();
-        let closed=store.close_result_ingestion(first,"before-cancel-close").await.unwrap();
-        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
-        store.cancel_study("cancel-study").await.unwrap();
-        assert!(store.renew_attempt(first,Duration::from_secs(60)).await.is_err());
-        assert!(unsafe{store.seal_attempt(&manifest,"stale-success",TerminalClass::Succeeded,&[9]).await}.is_err());
-        assert!(unsafe{store.seal_attempt(&manifest,"stale-cancel",TerminalClass::Cancelled,&[9]).await}.is_err());
-        for (index,claim) in claims.iter().enumerate() {
-            assert!(store.append_result_batch(&claim.fence,&format!("late-{index}"),"observations",1,&[8],1).await.is_err());
-            let recovery=store.recover_closed_attempt(claim.fence.run(),&format!("recover-{index}")).await.unwrap();
-            assert!(store.canonical_run(claim.fence.run()).await.unwrap().unwrap().cancelled);
-            let manifest=store.reconcile_closed_attempt(&recovery).await.unwrap();
-            let attempt=unsafe{store.seal_attempt(&manifest,&format!("cancel-terminal-{index}"),TerminalClass::Cancelled,&[9]).await}.unwrap();
-            assert_eq!(attempt.outcome.as_deref(),Some("cancelled"));
-            assert!(store.claim_run(claim.fence.run(),&format!("reclaim-{index}"),"worker",Duration::from_secs(60)).await.is_err());
+        use crate::canonical_studies::{NewOccurrence, point_key};
+        use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
+        let (store, database, revision) = fixture().await;
+        let request = |key: &str| RunRequest {
+            key: key.into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        let points = (0..2)
+            .map(|index| NewOccurrence {
+                policy: PointPolicy {
+                    key: OccurrenceKey(index),
+                    dependencies: vec![],
+                    start: StartPolicy::Fresh,
+                    seed_need: SeedNeed::NotNeeded,
+                    attempt_limit: 1,
+                },
+                descriptor: vec![42],
+                run: request(&format!("study-point-{index}")),
+            })
+            .collect::<Vec<_>>();
+        store
+            .create_study("cancel-study", &request("study-summary"), &[9], &points)
+            .await
+            .unwrap();
+        let mut claims = Vec::new();
+        for index in 0..2 {
+            let scope = store
+                .study_scope(&point_key("cancel-study", OccurrenceKey(index)))
+                .await
+                .unwrap();
+            claims.push(
+                store
+                    .claim_study_point(
+                        &scope,
+                        None,
+                        &format!("claim-{index}"),
+                        "worker",
+                        Duration::from_secs(60),
+                    )
+                    .await
+                    .unwrap(),
+            );
         }
-        remove(&store,&database).await;
+        let first = &claims[0].fence;
+        store
+            .append_result_batch(first, "before-cancel", "observations", 0, &[7], 1)
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(first, "before-cancel-close")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        store.cancel_study("cancel-study").await.unwrap();
+        assert!(
+            store
+                .renew_attempt(first, Duration::from_secs(60))
+                .await
+                .is_err()
+        );
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(&manifest, "stale-success", TerminalClass::Succeeded, &[9])
+                    .await
+            }
+            .is_err()
+        );
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(&manifest, "stale-cancel", TerminalClass::Cancelled, &[9])
+                    .await
+            }
+            .is_err()
+        );
+        for (index, claim) in claims.iter().enumerate() {
+            assert!(
+                store
+                    .append_result_batch(
+                        &claim.fence,
+                        &format!("late-{index}"),
+                        "observations",
+                        1,
+                        &[8],
+                        1
+                    )
+                    .await
+                    .is_err()
+            );
+            let recovery = store
+                .recover_closed_attempt(claim.fence.run(), &format!("recover-{index}"))
+                .await
+                .unwrap();
+            assert!(
+                store
+                    .canonical_run(claim.fence.run())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .cancelled
+            );
+            let manifest = store.reconcile_closed_attempt(&recovery).await.unwrap();
+            let attempt = unsafe {
+                store
+                    .seal_attempt(
+                        &manifest,
+                        &format!("cancel-terminal-{index}"),
+                        TerminalClass::Cancelled,
+                        &[9],
+                    )
+                    .await
+            }
+            .unwrap();
+            assert_eq!(attempt.outcome.as_deref(), Some("cancelled"));
+            assert!(
+                store
+                    .claim_run(
+                        claim.fence.run(),
+                        &format!("reclaim-{index}"),
+                        "worker",
+                        Duration::from_secs(60)
+                    )
+                    .await
+                    .is_err()
+            );
+        }
+        remove(&store, &database).await;
     }
-    async fn finish(store:&CanonicalStore,fence:&AttemptFence,operation:&str,outcome:TerminalClass)->CanonicalAttempt {
-        let closed=store.close_result_ingestion(fence,&format!("close-{operation}")).await.unwrap();
-        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
-        unsafe {store.seal_attempt(&manifest,operation,outcome,&[9]).await}.unwrap()
+    async fn finish(
+        store: &CanonicalStore,
+        fence: &AttemptFence,
+        operation: &str,
+        outcome: TerminalClass,
+    ) -> CanonicalAttempt {
+        let closed = store
+            .close_result_ingestion(fence, &format!("close-{operation}"))
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        unsafe {
+            store
+                .seal_attempt(&manifest, operation, outcome, &[9])
+                .await
+        }
+        .unwrap()
     }
 
     #[tokio::test]
     async fn canonical_execution_exact_batches_private_closure_and_settlement() {
-        let (store,database,revision)=fixture().await;
-        let first=run(&store,&revision,"run").await;
-        let repeat=run(&store,&revision,"run").await;
-        assert_eq!(first,repeat);
-        let fence=store.claim_run("run","claim","worker",Duration::from_secs(60)).await.unwrap();
-        let replay=store.claim_run("run","claim","worker",Duration::from_secs(60)).await.unwrap();
-        assert_eq!(fence.attempt(),replay.attempt());
-        let batch=store.append_result_batch(&fence,"batch-0","values",0,&[1,2],2).await.unwrap();
-        assert_eq!(batch,store.append_result_batch(&fence,"batch-0","values",0,&[1,2],2).await.unwrap());
-        assert!(store.append_result_batch(&fence,"batch-0","values",0,&[1,3],2).await.is_err());
-        assert!(store.append_result_batch(&fence,"changed-batch","values",0,&[1,3],2).await.is_err());
-        assert!(store.append_result_batch(&fence,"gap","values",2,&[4],1).await.is_err());
-        assert!(store.read_results("run",fence.attempt(),Duration::from_secs(30)).await.is_err());
-        let close=store.close_result_ingestion(&fence,"close").await.unwrap();
-        assert!(store.append_result_batch(&fence,"late","values",1,&[5],1).await.is_err());
-        let manifest=store.reconcile_closed_attempt(&close).await.unwrap();
-        let descriptors=decode_result_descriptors(manifest.row()).unwrap();
-        assert_eq!(descriptors[0].batch_count,1);
-        assert_eq!(descriptors[0].row_count,2);
-        let terminal=unsafe {store.seal_attempt(&manifest,"seal",TerminalClass::Partial,&[8]).await}.unwrap();
-        assert_eq!(terminal,unsafe {store.seal_attempt(&manifest,"seal",TerminalClass::Partial,&[8]).await}.unwrap());
-        assert!(unsafe {store.seal_attempt(&manifest,"seal",TerminalClass::Succeeded,&[8]).await}.is_err());
-        assert!(unsafe {store.seal_attempt(&manifest,"seal",TerminalClass::Partial,&[9]).await}.is_err());
-        let reconnect=store.resume_closed_attempt(fence.attempt(),"close").await.unwrap();
-        assert_eq!(store.reconcile_closed_attempt(&reconnect).await.unwrap().row(),manifest.row());
-        let history=store.read_results("run",fence.attempt(),Duration::from_secs(30)).await.unwrap();
-        assert_eq!(history.attempt().outcome.as_deref(),Some("partial"));
-        let fresh=store.claim_run("run","new-claim","worker",Duration::from_secs(60)).await.unwrap();
-        assert!(fresh.generation()>fence.generation());
-        assert!(store.append_result_batch(&fence,"stale","values",1,&[5],1).await.is_err());
-        finish(&store,&fresh,"succeeded",TerminalClass::Succeeded).await;
-        assert!(store.claim_run("run","repeat-science","worker",Duration::from_secs(60)).await.is_err());
-        assert!(store.read_results("run",fence.attempt(),Duration::from_secs(30)).await.is_ok());
-        remove(&store,&database).await;
+        let (store, database, revision) = fixture().await;
+        let first = run(&store, &revision, "run").await;
+        let repeat = run(&store, &revision, "run").await;
+        assert_eq!(first, repeat);
+        let fence = store
+            .claim_run("run", "claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let replay = store
+            .claim_run("run", "claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        assert_eq!(fence.attempt(), replay.attempt());
+        let batch = store
+            .append_result_batch(&fence, "batch-0", "values", 0, &[1, 2], 2)
+            .await
+            .unwrap();
+        assert_eq!(
+            batch,
+            store
+                .append_result_batch(&fence, "batch-0", "values", 0, &[1, 2], 2)
+                .await
+                .unwrap()
+        );
+        assert!(
+            store
+                .append_result_batch(&fence, "batch-0", "values", 0, &[1, 3], 2)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .append_result_batch(&fence, "changed-batch", "values", 0, &[1, 3], 2)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .append_result_batch(&fence, "gap", "values", 2, &[4], 1)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .read_results("run", fence.attempt(), Duration::from_secs(30))
+                .await
+                .is_err()
+        );
+        let close = store.close_result_ingestion(&fence, "close").await.unwrap();
+        assert!(
+            store
+                .append_result_batch(&fence, "late", "values", 1, &[5], 1)
+                .await
+                .is_err()
+        );
+        let manifest = store.reconcile_closed_attempt(&close).await.unwrap();
+        let descriptors = decode_result_descriptors(manifest.row()).unwrap();
+        assert_eq!(descriptors[0].batch_count, 1);
+        assert_eq!(descriptors[0].row_count, 2);
+        let terminal = unsafe {
+            store
+                .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[8])
+                .await
+        }
+        .unwrap();
+        assert_eq!(
+            terminal,
+            unsafe {
+                store
+                    .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[8])
+                    .await
+            }
+            .unwrap()
+        );
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(&manifest, "seal", TerminalClass::Succeeded, &[8])
+                    .await
+            }
+            .is_err()
+        );
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[9])
+                    .await
+            }
+            .is_err()
+        );
+        let reconnect = store
+            .resume_closed_attempt(fence.attempt(), "close")
+            .await
+            .unwrap();
+        assert_eq!(
+            store
+                .reconcile_closed_attempt(&reconnect)
+                .await
+                .unwrap()
+                .row(),
+            manifest.row()
+        );
+        let history = store
+            .read_results("run", fence.attempt(), Duration::from_secs(30))
+            .await
+            .unwrap();
+        assert_eq!(history.attempt().outcome.as_deref(), Some("partial"));
+        let fresh = store
+            .claim_run("run", "new-claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        assert!(fresh.generation() > fence.generation());
+        assert!(
+            store
+                .append_result_batch(&fence, "stale", "values", 1, &[5], 1)
+                .await
+                .is_err()
+        );
+        finish(&store, &fresh, "succeeded", TerminalClass::Succeeded).await;
+        assert!(
+            store
+                .claim_run("run", "repeat-science", "worker", Duration::from_secs(60))
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .read_results("run", fence.attempt(), Duration::from_secs(30))
+                .await
+                .is_ok()
+        );
+        remove(&store, &database).await;
     }
 
     #[tokio::test]
     async fn canonical_execution_claim_race_and_close_write_race() {
-        let (store,database,revision)=fixture().await;
+        let (store, database, revision) = fixture().await;
         for index in 0..8 {
-            let key=format!("race-{index}");run(&store,&revision,&key).await;
-            let left=format!("left-{index}");let right=format!("right-{index}");
-            let (left,right)=tokio::join!(store.claim_run(&key,&left,"worker",Duration::from_secs(60)),store.claim_run(&key,&right,"worker",Duration::from_secs(60)));
-            assert_ne!(left.is_ok(),right.is_ok());
-            let fence=left.or(right).unwrap();
-            let operation=format!("append-{index}");let close=format!("close-{index}");
-            let payload=[index];
-            let (batch,closed)=tokio::join!(store.append_result_batch(&fence,&operation,"values",0,&payload,1),store.close_result_ingestion(&fence,&close));
-            let closed=closed.unwrap();
-            let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
-            let descriptors=decode_result_descriptors(manifest.row()).unwrap();
-            assert_eq!(descriptors.len(),usize::from(batch.is_ok()));
-            if batch.is_ok(){assert_eq!(descriptors[0].batch_count,1);}
-            assert!(store.append_result_batch(&fence,&format!("late-{index}"),"values",1,&[index],1).await.is_err());
+            let key = format!("race-{index}");
+            run(&store, &revision, &key).await;
+            let left = format!("left-{index}");
+            let right = format!("right-{index}");
+            let (left, right) = tokio::join!(
+                store.claim_run(&key, &left, "worker", Duration::from_secs(60)),
+                store.claim_run(&key, &right, "worker", Duration::from_secs(60))
+            );
+            assert_ne!(left.is_ok(), right.is_ok());
+            let fence = left.or(right).unwrap();
+            let operation = format!("append-{index}");
+            let close = format!("close-{index}");
+            let payload = [index];
+            let (batch, closed) = tokio::join!(
+                store.append_result_batch(&fence, &operation, "values", 0, &payload, 1),
+                store.close_result_ingestion(&fence, &close)
+            );
+            let closed = closed.unwrap();
+            let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+            let descriptors = decode_result_descriptors(manifest.row()).unwrap();
+            assert_eq!(descriptors.len(), usize::from(batch.is_ok()));
+            if batch.is_ok() {
+                assert_eq!(descriptors[0].batch_count, 1);
+            }
+            assert!(
+                store
+                    .append_result_batch(&fence, &format!("late-{index}"), "values", 1, &[index], 1)
+                    .await
+                    .is_err()
+            );
         }
-        remove(&store,&database).await;
+        remove(&store, &database).await;
     }
 
     #[tokio::test]
     async fn canonical_execution_expiry_cancellation_and_truthful_recovery() {
-        let (store,database,revision)=fixture().await;
-        run(&store,&revision,"expires").await;
-        let fence=store.claim_run("expires","expiry-claim","worker",Duration::from_millis(250)).await.unwrap();
-        store.append_result_batch(&fence,"first","diagnostics",0,&[7],1).await.unwrap();
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "expires").await;
+        let fence = store
+            .claim_run(
+                "expires",
+                "expiry-claim",
+                "worker",
+                Duration::from_millis(250),
+            )
+            .await
+            .unwrap();
+        store
+            .append_result_batch(&fence, "first", "diagnostics", 0, &[7], 1)
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_millis(300)).await;
-        assert!(store.append_result_batch(&fence,"stale","diagnostics",1,&[8],1).await.is_err());
-        assert!(store.close_result_ingestion(&fence,"stale-close").await.is_err());
-        let closed=store.recover_closed_attempt("expires","recover").await.unwrap();
-        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
-        assert!(unsafe {store.seal_attempt(&manifest,"false-success",TerminalClass::Succeeded,&[]).await}.is_err());
-        let failed=unsafe {store.seal_attempt(&manifest,"failed",TerminalClass::Failed,&[7]).await}.unwrap();
-        assert_eq!(failed.outcome.as_deref(),Some("failed"));
-        assert_eq!(decode_result_descriptors(manifest.row()).unwrap()[0].row_count,1);
-        run(&store,&revision,"cancel").await;
-        let fence=store.claim_run("cancel","cancel-claim","worker",Duration::from_secs(60)).await.unwrap();
-        store.append_result_batch(&fence,"cancel-first","values",0,&[1],1).await.unwrap();
-        let closed=store.close_result_ingestion(&fence,"before-cancel").await.unwrap();
-        let stale_manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
-        store.cancel_run("cancel","cancel-operation").await.unwrap();
-        assert!(unsafe {store.seal_attempt(&stale_manifest,"stale-seal",TerminalClass::Succeeded,&[]).await}.is_err());
-        let recovered=store.recover_closed_attempt("cancel","cancel-recovery").await.unwrap();
-        let manifest=store.reconcile_closed_attempt(&recovered).await.unwrap();
-        assert!(unsafe {store.seal_attempt(&manifest,"ignored-cancel",TerminalClass::Failed,&[]).await}.is_err());
-        let terminal=unsafe {store.seal_attempt(&manifest,"cancel-seal",TerminalClass::Cancelled,&[1]).await}.unwrap();
-        assert_eq!(terminal.outcome.as_deref(),Some("cancelled"));
-        assert!(store.claim_run("cancel","new-cancel-attempt","worker",Duration::from_secs(60)).await.is_err());
-        remove(&store,&database).await;
+        assert!(
+            store
+                .append_result_batch(&fence, "stale", "diagnostics", 1, &[8], 1)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .close_result_ingestion(&fence, "stale-close")
+                .await
+                .is_err()
+        );
+        let closed = store
+            .recover_closed_attempt("expires", "recover")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(&manifest, "false-success", TerminalClass::Succeeded, &[])
+                    .await
+            }
+            .is_err()
+        );
+        let failed = unsafe {
+            store
+                .seal_attempt(&manifest, "failed", TerminalClass::Failed, &[7])
+                .await
+        }
+        .unwrap();
+        assert_eq!(failed.outcome.as_deref(), Some("failed"));
+        assert_eq!(
+            decode_result_descriptors(manifest.row()).unwrap()[0].row_count,
+            1
+        );
+        run(&store, &revision, "cancel").await;
+        let fence = store
+            .claim_run("cancel", "cancel-claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        store
+            .append_result_batch(&fence, "cancel-first", "values", 0, &[1], 1)
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, "before-cancel")
+            .await
+            .unwrap();
+        let stale_manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        store
+            .cancel_run("cancel", "cancel-operation")
+            .await
+            .unwrap();
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(&stale_manifest, "stale-seal", TerminalClass::Succeeded, &[])
+                    .await
+            }
+            .is_err()
+        );
+        let recovered = store
+            .recover_closed_attempt("cancel", "cancel-recovery")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&recovered).await.unwrap();
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(&manifest, "ignored-cancel", TerminalClass::Failed, &[])
+                    .await
+            }
+            .is_err()
+        );
+        let terminal = unsafe {
+            store
+                .seal_attempt(&manifest, "cancel-seal", TerminalClass::Cancelled, &[1])
+                .await
+        }
+        .unwrap();
+        assert_eq!(terminal.outcome.as_deref(), Some("cancelled"));
+        assert!(
+            store
+                .claim_run(
+                    "cancel",
+                    "new-cancel-attempt",
+                    "worker",
+                    Duration::from_secs(60)
+                )
+                .await
+                .is_err()
+        );
+        remove(&store, &database).await;
     }
 
     #[tokio::test]
     async fn canonical_execution_named_absence_guard_and_ordered_decimal_sequence() {
-        let (store,database,revision)=fixture().await;
-        let request=RunRequest{key:"same".into(),revision:revision.clone(),sources:vec![],request:vec![1],source_selection:vec![2],attestation:vec![3]};
-        let different=RunRequest{request:vec![9],..request.clone()};
-        let (left,right)=tokio::join!(store.begin_run(&request),store.begin_run(&different));
-        assert_ne!(left.is_ok(),right.is_ok());
+        let (store, database, revision) = fixture().await;
+        let request = RunRequest {
+            key: "same".into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        let different = RunRequest {
+            request: vec![9],
+            ..request.clone()
+        };
+        let (left, right) = tokio::join!(store.begin_run(&request), store.begin_run(&different));
+        assert_ne!(left.is_ok(), right.is_ok());
         let mut result=bounded_query(store.db.query("UPDATE type::record('canonical_guards', 'execution-sequence:problem') SET generation=$sequence;").bind(("sequence",canonical_codec::encode_uint(1_u64<<63).unwrap()))).await.unwrap();
-        let _:Vec<Object>=result.take(0).unwrap();
-        let second=run(&store,&revision,"ordered").await;
-        assert_eq!(second.sequence,(1_u64<<63)+1);
-        let mut roots=bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind='run' AND owner='ordered';")).await.unwrap();
-        let roots:Vec<Object>=roots.take(0).unwrap();assert_eq!(roots.len(),1);
-        remove(&store,&database).await;
+        let _: Vec<Object> = result.take(0).unwrap();
+        let second = run(&store, &revision, "ordered").await;
+        assert_eq!(second.sequence, (1_u64 << 63) + 1);
+        let mut roots =
+            bounded_query(store.db.query(
+                "SELECT * FROM canonical_roots WHERE owner_kind='run' AND owner='ordered';",
+            ))
+            .await
+            .unwrap();
+        let roots: Vec<Object> = roots.take(0).unwrap();
+        assert_eq!(roots.len(), 1);
+        remove(&store, &database).await;
     }
 
     #[tokio::test]
     async fn canonical_execution_missing_batch_refuses_descriptor_and_cancel_races_seal() {
-        let (store,database,revision)=fixture().await;
-        run(&store,&revision,"missing").await;
-        let fence=store.claim_run("missing","missing-claim","worker",Duration::from_secs(60)).await.unwrap();
-        store.append_result_batch(&fence,"missing-first","values",0,&[1],1).await.unwrap();
-        let missing=store.append_result_batch(&fence,"missing-second","values",1,&[2],1).await.unwrap();
-        let closed=store.close_result_ingestion(&fence,"missing-close").await.unwrap();
-        bounded_query(store.db.query("DELETE ONLY type::record('canonical_result_batches',$key);").bind(("key",missing.key))).await.unwrap();
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "missing").await;
+        let fence = store
+            .claim_run(
+                "missing",
+                "missing-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        store
+            .append_result_batch(&fence, "missing-first", "values", 0, &[1], 1)
+            .await
+            .unwrap();
+        let missing = store
+            .append_result_batch(&fence, "missing-second", "values", 1, &[2], 1)
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, "missing-close")
+            .await
+            .unwrap();
+        bounded_query(
+            store
+                .db
+                .query("DELETE ONLY type::record('canonical_result_batches',$key);")
+                .bind(("key", missing.key)),
+        )
+        .await
+        .unwrap();
         assert!(store.reconcile_closed_attempt(&closed).await.is_err());
-        assert!(!store.canonical_attempt(fence.attempt()).await.unwrap().unwrap().terminal);
+        assert!(
+            !store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap()
+                .terminal
+        );
         for index in 0..8 {
-            let key=format!("seal-race-{index}");run(&store,&revision,&key).await;
-            let fence=store.claim_run(&key,&format!("seal-claim-{index}"),"worker",Duration::from_secs(60)).await.unwrap();
-            let closed=store.close_result_ingestion(&fence,&format!("seal-close-{index}")).await.unwrap();
-            let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
-            let seal=format!("seal-race-op-{index}");let cancel=format!("cancel-race-op-{index}");
-            let (sealed,cancelled)=tokio::join!(unsafe {store.seal_attempt(&manifest,&seal,TerminalClass::Succeeded,&[])},store.cancel_run(&key,&cancel));
-            assert_ne!(sealed.is_ok(),cancelled.is_ok());
-            let actual=store.canonical_attempt(fence.attempt()).await.unwrap().unwrap();
-            if sealed.is_ok() {assert_eq!(actual.outcome.as_deref(),Some("succeeded"));} else {
+            let key = format!("seal-race-{index}");
+            run(&store, &revision, &key).await;
+            let fence = store
+                .claim_run(
+                    &key,
+                    &format!("seal-claim-{index}"),
+                    "worker",
+                    Duration::from_secs(60),
+                )
+                .await
+                .unwrap();
+            let closed = store
+                .close_result_ingestion(&fence, &format!("seal-close-{index}"))
+                .await
+                .unwrap();
+            let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+            let seal = format!("seal-race-op-{index}");
+            let cancel = format!("cancel-race-op-{index}");
+            let (sealed, cancelled) = tokio::join!(
+                unsafe { store.seal_attempt(&manifest, &seal, TerminalClass::Succeeded, &[]) },
+                store.cancel_run(&key, &cancel)
+            );
+            assert_ne!(sealed.is_ok(), cancelled.is_ok());
+            let actual = store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap();
+            if sealed.is_ok() {
+                assert_eq!(actual.outcome.as_deref(), Some("succeeded"));
+            } else {
                 assert!(!actual.terminal);
-                let closed=store.recover_closed_attempt(&key,&format!("race-recover-{index}")).await.unwrap();
-                let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
-                let final_outcome=unsafe {store.seal_attempt(&manifest,&format!("race-cancelled-{index}"),TerminalClass::Cancelled,&[]).await}.unwrap();
-                assert_eq!(final_outcome.outcome.as_deref(),Some("cancelled"));
+                let closed = store
+                    .recover_closed_attempt(&key, &format!("race-recover-{index}"))
+                    .await
+                    .unwrap();
+                let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+                let final_outcome = unsafe {
+                    store
+                        .seal_attempt(
+                            &manifest,
+                            &format!("race-cancelled-{index}"),
+                            TerminalClass::Cancelled,
+                            &[],
+                        )
+                        .await
+                }
+                .unwrap();
+                assert_eq!(final_outcome.outcome.as_deref(), Some("cancelled"));
             }
         }
-        remove(&store,&database).await;
+        remove(&store, &database).await;
     }
 }
 
 /// Worker admission capability; fields cannot be fabricated by an external caller.
 #[derive(Clone, Debug)]
-pub struct AttemptFence { run: String, attempt: String, generation: u64 }
+pub struct AttemptFence {
+    run: String,
+    attempt: String,
+    generation: u64,
+}
 impl AttemptFence {
-    pub(crate) fn from_row(row:CanonicalAttempt) -> Result<Self,CanonicalError> {
-        if row.generation==0 || row.terminal || row.closed {return Err(CanonicalError::Configuration("native claim returned no live fence".into()));}
-        Ok(Self{run:row.run,attempt:row.key,generation:row.generation})
+    pub(crate) fn from_row(row: CanonicalAttempt) -> Result<Self, CanonicalError> {
+        if row.generation == 0 || row.terminal || row.closed {
+            return Err(CanonicalError::Configuration(
+                "native claim returned no live fence".into(),
+            ));
+        }
+        Ok(Self {
+            run: row.run,
+            attempt: row.key,
+            generation: row.generation,
+        })
     }
     /// Semantic execution identity.
-    pub fn run(&self) -> &str { &self.run }
+    pub fn run(&self) -> &str {
+        &self.run
+    }
     /// Actual native execution identity.
-    pub fn attempt(&self) -> &str { &self.attempt }
+    pub fn attempt(&self) -> &str {
+        &self.attempt
+    }
     /// Server-issued generation, distinct from semantic identity.
-    pub fn generation(&self) -> u64 { self.generation }
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
 }
 
 /// Terminal class supplied only after the scientific owner determines quality.
@@ -273,15 +746,27 @@ pub enum TerminalClass {
 }
 impl TerminalClass {
     /// Canonical terminal outcome spelling stored atomically with the manifest.
-    pub const fn as_str(self) -> &'static str { match self { Self::Succeeded => "succeeded", Self::Failed => "failed", Self::Partial => "partial", Self::Cancelled => "cancelled" } }
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Partial => "partial",
+            Self::Cancelled => "cancelled",
+        }
+    }
 }
 
 /// Closed ingestion receipt. Recovery authority is separate from the old worker.
 #[derive(Clone, Debug)]
-pub struct ClosedAttempt { fence: AttemptFence, authority: u64 }
+pub struct ClosedAttempt {
+    fence: AttemptFence,
+    authority: u64,
+}
 impl ClosedAttempt {
     /// Original attempt; immutable coordinates keep its original generation.
-    pub fn fence(&self) -> &AttemptFence { &self.fence }
+    pub fn fence(&self) -> &AttemptFence {
+        &self.fence
+    }
 }
 
 /// Exact frozen coordinate extent of one scientific result set.
@@ -302,56 +787,130 @@ pub struct ResultSetDescriptor {
 
 /// Only a reconciled immutable selection can authorize terminal admission.
 #[derive(Clone, Debug)]
-pub struct ClosedManifest { closed: ClosedAttempt, row: ResultManifest }
+pub struct ClosedManifest {
+    closed: ClosedAttempt,
+    row: ResultManifest,
+}
 impl ClosedManifest {
     /// Exact immutable descriptor retained in the substrate.
-    pub fn row(&self) -> &ResultManifest { &self.row }
+    pub fn row(&self) -> &ResultManifest {
+        &self.row
+    }
 }
 
 fn hash(kind: &str, parts: &[&[u8]]) -> String {
     let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
     digest.str(kind);
-    for part in parts { digest.part(part); }
+    for part in parts {
+        digest.part(part);
+    }
     digest.finish_hash().to_hex()
 }
 /// Opaque native attempt identity known before claim and stable for its effect.
 /// Scientific AttemptId lineage is derived independently and is never a native lookup key.
-pub fn execution_attempt_key(run:&str,operation:&str)->String {hash("pse.execution.attempt.v1",&[run.as_bytes(),operation.as_bytes()])}
+pub fn execution_attempt_key(run: &str, operation: &str) -> String {
+    hash(
+        "pse.execution.attempt.v1",
+        &[run.as_bytes(), operation.as_bytes()],
+    )
+}
 /// Exact result-set key derived without ambiguous textual concatenation.
-pub fn result_set_key(attempt: &str, name: &str) -> String { hash("pse.execution.result-set.v1", &[attempt.as_bytes(), name.as_bytes()]) }
+pub fn result_set_key(attempt: &str, name: &str) -> String {
+    hash(
+        "pse.execution.result-set.v1",
+        &[attempt.as_bytes(), name.as_bytes()],
+    )
+}
 /// Exact immutable batch coordinate, shared by writer and admitted reader.
-pub fn result_batch_key(attempt: &str, set: &str, ordinal: u64) -> String { hash("pse.execution.result-batch.v1", &[attempt.as_bytes(), set.as_bytes(), &ordinal.to_le_bytes()]) }
+pub fn result_batch_key(attempt: &str, set: &str, ordinal: u64) -> String {
+    hash(
+        "pse.execution.result-batch.v1",
+        &[attempt.as_bytes(), set.as_bytes(), &ordinal.to_le_bytes()],
+    )
+}
 /// Scientific payload integrity digest; a digest alone does not establish admission.
-pub fn result_payload_digest(payload: &[u8]) -> String { hash("pse.execution.result-payload.v1", &[payload]) }
+pub fn result_payload_digest(payload: &[u8]) -> String {
+    hash("pse.execution.result-payload.v1", &[payload])
+}
 /// Verify a bounded exact batch before decoding its scientific contents.
-pub fn validate_result_batch(batch: &ResultBatch) -> Result<(),CanonicalError> {
-    bounded(batch.payload.as_slice(),RESULT_BATCH_BYTES)?;
-    if batch.key!=result_batch_key(&batch.attempt,&batch.result_set,batch.ordinal) || batch.digest!=result_payload_digest(batch.payload.as_slice()) {return Err(CanonicalError::Configuration("result batch integrity or coordinate mismatch".into()));}
+pub fn validate_result_batch(batch: &ResultBatch) -> Result<(), CanonicalError> {
+    bounded(batch.payload.as_slice(), RESULT_BATCH_BYTES)?;
+    if batch.key != result_batch_key(&batch.attempt, &batch.result_set, batch.ordinal)
+        || batch.digest != result_payload_digest(batch.payload.as_slice())
+    {
+        return Err(CanonicalError::Configuration(
+            "result batch integrity or coordinate mismatch".into(),
+        ));
+    }
     Ok(())
 }
-fn metadata_digest(payload: &[u8]) -> String { hash("pse.execution.result-manifest.v1", &[payload]) }
-fn json<T: Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> { serde_json::to_vec(value).map_err(|error| CanonicalError::Configuration(error.to_string())) }
+fn metadata_digest(payload: &[u8]) -> String {
+    hash("pse.execution.result-manifest.v1", &[payload])
+}
+fn json<T: Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
+    serde_json::to_vec(value).map_err(|error| CanonicalError::Configuration(error.to_string()))
+}
 fn identity(value: &str) -> Result<(), CanonicalError> {
-    if value.is_empty() { return Err(CanonicalError::Configuration("execution identity must be nonempty".into())); }
-    if value.len() > 4096 { return Err(CanonicalError::PayloadLimit); }
+    if value.is_empty() {
+        return Err(CanonicalError::Configuration(
+            "execution identity must be nonempty".into(),
+        ));
+    }
+    if value.len() > 4096 {
+        return Err(CanonicalError::PayloadLimit);
+    }
     Ok(())
 }
-fn bounded(value: &[u8], limit: usize) -> Result<(), CanonicalError> { if value.len() > limit { Err(CanonicalError::PayloadLimit) } else { Ok(()) } }
+fn bounded(value: &[u8], limit: usize) -> Result<(), CanonicalError> {
+    if value.len() > limit {
+        Err(CanonicalError::PayloadLimit)
+    } else {
+        Ok(())
+    }
+}
 fn closed(row: CanonicalAttempt) -> Result<ClosedAttempt, CanonicalError> {
-    if !row.closed || row.ingestion_open { return Err(CanonicalError::Configuration("attempt ingestion is not closed".into())); }
-    let authority = row.close_generation.ok_or_else(|| CanonicalError::Configuration("closed authority missing".into()))?;
-    Ok(ClosedAttempt { fence: AttemptFence { run: row.run, attempt: row.key, generation: row.generation }, authority })
+    if !row.closed || row.ingestion_open {
+        return Err(CanonicalError::Configuration(
+            "attempt ingestion is not closed".into(),
+        ));
+    }
+    let authority = row
+        .close_generation
+        .ok_or_else(|| CanonicalError::Configuration("closed authority missing".into()))?;
+    Ok(ClosedAttempt {
+        fence: AttemptFence {
+            run: row.run,
+            attempt: row.key,
+            generation: row.generation,
+        },
+        authority,
+    })
 }
 
 /// Decode and verify the one canonical exact-selection descriptor format.
-pub fn decode_result_descriptors(row: &ResultManifest) -> Result<Vec<ResultSetDescriptor>, CanonicalError> {
+pub fn decode_result_descriptors(
+    row: &ResultManifest,
+) -> Result<Vec<ResultSetDescriptor>, CanonicalError> {
     bounded(row.descriptors.as_slice(), EXECUTION_METADATA_BYTES)?;
-    if row.key != row.attempt || metadata_digest(row.descriptors.as_slice()) != row.digest { return Err(CanonicalError::Configuration("result manifest integrity mismatch".into())); }
-    let descriptors: Vec<ResultSetDescriptor> = serde_json::from_slice(row.descriptors.as_slice()).map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-    if descriptors.len() > RESULT_SETS { return Err(CanonicalError::PayloadLimit); }
+    if row.key != row.attempt || metadata_digest(row.descriptors.as_slice()) != row.digest {
+        return Err(CanonicalError::Configuration(
+            "result manifest integrity mismatch".into(),
+        ));
+    }
+    let descriptors: Vec<ResultSetDescriptor> = serde_json::from_slice(row.descriptors.as_slice())
+        .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+    if descriptors.len() > RESULT_SETS {
+        return Err(CanonicalError::PayloadLimit);
+    }
     let mut previous: Option<&str> = None;
     for item in &descriptors {
-        if item.key != result_set_key(&row.attempt, &item.name) || previous.is_some_and(|key| key >= item.key.as_str()) { return Err(CanonicalError::Configuration("result descriptor coordinates mismatch".into())); }
+        if item.key != result_set_key(&row.attempt, &item.name)
+            || previous.is_some_and(|key| key >= item.key.as_str())
+        {
+            return Err(CanonicalError::Configuration(
+                "result descriptor coordinates mismatch".into(),
+            ));
+        }
         previous = Some(&item.key);
     }
     Ok(descriptors)
@@ -359,47 +918,64 @@ pub fn decode_result_descriptors(row: &ResultManifest) -> Result<Vec<ResultSetDe
 
 /// A narrow run list projection; scientific request and source-selection blobs
 /// remain available only through explicit exact run reads.
-#[derive(Clone,Debug,PartialEq,Eq,Serialize,Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunSummary {
     /// Exact opaque run key.
-    pub key:String,
+    pub key: String,
     /// Selected scientific problem.
-    pub problem:String,
+    pub problem: String,
     /// Exact retained primary source revision.
-    pub revision:String,
+    pub revision: String,
     /// Recorded primary source ordering.
-    pub source_sequence:u64,
+    pub source_sequence: u64,
     /// Recorded per-problem execution ordering.
-    pub sequence:u64,
+    pub sequence: u64,
     /// Admitted implementation interpretation.
-    pub interpretation:String,
+    pub interpretation: String,
     /// Current native authority generation.
-    pub current_generation:u64,
+    pub current_generation: u64,
     /// Current actual native attempt, when claimed.
-    pub current_attempt:Option<String>,
+    pub current_attempt: Option<String>,
     /// Persistent native cancellation authority.
-    pub cancelled:bool,
+    pub cancelled: bool,
     /// Current recorded terminal attempt, when settled.
-    pub terminal_attempt:Option<String>,
+    pub terminal_attempt: Option<String>,
     /// Actual terminal lifecycle class, separate from scientific usability.
-    pub terminal_class:Option<String>,
+    pub terminal_class: Option<String>,
 }
-fn decode_run_summary(mut row:Object)->Result<RunSummary,CanonicalError>{
-    use canonical_codec::{required,decode_string,decode_uint,decode_boolean};
-    let key=decode_string(required(&mut row,"key")?)?;
-    let problem=decode_string(required(&mut row,"problem")?)?;
-    let revision=decode_string(required(&mut row,"revision")?)?;
-    let source_sequence=decode_uint(required(&mut row,"source_sequence")?)?;
-    let sequence=decode_uint(required(&mut row,"sequence")?)?;
-    let interpretation=decode_string(required(&mut row,"interpretation")?)?;
-    let current_generation=decode_uint(required(&mut row,"current_generation")?)?;
-    let mut optional=|field|match row.remove(field).unwrap_or(Value::None){Value::None=>Ok(None),value=>decode_string(value).map(Some)};
-    let current_attempt=optional("current_attempt")?;
-    let terminal_attempt=optional("terminal_attempt")?;
-    let terminal_class=optional("terminal_class")?;
-    let cancelled=decode_boolean(required(&mut row,"cancelled")?)?;
-    if !row.is_empty(){return Err(canonical_codec::CodecError::UnknownFields.into());}
-    Ok(RunSummary{key,problem,revision,source_sequence,sequence,interpretation,current_generation,current_attempt,cancelled,terminal_attempt,terminal_class})
+fn decode_run_summary(mut row: Object) -> Result<RunSummary, CanonicalError> {
+    use canonical_codec::{decode_boolean, decode_string, decode_uint, required};
+    let key = decode_string(required(&mut row, "key")?)?;
+    let problem = decode_string(required(&mut row, "problem")?)?;
+    let revision = decode_string(required(&mut row, "revision")?)?;
+    let source_sequence = decode_uint(required(&mut row, "source_sequence")?)?;
+    let sequence = decode_uint(required(&mut row, "sequence")?)?;
+    let interpretation = decode_string(required(&mut row, "interpretation")?)?;
+    let current_generation = decode_uint(required(&mut row, "current_generation")?)?;
+    let mut optional = |field| match row.remove(field).unwrap_or(Value::None) {
+        Value::None => Ok(None),
+        value => decode_string(value).map(Some),
+    };
+    let current_attempt = optional("current_attempt")?;
+    let terminal_attempt = optional("terminal_attempt")?;
+    let terminal_class = optional("terminal_class")?;
+    let cancelled = decode_boolean(required(&mut row, "cancelled")?)?;
+    if !row.is_empty() {
+        return Err(canonical_codec::CodecError::UnknownFields.into());
+    }
+    Ok(RunSummary {
+        key,
+        problem,
+        revision,
+        source_sequence,
+        sequence,
+        interpretation,
+        current_generation,
+        current_attempt,
+        cancelled,
+        terminal_attempt,
+        terminal_class,
+    })
 }
 
 impl CanonicalStore {
@@ -411,315 +987,1004 @@ impl CanonicalStore {
         bounded(&request.request, crate::canonical::PAYLOAD_BYTES)?;
         bounded(&request.source_selection, crate::canonical::PAYLOAD_BYTES)?;
         bounded(&request.attestation, EXECUTION_METADATA_BYTES)?;
-        let row = CanonicalRun { key: request.key.clone(), problem: request.revision.problem.clone(), revision: request.revision.key.clone(), source_sequence: request.revision.sequence, sequence: 0, request: request.request.clone().into(), source_selection: request.source_selection.clone().into(), attestation: request.attestation.clone().into(), interpretation: wire::INTERPRETATION.into(), current_generation: 0, current_attempt: None, cancelled: false, terminal_attempt: None, terminal_class:None };
-        let mut selected=request.sources.iter().filter(|source|source.key!=request.revision.key).collect::<Vec<_>>();
-        if selected.len()>64 {return Err(CanonicalError::PayloadLimit);}
-        selected.sort_by(|left,right|left.key.cmp(&right.key));
-        let mut sources=Vec::with_capacity(selected.len());
-        let mut previous=None;
+        let row = CanonicalRun {
+            key: request.key.clone(),
+            problem: request.revision.problem.clone(),
+            revision: request.revision.key.clone(),
+            source_sequence: request.revision.sequence,
+            sequence: 0,
+            request: request.request.clone().into(),
+            source_selection: request.source_selection.clone().into(),
+            attestation: request.attestation.clone().into(),
+            interpretation: wire::INTERPRETATION.into(),
+            current_generation: 0,
+            current_attempt: None,
+            cancelled: false,
+            terminal_attempt: None,
+            terminal_class: None,
+        };
+        let mut selected = request
+            .sources
+            .iter()
+            .filter(|source| source.key != request.revision.key)
+            .collect::<Vec<_>>();
+        if selected.len() > 64 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        selected.sort_by(|left, right| left.key.cmp(&right.key));
+        let mut sources = Vec::with_capacity(selected.len());
+        let mut previous = None;
         for source in selected {
-            identity(&source.key)?;identity(&source.problem)?;
-            if previous==Some(source.key.as_str()) {return Err(CanonicalError::Configuration("duplicate retained source".into()));}
-            previous=Some(source.key.as_str());
-            let key=hash("canonical.execution.run-source.v1",&[request.key.as_bytes(),source.problem.as_bytes(),source.key.as_bytes()]);
-            let mut header=Object::new();
-            header.insert("key",Value::String(key));header.insert("revision",Value::String(source.key.clone()));
-            header.insert("problem",Value::String(source.problem.clone()));header.insert("sequence",canonical_codec::encode_uint(source.sequence)?);
-            header.insert("interpretation",Value::String(source.interpretation.clone()));
+            identity(&source.key)?;
+            identity(&source.problem)?;
+            if previous == Some(source.key.as_str()) {
+                return Err(CanonicalError::Configuration(
+                    "duplicate retained source".into(),
+                ));
+            }
+            previous = Some(source.key.as_str());
+            let key = hash(
+                "canonical.execution.run-source.v1",
+                &[
+                    request.key.as_bytes(),
+                    source.problem.as_bytes(),
+                    source.key.as_bytes(),
+                ],
+            );
+            let mut header = Object::new();
+            header.insert("key", Value::String(key));
+            header.insert("revision", Value::String(source.key.clone()));
+            header.insert("problem", Value::String(source.problem.clone()));
+            header.insert("sequence", canonical_codec::encode_uint(source.sequence)?);
+            header.insert(
+                "interpretation",
+                Value::String(source.interpretation.clone()),
+            );
             sources.push(header);
         }
         // Retain the exact source list in the immutable receipt; no later caller can
         // replay a semantic run identity with a different physical/model selection.
-        let selections=request.sources.iter().map(|source|(&source.problem,&source.key,source.sequence,&source.interpretation)).collect::<Vec<_>>();
-        let mut row=row;
-        row.source_selection=serde_json::to_vec(&(1_u8,&request.source_selection,selections)).map_err(|error|CanonicalError::Configuration(error.to_string()))?.into();
-        bounded(row.source_selection.as_slice(),crate::canonical::PAYLOAD_BYTES)?;
+        let selections = request
+            .sources
+            .iter()
+            .map(|source| {
+                (
+                    &source.problem,
+                    &source.key,
+                    source.sequence,
+                    &source.interpretation,
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut row = row;
+        row.source_selection = serde_json::to_vec(&(1_u8, &request.source_selection, selections))
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            .into();
+        bounded(
+            row.source_selection.as_slice(),
+            crate::canonical::PAYLOAD_BYTES,
+        )?;
         let encoded = wire::encode_canonical_runs(&row)?;
         self.ensure_writes()?;
-        let response = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::begin_run($row,$sources);").bind(("row", encoded.clone())).bind(("sources",sources.clone())))).await;
+        let response = protected_query(|| {
+            Ok(self
+                .db
+                .query("RETURN fn::pse_execution_v1::begin_run($row,$sources);")
+                .bind(("row", encoded.clone()))
+                .bind(("sources", sources.clone())))
+        })
+        .await;
         match response {
-            Ok(mut response) => Ok(wire::decode_canonical_runs(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?),
+            Ok(mut response) => Ok(wire::decode_canonical_runs(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?),
             Err(error) => match self.canonical_run(&row.key).await {
-                Ok(Some(saved)) if saved.request == row.request && saved.problem == row.problem && saved.revision == row.revision && saved.source_selection == row.source_selection && saved.attestation == row.attestation && saved.interpretation == row.interpretation => {self.ensure_execution_retained(&row.key).await?;Ok(saved)},
+                Ok(Some(saved))
+                    if saved.request == row.request
+                        && saved.problem == row.problem
+                        && saved.revision == row.revision
+                        && saved.source_selection == row.source_selection
+                        && saved.attestation == row.attestation
+                        && saved.interpretation == row.interpretation =>
+                {
+                    self.ensure_execution_retained(&row.key).await?;
+                    Ok(saved)
+                }
                 Ok(Some(_)) => Err(CanonicalError::OperationReused),
                 _ => Err(error),
             },
         }
     }
     /// Bounded semantic ordering over one problem's recorded execution sequence.
-    pub async fn execution_run_page(&self,problem:&str,after:Option<u64>,limit:usize)->Result<Vec<RunSummary>,CanonicalError>{
-        identity(problem)?;if !(1..=64).contains(&limit){return Err(CanonicalError::PayloadLimit);}
-        let after=after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(canonical_codec::encode_int(-1)?);
+    pub async fn execution_run_page(
+        &self,
+        problem: &str,
+        after: Option<u64>,
+        limit: usize,
+    ) -> Result<Vec<RunSummary>, CanonicalError> {
+        identity(problem)?;
+        if !(1..=64).contains(&limit) {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let after = after
+            .map(canonical_codec::encode_uint)
+            .transpose()?
+            .unwrap_or(canonical_codec::encode_int(-1)?);
         let mut result=bounded_query(self.db.query("SELECT key,problem,revision,source_sequence,sequence,interpretation,current_generation,current_attempt,cancelled,terminal_attempt,terminal_class FROM canonical_runs WHERE problem=$problem AND sequence>$after ORDER BY sequence LIMIT $limit;").bind(("problem",problem.to_owned())).bind(("after",after)).bind(("limit",limit))).await?;
-        result.take::<Vec<Object>>(0)?.into_iter().map(decode_run_summary).collect()
+        result
+            .take::<Vec<Object>>(0)?
+            .into_iter()
+            .map(decode_run_summary)
+            .collect()
     }
     /// Exact scalar metadata for one retained seed; payload selection requires its manifest.
-    pub async fn result_seed(&self,key:&str)->Result<Option<pse_model::generated::runtime::canonical_result_seeds::Row>,CanonicalError>{identity(key)?;let mut result=bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_result_seeds',$key);").bind(("key",key.to_owned()))).await?;result.take::<Option<Object>>(0)?.map(wire::decode_canonical_result_seeds).transpose().map_err(Into::into)}
+    pub async fn result_seed(
+        &self,
+        key: &str,
+    ) -> Result<Option<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
+    {
+        identity(key)?;
+        let mut result = bounded_query(
+            self.db
+                .query("SELECT * FROM ONLY type::record('canonical_result_seeds',$key);")
+                .bind(("key", key.to_owned())),
+        )
+        .await?;
+        result
+            .take::<Option<Object>>(0)?
+            .map(wire::decode_canonical_result_seeds)
+            .transpose()
+            .map_err(Into::into)
+    }
     /// Narrow eligibility selector; callers validate terminal scientific permission.
-    pub async fn result_seed_candidates(&self,layout:&str,preparation:&str,backend:&str,attempt:Option<&str>)->Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>,CanonicalError>{
-        let query=if attempt.is_some(){"SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"}else{"SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"};
-        let mut result=bounded_query(self.db.query(query).bind(("layout",layout.to_owned())).bind(("preparation",preparation.to_owned())).bind(("backend",backend.to_owned())).bind(("attempt",attempt.map(str::to_owned)))).await?;result.take::<Vec<Object>>(0)?.into_iter().map(|row|wire::decode_canonical_result_seeds(row).map_err(Into::into)).collect()
+    pub async fn result_seed_candidates(
+        &self,
+        layout: &str,
+        preparation: &str,
+        backend: &str,
+        attempt: Option<&str>,
+    ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
+    {
+        let query = if attempt.is_some() {
+            "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
+        } else {
+            "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
+        };
+        let mut result = bounded_query(
+            self.db
+                .query(query)
+                .bind(("layout", layout.to_owned()))
+                .bind(("preparation", preparation.to_owned()))
+                .bind(("backend", backend.to_owned()))
+                .bind(("attempt", attempt.map(str::to_owned))),
+        )
+        .await?;
+        result
+            .take::<Vec<Object>>(0)?
+            .into_iter()
+            .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
+            .collect()
     }
     /// Narrow immutable seed headers for one explicit attempt, ordered by scientific step.
-    pub async fn result_seed_page(&self,attempt:&str,after:Option<u64>)->Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>,CanonicalError>{
+    pub async fn result_seed_page(
+        &self,
+        attempt: &str,
+        after: Option<u64>,
+    ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
+    {
         identity(attempt)?;
-        let after=after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(canonical_codec::encode_int(-1)?);
+        let after = after
+            .map(canonical_codec::encode_uint)
+            .transpose()?
+            .unwrap_or(canonical_codec::encode_int(-1)?);
         let mut result=bounded_query(self.db.query("SELECT * FROM canonical_result_seeds WHERE attempt=$attempt AND step>$after ORDER BY step LIMIT 64;").bind(("attempt",attempt.to_owned())).bind(("after",after))).await?;
-        result.take::<Vec<Object>>(0)?.into_iter().map(|row|wire::decode_canonical_result_seeds(row).map_err(Into::into)).collect()
+        result
+            .take::<Vec<Object>>(0)?
+            .into_iter()
+            .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
+            .collect()
     }
     /// Renew the current live worker fence; expired or cancelled workers cannot revive.
-    pub async fn renew_attempt(&self,fence:&AttemptFence,lifetime:Duration)->Result<CanonicalAttempt,CanonicalError> {
-        let lifetime=i64::try_from(lifetime.as_micros()).map_err(|_|CanonicalError::PayloadLimit)?;
-        if lifetime<=0 || lifetime>86_400_000_000 {return Err(CanonicalError::Configuration("attempt renewal lifetime out of bounds".into()));}
-        let generation=canonical_codec::encode_uint(fence.generation)?;
+    pub async fn renew_attempt(
+        &self,
+        fence: &AttemptFence,
+        lifetime: Duration,
+    ) -> Result<CanonicalAttempt, CanonicalError> {
+        let lifetime =
+            i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
+        if lifetime <= 0 || lifetime > 86_400_000_000 {
+            return Err(CanonicalError::Configuration(
+                "attempt renewal lifetime out of bounds".into(),
+            ));
+        }
+        let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
-        let mut response=protected_query(||Ok(self.db.query("RETURN fn::pse_execution_v1::renew($run,$attempt,$generation,$lifetime);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("lifetime",lifetime)))).await?;
-        Ok(wire::decode_canonical_attempts(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?)
+        let mut response = protected_query(|| {
+            Ok(self
+                .db
+                .query("RETURN fn::pse_execution_v1::renew($run,$attempt,$generation,$lifetime);")
+                .bind(("run", fence.run.clone()))
+                .bind(("attempt", fence.attempt.clone()))
+                .bind(("generation", generation.clone()))
+                .bind(("lifetime", lifetime)))
+        })
+        .await?;
+        Ok(wire::decode_canonical_attempts(
+            response
+                .take::<Option<Object>>(0)?
+                .ok_or(CanonicalError::IncompleteResponse)?,
+        )?)
     }
     /// Register only a structurally complete immutable chunked seed under its live gate.
     /// Eligibility still comes from the scientific completion owner and terminal descriptor.
-    pub async fn register_result_seed(&self,fence:&AttemptFence,operation:&str,seed:&pse_model::generated::runtime::canonical_result_seeds::Row)->Result<(),CanonicalError> {
-        identity(operation)?;identity(&seed.key)?;
-        if seed.run!=fence.run || seed.attempt!=fence.attempt || seed.batch_count==0 || seed.batch!=result_batch_key(&fence.attempt,&seed.result_set,seed.first_ordinal) {return Err(CanonicalError::Configuration("seed descriptor coordinate mismatch".into()));}
-        let encoded=wire::encode_canonical_result_seeds(seed)?;
-        let mut digest=FramedHasher::new(Frame::CanonicalPayloadV1);
+    pub async fn register_result_seed(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        seed: &pse_model::generated::runtime::canonical_result_seeds::Row,
+    ) -> Result<(), CanonicalError> {
+        identity(operation)?;
+        identity(&seed.key)?;
+        if seed.run != fence.run
+            || seed.attempt != fence.attempt
+            || seed.batch_count == 0
+            || seed.batch != result_batch_key(&fence.attempt, &seed.result_set, seed.first_ordinal)
+        {
+            return Err(CanonicalError::Configuration(
+                "seed descriptor coordinate mismatch".into(),
+            ));
+        }
+        let encoded = wire::encode_canonical_result_seeds(seed)?;
+        let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
         digest.str("pse.execution.seed-descriptor.v1");
-        pse_model::SemanticFrame::frame(seed,&mut digest);
-        let request=json(&(&fence.run,&fence.attempt,fence.generation,digest.finish_hash().to_hex()))?;
-        let generation=canonical_codec::encode_uint(fence.generation)?;
+        pse_model::SemanticFrame::frame(seed, &mut digest);
+        let request = json(&(
+            &fence.run,
+            &fence.attempt,
+            fence.generation,
+            digest.finish_hash().to_hex(),
+        ))?;
+        let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
         let result=protected_query(||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
         match result {
-            Ok(mut response)=>{let saved=wire::decode_canonical_result_seeds(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;if saved!=*seed{return Err(CanonicalError::OperationReused);}Ok(())},
-            Err(error)=>match self.settle_operation(operation,"seed",&request).await?{Some(_)=>Ok(()),None=>Err(error)},
+            Ok(mut response) => {
+                let saved = wire::decode_canonical_result_seeds(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?;
+                if saved != *seed {
+                    return Err(CanonicalError::OperationReused);
+                }
+                Ok(())
+            }
+            Err(error) => match self.settle_operation(operation, "seed", &request).await? {
+                Some(_) => Ok(()),
+                None => Err(error),
+            },
         }
     }
     /// Read a retained semantic execution independently of its current generation.
     pub async fn canonical_run(&self, key: &str) -> Result<Option<CanonicalRun>, CanonicalError> {
-        let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_runs', $key);").bind(("key", key.to_owned()))).await?;
-        response.take::<Option<Object>>(0)?.map(wire::decode_canonical_runs).transpose().map_err(Into::into)
+        let mut response = bounded_query(
+            self.db
+                .query("SELECT * FROM ONLY type::record('canonical_runs', $key);")
+                .bind(("key", key.to_owned())),
+        )
+        .await?;
+        response
+            .take::<Option<Object>>(0)?
+            .map(wire::decode_canonical_runs)
+            .transpose()
+            .map_err(Into::into)
     }
     /// Read an explicit attempt; terminal history is independent of the latest pointer.
-    pub async fn canonical_attempt(&self, key: &str) -> Result<Option<CanonicalAttempt>, CanonicalError> {
-        let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_attempts', $key);").bind(("key", key.to_owned()))).await?;
-        response.take::<Option<Object>>(0)?.map(wire::decode_canonical_attempts).transpose().map_err(Into::into)
+    pub async fn canonical_attempt(
+        &self,
+        key: &str,
+    ) -> Result<Option<CanonicalAttempt>, CanonicalError> {
+        let mut response = bounded_query(
+            self.db
+                .query("SELECT * FROM ONLY type::record('canonical_attempts', $key);")
+                .bind(("key", key.to_owned())),
+        )
+        .await?;
+        response
+            .take::<Option<Object>>(0)?
+            .map(wire::decode_canonical_attempts)
+            .transpose()
+            .map_err(Into::into)
     }
     /// Read a closed manifest; admission additionally requires a terminal attempt.
-    pub async fn canonical_result_manifest(&self, key: &str) -> Result<Option<ResultManifest>, CanonicalError> {
-        let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_result_manifests', $key);").bind(("key", key.to_owned()))).await?;
-        let row = response.take::<Option<Object>>(0)?.map(wire::decode_canonical_result_manifests).transpose()?;
-        if let Some(row) = &row { decode_result_descriptors(row)?; }
+    pub async fn canonical_result_manifest(
+        &self,
+        key: &str,
+    ) -> Result<Option<ResultManifest>, CanonicalError> {
+        let mut response = bounded_query(
+            self.db
+                .query("SELECT * FROM ONLY type::record('canonical_result_manifests', $key);")
+                .bind(("key", key.to_owned())),
+        )
+        .await?;
+        let row = response
+            .take::<Option<Object>>(0)?
+            .map(wire::decode_canonical_result_manifests)
+            .transpose()?;
+        if let Some(row) = &row {
+            decode_result_descriptors(row)?;
+        }
         Ok(row)
     }
-    async fn ensure_execution_retained(&self,run:&str)->Result<(),CanonicalError>{
-        let mut retirement=bounded_query(self.db.query("SELECT key FROM ONLY type::record('canonical_result_retirements',$run);").bind(("run",run.to_owned()))).await?;
-        if retirement.take::<Option<Object>>(0)?.is_some(){return Err(CanonicalError::Configuration("execution results explicitly retired".into()));}
+    async fn ensure_execution_retained(&self, run: &str) -> Result<(), CanonicalError> {
+        let mut retirement = bounded_query(
+            self.db
+                .query("SELECT key FROM ONLY type::record('canonical_result_retirements',$run);")
+                .bind(("run", run.to_owned())),
+        )
+        .await?;
+        if retirement.take::<Option<Object>>(0)?.is_some() {
+            return Err(CanonicalError::Configuration(
+                "execution results explicitly retired".into(),
+            ));
+        }
         Ok(())
     }
-    async fn settle_operation(&self, operation: &str, kind: &str, request: &[u8]) -> Result<Option<String>, CanonicalError> {
-        let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_execution_operations', $key);").bind(("key", operation.to_owned()))).await?;
-        let Some(object) = response.take::<Option<Object>>(0)? else { return Ok(None); };
+    async fn settle_operation(
+        &self,
+        operation: &str,
+        kind: &str,
+        request: &[u8],
+    ) -> Result<Option<String>, CanonicalError> {
+        let mut response = bounded_query(
+            self.db
+                .query("SELECT * FROM ONLY type::record('canonical_execution_operations', $key);")
+                .bind(("key", operation.to_owned())),
+        )
+        .await?;
+        let Some(object) = response.take::<Option<Object>>(0)? else {
+            return Ok(None);
+        };
         let row = wire::decode_canonical_execution_operations(object)?;
         self.ensure_execution_retained(&row.run).await?;
-        if row.kind != kind || row.request.as_slice() != request { return Err(CanonicalError::OperationReused); }
+        if row.kind != kind || row.request.as_slice() != request {
+            return Err(CanonicalError::OperationReused);
+        }
         Ok(row.attempt)
     }
     /// Claim a fresh actual attempt, or settle the same claim after lost acknowledgment.
-    pub async fn claim_run(&self, run: &str, operation: &str, worker: &str, lifetime: Duration) -> Result<AttemptFence, CanonicalError> {
-        identity(run)?; identity(operation)?; identity(worker)?;
-        let lifetime = i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
-        if lifetime <= 0 || lifetime > 86_400_000_000 { return Err(CanonicalError::Configuration("attempt lifetime must be positive and at most one day".into())); }
-        let attempt = execution_attempt_key(run,operation);
+    pub async fn claim_run(
+        &self,
+        run: &str,
+        operation: &str,
+        worker: &str,
+        lifetime: Duration,
+    ) -> Result<AttemptFence, CanonicalError> {
+        identity(run)?;
+        identity(operation)?;
+        identity(worker)?;
+        let lifetime =
+            i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
+        if lifetime <= 0 || lifetime > 86_400_000_000 {
+            return Err(CanonicalError::Configuration(
+                "attempt lifetime must be positive and at most one day".into(),
+            ));
+        }
+        let attempt = execution_attempt_key(run, operation);
         let request = json(&(run, operation, worker, lifetime, wire::INTERPRETATION))?;
         self.ensure_writes()?;
         let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::claim($run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
         let row = match result {
-            Ok(mut response) => wire::decode_canonical_attempts(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?,
-            Err(error) => match self.settle_operation(operation,"claim",&request).await? { Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?, None => return Err(error) },
+            Ok(mut response) => wire::decode_canonical_attempts(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?,
+            Err(error) => match self.settle_operation(operation, "claim", &request).await? {
+                Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
+                None => return Err(error),
+            },
         };
-        Ok(AttemptFence {run:row.run,attempt:row.key,generation:row.generation})
+        Ok(AttemptFence {
+            run: row.run,
+            attempt: row.key,
+            generation: row.generation,
+        })
     }
     /// Append an exact bounded batch under the attempt's live ingestion gate.
-    pub async fn append_result_batch(&self, fence: &AttemptFence, operation: &str, name: &str, ordinal: u64, payload: &[u8], row_count: u64) -> Result<ResultBatch, CanonicalError> {
-        self.append_execution_batch(fence,operation,name,ordinal,payload,row_count,None,&[],&[]).await
+    pub async fn append_result_batch(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+        ordinal: u64,
+        payload: &[u8],
+        row_count: u64,
+    ) -> Result<ResultBatch, CanonicalError> {
+        self.append_execution_batch(
+            fence,
+            operation,
+            name,
+            ordinal,
+            payload,
+            row_count,
+            None,
+            &[],
+            &[],
+        )
+        .await
     }
     /// Append an independently decodable scientific block and its indexed metadata atomically.
-    pub async fn append_result_block(&self, fence: &AttemptFence, operation: &str, name: &str, ordinal: u64, payload: &[u8], row_count: u64, block: &ResultBlock) -> Result<ResultBatch, CanonicalError> {
-        self.append_execution_batch(fence,operation,name,ordinal,payload,row_count,Some(block),&[],&[]).await
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the ingestion gate checks the attempt fence, operation identity, batch extent and scientific descriptor separately"
+    )]
+    pub async fn append_result_block(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+        ordinal: u64,
+        payload: &[u8],
+        row_count: u64,
+        block: &ResultBlock,
+    ) -> Result<ResultBatch, CanonicalError> {
+        self.append_execution_batch(
+            fence,
+            operation,
+            name,
+            ordinal,
+            payload,
+            row_count,
+            Some(block),
+            &[],
+            &[],
+        )
+        .await
     }
     /// Retain exact scalar values and their batch receipt under one ingestion gate.
-    pub async fn append_result_block_cells(&self, fence: &AttemptFence, operation: &str, name: &str, ordinal: u64, payload: &[u8], row_count: u64, block: &ResultBlock, cells: &[ResultCell]) -> Result<ResultBatch,CanonicalError> {
-        if cells.windows(2).any(|pair|pair[0].key>=pair[1].key){return Err(CanonicalError::Configuration("scalar metadata must have strictly ordered identities".into()));}
-        self.append_execution_batch(fence,operation,name,ordinal,payload,row_count,Some(block),cells,&[]).await
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "scalar indexes and their immutable batch descriptor must share the explicit fenced ingestion operation"
+    )]
+    pub async fn append_result_block_cells(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+        ordinal: u64,
+        payload: &[u8],
+        row_count: u64,
+        block: &ResultBlock,
+        cells: &[ResultCell],
+    ) -> Result<ResultBatch, CanonicalError> {
+        if cells.windows(2).any(|pair| pair[0].key >= pair[1].key) {
+            return Err(CanonicalError::Configuration(
+                "scalar metadata must have strictly ordered identities".into(),
+            ));
+        }
+        self.append_execution_batch(
+            fence,
+            operation,
+            name,
+            ordinal,
+            payload,
+            row_count,
+            Some(block),
+            cells,
+            &[],
+        )
+        .await
     }
     /// Atomically index original IPC rows and scientific output groups with their one immutable payload.
-    pub async fn append_result_block_indexes(&self, fence: &AttemptFence, operation: &str, name: &str, ordinal: u64, payload: &[u8], row_count: u64, block: &ResultBlock, cells: &[ResultCell], outputs: &[ResultOutput]) -> Result<ResultBatch,CanonicalError> {
-        if cells.windows(2).any(|pair|pair[0].key>=pair[1].key)||outputs.windows(2).any(|pair|pair[0].key>=pair[1].key){return Err(CanonicalError::Configuration("result index metadata must have strictly ordered identities".into()));}
-        self.append_execution_batch(fence,operation,name,ordinal,payload,row_count,Some(block),cells,outputs).await
-    }
-    async fn append_execution_batch(&self, fence: &AttemptFence, operation: &str, name: &str, ordinal: u64, payload: &[u8], row_count: u64, block: Option<&ResultBlock>, cells: &[ResultCell], outputs: &[ResultOutput]) -> Result<ResultBatch, CanonicalError> {
-        identity(operation)?; identity(name)?; if name.len()>128 {return Err(CanonicalError::PayloadLimit);} bounded(payload,RESULT_BATCH_BYTES)?;
-        let set_key = result_set_key(&fence.attempt,name);
-        let key = result_batch_key(&fence.attempt,&set_key,ordinal);
-        let digest = result_payload_digest(payload);
-        let set = ResultSet {key:set_key.clone(),attempt:fence.attempt.clone(),name:name.into(),interpretation:wire::INTERPRETATION.into(),next_ordinal:0,row_count:0};
-        let batch = ResultBatch {key:key.clone(),attempt:fence.attempt.clone(),result_set:set_key.clone(),ordinal,digest:digest.clone(),payload:payload.to_vec().into(),row_count};
-        if let Some(block) = block {
-            if block.key != key || block.batch != key || block.result_set != set_key || block.ordinal != ordinal || block.rows != row_count || block.payload_bytes != payload.len() as u64 || block.payload_digest != digest || block.interpretation != wire::INTERPRETATION || block.end < block.start || block.end - block.start != row_count { return Err(CanonicalError::Configuration("scientific block descriptor does not match immutable batch".into())); }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the original payload, block descriptor and derived indexes are distinct premises of one fenced operation"
+    )]
+    pub async fn append_result_block_indexes(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+        ordinal: u64,
+        payload: &[u8],
+        row_count: u64,
+        block: &ResultBlock,
+        cells: &[ResultCell],
+        outputs: &[ResultOutput],
+    ) -> Result<ResultBatch, CanonicalError> {
+        if cells.windows(2).any(|pair| pair[0].key >= pair[1].key)
+            || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
+        {
+            return Err(CanonicalError::Configuration(
+                "result index metadata must have strictly ordered identities".into(),
+            ));
         }
-        if let Some(block) = block { crate::canonical_results::validate_result_block(block,&batch)?; }
-        if cells.len()>64 { return Err(CanonicalError::PayloadLimit); }
-        let mut cell_hash=FramedHasher::new(Frame::CanonicalPayloadV1);
+        self.append_execution_batch(
+            fence,
+            operation,
+            name,
+            ordinal,
+            payload,
+            row_count,
+            Some(block),
+            cells,
+            outputs,
+        )
+        .await
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one transaction validates separate fence, operation, batch and optional scientific index premises"
+    )]
+    async fn append_execution_batch(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+        ordinal: u64,
+        payload: &[u8],
+        row_count: u64,
+        block: Option<&ResultBlock>,
+        cells: &[ResultCell],
+        outputs: &[ResultOutput],
+    ) -> Result<ResultBatch, CanonicalError> {
+        identity(operation)?;
+        identity(name)?;
+        if name.len() > 128 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        bounded(payload, RESULT_BATCH_BYTES)?;
+        let set_key = result_set_key(&fence.attempt, name);
+        let key = result_batch_key(&fence.attempt, &set_key, ordinal);
+        let digest = result_payload_digest(payload);
+        let set = ResultSet {
+            key: set_key.clone(),
+            attempt: fence.attempt.clone(),
+            name: name.into(),
+            interpretation: wire::INTERPRETATION.into(),
+            next_ordinal: 0,
+            row_count: 0,
+        };
+        let batch = ResultBatch {
+            key: key.clone(),
+            attempt: fence.attempt.clone(),
+            result_set: set_key.clone(),
+            ordinal,
+            digest: digest.clone(),
+            payload: payload.to_vec().into(),
+            row_count,
+        };
+        if let Some(block) = block
+            && (block.key != key
+                || block.batch != key
+                || block.result_set != set_key
+                || block.ordinal != ordinal
+                || block.rows != row_count
+                || block.payload_bytes != payload.len() as u64
+                || block.payload_digest != digest
+                || block.interpretation != wire::INTERPRETATION
+                || block.end < block.start
+                || block.end - block.start != row_count)
+        {
+            return Err(CanonicalError::Configuration(
+                "scientific block descriptor does not match immutable batch".into(),
+            ));
+        }
+        if let Some(block) = block {
+            crate::canonical_results::validate_result_block(block, &batch)?;
+        }
+        if cells.len() > 64 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut cell_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
         cell_hash.str("pse.execution.scalar-metadata.v1");
         for cell in cells {
             crate::canonical_results::validate_result_cell(cell)?;
-            if cell.batch!=key || cell.result_set!=set_key {return Err(CanonicalError::Configuration("scalar cell batch coordinate mismatch".into()));}
-            if block.is_some_and(|block|cell.row<block.start||cell.row>=block.end){return Err(CanonicalError::Configuration("scalar cell row is outside original IPC block".into()));}
-            pse_model::SemanticFrame::frame(cell,&mut cell_hash);
+            if cell.batch != key || cell.result_set != set_key {
+                return Err(CanonicalError::Configuration(
+                    "scalar cell batch coordinate mismatch".into(),
+                ));
+            }
+            if block.is_some_and(|block| cell.row < block.start || cell.row >= block.end) {
+                return Err(CanonicalError::Configuration(
+                    "scalar cell row is outside original IPC block".into(),
+                ));
+            }
+            pse_model::SemanticFrame::frame(cell, &mut cell_hash);
         }
-        if outputs.len()>64{return Err(CanonicalError::PayloadLimit);}
-        let mut output_hash=FramedHasher::new(Frame::CanonicalPayloadV1);
+        if outputs.len() > 64 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut output_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
         output_hash.str("pse.execution.output-index-metadata.v1");
         for output in outputs {
-            identity(&output.key)?;identity(&output.output)?;identity(&output.partition)?;
-            if output.batch!=key||output.result_set!=set_key||output.interpretation!=wire::INTERPRETATION||output.end<output.start||block.is_none_or(|block|output.start<block.start||output.end>block.end){return Err(CanonicalError::Configuration("output index batch coordinate mismatch".into()));}
-            pse_model::SemanticFrame::frame(output,&mut output_hash);
+            identity(&output.key)?;
+            identity(&output.output)?;
+            identity(&output.partition)?;
+            if output.batch != key
+                || output.result_set != set_key
+                || output.interpretation != wire::INTERPRETATION
+                || output.end < output.start
+                || block.is_none_or(|block| output.start < block.start || output.end > block.end)
+            {
+                return Err(CanonicalError::Configuration(
+                    "output index batch coordinate mismatch".into(),
+                ));
+            }
+            pse_model::SemanticFrame::frame(output, &mut output_hash);
         }
-        let mut block_hash=FramedHasher::new(Frame::CanonicalPayloadV1);
+        let mut block_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
         block_hash.str("pse.execution.block-metadata.v1");
-        if let Some(block)=block { pse_model::SemanticFrame::frame(block,&mut block_hash); }
-        let request = json(&(&fence.run,&fence.attempt,fence.generation,name,ordinal,&digest,row_count,block_hash.finish_hash().to_hex(),cell_hash.finish_hash().to_hex(),output_hash.finish_hash().to_hex()))?;
-        let block = block.map(wire::encode_canonical_result_blocks).transpose()?;
-        let cells = cells.iter().map(wire::encode_canonical_result_cells).collect::<Result<Vec<_>,_>>()?;
-        let outputs = outputs.iter().map(wire::encode_canonical_result_block_outputs).collect::<Result<Vec<_>,_>>()?;
+        if let Some(block) = block {
+            pse_model::SemanticFrame::frame(block, &mut block_hash);
+        }
+        let request = json(&(
+            &fence.run,
+            &fence.attempt,
+            fence.generation,
+            name,
+            ordinal,
+            &digest,
+            row_count,
+            block_hash.finish_hash().to_hex(),
+            cell_hash.finish_hash().to_hex(),
+            output_hash.finish_hash().to_hex(),
+        ))?;
+        let block = block
+            .map(wire::encode_canonical_result_blocks)
+            .transpose()?;
+        let cells = cells
+            .iter()
+            .map(wire::encode_canonical_result_cells)
+            .collect::<Result<Vec<_>, _>>()?;
+        let outputs = outputs
+            .iter()
+            .map(wire::encode_canonical_result_block_outputs)
+            .collect::<Result<Vec<_>, _>>()?;
         let encoded_set = wire::encode_canonical_result_sets(&set)?;
         let encoded_batch = wire::encode_canonical_result_batches(&batch)?;
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
         let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::append($run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
         match result {
-            Ok(mut response) => {let saved=wire::decode_canonical_result_batches(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?; if saved!=batch {return Err(CanonicalError::OperationReused);} Ok(saved)},
+            Ok(mut response) => {
+                let saved = wire::decode_canonical_result_batches(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?;
+                if saved != batch {
+                    return Err(CanonicalError::OperationReused);
+                }
+                Ok(saved)
+            }
             Err(error) => {
-                if self.settle_operation(operation,"append",&request).await?.is_none() { return Err(error); }
-                let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_result_batches', $key);").bind(("key",key))).await?;
-                let saved = wire::decode_canonical_result_batches(response.take::<Option<Object>>(0)?.ok_or(error)?)?;
-                if saved != batch { return Err(CanonicalError::OperationReused); }
+                if self
+                    .settle_operation(operation, "append", &request)
+                    .await?
+                    .is_none()
+                {
+                    return Err(error);
+                }
+                let mut response = bounded_query(
+                    self.db
+                        .query("SELECT * FROM ONLY type::record('canonical_result_batches', $key);")
+                        .bind(("key", key)),
+                )
+                .await?;
+                let saved = wire::decode_canonical_result_batches(
+                    response.take::<Option<Object>>(0)?.ok_or(error)?,
+                )?;
+                if saved != batch {
+                    return Err(CanonicalError::OperationReused);
+                }
                 Ok(saved)
             }
         }
     }
     /// Fence late batches before reconciling immutable metadata outside a transaction.
-    pub async fn close_result_ingestion(&self, fence: &AttemptFence, operation: &str) -> Result<ClosedAttempt, CanonicalError> {
+    pub async fn close_result_ingestion(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+    ) -> Result<ClosedAttempt, CanonicalError> {
         identity(operation)?;
-        let request = json(&(&fence.run,&fence.attempt,fence.generation))?;
+        let request = json(&(&fence.run, &fence.attempt, fence.generation))?;
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
         let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::close($run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
-        self.closed_response(result,operation,"close",&request).await
+        self.closed_response(result, operation, "close", &request)
+            .await
     }
-    async fn closure_operation(&self, operation:&str, kind:&str, request:Option<&[u8]>) -> Result<Option<(String,u64)>,CanonicalError> {
-        let mut response=bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
-        let Some(row)=response.take::<Option<Object>>(0)? else {return Ok(None);};
-        let row=wire::decode_canonical_execution_operations(row)?;
-        if row.kind!=kind || request.is_some_and(|request|row.request.as_slice()!=request) {return Err(CanonicalError::OperationReused);}
-        let authority=std::str::from_utf8(row.result.as_slice()).map_err(|error|CanonicalError::Configuration(error.to_string()))?.parse::<u64>().map_err(|error|CanonicalError::Configuration(error.to_string()))?;
-        Ok(Some((row.attempt.ok_or_else(||CanonicalError::Configuration("closure attempt missing".into()))?,authority)))
+    async fn closure_operation(
+        &self,
+        operation: &str,
+        kind: &str,
+        request: Option<&[u8]>,
+    ) -> Result<Option<(String, u64)>, CanonicalError> {
+        let mut response = bounded_query(
+            self.db
+                .query(
+                    "SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);",
+                )
+                .bind(("operation", operation.to_owned())),
+        )
+        .await?;
+        let Some(row) = response.take::<Option<Object>>(0)? else {
+            return Ok(None);
+        };
+        let row = wire::decode_canonical_execution_operations(row)?;
+        if row.kind != kind || request.is_some_and(|request| row.request.as_slice() != request) {
+            return Err(CanonicalError::OperationReused);
+        }
+        let authority = std::str::from_utf8(row.result.as_slice())
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            .parse::<u64>()
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        Ok(Some((
+            row.attempt
+                .ok_or_else(|| CanonicalError::Configuration("closure attempt missing".into()))?,
+            authority,
+        )))
     }
-    async fn closed_response(&self, result: Result<surrealdb::IndexedResults,CanonicalError>, operation:&str, kind:&str, request:&[u8]) -> Result<ClosedAttempt,CanonicalError> {
-        let receipt=self.closure_operation(operation,kind,Some(request)).await?;
-        let Some((key,authority))=receipt else {return Err(result.err().unwrap_or(CanonicalError::IncompleteResponse));};
-        let mut value=match result {
-            Ok(mut response) => closed(wire::decode_canonical_attempts(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?)?,
+    async fn closed_response(
+        &self,
+        result: Result<surrealdb::IndexedResults, CanonicalError>,
+        operation: &str,
+        kind: &str,
+        request: &[u8],
+    ) -> Result<ClosedAttempt, CanonicalError> {
+        let receipt = self
+            .closure_operation(operation, kind, Some(request))
+            .await?;
+        let Some((key, authority)) = receipt else {
+            return Err(result.err().unwrap_or(CanonicalError::IncompleteResponse));
+        };
+        let mut value = match result {
+            Ok(mut response) => closed(wire::decode_canonical_attempts(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?)?,
             Err(error) => closed(self.canonical_attempt(&key).await?.ok_or(error)?)?,
         };
-        value.authority=authority;
+        value.authority = authority;
         Ok(value)
     }
     /// Revoke worker authority and freeze available observations at cancellation.
-    pub async fn cancel_run(&self, run: &str, operation: &str) -> Result<CanonicalRun, CanonicalError> {
-        identity(run)?; identity(operation)?;
-        let request = json(&(run,operation))?;
+    pub async fn cancel_run(
+        &self,
+        run: &str,
+        operation: &str,
+    ) -> Result<CanonicalRun, CanonicalError> {
+        identity(run)?;
+        identity(operation)?;
+        let request = json(&(run, operation))?;
         self.ensure_writes()?;
-        let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::cancel($run,$operation,$request);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
+        let result = protected_query(|| {
+            Ok(self
+                .db
+                .query("RETURN fn::pse_execution_v1::cancel($run,$operation,$request);")
+                .bind(("run", run.to_owned()))
+                .bind(("operation", operation.to_owned()))
+                .bind(("request", Bytes::from(request.clone()))))
+        })
+        .await;
         match result {
-            Ok(mut response) => Ok(wire::decode_canonical_runs(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?),
+            Ok(mut response) => Ok(wire::decode_canonical_runs(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?),
             Err(error) => {
                 // Cancellation operations have no attempt; absence must be distinguished.
                 let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
-                let Some(row)=response.take::<Option<Object>>(0)? else { return Err(error); };
-                let row=wire::decode_canonical_execution_operations(row)?;
-                if row.kind!="cancel" || row.request.as_slice()!=request {return Err(CanonicalError::OperationReused);}
+                let Some(row) = response.take::<Option<Object>>(0)? else {
+                    return Err(error);
+                };
+                let row = wire::decode_canonical_execution_operations(row)?;
+                if row.kind != "cancel" || row.request.as_slice() != request {
+                    return Err(CanonicalError::OperationReused);
+                }
                 self.canonical_run(run).await?.ok_or(error)
             }
         }
     }
     /// Current recovery owner closes expired or cancelled staging; no stale worker can use this authority.
-    pub async fn recover_closed_attempt(&self, run: &str, operation: &str) -> Result<ClosedAttempt, CanonicalError> {
-        identity(run)?;identity(operation)?;
-        let request=json(&(run,operation))?;
+    pub async fn recover_closed_attempt(
+        &self,
+        run: &str,
+        operation: &str,
+    ) -> Result<ClosedAttempt, CanonicalError> {
+        identity(run)?;
+        identity(operation)?;
+        let request = json(&(run, operation))?;
         self.ensure_writes()?;
-        let result=protected_query(||Ok(self.db.query("RETURN fn::pse_execution_v1::recover($run,$operation,$request);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
-        self.closed_response(result,operation,"recover",&request).await
+        let result = protected_query(|| {
+            Ok(self
+                .db
+                .query("RETURN fn::pse_execution_v1::recover($run,$operation,$request);")
+                .bind(("run", run.to_owned()))
+                .bind(("operation", operation.to_owned()))
+                .bind(("request", Bytes::from(request.clone()))))
+        })
+        .await;
+        self.closed_response(result, operation, "recover", &request)
+            .await
     }
     /// Resume an already closed live operation after restart without repeating native work.
-    pub async fn resume_closed_attempt(&self, attempt: &str, operation: &str) -> Result<ClosedAttempt, CanonicalError> {
+    pub async fn resume_closed_attempt(
+        &self,
+        attempt: &str,
+        operation: &str,
+    ) -> Result<ClosedAttempt, CanonicalError> {
         let mut response=bounded_query(self.db.query("SELECT kind FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
-        let mut row=response.take::<Option<Object>>(0)?.ok_or_else(||CanonicalError::Configuration("closure operation unavailable".into()))?;
-        let kind=canonical_codec::decode_string(canonical_codec::required(&mut row,"kind")?)?;
-        if kind!="close" && kind!="recover" {return Err(CanonicalError::OperationReused);}
-        let (key,authority)=self.closure_operation(operation,&kind,None).await?.ok_or(CanonicalError::IncompleteResponse)?;
-        if key!=attempt {return Err(CanonicalError::OperationReused);}
-        let mut value=closed(self.canonical_attempt(attempt).await?.ok_or_else(||CanonicalError::Configuration("closed attempt unavailable".into()))?)?;
-        value.authority=authority;
+        let mut row = response
+            .take::<Option<Object>>(0)?
+            .ok_or_else(|| CanonicalError::Configuration("closure operation unavailable".into()))?;
+        let kind = canonical_codec::decode_string(canonical_codec::required(&mut row, "kind")?)?;
+        if kind != "close" && kind != "recover" {
+            return Err(CanonicalError::OperationReused);
+        }
+        let (key, authority) = self
+            .closure_operation(operation, &kind, None)
+            .await?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        if key != attempt {
+            return Err(CanonicalError::OperationReused);
+        }
+        let mut value =
+            closed(self.canonical_attempt(attempt).await?.ok_or_else(|| {
+                CanonicalError::Configuration("closed attempt unavailable".into())
+            })?)?;
+        value.authority = authority;
         Ok(value)
     }
     /// Reconcile exact immutable batch membership in bounded metadata pages, then admit its descriptor.
-    pub async fn reconcile_closed_attempt(&self, closed: &ClosedAttempt) -> Result<ClosedManifest, CanonicalError> {
-        let attempt=self.canonical_attempt(&closed.fence.attempt).await?.ok_or_else(||CanonicalError::Configuration("closed attempt unavailable".into()))?;
-        if !attempt.closed || attempt.ingestion_open || attempt.generation!=closed.fence.generation {return Err(CanonicalError::Configuration("reconciliation attempt fenced".into()));}
-        if let Some(row)=self.canonical_result_manifest(&attempt.key).await? {return Ok(ClosedManifest{closed:closed.clone(),row});}
+    pub async fn reconcile_closed_attempt(
+        &self,
+        closed: &ClosedAttempt,
+    ) -> Result<ClosedManifest, CanonicalError> {
+        let attempt = self
+            .canonical_attempt(&closed.fence.attempt)
+            .await?
+            .ok_or_else(|| CanonicalError::Configuration("closed attempt unavailable".into()))?;
+        if !attempt.closed
+            || attempt.ingestion_open
+            || attempt.generation != closed.fence.generation
+        {
+            return Err(CanonicalError::Configuration(
+                "reconciliation attempt fenced".into(),
+            ));
+        }
+        if let Some(row) = self.canonical_result_manifest(&attempt.key).await? {
+            return Ok(ClosedManifest {
+                closed: closed.clone(),
+                row,
+            });
+        }
         let mut response=bounded_query(self.db.query("SELECT * FROM canonical_result_sets WHERE attempt=$attempt ORDER BY key LIMIT 257;").bind(("attempt",attempt.key.clone()))).await?;
-        let rows:Vec<Object>=response.take(0)?;
-        if rows.len()>RESULT_SETS{return Err(CanonicalError::PayloadLimit);}
-        let mut descriptors=Vec::with_capacity(rows.len());
+        let rows: Vec<Object> = response.take(0)?;
+        if rows.len() > RESULT_SETS {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut descriptors = Vec::with_capacity(rows.len());
         for row in rows {
-            let set=wire::decode_canonical_result_sets(row)?;
-            if set.key!=result_set_key(&attempt.key,&set.name) || set.interpretation!=wire::INTERPRETATION {return Err(CanonicalError::Configuration("closed result-set coordinate mismatch".into()));}
-            let mut next=0_u64;
-            let mut row_count=0_u64;
-            let mut digest=FramedHasher::new(Frame::CanonicalPayloadV1);
+            let set = wire::decode_canonical_result_sets(row)?;
+            if set.key != result_set_key(&attempt.key, &set.name)
+                || set.interpretation != wire::INTERPRETATION
+            {
+                return Err(CanonicalError::Configuration(
+                    "closed result-set coordinate mismatch".into(),
+                ));
+            }
+            let mut next = 0_u64;
+            let mut row_count = 0_u64;
+            let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
             digest.str("pse.execution.batch-selection.v1");
-            while next<set.next_ordinal {
+            while next < set.next_ordinal {
                 let mut page=bounded_query(self.db.query("SELECT key,attempt,result_set,ordinal,digest,row_count FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next ORDER BY ordinal LIMIT 64;").bind(("set",set.key.clone())).bind(("next",canonical_codec::encode_uint(next)?))).await?;
-                let batches:Vec<Object>=page.take(0)?;
-                if batches.is_empty(){return Err(CanonicalError::Configuration("closed result batch missing".into()));}
+                let batches: Vec<Object> = page.take(0)?;
+                if batches.is_empty() {
+                    return Err(CanonicalError::Configuration(
+                        "closed result batch missing".into(),
+                    ));
+                }
                 for mut batch in batches {
-                    let key=canonical_codec::decode_string(canonical_codec::required(&mut batch,"key")?)?;
-                    let selected_attempt=canonical_codec::decode_string(canonical_codec::required(&mut batch,"attempt")?)?;
-                    let selected_set=canonical_codec::decode_string(canonical_codec::required(&mut batch,"result_set")?)?;
-                    let ordinal=canonical_codec::decode_uint(canonical_codec::required(&mut batch,"ordinal")?)?;
-                    let payload_digest=canonical_codec::decode_string(canonical_codec::required(&mut batch,"digest")?)?;
-                    let rows=canonical_codec::decode_uint(canonical_codec::required(&mut batch,"row_count")?)?;
-                    if next>=set.next_ordinal || ordinal!=next || key!=result_batch_key(&attempt.key,&set.key,ordinal) || selected_attempt!=attempt.key || selected_set!=set.key {return Err(CanonicalError::Configuration("closed result batch coverage mismatch".into()));}
+                    let key = canonical_codec::decode_string(canonical_codec::required(
+                        &mut batch, "key",
+                    )?)?;
+                    let selected_attempt = canonical_codec::decode_string(
+                        canonical_codec::required(&mut batch, "attempt")?,
+                    )?;
+                    let selected_set = canonical_codec::decode_string(canonical_codec::required(
+                        &mut batch,
+                        "result_set",
+                    )?)?;
+                    let ordinal = canonical_codec::decode_uint(canonical_codec::required(
+                        &mut batch, "ordinal",
+                    )?)?;
+                    let payload_digest = canonical_codec::decode_string(
+                        canonical_codec::required(&mut batch, "digest")?,
+                    )?;
+                    let rows = canonical_codec::decode_uint(canonical_codec::required(
+                        &mut batch,
+                        "row_count",
+                    )?)?;
+                    if next >= set.next_ordinal
+                        || ordinal != next
+                        || key != result_batch_key(&attempt.key, &set.key, ordinal)
+                        || selected_attempt != attempt.key
+                        || selected_set != set.key
+                    {
+                        return Err(CanonicalError::Configuration(
+                            "closed result batch coverage mismatch".into(),
+                        ));
+                    }
                     digest.str(&key).str(&payload_digest).u64(rows);
-                    row_count=row_count.checked_add(rows).ok_or(CanonicalError::PayloadLimit)?;
-                    next=next.checked_add(1).ok_or(CanonicalError::PayloadLimit)?;
+                    row_count = row_count
+                        .checked_add(rows)
+                        .ok_or(CanonicalError::PayloadLimit)?;
+                    next = next.checked_add(1).ok_or(CanonicalError::PayloadLimit)?;
                 }
             }
-            if row_count!=set.row_count{return Err(CanonicalError::Configuration("closed row coverage mismatch".into()));}
-            descriptors.push(ResultSetDescriptor{key:set.key,name:set.name,batch_count:next,row_count,batches_digest:digest.finish_hash().to_hex()});
+            if row_count != set.row_count {
+                return Err(CanonicalError::Configuration(
+                    "closed row coverage mismatch".into(),
+                ));
+            }
+            descriptors.push(ResultSetDescriptor {
+                key: set.key,
+                name: set.name,
+                batch_count: next,
+                row_count,
+                batches_digest: digest.finish_hash().to_hex(),
+            });
         }
-        let descriptors=json(&descriptors)?;
-        bounded(&descriptors,EXECUTION_METADATA_BYTES)?;
-        let row=ResultManifest{key:attempt.key.clone(),attempt:attempt.key,generation:attempt.generation,digest:metadata_digest(&descriptors),descriptors:descriptors.into()};
-        let encoded=wire::encode_canonical_result_manifests(&row)?;
+        let descriptors = json(&descriptors)?;
+        bounded(&descriptors, EXECUTION_METADATA_BYTES)?;
+        let row = ResultManifest {
+            key: attempt.key.clone(),
+            attempt: attempt.key,
+            generation: attempt.generation,
+            digest: metadata_digest(&descriptors),
+            descriptors: descriptors.into(),
+        };
+        let encoded = wire::encode_canonical_result_manifests(&row)?;
         self.ensure_writes()?;
-        let result=protected_query(||Ok(self.db.query("RETURN fn::pse_execution_v1::manifest($run,$manifest);").bind(("run",closed.fence.run.clone())).bind(("manifest",encoded.clone())))).await;
+        let result = protected_query(|| {
+            Ok(self
+                .db
+                .query("RETURN fn::pse_execution_v1::manifest($run,$manifest);")
+                .bind(("run", closed.fence.run.clone()))
+                .bind(("manifest", encoded.clone())))
+        })
+        .await;
         match result {
-            Ok(mut response)=>{let saved=wire::decode_canonical_result_manifests(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;if saved!=row{return Err(CanonicalError::OperationReused);}},
-            Err(error)=>{self.ensure_execution_retained(&closed.fence.run).await?;if self.canonical_result_manifest(&row.key).await?.as_ref()!=Some(&row){return Err(error);}},
+            Ok(mut response) => {
+                let saved = wire::decode_canonical_result_manifests(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?;
+                if saved != row {
+                    return Err(CanonicalError::OperationReused);
+                }
+            }
+            Err(error) => {
+                self.ensure_execution_retained(&closed.fence.run).await?;
+                if self.canonical_result_manifest(&row.key).await?.as_ref() != Some(&row) {
+                    return Err(error);
+                }
+            }
         }
-        Ok(ClosedManifest{closed:closed.clone(),row})
+        Ok(ClosedManifest {
+            closed: closed.clone(),
+            row,
+        })
     }
     /// Atomically expose the frozen selection with the actual scientific terminal class.
     ///
@@ -729,9 +1994,19 @@ impl CanonicalStore {
     /// class and completion. In particular, success requires the scientific owner's
     /// numerical conclusion, physical eligibility and contextual accuracy admission.
     /// This is an intercrate authority assertion; it performs no pointer or ABI work.
-    #[allow(unsafe_code, reason = "intercrate scientific-writer authority assertion; no pointer or ABI operations")]
-    pub async unsafe fn seal_attempt(&self, manifest: &ClosedManifest, operation: &str, outcome: TerminalClass, completion: &[u8]) -> Result<CanonicalAttempt, CanonicalError> {
-        self.seal_execution(manifest,operation,outcome,completion,None).await
+    #[allow(
+        unsafe_code,
+        reason = "intercrate scientific-writer authority assertion; no pointer or ABI operations"
+    )]
+    pub async unsafe fn seal_attempt(
+        &self,
+        manifest: &ClosedManifest,
+        operation: &str,
+        outcome: TerminalClass,
+        completion: &[u8],
+    ) -> Result<CanonicalAttempt, CanonicalError> {
+        self.seal_execution(manifest, operation, outcome, completion, None)
+            .await
     }
     /// Atomically admit the owning study summary and conclude its exact study header.
     ///
@@ -739,22 +2014,77 @@ impl CanonicalStore {
     /// The study owner must have assembled this exact complete observation of every
     /// settled occurrence and supplied its actual conclusion. This assertion includes
     /// the scientific obligations of `seal_attempt`; it performs no pointer or ABI work.
-    #[allow(unsafe_code,reason="controlled study owner asserts complete admitted occurrence observations")]
-    pub async unsafe fn seal_study_summary(&self,study:&str,manifest:&ClosedManifest,operation:&str,outcome:TerminalClass,completion:&[u8])->Result<CanonicalAttempt,CanonicalError>{
-        identity(study)?;self.seal_execution(manifest,operation,outcome,completion,Some(study)).await
+    #[allow(
+        unsafe_code,
+        reason = "controlled study owner asserts complete admitted occurrence observations"
+    )]
+    pub async unsafe fn seal_study_summary(
+        &self,
+        study: &str,
+        manifest: &ClosedManifest,
+        operation: &str,
+        outcome: TerminalClass,
+        completion: &[u8],
+    ) -> Result<CanonicalAttempt, CanonicalError> {
+        identity(study)?;
+        self.seal_execution(manifest, operation, outcome, completion, Some(study))
+            .await
     }
-    async fn seal_execution(&self,manifest:&ClosedManifest,operation:&str,outcome:TerminalClass,completion:&[u8],study:Option<&str>)->Result<CanonicalAttempt,CanonicalError>{
-        identity(operation)?;bounded(completion,EXECUTION_METADATA_BYTES)?;
-        let fence=&manifest.closed.fence;
-        let request=json(&(&fence.run,&fence.attempt,manifest.closed.authority,&manifest.row.key,&manifest.row.digest,outcome,result_payload_digest(completion),study))?;
-        bounded(&request,crate::canonical::PAYLOAD_BYTES)?;
-        let authority=canonical_codec::encode_uint(manifest.closed.authority)?;
+    async fn seal_execution(
+        &self,
+        manifest: &ClosedManifest,
+        operation: &str,
+        outcome: TerminalClass,
+        completion: &[u8],
+        study: Option<&str>,
+    ) -> Result<CanonicalAttempt, CanonicalError> {
+        identity(operation)?;
+        bounded(completion, EXECUTION_METADATA_BYTES)?;
+        let fence = &manifest.closed.fence;
+        let request = json(&(
+            &fence.run,
+            &fence.attempt,
+            manifest.closed.authority,
+            &manifest.row.key,
+            &manifest.row.digest,
+            outcome,
+            result_payload_digest(completion),
+            study,
+        ))?;
+        bounded(&request, crate::canonical::PAYLOAD_BYTES)?;
+        let authority = canonical_codec::encode_uint(manifest.closed.authority)?;
         self.ensure_writes()?;
-        let query=if study.is_some(){"RETURN fn::pse_study_v1::seal($study,$run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"}else{"RETURN fn::pse_execution_v1::seal($run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"};
-        let result=protected_query(||Ok(self.db.query(query).bind(("study",study.map(str::to_owned))).bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("authority",authority.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("manifest",manifest.row.key.clone())).bind(("digest",manifest.row.digest.clone())).bind(("outcome",outcome.as_str())).bind(("completion",Bytes::from(completion.to_vec()))))).await;
+        let query = if study.is_some() {
+            "RETURN fn::pse_study_v1::seal($study,$run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
+        } else {
+            "RETURN fn::pse_execution_v1::seal($run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
+        };
+        let result = protected_query(|| {
+            Ok(self
+                .db
+                .query(query)
+                .bind(("study", study.map(str::to_owned)))
+                .bind(("run", fence.run.clone()))
+                .bind(("attempt", fence.attempt.clone()))
+                .bind(("authority", authority.clone()))
+                .bind(("operation", operation.to_owned()))
+                .bind(("request", Bytes::from(request.clone())))
+                .bind(("manifest", manifest.row.key.clone()))
+                .bind(("digest", manifest.row.digest.clone()))
+                .bind(("outcome", outcome.as_str()))
+                .bind(("completion", Bytes::from(completion.to_vec()))))
+        })
+        .await;
         match result {
-            Ok(mut response)=>Ok(wire::decode_canonical_attempts(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?),
-            Err(error)=>match self.settle_operation(operation,"seal",&request).await?{Some(key)=>self.canonical_attempt(&key).await?.ok_or(error),None=>Err(error)},
+            Ok(mut response) => Ok(wire::decode_canonical_attempts(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?),
+            Err(error) => match self.settle_operation(operation, "seal", &request).await? {
+                Some(key) => self.canonical_attempt(&key).await?.ok_or(error),
+                None => Err(error),
+            },
         }
     }
 }

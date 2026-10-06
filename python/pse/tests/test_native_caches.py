@@ -19,7 +19,9 @@ def test_arrow_buffers_remain_owned_after_stream_close(
     expected = None
     for _ in range(2):
         with (
-            pse.registry_table("reference.schema_relations", settings=inspection_settings) as stream,
+            pse.registry_table(
+                "reference.schema_relations", settings=inspection_settings
+            ) as stream,
             pa.RecordBatchReader.from_stream(stream) as reader,
         ):
             batches = list(reader)
@@ -54,8 +56,12 @@ def test_registry_stream_cancellation_and_unknown_relation_are_observable(
 ) -> None:
     with pytest.raises(pse.InspectionError, match="unknown declared"):
         pse.registry_table("reference.absent", settings=inspection_settings)
-    stream = pse.registry_table("reference.schema_relations", settings=inspection_settings)
+    stream = pse.registry_table(
+        "reference.schema_relations", settings=inspection_settings
+    )
     stream.cancel()
-    with pytest.raises((pse.InspectionError, pa.ArrowInvalid, pa.ArrowIOError), match="cancel"):
+    with pytest.raises(
+        (pse.InspectionError, pa.ArrowInvalid, pa.ArrowIOError), match="cancel"
+    ):
         pa.RecordBatchReader.from_stream(stream)
     stream.close()

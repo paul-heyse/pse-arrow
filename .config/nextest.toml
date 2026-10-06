@@ -7,12 +7,11 @@
 # Ipopt + MUMPS solves are memory-heavy and spawn their own rayon/tokio threads
 # (blueprint §18.8 thread budget).
 solver = { max-threads = 2 }
-# Serialize resource-intensive object-store and source-pipeline admission tests.
-serial = { max-threads = 1 }
 # Each engineering workflow has its own 64 GiB ceiling and two workers.
 # At most two such processes run together (128 GiB aggregate declared ceiling).
 engineering = { max-threads = 4 }
-# Bound native fixture clients and guarded-operation contention on the selected server.
+# All canonical fixture consumers share the selected server, even with isolated databases.
+# Ordinary journeys reserve two slots; a managed-worker journey reserves all four.
 store = { max-threads = 4 }
 
 [profile.default]
@@ -24,13 +23,14 @@ leak-timeout = "500ms"
 filter = 'package(pse-runtime) & binary(worker)'
 # One case owns the finite managed profile; its study can use both slots.
 # Scheduler waiting precedes case execution and does not consume its deadline.
-test-group = "serial"
-threads-required = 1
+test-group = "store"
+threads-required = 4
 
 [[profile.default.overrides]]
 # Tests using isolated canonical databases on the explicitly selected server.
-filter = 'package(pse-operations) | (package(pse-runtime) & (test(durable_tests::) | test(worker_tests::) | test(study_tests::) | test(horizon_tests::) | binary(worker))) | (package(pse-tests-conformance) & test(acceptance::connected_results_resource::))'
+filter = 'package(pse-operations) | (package(pse-runtime) & (test(workflow::) | test(math::) | binary(worker))) | (package(pse-tests-conformance) & test(acceptance::)) | (package(pse-tests-engine) & (binary(native_session_controls) | binary(pushdown_vs_unpruned)))'
 test-group = "store"
+threads-required = 2
 
 [[profile.default.overrides]]
 filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'

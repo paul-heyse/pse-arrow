@@ -238,7 +238,9 @@ def test_explicit_primal_seed_and_transactional_initialization(
 def runtime(
     inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> pse.Runtime:
-    return pse.Runtime(inspection_settings, substrate=canonical_substrate, ephemeral=True)
+    return pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, ephemeral=True
+    )
 
 
 @pytest.fixture
@@ -246,9 +248,7 @@ def durable_runtime(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: str,
 ) -> pse.Runtime:
-    return pse.Runtime(
-        inspection_settings, substrate=canonical_substrate
-    )
+    return pse.Runtime(inspection_settings, substrate=canonical_substrate)
 
 
 @pytest.fixture
@@ -760,10 +760,13 @@ def test_completion_projection_and_canonical_admission(
     assert result.canonical_attempt_key is not None
     assert handle.canonical_run_key == result.canonical_run_key
     assert handle.canonical_attempt_key == result.canonical_attempt_key
-    (listed,) = pa.table(durable_runtime.attempt_record(result.canonical_attempt_key)).to_pylist()
+    (listed,) = pa.table(
+        durable_runtime.attempt_record(result.canonical_attempt_key)
+    ).to_pylist()
     assert listed["key"] == result.canonical_attempt_key
     assert listed["run"] == result.canonical_run_key
-    assert listed["terminal"] and listed["outcome"] == "succeeded"
+    assert listed["terminal"]
+    assert listed["outcome"] == "succeeded"
     completion = result.completion
     assert completion == result.completion
     converter = codec.converter()
@@ -794,14 +797,18 @@ def test_completion_projection_and_canonical_admission(
     assert not result.diagnostics()
     durable_runtime.clear_program_cache()
     assert result.completion == completion
-    stored = pa.table(durable_runtime.results(
-        result.canonical_run_key, result.canonical_attempt_key, "runtime.solve_runs"
-    )).to_pylist()
+    stored = pa.table(
+        durable_runtime.results(
+            result.canonical_run_key, result.canonical_attempt_key, "runtime.solve_runs"
+        )
+    ).to_pylist()
     assert stored == solves
     destination = tmp_path / "solve.arrow"
     durable_runtime.export_results(
-        result.canonical_run_key, result.canonical_attempt_key,
-        "runtime.solve_runs", destination,
+        result.canonical_run_key,
+        result.canonical_attempt_key,
+        "runtime.solve_runs",
+        destination,
     )
     with pa.ipc.open_stream(destination) as reader:
         assert reader.read_all().to_pylist() == solves
@@ -879,8 +886,11 @@ def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
     )
     assert result.canonical_attempt_key is not None
     assert handle.canonical_attempt_key == result.canonical_attempt_key
-    (stored,) = pa.table(durable_runtime.attempt_record(result.canonical_attempt_key)).to_pylist()
-    assert stored["key"] == result.canonical_attempt_key and stored["terminal"]
+    (stored,) = pa.table(
+        durable_runtime.attempt_record(result.canonical_attempt_key)
+    ).to_pylist()
+    assert stored["key"] == result.canonical_attempt_key
+    assert stored["terminal"]
     (solve,) = result.completion.solves
     assert solve.backend == NativeBackend.SCIP
     assert solve.termination == NativeTermination.SOLUTION_LIMIT
@@ -953,12 +963,17 @@ def test_durable_native_memory_stop_keeps_unavailable_feasibility(
     )
     assert result.canonical_attempt_key is not None
     assert handle.canonical_attempt_key == result.canonical_attempt_key
-    (stored,) = pa.table(durable_runtime.attempt_record(result.canonical_attempt_key)).to_pylist()
-    assert stored["key"] == result.canonical_attempt_key and stored["terminal"]
+    (stored,) = pa.table(
+        durable_runtime.attempt_record(result.canonical_attempt_key)
+    ).to_pylist()
+    assert stored["key"] == result.canonical_attempt_key
+    assert stored["terminal"]
     assert stored["outcome"] == "failed"
-    (persisted,) = pa.table(durable_runtime.results(
-        result.canonical_run_key, result.canonical_attempt_key, "runtime.solve_runs"
-    )).to_pylist()
+    (persisted,) = pa.table(
+        durable_runtime.results(
+            result.canonical_run_key, result.canonical_attempt_key, "runtime.solve_runs"
+        )
+    ).to_pylist()
     assert persisted["termination"] == NativeTermination.RESOURCE_EXHAUSTED.value
     (solve,) = result.completion.solves
     assert solve.backend == NativeBackend.SCIP
@@ -981,19 +996,28 @@ def test_durable_native_memory_stop_keeps_unavailable_feasibility(
     assert not assessment.permits_seed
     diagnostics = result.completion.diagnostics
     assert any(d.class_ == NativeBoundaryClass.RESOURCE_LIMIT for d in diagnostics)
-    retained_assessments = pa.table(durable_runtime.results(
-        result.canonical_run_key, result.canonical_attempt_key,
-        "runtime.candidate_assessments",
-    ))
-    assert tuple(codec.structure_rows(
-        retained_assessments.to_pylist(), result_contracts.RuntimeCandidateAssessmentsRow
-    )) == codec.document_rows(
+    retained_assessments = pa.table(
+        durable_runtime.results(
+            result.canonical_run_key,
+            result.canonical_attempt_key,
+            "runtime.candidate_assessments",
+        )
+    )
+    assert tuple(
+        codec.structure_rows(
+            retained_assessments.to_pylist(),
+            result_contracts.RuntimeCandidateAssessmentsRow,
+        )
+    ) == codec.document_rows(
         result.completion.assessments, result_contracts.RuntimeCandidateAssessmentsRow
     )
-    retained_findings = pa.table(durable_runtime.results(
-        result.canonical_run_key, result.canonical_attempt_key,
-        "runtime.modeling_findings",
-    ))
+    retained_findings = pa.table(
+        durable_runtime.results(
+            result.canonical_run_key,
+            result.canonical_attempt_key,
+            "runtime.modeling_findings",
+        )
+    )
     assert retained_findings.equals(pa.table(result.table("runtime.modeling_findings")))
     assert any(
         row.class_ == NativeBoundaryClass.RESOURCE_LIMIT

@@ -119,6 +119,7 @@ pub(super) fn edit(
     }
 }
 
+#[derive(Debug)]
 struct OwnedObject {
     row: pse_model::generated::runtime::canonical_versions::Row,
     lease: Arc<pse_columnar::AllocationLease>,
@@ -157,6 +158,76 @@ async fn selected_object(
         ));
     }
     Ok(OwnedObject { row, lease })
+}
+
+async fn selected_objects(
+    runtime: &Runtime,
+    read: &SelectedRead,
+    versions: &[String],
+    cancel: &crate::CancelSource,
+) -> Result<Vec<OwnedObject>, WorkflowError> {
+    use pse_operations::canonical_staging::{SELECTED_OBJECT_HEADER_SCRATCH, SOURCE_BLOCK_BYTES};
+    checkpoint(cancel)?;
+    // Manifest and bounded block responses are transient, accounted before the
+    // first protected query, independently of the selected scientific payloads.
+    let _scratch = runtime.shared.math().reserve(
+        "modeling:source-frontier-headers",
+        SELECTED_OBJECT_HEADER_SCRATCH,
+    )?;
+    let store = runtime.canonical.store();
+    let batch = store
+        .selected_object_batch(read.selection(), versions)
+        .await?;
+    checkpoint(cancel)?;
+    let mut leases = Vec::new();
+    let mut extents = Vec::new();
+    for (_, extent) in batch.extents() {
+        let bytes = extent
+            .checked_mul(4)
+            .and_then(|bytes| bytes.checked_add(size_of::<Declaration>() + 1024))
+            .ok_or_else(|| contract("canonical source decode extent overflow"))?;
+        leases.push(
+            runtime
+                .shared
+                .math()
+                .reserve("modeling:canonical-source-decode", bytes)?,
+        );
+        extents.push(extent);
+    }
+    let mut payloads = Vec::new();
+    for extent in &extents {
+        let mut payload = Vec::new();
+        payload
+            .try_reserve_exact(*extent)
+            .map_err(|error| contract(format!("selected source allocation: {error}")))?;
+        payloads.push(payload);
+    }
+    while let Some(object) = payloads
+        .iter()
+        .zip(&extents)
+        .position(|(payload, extent)| payload.len() < *extent)
+    {
+        checkpoint(cancel)?;
+        let ordinal = (payloads[object].len() / SOURCE_BLOCK_BYTES) as u64;
+        let blocks = store
+            .selected_object_blocks(&batch, object, ordinal)
+            .await?;
+        checkpoint(cancel)?;
+        for (object, block) in blocks {
+            if block.ordinal as usize * SOURCE_BLOCK_BYTES != payloads[object].len() {
+                return Err(contract("selected grouped block order differs"));
+            }
+            payloads[object].extend_from_slice(block.payload.as_slice());
+        }
+    }
+    checkpoint(cancel)?;
+    let rows = store.finish_selected_object_batch(batch, payloads).await?;
+    checkpoint(cancel)?;
+    Ok(rows
+        .into_iter()
+        .zip(leases)
+        .map(|(row, lease)| OwnedObject { row, lease })
+        .collect())
 }
 async fn object(
     runtime: &Runtime,
@@ -531,10 +602,15 @@ struct SourceIndex {
     rows: BTreeMap<DeclarationId, Declaration>,
     fields: BTreeMap<DeclarationId, FieldSpans>,
     children: BTreeMap<DeclarationId, Vec<DeclarationId>>,
+    named_children: BTreeMap<(DeclarationId, String), Vec<DeclarationId>>,
+    guards: BTreeMap<DeclarationId, Vec<DeclarationId>>,
+    imported_names: BTreeMap<(DeclarationId, String), Vec<String>>,
     names: BTreeSet<(Option<DeclarationId>, String)>,
     imports: BTreeSet<DeclarationId>,
     scopes: BTreeSet<DeclarationId>,
     requests: BTreeSet<Request>,
+    new_rows: BTreeSet<DeclarationId>,
+    pending_references: BTreeMap<DeclarationId, selected_source::DeclarationReferences>,
     probing: BTreeSet<(DeclarationId, String)>,
     roots_complete: bool,
     versions: BTreeMap<String, String>,
@@ -554,6 +630,19 @@ impl SourceIndex {
         }
         if let Some(parent) = row.parent_id {
             self.children.entry(parent).or_default().push(id);
+            self.named_children
+                .entry((parent, row.name.clone()))
+                .or_default()
+                .push(id);
+            if row.value.kind == Kind::When {
+                self.guards.entry(parent).or_default().push(id);
+            }
+            if let Some(import) = &row.value.import {
+                self.imported_names
+                    .entry((parent, import.alias.as_deref().unwrap_or(&row.name).into()))
+                    .or_default()
+                    .push(row.name.clone());
+            }
             if !self.rows.contains_key(&parent) {
                 self.requests.insert(Request::Logical(parent));
             }
@@ -562,6 +651,7 @@ impl SourceIndex {
             self.fields.insert(id, fields);
         }
         self.rows.insert(id, row);
+        self.new_rows.insert(id);
         Ok(())
     }
     fn data_closure(&mut self) -> Result<Vec<Declaration>, WorkflowError> {
@@ -745,6 +835,46 @@ impl SourceIndex {
         }
         Ok(found)
     }
+    fn pending(
+        &mut self,
+        owner: DeclarationId,
+        mut references: selected_source::DeclarationReferences,
+    ) {
+        references.types.retain(|path| {
+            if path.segments.len() == 1 && self.type_bound(owner, &path.segments[0].name) {
+                return false;
+            }
+            self.resolve(owner, path) == Lookup::Pending
+        });
+        references
+            .exact
+            .retain(|path| self.resolve(owner, path) == Lookup::Pending);
+        references.prefixes.retain(|path| {
+            for end in (1..=path.segments.len()).rev() {
+                match selected_source::resolve_segments(self, owner, &path.segments[..end]) {
+                    Lookup::Absent => {}
+                    Lookup::Pending => return true,
+                    Lookup::Found(_) => return false,
+                }
+            }
+            false
+        });
+        references
+            .names
+            .retain(|name| self.resolve_name(owner, name) == Lookup::Pending);
+        if !references.types.is_empty()
+            || !references.exact.is_empty()
+            || !references.prefixes.is_empty()
+            || !references.names.is_empty()
+        {
+            self.pending_references.insert(owner, references);
+        }
+    }
+    fn needs_name(&self, parent: Option<DeclarationId>, name: &str) -> bool {
+        !self.names.contains(&(parent, name.into()))
+            && !parent.is_some_and(|parent| self.scopes.contains(&parent))
+            && !(parent.is_none() && self.roots_complete)
+    }
     fn type_bound(&self, mut owner: DeclarationId, name: &str) -> bool {
         let mut seen = BTreeSet::new();
         while seen.insert(owner) {
@@ -780,18 +910,19 @@ impl SourceIndex {
         found: &mut BTreeSet<DeclarationId>,
     ) -> bool {
         let mut ready = true;
-        for child in self.children.get(&owner).cloned().unwrap_or_default() {
-            let row = &self.rows[&child];
-            if row.name == name {
-                found.insert(child);
-            }
-            if row.value.kind == Kind::When {
-                if !self.scopes.contains(&child) {
-                    self.requests.insert(Request::Members(child));
-                    ready = false;
-                } else {
-                    ready &= self.guarded(child, name, found);
-                }
+        found.extend(
+            self.named_children
+                .get(&(owner, name.into()))
+                .into_iter()
+                .flatten()
+                .copied(),
+        );
+        for child in self.guards.get(&owner).cloned().unwrap_or_default() {
+            if !self.scopes.contains(&child) {
+                self.requests.insert(Request::Members(child));
+                ready = false;
+            } else {
+                ready &= self.guarded(child, name, found);
             }
         }
         ready
@@ -801,6 +932,9 @@ impl SourceIndex {
             self.requests.insert(Request::Logical(owner));
             return Lookup::Pending;
         };
+        if !selected_source::owns_namespace(row) {
+            return Lookup::Absent;
+        }
         if row.value.kind != Kind::Package && !self.scopes.contains(&owner) {
             self.requests.insert(Request::Members(owner));
             return Lookup::Pending;
@@ -820,13 +954,10 @@ impl SourceIndex {
             .map(|scope| scope.bases.clone())
             .unwrap_or_default();
         let own = self
-            .children
-            .get(&owner)
-            .into_iter()
-            .flatten()
-            .filter(|id| self.rows[id].name == name)
-            .copied()
-            .collect::<Vec<_>>();
+            .named_children
+            .get(&(owner, name.into()))
+            .cloned()
+            .unwrap_or_default();
         if !own.is_empty() {
             return Lookup::Found(own);
         }
@@ -900,24 +1031,22 @@ impl LexicalLookup for SourceIndex {
         })
     }
     fn imported(&mut self, owner: DeclarationId, name: &str) -> Lookup {
-        if !self.imports.contains(&owner) {
+        if self
+            .rows
+            .get(&owner)
+            .is_some_and(|row| !selected_source::owns_namespace(row))
+        {
+            return Lookup::Absent;
+        }
+        if !self.imports.contains(&owner) && !self.scopes.contains(&owner) {
             self.requests.insert(Request::Imports(owner));
             return Lookup::Pending;
         }
         let imports = self
-            .children
-            .get(&owner)
-            .into_iter()
-            .flatten()
-            .filter_map(|id| {
-                let row = &self.rows[id];
-                row.value
-                    .import
-                    .as_ref()
-                    .filter(|import| import.alias.as_deref().unwrap_or(&row.name) == name)
-                    .map(|_| row.name.clone())
-            })
-            .collect::<Vec<_>>();
+            .imported_names
+            .get(&(owner, name.into()))
+            .cloned()
+            .unwrap_or_default();
         if imports.is_empty() {
             return Lookup::Absent;
         }
@@ -1521,14 +1650,36 @@ impl ModelingPackage {
             checkpoint(cancel)?;
             let prior_rows = index.rows.len();
             let requests = std::mem::take(&mut index.requests);
+            let mut requests = requests.into_iter().collect::<Vec<_>>();
+            requests.sort_by_key(|request| match request {
+                Request::Members(_) => 0,
+                Request::Logical(_) => 1,
+                Request::Imports(_) => 2,
+                Request::Name(_, _) => 3,
+            });
+            let mut logicals = Vec::new();
+            let mut names = BTreeMap::<Option<DeclarationId>, Vec<String>>::new();
             for request in requests {
-                let members = match &request {
-                    Request::Logical(id) => store.resolve_logicals(read, &[logical(*id)]).await?,
-                    Request::Name(parent, name) => {
-                        store
-                            .resolve_names(read, &scope(*parent), std::slice::from_ref(name))
-                            .await?
+                if let Request::Logical(id) = request {
+                    logicals.push(id);
+                    continue;
+                }
+                if let Request::Name(parent, name) = &request {
+                    if index.needs_name(*parent, name) {
+                        names.entry(*parent).or_default().push(name.clone());
                     }
+                    continue;
+                }
+                if let Request::Imports(owner) = &request
+                    && index.scopes.contains(owner)
+                {
+                    continue;
+                }
+                let members = match &request {
+                    Request::Logical(_) => {
+                        return Err(contract("logical frontier was not grouped"));
+                    }
+                    Request::Name(_, _) => return Err(contract("name frontier was not grouped")),
                     Request::Imports(owner) => {
                         store
                             .resolve_kind_scope(read, Some(&logical(*owner)), "modeling:import")
@@ -1536,9 +1687,35 @@ impl ModelingPackage {
                     }
                     Request::Members(owner) => store.resolve_scope(read, &logical(*owner)).await?,
                 };
-                if let Request::Logical(id) = request
-                    && members.is_empty()
-                {
+                self.insert_members(&mut index, read, members, &mut leases, cancel)
+                    .await?;
+                match request {
+                    Request::Name(_, _) => return Err(contract("name frontier was not grouped")),
+                    Request::Imports(owner) => {
+                        index.imports.insert(owner);
+                    }
+                    Request::Members(owner) => {
+                        index.scopes.insert(owner);
+                        index.imports.insert(owner);
+                    }
+                    Request::Logical(_) => {}
+                }
+            }
+            for ids in logicals.chunks(64) {
+                checkpoint(cancel)?;
+                let members = store
+                    .resolve_logicals(read, &ids.iter().copied().map(logical).collect::<Vec<_>>())
+                    .await?;
+                let present = members
+                    .iter()
+                    .map(|member| member.logical.clone())
+                    .collect::<BTreeSet<_>>();
+                self.insert_members(&mut index, read, members, &mut leases, cancel)
+                    .await?;
+                for id in ids {
+                    if present.contains(&logical(*id)) {
+                        continue;
+                    }
                     let supplier = object(&self.runtime, read, &format!("record:{id}"))
                         .await?
                         .ok_or_else(|| {
@@ -1554,48 +1731,66 @@ impl ModelingPackage {
                         .versions
                         .insert(supplier.logical.clone(), supplier.key.clone());
                     leases.push(supplier.lease.clone());
-                    index.record_sources.insert(id, origin);
+                    index.record_sources.insert(*id, origin);
                     index.requests.insert(Request::Logical(origin));
                 }
-                self.insert_members(&mut index, read, members, &mut leases, cancel)
-                    .await?;
-                match request {
-                    Request::Name(parent, name) => {
-                        index.names.insert((parent, name));
-                    }
-                    Request::Imports(owner) => {
-                        index.imports.insert(owner);
-                    }
-                    Request::Members(owner) => {
-                        index.scopes.insert(owner);
-                        index.imports.insert(owner);
-                    }
-                    Request::Logical(_) => {}
+            }
+            for (parent, names) in names {
+                for names in names.chunks(64) {
+                    checkpoint(cancel)?;
+                    let members = store.resolve_names(read, &scope(parent), names).await?;
+                    self.insert_members(&mut index, read, members, &mut leases, cancel)
+                        .await?;
+                    index
+                        .names
+                        .extend(names.iter().cloned().map(|name| (parent, name)));
                 }
             }
-            let rows = index.rows.values().cloned().collect::<Vec<_>>();
-            for row in rows {
-                if !index.names.contains(&(row.parent_id, row.name.clone())) {
+            let new_rows = std::mem::take(&mut index.new_rows);
+            for id in new_rows {
+                checkpoint(cancel)?;
+                let scratch = index.rows[&id]
+                    .owned_bytes()
+                    .checked_mul(256)
+                    .and_then(|n| n.checked_add(8192))
+                    .ok_or_else(|| contract("selected reference extent overflow"))?;
+                let scratch_lease = self
+                    .runtime
+                    .shared
+                    .math()
+                    .reserve("modeling:source-reference-parse", scratch)?;
+                let row = index.rows[&id].clone();
+                if index.needs_name(row.parent_id, &row.name) {
                     index
                         .requests
                         .insert(Request::Name(row.parent_id, row.name.clone()));
                 }
-                if !index.imports.contains(&row.declaration_id) {
-                    index.requests.insert(Request::Imports(row.declaration_id));
-                }
-                if selected_source::requires_members(&row)
-                    && !index.scopes.contains(&row.declaration_id)
+                if selected_source::requires_members(&row) && !index.scopes.contains(&id) {
+                    index.requests.insert(Request::Members(id));
+                } else if selected_source::owns_namespace(&row)
+                    && !index.imports.contains(&id)
+                    && !index.scopes.contains(&id)
                 {
-                    index.requests.insert(Request::Members(row.declaration_id));
+                    index.requests.insert(Request::Imports(id));
                 }
-                if row.value.import.is_some() {
+                if row.value.import.is_some() && index.needs_name(None, &row.name) {
                     index.requests.insert(Request::Name(None, row.name.clone()));
                 }
-                let _ = index.references(&row)?;
-                if selected_source::requires_suppliers(&row) && suppliers.insert(row.declaration_id)
-                {
-                    // Identifier/key uniqueness is global to suppliers of this exact
-                    // nominal contract. A filtered inverse read preserves that obligation.
+                // Reserve before parsing. Keep this light path inventory beside the
+                // immutable typed row, rather than retaining expression ASTs or
+                // reparsing already-resolved source fields at every frontier.
+                let references =
+                    selected_source::declaration_references(&row, index.fields.get(&id))
+                        .map_err(super::super::modeling_error)?;
+                let reference_lease = self
+                    .runtime
+                    .shared
+                    .math()
+                    .reserve("modeling:source-reference-paths", references.owned_bytes())?;
+                index.pending_references.insert(id, references);
+                leases.push(reference_lease);
+                drop(scratch_lease);
+                if selected_source::requires_suppliers(&row) && suppliers.insert(id) {
                     let source_kinds: &[&str] = match row.value.kind {
                         Kind::IdentifierScheme => &["modeling:attribute"],
                         Kind::EntityKind => &[
@@ -1614,14 +1809,20 @@ impl ModelingPackage {
                     }
                 }
             }
-            index.requests.retain(|request| match request {
+            for (owner, references) in std::mem::take(&mut index.pending_references) {
+                checkpoint(cancel)?;
+                index.pending(owner, references);
+            }
+            let mut requests = std::mem::take(&mut index.requests);
+            requests.retain(|request| match request {
                 Request::Logical(id) => {
                     !index.rows.contains_key(id) && !index.record_sources.contains_key(id)
                 }
-                Request::Name(parent, name) => !index.names.contains(&(*parent, name.clone())),
-                Request::Imports(id) => !index.imports.contains(id),
+                Request::Name(parent, name) => index.needs_name(*parent, name),
+                Request::Imports(id) => !index.imports.contains(id) && !index.scopes.contains(id),
                 Request::Members(id) => !index.scopes.contains(id),
             });
+            index.requests = requests;
             if index.requests.is_empty() && index.rows.len() == prior_rows {
                 break;
             }
@@ -1743,6 +1944,7 @@ impl ModelingPackage {
         leases: &mut Vec<Arc<pse_columnar::AllocationLease>>,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
+        let mut unread = Vec::new();
         for member in members {
             checkpoint(cancel)?;
             if let Some(version) = index.versions.get(&member.logical) {
@@ -1751,26 +1953,42 @@ impl ModelingPackage {
                 }
                 continue;
             }
-            let object = selected_object(&self.runtime, read, &member.version).await?;
-            if !object.kind.starts_with("modeling:") || object.kind == CONTEXT {
-                return Err(contract(
-                    "canonical lexical scope contains foreign object kind",
-                ));
+            unread.push(member);
+        }
+        for members in unread.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
+            let versions = members
+                .iter()
+                .map(|member| member.version.clone())
+                .collect::<Vec<_>>();
+            let objects = selected_objects(&self.runtime, read, &versions, cancel).await?;
+            for (member, object) in members.iter().zip(objects) {
+                checkpoint(cancel)?;
+                if !object.kind.starts_with("modeling:") || object.kind == CONTEXT {
+                    return Err(contract(
+                        "canonical lexical scope contains foreign object kind",
+                    ));
+                }
+                let lease = object.lease.clone();
+                let source: SourcePayload = decode(object.payload.as_slice())?;
+                if logical(source.0.declaration_id) != object.logical
+                    || kind(&source.0) != object.kind
+                    || member.logical != object.logical
+                    || member.scope != scope(source.0.parent_id)
+                    || member.name != source.0.name
+                {
+                    return Err(contract(
+                        "canonical source metadata differs from generated declaration",
+                    ));
+                }
+                if source.0.owned_bytes().saturating_add(1024) > lease.size() {
+                    return Err(contract("canonical source decode extent insufficient"));
+                }
+                index.insert(source)?;
+                index
+                    .versions
+                    .insert(member.logical.clone(), member.version.clone());
+                leases.push(lease);
             }
-            let lease = object.lease.clone();
-            let source: SourcePayload = decode(object.payload.as_slice())?;
-            if logical(source.0.declaration_id) != object.logical || kind(&source.0) != object.kind
-            {
-                return Err(contract(
-                    "canonical source metadata differs from generated declaration",
-                ));
-            }
-            if source.0.owned_bytes().saturating_add(1024) > lease.size() {
-                return Err(contract("canonical source decode extent insufficient"));
-            }
-            index.insert(source)?;
-            index.versions.insert(member.logical, member.version);
-            leases.push(lease);
         }
         Ok(())
     }
@@ -1787,6 +2005,188 @@ mod tests {
             Default::default(),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn complete_namespace_inventory_resolves_nearer_names_without_leaf_or_import_probes() {
+        let rows = parse(
+            "package p {param x:Scalar=9; def D {param x:Scalar=2; var y:Scalar; eq e:y==x;} }",
+        );
+        let root = rows
+            .iter()
+            .find(|row| row.name == "D")
+            .unwrap()
+            .declaration_id;
+        let equation = rows
+            .iter()
+            .find(|row| row.name == "e")
+            .unwrap()
+            .declaration_id;
+        let inner = rows
+            .iter()
+            .find(|row| row.name == "x" && row.parent_id == Some(root))
+            .unwrap()
+            .declaration_id;
+        let mut index = SourceIndex::default();
+        for row in rows {
+            index.insert((row, None)).unwrap();
+        }
+        index.scopes.insert(root);
+        index.requests.clear();
+        assert_eq!(
+            index.resolve_name(equation, "x"),
+            Lookup::Found(vec![inner])
+        );
+        assert_eq!(index.member_candidates(root, "missing"), Lookup::Absent);
+        assert_eq!(index.imported(root, "missing"), Lookup::Absent);
+        assert!(!index.needs_name(Some(root), "missing"));
+        assert!(!index.needs_name(Some(root), "x"));
+        assert!(
+            index.requests.is_empty(),
+            "complete inventories and grammar leaves need no negative re-probe"
+        );
+    }
+
+    #[tokio::test]
+    async fn grouped_scalar_frontier_preserves_closure_replay_and_numerical_results() {
+        let runtime = crate::workflow::tests::runtime();
+        let parameters = (0..128)
+            .map(|index| format!("param c{index}:Scalar=1;"))
+            .collect::<String>();
+        let expression = (0..128)
+            .map(|index| format!("c{index}"))
+            .collect::<Vec<_>>()
+            .join("+");
+        let rows = parse(&format!(
+            "package p {{def Root {{{parameters}var x:Scalar; eq e:x=={expression};}} def Unrelated {{var bad:NotPhysical;}} }}"
+        ));
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let selected = package.selected_source(root, &cancel).await.unwrap();
+        assert_eq!(selected.rows.len(), 132);
+        assert!(
+            !selected
+                .rows
+                .iter()
+                .any(|row| row.name == "Unrelated" || row.name == "bad")
+        );
+        let selected_versions = selected.versions.clone();
+        runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await
+            .unwrap();
+        drop(selected);
+        let mut previous = None;
+        for _ in 0..2 {
+            let reopened = runtime
+                .modeling_revision(
+                    package.canonical_revision().clone(),
+                    crate::workflow::tests::physical(),
+                    BTreeMap::new(),
+                )
+                .await
+                .unwrap();
+            let model = reopened
+                .prepare(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Default::default(),
+                    Default::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            assert_eq!(model.consumed_source_versions(), &selected_versions);
+            let keys = model
+                .compiled()
+                .admitted
+                .bodies
+                .keys()
+                .copied()
+                .collect::<Vec<_>>();
+            if let Some(previous) = &previous {
+                assert_eq!(&keys, previous);
+            }
+            previous = Some(keys);
+            let values = pse_math::binding::CaseValues {
+                scalars: model
+                    .compiled()
+                    .model
+                    .symbols
+                    .values()
+                    .map(|symbol| {
+                        (
+                            symbol.id,
+                            if symbol.lineage.path.ends_with(".x") {
+                                128.0
+                            } else {
+                                1.0
+                            },
+                        )
+                    })
+                    .collect(),
+            };
+            let bound = reopened
+                .bound_case(
+                    &model,
+                    values.clone(),
+                    &BTreeMap::new(),
+                    pse_kernels::DerivativeOrder::Second,
+                    crate::workflow::tests::compiler_profile(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let executable = runtime.shared.math().assemble(bound.case).await.unwrap();
+            let mut changed = values.clone();
+            let x = model
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path.ends_with(".x"))
+                .unwrap()
+                .id;
+            changed.scalars.insert(x, 129.0);
+            let (initial, changed) = runtime.shared.math().with_worker(executable, BTreeMap::new(), &cancel, move |worker| {
+                Ok((worker.constraints(&values)?, worker.constraints(&changed)?))
+            }).await.unwrap();
+            assert_eq!(initial, [0.0]);
+            assert_eq!(changed, [1.0]);
+        }
+    }
+
+    #[tokio::test]
+    async fn grouped_source_precharges_resources_and_preserves_cancellation() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = parse("package p {def Root {var x:Scalar; eq e:x==1;} }");
+        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let package = runtime.modeling_package(rows, crate::workflow::tests::physical()).await.unwrap();
+        let cancel = crate::CancelSource::new();
+        let selected = package.selected_source(root, &cancel).await.unwrap();
+        let versions = vec![selected.versions[&logical(root)].clone()];
+        let before = runtime.shared.pool().reserved();
+        let available = runtime.shared.budget().memory_limit_bytes.get() - before;
+        let hold = runtime.shared.math().reserve("test:source-frontier-pressure", available - (8 << 20)).unwrap();
+        let error = selected_objects(&runtime, &selected.read, &versions, &cancel).await.unwrap_err();
+        assert_eq!(error.boundary_diagnostic().class, pse_model::diagnostic::BoundaryClass::ResourceLimit, "{error}");
+        drop(hold);
+        assert_eq!(runtime.shared.pool().reserved(), before, "failed acquisitions release their transient reservations");
+        cancel.cancel();
+        let error = selected_objects(&runtime, &selected.read, &versions, &cancel).await.unwrap_err();
+        assert_eq!(error.boundary_diagnostic().class, pse_model::diagnostic::BoundaryClass::Cancelled, "{error}");
+        assert_eq!(runtime.shared.pool().reserved(), before);
+        runtime.canonical.store().release(selected.read.selection()).await.unwrap();
     }
 
     #[tokio::test]

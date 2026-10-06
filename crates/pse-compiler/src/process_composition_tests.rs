@@ -185,7 +185,9 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
         .unwrap(),
     );
     let mut worker = assembly.worker(BTreeMap::new(), cancel);
-    for (drift, closes) in [(0.0, true), (0.1, false)] {
+    // A 0.1 J energy drift is within the authored 100 J engineering allowance.
+    // Exercise a real refusal with 200 J, while the molar drift exceeds 0.001 mol.
+    for (amount_drift, energy_drift, closes) in [(0.0, 0.0, true), (0.1, 200.0, false)] {
         let mut values = CaseValues {
             scalars: prepared
                 .admitted
@@ -208,9 +210,9 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
         };
         for (path, value) in [
             ("root.cell[0{s}].amount", 3.456556634933607),
-            ("root.cell[1{s}].amount", 3.456556634933607 + drift),
+            ("root.cell[1{s}].amount", 3.456556634933607 + amount_drift),
             ("root.cell[0{s}].energy", 1202.3168203660216),
-            ("root.cell[1{s}].energy", 1212.3168203660216 + drift),
+            ("root.cell[1{s}].energy", 1212.3168203660216 + energy_drift),
         ] {
             values.scalars.insert(prepared.model.paths[path], value);
         }

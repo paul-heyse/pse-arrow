@@ -32,17 +32,52 @@ async fn authored_connected_results_resource() {
     authored_success(&a);
     authored_success(&b);
     assert_ne!(a.run_id, b.run_id);
-    let run=a.canonical_run_key().unwrap();
-    let attempt=a.canonical_attempt_key().unwrap();
-    let mut reader=rt.results(&run,&attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new()).await.unwrap();
-    let original=a.table("runtime.solve_variables").unwrap();
-    let mut count=0;
-    while let Some(batch)=reader.next_batch().await.unwrap(){count+=batch.num_rows();}
-    assert_eq!(count,original.batch().num_rows());
-    let cancelled=pse_columnar::CancellationToken::new();cancelled.cancel();
-    assert!(rt.results(&run,&attempt,"runtime.solve_variables",0,u64::MAX,cancelled).await.is_err());
-    assert!(rt.results("run:absent",&attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new()).await.is_err());
-    drop((reader,original));
+    let run = a.canonical_run_key().unwrap();
+    let attempt = a.canonical_attempt_key().unwrap();
+    let mut reader = rt
+        .results(
+            &run,
+            &attempt,
+            "runtime.solve_variables",
+            0,
+            u64::MAX,
+            pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let original = a.table("runtime.solve_variables").unwrap();
+    let mut count = 0;
+    while let Some(batch) = reader.next_batch().await.unwrap() {
+        count += batch.num_rows();
+    }
+    assert_eq!(count, original.batch().num_rows());
+    let cancelled = pse_columnar::CancellationToken::new();
+    cancelled.cancel();
+    assert!(
+        rt.results(
+            &run,
+            &attempt,
+            "runtime.solve_variables",
+            0,
+            u64::MAX,
+            cancelled
+        )
+        .await
+        .is_err()
+    );
+    assert!(
+        rt.results(
+            "run:absent",
+            &attempt,
+            "runtime.solve_variables",
+            0,
+            u64::MAX,
+            pse_columnar::CancellationToken::new()
+        )
+        .await
+        .is_err()
+    );
+    drop((reader, original));
     let retained = a.table("runtime.solve_variables").unwrap();
     let arrays = retained.batch().columns().to_vec();
     let reserved = owner.runtime.pool().reserved();

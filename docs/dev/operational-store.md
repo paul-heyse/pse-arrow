@@ -56,8 +56,10 @@ Sparse cells and dense output-group indexes point into original blocks rather th
 replicating payloads or creating one graph vertex per sample value. Selectors retain
 identities, units, basis, missingness and exact IEEE payloads.
 
-A reader pins its exact source and terminal manifest before paging. Returned buffers
-retain protection independently of the reader. Expiry refuses further reads. Cancellation
+A reader pins its exact source and terminal manifest before paging. Fully decoded copied
+Arrow arrays retain accounted memory independently of the reader, runtime and database.
+They remain usable after eligible storage reclamation and release their allocation on final
+drop; they do not retain an indefinite database pin. Expiry refuses further reads. Cancellation
 or a failed statement is an error, not successful stream exhaustion.
 `export_results(run, attempt, relation, destination)` writes IPC with exact source and
 terminal lineage. The destination appears after successful completion; interruption leaves

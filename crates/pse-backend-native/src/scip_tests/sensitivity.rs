@@ -190,7 +190,9 @@ impl Parameterized {
 fn nlp(case: &Parameterized, backend: Backend, presolve: &Policy) -> SolveReport {
     let (n, m) = (case.solve.columns().len(), case.rows());
     let controls = Controls::default();
-    let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-9).unwrap();
+    // The analytic objective sensitivity is tied to the optimal base point,
+    // with a 1e-6 comparison. Match the global fixture's verification policy.
+    let accuracy = ResolvedAccuracy::verification();
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     execution::nlp(

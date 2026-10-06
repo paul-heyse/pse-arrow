@@ -88,12 +88,14 @@ async fn stage(
     (elapsed, record, prepared)
 }
 async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Duration, Value) {
+    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
-            pse_operations::testing::canonical_fixture_store().unwrap(),
+            store,
             pse_runtime::workflow::OuterAttestation {
                 source: pse_ids::ContentHash::from_bytes([0; 32]),
                 build: pse_ids::ContentHash::from_bytes([1; 32]),
@@ -231,12 +233,14 @@ async fn pressure(
     spec: &Value,
     phases: &phases::Phases,
 ) -> (Duration, Value) {
+    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
-            pse_operations::testing::canonical_fixture_store().unwrap(),
+            store,
             pse_runtime::workflow::OuterAttestation {
                 source: pse_ids::ContentHash::from_bytes([0; 32]),
                 build: pse_ids::ContentHash::from_bytes([1; 32]),
@@ -434,6 +438,9 @@ pub(super) fn measure(
                     .unwrap()
                     .process_peak_rss_bytes
                     .into();
+                // The operation has returned and its runtime/products have dropped.
+                // Drain isolated fixtures outside the accumulated measured interval.
+                executor.block_on(owner.cleanup_fixtures()).unwrap();
                 drop(owner);
                 executor.block_on(async {
                     tokio::task::yield_now().await;

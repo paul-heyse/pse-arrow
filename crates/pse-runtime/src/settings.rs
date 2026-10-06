@@ -68,8 +68,7 @@ impl EngineSettingsInput {
                 cache.concurrent_outputs.get(),
             )
         });
-        let mut cache =
-            cache.unwrap_or_else(|| CacheBudget::for_memory(self.memory_limit_bytes));
+        let mut cache = cache.unwrap_or_else(|| CacheBudget::for_memory(self.memory_limit_bytes));
         cache.concurrent_queries = positive(
             self.concurrent_queries
                 .or(supplied_concurrency.map(|limits| limits.0))

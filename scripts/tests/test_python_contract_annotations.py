@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Pure candidate annotations neither load scientific libraries nor replace codecs."""
+# ruff: noqa: PT009 -- stdlib bootstrap controls
 
 import os
 import shutil
@@ -22,13 +23,22 @@ class AnnotationBoundaryTests(unittest.TestCase):
             candidate = Path(directory)
             contracts = candidate / "python/pse/contracts"
             contracts.mkdir(parents=True)
-            shutil.copyfile(ROOT / "python/pse/contracts/values.py", contracts / "values.py")
-            shutil.copyfile(ROOT / "python/pse/contracts/enums.py", contracts / "enums.py")
+            shutil.copyfile(
+                ROOT / "python/pse/contracts/values.py", contracts / "values.py"
+            )
+            shutil.copyfile(
+                ROOT / "python/pse/contracts/enums.py", contracts / "enums.py"
+            )
             (contracts / "__init__.py").write_text(body)
             environment = dict(os.environ)
             environment.pop("LD_LIBRARY_PATH", None)
             return subprocess.run(
-                [sys.executable, str(ROOT / "scripts/check_python_contracts.py"), "--root", str(candidate)],
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/check_python_contracts.py"),
+                    "--root",
+                    str(candidate),
+                ],
                 env=environment,
                 text=True,
                 capture_output=True,
@@ -46,7 +56,9 @@ class AnnotationBoundaryTests(unittest.TestCase):
 
     def test_unconstrained_annotations_still_fail(self) -> None:
         """Removing native initialization does not weaken the annotation obligation."""
-        result = self.check_candidate("import attrs\n@attrs.define\nclass Row:\n    values: list\n")
+        result = self.check_candidate(
+            "import attrs\n@attrs.define\nclass Row:\n    values: list\n"
+        )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("a bare list", result.stderr)
 

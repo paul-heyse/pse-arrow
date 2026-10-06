@@ -42,7 +42,7 @@ pub enum RuntimeError {
     #[error("cancelled")]
     Cancelled,
 
-    /// A catalog failure, keeping the class `pse-catalog` assigned it.
+    /// A native engine failure, preserving its diagnostic class.
     #[error(transparent)]
     Catalog(#[from] EngineError),
 

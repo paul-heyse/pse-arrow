@@ -456,20 +456,45 @@ def check_solvers() -> Check:
     )
 
 
+def _canonical_profile_check(state: Path) -> Check:
+    config = json.loads((state / "config.json").read_text(encoding="utf-8"))
+    server = config["server"]
+    if config["owner"] != "pse-arrow-surreal-v1" or config["profile_version"] != 1:
+        raise ValueError("unsupported owned profile")
+    if not Path(server["binary"]).is_file():
+        raise ValueError("configured server executable is absent")
+    return Check(
+        "canonical",
+        True,
+        f"SurrealDB {server['version']}; configured {config['admission']} profile",
+        blocking=False,
+    )
+
+
 def check_canonical_store() -> Check:
     """Read the selected public profile without starting or mutating its server."""
-    state = Path(os.environ.get("PSE_SURREAL_STATE",str(Path(os.environ.get("XDG_STATE_HOME",str(Path.home()/".local/state")))/"pse-arrow/surreal")))
+    state = Path(
+        os.environ.get(
+            "PSE_SURREAL_STATE",
+            str(
+                Path(
+                    os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))
+                )
+                / "pse-arrow/surreal"
+            ),
+        )
+    )
     setup = "just surreal setup, then just surreal start; docs/dev/surreal-substrate.md"
     try:
-        config = json.loads((state / "config.json").read_text(encoding="utf-8"))
-        server = config["server"]
-        if config["owner"] != "pse-arrow-surreal-v1" or config["profile_version"] != 1:
-            raise ValueError("unsupported owned profile")
-        if not Path(server["binary"]).is_file():
-            raise ValueError("configured server executable is absent")
-        return Check("canonical",True,f"SurrealDB {server['version']}; configured {config['admission']} profile",blocking=False)
-    except (OSError,ValueError,KeyError,TypeError) as error:
-        return Check("canonical",False,f"canonical profile unavailable: {error}",setup,blocking=False)
+        return _canonical_profile_check(state)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return Check(
+            "canonical",
+            False,
+            f"canonical profile unavailable: {error}",
+            setup,
+            blocking=False,
+        )
 
 
 CHECKS = (

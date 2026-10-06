@@ -8,6 +8,26 @@ use native::{
     solve::{Backend, Execution},
 };
 use std::sync::atomic::AtomicBool;
+
+/// These analytical estimates and active-bound checks require a more accurate
+/// base point than the ordinary 0.1% engineering stopping budgets. Derivatives
+/// are still checked at their stated evaluation points, and covariance is still
+/// derived at the actual returned candidate; no output-error guarantee is assumed.
+fn verification_numerics() -> pse_model::numerics::NumericalPolicy {
+    pse_model::numerics::NumericalPolicy {
+        kkt: pse_model::numerics::KktTolerances {
+            stationarity: 1e-9,
+            complementarity: 1e-9,
+        },
+        ..Default::default()
+    }
+}
+
+fn assert_verification_accuracy(problem: &FitProblem) {
+    assert_eq!(problem.accuracy.stationarity, 1e-9);
+    assert_eq!(problem.accuracy.complementarity, 1e-9);
+}
+
 fn assert_diffsol_exact_hessian_refused(error: WorkflowError) {
     let WorkflowError::Math(crate::math::MathRuntimeError::Solve(
         ProblemError::DynamicRouteRefused(decision),
@@ -76,7 +96,7 @@ async fn source_case(
                 ..Default::default()
             },
             presolve: native::presolve::Policy::Off,
-            numerics: Default::default(),
+            numerics: verification_numerics(),
             convexity: Default::default(),
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
@@ -183,6 +203,7 @@ async fn gauss_newton_fit_admits_transient() {
         .await
         .unwrap();
     assert_eq!(problem.contract.derivatives, DerivativeOrder::Second);
+    assert_verification_accuracy(&problem);
     let execution = Execution::new(
         Arc::new(AtomicBool::new(false)),
         &problem.profile.solver.controls,
@@ -207,6 +228,7 @@ async fn gauss_newton_fit_admits_transient() {
             )
             .await
             .unwrap();
+        assert_verification_accuracy(&prepared.problem);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
@@ -364,6 +386,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
             )
             .await
             .unwrap();
+        assert_verification_accuracy(&prepared.problem);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
@@ -451,6 +474,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             )
             .await
             .unwrap();
+        assert_verification_accuracy(&prepared.problem);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
@@ -509,6 +533,7 @@ async fn authored_integration_controls_bind_to_the_experiment_instance() {
         )
         .await
         .unwrap();
+    assert_verification_accuracy(&prepared.problem);
     let result = prepared.start().unwrap().wait().await.unwrap();
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
@@ -605,7 +630,7 @@ async fn gauss_newton_covariance_labelled() {
     for hessian in [HessianMode::LimitedMemory, HessianMode::GaussNewton] {
         let (package, mut profile) = source(false, 73.).await;
         profile.solver.controls.hessian = hessian;
-        let result = package
+        let prepared = package
             .prepare_fit(
                 FitId::from(id(73)),
                 profile,
@@ -614,12 +639,9 @@ async fn gauss_newton_covariance_labelled() {
                 &crate::CancelSource::new(),
             )
             .await
-            .unwrap()
-            .start()
-            .unwrap()
-            .wait()
-            .await
             .unwrap();
+        assert_verification_accuracy(&prepared.problem);
+        let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
@@ -667,6 +689,7 @@ async fn transient_fit(
         .await
         .unwrap();
     assert_bound_dynamic_provider_demands(&prepared.problem);
+    assert_verification_accuracy(&prepared.problem);
     prepared.start().unwrap().wait().await.unwrap()
 }
 
@@ -835,7 +858,7 @@ async fn curved_source(
                 ..Default::default()
             },
             presolve: native::presolve::Policy::Off,
-            numerics: Default::default(),
+            numerics: verification_numerics(),
             convexity: Default::default(),
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
@@ -957,6 +980,7 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
             )
             .await
             .unwrap();
+        assert_verification_accuracy(&prepared.problem);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")

@@ -8,13 +8,43 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(feature = "solver-kinsol")]
+/// The analytical coordinates and residuals below require physical precision,
+/// independently of the ordinary engineering defaults and KKT termination.
+fn verification_numerics() -> NumericalPolicy {
+    let physical = crate::workflow::tests::physical();
+    let scalar = physical
+        .quantities
+        .quantity_types()
+        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
+        .unwrap();
+    NumericalPolicy {
+        engineering_rules: vec![pse_model::numerics::EngineeringRule {
+            rule_id: pse_ids::named_id(scalar.id.as_id(), "multistart-verification-precision")
+                .into(),
+            quantity_id: scalar.id.as_id(),
+            unit_id: scalar.canonical_unit.as_id(),
+            physical_allowance: Some(1e-10),
+            relative_fraction: Some(0.0),
+            provenance: "original multistart analytical coordinate and residual verification"
+                .into(),
+        }],
+        kkt: pse_model::numerics::KktTolerances {
+            stationarity: 1e-10,
+            complementarity: 1e-10,
+        },
+        ..Default::default()
+    }
+}
+
 async fn original(text: &str, backend: Backend) -> (crate::workflow::Runtime, PreparedSolve) {
-    let (runtime, _, prepared) = modeling_original(text, backend).await;
+    let (runtime, _, prepared) = modeling_original(text, backend, Default::default()).await;
     (runtime, prepared.solve)
 }
 async fn modeling_original(
     text: &str,
     backend: Backend,
+    numerics: NumericalPolicy,
 ) -> (
     crate::workflow::Runtime,
     crate::workflow::ModelingPackage,
@@ -41,6 +71,7 @@ async fn modeling_original(
     let mut profile = SolverProfile {
         intent: SolveIntent::Root,
         selection: SolverSelection::Explicit(backend),
+        numerics,
         ..Default::default()
     };
     if backend == Backend::Ipopt {
@@ -342,9 +373,25 @@ async fn shared_original_driver(permit_recovery: bool) {
     let (runtime, package, mut prepared) = modeling_original(
         "package p { def Root { var x:Scalar; annotation start x(0); eq root:x*x==1; } }",
         Backend::Kinsol,
+        verification_numerics(),
     )
     .await;
     let original = prepared.solve.clone();
+    assert!(!original.tolerances().rows.is_empty());
+    assert!(
+        original
+            .tolerances()
+            .rows
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
+    assert!(
+        original
+            .tolerances()
+            .variables
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
     assert_eq!(original.profile.controls.start, StartPolicy::NoPriorStart);
     assert!(original.profile.composition.recovery.is_empty());
     let task = scope();

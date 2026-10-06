@@ -42,6 +42,7 @@ extend-ignore-identifiers-re = [
 ]
 
 [default.extend-words]
+RELA = "RELA"       # ELF relocation entries with explicit addends, as emitted by readelf.
 formate = "formate" # Chemical anion and ester name.
 # Solver names, scientific controllers and established bibliography abbreviations.
 CACE = "CACE"     # Computers & Chemical Engineering.

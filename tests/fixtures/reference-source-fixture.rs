@@ -26,6 +26,7 @@ pub(crate) fn reference_sources() -> String {
 // Complete source documents for the changed packages and their imported dependency closure.
 // Keep this explicit: adding an unrelated reference package does not broaden these controls.
 const SOURCES: &[&str] = &[
+    include_str!("../../packages/reference/domain/models/numerical-policy.pse"),
     include_str!("../../packages/reference/thermodynamics/models/aqueous.pse"),
     include_str!("../../packages/reference/seed-data/models/bt-ideal.pse"),
     include_str!("../../packages/reference/seed-data/models/bt-pr.pse"),

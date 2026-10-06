@@ -5,16 +5,15 @@ mod route_documents;
 pub use route_documents::{EligibilityDocument, IneligibleDocument, RouteDocument};
 mod controls;
 pub use controls::{
-    InventoryControls, ProgressControls, RunControls, StudyRunControls,
-    StudyWaitControls,
+    InventoryControls, ProgressControls, RunControls, StudyRunControls, StudyWaitControls,
 };
 mod completion;
+mod connected_results;
 pub mod result_blocks;
 mod result_projection;
-mod connected_results;
 pub use connected_results::CanonicalResultReader;
 mod analyses;
-pub use analyses::{AnalysisHandle,AnalysisControls,AnalysisDirection};
+pub use analyses::{AnalysisControls, AnalysisDirection, AnalysisHandle};
 mod retention;
 pub use retention::ResultReclamationPage;
 mod diagnostic_documents;
@@ -27,35 +26,36 @@ mod diagnostics;
 mod durable;
 pub use completion::Completion;
 pub use durable::{
-    Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability, TerminationCause,
-    TerminationDetail, SeedReadError,
+    Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability, SeedReadError,
+    TerminationCause, TerminationDetail,
 };
 mod progress_documents;
 pub use progress_documents::{IncumbentDocument, ProgressEventDocument, ProgressMetricDocument};
 mod progress;
 pub use progress::ProgressStream;
 mod bindings;
-mod worker;
 mod physical_cache;
+mod worker;
 pub use bindings::{
     AdmittedBinding, AdmittedBindingEntry, BindingAssignment, BindingQuantity, BindingTarget,
     PointOverlay,
 };
-pub use worker::{
-    PhysicalSource, Processed, WorkerSettings,
-};
+pub use worker::{PhysicalSource, Processed, WorkerSettings};
 mod study;
 mod study_execution;
 mod study_tables;
 pub use pse_model::diagnostic::BoundaryDiagnostic;
 pub use pse_model::study::Conclusion as StudyConclusion;
-pub use study_execution::{StudyReport,StudyOccurrenceResult};
+pub use study_execution::{StudyOccurrenceResult, StudyReport};
 mod study_operations;
-pub use pse_model::generated::{identities::StudyId,enums::{StudyPointState,StudyState}};
+pub use pse_model::generated::{
+    enums::{StudyPointState, StudyState},
+    identities::StudyId,
+};
 pub use study::{
     MAXIMUM_STUDY_POINTS, PackageSources, PointAttemptOutcome, PointOutcome, PointStatus,
-    StudyDefinition, StudyHandle, StudyPlan, StudyPoint, StudyPointDefinition, StudyPointPolicy,
-    StudyRequest, StudyStatus, StudyCancel, StudyResults,
+    StudyCancel, StudyDefinition, StudyHandle, StudyPlan, StudyPoint, StudyPointDefinition,
+    StudyPointPolicy, StudyRequest, StudyResults, StudyStatus,
 };
 pub use study_operations::{
     AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerOperation, EstimatorInput,
@@ -135,7 +135,7 @@ pub use modeling::{
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 #[cfg(test)]
 mod data_documents_tests;
-#[cfg(all(test,feature="canonical-tests"))]
+#[cfg(all(test, feature = "canonical-tests"))]
 mod durable_tests;
 mod local_analysis;
 mod modeling_results;
@@ -210,7 +210,6 @@ pub enum WorkflowError {
     /// Original typed source failure, preserving diagnostic facts and causal structure.
     #[error(transparent)]
     Typed(pse_model::diagnostic::DiagnosticCause),
-
 }
 impl From<BoundaryDiagnostic> for WorkflowError {
     fn from(error: BoundaryDiagnostic) -> Self {
@@ -269,7 +268,10 @@ impl Runtime {
         canonical: CanonicalDeployment,
     ) -> Self {
         let durability = Durability::Durable(Operations::from_store(
-            canonical.store().clone(), Operations::process_worker("runtime"), LeasePolicy::default(), shared.pool(),
+            canonical.store().clone(),
+            Operations::process_worker("runtime"),
+            LeasePolicy::default(),
+            shared.pool(),
         ));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();

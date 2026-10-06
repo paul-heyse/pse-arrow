@@ -227,7 +227,9 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::workflow::StudyStatus>("study-status"),
         document::<pse_runtime::workflow::StudyResults>("study-results"),
         document::<pse_runtime::workflow::AnalysisControls>("analysis-controls"),
-        document::<pse_operations::canonical_result_retention::ResultReclamationPage>("result-reclamation-page"),
+        document::<pse_operations::canonical_result_retention::ResultReclamationPage>(
+            "result-reclamation-page",
+        ),
         document::<pse_runtime::workflow::StudyCancel>("study-cancel"),
         document::<pse_runtime::workflow::PointOutcome>("study-point-outcome"),
         document::<pse_runtime::workflow::StudyConclusion>("study-conclusion"),

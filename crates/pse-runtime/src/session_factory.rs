@@ -28,8 +28,7 @@ impl SharedRuntime {
                     message: "worker count exceeds CPU admission width".into(),
                 }
             })?,
-        }))
-        ;
+        }));
         Ok(factory)
     }
 }

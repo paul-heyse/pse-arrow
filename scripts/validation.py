@@ -60,7 +60,7 @@ def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, s
     source_environment = os.environ if source is None else source
     environment = {
         key: hashlib.sha256(source_environment[key].encode()).hexdigest()
-        if key in {"SYMBOLICA_LICENSE"}
+        if key == "SYMBOLICA_LICENSE"
         else source_environment[key]
         for key in (
             *INPUT_ENVIRONMENT,

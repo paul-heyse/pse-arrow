@@ -3,7 +3,7 @@ title: Connected result queries and analysis
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -116,6 +116,31 @@ by authoritative reads. If LIVE is adopted, resubscription and explicit registra
 belong to the adapter. Experimental WASM scientific execution and generic tooling installations
 are not required for Plan 28 completion.
 
+## Remaining completion, read and analysis slices
+
+Use the [capability investigation](../design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md)
+within D's existing exact selector and Arrow boundary. Finding status stays at the
+[coordinator](28-surrealdb-unified-substrate.md#finding-dispositions); assembled state stays in E.
+
+| Slice and prerequisite | Delivered boundary and consumers | Meaningful targeted completion |
+|---|---|---|
+| D2 completed selection/export, after A1 completion control | Exact run/attempt/result-set/output/coordinate selection yields scientifically interpreted rows or a failure. Awaited bounded queries may remain; incremental gRPC rows are provisional until successful statement completion. `canonical_results.rs`, runtime connected results and Rust/Python inspection/export share the rule. | A late statement error, cancellation or missing terminal completion must prevent a staged prefix from becoming a completed export/eligible artifact. Also cover empty successful selection and normal multi-page selection. Use the actual chosen SDK adapter, not a hypothetical transport defect. Delete any alternate convenience route that bypasses exact completion. |
+| D2/D3 composed protection, after A3/C2 lifecycle correction | A multipage reader retains exact source/result protection; an analysis admits its own retained root before releasing source protection. Copies decoded into Arrow carry their own DataFusion memory reservation after DB protection ends. | Interleave retirement/reclamation with an actual multipage read and with analysis root admission, then reopen the admitted analysis. Require complete exact rows or explicit refusal, no torn selection or released source gap, and escaped decoded-buffer accounting. Separate existing race tests are not this composed control. |
+| D3 native graph representation | Typed regular edges retain method, sequence, kind/provenance and occurrence identity. Direct ID/projection and bounded native traversal support actual dependency/incidence/lineage consumers; algorithms and physical sensitivity retain their existing owners. | Inspect one actual traversal predicate and index path. If INLINE edge fields improve its locality without changing meaning, generate them through the registry and verify equivalent selection/lineage; otherwise retain regular relations with the decision explained. LIGHTWEIGHT endpoint-pair edges cannot replace metadata-bearing edges. Any timing gain belongs to E4. |
+
+The graph representation decision is bounded by actual consumed query shapes; it is not a
+prerequisite for unrelated result/recovery controls or a mandate to add speculative graph
+features. SurrealDB recursion/shortest path does not establish numerical sensitivity,
+centrality/community analysis or full Cypher semantics. Preserve method and derivative axis
+lineage. Surrealist is optional human diagnosis, and neither GraphQL/MCP nor a restored SQL
+convenience route is necessary for these consumers.
+
+Fresh linked Python controls need E2's actual installed producer association and version-first
+readmission. Exercise unsupported-version refusal before malformed-current-shape decoding,
+exact wire ID comparison and eligible persisted replay. Current source fixes are not fresh
+execution evidence. D's earlier positive controls remain local; E3 owns end-to-end retention,
+completion, Python and restart composition.
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
@@ -218,12 +243,34 @@ Assembled testing waits for all companion functional scope.
 
 ### What was built
 
-Pending implementation and named evidence.
+**Implemented:** exact native run/attempt/manifest, latest-problem and output selectors;
+bounded original Arrow IPC result blocks, scalar/dense selection indexes, terminal progress,
+atomic local export, and persisted scientific analysis graphs. Rust and Python consumers now
+use canonical identities and native queries. Public SQL convenience, publication handles and
+their replaced fixtures are removed. Scientific result meaning and original row coordinates
+remain separate from graph reachability and storage lookup keys.
+
+**Tested (2026-10-06):** the targeted native result-block and connected-analysis selection
+passed 12 controls through `just unit-native-package`, with explicit canonical/native solver
+features and force-validation. The named
+`canonical_decoded_arrow_survives_reader_drop_and_result_reclamation` control passed against
+the selected isolated server: exact signed-zero/null/finite values remained usable after
+reader drop, storage reclamation and Runtime drop, then released their final allocation.
+Focused linked Python scientific repairs passed five selected process, dynamic/fitting and
+limited-result controls; `just py-unit-native -n 0 python/pse/tests/test_generated_contracts.py`
+passed 27 contract controls. The baseline was zero failures. The actual eligible Python
+deployment receipt association/reopening control and assembled E3 qualification remain pending.
 
 ### A mistake made and corrected
 
-Pending execution.
+Canonical source IPC inherited a result-block limit too small for the actual authored
+declaration schema. Source and result purposes now use their own existing finite limits,
+with shared strict framing/preflight; result limits were not broadened. Reopening also
+preserves the scientific RunId separately from opaque canonical lookup keys.
 
 ### Deviations from the plan, deliberate
 
-Pending execution; consequential decision changes follow the decision route.
+Fully decoded copied Arrow arrays retain accounted memory without an indefinite database
+pin. Read leases protect further storage access, while final array drop releases allocation.
+Analysis methods retain original incidence and reported sensitivity provenance; reachability
+is not a derivative or rank claim. Scaling and timing remain E4 obligations.

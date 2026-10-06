@@ -142,7 +142,7 @@ but a tool failure does. `policy` runs the same audits as required gates. The
 | Command | Scope |
 |---|---|
 | `just test [nextest args]` | The default workspace feature graph, run with `cargo nextest run --no-fail-fast` and force-validation. |
-| `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. The wrapper writes a raw selection artifact and native identity before execution. |
+| `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-runtime/canonical-tests`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. The wrapper writes a raw selection artifact and native identity before execution. |
 | `just doctest` | Workspace doctests with force-validation. `pse-py` is excluded because Cargo cannot run cdylib doctests. `doctest-release` is the release-profile variant. |
 | `just py-sync-native` | Rebuilds the editable extension (`dev` profile, `force-validate,native-solvers`) and regenerates the compiled API stubs. `just py-sync` installs the default profile, which lacks native solvers. |
 | `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Canonical fixture consumers require an initialized supervised `PSE_SURREAL_STATE`. Run `py-sync-native` after Rust edits. |

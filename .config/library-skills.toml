@@ -8,6 +8,7 @@ enabled = [
   "datafusion",
   "datafusion-tracing",
   "native-solver-libraries",
+  "neo4j-surrealdb",
   "pyomo-and-solvers",
   "rust-code-model",
   "rust-graphs",

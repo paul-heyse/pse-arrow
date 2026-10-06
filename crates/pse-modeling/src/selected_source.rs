@@ -255,7 +255,119 @@ pub fn requires_suppliers(row: &Declaration) -> bool {
 /// Concrete scopes require their full member/guard contract. Package ancestors
 /// contribute imports and probed names without forcing every unrelated member.
 pub fn requires_members(row: &Declaration) -> bool {
-    row.value.kind != pse_model::generated::enums::ModelingDeclarationKind::Package
+    owns_namespace(row)
+        && row.value.kind != pse_model::generated::enums::ModelingDeclarationKind::Package
+}
+
+/// Namespace-bearing declarations in the authored grammar. Ordinary expression,
+/// binding and function leaves bind arguments but cannot declare nested members.
+pub fn owns_namespace(row: &Declaration) -> bool {
+    row.value.scope.is_some() || row.value.coordinate_map.is_some() || row.value.guard.is_some()
+}
+
+/// Parsed lexical requirements of one immutable row. Resolved requirements can be
+/// discarded while unread requirements wait for the next protected frontier.
+#[derive(Debug, Default)]
+pub struct DeclarationReferences {
+    /// Nominal paths, excluding lexical type parameters at resolution time.
+    pub types: Vec<dsl::Path>,
+    /// Structural spellings which require the entire path.
+    pub exact: Vec<dsl::Path>,
+    /// Scientific field/provenance paths whose longest declared prefix is selected.
+    pub prefixes: Vec<dsl::Path>,
+    /// Atomic names, with dotted spelling fallback after an exact-name absence.
+    pub names: Vec<String>,
+}
+
+impl pse_model::HeapUsage for DeclarationReferences {
+    fn heap_bytes(&self) -> usize {
+        fn paths(values: &Vec<dsl::Path>) -> usize {
+            values.capacity() * size_of::<dsl::Path>()
+                + values
+                    .iter()
+                    .map(|path| {
+                        path.segments.capacity() * size_of::<dsl::PathSegment>()
+                            + path
+                                .segments
+                                .iter()
+                                .map(|segment| segment.name.capacity())
+                                .sum::<usize>()
+                    })
+                    .sum::<usize>()
+        }
+        paths(&self.types)
+            + paths(&self.exact)
+            + paths(&self.prefixes)
+            + self.names.capacity() * size_of::<String>()
+            + self.names.iter().map(String::capacity).sum::<usize>()
+    }
+}
+
+/// Parse each immutable source field once, preserving the existing occurrence
+/// collector's binder exclusions and quoted atomic path interpretation.
+/// # Errors
+/// Invalid source grammar or missing original field locations.
+pub fn declaration_references(
+    row: &Declaration,
+    fields: Option<&std::collections::BTreeMap<String, pse_authoring::SourceSpan>>,
+) -> crate::Result<DeclarationReferences> {
+    let occurrences = occurrences(row, fields)?;
+    let mut result = DeclarationReferences {
+        types: type_paths(row),
+        exact: Vec::new(),
+        prefixes: structural_paths(row),
+        names: Vec::new(),
+    };
+    for text in requirements(row).names {
+        if occurrences
+            .values()
+            .any(|occurrence| occurrence.text == text)
+        {
+            continue;
+        }
+        if let Ok(expression) = dsl::parse_expr(text) {
+            for reference in syntax_references(&crate::expression::occurrences::Syntax::Expression(
+                expression,
+            )) {
+                match reference {
+                    SourceReference::Name(name) => result.names.push(name),
+                    SourceReference::Segments(path) => result.exact.push(path),
+                }
+            }
+        } else {
+            result.names.push(text.into());
+        }
+    }
+    for occurrence in occurrences.values() {
+        for reference in syntax_references(&occurrence.syntax) {
+            match reference {
+                SourceReference::Name(name) => result.names.push(name),
+                SourceReference::Segments(path) => {
+                    if !path.segments.first().is_some_and(|segment| {
+                        occurrence
+                            .index_obligations
+                            .iter()
+                            .any(|(name, _)| name == &segment.name)
+                    }) {
+                        result.prefixes.push(path);
+                    }
+                }
+            }
+        }
+    }
+    // The occurrence walker already visits index expressions independently. Only
+    // decoded names are consumed by lexical resolution; do not retain their ASTs.
+    for path in result
+        .types
+        .iter_mut()
+        .chain(&mut result.exact)
+        .chain(&mut result.prefixes)
+    {
+        for segment in &mut path.segments {
+            segment.indices = Vec::new();
+        }
+    }
+    Ok(result)
 }
 
 /// Borrowed source fields whose names/types/cells require lexical selection.
@@ -790,6 +902,63 @@ mod tests {
         assert!(paths.contains(&vec!["x".into()]));
         assert!(paths.contains(&vec!["j".into()]));
         assert!(paths.contains(&vec!["offset".into()]));
+        let references =
+            declaration_references(equation, spans.get(&equation.declaration_id)).unwrap();
+        let paths = references
+            .prefixes
+            .iter()
+            .map(|path| {
+                path.segments
+                    .iter()
+                    .map(|segment| segment.name.as_str())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        assert!(paths.contains(&vec!["law.table"]));
+        assert!(paths.contains(&vec!["x"]));
+        assert!(paths.contains(&vec!["offset"]));
+        assert!(
+            !paths.contains(&vec!["j"]),
+            "index binder is excluded while its Item set remains required"
+        );
+        assert!(references.exact.iter().any(|path| path.segments.len() == 1 && path.segments[0].name == "Item"), "the authored index set remains an exact path requirement");
+        assert!(
+            references
+                .prefixes
+                .iter()
+                .flat_map(|path| &path.segments)
+                .all(|segment| segment.indices.capacity() == 0)
+        );
+    }
+
+    #[test]
+    fn member_inventory_policy_follows_authored_containers_not_expression_leaves() {
+        let rows = language::parse(
+            "package p {enum Item {a,b}; fn law(x:Scalar)->Scalar=x; def D {param g:Scalar=1; var x:Scalar; when g>0 {eq e:law(x)==1;} } }",
+            SemanticId::NIL, language::IdentityPolicy::Named, Default::default(),
+        ).unwrap();
+        for row in &rows {
+            let expected = matches!(
+                row.value.kind,
+                pse_model::generated::enums::ModelingDeclarationKind::Package
+                    | pse_model::generated::enums::ModelingDeclarationKind::Definition
+                    | pse_model::generated::enums::ModelingDeclarationKind::When
+            );
+            assert_eq!(owns_namespace(row), expected, "{}", row.name);
+            assert_eq!(
+                requires_members(row),
+                expected && row.name != "p",
+                "{}",
+                row.name
+            );
+        }
+        assert!(rows.iter().all(|row| row.parent_id.is_none_or(|parent| {
+            owns_namespace(
+                rows.iter()
+                    .find(|row| row.declaration_id == parent)
+                    .unwrap(),
+            )
+        })));
     }
 
     #[test]

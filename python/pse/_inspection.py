@@ -10,8 +10,8 @@ import pyarrow as pa
 
 from pse._build import (
     DiagnosticReport,
-    _NativeTableStream,
     EngineSettings,
+    _NativeTableStream,
     _registry_table,
 )
 from pse._transfer import FieldTransfer, compare_schemas
@@ -71,4 +71,3 @@ class TableStream:
         _traceback: TracebackType | None,
     ) -> None:
         self.close()
-

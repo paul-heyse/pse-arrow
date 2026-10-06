@@ -5,8 +5,8 @@
 //!
 //! A relation's identity column may declare the entity identity it carries, and a
 //! foreign-key column referencing it inherits that identity at assembly. The declaration
-//! is the one source of every typed id: the generated Rust newtype, the PostgreSQL
-//! domain and the Python alias. An identity never changes bytes, framing or serde; it
+//! is the one source of every typed id: the generated Rust newtype and Python alias.
+//! An identity never changes bytes, framing or serde; it
 //! only makes a swap between entities a type error.
 
 use pse_ids::SemanticId;

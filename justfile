@@ -115,7 +115,7 @@ surreal-fixture-test:
 [group('local')]
 [doc('Released-server native canonical schema, source/product and gated offline recovery control')]
 canonical-recovery-test:
-    bash scripts/native_exec.sh cargo build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools --locked
+    bash scripts/native_exec.sh cargo build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools,pse-relations/force-validate --locked
     "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery
 
 [group('local')]

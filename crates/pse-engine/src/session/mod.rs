@@ -59,11 +59,11 @@ mod schema_transform;
 mod semantic_extent;
 mod trace;
 mod traversal;
+pub use observation::{ExecutionSnapshot, MetricUnit, ObservedMetric, PlanObservation};
 pub use preparation::{
     CompletedComputation, DiagnosticSample, OwnedComputationStream, PreparedComputation,
     ReusableComputation, ReusableGroup, SampleRetention, TerminalDemand,
 };
-pub use observation::{ExecutionSnapshot, MetricUnit, ObservedMetric, PlanObservation};
 mod aggregate;
 pub mod cache;
 mod engine_session;

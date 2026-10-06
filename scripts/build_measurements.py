@@ -455,11 +455,7 @@ def capability_environment(
         cwd=root,
         env=original,
     )
-    return dict(
-        entry.decode().split("=", 1)
-        for entry in output.split(b"\0")
-        if entry
-    )
+    return dict(entry.decode().split("=", 1) for entry in output.split(b"\0") if entry)
 
 
 def main() -> None:

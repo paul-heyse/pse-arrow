@@ -3,7 +3,7 @@ title: Durable execution and dependency-scoped studies
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -126,6 +126,31 @@ until their native work drains. Unmanaged external workers and distributed capac
 are outside the initial qualification profile. Cancellation drains prepared work and releases native state
 without deleting canonical scientific history.
 
+## Remaining recovery and study slices
+
+The [coordinator](28-surrealdb-unified-substrate.md#finding-dispositions) owns findings;
+[28e](28e-rebuild-retirement-and-qualification.md#remaining-assembled-execution) owns the
+assembled campaign. The [capability investigation](../design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md)
+supports native structural locality and operation-identity recovery in the existing C owners.
+
+| Slice | Inputs, transition and affected consumers | Targeted acceptance and replacement |
+|---|---|---|
+| C2/C4 lifecycle handoff, after A3 correction | Exact source revision plus run/attempt identity creates immutable owning roots and ordinary retained scientific outcomes. Drain/cancellation releases native work through the owner; terminal readback distinguishes failure, partial usable outcome and success. Runtime durable/staging/retention and result readers share the association. | Compose generic-root refusal with a live run, active attempt, retained cancelled/partial result, reopen and reclaim. No generic retention workaround or old publication/settlement path may survive. |
+| C3/C4 uncertain study claim | Occurrence/operation identity, scope, guard premises and generation yield one authoritative native claim. After an acknowledgment is lost, query that identity and settle the committed claim before another start; definite conflict retries the complete readiness decision. Owners: `canonical_studies.rs`, study policy/driver and managed workers. | Inject acknowledgment loss after committed study claim, then recover the same occurrence/start/generation without duplication. Cover competing workers, expiry, stale generation, cancel-before-start and cancel-after-start/drain. If current source already supplies recovery, validate it; otherwise extend that owning operation rather than creating another scheduler. |
+| C3 progress/backpressure and managed interruption | Bounded progress delivery must allow terminal settlement and native drain even when an observer queue fills or its consumer disappears. Worker loss preserves exact started/unstaged/staged/closed/terminal distinctions. | Execute the failing event/progress journey under its real queue premise, plus two-worker kill/restart and the existing SCIP interruption workload. Require canonical terminal correctness and bounded queue/lifetime, not delivery of every diagnostic event. Remove displaced full-study dispatch/obsolete recovery callers when covered. |
+
+Versioned native functions already own atomic structural claim/fencing, staging and sealing;
+Rust shared policy owns scientific readiness and interpretation. Reuse that split and keep
+function/schema generation registry-owned. A native traversal/function may compact discovery
+but cannot invent another scientific predicate. LIVE subscriptions and changefeeds are optional
+observer hints only: reconnect/retention can lose notifications, so authoritative decisions
+must reread canonical state. No new notification transport is needed for current acceptance.
+
+C's focused controls below do not establish deployed managed-worker recovery. Execute targeted
+controls with the admitted profile; E3 then composes concurrency, cancellation, progress,
+retention and restart with refreshed producers. Changes to global/contextual accuracy require
+physical decision rationale and their policy owner, never a study-specific tolerance adjustment.
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
@@ -229,12 +254,32 @@ finding dispositions. Integrated qualification waits for all companion functiona
 
 ### What was built
 
-Pending implementation and named evidence.
+**Implemented:** canonical run registration, fenced attempts, bounded progress/result staging,
+atomic scientific terminal admission and acknowledgment settlement. Ordinary runs retain their
+actual outcomes. Dependency-scoped study discovery, ready-point preparation, distinct occurrence
+identity, qualified predecessor starts and recoverable summary finalization replace the old
+store/publication mechanisms. Bounded exact physical admission and IPC receipt reuse retain
+their source owners through run admission; cache clear fences pending loads.
+
+**Tested (2026-10-06):** targeted native `just unit-native-package` controls under explicit
+`canonical-tests,native-solvers` and force-validation passed the five
+`physical_admission_cache_unit` controls, the equal-binding/failed-usable study control and
+`canonical_study_reopened_continuation_uses_shared_secant_and_original_correction`.
+Durable constant-result reopening and registration-refusal controls passed; scoped native
+claim/retention controls passed through `just unit-package` with canonical tests enabled.
+The baseline was zero failures. These focused observations precede the later build-output
+replacement and do not establish E3's assembled worker interruption or E4's measurements.
 
 ### A mistake made and corrected
 
-Pending execution.
+Registration failures could be hidden by a later cleanup/sealing failure. The run boundary now
+retains the original cause and refuses a successful result or fabricated attempt header.
+Cache clearing initially fenced only a later load phase; capturing the generation before the
+first source await also prevents an earlier in-flight load from republishing after clear.
 
 ### Deviations from the plan, deliberate
 
-Pending execution; consequential decision changes follow the decision route.
+Physical admission reuse is private and bounded to one exact document and one exact IPC
+receipt set rather than introducing another public cache configuration. Retained immutable
+owners are shared; mutable numerical workspaces remain per attempt. Assembled recovery,
+capacity and timing claims remain owned by E3/E4.

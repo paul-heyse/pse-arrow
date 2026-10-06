@@ -89,7 +89,8 @@ def test_canonical_result_selection_and_progress_reopen(
     assert result.usable
     run = result.canonical_run_key
     attempt = result.canonical_attempt_key
-    assert run is not None and attempt is not None
+    assert run is not None
+    assert attempt is not None
     assert handle.canonical_run_key == run
     assert handle.canonical_attempt_key == attempt
 
@@ -100,8 +101,10 @@ def test_canonical_result_selection_and_progress_reopen(
     (record,) = pa.table(reopened.attempt_record(attempt)).to_pylist()
     (manifest,) = pa.table(reopened.result_manifest(attempt)).to_pylist()
     assert header["key"] == run
-    assert record["key"] == attempt and record["run"] == run
-    assert record["terminal"] and record["outcome"] == "succeeded"
+    assert record["key"] == attempt
+    assert record["run"] == run
+    assert record["terminal"]
+    assert record["outcome"] == "succeeded"
     assert manifest["attempt"] == attempt
     reopened_dependencies = reopened.analysis(dependencies.key)
     assert pa.table(reopened_dependencies.edges()).to_pylist() == dependency_rows
@@ -109,18 +112,24 @@ def test_canonical_result_selection_and_progress_reopen(
     (analysis,) = pa.table(provenance.header()).to_pylist()
     assert analysis["revision"] == header["revision"]
     assert analysis["method"] == "result-sensitivity-provenance-reachability:v1"
-    assert any(row["kind"] == "input_provenance" for row in pa.table(provenance.edges()).to_pylist())
+    assert any(
+        row["kind"] == "input_provenance"
+        for row in pa.table(provenance.edges()).to_pylist()
+    )
     relation = "runtime.solve_runs"
     exact = pa.table(reopened.results(run, attempt, relation))
-    latest = pa.table(reopened.latest_results(
-        header["problem"], relation, classes=("succeeded",)
-    ))
+    latest = pa.table(
+        reopened.latest_results(header["problem"], relation, classes=("succeeded",))
+    )
     assert exact.equals(latest)
     assert exact.num_rows == 1
-    assert pa.table(reopened.results(run, attempt, relation, start=1, end=1)).num_rows == 0
+    assert (
+        pa.table(reopened.results(run, attempt, relation, start=1, end=1)).num_rows == 0
+    )
 
     with reopened.progress(run, attempt) as stream:
-        assert stream.run_key == run and stream.attempt_key == attempt
+        assert stream.run_key == run
+        assert stream.attempt_key == attempt
         events = list(stream)
     assert events, "the canonical Ipopt attempt retains iteration observations"
     positions = [event.sequence for event in events]
@@ -129,9 +138,9 @@ def test_canonical_result_selection_and_progress_reopen(
     assert sequences == sorted(sequences)
     assert len(set(sequences)) == len(sequences)
     assert all(event.step == 0 and event.phase for event in events)
-    assert [(event.sequence, event.phase) for event in reopened.progress(run, attempt)] == [
-        (event.sequence, event.phase) for event in events
-    ]
+    assert [
+        (event.sequence, event.phase) for event in reopened.progress(run, attempt)
+    ] == [(event.sequence, event.phase) for event in events]
     closed = reopened.progress(run, attempt)
     closed.close()
     assert list(closed) == []
@@ -154,8 +163,12 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
 ) -> None:
     receipt_path = os.environ.get("PSE_PRODUCER_RECEIPT")
     if receipt_path is None:
-        pytest.fail("This control requires the reviewed current pse-py deployment receipt.")
-    receipt = msgspec.json.decode(Path(receipt_path).read_bytes(), type=dict[str, object])
+        pytest.fail(
+            "This control requires the reviewed current pse-py deployment receipt."
+        )
+    receipt = msgspec.json.decode(
+        Path(receipt_path).read_bytes(), type=dict[str, object]
+    )
     assert receipt["frame"] == "pse.producer.v1"
     assert receipt["package"] == "pse-py"
     assert receipt["persistent_reuse_eligible"] is True
@@ -174,16 +187,21 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     first = prepared.start().wait()
     assert first.usable
     run, attempt = first.canonical_run_key, first.canonical_attempt_key
-    assert run is not None and attempt is not None
+    assert run is not None
+    assert attempt is not None
     original = pa.table(first.table("runtime.solve_variables"))
     (variable,) = original.to_pylist()
     assert variable["value"] == pytest.approx(2.0, abs=1e-7)
     checks = pa.table(first.table("runtime.modeling_checks")).to_pylist()
-    assert checks and all(row["satisfied"] for row in checks)
+    assert checks
+    assert all(row["satisfied"] for row in checks)
     (header,) = pa.table(runtime.run_record(run)).to_pylist()
     # These identities come from the actual loaded extension's deployment, not
     # from feeding a receipt's own identities back into its qualification mint.
-    assert msgspec.json.decode(header["attestation"], type=tuple[str, str]) == expected_attestation
+    assert (
+        msgspec.json.decode(header["attestation"], type=tuple[str, str])
+        == expected_attestation
+    )
     assert header["revision"] == revision
     del first, prepared, package
     runtime.clear_program_cache()
@@ -195,17 +213,25 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     recreated, recreated_case = _package(reopened)
     assert recreated.canonical_revision == revision
     assert recreated_case == case
-    assert pa.table(reopened.results(run, attempt, "runtime.solve_variables")).equals(original)
+    assert pa.table(reopened.results(run, attempt, "runtime.solve_variables")).equals(
+        original
+    )
     following = recreated.prepare_solve(recreated_case, _settings()).start().wait()
     assert following.usable
     repeated = pa.table(following.table("runtime.solve_variables"))
     assert repeated.drop(["run_id"]).equals(original.drop(["run_id"]))
     repeated_checks = pa.table(following.table("runtime.modeling_checks")).to_pylist()
-    assert repeated_checks and all(row["satisfied"] for row in repeated_checks)
+    assert repeated_checks
+    assert all(row["satisfied"] for row in repeated_checks)
     assert following.canonical_run_key is not None
-    (following_header,) = pa.table(reopened.run_record(following.canonical_run_key)).to_pylist()
+    (following_header,) = pa.table(
+        reopened.run_record(following.canonical_run_key)
+    ).to_pylist()
     assert following_header["revision"] == revision
-    assert msgspec.json.decode(following_header["attestation"], type=tuple[str, str]) == expected_attestation
+    assert (
+        msgspec.json.decode(following_header["attestation"], type=tuple[str, str])
+        == expected_attestation
+    )
     # Public Python observes actual deployment admission, immutable reopening and
     # unchanged outputs. Strict native recipe controls separately distinguish
     # persisted reconstruction from fresh semantic admission; no timing claim.

@@ -563,7 +563,9 @@ mod solved {
         let solve = Analytic::new(p, 2.0, false, false);
         let (n, m) = (3, solve.bounds.len());
         let controls = Controls::default();
-        let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-9).unwrap();
+        // The independent analytic solution and first-order prediction are
+        // compared below at 1e-7, so resolve the existing verification policy.
+        let accuracy = ResolvedAccuracy::verification();
         let normalization = solve.normalization.clone();
         let tolerances = tolerances(n, m);
         execution::nlp(

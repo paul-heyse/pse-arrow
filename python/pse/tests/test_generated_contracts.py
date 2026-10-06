@@ -121,7 +121,9 @@ def test_canonical_manifest_preserves_exact_descriptor_bytes_and_generation() ->
 
 
 @pytest.mark.unit
-def test_canonical_scalar_index_preserves_bits_and_refuses_nonfinite_projection() -> None:
+def test_canonical_scalar_index_preserves_bits_and_refuses_nonfinite_projection() -> (
+    None
+):
     document = {
         "key": "cell-key",
         "result_set": "result-set-key",
@@ -135,7 +137,9 @@ def test_canonical_scalar_index_preserves_bits_and_refuses_nonfinite_projection(
         "projection": None,
         "interpretation": "original-field-contract",
     }
-    row = structure_rows([document], runtime_contracts.RuntimeCanonicalResultCellsRow)[0]
+    row = structure_rows([document], runtime_contracts.RuntimeCanonicalResultCellsRow)[
+        0
+    ]
     assert row.bits == document["bits"]
     assert row.projection is None
     assert converter().unstructure(row) == document

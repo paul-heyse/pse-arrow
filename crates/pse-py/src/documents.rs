@@ -60,6 +60,20 @@ pub(crate) fn decode_versioned<T: serde::de::DeserializeOwned, const N: u32>(
     pse_model::document::decode_versioned::<T, N>(bytes)
         .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
 }
+/// Read the immutable study contract through its owning version-first admission.
+pub(crate) fn study_definition(
+    py: Python<'_>,
+    bytes: &[u8],
+    allowance: usize,
+) -> PyResult<pse_runtime::workflow::StudyDefinition> {
+    if bytes.len() > allowance {
+        return Err(crate::workflow::invalid(py, "operation document extent"));
+    }
+    let document = std::str::from_utf8(bytes)
+        .map_err(|error| crate::workflow::invalid(py, format!("operation: {error}")))?;
+    pse_runtime::workflow::StudyDefinition::readmission(document)
+        .map_err(|error| crate::inspection::errors::diagnostic(py, &error))
+}
 /// Project an owned result document; no adapter-owned JSON shape is introduced.
 pub(crate) fn encode<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Vec<u8>> {
     serde_json::to_vec(value).map_err(|error| crate::workflow::invalid(py, error.to_string()))

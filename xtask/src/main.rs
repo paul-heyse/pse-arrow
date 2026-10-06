@@ -33,9 +33,9 @@ mod codegen;
 mod dependency_ceilings;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
+mod producer_identity;
 #[cfg(any(feature = "package-fixtures", test))]
 mod python_tests;
-mod producer_identity;
 #[path = "../../scripts/workspace.rs"]
 mod workspace;
 
@@ -277,8 +277,13 @@ fn main() -> Result<()> {
                     source: pse_ids::ContentHash::parse_hex(&source)?,
                     build: pse_ids::ContentHash::parse_hex(&build)?,
                 };
-                ensure!(identity.outer_attestation.as_ref().is_none_or(|actual| actual == &supplied),
-                    "supplied outer attestation differs from the actual captured deployment");
+                ensure!(
+                    identity
+                        .outer_attestation
+                        .as_ref()
+                        .is_none_or(|actual| actual == &supplied),
+                    "supplied outer attestation differs from the actual captured deployment"
+                );
                 identity.outer_attestation = Some(supplied);
             }
             producer_identity::write_if_changed(&output, &identity)?;

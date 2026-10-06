@@ -3,7 +3,7 @@ title: Canonical substrate and immutable revisions
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -179,6 +179,38 @@ interpretation and operation identities, with verification before accepting writ
 clean regeneration is the adoption route; it does not remove the target's ongoing recovery
 obligations.
 
+## Completion-audit correction slices
+
+The [coordinator](28-surrealdb-unified-substrate.md#finding-dispositions) owns F01/F03
+status. The [capability investigation](../design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md)
+supplies source-backed transaction and response semantics, not deployed-profile qualification.
+The following work extends A1–A3 within their existing contracts.
+
+| Slice and current source | Input, result and consumers | Required targeted completion |
+|---|---|---|
+| A3 lifecycle authority: `pse-operations/src/canonical_retention.rs` now restricts generic root mutation to History | Existing exact root/revision and owning run/attempt/analysis operation. Lifecycle minting/release remains atomic in its owner; generic APIs cannot redirect, forge or drop those roots. History may legitimately move. Run, staging, analysis and reclaim callers share this rule. | Execute `lifecycle_roots_cannot_be_redirected_or_released_by_generic_retention` through the native recipe. Verify direct native calls as well as Rust refusal, legitimate History movement, active attempt protection and eventual reclaim. Check all root-mutating callers; delete any remaining generic lifecycle bypass once covered. |
+| A1 initialization: `pse-operations/src/canonical.rs` now consumes complete response then opens/verifies interpretation | Generated schema plus exact interpretation identity yield a verified open store. Statement errors, missing expected results or uncertain delivery do not report installation success; readback verifies the same identity without replaying DDL blindly. Ordinary create/open remains supported. | Execute new zero-statement, marker-verification, lost-ack and cancellation controls with the actual adapter. An SDK error and a valid End frame with zero statements are distinct cases. Do not attribute historical missing-table failures to this seam without decisive evidence. |
+| A2 acquisition boundary, joined with B1 | Exact ID groups and `(scope, name)` pairs yield only demanded rows and complete selected extents. Preflight metadata for whole hydration groups, then bound payloads/decoded bytes and retain read protection through product-root admission. | Exercise sparse/cross-pair demands, absent IDs, conflicting namespace additions and grouped extent admission. Remove displaced singleton probes and duplicate decoding, preserving exact scientific codecs and physical admission. |
+
+SDK 3.3.0 gRPC `query_inner` requires a terminal End frame and verifies its result count.
+A truncated response is therefore a transport error, not an assumed empty success. Application
+initialization still needs its own expected-statement and installed-interpretation checks.
+Awaited `IndexedResults` accumulates received batches, so a per-frame cap alone does not bound
+an entire grouped response; the owning acquisition must preflight total selected extents.
+
+Named `FOR UPDATE` guards register commit-time conflicts; they do not block competitors or
+lock a range predicate. Exercise an absent exact ID and a concurrent namespace/set addition
+through every relevant mutation route. Retry the complete guarded decision on definite
+conflict. Preserve operation identity across uncertain acknowledgments and settle readback
+before deciding whether a retry is safe. READONLY fields or synchronous event refusal may
+reinforce an invariant only through the generated schema owner; neither replaces lifecycle
+ownership, and a blanket immutable history association would prevent valid history movement.
+
+A's historical local profile/receipts below remain historical. Its current next step is these
+targeted controls and the shared C/D protection handoff; assembled kill/reopen/restore and
+combined read/retirement races belong to E3. Reopening an obsolete A/B integrated campaign is
+not a prerequisite. No new server experiment was run for this documentation revision.
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
@@ -237,13 +269,9 @@ Final generation and the focused native storage/recovery controls are complete. 
 of work. A1–A3 remain implemented with final integrated acceptance pending. No measured
 speed improvement or full Plan 28 series exit is claimed.
 
-Resume by reopening the preserved supervised test state, then run the final selected
-Python and assembled Rust consumers described in B's checkpoint. The interrupted
-reference-only study is not positive evidence. Complete the remaining manual scope-end
-checks on that final baseline before closing A/B; later C/D/E scope remains separate.
-The local test profile is `~/.local/state/pse-arrow/surreal-a1-profile`, selected through
-`PSE_SURREAL_STATE`; its database is `canonical_ab_final_e9758e86`. Earlier database
-history was preserved when the generated codec interpretation changed.
+Continue with the correction slices above, then 28e's assembled target campaign.
+Earlier local A/B state and receipts remain preserved historical evidence; there is no
+requirement to resume their interrupted campaign or obsolete C/D/E migration boundary.
 
 ## Outcome (recorded after implementation)
 

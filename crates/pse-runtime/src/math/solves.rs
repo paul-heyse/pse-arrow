@@ -4704,9 +4704,7 @@ impl MathService {
         tolerances: &Tolerances,
         budget: &Arc<WorkerBudget>,
     ) -> Result<native::square_response::SparsePredictor, native::square_response::Withheld> {
-        use native::square_response::{
-            Withheld,
-        };
+        use native::square_response::Withheld;
         let cause = |error: ProblemError| Withheld::Cause(Arc::new(error));
         scope.check().map_err(ProblemError::from).map_err(cause)?;
         let candidate = report.candidate.as_ref().ok_or(Withheld::NoCandidate)?;
@@ -4720,12 +4718,40 @@ impl MathService {
             .observation
             .as_ref()
             .ok_or_else(|| Withheld::Infeasible("fresh predictor lacks original values".into()))?;
-        self.fresh_root_predictor_at(&candidate.primal,&observed.values,prepared,program,values,providers,scope,normalization,tolerances,budget)
+        self.fresh_root_predictor_at(
+            &candidate.primal,
+            &observed.values,
+            prepared,
+            program,
+            values,
+            providers,
+            scope,
+            normalization,
+            tolerances,
+            budget,
+        )
     }
-    #[expect(clippy::too_many_arguments,reason="original factor producer consumes the complete admitted source and task")]
-    fn fresh_root_predictor_at(&self,primal:&[f64],observed:&[f64],prepared:&Preparation,program:&SensitivityProgram,values:&CaseValues,providers:&BTreeMap<pse_kernels::ProviderKey,pse_kernels::Registration>,scope:&pse_kernels::ExecutionScope,normalization:&Normalization,tolerances:&Tolerances,budget:&Arc<WorkerBudget>)->Result<native::square_response::SparsePredictor,native::square_response::Withheld>{
-        use native::square_response::{SparseFactor,SparsePredictor,SparseRequest,SquareScope,Withheld};
-        let cause=|error:ProblemError|Withheld::Cause(Arc::new(error));
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "original factor producer consumes the complete admitted source and task"
+    )]
+    fn fresh_root_predictor_at(
+        &self,
+        primal: &[f64],
+        observed: &[f64],
+        prepared: &Preparation,
+        program: &SensitivityProgram,
+        values: &CaseValues,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        scope: &pse_kernels::ExecutionScope,
+        normalization: &Normalization,
+        tolerances: &Tolerances,
+        budget: &Arc<WorkerBudget>,
+    ) -> Result<native::square_response::SparsePredictor, native::square_response::Withheld> {
+        use native::square_response::{
+            SparseFactor, SparsePredictor, SparseRequest, SquareScope, Withheld,
+        };
+        let cause = |error: ProblemError| Withheld::Cause(Arc::new(error));
         scope.check().map_err(ProblemError::from).map_err(cause)?;
         let plan = &prepared.compiled().plan;
         let n = plan.columns().len();
@@ -4846,23 +4872,116 @@ impl MathService {
     }
     /// Rebuild a previously qualified factor from its exact portable original point.
     /// This is numerical preparation, called only under the claimed target's task.
-    pub(crate) async fn restore_root_predictor(self:&Arc<Self>,source:PreparedSolve,primal:Vec<f64>,observed:Vec<f64>,key:pse_model::strategy::SemanticProductKey,scope:pse_kernels::ExecutionScope,admission:Option<Arc<super::strategy::admission::TaskAdmission>>,driver:&crate::CancelSource)->Result<native::square_response::SparsePredictor,MathRuntimeError>{
-        let source=source.retaining_factor()?;
-        if source.semantic_point_key(&primal)?!=key{return Err(ProblemError::Contract("retained root factor source identity differs".into()).into());}
-        let Representation::Algebraic(case)=&source.representation else{return Err(ProblemError::Unsupported("retained root factor requires original algebraic source".into()).into());};
-        let Some(ParametricPreparation::Available(program))=&case.sensitivity else{return Err(ProblemError::Unsupported("retained root factor lacks original parametric program".into()).into());};
-        let bytes=native::square_response::SparseFactor::allowance(primal.len()).and_then(|n|n.checked_add(program.program.assembly.numeric_worker_bytes())).and_then(|n|n.checked_add(program.program.assembly.jacobian_pattern().compute_nnz().checked_mul(64)?)).and_then(|n|n.checked_add(primal.len().checked_add(program.parameters.len())?.checked_mul(256)?)).ok_or(MathRuntimeError::Limit("retained root factor extent"))?;
-        let budget=WorkerBudget::new(bytes);let budget=admission.map_or_else(||budget.clone(),|owner|budget.with_admission(owner));
-        let service=self.clone();let worker_scope=scope.clone();let stop=FlightCancellation::default();let cancel=stop.clone();
-        let operation=self.job_retained_scoped(1,bytes,stop,scope.deadline(),move |_|{
-            let Representation::Algebraic(case)=&source.representation else{return Err(ProblemError::Internal("retained factor source changed".into()).into());};
-            let Some(ParametricPreparation::Available(program))=&case.sensitivity else{return Err(ProblemError::Internal("retained parametric source changed".into()).into());};
-            let predictor=service.fresh_root_predictor_at(&primal,&observed,&case.prepared,program,&case.values,&case.providers,&worker_scope,&source.normalization,&source.tolerances,&budget).map_err(|error|match error{native::square_response::Withheld::Cause(cause)=>ProblemError::Math(pse_math::MathError::Typed{retained:cause.retained_bytes(),cause:pse_model::diagnostic::DiagnosticCause::from_shared(cause)}),native::square_response::Withheld::Memory=>ProblemError::memory("retained root factor allowance"),native::square_response::Withheld::Numerical(detail)=>ProblemError::numerical(detail),other=>ProblemError::Unsupported(format!("retained root factor withheld: {other:?}"))})?;
-            if predictor.factor().key()!=key{return Err(ProblemError::Contract("rebuilt root factor differs from recorded qualification".into()).into());}
-            Ok((predictor,bytes))
-        });tokio::pin!(operation);
-        let result=tokio::select!{result=&mut operation=>result,()=driver.cancelled()=>{scope.cancellation().store(true,std::sync::atomic::Ordering::Release);cancel.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}};
-        result.map(|(predictor,owner)|predictor.with_owner(owner))
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The exact retained point, semantic key and execution admission have distinct qualification and lifetime roles"
+    )]
+    pub(crate) async fn restore_root_predictor(
+        self: &Arc<Self>,
+        source: PreparedSolve,
+        primal: Vec<f64>,
+        observed: Vec<f64>,
+        key: pse_model::strategy::SemanticProductKey,
+        scope: pse_kernels::ExecutionScope,
+        admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
+        driver: &crate::CancelSource,
+    ) -> Result<native::square_response::SparsePredictor, MathRuntimeError> {
+        let source = source.retaining_factor()?;
+        if source.semantic_point_key(&primal)? != key {
+            return Err(ProblemError::Contract(
+                "retained root factor source identity differs".into(),
+            )
+            .into());
+        }
+        let Representation::Algebraic(case) = &source.representation else {
+            return Err(ProblemError::Unsupported(
+                "retained root factor requires original algebraic source".into(),
+            )
+            .into());
+        };
+        let Some(ParametricPreparation::Available(program)) = &case.sensitivity else {
+            return Err(ProblemError::Unsupported(
+                "retained root factor lacks original parametric program".into(),
+            )
+            .into());
+        };
+        let bytes = native::square_response::SparseFactor::allowance(primal.len())
+            .and_then(|n| n.checked_add(program.program.assembly.numeric_worker_bytes()))
+            .and_then(|n| {
+                n.checked_add(
+                    program
+                        .program
+                        .assembly
+                        .jacobian_pattern()
+                        .compute_nnz()
+                        .checked_mul(64)?,
+                )
+            })
+            .and_then(|n| {
+                n.checked_add(
+                    primal
+                        .len()
+                        .checked_add(program.parameters.len())?
+                        .checked_mul(256)?,
+                )
+            })
+            .ok_or(MathRuntimeError::Limit("retained root factor extent"))?;
+        let budget = WorkerBudget::new(bytes);
+        let budget = admission.map_or_else(|| budget.clone(), |owner| budget.with_admission(owner));
+        let service = self.clone();
+        let worker_scope = scope.clone();
+        let stop = FlightCancellation::default();
+        let cancel = stop.clone();
+        let operation = self.job_retained_scoped(1, bytes, stop, scope.deadline(), move |_| {
+            let Representation::Algebraic(case) = &source.representation else {
+                return Err(ProblemError::Internal("retained factor source changed".into()).into());
+            };
+            let Some(ParametricPreparation::Available(program)) = &case.sensitivity else {
+                return Err(
+                    ProblemError::Internal("retained parametric source changed".into()).into(),
+                );
+            };
+            let predictor = service
+                .fresh_root_predictor_at(
+                    &primal,
+                    &observed,
+                    &case.prepared,
+                    program,
+                    &case.values,
+                    &case.providers,
+                    &worker_scope,
+                    &source.normalization,
+                    &source.tolerances,
+                    &budget,
+                )
+                .map_err(|error| match error {
+                    native::square_response::Withheld::Cause(cause) => {
+                        ProblemError::Math(pse_math::MathError::Typed {
+                            retained: cause.retained_bytes(),
+                            cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                        })
+                    }
+                    native::square_response::Withheld::Memory => {
+                        ProblemError::memory("retained root factor allowance")
+                    }
+                    native::square_response::Withheld::Numerical(detail) => {
+                        ProblemError::numerical(detail)
+                    }
+                    other => ProblemError::Unsupported(format!(
+                        "retained root factor withheld: {other:?}"
+                    )),
+                })?;
+            if predictor.factor().key() != key {
+                return Err(ProblemError::Contract(
+                    "rebuilt root factor differs from recorded qualification".into(),
+                )
+                .into());
+            }
+            Ok((predictor, bytes))
+        });
+        tokio::pin!(operation);
+        let result = tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{scope.cancellation().store(true,std::sync::atomic::Ordering::Release);cancel.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}};
+        result.map(|(predictor, owner)| predictor.with_owner(owner))
     }
     /// Worker-scoped providers and one attempt-local evaluator on this thread.
     fn case_worker(

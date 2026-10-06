@@ -386,7 +386,7 @@ Version: 1. Snapshot class: `model`. Primary key: `enum_id, member_ordinal`.
 
 ## `schema_identities`
 
-One row per declared entity identity: the typed ids generated into Rust, PostgreSQL and Python (ADR-0115).
+One row per declared entity identity: the typed ids generated into Rust and Python (ADR-0115).
 
 Version: 1. Snapshot class: `model`. Primary key: `identity_id`.
 

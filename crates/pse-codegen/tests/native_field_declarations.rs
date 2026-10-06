@@ -272,8 +272,8 @@ fn string_enums_keep_their_domain_in_execution_fields() {
     let registry = fixture(F::extended(pse_schema::model::ExtensionUse::Bound)).unwrap();
     let relation = registry.relation("authored.native_fields").unwrap();
     let execution = arrow::relation_schema(&registry, relation).unwrap();
-    for schema in [&execution] {
-        let DataType::Struct(fields) = schema.field(1).data_type() else {
+    {
+        let DataType::Struct(fields) = execution.field(1).data_type() else {
             panic!("bound structure");
         };
         let kind = &fields[0];
@@ -308,8 +308,8 @@ fn bounded_signed_domains_project_to_languages_and_arrow() {
     let registry = fixture(F::list(F::nonnegative(255).optional())).unwrap();
     let relation = registry.relation("authored.native_fields").unwrap();
     let execution = arrow::relation_schema(&registry, relation).unwrap();
-    for schema in [&execution] {
-        let DataType::List(child) = schema.field(1).data_type() else {
+    {
+        let DataType::List(child) = execution.field(1).data_type() else {
             panic!("list")
         };
         assert_eq!(child.data_type(), &DataType::Int64);

@@ -9,7 +9,6 @@ import attrs
 
 from pse import codec
 from pse._analyses import Analysis
-from pse.contracts.documents import AnalysisControls, ResultReclamationPage
 from pse._build import (
     EngineSettings,
     _NativePhysicalContext,
@@ -28,8 +27,10 @@ from pse._strategies import (
 )
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import (
+    AnalysisControls,
     ConicRequest,
     ResourceReport,
+    ResultReclamationPage,
     RunControls,
     SolveSettings,
 )
@@ -58,7 +59,8 @@ class Runtime:
         """Attach to the shared deployment under an explicit durability class.
 
         Args:
-            settings: The deployment budget shared by compilation, native work and reads.
+            settings: The deployment budget shared by compilation, native work
+                and reads.
             substrate: Supervisor state directory for canonical scientific storage.
             producer: Optional qualified mathematical producer receipt path.
             ephemeral: Explicitly retain numerical outcomes only in this process.
@@ -108,9 +110,13 @@ class Runtime:
         """Reopen one exact active scientific graph without hydrating results."""
         return Analysis(self._handle.analysis(key))
 
-    def result_analysis(self, run: str, attempt: str, controls: AnalysisControls) -> Analysis:
+    def result_analysis(
+        self, run: str, attempt: str, controls: AnalysisControls
+    ) -> Analysis:
         """Persist reported sensitivity evidence and exact result provenance."""
-        return Analysis(self._handle.result_analysis(run, attempt, codec.encode_json(controls)))
+        return Analysis(
+            self._handle.result_analysis(run, attempt, codec.encode_json(controls))
+        )
 
     def forget_study_results(self, study: str) -> None:
         """Withdraw a terminal study's explicit retention obligation."""
@@ -122,7 +128,9 @@ class Runtime:
 
     def reclaim_run_results(self, run: str) -> ResultReclamationPage:
         """Retire a terminal run and reclaim one bounded page of scientific data."""
-        return codec.decode_json(self._handle.reclaim_run_results(run), ResultReclamationPage)
+        return codec.decode_json(
+            self._handle.reclaim_run_results(run), ResultReclamationPage
+        )
 
     def latest_results(
         self,
@@ -138,9 +146,11 @@ class Runtime:
         Empty classes include every recorded terminal outcome. A requested class
         never changes the scientific meaning of a failed or partial result.
         """
-        return TableStream(self._handle.latest_results(
-            problem, relation, classes=list(classes), start=start, end=end
-        ))
+        return TableStream(
+            self._handle.latest_results(
+                problem, relation, classes=list(classes), start=start, end=end
+            )
+        )
 
     def results(
         self,
@@ -184,11 +194,21 @@ class Runtime:
         Missing scalar values require an explicit missing predicate. Units and
         quality remain in the original rows; numeric indexes never replace bits.
         """
-        return TableStream(self._handle.output_results(
-            run, attempt, relation, output.to_hex(), field,
-            partition=partition, start=start, end=end,
-            minimum=minimum, maximum=maximum, missing=missing,
-        ))
+        return TableStream(
+            self._handle.output_results(
+                run,
+                attempt,
+                relation,
+                output.to_hex(),
+                field,
+                partition=partition,
+                start=start,
+                end=end,
+                minimum=minimum,
+                maximum=maximum,
+                missing=missing,
+            )
+        )
 
     def export_results(
         self,

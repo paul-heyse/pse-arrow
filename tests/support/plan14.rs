@@ -24,7 +24,7 @@ pub(crate) fn fixture(name: &str) -> std::path::PathBuf {
         .join(name)
 }
 pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
-    let store=pse_operations::testing::canonical_fixture_store().unwrap();
+    let store = pse_operations::testing::canonical_fixture_store().unwrap();
     owner.register_fixture(store.clone()).unwrap();
     Runtime::from_shared(
         owner.runtime.clone(),

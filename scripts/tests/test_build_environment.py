@@ -284,7 +284,9 @@ print(prepare(base, 'fixture', {'id': 1}, ('lib/a',), builder))
             self.assertIn(f"{build.ROOT}:{build.ROOT}:ro", args)
             self.assertEqual(args[-1], str(target / "test"))
 
-    def test_native_runner_preserves_selected_canonical_profile_and_loopback(self) -> None:
+    def test_native_runner_preserves_selected_canonical_profile_and_loopback(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / "docker"
@@ -295,17 +297,23 @@ print(prepare(base, 'fixture', {'id': 1}, ('lib/a',), builder))
             state = root / "canonical state"
             state.mkdir()
             environment = {
-                key: value for key, value in os.environ.items() if key != "PSE_SURREAL_STATE"
+                key: value
+                for key, value in os.environ.items()
+                if key != "PSE_SURREAL_STATE"
             }
             environment["PATH"] = str(root) + os.pathsep + os.environ["PATH"]
             for selected, expected in [(None, "none"), (state, "host")]:
                 current = dict(environment)
                 if selected is not None:
                     current["PSE_SURREAL_STATE"] = str(selected)
-                args = json.loads(subprocess.check_output(
-                    ["bash", "scripts/native-solver-runner.sh", "true"],
-                    cwd=build.ROOT, env=current, text=True,
-                ))
+                args = json.loads(
+                    subprocess.check_output(
+                        ["bash", "scripts/native-solver-runner.sh", "true"],
+                        cwd=build.ROOT,
+                        env=current,
+                        text=True,
+                    )
+                )
                 self.assertEqual(args[args.index("--network") + 1], expected)
                 self.assertNotIn("PSE_DATABASE_URL", args)
                 if selected is not None:

@@ -12,7 +12,7 @@ use super::field_facets::{
     DOCUMENT, EXTENSION, FK_COLUMN, FK_RELATION, IDENTITY, IDENTITY_OWNER, PARAMETER, QUANTITY,
     ROLE, STRUCTURE, TRANSFER_CONTEXT,
 };
-/// The one document format: a JSON document (PostgreSQL `jsonb`).
+/// The one document format: a JSON document.
 pub const JSON_DOCUMENT: &str = "json";
 
 /// Versioned semantic row-key framing, independent of native sorting buffers.

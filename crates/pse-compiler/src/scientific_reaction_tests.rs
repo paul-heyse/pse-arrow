@@ -69,6 +69,7 @@ test Both {
 }"#;
 // Complete production documents in the reaction consumers' imported dependency closure.
 const REACTION_SOURCES: &[&str] = &[
+    include_str!("../../../packages/reference/domain/models/numerical-policy.pse"),
     include_str!("../../../packages/reference/thermodynamics/models/aqueous.pse"),
     include_str!("../../../packages/reference/methods/models/caloric.pse"),
     include_str!("../../../packages/reference/data/species/models/catalogue.pse"),

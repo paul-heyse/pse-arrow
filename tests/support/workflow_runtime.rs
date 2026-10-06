@@ -10,7 +10,10 @@ use pse_engine::{
     session::{EngineFactory, native_engine_profile},
 };
 use pse_runtime::{ResourceBudget, SharedRuntime};
-use std::{num::NonZeroUsize, sync::{Arc,Mutex}};
+use std::{
+    num::NonZeroUsize,
+    sync::{Arc, Mutex},
+};
 
 #[allow(
     dead_code,
@@ -26,17 +29,47 @@ pub(crate) struct WorkflowRuntime {
 }
 impl WorkflowRuntime {
     /// Retain only explicitly created fixture databases for sample teardown.
-    pub(crate) fn register_fixture(&self,store:pse_operations::canonical::CanonicalStore)->Result<(),pse_operations::canonical::CanonicalError> {
-        self.fixture_stores.lock().map_err(|_|pse_operations::canonical::CanonicalError::Configuration("fixture owner poisoned".into()))?.push(store);
+    pub(crate) fn register_fixture(
+        &self,
+        store: pse_operations::canonical::CanonicalStore,
+    ) -> Result<(), pse_operations::canonical::CanonicalError> {
+        self.fixture_stores
+            .lock()
+            .map_err(|_| {
+                pse_operations::canonical::CanonicalError::Configuration(
+                    "fixture owner poisoned".into(),
+                )
+            })?
+            .push(store);
         Ok(())
     }
     /// Remove registered isolated databases after scientific consumers have drained.
-    pub(crate) async fn cleanup_fixtures(&self)->Result<(),pse_operations::canonical::CanonicalError> {
+    pub(crate) async fn cleanup_fixtures(
+        &self,
+    ) -> Result<(), pse_operations::canonical::CanonicalError> {
         loop {
-            let store=self.fixture_stores.lock().map_err(|_|pse_operations::canonical::CanonicalError::Configuration("fixture owner poisoned".into()))?.last().cloned();
-            let Some(store)=store else {break;};
+            let store = self
+                .fixture_stores
+                .lock()
+                .map_err(|_| {
+                    pse_operations::canonical::CanonicalError::Configuration(
+                        "fixture owner poisoned".into(),
+                    )
+                })?
+                .last()
+                .cloned();
+            let Some(store) = store else {
+                break;
+            };
             store.remove_isolated_fixture().await?;
-            self.fixture_stores.lock().map_err(|_|pse_operations::canonical::CanonicalError::Configuration("fixture owner poisoned".into()))?.retain(|retained|retained.database()!=store.database());
+            self.fixture_stores
+                .lock()
+                .map_err(|_| {
+                    pse_operations::canonical::CanonicalError::Configuration(
+                        "fixture owner poisoned".into(),
+                    )
+                })?
+                .retain(|retained| retained.database() != store.database());
         }
         Ok(())
     }
@@ -59,8 +92,7 @@ impl WorkflowRuntime {
             pool_threads: workers,
             target_partitions: workers,
         };
-        let mut cache =
-            pse_runtime::CacheBudget::for_memory(workflow_budget::MEMORY_LIMIT_BYTES);
+        let mut cache = pse_runtime::CacheBudget::for_memory(workflow_budget::MEMORY_LIMIT_BYTES);
         cache.concurrent_queries =
             NonZeroUsize::new(workers.get().min(2)).ok_or("positive queries")?;
         cache.concurrent_outputs =

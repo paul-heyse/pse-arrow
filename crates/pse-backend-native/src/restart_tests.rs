@@ -146,7 +146,9 @@ pub(crate) fn run(
         },
         ..Controls::default()
     };
-    let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-9).unwrap();
+    // Cold and warm solutions are compared at 1e-6; use the explicit
+    // verification budgets rather than ordinary engineering allowances.
+    let accuracy = ResolvedAccuracy::verification();
     let normalization = oracle.normalization.clone();
     let tolerances = tolerances(n);
     let initial = vec![1.0 / n as f64; n];

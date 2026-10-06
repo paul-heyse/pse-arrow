@@ -16,9 +16,7 @@ from pse.contracts.reference import (
 )
 
 
-def registry_rows(
-    name: str, settings: pse.EngineSettings
-) -> list[dict[str, object]]:
+def registry_rows(name: str, settings: pse.EngineSettings) -> list[dict[str, object]]:
     with (
         pse.registry_table(f"reference.{name}", settings=settings) as stream,
         pa.RecordBatchReader.from_stream(stream) as reader,
@@ -35,15 +33,11 @@ def test_stored_registry_relations_and_columns_decode_through_generated_contract
     inspection_settings: pse.EngineSettings,
 ) -> None:
     relations = structure_rows(
-        registry_rows(
-            "schema_relations", inspection_settings
-        ),
+        registry_rows("schema_relations", inspection_settings),
         ReferenceSchemaRelationsRow,
     )
     columns = structure_rows(
-        registry_rows(
-            "schema_columns", inspection_settings
-        ),
+        registry_rows("schema_columns", inspection_settings),
         ReferenceSchemaColumnsRow,
     )
     identities = {row.relation_id for row in relations}
@@ -67,9 +61,7 @@ def test_stored_registry_relations_and_columns_decode_through_generated_contract
 def test_stored_registry_values_are_checked_even_when_identity_is_unchanged(
     inspection_settings: pse.EngineSettings,
 ) -> None:
-    original = registry_rows(
-        "schema_relations", inspection_settings
-    )[0]
+    original = registry_rows("schema_relations", inspection_settings)[0]
     changed = dict(original)
     changed["primary_key"] = [17]
     assert changed["relation_id"] == original["relation_id"]

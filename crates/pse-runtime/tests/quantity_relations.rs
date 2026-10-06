@@ -37,11 +37,24 @@ fn inputs(
         .into_iter()
         .filter_map(|key| {
             let spec = registry.relation(&key.qualified_name()).unwrap();
-            let parts = bundles
+            let mut parts = bundles
                 .iter()
                 .filter_map(|bundle| bundle.batches.get(&spec.id))
                 .cloned()
                 .collect::<Vec<_>>();
+            if spec.id == pse_relations::generated::authored::modeling_declarations::RELATION_ID {
+                // Physical projection is an explicit Arrow boundary. The source
+                // loader retains native declaration rows until that boundary.
+                let cancel = CancellationToken::new();
+                for document in bundles.iter().flat_map(|bundle| &bundle.documents) {
+                    if let Some(batch) = document
+                        .modeling_batch(registry, validation, &cancel)
+                        .unwrap()
+                    {
+                        parts.push(batch);
+                    }
+                }
+            }
             (!parts.is_empty()).then(|| {
                 (
                     key,

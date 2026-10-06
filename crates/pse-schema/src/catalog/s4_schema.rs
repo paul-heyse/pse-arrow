@@ -146,7 +146,7 @@ fn declare_identities(builder: &mut RegistryBuilder) {
     builder.declare_relation(
         reference(
             "schema_identities",
-            "One row per declared entity identity: the typed ids generated into Rust, PostgreSQL and Python (ADR-0115).",
+            "One row per declared entity identity: the typed ids generated into Rust and Python (ADR-0115).",
         )
         .pk(&["identity_id"])
         .columns(vec![

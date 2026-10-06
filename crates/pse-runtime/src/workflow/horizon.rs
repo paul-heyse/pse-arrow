@@ -102,7 +102,7 @@ pub struct AdvancedStep {
 }
 
 /// How an estimator's model takes a driven input over its window.
-#[derive(Clone, Debug, PartialEq,serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub enum WindowInput {
     /// One case value for the whole window; the input must have been constant over it.
     Constant(String),

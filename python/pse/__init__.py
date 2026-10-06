@@ -18,8 +18,6 @@ native entry points receive their JSON encoding (ADR-0116).
 import importlib.metadata
 
 from pse._analyses import Analysis
-from pse.contracts.documents import AnalysisControls, ResultReclamationPage
-
 from pse._build import (
     CacheSettings,
     DiagnosticReport,
@@ -59,8 +57,8 @@ from pse._runs import (
     StoredResult,
     StudyCancel,
     StudyHandle,
-    StudyResults,
     StudyPointStatus,
+    StudyResults,
     StudyStatus,
 )
 from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult
@@ -73,6 +71,7 @@ from pse._workflow import (
 from pse.contracts import extension_types
 from pse.contracts.documents import (
     AdjointSettings,
+    AnalysisControls,
     BackendSettings,
     BuildInfo,
     CacheReport,
@@ -116,6 +115,7 @@ from pse.contracts.documents import (
     RecycleRequest,
     ResourceConsumer,
     ResourceReport,
+    ResultReclamationPage,
     RouteDocument,
     RunControls,
     ScipSettings,
@@ -130,10 +130,9 @@ from pse.contracts.documents import (
 )
 
 __all__ = [
+    "AdjointSettings",
     "Analysis",
     "AnalysisControls",
-    "ResultReclamationPage",
-    "AdjointSettings",
     "BackendSettings",
     "BuildInfo",
     "CacheReport",
@@ -204,11 +203,11 @@ __all__ = [
     "RecycleRequest",
     "ResourceConsumer",
     "ResourceReport",
+    "ResultReclamationPage",
     "RouteDocument",
     "RunControls",
     "RunHandle",
     "RunResult",
-    "StoredResult",
     "Runtime",
     "ScipSettings",
     "SimulationSettings",
@@ -216,22 +215,23 @@ __all__ = [
     "SolveSettings",
     "SolverCapability",
     "SourceLocation",
+    "StoredResult",
     "StrategyResult",
     "StudyCancel",
     "StudyHandle",
-    "StudyResults",
     "StudyPointStatus",
     "StudyReport",
+    "StudyResults",
     "StudyRunControls",
     "StudyStatus",
     "StudyWaitControls",
     "TableName",
     "TableStream",
-    "registry_table",
     "TearSelectionDocument",
     "WarmStartSnapshot",
     "__version__",
     "build_info",
+    "registry_table",
 ]
 
 

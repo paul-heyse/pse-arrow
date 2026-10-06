@@ -44,13 +44,16 @@ impl DiagnosticProjection for super::WorkflowError {
             Self::Canonical(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::ResultBlock(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::Input(_) | Self::Internal(_) => {
-                let mut diagnostic = project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
+                let mut diagnostic =
+                    project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
                 diagnostic.rule = if matches!(self, Self::Input(_)) {
                     DiagnosticRule::WorkflowInput
                 } else {
                     DiagnosticRule::WorkflowInternal
                 };
-                diagnostic.observations.insert("detail".into(), Observation::Text(self.to_string()));
+                diagnostic
+                    .observations
+                    .insert("detail".into(), Observation::Text(self.to_string()));
                 diagnostic
             }
         }
@@ -160,8 +163,8 @@ impl RunResult {
 
 #[cfg(test)]
 mod tests {
-    use pse_model::diagnostic::BoundaryClass as Class;
     use super::*;
+    use pse_model::diagnostic::BoundaryClass as Class;
     #[test]
     fn modeling_failure_retains_class_rule_and_source_through_wrappers() {
         let declaration = pse_ids::SemanticId::from_bytes([9; 16]);

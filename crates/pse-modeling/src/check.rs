@@ -995,6 +995,12 @@ fn check_declarations(
             let Some(node) = nodes.get(&parent) else {
                 return Err(invalid(row.declaration_id, "absent parent"));
             };
+            if !crate::selected_source::owns_namespace(&p.declarations[&parent]) {
+                return Err(invalid(
+                    row.declaration_id,
+                    "parent declaration cannot own nested members",
+                ));
+            }
             graph.add_edge(*node, nodes[&row.declaration_id], ());
             p.children
                 .entry(parent)

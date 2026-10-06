@@ -31,6 +31,7 @@ def main() -> None:
     package = ModuleType("pse")
     package.__path__ = [str(candidate / "python/pse"), str(repository / "python/pse")]
     sys.modules["pse"] = package
+
     # This checks annotations, never scalar values. Importing the native extension
     # would couple pure generation to scientific libraries and to workflow classes
     # that cannot be rebuilt until these candidate contracts have been generated.

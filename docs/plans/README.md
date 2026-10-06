@@ -5,7 +5,9 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan 28: SurrealDB unified simulation substrate](28-surrealdb-unified-substrate.md) owns the
-confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08 dispositions.
+confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05 dispositions.
+Its [completion-audit reconciliation](28-surrealdb-unified-substrate.md#completion-audit-reconciliation-and-capability-decisions)
+links the current corrective route and SurrealDB capability research.
 Its A–E companions develop canonical revisions, selected compilation/reuse, durable execution,
 connected native queries/Arrow, and rebuild/retirement/qualification. The coordinator's
 [checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) owns the next execution route;
@@ -63,7 +65,8 @@ which owns AF-01–AF-08 and the confirmed automatic-composition default for `Au
 The maintainer resumed 25n implementation on 2026-10-04 and waived the preliminary review;
 its [checkpoint](25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
 owns implemented slices and remaining scope.
-Full qualification resumes through 25k after the functional handoff.
+Applicable remaining qualification now proceeds through 28e after the target functional
+handoff; 25k retains its historical evidence and scientific dispositions.
 The [current 25k execution checkpoint](25k-integrated-qualification-and-closure.md#current-execution-checkpoint)
 owns the resumed campaign, selected dev measurements and final closure order.
 The requested [contextual-accuracy design review](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md)
@@ -73,9 +76,11 @@ error allocation and bounded refinement. Its package owners hold authorized exec
 [25k's dispositions](25k-integrated-qualification-and-closure.md#contextual-accuracy-review-dispositions)
 remain the sole finding status and full qualification owner. The maintainer authorized
 implementation on 2026-10-05; final campaign work follows the functional handoff.
-The series reserves full integration and qualification for 25k after all functional
-work, including real PostgreSQL preservation/restart and mixed-operation journeys, with focused
-checks and immediate deletion of replaced mechanisms during the pivot.
+Applicable remaining full integration and qualification transfer to 28e on the clean rebuilt
+target, including supported SurrealDB recovery and mixed-operation journeys. Historical
+PostgreSQL preservation receipts remain at their original owner; obsolete store qualification
+is not required before the pivot. Functional work retains focused checks and immediate deletion
+of replaced mechanisms.
 
 [Plan 26](26-testing-architecture.md) (testing architecture) and its companions are **done**
 (2026-10-05). Its [Outcome](26-testing-architecture.md#outcome) records implemented delivery,

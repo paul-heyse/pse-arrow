@@ -665,7 +665,12 @@ impl NativeModelingPackage {
             request,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let physical=self.physical_sources.as_deref().ok_or_else(||invalid(py,"study admission requires its admitted physical source documents"))?;
+        let physical = self.physical_sources.as_deref().ok_or_else(|| {
+            invalid(
+                py,
+                "study admission requires its admitted physical source documents",
+            )
+        })?;
         let cancel = CancelSource::new();
         let definition = blocking(
             py,
@@ -690,9 +695,8 @@ impl NativeModelingPackage {
             controls,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let definition = documents::decode::<native::StudyDefinition>(
+        let definition = documents::study_definition(
             py,
-            "operation",
             definition,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
@@ -716,25 +720,23 @@ impl NativeModelingPackage {
         runtime: &NativeRuntime,
         definition: &[u8],
     ) -> PyResult<NativeStudyHandle> {
+        let definition = documents::study_definition(
+            py,
+            definition,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
         let physical_sources = self.physical_sources.as_ref().ok_or_else(|| {
             invalid(
                 py,
                 "a durable study requires the shared physical source prerequisite",
             )
         })?;
-        let definition = documents::decode::<native::StudyDefinition>(
-            py,
-            "operation",
-            definition,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
         let inner = blocking(
             py,
             &runtime.owner,
-            runtime.inner.start_defined_study(
-                physical_sources.as_ref().clone(),
-                definition,
-            ),
+            runtime
+                .inner
+                .start_defined_study(physical_sources.as_ref().clone(), definition),
             || {},
         )?;
         Ok(NativeStudyHandle {
@@ -1610,14 +1612,34 @@ impl NativeStudyReport {
             .get(index)
             .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
         match result {
-            Some(native::StudyOccurrenceResult::Ephemeral(inner))=>Ok(Some(NativeRunResult{owner:self.owner.clone(),inner:inner.clone()})),
-            Some(native::StudyOccurrenceResult::Retained{..})=>Err(invalid(py,"retained occurrence uses its stored result handle")),
-            None=>Ok(None),
+            Some(native::StudyOccurrenceResult::Ephemeral(inner)) => Ok(Some(NativeRunResult {
+                owner: self.owner.clone(),
+                inner: inner.clone(),
+            })),
+            Some(native::StudyOccurrenceResult::Retained { .. }) => Err(invalid(
+                py,
+                "retained occurrence uses its stored result handle",
+            )),
+            None => Ok(None),
         }
     }
-    fn stored_result(&self,py:Python<'_>,index:usize)->PyResult<Option<NativeStoredResult>>{
-        let result=self.inner.results.get(index).ok_or_else(||invalid(py,"study occurrence outside report"))?;
-        Ok(result.as_ref().and_then(|result|result.stored_keys().map(|(run,attempt)|NativeStoredResult{inner:self.inner.runtime().clone(),owner:self.owner.clone(),run_id:result.run_id(),run:run.into(),attempt:attempt.into()})))
+    fn stored_result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeStoredResult>> {
+        let result = self
+            .inner
+            .results
+            .get(index)
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        Ok(result.as_ref().and_then(|result| {
+            result
+                .stored_keys()
+                .map(|(run, attempt)| NativeStoredResult {
+                    inner: self.inner.runtime().clone(),
+                    owner: self.owner.clone(),
+                    run_id: result.run_id(),
+                    run: run.into(),
+                    attempt: attempt.into(),
+                })
+        }))
     }
     fn failure(
         &self,

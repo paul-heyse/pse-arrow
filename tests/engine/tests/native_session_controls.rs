@@ -98,14 +98,31 @@ async fn native_reads_preserve_actual_rows_extensions_and_owned_lifetimes() {
     let (session, budget, _directory) = fixture("λ").await;
     let cancel = CancellationToken::default();
     let plan = scan(&session);
-    let expected = session.execute_plan(plan.clone(), &cancel).await.expect("original");
-    let actual = session.execute_plan(plan, &cancel).await.expect("same actual selected owner");
+    let expected = session
+        .execute_plan(plan.clone(), &cancel)
+        .await
+        .expect("original");
+    let actual = session
+        .execute_plan(plan, &cancel)
+        .await
+        .expect("same actual selected owner");
     assert_eq!(actual, expected);
     assert_eq!(actual.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
-    assert_eq!(actual[0].column(2).as_any().downcast_ref::<arrow::array::StringArray>().unwrap().value(0), "λ");
+    assert_eq!(
+        actual[0]
+            .column(2)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap()
+            .value(0),
+        "λ"
+    );
     drop(expected);
     drop(session);
-    assert!(budget.reserved() > 0, "returned Arrow buffers retain their real allocation owner");
+    assert!(
+        budget.reserved() > 0,
+        "returned Arrow buffers retain their real allocation owner"
+    );
     drop(actual);
     assert_eq!(budget.reserved(), 0);
 }
@@ -114,7 +131,7 @@ async fn native_reads_preserve_actual_rows_extensions_and_owned_lifetimes() {
 async fn receiving_inventory_and_cancellation_refuse_an_unadmitted_plan() {
     let (session, _budget, _directory) = fixture("a").await;
     let cancel = CancellationToken::default();
-    let plan=scan(&session);
+    let plan = scan(&session);
     let (different, _other_budget, _other_directory) = fixture("different actual rows").await;
     assert!(different.execute_plan(plan.clone(), &cancel).await.is_err());
     let cancelled = CancellationToken::default();
@@ -162,6 +179,22 @@ async fn matching_builtin_names_cannot_substitute_foreign_function_implementatio
         .await
         .expect("actual registered scalar and aggregate implementations");
     assert_eq!(result.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
-    assert_eq!(result[0].column(0).as_any().downcast_ref::<arrow::array::Int64Array>().unwrap().value(0), 3);
-    assert_eq!(result[0].column(1).as_any().downcast_ref::<arrow::array::Int64Array>().unwrap().value(0), 1);
+    assert_eq!(
+        result[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<arrow::array::Int64Array>()
+            .unwrap()
+            .value(0),
+        3
+    );
+    assert_eq!(
+        result[0]
+            .column(1)
+            .as_any()
+            .downcast_ref::<arrow::array::Int64Array>()
+            .unwrap()
+            .value(0),
+        1
+    );
 }

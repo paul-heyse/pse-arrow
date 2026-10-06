@@ -38,6 +38,42 @@ const SMALL_STAGE_EDITS: usize = 4;
 const SMALL_STAGE_BYTES: usize = 64 * 1024;
 const SMALL_STAGE_REFERENCES: usize = 16;
 
+/// Maximum selected source manifests in one protected acquisition frontier.
+pub const SELECTED_OBJECT_BATCH: usize = 64;
+/// Header/SDK decoding scratch reserved before receiving a bounded header batch.
+pub const SELECTED_OBJECT_HEADER_SCRATCH: usize = SELECTED_OBJECT_BATCH * 32 * 1024 * 8;
+
+/// Store-issued selected manifests. Payload hydration must use this exact live
+/// protection; callers can charge every declared extent before reading blocks.
+#[derive(Debug)]
+pub struct SelectedObjectBatch {
+    selection: ProtectedSelection,
+    headers: Vec<pse_model::generated::runtime::canonical_version_manifests::Row>,
+}
+impl SelectedObjectBatch {
+    /// Immutable version keys and payload extents in requested order.
+    pub fn extents(&self) -> impl ExactSizeIterator<Item = (&str, usize)> {
+        self.headers
+            .iter()
+            .map(|header| (header.key.as_str(), header.payload_len as usize))
+    }
+}
+
+fn source_extent(
+    header: &pse_model::generated::runtime::canonical_version_manifests::Row,
+) -> Result<usize, CanonicalError> {
+    let length = usize::try_from(header.payload_len).map_err(|_| CanonicalError::PayloadLimit)?;
+    if !header.closed
+        || header.interpretation != wire::INTERPRETATION
+        || header.block_count != length.div_ceil(SOURCE_BLOCK_BYTES) as u64
+    {
+        return Err(CanonicalError::Configuration(
+            "selected immutable manifest shape differs".into(),
+        ));
+    }
+    Ok(length)
+}
+
 pub(crate) fn bounded_edit_sql(query: &str) -> String {
     query
         .replace("/* EDIT_SCAN_LIMIT */", &(MAX_EDITS + 1).to_string())
@@ -791,6 +827,223 @@ impl CanonicalStore {
         Ok(Some(length))
     }
 
+    /// Acquire bounded selected headers together, without assembling payloads.
+    /// The complete read validates the exact pin and membership for each version.
+    pub async fn selected_object_batch(
+        &self,
+        selection: &ProtectedSelection,
+        versions: &[String],
+    ) -> Result<SelectedObjectBatch, CanonicalError> {
+        if versions.is_empty()
+            || versions.len() > SELECTED_OBJECT_BATCH
+            || versions
+                .iter()
+                .any(|version| version.len() > IDENTITY_BYTES)
+            || versions
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != versions.len()
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let rows = self
+            .selected_source_records(selection, versions, "canonical_version_manifests", versions)
+            .await?;
+        let mut headers = rows
+            .into_iter()
+            .map(wire::decode_canonical_version_manifests)
+            .collect::<Result<Vec<_>, _>>()?;
+        if headers.len() != versions.len() {
+            return Err(CanonicalError::Configuration(
+                "selected source manifest unavailable".into(),
+            ));
+        }
+        let mut ordered = Vec::with_capacity(headers.len());
+        for version in versions {
+            let position = headers
+                .iter()
+                .position(|header| &header.key == version)
+                .ok_or_else(|| {
+                    CanonicalError::Configuration("selected manifest identity mismatch".into())
+                })?;
+            let header = headers.swap_remove(position);
+            source_extent(&header)?;
+            ordered.push(header);
+        }
+        Ok(SelectedObjectBatch {
+            selection: selection.clone(),
+            headers: ordered,
+        })
+    }
+
+    /// Read at most 512 KiB of source blocks, leaving cancellation and resource
+    /// ownership with the caller between transfers. Start at the next unread
+    /// object/ordinal; returned indices retain the issued header order.
+    pub async fn selected_object_blocks(
+        &self,
+        batch: &SelectedObjectBatch,
+        object: usize,
+        ordinal: u64,
+    ) -> Result<
+        Vec<(
+            usize,
+            pse_model::generated::runtime::canonical_payload_blocks::Row,
+        )>,
+        CanonicalError,
+    > {
+        let mut requests = Vec::new();
+        let mut bytes = 0usize;
+        'objects: for (index, header) in batch.headers.iter().enumerate().skip(object) {
+            let start = if index == object { ordinal } else { 0 };
+            if start > header.block_count {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            for ordinal in start..header.block_count {
+                let length = (header.payload_len as usize - ordinal as usize * SOURCE_BLOCK_BYTES)
+                    .min(SOURCE_BLOCK_BYTES);
+                if requests.len() == SELECTED_OBJECT_BATCH || bytes + length > SOURCE_BLOCK_BYTES {
+                    break 'objects;
+                }
+                bytes += length;
+                requests.push((index, ordinal, block_key(&header.key, ordinal)));
+            }
+        }
+        if requests.is_empty() {
+            return Err(CanonicalError::Configuration(
+                "selected block cursor has no unread block".into(),
+            ));
+        }
+        let versions = requests
+            .iter()
+            .map(|(index, _, _)| batch.headers[*index].key.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let keys = requests
+            .iter()
+            .map(|(_, _, key)| key.clone())
+            .collect::<Vec<_>>();
+        let rows = self
+            .selected_source_records(
+                &batch.selection,
+                &versions,
+                "canonical_payload_blocks",
+                &keys,
+            )
+            .await?;
+        let mut blocks = rows
+            .into_iter()
+            .map(wire::decode_canonical_payload_blocks)
+            .collect::<Result<Vec<_>, _>>()?;
+        if blocks.len() != requests.len() {
+            return Err(CanonicalError::Configuration(
+                "selected source block missing".into(),
+            ));
+        }
+        let mut ordered = Vec::with_capacity(blocks.len());
+        for (index, ordinal, key) in requests {
+            let position = blocks
+                .iter()
+                .position(|block| block.key == key)
+                .ok_or_else(|| {
+                    CanonicalError::Configuration("selected block identity mismatch".into())
+                })?;
+            let block = blocks.swap_remove(position);
+            let header = &batch.headers[index];
+            let length = (header.payload_len as usize - ordinal as usize * SOURCE_BLOCK_BYTES)
+                .min(SOURCE_BLOCK_BYTES);
+            if block.version != header.key
+                || block.ordinal != ordinal
+                || block.payload.len() != length
+                || payload_digest(block.payload.as_slice()) != block.digest
+            {
+                return Err(CanonicalError::Configuration(
+                    "selected block identity/length/digest mismatch".into(),
+                ));
+            }
+            ordered.push((index, block));
+        }
+        Ok(ordered)
+    }
+
+    /// Close the whole acquisition after its last block. No object escapes on
+    /// expiry, a changed manifest, missing bytes or a payload digest mismatch.
+    pub async fn finish_selected_object_batch(
+        &self,
+        batch: SelectedObjectBatch,
+        payloads: Vec<Vec<u8>>,
+    ) -> Result<Vec<ObjectVersion>, CanonicalError> {
+        if payloads.len() != batch.headers.len() {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        for (header, payload) in batch.headers.iter().zip(&payloads) {
+            if payload.len() != header.payload_len as usize
+                || payload_digest(payload) != header.payload_digest
+            {
+                return Err(CanonicalError::Configuration(
+                    "selected source payload length/digest mismatch".into(),
+                ));
+            }
+        }
+        let versions = batch
+            .headers
+            .iter()
+            .map(|header| header.key.clone())
+            .collect::<Vec<_>>();
+        let closing = self
+            .selected_object_batch(&batch.selection, &versions)
+            .await?;
+        if closing.headers != batch.headers {
+            return Err(CanonicalError::Configuration(
+                "selected manifest changed during acquisition".into(),
+            ));
+        }
+        Ok(batch
+            .headers
+            .into_iter()
+            .zip(payloads)
+            .map(|(header, payload)| ObjectVersion {
+                key: header.key,
+                logical: header.logical,
+                kind: header.kind,
+                interpretation: header.interpretation,
+                payload: payload.into(),
+            })
+            .collect())
+    }
+
+    async fn selected_source_records(
+        &self,
+        selection: &ProtectedSelection,
+        versions: &[String],
+        table: &str,
+        keys: &[String],
+    ) -> Result<Vec<Object>, CanonicalError> {
+        // Inputs are only store-issued bounded manifests/block keys. Membership
+        // validation is shared by the whole group, under one exact protection.
+        let sql = format!(
+            "{PROTECTED_BEGIN}\nLET $members = SELECT VALUE version FROM canonical_memberships WHERE problem = $problem AND version IN $versions AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nIF array::len(array::distinct($members)) != array::len($versions) {{ THROW 'selected grouped membership unavailable'; }};\nRETURN SELECT * FROM $keys.map(|$key| type::record($table, $key));\nCOMMIT;"
+        );
+        let mut response = protected_query(|| {
+            Ok(self
+                .db
+                .query(sql.clone())
+                .bind(("problem", selection.revision().problem.clone()))
+                .bind(("protection", selection.key().to_owned()))
+                .bind(("revision", selection.revision().key.clone()))
+                .bind((
+                    "sequence",
+                    canonical_codec::encode_uint(selection.revision().sequence)?,
+                ))
+                .bind(("versions", versions.to_vec()))
+                .bind(("keys", keys.to_vec()))
+                .bind(("table", table.to_owned())))
+        })
+        .await?;
+        Ok(response.take(response.num_statements().saturating_sub(2))?)
+    }
+
     pub(crate) async fn validate_product_candidate(
         &self,
         selection: &ProtectedSelection,
@@ -1391,7 +1644,7 @@ mod canonical_server_unit {
             revision
         );
         let pin = store
-            .protect(revision, Duration::from_secs(60))
+            .protect(revision.clone(), Duration::from_secs(60))
             .await
             .unwrap();
         let mut after = String::new();
@@ -1577,6 +1830,160 @@ mod canonical_server_unit {
                 .await
                 .is_err()
         );
+        remove(&store, &database).await;
+    }
+
+    async fn grouped_payloads(
+        store: &CanonicalStore,
+        batch: &SelectedObjectBatch,
+    ) -> (Vec<Vec<u8>>, usize) {
+        let extents = batch
+            .extents()
+            .map(|(_, extent)| extent)
+            .collect::<Vec<_>>();
+        let mut payloads = extents
+            .iter()
+            .map(|extent| Vec::with_capacity(*extent))
+            .collect::<Vec<_>>();
+        let mut transfers = 0;
+        while let Some(index) = payloads
+            .iter()
+            .zip(&extents)
+            .position(|(payload, extent)| payload.len() < *extent)
+        {
+            let blocks = store
+                .selected_object_blocks(
+                    batch,
+                    index,
+                    (payloads[index].len() / SOURCE_BLOCK_BYTES) as u64,
+                )
+                .await
+                .unwrap();
+            assert!(blocks.len() <= SELECTED_OBJECT_BATCH);
+            assert!(
+                blocks
+                    .iter()
+                    .map(|(_, block)| block.payload.len())
+                    .sum::<usize>()
+                    <= SOURCE_BLOCK_BYTES
+            );
+            for (index, block) in blocks {
+                assert_eq!(
+                    block.ordinal as usize * SOURCE_BLOCK_BYTES,
+                    payloads[index].len()
+                );
+                payloads[index].extend_from_slice(block.payload.as_slice());
+            }
+            transfers += 1;
+        }
+        (payloads, transfers)
+    }
+
+    #[tokio::test]
+    async fn grouped_selected_frontier_is_exact_bounded_and_cannot_escape_released_or_expired_pin()
+    {
+        let (store, database) = fixture().await;
+        let mut edits = (0..SELECTED_OBJECT_BATCH)
+            .map(|index| edit(&format!("grouped-{index}"), &format!("leaf-{index}"), 1024))
+            .collect::<Vec<_>>();
+        edits.push(edit("grouped-large", "large", SOURCE_BLOCK_BYTES + 17));
+        edits.push(edit("grouped-empty", "empty", 0));
+        let revision = store
+            .edit("problem", None, "grouped-operation", &edits)
+            .await
+            .unwrap();
+        let pin = store
+            .protect(revision.clone(), Duration::from_secs(60))
+            .await
+            .unwrap();
+        let versions = edits[..SELECTED_OBJECT_BATCH]
+            .iter()
+            .map(|edit| edit.version.as_ref().unwrap().key.clone())
+            .collect::<Vec<_>>();
+        let batch = store.selected_object_batch(&pin, &versions).await.unwrap();
+        let (payloads, transfers) = grouped_payloads(&store, &batch).await;
+        assert_eq!(
+            transfers, 1,
+            "64 ordinary leaves share one protected payload transfer"
+        );
+        let rows = store
+            .finish_selected_object_batch(batch, payloads)
+            .await
+            .unwrap();
+        assert_eq!(
+            rows,
+            edits[..SELECTED_OBJECT_BATCH]
+                .iter()
+                .map(|edit| edit.version.clone().unwrap())
+                .collect::<Vec<_>>()
+        );
+        let versions = vec![
+            "grouped-large".into(),
+            "grouped-empty".into(),
+            "grouped-1".into(),
+        ];
+        let batch = store.selected_object_batch(&pin, &versions).await.unwrap();
+        let (payloads, transfers) = grouped_payloads(&store, &batch).await;
+        assert_eq!(transfers, 2);
+        let expected = vec![
+            edits[SELECTED_OBJECT_BATCH].version.clone().unwrap(),
+            edits[SELECTED_OBJECT_BATCH + 1].version.clone().unwrap(),
+            edits[1].version.clone().unwrap(),
+        ];
+        let rows = store
+            .finish_selected_object_batch(batch, payloads)
+            .await
+            .unwrap();
+        assert_eq!(rows, expected);
+        assert!(
+            store
+                .selected_object_batch(&pin, &["not-selected".into()])
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .selected_object_batch(&pin, &vec!["grouped-0".into(); SELECTED_OBJECT_BATCH + 1])
+                .await
+                .is_err()
+        );
+        let batch = store.selected_object_batch(&pin, &versions).await.unwrap();
+        let (payloads, _) = grouped_payloads(&store, &batch).await;
+        store.release(&pin).await.unwrap();
+        assert!(
+            store
+                .finish_selected_object_batch(batch, payloads)
+                .await
+                .is_err()
+        );
+        let pin = store
+            .protect(revision.clone(), Duration::from_secs(60))
+            .await
+            .unwrap();
+        let batch = store
+            .selected_object_batch(&pin, &["grouped-0".into()])
+            .await
+            .unwrap();
+        let (payloads, _) = grouped_payloads(&store, &batch).await;
+        store
+            .db
+            .query("UPDATE type::record('canonical_protections', $key) SET expires_at = 0dec;")
+            .bind(("key", pin.key().to_owned()))
+            .await
+            .and_then(checked)
+            .unwrap();
+        assert!(
+            store
+                .finish_selected_object_batch(batch, payloads)
+                .await
+                .is_err()
+        );
+        store.release(&pin).await.unwrap();
+        let pin = store.protect(revision, Duration::from_secs(60)).await.unwrap();
+        let batch = store.selected_object_batch(&pin, &["grouped-0".into()]).await.unwrap();
+        store.db.query("UPDATE type::record('canonical_payload_blocks', $key) SET digest = 'wrong';").bind(("key", block_key("grouped-0", 0))).await.and_then(checked).unwrap();
+        assert!(store.selected_object_blocks(&batch, 0, 0).await.is_err());
+        store.release(&pin).await.unwrap();
         remove(&store, &database).await;
     }
 

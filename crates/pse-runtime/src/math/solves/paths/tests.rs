@@ -147,6 +147,33 @@ fn actual_ibex_sheet_transport_consumes_original_endpoints_and_coverage() {
 }
 
 #[cfg(feature = "solver-ipopt")]
+/// The analytical coordinates and residuals below require physical precision,
+/// independently of the ordinary engineering defaults and KKT termination.
+fn verification_numerics() -> NumericalPolicy {
+    let physical = crate::workflow::tests::physical();
+    let scalar = physical
+        .quantities
+        .quantity_types()
+        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
+        .unwrap();
+    NumericalPolicy {
+        engineering_rules: vec![pse_model::numerics::EngineeringRule {
+            rule_id: pse_ids::named_id(scalar.id.as_id(), "path-verification-precision").into(),
+            quantity_id: scalar.id.as_id(),
+            unit_id: scalar.canonical_unit.as_id(),
+            physical_allowance: Some(1e-10),
+            relative_fraction: Some(0.0),
+            provenance: "original path analytical coordinate and residual verification".into(),
+        }],
+        kkt: pse_model::numerics::KktTolerances {
+            stationarity: 1e-10,
+            complementarity: 1e-10,
+        },
+        ..Default::default()
+    }
+}
+
+#[cfg(feature = "solver-ipopt")]
 async fn prepared(
     text: &str,
 ) -> (
@@ -175,6 +202,7 @@ async fn prepared(
         .unwrap();
     let mut solver = SolverProfile {
         intent: SolveIntent::Root,
+        numerics: verification_numerics(),
         ..Default::default()
     };
     solver.selection = SolverSelection::Explicit(Backend::Ipopt);
@@ -202,6 +230,23 @@ async fn prepared(
         propagation: None,
     });
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    assert!(!prepared.solve.tolerances().rows.is_empty());
+    assert!(
+        prepared
+            .solve
+            .tolerances()
+            .rows
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
+    assert!(
+        prepared
+            .solve
+            .tolerances()
+            .variables
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
     (runtime, package, analysis, prepared)
 }
 #[cfg(feature = "solver-ipopt")]

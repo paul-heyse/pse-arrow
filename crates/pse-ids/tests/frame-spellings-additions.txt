@@ -116,3 +116,21 @@ pse:numerical-decision:v2
 pse:numerical-strategy:v3
 pse:solve-strategy-preparation:v3
 pse:solve-strategy-request:v3
+
+# Plan 27 engineering goals and Plan 28 canonical storage/replay/request identities (ADR-0164).
+pse.canonical-payload.v1
+pse.canonical-product.v1
+pse.canonical-schema.v1
+pse.canonical-version.v1
+pse.canonical.edit.v1
+pse.canonical.source-object.v1
+pse.durable.job_request.v6
+pse.durable.study_request.v5
+pse.engineering.goal.v1
+pse.math.admitted-recipe.v1
+pse.math.concrete-receipt-request.v1
+pse.math.proof-receipt-request.v1
+pse.math.replay-authority.v1
+pse.numerical.policy.v3
+pse.numerical.resolved.v2
+pse.producer.v1

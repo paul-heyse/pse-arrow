@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn solve_settings_enum_types() {
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 3,
+            "version": 4,
             "intent": "root",
             "backend": "kinsol",
             "presolve": "explicit",
@@ -315,10 +315,10 @@ mod tests {
         assert_eq!(settings.presolve, PolicyKind::Explicit);
         assert_eq!(settings.required_passes, BTreeSet::from([Pass::Fbbt]));
         for misspelled in [
-            json!({"version": 3, "intent": "rooot"}),
-            json!({"version": 3, "presolve": "magic"}),
-            json!({"version": 3, "controls": {"reuse": "sometimes"}}),
-            json!({"version": 3, "settings": {"backend": "gurobi"}}),
+            json!({"version": 4, "intent": "rooot"}),
+            json!({"version": 4, "presolve": "magic"}),
+            json!({"version": 4, "controls": {"reuse": "sometimes"}}),
+            json!({"version": 4, "settings": {"backend": "gurobi"}}),
             json!({"version": 1}),
             json!({"intent": "root"}),
         ] {
@@ -348,7 +348,7 @@ mod tests {
             pse_ids::SemanticId::from_bytes([2; 16]),
         );
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 3,
+            "version": 4,
             "sensitivity": {"parameters": [a, b], "reduced_hessian": true},
         }))
         .unwrap();
@@ -366,21 +366,21 @@ mod tests {
             super::super::solves::profile_key(&plain).unwrap()
         );
         let root: SolveSettings = serde_json::from_value(
-            json!({"version":3,"intent":"root","sensitivity":{"parameters":[a]}}),
+            json!({"version":4,"intent":"root","sensitivity":{"parameters":[a]}}),
         )
         .unwrap();
         assert!(root.profile().is_ok());
         for refused in [
-            json!({"version": 3, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
-            json!({"version": 3, "sensitivity": {"parameters": [a, a]}}),
-            json!({"version": 3, "sensitivity": {"parameters": []}}),
+            json!({"version": 4, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
+            json!({"version": 4, "sensitivity": {"parameters": [a, a]}}),
+            json!({"version": 4, "sensitivity": {"parameters": []}}),
         ] {
             let settings: SolveSettings = serde_json::from_value(refused.clone()).unwrap();
             assert!(settings.profile().is_err(), "{refused}");
         }
         assert!(
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 3,
+                "version": 4,
                 "sensitivity": {"parameters": [a], "gradient": true},
             }))
             .is_err()
@@ -393,7 +393,7 @@ mod tests {
                            values: serde_json::Value,
                            outputs: serde_json::Value| {
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 3,
+                "version": 4,
                 "sensitivity": {"parameters": [a, b], "propagation": {
                     "covariance": {"run_id": run, "parameters": parameters, "values": values},
                     "outputs": outputs,
@@ -426,19 +426,19 @@ mod tests {
     fn invalid_tolerance_refused_at_decode() {
         for (document, cause) in [
             (
-                json!({"version": 3, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
+                json!({"version": 4, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
                 "Tolerance",
             ),
             (
-                json!({"version": 3, "settings": {"backend": "kinsol", "damping": 1.5}}),
+                json!({"version": 4, "settings": {"backend": "kinsol", "damping": 1.5}}),
                 "Fraction",
             ),
             (
-                json!({"version": 3, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
+                json!({"version": 4, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
                 "PositiveCount",
             ),
             (
-                json!({"version": 3, "controls": {"time_limit": -3.0}}),
+                json!({"version": 4, "controls": {"time_limit": -3.0}}),
                 "seconds",
             ),
         ] {
@@ -453,7 +453,7 @@ mod tests {
         );
         // Cross-field rules stay admission rules with typed reasons.
         let options = serde_json::from_value::<SolveSettings>(json!({
-            "version": 3,
+            "version": 4,
             "presolve_options": {"max_passes": 3},
         }))
         .unwrap();
@@ -462,7 +462,7 @@ mod tests {
             Err(MathRuntimeError::Solve(ProblemError::Contract(_)))
         ));
         let one_budget = serde_json::from_value::<SolveSettings>(json!({
-            "version": 3,
+            "version": 4,
             "convexity_absolute": 1e-9,
         }))
         .unwrap();

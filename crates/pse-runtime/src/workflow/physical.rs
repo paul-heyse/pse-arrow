@@ -55,16 +55,39 @@ impl PhysicalContext {
         self.key
     }
     pub(super) fn same_sources(&self, other: &Self) -> bool {
-        self.key == other.key && Arc::ptr_eq(&self.quantities, &other.quantities)
+        self.key == other.key
+            && Arc::ptr_eq(&self.quantities, &other.quantities)
             && Arc::ptr_eq(&self.preconditions, &other.preconditions)
-            && self.package == other.package && self.sources.len() == other.sources.len()
-            && self.sources.iter().all(|(key, batch)| other.sources.get(key).is_some_and(|other| batch.same_source(other)))
+            && self.package == other.package
+            && self.sources.len() == other.sources.len()
+            && self.sources.iter().all(|(key, batch)| {
+                other
+                    .sources
+                    .get(key)
+                    .is_some_and(|other| batch.same_source(other))
+            })
     }
     pub(super) fn retained_bytes(&self) -> usize {
         use pse_model::HeapUsage;
-        let sources = self.sources.values().fold(0_usize, |bytes, batch| bytes.saturating_add(batch.owned().and_then(|owned| owned.retained_bytes().ok()).unwrap_or_else(|| batch.batch().get_array_memory_size())).saturating_add(512));
-        sources.saturating_add(self.quantities.allocation_extent()).saturating_add(self.preconditions.declarations().len().saturating_mul(1024))
-            .saturating_add(self.package.as_ref().map_or(0, |p| p.header.heap_bytes() + p.name.len() + 256)).saturating_add(1024)
+        let sources = self.sources.values().fold(0_usize, |bytes, batch| {
+            bytes
+                .saturating_add(
+                    batch
+                        .owned()
+                        .and_then(|owned| owned.retained_bytes().ok())
+                        .unwrap_or_else(|| batch.batch().get_array_memory_size()),
+                )
+                .saturating_add(512)
+        });
+        sources
+            .saturating_add(self.quantities.allocation_extent())
+            .saturating_add(self.preconditions.declarations().len().saturating_mul(1024))
+            .saturating_add(
+                self.package
+                    .as_ref()
+                    .map_or(0, |p| p.header.heap_bytes() + p.name.len() + 256),
+            )
+            .saturating_add(1024)
     }
 }
 impl Runtime {

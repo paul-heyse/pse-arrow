@@ -109,41 +109,41 @@ fn push_events(
         "dropped_events",
         &Metric::Integer(dropped),
     )?;
-            for (i, event) in native.events.iter().enumerate() {
-                let ns = format!("event.{i}.{}", event.phase);
-                push_metric(
-                    builder,
-                    run_id,
-                    step,
-                    &ns,
-                    "elapsed_seconds",
-                    &Metric::Real(event.elapsed.as_secs_f64()),
-                )?;
-                for (key, value) in &event.values {
-                    push_metric(builder, run_id, step, &ns, key, value)?;
-                }
-                // Retained incumbent evidence; complete canonical history is read
-                // separately through the exact protected progress stream.
-                if let Some(incumbent) = &event.incumbent {
-                    let real = |v: Option<f64>| {
-                        v.map_or(
-                            Metric::Unavailable(
-                                pse_backend_native::solve::UnavailableReason::NotApplicable,
-                            ),
-                            Metric::Real,
-                        )
-                    };
-                    for (key, value) in [
-                        ("objective", Metric::Real(incumbent.objective)),
-                        ("dual_bound", real(incumbent.dual_bound)),
-                        ("gap", real(incumbent.gap)),
-                        ("nodes", Metric::Integer(incumbent.nodes)),
-                        ("seconds", Metric::Real(incumbent.seconds)),
-                    ] {
-                        push_metric(builder, run_id, step, &ns, key, &value)?;
-                    }
-                }
+    for (i, event) in native.events.iter().enumerate() {
+        let ns = format!("event.{i}.{}", event.phase);
+        push_metric(
+            builder,
+            run_id,
+            step,
+            &ns,
+            "elapsed_seconds",
+            &Metric::Real(event.elapsed.as_secs_f64()),
+        )?;
+        for (key, value) in &event.values {
+            push_metric(builder, run_id, step, &ns, key, value)?;
+        }
+        // Retained incumbent evidence; complete canonical history is read
+        // separately through the exact protected progress stream.
+        if let Some(incumbent) = &event.incumbent {
+            let real = |v: Option<f64>| {
+                v.map_or(
+                    Metric::Unavailable(
+                        pse_backend_native::solve::UnavailableReason::NotApplicable,
+                    ),
+                    Metric::Real,
+                )
+            };
+            for (key, value) in [
+                ("objective", Metric::Real(incumbent.objective)),
+                ("dual_bound", real(incumbent.dual_bound)),
+                ("gap", real(incumbent.gap)),
+                ("nodes", Metric::Integer(incumbent.nodes)),
+                ("seconds", Metric::Real(incumbent.seconds)),
+            ] {
+                push_metric(builder, run_id, step, &ns, key, &value)?;
             }
+        }
+    }
     Ok(())
 }
 

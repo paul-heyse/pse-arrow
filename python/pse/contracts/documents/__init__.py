@@ -16,7 +16,7 @@ import msgspec
 from pse.contracts import enums
 from pse.contracts import values as v
 
-AnalysisDirection = Literal["upstream"] | Literal["downstream"]
+AnalysisDirection = Literal["upstream", "downstream"]
 
 FiniteBound = float
 

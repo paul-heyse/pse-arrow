@@ -3,7 +3,7 @@ title: SurrealDB unified simulation substrate
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -23,7 +23,7 @@ The [unified-substrate review](../design_review/reviews/design_review_surrealdb-
 accepted this direction at **Proposed** design strength. Its findings and the
 [earlier efficiency review](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md)
 supply the basis. This coordinator owns the combined target, shared decisions, sequence and
-US01–US05/EF01–EF08 dispositions. Companions own package progress/local evidence; E owns
+US01–US05/EF01–EF08/F01–F05 dispositions. Companions own package progress/local evidence; E owns
 assembled qualification. Architecture sections and ADRs retain their authority roles.
 
 The maintainer explicitly accepted RC01–RC10 on **2026-10-05**, then selected a **clean rebuild
@@ -130,6 +130,54 @@ D5 physical typing, D6 library mathematics, D11 attempt-owned native state and D
 model/overlay meaning are preserved. D14 dependency completeness is refined, not weakened.
 Adding a dependency needs no ADR by itself; crate removal and the decisions above do.
 
+## Completion-audit reconciliation and capability decisions
+
+The [completion audit](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md)
+assessed commit `06302af7748923100f17a7c8fda9c57b6a536690` with concurrent work and returned
+**Revise**. The 2026-10-06 reconciliation below schedules its remaining obligations on the
+current tree. The dated review and earlier Outcomes keep their original evidence conditions;
+new source controls do not retrospectively turn failed or interrupted runs into passes.
+
+Current source restricts generic retention to deliberate history, requires complete
+initialization responses followed by interpretation verification, groups part of selected
+name acquisition, and corrects several fixture and wire premises. These are **Implemented**
+corrections awaiting fresh acceptance. Selection payload hydration, installed Python
+association and composed recovery still need investigation or execution. Before taking a
+slice, inspect its current diff and existing controls; integrate concurrent implementations
+rather than duplicating them. This documentation revision authorizes no additional product
+repair, tolerance change, ADR acceptance or retirement by itself.
+
+The repo now selects the shared `neo4j-surrealdb` skill. The
+[capability investigation](../design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md)
+compares exact 3.3.0 source/probes with current Context7, official documentation and GitHub.
+Use bounded direct-ID/bulk acquisition, explicit namespace/database selection, native
+versioned structural functions and named transaction guards within the existing owners.
+`FOR UPDATE` supplies optimistic conflict registration for named records, including absent
+IDs; it does not protect arbitrary predicate ranges. Every writer that can invalidate a
+namespace/set premise must touch its stable named guard. Definite conflicts retry the whole
+decision; uncertain acknowledgments require identity readback before another transition.
+
+Regular typed relations remain suitable for metadata-bearing lineage. Evaluate INLINE edge
+fields only for an actual selected traversal predicate; LIGHTWEIGHT edges cannot carry the
+metadata or occurrence identity required by those relations. E4 measures any claimed benefit.
+Awaited bounded SDK queries remain valid; no mandatory streaming rewrite is introduced.
+Live queries/changefeeds and Surrealist may support a concrete observer or diagnosis, but do
+not become lifecycle or qualification authorities. SurrealKit is not introduced: independently
+authored desired-state schema would compete with registry generation and the clean rebuild.
+Logical export/import is not a crash-backup substitute; A/E retain quiesced offline backup and
+selected-profile restore validation. No dependency upgrade, Neo4j adoption or new migration,
+scheduler, planner or telemetry framework is required by this investigation.
+
+**Rule impacts:** None for this corrective scope, matching the completion audit. The original
+accepted RC01–RC10 and their R0 adoption route remain in force. New evidence that requires a
+material rule change returns to that route before dependent work; this revision does not
+accept ADR-0164.
+
+The next executable order is A's lifecycle/completion controls and E's valid inputs/producer
+prerequisites; A/B grouped guarded acquisition; C/D composed recovery and stream/read controls;
+then E3, E4 and E5. Independent targeted slices may proceed together with explicit ownership.
+Only 28e owns assembled execution state; this coordinator owns all US/EF/F dispositions.
+
 ## Execution sequence and readiness
 
 **R0 — Record the approved target through the decision/design route.** Allocate proposal(s)
@@ -181,7 +229,7 @@ deletion; static hygiene and assembled integration wait for all functional scope
 ## Finding dispositions
 
 This is the only current disposition table for the adopted unified-substrate and efficiency
-findings. A scheduled package or accepted rule is not resolution. Links identify local
+findings and the completion audit. A scheduled package or accepted rule is not resolution. Links identify local
 evidence owners; resolve only when correction and relevant acceptance actually exist.
 
 | Finding | Unified review scenarios | Disposition | Work owner | Required evidence or question |
@@ -199,6 +247,11 @@ evidence owners; resolve only when correction and relevant acceptance actually e
 | [EF06](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef06) | S06/S08 | Scheduled | E2/E4 | Target selection before native setup; comparable cache/toolchain measurements. |
 | [EF07](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef07) | S05/S06 | Scheduled | A2/E2 | Obsolete outputs retired; unchanged output mtimes stable; stale outputs deleted. |
 | [EF08](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef08) | S01/S07 | Resolved | B4 | [B Outcome](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation): actual evaluator accepts selected compact formals; migrated consumers and 26 native implicit controls preserve guards, providers and ordered derivative axes. No measured speedup is inferred. |
+| [F01](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f01) | S01/S03/S07 | Scheduled | A3; C2/C4; E3 | History-only generic mutation is implemented in source; execute native lifecycle-root refusal and composed retention/readback controls before resolution. |
+| [F02](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f02) | S01/S02/S08 | Scheduled | A2; B1; E4 | Grouped name/frontier source changes are partial correction; complete exact guarded acquisition/hydration, targeted controls and honest operation measurements. |
+| [F03](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f03) | S03/S07 | Scheduled | A1; E3 | Complete-response and interpretation verification are implemented in source; execute zero-result/lost-ack/cancellation controls without assuming the historical campaign cause. |
+| [F04](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f04) | S01/S03/S04/S07 | Scheduled | E1/E2; B3; C/D; E3 | Validate corrected fixture/wire premises, eligible installed producers, progress and intended-point scientific controls, then complete the stable assembled campaign against zero. |
+| [F05](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f05) | S06/S08 | Scheduled | B3; E3/E4/E5 | Actual installed deployment association, full qualification, all applicable prepared measurements, accepted assembled review and enduring-owner retirement route. |
 
 Other preparation work is included in B3/C3: ready-attempt preparation/product sharing,
 bounded Salsa diversity and native lifetimes. General SIMD/JIT/WASM, distributed deployment
@@ -266,10 +319,12 @@ escaped decoded-buffer controls have focused positive evidence.
 E1/E2's schema/fixture regeneration, displaced crate and mechanism retirement, native build
 locality and unchanged-output preservation are implemented. Native worker journeys, Python
 boundaries and process benchmarks compile. The focused linked scientific and generated-contract
-consumers pass. Actual runtime and worker producer qualification is complete under the reviewed
-profile; final Python capture, import association and eligible deployment admission remain
-before the functional handoff. E3–E5's assembled series
-campaign, measurements and assessment have not started. Current finding dispositions stay
+consumers have scoped positive evidence. Earlier runtime/worker qualification retains its
+reviewed conditions; replaced build outputs require fresh current artifact association.
+Installed Python capture, import association and eligible deployment admission also remain
+before the functional handoff. The E3 attempt and bounded completion audit exposed
+corrections; neither establishes acceptance. E4 measurements and final E5 review/closure
+remain pending at 28e. Current finding dispositions stay
 in this coordinator; focused companion evidence does not establish assembled acceptance.
 
 ## Outcome (recorded after implementation)
@@ -282,7 +337,9 @@ mechanisms, including the authorized minimum adjacent consumers. Their
 [A](28a-canonical-substrate-and-revisions.md#outcome-recorded-after-implementation) and
 [B](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation) Outcomes
 own focused **Tested** evidence and the remaining acceptance. This is an implementation
-checkpoint, not completed Plan 28 qualification. Full C/D/E scope remains pending.
+checkpoint, not completed Plan 28 qualification. The subsequent full-series authorization
+has implemented C/D and E1/E2's functional replacements, with focused evidence in their
+companion Outcomes. Current Python deployment association and E3–E5 acceptance remain.
 
 ### A mistake made and corrected
 
@@ -294,7 +351,8 @@ blocks while retaining finite logical and process limits.
 
 ### Deviations from the plan, deliberate
 
-The maintainer limited this execution to A/B and the adjacent changes needed to run them,
-then requested this closeout before final integrated acceptance. Unsupported production
-producer inputs continue to refuse cross-build reuse; no eligible receipt, measured
-performance improvement or full-series completion is invented.
+The first execution was limited to A/B and the adjacent changes needed to run them, then
+closed at the maintainer's request. The later full-series authorization supersedes that
+boundary. Unsupported production producer inputs continue to refuse cross-build reuse;
+focused receipts retain their actual scope, and no measured performance improvement or
+full-series qualification is inferred.

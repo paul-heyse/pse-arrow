@@ -3,7 +3,9 @@
 
 //! Structural study transitions; scientific decisions remain at the shared policy owner.
 
-pub(super) fn append(ddl: &mut String) { ddl.push_str(FUNCTIONS); }
+pub(super) fn append(ddl: &mut String) {
+    ddl.push_str(FUNCTIONS);
+}
 
 const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_study_v1::create($row: object) -> object {

@@ -540,7 +540,10 @@ impl CaptureThrottle {
 /// stream retains it: a durable stream bounded by its own retention policy instead of an
 /// event cap (ADR-0112 Outcome 17).
 pub trait ProgressTap: Send + Sync + std::fmt::Debug {
-    /// Observe one event. Called on the native thread; it must not block.
+    /// Observe one event. A durable observer may apply bounded queue backpressure
+    /// on an isolated synchronous native producer while its independent writer
+    /// drains. It must not block an asynchronous runtime thread; writer failure
+    /// or cancellation must release any waiting producer.
     fn observe(&self, event: &Event);
 }
 /// A bounded event stream shared with an observing handle, optionally tapped by a

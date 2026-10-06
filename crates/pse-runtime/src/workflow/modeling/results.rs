@@ -281,27 +281,82 @@ impl ModelingResult {
         )?;
         Ok(proposal.with_owner(owner))
     }
-    fn secant_product(&self,older:&Self,target:&ModelingSolvePreparation)->Result<(crate::math::prediction::SecantHistory,f64),WorkflowError>{
-        self.prediction_sample()?.secant_product(&older.prediction_sample()?,target)
+    fn secant_product(
+        &self,
+        older: &Self,
+        target: &ModelingSolvePreparation,
+    ) -> Result<(crate::math::prediction::SecantHistory, f64), WorkflowError> {
+        self.prediction_sample()?
+            .secant_product(&older.prediction_sample()?, target)
     }
     /// Use the same original-qualified proposal owner for retained and in-memory points.
-    pub(crate) fn available_prediction(&self,older:Option<&Self>,target:&ModelingSolvePreparation,branch:pse_model::strategy::BranchPolicy,execution:&pse_backend_native::solve::Execution)->Result<crate::math::prediction::Proposal,WorkflowError>{
-        self.prediction_sample()?.available_prediction(older.map(Self::prediction_sample).transpose()?.as_ref(),target,branch,execution)
+    pub(crate) fn available_prediction(
+        &self,
+        older: Option<&Self>,
+        target: &ModelingSolvePreparation,
+        branch: pse_model::strategy::BranchPolicy,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<crate::math::prediction::Proposal, WorkflowError> {
+        self.prediction_sample()?.available_prediction(
+            older.map(Self::prediction_sample).transpose()?.as_ref(),
+            target,
+            branch,
+            execution,
+        )
     }
-    pub(crate) fn portable_prediction(&self)->Result<Option<PortablePrediction>,WorkflowError>{
-        if !self.completion.decision.permits_use(){return Ok(None);}
-        let Outcome::Native(report)=&self.outcome else{return Ok(None);};
-        let Some(candidate)=&report.candidate else{return Ok(None);};
-        let key=self.prepared.solve.semantic_point_key(&candidate.primal).map_err(crate::math::MathRuntimeError::from)?;
-        let root=self.root_predictor().ok().map(|predictor|{
-            let values=report.observation.as_ref().ok_or_else(||contract("qualified root factor lost its original values"))?;
-            Ok::<_,WorkflowError>(PortableRootPoint{key:predictor.factor().key(),values:values.values.iter().map(|value|value.to_bits()).collect()})
-        }).transpose()?;
-        Ok(Some(PortablePrediction{key,coordinates:report.variables.clone(),primal:candidate.primal.iter().map(|value|value.to_bits()).collect(),permission:self.completion.decision.clone(),root}))
+    pub(crate) fn portable_prediction(&self) -> Result<Option<PortablePrediction>, WorkflowError> {
+        if !self.completion.decision.permits_use() {
+            return Ok(None);
+        }
+        let Outcome::Native(report) = &self.outcome else {
+            return Ok(None);
+        };
+        let Some(candidate) = &report.candidate else {
+            return Ok(None);
+        };
+        let key = self
+            .prepared
+            .solve
+            .semantic_point_key(&candidate.primal)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let root =
+            self.root_predictor()
+                .ok()
+                .map(|predictor| {
+                    let values = report.observation.as_ref().ok_or_else(|| {
+                        contract("qualified root factor lost its original values")
+                    })?;
+                    Ok::<_, WorkflowError>(PortableRootPoint {
+                        key: predictor.factor().key(),
+                        values: values.values.iter().map(|value| value.to_bits()).collect(),
+                    })
+                })
+                .transpose()?;
+        Ok(Some(PortablePrediction {
+            key,
+            coordinates: report.variables.clone(),
+            primal: candidate
+                .primal
+                .iter()
+                .map(|value| value.to_bits())
+                .collect(),
+            permission: self.completion.decision.clone(),
+            root,
+        }))
     }
-    fn prediction_sample(&self)->Result<PredictionSample,WorkflowError>{
-        let receipt=self.portable_prediction()?.ok_or_else(||contract("prediction needs an original-permitted native point"))?;
-        Ok(PredictionSample{prepared:self.prepared.clone(),runtime:self.runtime.clone(),point:Arc::new(pse_columnar::Leased::new(Arc::new(receipt),self._native_owner.clone())),root:self.root_predictor()})
+    fn prediction_sample(&self) -> Result<PredictionSample, WorkflowError> {
+        let receipt = self
+            .portable_prediction()?
+            .ok_or_else(|| contract("prediction needs an original-permitted native point"))?;
+        Ok(PredictionSample {
+            prepared: self.prepared.clone(),
+            runtime: self.runtime.clone(),
+            point: Arc::new(pse_columnar::Leased::new(
+                Arc::new(receipt),
+                self._native_owner.clone(),
+            )),
+            root: self.root_predictor(),
+        })
     }
     /// Track a genuinely demanded parameter change with a retained original KKT factor.
     /// Coverage and work remain library observations; this endpoint needs original correction.
@@ -1840,34 +1895,77 @@ mod tests {
 }
 
 /// Portable original coordinates and permissions; factors are rebuilt by their library owner.
-#[derive(Clone,Debug,serde::Serialize,serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PortablePrediction {
-    pub(crate) key:pse_model::strategy::SemanticProductKey,
-    pub(crate) coordinates:Vec<SemanticId>,
-    pub(crate) primal:Vec<u64>,
-    pub(crate) permission:crate::workflow::numerics::CandidateDecision,
-    pub(crate) root:Option<PortableRootPoint>,
+    pub(crate) key: pse_model::strategy::SemanticProductKey,
+    pub(crate) coordinates: Vec<SemanticId>,
+    pub(crate) primal: Vec<u64>,
+    pub(crate) permission: crate::workflow::numerics::CandidateDecision,
+    pub(crate) root: Option<PortableRootPoint>,
 }
-#[derive(Clone,Debug,serde::Serialize,serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct PortableRootPoint {pub(crate) key:pse_model::strategy::SemanticProductKey,pub(crate) values:Vec<u64>}
+pub(crate) struct PortableRootPoint {
+    pub(crate) key: pse_model::strategy::SemanticProductKey,
+    pub(crate) values: Vec<u64>,
+}
 /// The single proposal selection adapter accepts both live and reopened scientific points.
 pub(crate) struct PredictionSample {
-    pub(crate) prepared:ModelingSolvePreparation,
-    pub(crate) runtime:Runtime,
-    pub(crate) point:Arc<pse_columnar::Leased<PortablePrediction>>,
-    pub(crate) root:Result<pse_backend_native::square_response::SparsePredictor,pse_backend_native::square_response::Withheld>,
+    pub(crate) prepared: ModelingSolvePreparation,
+    pub(crate) runtime: Runtime,
+    pub(crate) point: Arc<pse_columnar::Leased<PortablePrediction>>,
+    pub(crate) root: Result<
+        pse_backend_native::square_response::SparsePredictor,
+        pse_backend_native::square_response::Withheld,
+    >,
 }
 impl PredictionSample {
-    fn root_predictor(&self)->Result<pse_backend_native::square_response::SparsePredictor,pse_backend_native::square_response::Withheld>{self.root.clone()}
-    fn prediction_anchor(&self,parameter:f64)->Result<crate::math::prediction::Anchor,WorkflowError>{
-        let point=&self.point;
-        let primal=point.primal.iter().copied().map(f64::from_bits).collect::<Vec<_>>();
-        let expected=self.prepared.solve.semantic_point_key(&primal).map_err(crate::math::MathRuntimeError::from)?;
-        if expected!=point.key||self.prepared.model.case.compiled().plan.columns()!=point.coordinates.as_slice(){return Err(contract("retained prediction differs from its original source coordinates"));}
-        let anchor=crate::math::prediction::Anchor::admitted(point.key,point.coordinates.clone(),primal,parameter,point.permission.clone()).map_err(crate::math::MathRuntimeError::from)?;
-        let owner=self.runtime.native().reserve("modeling:prediction-anchor",anchor.retained_bytes().map_err(crate::math::MathRuntimeError::from)?)?;
+    fn root_predictor(
+        &self,
+    ) -> Result<
+        pse_backend_native::square_response::SparsePredictor,
+        pse_backend_native::square_response::Withheld,
+    > {
+        self.root.clone()
+    }
+    fn prediction_anchor(
+        &self,
+        parameter: f64,
+    ) -> Result<crate::math::prediction::Anchor, WorkflowError> {
+        let point = &self.point;
+        let primal = point
+            .primal
+            .iter()
+            .copied()
+            .map(f64::from_bits)
+            .collect::<Vec<_>>();
+        let expected = self
+            .prepared
+            .solve
+            .semantic_point_key(&primal)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        if expected != point.key
+            || self.prepared.model.case.compiled().plan.columns() != point.coordinates.as_slice()
+        {
+            return Err(contract(
+                "retained prediction differs from its original source coordinates",
+            ));
+        }
+        let anchor = crate::math::prediction::Anchor::admitted(
+            point.key,
+            point.coordinates.clone(),
+            primal,
+            parameter,
+            point.permission.clone(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        let owner = self.runtime.native().reserve(
+            "modeling:prediction-anchor",
+            anchor
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
         Ok(anchor.with_owner(owner))
     }
     fn secant_product(

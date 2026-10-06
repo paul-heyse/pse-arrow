@@ -3,7 +3,7 @@ title: Rebuild, retirement and integrated qualification
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -97,15 +97,114 @@ Use `just codegen` as part of the change; never edit protected generated files. 
 declaration generation must still update its real consumers. Build-key changes are owned by
 B3, not duplicated here.
 
+## Remaining assembled execution
+
+This is the sole assembled E3–E5 execution owner. F01–F05 dispositions are linked at the
+[coordinator](28-surrealdb-unified-substrate.md#finding-dispositions). The dated
+[completion audit](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md)
+is a bounded **Revise** assessment, not final E5 acceptance. The
+[capability investigation](../design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md)
+is library evidence, not product or durability qualification.
+
+### E1/E2 acceptance prerequisites
+
+Before E3, integrate current A/B/C/D corrections and obtain their targeted receipts. Preserve
+concurrent source, its authored workloads and contextual/global accuracy policy. The current
+fixture includes `numerical-policy.pse`; quantity tests project native declarations into the
+physical Arrow relation. Version-first study readmission and wire-ID assertions have changed
+in source. Execute their affected controls rather than reusing the earlier failed XML.
+Numerical sensitivity, restart and dynamic controls must exercise the intended base point,
+constraint/scaling premises and relevant response under admitted production accuracy. A
+verification solver budget is a test premise, not evidence of a derivative defect or a reason
+to tune each test. Theory-order comparisons cannot substitute for production decision accuracy.
+
+Refresh and associate actual runtime, worker and installed Python artifacts under B3's supported
+producer profile before persisted reuse acceptance. `just ready` on this revision reports a
+contracts/native-registry mismatch in the installed extension; that warning is a real deployment
+prerequisite even though environment readiness exits zero. Set up the selected initialized
+supervised state and eligible inspection publication through the owning recipes. A fixture
+receipt, old installed binary or current git HEAD is insufficient. Reconcile manifest runner
+prerequisites and obsolete recipe references at their owners; no new evidence wrapper is needed.
+
+### E3 correctness, deployment and recovery
+
+The audit's native attempt selected 2,741 tests; 2,421 completed (2,342 passed, 78 failed,
+1 timed out), 2 interrupted and 320 not run. Source changed during the run. Linked Python
+selected 199: 156 passed, 4 failed and 39 did not complete; producer admission, event queue,
+version precedence and wire ID premises require current targeted evidence. Those runs were
+interrupted and overlapped; neither qualifies the final tree or supplies comparable timings.
+Old pre-pivot Plan 25/27 passes and three smoke cases do not replace this campaign.
+
+Use `just assessment-list` to confirm the current gate surface, then the selected assembled
+`just assessment <output> --functional-scope native` with its refreshed linked Python
+and inspection gates, `just seed-conformance` for the current reference manifest, and
+`just parity` scope named in the verification section. A standalone
+`just native-python <output>` is for a deliberately separate selected Python campaign
+or an affected rerun; do not execute the same integrated scope twice. Complete
+`just hygiene` and the relevant `just governance`, `just docs`, `just lint-native-contracts`,
+`just lint-native-data` and `just features-powerset` manual checks. Preserve force-validation,
+memory caps, pinned toolchain and exact selected identities. Recipe availability and current
+prerequisites govern execution; add a bounded recipe only when no existing one owns a required
+journey. No full release/wheel or CI campaign is implied.
+
+Run on one stable reconciled source state with regenerated inputs and exact deployed artifacts.
+Select the admitted isolated RocksDB/gRPC profile: the prepared 18 GiB allocation is a 2 GiB
+server plus two 8 GiB managed worker slots. Record actual configured/used conditions, not merely
+the proposed allocation. No uncontrolled concurrent heavy campaign should compete with it.
+Exercise A/C/D's composed read/retirement/root handoff, committed lost-ack claim recovery,
+worker interruption/drain, ordinary retained failure/partial/cancellation and actual gRPC
+completion/export refusal. Abrupt acknowledged-write kill/reopen and quiesced offline
+backup/restore must validate exact IDs, interpretation and replay in that same supported
+profile. Logical export/import alone cannot establish these guarantees.
+
+Require zero failures, complete selected/executed accounting, and unchanged relevant
+product-input/deployment association. Use the runner's declared input families; unrelated
+concurrent prose edits remain contextual observations. A report's terminal-complete flag does not establish those conditions. If source
+changes or a required scope fails, repair its owner and rerun affected qualification on the
+stable final state; identify any repaired composite honestly. Do not introduce per-test accuracy
+exceptions or drop workloads to manufacture acceptance. Record exclusions and actual conditions
+in the Outcome rather than accumulating per-command checkpoint logs.
+
+### E4 measurements after positive E3
+
+Run all 17 prepared applicable process/preparation selectors through
+`just case-measure <new-output> --functional-from <qualified-assessment>` and their current
+`.config/process-cases.json` / `.config/preparation-cases.json` owners. Each selector needs
+positive corresponding functional evidence, the declared workload/profile and fresh-process
+samples; unsupported scope needs an explicit owner/disposition, not a silently omitted case.
+Include selected compilation/frontier and hydration growth, cold/warm and A/B/A reuse,
+value/structural edits, complete study dispatch/recovery and long exact result/analysis
+selection. Preserve source/deployment identity, checkout, toolchain and cache conditions.
+
+Use the existing `just build-frontend`, `just build-uncached`, `just build-cache-probe`
+and `just build-storage` routes as applicable for default/native closure and turnaround.
+Do not clean the whole cache, share target directories or compare concurrent/interrupted runs.
+Where no comparable pre-pivot baseline survives, report target-only timings and structural
+removal with no speedup claim. INLINE or batching hypotheses require complete-operation
+measurement before claiming a gain. No invented latency threshold or new instrumentation
+framework is required; raw samples and honest limits accompany **Measured** claims.
+
+### E5 acceptance and retirement after E3/E4
+
+Conduct the binding's bounded independent assembled review on the demonstrated final scope.
+Reconcile US/EF/F dispositions at the coordinator and original scientific findings at their
+existing owners. The earlier Revise audit does not satisfy final acceptance. Route enduring
+contracts, supported deployment/accuracy limits and measurements through the existing
+decision/design owners with a blueprint revision row; follow the required ADR adoption route
+without treating maintainer authorization as accepted ADR status. Retire completed plans,
+resolved reviews and displaced references only after surviving meaning has its owner. Leave
+explicit scientific/provider or measurement exclusions with their real disposition and trigger.
+No retirement, ADR acceptance or final qualification was performed by this documentation work.
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Completion boundary | Status |
 |---|---|---|---|
 | E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Implemented; focused declaration/schema and linked scientific/generated consumers passed. |
-| E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed; runtime/worker producer qualification complete; final Python deployment admission remains. |
-| E3 — Assembled correctness and recovery | All functional A/B/C/D, B4's bounded decision and E1/E2 scope complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Scheduled |
+| E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed; earlier runtime/worker producer qualification is scoped; current replacement artifact association and installed Python admission remain. |
+| E3 — Assembled correctness and recovery | All functional A/B/C/D, B4's bounded decision and E1/E2 scope complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Attempted; interrupted/nonqualifying; current correction handoff precedes fresh E3. |
 | E4 — Preparation, build and operation measurement | E3 for scientifically comparable runtime measurements; targeted build instrumentation can be prepared earlier. Execute selected scientific and pivot efficiency measurements under recorded conditions. | Report measured scope and limitations without invented speedup thresholds or comparison to incomparable receipts. | Scheduled |
-| E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Scheduled |
+| E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Completion audit delivered Revise; final assembled acceptance/closure pending. |
 
 Root integrates shared manifests, registry/generators, recipes and qualification selection.
 Separate workers may own bounded package consumers, but must not concurrently rewrite these
@@ -193,13 +292,23 @@ now register isolated databases and explicitly drain result-release tasks before
 preventing sample-to-sample storage accumulation. Scientific input values and independent
 numerical assertions are preserved. No old fixture publication service is started by pytest.
 
-Actual runtime library and enclosing worker qualification now have eligible receipts without
+Earlier actual runtime library and enclosing worker qualification produced eligible receipts without
 refusal reasons under the reviewed producer profile. Current Python capture, import association
 and public deployment admission remain pending. Captures distinguish compiler unit dep-info
 from Cargo aggregate rerun hints, select a real library or binary target, and keep reviewed
 outer build provenance separate from the scientific key. Source review and native/tool
 closure remain required for the retained worker/Python profiles; successful fixture controls
 do not grant production eligibility.
+
+The implementation checkpoint is preserved in commit `06302af77`. The checkout's build
+outputs were subsequently replaced outside this execution team. Earlier captures retain
+their observed scope; they do not establish freshness or installed-artifact association for
+the replacement outputs. Current deployment qualification must rebuild and associate actual
+selected outputs under the retained reviewed premises. A separately launched native
+assessment is using the checkout's Cargo lock; its results and prerequisites must be
+reconciled before adopting any enclosing qualification claim. That independent assessment
+finished with a Revise verdict and interrupted failing native/Python diagnostics against
+the original commit; neither run qualifies this newer tree.
 
 The actual editable Python link exposed a deployment association gap: Maturin uses its
 Cargo rustc manifest/lib route, supplies the extension-module context and patches editable
@@ -211,9 +320,20 @@ also now uses bounded package-name families, matching Cargo's real cleanup seman
 retaining exact selected IDs and fresh-build observations in evidence. Final source cleanup
 will require current root captures rather than relabeling these earlier immutable receipts.
 
-E3–E5 have not started. The previous A/B integrated testing is not being resumed. Complete
-all A–D and E1/E2 functional scope with targeted tests before the assembled target campaign,
-measurement and bounded independent review.
+Scope-end generation, formatting and hygiene ran after the initial functional handoff.
+Hygiene exposed five failing recipes; instructions, spelling and Python checks were repaired,
+and both Clippy variants subsequently passed. The independent completion audit exposed
+additional functional corrections, so the assembled target campaign is held while those
+corrections receive targeted controls. E4 measurements and final E5 acceptance/closure remain
+pending. The previous A/B integrated testing is not being resumed.
+
+The completion audit's F01–F05 dispositions live in the coordinator: F01 lifecycle-root ownership and F03
+initialization completion are being corrected in their native owners; F02 grouped selected
+preparation is being implemented with exact guards and accounted payload acquisition; F04
+runner prerequisites and scientific fixture/request premises are being corrected with targeted
+controls. Its numerical observations do not establish a derivative defect. F05 remains open
+for current installed Python association, assembled qualification, measurements and closure.
+The dated review retains its original commit and failed/interrupted evidence.
 
 The assembled campaign's isolated server profile is prepared with a 2 GiB server and two
 8 GiB managed worker slots within an 18 GiB allocation. This preserves the authored SCIP
@@ -225,12 +345,31 @@ execution follow the functional handoff; old application states are preserved.
 
 ### What was built
 
-Pending implementation. Record Implemented/Tested/Measured scope with named conditions here.
+**Implemented:** owner-generated canonical schemas/contracts/fixtures, target-only worker
+and Python consumers, retirement of the PostgreSQL/Delta production mechanisms and crates,
+scoped native capability setup, unchanged-output timestamp preservation and narrower
+workspace-hack attachment. Actual DataFusion planning/predicate/provider consumers and
+Arrow/Parquet scientific boundaries remain. Measurement fixtures drain their isolated owners.
+
+**Tested (2026-10-06):** targeted engine cache-family controls passed 8/8 through
+`just unit-package pse-engine 'test(cache_service::tests::)'` with explicit force-validation;
+`just producer-identity-test` passed 31/31 controls for actual Cargo artifact association,
+the cdylib manifest route and bounded package-family refresh. Native graph-selection tooling
+controls passed 14/14. The baseline was zero failures. Earlier runtime/worker captures retain
+their reviewed observed scope; replacement build outputs require current artifact association.
+E3 assembled qualification, E4 measurements and E5 assessment are not established here.
 
 ### A mistake made and corrected
 
-Pending execution.
+Conventional library capture did not model Maturin's actual Cargo rustc selection or editable
+RPATH transformation. The tool now selects the observed manifest/lib route; installed-artifact
+association also accounts for the source-backed metadata transformation. Cargo's cleanup
+selectors operate on package-name families, so refresh now states that real boundary and
+retains successful cleanup diagnostics rather than claiming exact-version cleanup.
 
 ### Deviations from the plan, deliberate
 
-Pending execution; consequential decision changes follow the decision route.
+Retain DataFusion only for its actual native relational consumers; persistence and public
+queries use the canonical substrate. Producer capture uses its separate inheriting profile
+and direct owning launcher without moving the checkout target directory. No measured speedup
+or full-series acceptance follows from these structural and focused observations.

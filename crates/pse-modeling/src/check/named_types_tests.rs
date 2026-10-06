@@ -108,6 +108,47 @@ fn checked(source: &str) -> CheckedPackage {
     .unwrap()
 }
 
+#[test]
+fn typed_child_under_expression_leaf_is_refused_by_structural_admission() {
+    let mut rows = crate::kernel_types::source(
+        "package p {fn law(x:Scalar)->Scalar=x; def D {var x:Scalar;} }",
+    );
+    let leaf = rows
+        .iter()
+        .find(|row| row.name == "law")
+        .unwrap()
+        .declaration_id;
+    let child = rows.iter_mut().find(|row| row.name == "x").unwrap();
+    child.parent_id = Some(leaf);
+    let child_id = child.declaration_id;
+    let (quantities, _) = crate::kernel_types::physical();
+    let preconditions =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let scope = crate::PhysicalScope {
+        package: Some("physical".into()),
+        documents: None,
+    };
+    let error = check(
+        &rows,
+        &TypeContext {
+            admissions: None,
+            formula_authority: None,
+            quantities: &quantities,
+            preconditions: &preconditions,
+            scope: &scope,
+        },
+    )
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("parent declaration cannot own nested members"),
+        "{error}"
+    );
+    assert!(error.to_string().contains(&child_id.to_string()), "{error}");
+}
+
 const VISIBLE: &str = r#"
 package library {
  entity kind item {}

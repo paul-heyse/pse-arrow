@@ -332,9 +332,23 @@ impl CanonicalStore {
                 ));
             }
         }
-        let response = request(self.db.query(format!("BEGIN;\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest;\nCOMMIT;", wire::SCHEMA)).bind(("interpretation", wire::INTERPRETATION)).bind(("schema_digest", wire::SCHEMA_DIGEST))).await?;
-        checked(response)?;
-        Ok(())
+        let response = request(
+            self.db
+                .query(initialization_statement())
+                .bind(("interpretation", wire::INTERPRETATION))
+                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
+        )
+        .await;
+        self.finish_initialization(response).await
+    }
+    // Acknowledgment is necessary even if a marker is readable after a lost response.
+    // The caller may explicitly open after uncertainty; initialization never retries DDL.
+    async fn finish_initialization(
+        &self,
+        response: Result<surrealdb::IndexedResults, CanonicalError>,
+    ) -> Result<(), CanonicalError> {
+        complete_response(response?)?;
+        self.open().await
     }
     /// Read and verify the installed interpretation without DDL.
     pub async fn open(&self) -> Result<(), CanonicalError> {
@@ -639,6 +653,13 @@ impl CanonicalStore {
     }
 }
 
+fn initialization_statement() -> String {
+    format!(
+        "BEGIN;\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest;\nCOMMIT;",
+        wire::SCHEMA
+    )
+}
+
 /// Bound one native client operation, preserving its typed failure.
 pub(crate) async fn request<F, T>(future: F) -> Result<T, CanonicalError>
 where
@@ -891,6 +912,94 @@ mod canonical_server_unit {
             interpretation: wire::INTERPRETATION.into(),
         }
     }
+    async fn initialization_fixture() -> (CanonicalStore, CanonicalOptions) {
+        let state =
+            std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
+        let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        options.database = format!("canonical_test_init_{}", uuid::Uuid::new_v4().simple());
+        (CanonicalStore::connect(&options).await.unwrap(), options)
+    }
+    #[tokio::test]
+    async fn initialization_requires_complete_response_and_verified_marker() {
+        let (store, _) = initialization_fixture().await;
+        // Use an actual SDK zero-statement response, not a fabricated response value.
+        let empty = request(store.db.query("")).await;
+        assert!(matches!(
+            store.finish_initialization(empty).await,
+            Err(CanonicalError::IncompleteResponse)
+        ));
+        assert!(store.open().await.is_err());
+        store.create().await.unwrap();
+        store.open().await.unwrap();
+        store.create().await.unwrap();
+        let empty = request(store.db.query("")).await;
+        assert!(
+            matches!(
+                store.finish_initialization(empty).await,
+                Err(CanonicalError::IncompleteResponse)
+            ),
+            "a readable marker does not replace a missing acknowledgment"
+        );
+        bounded_query(
+            store.db.query(
+                "UPDATE canonical_interpretations:current SET schema_digest='unknown-reader';",
+            ),
+        )
+        .await
+        .unwrap();
+        let complete = request(store.db.query("RETURN true;")).await;
+        assert!(matches!(
+            store.finish_initialization(complete).await,
+            Err(CanonicalError::Interpretation { .. })
+        ));
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn initialization_lost_ack_is_uncertain_without_ddl_replay() {
+        let (store, _) = initialization_fixture().await;
+        let completed = request(
+            store
+                .db
+                .query(initialization_statement())
+                .bind(("interpretation", wire::INTERPRETATION))
+                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
+        )
+        .await
+        .unwrap();
+        complete_response(completed).unwrap();
+        // Commit occurred, but the caller lost its acknowledgment at this boundary.
+        assert!(matches!(
+            store
+                .finish_initialization(Err(CanonicalError::Timeout))
+                .await,
+            Err(CanonicalError::Timeout)
+        ));
+        store.open().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn initialization_cancellation_cannot_establish_success() {
+        let (store, options) = initialization_fixture().await;
+        let address = url::Url::parse(&options.endpoint)
+            .unwrap()
+            .socket_addrs(|| None)
+            .unwrap()[0];
+        let short = connect_client(address, &options, std::time::Duration::from_millis(50))
+            .await
+            .unwrap();
+        let delayed = initialization_statement().replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
+        let response = request(
+            short
+                .query(delayed)
+                .bind(("interpretation", wire::INTERPRETATION))
+                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
+        )
+        .await;
+        assert!(store.finish_initialization(response).await.is_err());
+        assert!(store.open().await.is_err());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
     #[tokio::test]
     async fn query_cancellation_cannot_establish_empty_success() {
         let state =

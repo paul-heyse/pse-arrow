@@ -157,20 +157,12 @@ fn compare_fields(
         return Err(mismatch(path, "field count differs"));
     }
     for (actual, expected) in actual.iter().zip(expected) {
-        compare_field(
-            actual,
-            expected,
-            &format!("{path}.{}", expected.name()),
-        )?;
+        compare_field(actual, expected, &format!("{path}.{}", expected.name()))?;
     }
     Ok(())
 }
 
-fn compare_field(
-    actual: &Field,
-    expected: &Field,
-    path: &str,
-) -> Result<(), SchemaError> {
+fn compare_field(actual: &Field, expected: &Field, path: &str) -> Result<(), SchemaError> {
     if actual.name() != expected.name() {
         return Err(mismatch(path, "field name or order differs"));
     }
@@ -186,11 +178,7 @@ fn compare_field(
     compare_type(actual.data_type(), expected.data_type(), path)
 }
 
-fn compare_type(
-    actual: &DataType,
-    expected: &DataType,
-    path: &str,
-) -> Result<(), SchemaError> {
+fn compare_type(actual: &DataType, expected: &DataType, path: &str) -> Result<(), SchemaError> {
     match (actual, expected) {
         (DataType::Struct(actual), DataType::Struct(expected)) => {
             compare_fields(actual, expected, path)

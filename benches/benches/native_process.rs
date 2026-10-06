@@ -110,12 +110,18 @@ fn process(c: &mut Criterion) {
     let flash = DeclarationId::from_id(
         pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap(),
     );
-    let seed = |owner: &WorkflowRuntime| {let target=runtime(owner);(executor.block_on(seed_package_on(owner,target.clone())),target)};
+    let seed = |owner: &WorkflowRuntime| {
+        let target = runtime(owner);
+        (
+            executor.block_on(seed_package_on(owner, target.clone())),
+            target,
+        )
+    };
     let retained = if reuse == "cold" {
         None
     } else {
         let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
-        let (source,target) = seed(&owner);
+        let (source, target) = seed(&owner);
         let (package, case) = if operation == "flash" {
             (source.clone(), flash)
         } else {
@@ -134,7 +140,7 @@ fn process(c: &mut Criterion) {
                 .block_on(async { prepared.start().unwrap().wait().await })
                 .unwrap(),
         );
-        Some((owner, source, package, case,target))
+        Some((owner, source, package, case, target))
     };
     let mut phases = BTreeMap::new();
     compiler_phases.reset();
@@ -257,7 +263,9 @@ fn process(c: &mut Criterion) {
     let retained_pool = retained
         .as_ref()
         .map(|(owner, _, _, _, _)| owner.runtime.pool());
-    if let Some((owner,_,_,_,_))=&retained {executor.block_on(owner.cleanup_fixtures()).unwrap();}
+    if let Some((owner, _, _, _, _)) = &retained {
+        executor.block_on(owner.cleanup_fixtures()).unwrap();
+    }
     drop(retained);
     drop(executor);
     let final_retained_runtime_bytes = retained_pool.map(|pool| pool.reserved());

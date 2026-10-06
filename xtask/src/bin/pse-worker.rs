@@ -148,13 +148,25 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
             .session_factory(pse_engine::session::native_engine_profile())
             .map_err(|e| format!("session factory: {e}"))?,
     );
-    let deployment=deployment::open(cli.canonical_database.as_deref()).await?;
-    let policy=LeasePolicy{lease:Duration::from_secs(cli.lease_seconds),heartbeat:Duration::from_millis(cli.heartbeat_ms),..LeasePolicy::default()};
-    if policy.lease.is_zero() || policy.heartbeat.is_zero() || policy.heartbeat>=policy.lease {
+    let deployment = deployment::open(cli.canonical_database.as_deref()).await?;
+    let policy = LeasePolicy {
+        lease: Duration::from_secs(cli.lease_seconds),
+        heartbeat: Duration::from_millis(cli.heartbeat_ms),
+        ..LeasePolicy::default()
+    };
+    if policy.lease.is_zero() || policy.heartbeat.is_zero() || policy.heartbeat >= policy.lease {
         return Err("worker heartbeat must be positive and shorter than its lease".into());
     }
-    let operations=Operations::from_store(deployment.store().clone(),cli.name.clone().unwrap_or_else(||Operations::process_worker("pse-worker")),policy,shared.pool());
-    Ok(Runtime::from_shared(shared,registry,sessions,deployment).with_durability(Durability::Durable(operations)))
+    let operations = Operations::from_store(
+        deployment.store().clone(),
+        cli.name
+            .clone()
+            .unwrap_or_else(|| Operations::process_worker("pse-worker")),
+        policy,
+        shared.pool(),
+    );
+    Ok(Runtime::from_shared(shared, registry, sessions, deployment)
+        .with_durability(Durability::Durable(operations)))
 }
 
 fn report(error: &WorkflowError) {

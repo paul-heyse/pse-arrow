@@ -90,11 +90,7 @@ async fn definition(
         })
         .collect();
     let admitted = package
-        .admit_study_sources(
-            &sources.physical,
-            &points,
-            &CancelSource::new(),
-        )
+        .admit_study_sources(&sources.physical, &points, &CancelSource::new())
         .await
         .unwrap();
     assert_eq!(
@@ -132,31 +128,73 @@ fn check(outcomes: &[PointOutcome]) {
 fn metrics(rows: Vec<solve_metrics::Row>) -> Value {
     Value::Array(rows.into_iter().map(|r| json!({"namespace":r.namespace,"name":r.name,"kind":r.kind,"real":r.real,"integer":r.integer,"boolean":r.boolean,"text":r.text,"unavailable":r.unavailable})).collect())
 }
-async fn stored_rows<R:RelationRow>(runtime:&Runtime,owner:&WorkflowRuntime,run:&str,attempt:&str,name:&str)->Vec<R> {
-    let mut reader=runtime.results(run,attempt,name,0,u64::MAX,owner.cancel.clone()).await.unwrap();
-    let mut rows=Vec::new();
-    while let Some(batch)=reader.next_relation_batch().await.unwrap() {rows.extend(R::rows(&batch).unwrap());}
+async fn stored_rows<R: RelationRow>(
+    runtime: &Runtime,
+    owner: &WorkflowRuntime,
+    run: &str,
+    attempt: &str,
+    name: &str,
+) -> Vec<R> {
+    let mut reader = runtime
+        .results(run, attempt, name, 0, u64::MAX, owner.cancel.clone())
+        .await
+        .unwrap();
+    let mut rows = Vec::new();
+    while let Some(batch) = reader.next_relation_batch().await.unwrap() {
+        rows.extend(R::rows(&batch).unwrap());
+    }
     rows
 }
 async fn persisted(
     runtime: &Runtime,
     owner: &WorkflowRuntime,
-    points: &[(u32,String,Option<String>)],
+    points: &[(u32, String, Option<String>)],
     numerical: &mut observations::Observations,
 ) -> Vec<Value> {
     let mut observations = Vec::new();
-    assert_eq!(points.len(),VALUES.len());
+    assert_eq!(points.len(), VALUES.len());
     for (index, expected) in VALUES.into_iter().enumerate() {
-        let (occurrence,run,attempt)=&points[index];assert_eq!(*occurrence,index as u32);
-        let attempt=attempt.as_ref().expect("usable occurrence has exact producing attempt");
-        let rows=stored_rows::<solve_metrics::Row>(runtime,owner,run,attempt,"runtime.solve_metrics").await;
-        numerical.persisted_metrics(&rows);let native=metrics(rows);
-        numerical.rows(&stored_rows::<solve_strategy_events::Row>(runtime,owner,run,attempt,"runtime.solve_strategy_events").await);
-        let variables=stored_rows::<solve_variables::Row>(runtime,owner,run,attempt,"runtime.solve_variables").await;
-        let values:Vec<_>=variables.iter().filter(|row|!row.parameter&&!row.fixed).map(|row|row.value.unwrap()).collect();
-        assert_eq!(values.len(),2);
-        assert!(values.iter().any(|value|(*value-expected).abs()<1e-7));
-        assert!(values.iter().any(|value|(*value-3.).abs()<1e-7));
+        let (occurrence, run, attempt) = &points[index];
+        assert_eq!(*occurrence, index as u32);
+        let attempt = attempt
+            .as_ref()
+            .expect("usable occurrence has exact producing attempt");
+        let rows = stored_rows::<solve_metrics::Row>(
+            runtime,
+            owner,
+            run,
+            attempt,
+            "runtime.solve_metrics",
+        )
+        .await;
+        numerical.persisted_metrics(&rows);
+        let native = metrics(rows);
+        numerical.rows(
+            &stored_rows::<solve_strategy_events::Row>(
+                runtime,
+                owner,
+                run,
+                attempt,
+                "runtime.solve_strategy_events",
+            )
+            .await,
+        );
+        let variables = stored_rows::<solve_variables::Row>(
+            runtime,
+            owner,
+            run,
+            attempt,
+            "runtime.solve_variables",
+        )
+        .await;
+        let values: Vec<_> = variables
+            .iter()
+            .filter(|row| !row.parameter && !row.fixed)
+            .map(|row| row.value.unwrap())
+            .collect();
+        assert_eq!(values.len(), 2);
+        assert!(values.iter().any(|value| (*value - expected).abs() < 1e-7));
+        assert!(values.iter().any(|value| (*value - 3.).abs() < 1e-7));
         observations.push(json!({"key":index,"native_metrics":native,"variables":values}));
     }
     observations

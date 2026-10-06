@@ -625,11 +625,19 @@ impl AdmittedImplicit {
                 }),
             );
             let compile = |body: &AdmittedBody, order| -> Result<Arc<CompiledBody>> {
+                // Value-only hint/anchor programs have no derivative-axis demand.
+                // Compact support still retains every actual value/guard dependency;
+                // adding all axes would retain unused implicit unknowns as arguments.
+                let coordinates = if order == DerivativeOrder::Value {
+                    Vec::new()
+                } else {
+                    (0..body.math.input_count()).collect()
+                };
                 Ok(Arc::new(
                     body.math
                         .compile(
                             &(0..body.quantities.len()).collect::<Vec<_>>(),
-                            &(0..body.math.input_count()).collect::<Vec<_>>(),
+                            &coordinates,
                             order,
                             Optimization::default(),
                             limits,

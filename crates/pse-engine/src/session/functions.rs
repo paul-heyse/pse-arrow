@@ -228,7 +228,6 @@ impl Functions {
             value.name(),
         )
     }
-
 }
 fn check(valid: bool, kind: &str, name: &str) -> Result<()> {
     if valid {

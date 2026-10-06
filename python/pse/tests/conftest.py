@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Paul Heyse
 """Fixtures for the Python boundary tests (plan §5).
 
-These fixtures encode invariants that no single test owns: registry reflection is owned by Rust, the extension types are registered,
+These fixtures encode invariants that no single test owns: registry reflection is
+owned by Rust, the extension types are registered,
 ``import pse`` stays free of the scientific stack, and the built extension
 belongs to this checkout.
 """
@@ -222,5 +223,3 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
             inspection_bytes=4 << 20,
         ),
     )
-
-

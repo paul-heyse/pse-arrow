@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable occurrence contracts and canonical dependency-scoped execution.
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 use super::durable_tests::durable_runtime;
-#[cfg(feature="canonical-tests")]
-use pse_operations::canonical_studies::StudySummary;
 use super::worker_tests::sources;
 use super::*;
 use pse_model::study::*;
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
+use pse_operations::canonical_studies::StudySummary;
+#[cfg(feature = "canonical-tests")]
 use std::time::Duration;
 
 const CASES: &str = r#"package algebraic {
@@ -37,8 +37,8 @@ fn point(
                     },
                     ..Default::default()
                 },
-                backend:Some(pse_backend_native::solve::Backend::Ipopt),
-                intent:pse_backend_native::solve::SolveIntent::Root,
+                backend: Some(pse_backend_native::solve::Backend::Ipopt),
+                intent: pse_backend_native::solve::SolveIntent::Root,
                 ..Default::default()
             },
         }),
@@ -55,7 +55,7 @@ fn point(
         },
     }
 }
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 async fn admitted(
     runtime: &Runtime,
     points: impl FnOnce(
@@ -86,11 +86,7 @@ async fn admitted(
     };
     let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
-        .admit_study_sources(
-            &physical,
-            &points,
-            &cancel,
-        )
+        .admit_study_sources(&physical, &points, &cancel)
         .await
         .unwrap();
     (
@@ -139,7 +135,10 @@ fn study_definition_historical_readmission_codec_unit() {
     );
     let definition = StudyDefinition {
         version: pse_model::document::Version,
-        physical: PhysicalSource {revision:"fixture-physical".into(),identity:hash},
+        physical: PhysicalSource {
+            revision: "fixture-physical".into(),
+            identity: hash,
+        },
         modeling_revision: "fixture-revision".into(),
         points: vec![StudyPointDefinition {
             operation: StudyOperation {
@@ -181,8 +180,16 @@ fn study_definition_historical_readmission_codec_unit() {
     let historical = serde_json::to_string(&former).unwrap();
     let retained = historical.clone();
     let error = StudyDefinition::readmission(&historical).unwrap_err();
-    assert!(error.to_string().contains("study definition version 3 is unsupported"));
-    assert!(error.to_string().contains("explicit readmission is required"));
+    assert!(
+        error
+            .to_string()
+            .contains("study definition version 3 is unsupported")
+    );
+    assert!(
+        error
+            .to_string()
+            .contains("explicit readmission is required")
+    );
     assert_eq!(historical, retained);
     for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":8}"#] {
         assert!(matches!(
@@ -192,90 +199,242 @@ fn study_definition_historical_readmission_codec_unit() {
     }
 }
 
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
-    let runtime=durable_runtime();
-    let(sources,definition)=admitted(&runtime,|_,_,fixed|vec![point(fixed,3,vec![],StartPolicy::Fresh),point(fixed,9,vec![Dependency::Ordering(OccurrenceKey(3))],StartPolicy::Fresh)]).await;
-    assert_eq!(definition.points[0].binding_hash,definition.points[1].binding_hash);
-    let handle=runtime.start_defined_study(sources.physical,definition).await.unwrap();
-    let receipt=handle.cancel().await.unwrap();assert!(!receipt.already_concluded);
-    for _ in 0..4 {if matches!(runtime.work_once().await.unwrap(),Processed::Idle){break;}}
-    let status=handle.status().await.unwrap();assert_eq!(status.state,StudyState::Concluded);assert!(status.cancelled);assert_eq!(status.points.len(),2);
-    assert_ne!(status.points[0].run,status.points[1].run);
-    assert!(status.points.iter().all(|point|point.settled&&point.state==StudyPointState::Cancelled&&point.attempt.is_none()&&point.outcome.as_ref().is_some_and(|outcome|outcome.attempts.is_empty()&&!outcome.scientific.usable)));
-    let retained=handle.result().await.unwrap().unwrap();
-    let run=runtime.canonical_store().canonical_run(&retained.run).await.unwrap().unwrap();assert_eq!(run.terminal_class.as_deref(),Some("cancelled"));
-    let restarted=runtime.study(handle.study_id());assert_eq!(restarted.result().await.unwrap().unwrap().attempt,retained.attempt);
+    let runtime = durable_runtime();
+    let (sources, definition) = admitted(&runtime, |_, _, fixed| {
+        vec![
+            point(fixed, 3, vec![], StartPolicy::Fresh),
+            point(
+                fixed,
+                9,
+                vec![Dependency::Ordering(OccurrenceKey(3))],
+                StartPolicy::Fresh,
+            ),
+        ]
+    })
+    .await;
+    assert_eq!(
+        definition.points[0].binding_hash,
+        definition.points[1].binding_hash
+    );
+    let handle = runtime
+        .start_defined_study(sources.physical, definition)
+        .await
+        .unwrap();
+    let receipt = handle.cancel().await.unwrap();
+    assert!(!receipt.already_concluded);
+    for _ in 0..4 {
+        if matches!(runtime.work_once().await.unwrap(), Processed::Idle) {
+            break;
+        }
+    }
+    let status = handle.status().await.unwrap();
+    assert_eq!(status.state, StudyState::Concluded);
+    assert!(status.cancelled);
+    assert_eq!(status.points.len(), 2);
+    assert_ne!(status.points[0].run, status.points[1].run);
+    assert!(status.points.iter().all(|point| {
+        point.settled
+            && point.state == StudyPointState::Cancelled
+            && point.attempt.is_none()
+            && point
+                .outcome
+                .as_ref()
+                .is_some_and(|outcome| outcome.attempts.is_empty() && !outcome.scientific.usable)
+    }));
+    let retained = handle.result().await.unwrap().unwrap();
+    let run = runtime
+        .canonical_store()
+        .canonical_run(&retained.run)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(run.terminal_class.as_deref(), Some("cancelled"));
+    let restarted = runtime.study(handle.study_id());
+    assert_eq!(
+        restarted.result().await.unwrap().unwrap().attempt,
+        retained.attempt
+    );
 }
 
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
-    let runtime=durable_runtime();
-    let mut authored=None;
-    let(sources,_)=admitted(&runtime,|_,_,fixed|{
-        let points=vec![point(fixed,3,vec![],StartPolicy::Fresh)];
-        authored=Some(points.clone());points
-    }).await;
-    let before=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
-    let handle=runtime.start_study(StudyPlan{sources,points:authored.unwrap()}).await.unwrap();
-    let after=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
-    assert_eq!(after[0].misses,before[0].misses+1,"original document ingress admits one exact canonical physical receipt");
-    assert_eq!(after[0].hits,before[0].hits+1,"definition admission reuses the ingress owner");
-    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Ran{..}));
-    let status=handle.status().await.unwrap();
+    let runtime = durable_runtime();
+    let mut authored = None;
+    let (sources, _) = admitted(&runtime, |_, _, fixed| {
+        let points = vec![point(fixed, 3, vec![], StartPolicy::Fresh)];
+        authored = Some(points.clone());
+        points
+    })
+    .await;
+    let before = pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    let handle = runtime
+        .start_study(StudyPlan {
+            sources,
+            points: authored.unwrap(),
+        })
+        .await
+        .unwrap();
+    let after = pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    assert_eq!(
+        after[0].misses,
+        before[0].misses + 1,
+        "original document ingress admits one exact canonical physical receipt"
+    );
+    assert_eq!(
+        after[0].hits,
+        before[0].hits + 1,
+        "definition admission reuses the ingress owner"
+    );
+    assert!(matches!(
+        runtime.work_once().await.unwrap(),
+        Processed::Ran { .. }
+    ));
+    let status = handle.status().await.unwrap();
     assert!(status.points[0].outcome.as_ref().unwrap().scientific.usable);
-    let after=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
-    assert_eq!(after[0].misses,before[0].misses+1,"ready preparation does not reparse or re-admit physical documents");
-    assert_eq!(after[0].hits,before[0].hits+2);
+    let after = pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    assert_eq!(
+        after[0].misses,
+        before[0].misses + 1,
+        "ready preparation does not reparse or re-admit physical documents"
+    );
+    assert_eq!(after[0].hits, before[0].hits + 2);
 }
 
-#[cfg(all(feature="canonical-tests",feature="native-solvers"))]
+#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
 #[tokio::test]
 async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
-    let runtime=durable_runtime();
-    let(mut sources,definition)=admitted(&runtime,|root,failed,_|vec![point(root,2,vec![],StartPolicy::Fresh),point(root,4,vec![],StartPolicy::Fresh),point(failed,8,vec![],StartPolicy::Fresh),point(root,12,vec![Dependency::UsableResult(OccurrenceKey(8))],StartPolicy::Fresh)]).await;
-    assert_eq!(definition.points[0].binding_hash,definition.points[1].binding_hash);sources.modeling.clear();
-    let handle=runtime.start_defined_study(sources.physical,definition).await.unwrap();
-    let before=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref())[0].hits;
-    for _ in 0..8{if matches!(runtime.work_once().await.unwrap(),Processed::Idle){break;}}
-    let status=handle.status().await.unwrap();assert_eq!(status.state,StudyState::Concluded);assert_eq!(status.points[3].state,StudyPointState::Failed);assert!(status.points[3].attempt.is_none());
-    assert!(status.points[0].outcome.as_ref().unwrap().scientific.usable);assert!(status.points[1].outcome.as_ref().unwrap().scientific.usable);
-    let retained=handle.result().await.unwrap().unwrap();let run=runtime.canonical_store().canonical_run(&retained.run).await.unwrap().unwrap();assert_eq!(run.terminal_class.as_deref(),Some("partial"));
-    assert_ne!(status.points[0].attempt,status.points[1].attempt);
-    let cache=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
-    assert!(cache[0].hits>=before+3,"each ready scientific occurrence reuses the original canonical physical admission");
-    assert!(cache[0].entries<=2,"physical admissions and IPC receipts each retain at most one exact owner");
+    let runtime = durable_runtime();
+    let (mut sources, definition) = admitted(&runtime, |root, failed, _| {
+        vec![
+            point(root, 2, vec![], StartPolicy::Fresh),
+            point(root, 4, vec![], StartPolicy::Fresh),
+            point(failed, 8, vec![], StartPolicy::Fresh),
+            point(
+                root,
+                12,
+                vec![Dependency::UsableResult(OccurrenceKey(8))],
+                StartPolicy::Fresh,
+            ),
+        ]
+    })
+    .await;
+    assert_eq!(
+        definition.points[0].binding_hash,
+        definition.points[1].binding_hash
+    );
+    sources.modeling.clear();
+    let handle = runtime
+        .start_defined_study(sources.physical, definition)
+        .await
+        .unwrap();
+    let before =
+        pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref())[0].hits;
+    for _ in 0..8 {
+        if matches!(runtime.work_once().await.unwrap(), Processed::Idle) {
+            break;
+        }
+    }
+    let status = handle.status().await.unwrap();
+    assert_eq!(status.state, StudyState::Concluded);
+    assert_eq!(status.points[3].state, StudyPointState::Failed);
+    assert!(status.points[3].attempt.is_none());
+    assert!(status.points[0].outcome.as_ref().unwrap().scientific.usable);
+    assert!(status.points[1].outcome.as_ref().unwrap().scientific.usable);
+    let retained = handle.result().await.unwrap().unwrap();
+    let run = runtime
+        .canonical_store()
+        .canonical_run(&retained.run)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(run.terminal_class.as_deref(), Some("partial"));
+    assert_ne!(status.points[0].attempt, status.points[1].attempt);
+    let cache = pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    assert!(
+        cache[0].hits >= before + 3,
+        "each ready scientific occurrence reuses the original canonical physical admission"
+    );
+    assert!(
+        cache[0].entries <= 2,
+        "physical admissions and IPC receipts each retain at most one exact owner"
+    );
 }
 
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
-    let runtime=durable_runtime();
-    let(sources,mut definition)=admitted(&runtime,|_,_,fixed|vec![point(fixed,5,vec![],StartPolicy::Fresh)]).await;
-    definition.points[0].policy.attempt_limit=1;
-    let handle=runtime.start_defined_study(sources.physical,definition).await.unwrap();
-    let key=pse_operations::canonical_studies::point_key(&handle.study_id().to_string(),OccurrenceKey(5));
-    let scope=runtime.canonical_store().study_scope(&key).await.unwrap();
-    let claim=runtime.canonical_store().claim_study_point(&scope,None,"expired-fixture","departed-worker",Duration::from_micros(1)).await.unwrap();
-    let point=runtime.canonical_store().canonical_study_point(&key).await.unwrap().unwrap();
+    let runtime = durable_runtime();
+    let (sources, mut definition) = admitted(&runtime, |_, _, fixed| {
+        vec![point(fixed, 5, vec![], StartPolicy::Fresh)]
+    })
+    .await;
+    definition.points[0].policy.attempt_limit = 1;
+    let handle = runtime
+        .start_defined_study(sources.physical, definition)
+        .await
+        .unwrap();
+    let key = pse_operations::canonical_studies::point_key(
+        &handle.study_id().to_string(),
+        OccurrenceKey(5),
+    );
+    let scope = runtime.canonical_store().study_scope(&key).await.unwrap();
+    let claim = runtime
+        .canonical_store()
+        .claim_study_point(
+            &scope,
+            None,
+            "expired-fixture",
+            "departed-worker",
+            Duration::from_micros(1),
+        )
+        .await
+        .unwrap();
+    let point = runtime
+        .canonical_store()
+        .canonical_study_point(&key)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(runtime.recover_study_point(&point.key).await.unwrap());
-    let actual=runtime.canonical_store().canonical_attempt(claim.fence.attempt()).await.unwrap().unwrap();assert!(actual.terminal);assert_eq!(actual.outcome.as_deref(),Some("failed"));
-    let after=runtime.canonical_store().canonical_study_point(&key).await.unwrap().unwrap();assert!(after.settled);let facts=pse_operations::canonical_studies::point_facts(&after).unwrap();assert!(!facts.native_started&&!facts.scientific.usable);assert_eq!(facts.attempt_count,1);
+    let actual = runtime
+        .canonical_store()
+        .canonical_attempt(claim.fence.attempt())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(actual.terminal);
+    assert_eq!(actual.outcome.as_deref(), Some("failed"));
+    let after = runtime
+        .canonical_store()
+        .canonical_study_point(&key)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(after.settled);
+    let facts = pse_operations::canonical_studies::point_facts(&after).unwrap();
+    assert!(!facts.native_started && !facts.scientific.usable);
+    assert_eq!(facts.attempt_count, 1);
 }
 
 #[tokio::test]
 async fn related_case_study_uses_secant_then_original_correction() {
     let runtime = tests::runtime_with_workspace(64 << 20);
-    let (package,definition)=related_definition(&runtime).await;
-    let study = package.study(&definition, 3, &crate::CancelSource::new()).await.unwrap();
+    let (package, definition) = related_definition(&runtime).await;
+    let study = package
+        .study(&definition, 3, &crate::CancelSource::new())
+        .await
+        .unwrap();
     assert!(
         study
             .outcomes
             .iter()
             .all(|outcome| outcome.scientific.usable),
-        "{:?}",study.outcomes
+        "{:?}",
+        study.outcomes
     );
     let result = |index: usize| {
         let RunReport::Modeling(results) = study.results[index].as_ref().unwrap().report().unwrap()
@@ -330,7 +489,7 @@ async fn related_case_study_uses_secant_then_original_correction() {
     assert_eq!(study.outcomes[2].key, OccurrenceKey(3));
 }
 
-async fn related_definition(runtime:&Runtime)->(ModelingPackage,StudyDefinition){
+async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinition) {
     let (physical, modeling) = sources(CASES);
     let cancel = crate::CancelSource::new();
     let package = runtime
@@ -392,91 +551,316 @@ async fn related_definition(runtime:&Runtime)->(ModelingPackage,StudyDefinition)
         points.push(next);
     }
     let definition = package
-        .admit_study_sources(
-            &physical,
-            &points,
-            &cancel,
+        .admit_study_sources(&physical, &points, &cancel)
+        .await
+        .unwrap();
+    (package, definition)
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn canonical_study_reopened_continuation_uses_shared_secant_and_original_correction() {
+    use pse_relations::generated::runtime::{solve_strategy_events, solve_variables};
+    let mut runtime = tests::runtime_with_workspace(64 << 20);
+    let operations = Operations::from_store(
+        runtime.canonical_store().clone(),
+        "retained-prediction",
+        durable_tests::quick(),
+        runtime.shared.pool().clone(),
+    );
+    runtime = runtime.with_durability(Durability::Durable(operations.clone()));
+    let (package, definition) = related_definition(&runtime).await;
+    let study = package
+        .study(&definition, 3, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert!(
+        study
+            .outcomes
+            .iter()
+            .all(|outcome| outcome.scientific.usable),
+        "{:?}",
+        study.outcomes
+    );
+    let third = study.results[2].as_ref().unwrap();
+    let (run, attempt) = third.stored_keys().unwrap();
+    let reopened = operations.record(run, attempt).await.unwrap();
+    assert_eq!(reopened.solutions.len(), 1);
+    let mut events = runtime
+        .results(
+            run,
+            attempt,
+            "runtime.solve_strategy_events",
+            0,
+            u64::MAX,
+            pse_columnar::CancellationToken::new(),
         )
         .await
         .unwrap();
-    (package,definition)
+    let mut predicted = false;
+    while let Some(batch) = events.next_batch().await.unwrap() {
+        let checked = solve_strategy_events::View::try_from_batch_with_registry(
+            &runtime.registry,
+            &batch,
+            &runtime.validation_context().unwrap(),
+        )
+        .unwrap();
+        for row in checked.rows().unwrap() {
+            predicted |= row.start_origin
+                == Some(pse_model::generated::enums::NumericalStartOrigin::Predicted);
+        }
+    }
+    assert!(
+        predicted,
+        "retained third occurrence must consume the shared secant producer"
+    );
+    let mut variables = runtime
+        .results(
+            run,
+            attempt,
+            "runtime.solve_variables",
+            0,
+            u64::MAX,
+            pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let mut corrected = false;
+    while let Some(batch) = variables.next_batch().await.unwrap() {
+        let checked = solve_variables::View::try_from_batch_with_registry(
+            &runtime.registry,
+            &batch,
+            &runtime.validation_context().unwrap(),
+        )
+        .unwrap();
+        for row in checked.rows().unwrap() {
+            corrected |= row
+                .value
+                .is_some_and(|value| (value - 4.08_f64.sqrt()).abs() < 1e-8);
+        }
+    }
+    assert!(
+        corrected,
+        "retained original correction must solve actual target equation"
+    );
 }
 
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 #[tokio::test]
-async fn canonical_study_reopened_continuation_uses_shared_secant_and_original_correction(){
-    use pse_relations::generated::runtime::{solve_strategy_events,solve_variables};
-    let mut runtime=tests::runtime_with_workspace(64 << 20);
-    let operations=Operations::from_store(runtime.canonical_store().clone(),"retained-prediction",durable_tests::quick(),runtime.shared.pool().clone());
-    runtime=runtime.with_durability(Durability::Durable(operations.clone()));
-    let(package,definition)=related_definition(&runtime).await;
-    let study=package.study(&definition,3,&crate::CancelSource::new()).await.unwrap();
-    assert!(study.outcomes.iter().all(|outcome|outcome.scientific.usable),"{:?}",study.outcomes);
-    let third=study.results[2].as_ref().unwrap();let(run,attempt)=third.stored_keys().unwrap();
-    let reopened=operations.record(run,attempt).await.unwrap();assert_eq!(reopened.solutions.len(),1);
-    let mut events=runtime.results(run,attempt,"runtime.solve_strategy_events",0,u64::MAX,pse_columnar::CancellationToken::new()).await.unwrap();
-    let mut predicted=false;
-    while let Some(batch)=events.next_batch().await.unwrap(){let checked=solve_strategy_events::View::try_from_batch_with_registry(&runtime.registry,&batch,&runtime.validation_context().unwrap()).unwrap();for row in checked.rows().unwrap(){predicted|=row.start_origin==Some(pse_model::generated::enums::NumericalStartOrigin::Predicted);}}
-    assert!(predicted,"retained third occurrence must consume the shared secant producer");
-    let mut variables=runtime.results(run,attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new()).await.unwrap();
-    let mut corrected=false;
-    while let Some(batch)=variables.next_batch().await.unwrap(){let checked=solve_variables::View::try_from_batch_with_registry(&runtime.registry,&batch,&runtime.validation_context().unwrap()).unwrap();for row in checked.rows().unwrap(){corrected|=row.value.is_some_and(|value|(value-4.08_f64.sqrt()).abs()<1e-8);}}
-    assert!(corrected,"retained original correction must solve actual target equation");
-}
-
-#[cfg(feature="canonical-tests")]
-#[tokio::test]
-async fn canonical_study_explicit_missing_seed_refuses_without_native_attempt(){
-    let runtime=durable_runtime();let(package,mut definition)=related_definition(&runtime).await;
+async fn canonical_study_explicit_missing_seed_refuses_without_native_attempt() {
+    let runtime = durable_runtime();
+    let (package, mut definition) = related_definition(&runtime).await;
     definition.points.truncate(1);
-    definition.points[0].policy.start=StartPolicy::Explicit{role:SeedRole::PrimalSolution,seed:pse_operations::mint_id()};
-    let(physical,_)=sources(CASES);
-    let handle=runtime.start_defined_study(physical,definition).await.unwrap();
-    loop {if matches!(runtime.work_once().await.unwrap(),Processed::Idle){break;}}
-    let status=handle.status().await.unwrap();let point=&status.points[0];assert!(point.settled);assert!(point.attempt.is_none());
-    let outcome=point.outcome.as_ref().unwrap();assert!(!outcome.scientific.usable);assert_eq!(outcome.diagnostic.as_ref().unwrap().rule,pse_diagnostics::DiagnosticRule::StudySeedUnavailable);
-    assert!(runtime.canonical_store().canonical_run(&point.run).await.unwrap().unwrap().current_attempt.is_none());
+    definition.points[0].policy.start = StartPolicy::Explicit {
+        role: SeedRole::PrimalSolution,
+        seed: pse_operations::mint_id(),
+    };
+    let (physical, _) = sources(CASES);
+    let handle = runtime
+        .start_defined_study(physical, definition)
+        .await
+        .unwrap();
+    loop {
+        if matches!(runtime.work_once().await.unwrap(), Processed::Idle) {
+            break;
+        }
+    }
+    let status = handle.status().await.unwrap();
+    let point = &status.points[0];
+    assert!(point.settled);
+    assert!(point.attempt.is_none());
+    let outcome = point.outcome.as_ref().unwrap();
+    assert!(!outcome.scientific.usable);
+    assert_eq!(
+        outcome.diagnostic.as_ref().unwrap().rule,
+        pse_diagnostics::DiagnosticRule::StudySeedUnavailable
+    );
+    assert!(
+        runtime
+            .canonical_store()
+            .canonical_run(&point.run)
+            .await
+            .unwrap()
+            .unwrap()
+            .current_attempt
+            .is_none()
+    );
     drop(package);
 }
 
-#[cfg(feature="canonical-tests")]
+#[cfg(feature = "canonical-tests")]
 #[tokio::test]
-async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science(){
-    let runtime=durable_runtime();let(package,mut definition)=related_definition(&runtime).await;
-    definition.points.truncate(1);let(physical,_)=sources(CASES);
-    let handle=runtime.start_defined_study(physical,definition).await.unwrap();
-    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Ran{..}));
-    let key=handle.study_id().to_string();let store=runtime.canonical_store();let header=store.canonical_study(&key).await.unwrap().unwrap();
-    assert!(!header.metadata.is_empty());let page=store.study_page(None).await.unwrap();let summary=page.iter().find(|summary|summary.key==header.key).unwrap();assert_eq!(*summary,StudySummary::from(&header));assert!(serde_json::to_value(summary).unwrap().get("metadata").is_none());
-    let fence=store.begin_study_finalization(&StudySummary::from(&header),"crashed-summary",Duration::from_millis(250)).await.unwrap().unwrap();
-    assert!(store.begin_study_finalization(&StudySummary::from(&header),"competing-summary",Duration::from_secs(1)).await.unwrap().is_none());
-    store.append_result_batch(&fence,"summary-partial","__effect_free_summary",0,&[1],1).await.unwrap();
-    let before=store.canonical_study_point(&pse_operations::canonical_studies::point_key(&key,OccurrenceKey(1))).await.unwrap().unwrap();
+async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science() {
+    let runtime = durable_runtime();
+    let (package, mut definition) = related_definition(&runtime).await;
+    definition.points.truncate(1);
+    let (physical, _) = sources(CASES);
+    let handle = runtime
+        .start_defined_study(physical, definition)
+        .await
+        .unwrap();
+    assert!(matches!(
+        runtime.work_once().await.unwrap(),
+        Processed::Ran { .. }
+    ));
+    let key = handle.study_id().to_string();
+    let store = runtime.canonical_store();
+    let header = store.canonical_study(&key).await.unwrap().unwrap();
+    assert!(!header.metadata.is_empty());
+    let page = store.study_page(None).await.unwrap();
+    let summary = page
+        .iter()
+        .find(|summary| summary.key == header.key)
+        .unwrap();
+    assert_eq!(*summary, StudySummary::from(&header));
+    assert!(
+        serde_json::to_value(summary)
+            .unwrap()
+            .get("metadata")
+            .is_none()
+    );
+    let fence = store
+        .begin_study_finalization(
+            &StudySummary::from(&header),
+            "crashed-summary",
+            Duration::from_millis(250),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        store
+            .begin_study_finalization(
+                &StudySummary::from(&header),
+                "competing-summary",
+                Duration::from_secs(1)
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    store
+        .append_result_batch(
+            &fence,
+            "summary-partial",
+            "__effect_free_summary",
+            0,
+            &[1],
+            1,
+        )
+        .await
+        .unwrap();
+    let before = store
+        .canonical_study_point(&pse_operations::canonical_studies::point_key(
+            &key,
+            OccurrenceKey(1),
+        ))
+        .await
+        .unwrap()
+        .unwrap();
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert!(runtime.finalize_canonical_study(&key).await.unwrap());
-    let after=store.canonical_study_point(&before.key).await.unwrap().unwrap();assert_eq!(before,after,"summary rebuild must not execute or revise any scientific occurrence");
-    let status=handle.status().await.unwrap();assert_ne!(status.result_attempt.as_deref(),Some(fence.attempt()));
-    let previous=store.canonical_attempt(fence.attempt()).await.unwrap().unwrap();assert!(previous.terminal);assert_eq!(previous.outcome.as_deref(),Some("failed"));
-    let final_attempt=store.canonical_attempt(status.result_attempt.as_ref().unwrap()).await.unwrap().unwrap();assert_eq!(final_attempt.outcome.as_deref(),Some("succeeded"));
+    let after = store
+        .canonical_study_point(&before.key)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        before, after,
+        "summary rebuild must not execute or revise any scientific occurrence"
+    );
+    let status = handle.status().await.unwrap();
+    assert_ne!(status.result_attempt.as_deref(), Some(fence.attempt()));
+    let previous = store
+        .canonical_attempt(fence.attempt())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(previous.terminal);
+    assert_eq!(previous.outcome.as_deref(), Some("failed"));
+    let final_attempt = store
+        .canonical_attempt(status.result_attempt.as_ref().unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(final_attempt.outcome.as_deref(), Some("succeeded"));
     drop(package);
 }
 
-#[cfg(feature="canonical-tests")]
-#[allow(unsafe_code,reason="fixture asserts rejected stale success only; actual summary rebuilt by owning runtime")]
+#[cfg(feature = "canonical-tests")]
+#[allow(
+    unsafe_code,
+    reason = "fixture asserts rejected stale success only; actual summary rebuilt by owning runtime"
+)]
 #[tokio::test]
-async fn canonical_study_cancellation_after_summary_close_fences_success(){
-    let runtime=durable_runtime();let(_,mut definition)=related_definition(&runtime).await;definition.points.truncate(1);
-    let(physical,_)=sources(CASES);let handle=runtime.start_defined_study(physical,definition).await.unwrap();
-    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Ran{..}));
-    let key=handle.study_id().to_string();let store=runtime.canonical_store();let study=store.canonical_study(&key).await.unwrap().unwrap();
-    let fence=store.begin_study_finalization(&StudySummary::from(&study),"summary-before-cancel",Duration::from_millis(300)).await.unwrap().unwrap();
-    let closed=store.close_result_ingestion(&fence,"summary-before-cancel-close").await.unwrap();let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+async fn canonical_study_cancellation_after_summary_close_fences_success() {
+    let runtime = durable_runtime();
+    let (_, mut definition) = related_definition(&runtime).await;
+    definition.points.truncate(1);
+    let (physical, _) = sources(CASES);
+    let handle = runtime
+        .start_defined_study(physical, definition)
+        .await
+        .unwrap();
+    assert!(matches!(
+        runtime.work_once().await.unwrap(),
+        Processed::Ran { .. }
+    ));
+    let key = handle.study_id().to_string();
+    let store = runtime.canonical_store();
+    let study = store.canonical_study(&key).await.unwrap().unwrap();
+    let fence = store
+        .begin_study_finalization(
+            &StudySummary::from(&study),
+            "summary-before-cancel",
+            Duration::from_millis(300),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let closed = store
+        .close_result_ingestion(&fence, "summary-before-cancel-close")
+        .await
+        .unwrap();
+    let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
     handle.cancel().await.unwrap();
-    assert!(unsafe{store.seal_attempt(&manifest,"stale-parent-success",pse_operations::canonical_execution::TerminalClass::Succeeded,&[1]).await}.is_err());
-    assert!(unsafe{store.seal_study_summary(&key,&manifest,"stale-owned-summary",pse_operations::canonical_execution::TerminalClass::Succeeded,&[1]).await}.is_err());
+    assert!(
+        unsafe {
+            store
+                .seal_attempt(
+                    &manifest,
+                    "stale-parent-success",
+                    pse_operations::canonical_execution::TerminalClass::Succeeded,
+                    &[1],
+                )
+                .await
+        }
+        .is_err()
+    );
+    assert!(
+        unsafe {
+            store
+                .seal_study_summary(
+                    &key,
+                    &manifest,
+                    "stale-owned-summary",
+                    pse_operations::canonical_execution::TerminalClass::Succeeded,
+                    &[1],
+                )
+                .await
+        }
+        .is_err()
+    );
     tokio::time::sleep(Duration::from_millis(350)).await;
     assert!(runtime.finalize_canonical_study(&key).await.unwrap());
-    let status=handle.status().await.unwrap();assert_eq!(status.state,StudyState::Concluded);assert!(status.cancelled);
-    let parent=store.canonical_attempt(status.result_attempt.as_ref().unwrap()).await.unwrap().unwrap();assert_eq!(parent.outcome.as_deref(),Some("cancelled"));
+    let status = handle.status().await.unwrap();
+    assert_eq!(status.state, StudyState::Concluded);
+    assert!(status.cancelled);
+    let parent = store
+        .canonical_attempt(status.result_attempt.as_ref().unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(parent.outcome.as_deref(), Some("cancelled"));
     assert!(handle.cancel().await.unwrap().already_concluded);
 }

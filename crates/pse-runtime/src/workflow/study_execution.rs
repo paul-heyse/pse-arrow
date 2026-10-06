@@ -14,32 +14,55 @@ use pse_model::generated::{
     identities::{RunId, SolutionId},
 };
 use pse_model::study::*;
-use std::{collections::{BTreeMap,BTreeSet}, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 /// One completed occurrence keeps an exact persisted handle in application mode.
 /// Explicit kernel tests may retain their requested native owner in memory.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum StudyOccurrenceResult {
     /// Canonical storage remains the result authority after worker buffers release.
     Retained {
         /// Original scientific execution identity.
-        run_id:RunId,
+        run_id: RunId,
         /// Exact canonical execution key.
-        run:String,
+        run: String,
         /// Exact admitted native attempt key.
-        attempt:String,
+        attempt: String,
     },
     /// Explicitly selected ephemeral numerical workflow.
     Ephemeral(Arc<RunResult>),
 }
 impl StudyOccurrenceResult {
     /// Semantic execution identity, distinct from the opaque native attempt key.
-    pub fn run_id(&self)->RunId{match self{Self::Retained{run_id,..}=>*run_id,Self::Ephemeral(result)=>result.run_id}}
+    pub fn run_id(&self) -> RunId {
+        match self {
+            Self::Retained { run_id, .. } => *run_id,
+            Self::Ephemeral(result) => result.run_id,
+        }
+    }
     /// Exact connected selection for persisted scientific rows.
-    pub fn stored_keys(&self)->Option<(&str,&str)>{match self{Self::Retained{run,attempt,..}=>Some((run,attempt)),Self::Ephemeral(_)=>None}}
+    pub fn stored_keys(&self) -> Option<(&str, &str)> {
+        match self {
+            Self::Retained { run, attempt, .. } => Some((run, attempt)),
+            Self::Ephemeral(_) => None,
+        }
+    }
     /// Original native report is available only in explicit kernel mode. Applications
     /// read retained rows through the canonical result selector.
-    pub fn report(&self)->Result<&RunReport,WorkflowError>{match self{Self::Ephemeral(result)=>result.report.as_ref().map_err(|error|WorkflowError::Shared(error.clone())),Self::Retained{..}=>Err(super::contract("persisted occurrence requires a connected result selection"))}}
+    pub fn report(&self) -> Result<&RunReport, WorkflowError> {
+        match self {
+            Self::Ephemeral(result) => result
+                .report
+                .as_ref()
+                .map_err(|error| WorkflowError::Shared(error.clone())),
+            Self::Retained { .. } => Err(super::contract(
+                "persisted occurrence requires a connected result selection",
+            )),
+        }
+    }
 }
 
 /// Complete occurrences and retained owner results, including cancellation and refusals.
@@ -62,7 +85,9 @@ pub struct StudyReport {
 }
 impl StudyReport {
     /// Original application store and shared pool for exact connected results.
-    pub fn runtime(&self)->&super::Runtime {&self.runtime}
+    pub fn runtime(&self) -> &super::Runtime {
+        &self.runtime
+    }
 }
 
 impl ModelingPackage {
@@ -73,37 +98,134 @@ impl ModelingPackage {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
-        let (report, preparations) =
-            crate::math::counted(async {match self.runtime.durability(){super::Durability::Durable(_)=>self.study_durable(definition,maximum_points,cancel).await,super::Durability::Ephemeral=>self.study_inner(definition,maximum_points,cancel).await}}).await;
+        let (report, preparations) = crate::math::counted(async {
+            match self.runtime.durability() {
+                super::Durability::Durable(_) => {
+                    self.study_durable(definition, maximum_points, cancel).await
+                }
+                super::Durability::Ephemeral => {
+                    self.study_inner(definition, maximum_points, cancel).await
+                }
+            }
+        })
+        .await;
         let mut report = report?;
         report.preparations = preparations;
         Ok(report)
     }
-    async fn study_durable(&self,definition:&StudyDefinition,maximum_points:usize,cancel:&crate::CancelSource)->Result<StudyReport,WorkflowError>{
-        if definition.modeling_revision!=self.canonical_revision().key||maximum_points==0||maximum_points>super::MAXIMUM_STUDY_POINTS||definition.points.len()>maximum_points{return Err(super::contract("bounded study extent and exact modeling revision"));}
-        let operations=self.runtime.operations()?;
-        let sources=operations.sources(&definition.physical).await?;
-        let handle=self.runtime.start_defined_study((**sources).clone(),definition.clone()).await?;
+    async fn study_durable(
+        &self,
+        definition: &StudyDefinition,
+        maximum_points: usize,
+        cancel: &crate::CancelSource,
+    ) -> Result<StudyReport, WorkflowError> {
+        if definition.modeling_revision != self.canonical_revision().key
+            || maximum_points == 0
+            || maximum_points > super::MAXIMUM_STUDY_POINTS
+            || definition.points.len() > maximum_points
+        {
+            return Err(super::contract(
+                "bounded study extent and exact modeling revision",
+            ));
+        }
+        let operations = self.runtime.operations()?;
+        let sources = operations.sources(&definition.physical).await?;
+        let handle = self
+            .runtime
+            .start_defined_study((**sources).clone(), definition.clone())
+            .await?;
         drop(sources);
-        let mut cancellation_recorded=false;
+        let mut cancellation_recorded = false;
         loop {
-            if cancel.token().is_cancelled()&&!cancellation_recorded{handle.cancel().await?;cancellation_recorded=true;}
-            if handle.result().await?.is_some(){break;}
-            if matches!(self.runtime.work_once().await?,super::Processed::Idle){tokio::select!{_=tokio::time::sleep(std::time::Duration::from_millis(10))=>{},()=cancel.cancelled()=>{}}}
+            if cancel.token().is_cancelled() && !cancellation_recorded {
+                handle.cancel().await?;
+                cancellation_recorded = true;
+            }
+            if handle.result().await?.is_some() {
+                break;
+            }
+            if matches!(self.runtime.work_once().await?, super::Processed::Idle) {
+                tokio::select! {_=tokio::time::sleep(std::time::Duration::from_millis(10))=>{},()=cancel.cancelled()=>{}}
+            }
         }
-        let bytes=definition.points.len().checked_mul(size_of::<PointOutcome>()+4096).ok_or_else(||super::contract("study outcome extent"))?;
-        let owner=self.runtime.shared.math().reserve("study:retained-occurrence-summaries",bytes)?;
-        let status=handle.status().await?;
-        let mut after=None;let mut facts=Vec::with_capacity(status.points.len());
-        loop{let page=operations.store().study_point_page(&handle.study_id().to_string(),after).await?;if page.is_empty(){break;}for point in page{after=Some(point.ordinal);facts.push(point.facts()?);}}
-        let decision=pse_operations::study_policy::transition(&definition.graph(),&facts,status.cancelled).map_err(policy_error)?;
-        let run_id=RunId::from_id(pse_ids::SemanticId::parse_hex(status.run.strip_prefix("run:").ok_or_else(||super::contract("study run lineage absent"))?).map_err(|error|super::contract(error.to_string()))?);
-        let mut outcomes=Vec::with_capacity(status.points.len());let mut results=Vec::with_capacity(status.points.len());
+        let bytes = definition
+            .points
+            .len()
+            .checked_mul(size_of::<PointOutcome>() + 4096)
+            .ok_or_else(|| super::contract("study outcome extent"))?;
+        let owner = self
+            .runtime
+            .shared
+            .math()
+            .reserve("study:retained-occurrence-summaries", bytes)?;
+        let status = handle.status().await?;
+        let mut after = None;
+        let mut facts = Vec::with_capacity(status.points.len());
+        loop {
+            let page = operations
+                .store()
+                .study_point_page(&handle.study_id().to_string(), after)
+                .await?;
+            if page.is_empty() {
+                break;
+            }
+            for point in page {
+                after = Some(point.ordinal);
+                facts.push(point.facts()?);
+            }
+        }
+        let decision =
+            pse_operations::study_policy::transition(&definition.graph(), &facts, status.cancelled)
+                .map_err(policy_error)?;
+        let run_id = RunId::from_id(
+            pse_ids::SemanticId::parse_hex(
+                status
+                    .run
+                    .strip_prefix("run:")
+                    .ok_or_else(|| super::contract("study run lineage absent"))?,
+            )
+            .map_err(|error| super::contract(error.to_string()))?,
+        );
+        let mut outcomes = Vec::with_capacity(status.points.len());
+        let mut results = Vec::with_capacity(status.points.len());
         for point in status.points {
-            outcomes.push(point.outcome.ok_or_else(||super::contract("terminal occurrence outcome absent"))?);
-            results.push(point.attempt.map(|attempt|{let run_id=RunId::from_id(pse_ids::SemanticId::parse_hex(point.run.strip_prefix("run:").ok_or_else(||super::contract("occurrence lineage absent"))?).map_err(|error|super::contract(error.to_string()))?);Ok::<_,WorkflowError>(StudyOccurrenceResult::Retained{run_id,run:point.run,attempt})}).transpose()?);
+            outcomes.push(
+                point
+                    .outcome
+                    .ok_or_else(|| super::contract("terminal occurrence outcome absent"))?,
+            );
+            results.push(
+                point
+                    .attempt
+                    .map(|attempt| {
+                        let run_id = RunId::from_id(
+                            pse_ids::SemanticId::parse_hex(
+                                point
+                                    .run
+                                    .strip_prefix("run:")
+                                    .ok_or_else(|| super::contract("occurrence lineage absent"))?,
+                            )
+                            .map_err(|error| super::contract(error.to_string()))?,
+                        );
+                        Ok::<_, WorkflowError>(StudyOccurrenceResult::Retained {
+                            run_id,
+                            run: point.run,
+                            attempt,
+                        })
+                    })
+                    .transpose()?,
+            );
         }
-        Ok(StudyReport{run_id,definition:definition.clone(),outcomes,results,decision,preparations:Default::default(),runtime:self.runtime.clone(),_owner:owner})
+        Ok(StudyReport {
+            run_id,
+            definition: definition.clone(),
+            outcomes,
+            results,
+            decision,
+            preparations: Default::default(),
+            runtime: self.runtime.clone(),
+            _owner: owner,
+        })
     }
     async fn study_inner(
         &self,
@@ -123,7 +245,8 @@ impl ModelingPackage {
             return Err(super::contract("bounded study extent"));
         }
         let graph = definition.graph();
-        let admitted=pse_operations::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
+        let admitted =
+            pse_operations::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
         let positions: BTreeMap<_, _> = graph
             .points
             .iter()
@@ -140,17 +263,30 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("study:occurrence-outcomes", bytes)?;
-        let mut prepared:Vec<Option<PreparedStudyOperation>>=vec![None;definition.points.len()];
+        let mut prepared: Vec<Option<PreparedStudyOperation>> = vec![None; definition.points.len()];
         for point in &definition.points {
-            if point.binding_hash!=point.binding.identity(){return Err(study_error(DiagnosticRule::StudyBindingRevision,"binding content identity differs from the recorded binding"));}
-            if let StartPolicy::Continuation(edge)=&point.policy.start {
+            if point.binding_hash != point.binding.identity() {
+                return Err(study_error(
+                    DiagnosticRule::StudyBindingRevision,
+                    "binding content identity differs from the recorded binding",
+                ));
+            }
+            if let StartPolicy::Continuation(edge) = &point.policy.start {
                 point.operation.admit_seed_role(edge.role)?;
-                definition.points[positions[&edge.predecessor]].operation.admit_seed_role(edge.role)?;
-            } else if let StartPolicy::Explicit{role,..}=point.policy.start {point.operation.admit_seed_role(role)?;}
+                definition.points[positions[&edge.predecessor]]
+                    .operation
+                    .admit_seed_role(edge.role)?;
+            } else if let StartPolicy::Explicit { role, .. } = point.policy.start {
+                point.operation.admit_seed_role(role)?;
+            }
         }
-        let mut dependents=BTreeMap::<OccurrenceKey,BTreeSet<usize>>::new();
-        for (index,point) in graph.points.iter().enumerate(){for predecessor in admitted.predecessors(point.key).map_err(policy_error)?{dependents.entry(*predecessor).or_default().insert(index);}}
-        let mut frontier=(0..graph.points.len()).collect::<BTreeSet<_>>();
+        let mut dependents = BTreeMap::<OccurrenceKey, BTreeSet<usize>>::new();
+        for (index, point) in graph.points.iter().enumerate() {
+            for predecessor in admitted.predecessors(point.key).map_err(policy_error)? {
+                dependents.entry(*predecessor).or_default().insert(index);
+            }
+        }
+        let mut frontier = (0..graph.points.len()).collect::<BTreeSet<_>>();
         let run_id = pse_operations::mint_id();
         let mut facts: Vec<_> = graph
             .points
@@ -164,7 +300,17 @@ impl ModelingPackage {
                 attempt_count: 0,
                 retry_failure: None,
                 effect: EffectState::Absent,
-                seed: match &point.start {StartPolicy::Fresh=>None,StartPolicy::Explicit{role,..}=>Some(SeedFact{role:*role,availability:SeedAvailability::Unresolved}),StartPolicy::Continuation(edge)=>Some(SeedFact{role:edge.role,availability:SeedAvailability::Unresolved})},
+                seed: match &point.start {
+                    StartPolicy::Fresh => None,
+                    StartPolicy::Explicit { role, .. } => Some(SeedFact {
+                        role: *role,
+                        availability: SeedAvailability::Unresolved,
+                    }),
+                    StartPolicy::Continuation(edge) => Some(SeedFact {
+                        role: edge.role,
+                        availability: SeedAvailability::Unresolved,
+                    }),
+                },
             })
             .collect();
         let mut outcomes: Vec<_> = graph
@@ -182,35 +328,103 @@ impl ModelingPackage {
             .collect();
         let mut results: Vec<Option<Arc<RunResult>>> = vec![None; graph.points.len()];
         let mut staged = Staged::open(&self.runtime, None)?;
-        let mut cancellation_scoped=false;
+        let mut cancellation_scoped = false;
         let (decision, preparations) = crate::math::counted(async {
             loop {
-                if cancel.token().is_cancelled()&&!cancellation_scoped{frontier.extend(0..facts.len());cancellation_scoped=true;}
-                if frontier.is_empty(){break admitted.decision(&facts,cancel.token().is_cancelled()).map_err(policy_error);}
-                let pending=frontier.iter().take(64).copied().collect::<Vec<_>>();
-                for index in &pending {frontier.remove(index);}
+                if cancel.token().is_cancelled() && !cancellation_scoped {
+                    frontier.extend(0..facts.len());
+                    cancellation_scoped = true;
+                }
+                if frontier.is_empty() {
+                    break admitted
+                        .decision(&facts, cancel.token().is_cancelled())
+                        .map_err(policy_error);
+                }
+                let pending = frontier.iter().take(64).copied().collect::<Vec<_>>();
+                for index in &pending {
+                    frontier.remove(index);
+                }
                 for &index in &pending {
-                    let point=&graph.points[index];
-                    let preliminary=scoped_action(&admitted,point.key,&facts,&positions,cancel.token().is_cancelled())?;
-                    if prepared[index].is_some()||!matches!(preliminary.kind,ActionKind::Start(_)|ActionKind::Wait(WaitReason::SeedResolution{..})){continue;}
-                    let definition=&definition.points[index];
-                    match self.prepare_bound_operation(&definition.operation,&definition.binding,cancel).await.and_then(|operation|if operation.seed_need()==point.seed_need{Ok(operation)}else{Err(study_error(DiagnosticRule::StudySeedIncompatible,"declared seed need differs from operation-owned admission"))}) {
-                        Ok(operation)=>prepared[index]=Some(operation),
-                        Err(error)=>{
-                            let diagnostic=error.boundary_diagnostic().with_revision(definition.operation.source.revision.as_id());
-                            let cancelled=diagnostic.class==BoundaryClass::Cancelled;
-                            facts[index].revision+=1;facts[index].lifecycle=if cancelled{StudyPointState::Cancelled}else{StudyPointState::Failed};facts[index].retry_failure=Some(RetryFailure::Deterministic);
-                            outcomes[index].lifecycle=facts[index].lifecycle;outcomes[index].diagnostic=Some(diagnostic.clone());
-                            if !cancelled{outcomes[index].attempts.push(PointAttemptOutcome{attempt_id:None,lifecycle:Some(pse_model::generated::enums::AttemptState::Failed),diagnostic:Some(diagnostic),scientific:ScientificFacts::default(),start:None,effect:EffectState::Absent});}
-                            if let Some(children)=dependents.get(&point.key){frontier.extend(children);}
+                    let point = &graph.points[index];
+                    let preliminary = scoped_action(
+                        &admitted,
+                        point.key,
+                        &facts,
+                        &positions,
+                        cancel.token().is_cancelled(),
+                    )?;
+                    if prepared[index].is_some()
+                        || !matches!(
+                            preliminary.kind,
+                            ActionKind::Start(_)
+                                | ActionKind::Wait(WaitReason::SeedResolution { .. })
+                        )
+                    {
+                        continue;
+                    }
+                    let definition = &definition.points[index];
+                    match self
+                        .prepare_bound_operation(&definition.operation, &definition.binding, cancel)
+                        .await
+                        .and_then(|operation| {
+                            if operation.seed_need() == point.seed_need {
+                                Ok(operation)
+                            } else {
+                                Err(study_error(
+                                    DiagnosticRule::StudySeedIncompatible,
+                                    "declared seed need differs from operation-owned admission",
+                                ))
+                            }
+                        }) {
+                        Ok(operation) => prepared[index] = Some(operation),
+                        Err(error) => {
+                            let diagnostic = error
+                                .boundary_diagnostic()
+                                .with_revision(definition.operation.source.revision.as_id());
+                            let cancelled = diagnostic.class == BoundaryClass::Cancelled;
+                            facts[index].revision += 1;
+                            facts[index].lifecycle = if cancelled {
+                                StudyPointState::Cancelled
+                            } else {
+                                StudyPointState::Failed
+                            };
+                            facts[index].retry_failure = Some(RetryFailure::Deterministic);
+                            outcomes[index].lifecycle = facts[index].lifecycle;
+                            outcomes[index].diagnostic = Some(diagnostic.clone());
+                            if !cancelled {
+                                outcomes[index].attempts.push(PointAttemptOutcome {
+                                    attempt_id: None,
+                                    lifecycle: Some(
+                                        pse_model::generated::enums::AttemptState::Failed,
+                                    ),
+                                    diagnostic: Some(diagnostic),
+                                    scientific: ScientificFacts::default(),
+                                    start: None,
+                                    effect: EffectState::Absent,
+                                });
+                            }
+                            if let Some(children) = dependents.get(&point.key) {
+                                frontier.extend(children);
+                            }
                         }
                     }
                 }
                 // Seed acquisition is an adapter fact. Policy alone decides permission/fallback.
                 for &index in &pending {
-                    let point=&graph.points[index];
-                    let action=scoped_action(&admitted,point.key,&facts,&positions,cancel.token().is_cancelled())?;
-                    if !matches!(action.kind,ActionKind::Start(_)|ActionKind::Wait(WaitReason::SeedResolution{..})){continue;}
+                    let point = &graph.points[index];
+                    let action = scoped_action(
+                        &admitted,
+                        point.key,
+                        &facts,
+                        &positions,
+                        cancel.token().is_cancelled(),
+                    )?;
+                    if !matches!(
+                        action.kind,
+                        ActionKind::Start(_) | ActionKind::Wait(WaitReason::SeedResolution { .. })
+                    ) {
+                        continue;
+                    }
                     let Some(preparation) = prepared[index].as_ref() else {
                         continue;
                     };
@@ -225,14 +439,29 @@ impl ModelingPackage {
                                 ),
                             })
                         }
-                        StartPolicy::Explicit {role,..}=>Some(SeedFact{role:*role,availability:SeedAvailability::Absent}),
+                        StartPolicy::Explicit { role, .. } => Some(SeedFact {
+                            role: *role,
+                            availability: SeedAvailability::Absent,
+                        }),
                         StartPolicy::Fresh => None,
                     };
                 }
-                let actions=pending.iter().map(|&index|scoped_action(&admitted,graph.points[index].key,&facts,&positions,cancel.token().is_cancelled())).collect::<Result<Vec<_>,_>>()?;
+                let actions = pending
+                    .iter()
+                    .map(|&index| {
+                        scoped_action(
+                            &admitted,
+                            graph.points[index].key,
+                            &facts,
+                            &positions,
+                            cancel.token().is_cancelled(),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
                 // The mathematical owner's batch consumes the already-admitted preparations.
                 // Only fresh starts can share a batch; selected continuation seeds stay explicit.
-                let batch_indices: Vec<_> = actions.iter()
+                let batch_indices: Vec<_> = actions
+                    .iter()
                     .filter_map(|action| {
                         let index = positions[&action.occurrence];
                         if matches!(
@@ -528,12 +757,24 @@ impl ModelingPackage {
                             }
                         }
                     }
-                    if facts[index].revision!=action.expected_revision {
-                        if let Some(children)=dependents.get(&action.occurrence){frontier.extend(children);}
-                        if pse_operations::study_policy::may_retry(&graph.points[index],&facts[index],cancel.token().is_cancelled()){frontier.insert(index);}
+                    if facts[index].revision != action.expected_revision {
+                        if let Some(children) = dependents.get(&action.occurrence) {
+                            frontier.extend(children);
+                        }
+                        if pse_operations::study_policy::may_retry(
+                            &graph.points[index],
+                            &facts[index],
+                            cancel.token().is_cancelled(),
+                        ) {
+                            frontier.insert(index);
+                        }
                     }
                 }
-                if !changed&&frontier.is_empty(){break admitted.decision(&facts,cancel.token().is_cancelled()).map_err(policy_error);}
+                if !changed && frontier.is_empty() {
+                    break admitted
+                        .decision(&facts, cancel.token().is_cancelled())
+                        .map_err(policy_error);
+                }
             }
         })
         .await;
@@ -542,7 +783,10 @@ impl ModelingPackage {
             run_id,
             definition: definition.clone(),
             outcomes,
-            results: results.into_iter().map(|result|result.map(StudyOccurrenceResult::Ephemeral)).collect(),
+            results: results
+                .into_iter()
+                .map(|result| result.map(StudyOccurrenceResult::Ephemeral))
+                .collect(),
             decision: decision?,
             preparations,
             runtime: self.runtime.clone(),
@@ -588,11 +832,21 @@ async fn execute(
         }
     }
 }
-fn scoped_action(admitted:&pse_operations::study_policy::AdmittedStudy,key:OccurrenceKey,facts:&[PointFacts],positions:&BTreeMap<OccurrenceKey,usize>,cancelled:bool)->Result<PointAction,WorkflowError>{
-    let mut scope=Vec::with_capacity(admitted.predecessors(key).map_err(policy_error)?.len()+1);
+fn scoped_action(
+    admitted: &pse_operations::study_policy::AdmittedStudy,
+    key: OccurrenceKey,
+    facts: &[PointFacts],
+    positions: &BTreeMap<OccurrenceKey, usize>,
+    cancelled: bool,
+) -> Result<PointAction, WorkflowError> {
+    let mut scope = Vec::with_capacity(admitted.predecessors(key).map_err(policy_error)?.len() + 1);
     scope.push(facts[positions[&key]].clone());
-    for predecessor in admitted.predecessors(key).map_err(policy_error)?{scope.push(facts[positions[predecessor]].clone());}
-    admitted.action(key,&scope,cancelled).map_err(policy_error)
+    for predecessor in admitted.predecessors(key).map_err(policy_error)? {
+        scope.push(facts[positions[predecessor]].clone());
+    }
+    admitted
+        .action(key, &scope, cancelled)
+        .map_err(policy_error)
 }
 
 fn primal_seed(result: &RunResult) -> Option<pse_backend_native::solve::WarmStart> {
@@ -786,7 +1040,10 @@ mod occurrence_execution_tests {
             .collect();
         let definition = package
             .admit_study_points(
-                super::super::PhysicalSource{revision:"explicit-ephemeral-fixture".into(),identity:ContentHash::from_bytes([0;32])},
+                super::super::PhysicalSource {
+                    revision: "explicit-ephemeral-fixture".into(),
+                    identity: ContentHash::from_bytes([0; 32]),
+                },
                 &points,
                 &crate::CancelSource::new(),
             )

@@ -8,14 +8,14 @@ pub mod canonical;
 pub mod canonical_analyses;
 pub mod canonical_codec;
 pub mod canonical_execution;
-pub mod canonical_results;
 pub mod canonical_result_retention;
-pub mod canonical_studies;
+pub mod canonical_results;
 pub mod canonical_retention;
 pub mod canonical_selection;
 pub mod canonical_staging;
-pub mod study_policy;
+pub mod canonical_studies;
 mod ids;
+pub mod study_policy;
 /// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]
 pub mod generated;

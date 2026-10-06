@@ -45,4 +45,3 @@ pub fn canonical_fixture_store()
             })?
     })
 }
-

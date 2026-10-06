@@ -121,7 +121,7 @@ impl CasePlan {
         cancel: &Arc<AtomicBool>,
     ) -> Result<Vec<ContributionDependencies>, MathError> {
         let mut result = Vec::new();
-        let _=self.visit_dependencies(cancel, |dependency| {
+        let _ = self.visit_dependencies(cancel, |dependency| {
             result.push(dependency);
             std::ops::ControlFlow::<std::convert::Infallible>::Continue(())
         })?;
@@ -132,11 +132,13 @@ impl CasePlan {
     /// without collecting the rest of a potentially large contribution inventory.
     pub fn visit_dependencies<B>(
         &self,
-        cancel:&Arc<AtomicBool>,
-        mut visit:impl FnMut(ContributionDependencies)->std::ops::ControlFlow<B>,
-    )->Result<std::ops::ControlFlow<B>,MathError> {
+        cancel: &Arc<AtomicBool>,
+        mut visit: impl FnMut(ContributionDependencies) -> std::ops::ControlFlow<B>,
+    ) -> Result<std::ops::ControlFlow<B>, MathError> {
         for binding in self.structure.instances() {
-            if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
             let outputs: Vec<_> = binding
                 .contributions
                 .iter()
@@ -170,7 +172,9 @@ impl CasePlan {
                 body.incidence(&outputs, &coordinates, cancel)?
             };
             for contribution in &binding.contributions {
-                if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
+                if cancel.load(Ordering::Relaxed) {
+                    return Err(MathError::Cancelled);
+                }
                 let numerical: BTreeSet<_> = support
                     .first_for_output(contribution.output)
                     .ok_or_else(|| MathError::Contract("dependency output support absent".into()))?
@@ -188,12 +192,14 @@ impl CasePlan {
                             .map(|slot| binding.slots[*slot].source()),
                     )
                     .collect();
-                let dependency=ContributionDependencies {
+                let dependency = ContributionDependencies {
                     target: contribution.target,
                     numerical,
                     execution,
                 };
-                if let std::ops::ControlFlow::Break(value)=visit(dependency) {return Ok(std::ops::ControlFlow::Break(value));}
+                if let std::ops::ControlFlow::Break(value) = visit(dependency) {
+                    return Ok(std::ops::ControlFlow::Break(value));
+                }
             }
         }
         Ok(std::ops::ControlFlow::Continue(()))

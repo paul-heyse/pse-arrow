@@ -17,7 +17,9 @@ from scripts import build_measurements, validation
 
 
 class BuildMeasurementTests(unittest.TestCase):
-    def test_default_target_does_not_prepare_unconsumed_native_capabilities(self) -> None:
+    def test_default_target_does_not_prepare_unconsumed_native_capabilities(
+        self,
+    ) -> None:
         original = {"PATH": "/selected/tools", "CARGO_BUILD_JOBS": "2"}
         with patch.object(subprocess, "check_output") as command:
             actual = build_measurements.capability_environment(
@@ -28,7 +30,9 @@ class BuildMeasurementTests(unittest.TestCase):
         actual["new"] = "isolated"
         self.assertNotIn("new", original)
 
-    def test_native_and_workflow_targets_prepare_their_linked_capabilities(self) -> None:
+    def test_native_and_workflow_targets_prepare_their_linked_capabilities(
+        self,
+    ) -> None:
         for native, workflow in [(True, False), (False, True), (True, True)]:
             with patch.object(
                 subprocess,
@@ -36,7 +40,10 @@ class BuildMeasurementTests(unittest.TestCase):
                 return_value=b"PATH=/selected/tools\0IPOPT_DIR=/native/solver\0FLAGS=x=y\0",
             ) as command:
                 actual = build_measurements.capability_environment(
-                    Path("/checkout"), {"PATH": "/tools"}, native=native, workflow=workflow
+                    Path("/checkout"),
+                    {"PATH": "/tools"},
+                    native=native,
+                    workflow=workflow,
                 )
             self.assertEqual(actual["IPOPT_DIR"], "/native/solver")
             self.assertEqual(actual["FLAGS"], "x=y")
@@ -45,11 +52,13 @@ class BuildMeasurementTests(unittest.TestCase):
 
     def test_selected_native_setup_failure_prevents_measurement(self) -> None:
         failure = subprocess.CalledProcessError(1, ["native-capability-setup"])
-        with patch.object(subprocess, "check_output", side_effect=failure):
-            with self.assertRaises(subprocess.CalledProcessError):
-                build_measurements.capability_environment(
-                    Path("/checkout"), {}, native=True, workflow=False
-                )
+        with (
+            patch.object(subprocess, "check_output", side_effect=failure),
+            self.assertRaises(subprocess.CalledProcessError),
+        ):
+            build_measurements.capability_environment(
+                Path("/checkout"), {}, native=True, workflow=False
+            )
 
     def test_profile_candidate_is_available_to_nested_cargo_commands(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

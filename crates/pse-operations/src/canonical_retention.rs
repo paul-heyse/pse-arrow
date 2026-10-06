@@ -19,11 +19,11 @@ pub enum RetentionOwner {
     History(String),
     /// Admitted compilation product.
     Product(String),
-    /// Durable numerical run.
+    /// Durable numerical run; only execution admission and retirement own this root.
     Run(String),
-    /// Retained analysis result.
+    /// Retained analysis result; only analysis admission and retirement own this root.
     Analysis(String),
-    /// Active execution attempt requiring its authored inputs.
+    /// Active execution attempt; only its execution lifecycle owns this root.
     ActiveAttempt(String),
 }
 impl RetentionOwner {
@@ -85,17 +85,18 @@ fn conflict(error: &CanonicalError) -> bool {
 }
 
 impl CanonicalStore {
-    /// Retain an available revision under one explicit durable owner. The server
-    /// receipt supplies its sequence; caller-provided receipt fields are not authority.
+    /// Retain or move an available revision under a deliberate history owner.
+    /// Product and execution/analysis lifecycle roots are minted by their owning admission.
+    /// The server receipt supplies its sequence; caller receipt fields are not authority.
     pub async fn retain_revision(
         &self,
         revision: &Revision,
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
         owner.validate()?;
-        if matches!(owner, RetentionOwner::Product(_)) {
+        if !matches!(owner, RetentionOwner::History(_)) {
             return Err(CanonicalError::Configuration(
-                "product roots are issued only by guarded product admission".into(),
+                "only deliberate history roots can be minted or moved explicitly".into(),
             ));
         }
         for attempt in 0..RETRIES {
@@ -131,14 +132,23 @@ impl CanonicalStore {
             .await
     }
 
-    /// Drop exactly the typed owner's expected selection. A changed owner root
-    /// cannot accidentally release a different revision. Missing roots are idempotent.
+    /// Drop exactly a history or product owner's expected selection. Lifecycle roots
+    /// are released by their owning retirement. A changed selection cannot release
+    /// another revision; missing roots are idempotent.
     pub async fn drop_retained_root(
         &self,
         revision: &Revision,
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
         owner.validate()?;
+        if matches!(
+            owner,
+            RetentionOwner::Run(_) | RetentionOwner::Analysis(_) | RetentionOwner::ActiveAttempt(_)
+        ) {
+            return Err(CanonicalError::Configuration(
+                "lifecycle roots are released only by their owning retirement".into(),
+            ));
+        }
         for attempt in 0..RETRIES {
             self.ensure_writes()?;
             let result = bounded_query(
@@ -239,6 +249,7 @@ impl CanonicalStore {
 }
 
 const RETAIN: &str = r#"BEGIN;
+IF $owner_kind != 'history' { THROW 'only deliberate history roots can be minted or moved explicitly'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE;
 LET $selected = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
@@ -253,18 +264,7 @@ UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0de
 COMMIT;"#;
 
 const DROP_ROOT: &str = r#"BEGIN;
-IF $owner_kind='run' AND (SELECT * FROM ONLY type::record('canonical_runs',$owner))!=NONE {
-    fn::pse_execution_v1::touch('execution-run:'+$owner);
-    IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$owner))=NONE { THROW 'run result retirement must release its source roots'; };
-};
-IF $owner_kind='analysis' AND (SELECT * FROM ONLY type::record('canonical_analyses',$owner))!=NONE {
-    fn::pse_execution_v1::touch('analysis:'+$owner);
-    IF (SELECT * FROM ONLY type::record('canonical_analysis_retirements',$owner))=NONE { THROW 'analysis retirement must release its source roots'; };
-};
-IF $owner_kind='active_attempt' {
-    LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$owner);
-    IF $attempt!=NONE AND !$attempt.terminal { THROW 'active attempt source roots cannot be released'; };
-};
+IF $owner_kind IN ['run','analysis','active_attempt'] { THROW 'lifecycle roots are released only by their owning retirement'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE;
 LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root);
@@ -348,6 +348,121 @@ mod canonical_server_unit {
     }
 
     #[tokio::test]
+    async fn lifecycle_roots_cannot_be_redirected_or_released_by_generic_retention() {
+        use crate::canonical_execution::RunRequest;
+        let (store, database) = fixture().await;
+        let first = store
+            .edit("problem", None, "first", &[edit("x-first", 0)])
+            .await
+            .unwrap();
+        let second = store
+            .edit("problem", Some("first"), "second", &[edit("x-second", 0)])
+            .await
+            .unwrap();
+        store
+            .begin_run(&RunRequest {
+                key: "real-run".into(),
+                revision: first.clone(),
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
+            })
+            .await
+            .unwrap();
+        let fence = store
+            .claim_run("real-run", "real-claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let mut response = bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind IN ['run','active_attempt'] ORDER BY key;")).await.unwrap();
+        let before: Vec<Object> = response.take(0).unwrap();
+        assert_eq!(before.len(), 2);
+        for owner in [
+            RetentionOwner::Run("real-run".into()),
+            RetentionOwner::ActiveAttempt(fence.attempt().into()),
+            RetentionOwner::Analysis("unissued-analysis".into()),
+        ] {
+            assert!(store.retain_revision(&second, &owner).await.is_err());
+            assert!(store.drop_retained_root(&first, &owner).await.is_err());
+            // Native boundary also refuses lifecycle roots, independently of the Rust facade.
+            assert!(
+                bounded_query(
+                    store
+                        .db
+                        .query(RETAIN)
+                        .bind(("problem", second.problem.clone()))
+                        .bind(("revision", second.key.clone()))
+                        .bind(("root", owner.key()))
+                        .bind(("owner_kind", owner.parts().0))
+                        .bind(("owner", owner.parts().1.to_owned()))
+                        .bind(("interpretation", wire::INTERPRETATION))
+                )
+                .await
+                .is_err()
+            );
+            assert!(
+                bounded_query(
+                    store
+                        .db
+                        .query(DROP_ROOT)
+                        .bind(("problem", first.problem.clone()))
+                        .bind(("revision", first.key.clone()))
+                        .bind(("root", owner.key()))
+                        .bind(("owner_kind", owner.parts().0))
+                        .bind(("owner", owner.parts().1.to_owned()))
+                )
+                .await
+                .is_err()
+            );
+        }
+        let mut response = bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind IN ['run','active_attempt'] ORDER BY key;")).await.unwrap();
+        assert_eq!(
+            response.take::<Vec<Object>>(0).unwrap(),
+            before
+        );
+        store.forget_history(&first).await.unwrap();
+        let (retired, reclaimed) = tokio::join!(
+            store.forget_run_results("real-run"),
+            store.reclaim_page("problem", "")
+        );
+        assert!(
+            retired.is_err(),
+            "a live attempt still owns its selected source"
+        );
+        assert_eq!(reclaimed.unwrap().memberships, 0);
+        let mut response = bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind IN ['run','active_attempt'] ORDER BY key;")).await.unwrap();
+        assert_eq!(
+            response.take::<Vec<Object>>(0).unwrap(),
+            before
+        );
+        let pin = store
+            .protect(first.clone(), Duration::from_secs(30))
+            .await
+            .unwrap();
+        assert_eq!(
+            store
+                .selected_object(&pin, "x-first")
+                .await
+                .unwrap()
+                .unwrap()
+                .payload
+                .as_slice(),
+            [1, 2, 3]
+        );
+        store.release(&pin).await.unwrap();
+        store
+            .append_result_batch(&fence, "still-live", "values", 0, &[1], 1)
+            .await
+            .unwrap();
+        let history = RetentionOwner::History("movable-history".into());
+        store.retain_revision(&first, &history).await.unwrap();
+        store.retain_revision(&second, &history).await.unwrap();
+        assert!(store.drop_retained_root(&first, &history).await.is_err());
+        store.drop_retained_root(&second, &history).await.unwrap();
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
     async fn explicit_history_roots_pins_and_bounded_edges_preserve_receipts() {
         let (store, database) = fixture().await;
         let initial = [edit("x-v1", 130)];
@@ -369,7 +484,7 @@ mod canonical_server_unit {
             store.reclaim_page("problem", "").await.unwrap().memberships,
             0
         );
-        let owner = RetentionOwner::Run("retained-run".into());
+        let owner = RetentionOwner::History("deliberate-retention".into());
         store.retain_revision(&first, &owner).await.unwrap();
         store.release(&pin).await.unwrap();
         assert_eq!(
@@ -468,7 +583,7 @@ mod canonical_server_unit {
                     assert!(store.object(&version).await.unwrap().is_none());
                 }
             } else {
-                let owner = RetentionOwner::Analysis(format!("analysis-{index}"));
+                let owner = RetentionOwner::History(format!("deliberate-{index}"));
                 let (root, reclaimed) = tokio::join!(
                     store.retain_revision(&first, &owner),
                     store.reclaim_page(&problem, "")

@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! One-consumption Arrow reader with separately retained native failure ownership.
+use crate::EngineError;
 use datafusion::arrow::{
     array::{RecordBatch, RecordBatchReader},
     datatypes::SchemaRef,
     error::ArrowError,
 };
 use pse_columnar::CancellationToken;
-use crate::EngineError;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},

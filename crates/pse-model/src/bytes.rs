@@ -71,4 +71,3 @@ impl crate::SemanticFrame for Bytes {
         hash.part(&self.0);
     }
 }
-

@@ -67,9 +67,7 @@ class NativePythonImportIdentity(unittest.TestCase):
 
     def test_running_pytest_refuses_a_changed_import_before_tests(self) -> None:
         (self.package / "_build.py").write_text(
-            "CacheSettings = EngineSettings = "
-            "object\n"
-            "def build_info(): return None\n"
+            "CacheSettings = EngineSettings = object\ndef build_info(): return None\n"
         )
         contracts = self.package / "contracts"
         contracts.mkdir()
@@ -163,6 +161,81 @@ class ExecutionContracts(unittest.TestCase):
         self.assertEqual(
             (self.output / "native-selected.json").read_text(), "failed collection"
         )
+
+    def test_selected_worker_uses_actual_built_executable_in_requested_profile(
+        self,
+    ) -> None:
+        binary = self.output / "artifacts/worker"
+        binary.parent.mkdir()
+        binary.write_bytes(b"child executable")
+        binary.chmod(0o700)
+        inventory = {
+            "rust-suites": {
+                "pse-runtime::worker": {
+                    "binary-id": "pse-runtime::worker",
+                    "binary-name": "worker",
+                    "binary-path": "/test/worker-journey",
+                    "testcases": {"runs_case": {"filter-match": {"status": "matches"}}},
+                }
+            }
+        }
+        artifact = {
+            "reason": "compiler-artifact",
+            "target": {"name": "pse-worker"},
+            "executable": str(binary),
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {"PSE_NATIVE_PROVENANCE": str(self.output / "native.json")},
+                clear=True,
+            ),
+            patch.object(
+                sys, "argv", ["native_tests", "rust", "--cargo-profile", "producer"]
+            ),
+            patch.object(
+                native_tests.subprocess,
+                "run",
+                side_effect=[
+                    subprocess.CompletedProcess([], 0, stdout=json.dumps(inventory)),
+                    subprocess.CompletedProcess([], 0, stdout=json.dumps(artifact)),
+                ],
+            ) as build,
+            patch.object(
+                native_tests, "native_provenance", return_value={}
+            ) as provenance,
+            patch.object(native_tests.subprocess, "call", return_value=0) as run,
+        ):
+            self.assertEqual(native_tests.main(), 0)
+        command = build.call_args.args[0]
+        self.assertEqual(command[command.index("--profile") + 1], "producer")
+        self.assertEqual(run.call_args.kwargs["env"]["PSE_WORKER_BINARY"], str(binary))
+        self.assertIn(str(binary), provenance.call_args.args[1])
+
+    def test_missing_supplied_worker_refuses_before_test_execution(self) -> None:
+        with (
+            patch.object(native_tests.subprocess, "run") as build,
+            self.assertRaisesRegex(ValueError, "executable file"),
+        ):
+            native_tests.worker_binary(
+                [], {"PSE_WORKER_BINARY": str(self.output / "missing")}
+            )
+        build.assert_not_called()
+
+    def test_failed_worker_build_does_not_substitute_a_stale_default_binary(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                native_tests.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    [], 17, stdout="build failed\n"
+                ),
+            ),
+            self.assertRaisesRegex(ValueError, "build failed with exit 17"),
+        ):
+            native_tests.worker_binary(["--release"], {})
 
     def test_nested_python_returns_exit_without_parsing_terminal_report(self) -> None:
         report = self.output / "nested.xml"

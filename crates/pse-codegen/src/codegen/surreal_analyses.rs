@@ -3,7 +3,9 @@
 
 //! Immutable derived graph staging and exact result-input admission.
 
-pub(super) fn append(ddl: &mut String) { ddl.push_str(FUNCTIONS); }
+pub(super) fn append(ddl: &mut String) {
+    ddl.push_str(FUNCTIONS);
+}
 
 const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_analysis_v1::available($key: string) -> object {

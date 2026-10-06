@@ -78,7 +78,7 @@ pub(in crate::workflow) struct CaseOverrides {
 /// One immutable case plus the numerical declarations selected for this analysis.
 #[derive(Clone, Debug)]
 pub struct ModelingSolvePreparation {
-    pub(in crate::workflow) stored_seed_owner:Option<Arc<dyn pse_columnar::PayloadOwner>>,
+    pub(in crate::workflow) stored_seed_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
     /// The case's model view, solver projection and input values.
     pub model: ModelingCasePreparation,
     /// Routed solve with its numerical policy and representation.
@@ -876,7 +876,7 @@ impl ModelingPackage {
         #[cfg(not(feature = "solver-kinsol"))]
         let _ = numerics;
         Ok(ModelingSolvePreparation {
-            stored_seed_owner:None,
+            stored_seed_owner: None,
             source: self.clone(),
             compiler,
             profile: solver,

@@ -10,7 +10,7 @@ use crate::math::MathRuntimeError;
 use crate::workflow::{
     ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, RunHandle,
     RunReport, RunRequest, RunResult, Runtime, WorkflowError, contract,
-    durable::{DurableAttempt},
+    durable::DurableAttempt,
     integrated::IntegratedExperiment,
     modeling::assessment::Obligations,
     run::{attempt_for, progress_for},
@@ -95,7 +95,9 @@ impl Runtime {
             .and_then(DurableAttempt::claimed_run)
             .unwrap_or_else(pse_operations::mint_id);
         let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
-        let canonical_keys=durable.as_ref().map(|attempt|attempt.canonical_keys(run_id));
+        let canonical_keys = durable
+            .as_ref()
+            .map(|attempt| attempt.canonical_keys(run_id));
         let stream = progress.clone();
         tokio::spawn(async move {
             let mut durable = durable;
@@ -157,7 +159,12 @@ impl Runtime {
             sender.send_replace(Some(Arc::new(result)));
         });
         Ok(RunHandle::staged(
-            checks, receiver, progress, run_id, attempt_id, canonical_keys,
+            checks,
+            receiver,
+            progress,
+            run_id,
+            attempt_id,
+            canonical_keys,
         ))
     }
 }
@@ -196,9 +203,20 @@ async fn admit(
     cancel: &crate::CancelSource,
 ) -> Result<Staged, WorkflowError> {
     if let Some(attempt) = durable.as_ref() {
-        attempt.register_horizon(run_id,runtime,&admitted.sources,admitted.identity.as_id(),&admitted.provenance).await?;
+        attempt
+            .register_horizon(
+                run_id,
+                runtime,
+                &admitted.sources,
+                admitted.identity.as_id(),
+                &admitted.provenance,
+            )
+            .await?;
     }
-    if let Some(attempt)=durable.as_mut(){let stop=cancel.clone();attempt.start(Arc::new(move ||stop.cancel())).await?;}
+    if let Some(attempt) = durable.as_mut() {
+        let stop = cancel.clone();
+        attempt.start(Arc::new(move || stop.cancel())).await?;
+    }
     let staged = match opened {
         Some(staged) => staged,
         None => tokio::select! {
@@ -219,7 +237,7 @@ async fn admit(
 struct Stage {
     package: ModelingPackage,
     /// Exact resolved demand, numerical configuration and selected authored starts.
-    provenance:serde_json::Value,
+    provenance: serde_json::Value,
     /// The specification every step composes its overlay over; it demands every path the
     /// loop reads.
     analysis: ModelingAnalysis,
@@ -278,7 +296,17 @@ impl Stage {
             .solve
             .request_identity()
             .map_err(MathRuntimeError::from)?;
-        let provenance=serde_json::to_value((1_u8,package.canonical_revision().key.clone(),analysis.root,analysis.instance,&analysis.bindings.demand,&read,&prepared.starts,prepared.solve.numerical_strategy())).map_err(|error|contract(error.to_string()))?;
+        let provenance = serde_json::to_value((
+            1_u8,
+            package.canonical_revision().key.clone(),
+            analysis.root,
+            analysis.instance,
+            &analysis.bindings.demand,
+            &read,
+            &prepared.starts,
+            prepared.solve.numerical_strategy(),
+        ))
+        .map_err(|error| contract(error.to_string()))?;
         Ok(Self {
             package: package.clone(),
             provenance,
@@ -290,7 +318,7 @@ impl Stage {
 }
 
 /// A controller binding resolved against the plant, the inputs and the estimator.
-#[derive(Clone, Debug,serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 enum Signal {
     /// A plant output, by its position in the contract's outputs.
     Measured(usize),
@@ -324,7 +352,7 @@ struct Controller {
 }
 
 /// An advanced-step controller's sensitivity parameters and predictions (Plan 22 Y5c2).
-#[derive(Debug,serde::Serialize)]
+#[derive(Debug, serde::Serialize)]
 struct Advanced {
     /// Each measured or estimated binding and its parameter symbol, in the order of the
     /// stage's sensitivity request.
@@ -436,8 +464,8 @@ impl Plant {
 #[derive(Debug)]
 struct Admitted {
     /// Existing operation-owner projections recorded before native effects.
-    provenance:Vec<u8>,
-    sources:Vec<ModelingPackage>,
+    provenance: Vec<u8>,
+    sources: Vec<ModelingPackage>,
     plant: Arc<Plant>,
     steps: usize,
     /// The driven plant parameters and their initial values.
@@ -461,9 +489,13 @@ impl Admitted {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
-        let mut sources=vec![horizon.plant.source.clone()];
-        if let Some(estimator)=&horizon.estimator{sources.push(estimator.package.clone());}
-        if let Some(controller)=&horizon.controller{sources.push(controller.package.clone());}
+        let mut sources = vec![horizon.plant.source.clone()];
+        if let Some(estimator) = &horizon.estimator {
+            sources.push(estimator.package.clone());
+        }
+        if let Some(controller) = &horizon.controller {
+            sources.push(controller.package.clone());
+        }
         let Horizon {
             plant,
             period,
@@ -590,7 +622,37 @@ impl Admitted {
             estimator.as_ref(),
             controller.as_ref(),
         );
-        let provenance=serde_json::to_vec(&(1_u8,plant.identity(),plant.profile(),&plant.parameters,period.to_bits(),steps,inputs.iter().map(|input|(input.parameter,input.initial.to_bits())).collect::<Vec<_>>(),&c.outputs,estimator.as_ref().map(|stage|(&stage.stage.provenance,stage.window,&stage.measurements,&stage.inputs,&stage.arrival)),controller.as_ref().map(|stage|(&stage.stage.provenance,&stage.bindings,&stage.moves,&stage.advanced)))).map_err(|error|contract(error.to_string()))?;
+        let provenance = serde_json::to_vec(&(
+            1_u8,
+            plant.identity(),
+            plant.profile(),
+            &plant.parameters,
+            period.to_bits(),
+            steps,
+            inputs
+                .iter()
+                .map(|input| (input.parameter, input.initial.to_bits()))
+                .collect::<Vec<_>>(),
+            &c.outputs,
+            estimator.as_ref().map(|stage| {
+                (
+                    &stage.stage.provenance,
+                    stage.window,
+                    &stage.measurements,
+                    &stage.inputs,
+                    &stage.arrival,
+                )
+            }),
+            controller.as_ref().map(|stage| {
+                (
+                    &stage.stage.provenance,
+                    &stage.bindings,
+                    &stage.moves,
+                    &stage.advanced,
+                )
+            }),
+        ))
+        .map_err(|error| contract(error.to_string()))?;
         Ok(Self {
             sources,
             provenance,

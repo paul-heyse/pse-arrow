@@ -367,7 +367,14 @@ fn dynamics_identity_covers_every_option_field() {
         .chain(&common)
         .map(|k| (*k).to_string())
         .collect();
-    assert_eq!(fields, classified, "classify every new profile field");
+    let mut encoded_fields = classified.clone();
+    encoded_fields.insert("version".into());
+    assert_eq!(fields, encoded_fields, "classify every new profile field");
+    // The document version is fixed interpretation metadata, not a freely
+    // perturbable solver option. An unsupported version must refuse decoding.
+    let mut unsupported = encoded.clone();
+    unsupported["version"] = serde_json::json!(encoded["version"].as_u64().unwrap() + 1);
+    assert!(serde_json::from_value::<Profile>(unsupported).is_err());
     let mut leaves = Vec::new();
     perturbations(&encoded, &mut vec![], &mut leaves);
     let json = profile_json(&base);

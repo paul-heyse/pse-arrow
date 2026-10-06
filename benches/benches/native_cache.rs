@@ -22,8 +22,8 @@ use datafusion::{
     functions_aggregate::expr_fn::count,
     logical_expr::{LogicalPlanBuilder, col},
 };
-use pse_engine::cache_service::{CacheBudget,NativeCacheService};
 use pse_columnar::CancellationToken;
+use pse_engine::cache_service::{CacheBudget, NativeCacheService};
 use pse_engine::session::{EngineFactory, ExecutionSettings, ThreadBudget, native_engine_profile};
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{
@@ -207,11 +207,18 @@ async fn matrix(smoke: bool) {
             "{}",
             prepared_rounds(rows, if smoke { 2 } else { 20 }).await
         );
-
     }
 }
 
 /// Process high water, distinct from the accounted native memory pool.
-fn process_peak_rss()->Option<u64>{
-    std::fs::read_to_string("/proc/self/status").ok()?.lines().find(|line|line.starts_with("VmHWM:"))?.split_whitespace().nth(1)?.parse::<u64>().ok()?.checked_mul(1024)
+fn process_peak_rss() -> Option<u64> {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()?
+        .lines()
+        .find(|line| line.starts_with("VmHWM:"))?
+        .split_whitespace()
+        .nth(1)?
+        .parse::<u64>()
+        .ok()?
+        .checked_mul(1024)
 }

@@ -101,6 +101,72 @@ def python_native_binary(environment: Mapping[str, str]) -> Path:
     return binary
 
 
+def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
+    """Supply the actual child-process executable in the selected Cargo profile."""
+    supplied = environment.get("PSE_WORKER_BINARY")
+    if supplied:
+        binary = Path(supplied).resolve()
+        if not binary.is_file() or not os.access(binary, os.X_OK):
+            raise ValueError("PSE_WORKER_BINARY must name an executable file")
+        return binary
+    profile = (
+        "release"
+        if "--release" in extra
+        else extra[extra.index("--cargo-profile") + 1]
+        if "--cargo-profile" in extra
+        else next(
+            (
+                arg.split("=", 1)[1]
+                for arg in extra
+                if arg.startswith("--cargo-profile=")
+            ),
+            "dev",
+        )
+    )
+    built = subprocess.run(
+        [
+            "cargo",
+            "build",
+            "-p",
+            "xtask",
+            "--bin",
+            "pse-worker",
+            "--locked",
+            "--features",
+            "native-solvers,pse-relations/force-validate",
+            "--profile",
+            profile,
+            "--message-format",
+            "json-render-diagnostics",
+        ],
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+    )
+    if built.returncode:
+        print(built.stdout, end="")
+        raise ValueError(f"native worker build failed with exit {built.returncode}")
+    artifacts = set()
+    for line in built.stdout.splitlines():
+        if not line.startswith("{"):
+            continue
+        message = json.loads(line)
+        if (
+            message.get("reason") == "compiler-artifact"
+            and message.get("target", {}).get("name") == "pse-worker"
+            and message.get("executable")
+        ):
+            artifacts.add(Path(message["executable"]).resolve())
+    if len(artifacts) != 1:
+        raise ValueError("native worker build did not identify one executable")
+    binary = artifacts.pop()
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise ValueError("native worker artifact is not executable")
+    return binary
+
+
 def main() -> int:
     kind, *extra = sys.argv[1:]
     path = os.environ.get("PSE_NATIVE_PROVENANCE")
@@ -229,6 +295,19 @@ def main() -> int:
             for test in suite["testcases"].values()
         )
     ]
+    environment = dict(os.environ)
+    if any(
+        suite.get("binary-name") == "worker"
+        or suite.get("binary-id", "").endswith("::worker")
+        for suite in data["rust-suites"].values()
+        if any(
+            test["filter-match"]["status"] == "matches"
+            for test in suite["testcases"].values()
+        )
+    ):
+        worker = worker_binary(extra, environment)
+        environment["PSE_WORKER_BINARY"] = str(worker)
+        binaries.append(str(worker))
     validation.write_json(
         Path(path),
         native_provenance(
@@ -241,9 +320,12 @@ def main() -> int:
                 else "dev",
             },
             binaries,
+            environment=environment,
         ),
     )
-    return subprocess.call(rust_command("run", ["--no-fail-fast", *extra]), cwd=ROOT)
+    return subprocess.call(
+        rust_command("run", ["--no-fail-fast", *extra]), cwd=ROOT, env=environment
+    )
 
 
 if __name__ == "__main__":

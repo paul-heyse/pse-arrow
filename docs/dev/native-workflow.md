@@ -76,9 +76,11 @@ their oracle references identify the authored assertion, not a live upstream exe
 ## Declare and prepare
 
 `pse_runtime::workflow::Runtime::from_shared` borrows a deployment's existing
-`SharedRuntime`, schema registry and engine factory. It creates no executor or
-independent resource budget. Python `pse.Runtime(EngineSettings(...))` shares
-those owners with `pse.open_export`; settings must agree with the process's first runtime.
+`SharedRuntime`, schema registry and engine factory, and attaches its explicit
+`CanonicalDeployment`. It creates no executor or independent resource budget. Python
+`pse.Runtime(engine_settings, substrate=state_directory)` shares the process owners;
+settings must agree with the process's first runtime. Initialize the selected substrate
+through the [operator route](operational-store.md#setup-and-runtime-ownership) before opening it.
 
 `authored.modeling_declarations` is the generated generic declaration authority.
 `models/*.pse` is the primary authoring surface. Document loading, direct generated
@@ -94,7 +96,7 @@ package closure. Failed admission leaves earlier package revisions usable.
 The Python sequence, with application-supplied source maps and a semantic case ID, is:
 
 ```python
-runtime = pse.Runtime(engine_settings)
+runtime = pse.Runtime(engine_settings, substrate=state_directory)
 physical = runtime.physical_from_documents(physical_documents)
 package = runtime.modeling_from_documents(package_bundles, physical)
 prepared = package.prepare_solve(
@@ -222,8 +224,10 @@ Ordinary runs retain source, attempt and scientific result identities in the can
 store. Save `result.canonical_run_key` and `result.canonical_attempt_key`; reopen a relation
 with `runtime.results(run, attempt, relation)`. Narrow run/attempt/manifest selectors,
 output selection, Arrow export and persisted analysis graphs use the same substrate.
-Readers and returned buffers retain exact input protection. Failed and partial runs keep
-their actual scientific meaning. See [the canonical operational store](operational-store.md).
+Readers protect exact storage inputs while paging. Fully decoded Arrow arrays retain their
+accounted allocation independently of the reader and database; they need no further storage
+access or indefinite database pin. Failed and partial runs keep their actual scientific
+meaning. See [the canonical operational store](operational-store.md).
 Stored declarations rebuild mathematical products; CAS display text, Salsa handles
 and native solver factors are never durable authorities.
 
@@ -268,7 +272,7 @@ global stability or empirical property accuracy.
 Generic accumulators collect signed original contributions. Conservation closure is
 independent of native feasibility, and arbitrary failed authored checks cannot be waived
 by a policy allowing unavailable closure. Read `runtime.modeling_checks`, structured
-findings and candidate assessments alongside solver termination. Publication retains the
+findings and candidate assessments alongside solver termination. Canonical retention preserves the
 same source documents, generated declarations and result contracts.
 
 Build caching, persistent native prefixes and the parallel frontend experiment are

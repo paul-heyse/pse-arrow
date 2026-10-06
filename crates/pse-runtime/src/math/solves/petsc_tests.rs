@@ -14,7 +14,42 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// The analytical coordinates and residuals below require physical precision,
+/// independently of the ordinary engineering defaults and KKT termination.
+fn verification_numerics() -> NumericalPolicy {
+    let physical = crate::workflow::tests::physical();
+    let scalar = physical
+        .quantities
+        .quantity_types()
+        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
+        .unwrap();
+    NumericalPolicy {
+        engineering_rules: vec![pse_model::numerics::EngineeringRule {
+            rule_id: pse_ids::named_id(scalar.id.as_id(), "PETSc-flow-verification-precision")
+                .into(),
+            quantity_id: scalar.id.as_id(),
+            unit_id: scalar.canonical_unit.as_id(),
+            physical_allowance: Some(1e-10),
+            relative_fraction: Some(0.0),
+            provenance: "original PETSc-flow analytical coordinate and residual verification"
+                .into(),
+        }],
+        kkt: pse_model::numerics::KktTolerances {
+            stationarity: 1e-10,
+            complementarity: 1e-10,
+        },
+        ..Default::default()
+    }
+}
+
 async fn original(text: &str) -> (crate::workflow::Runtime, PreparedSolve) {
+    original_with_numerics(text, Default::default()).await
+}
+
+async fn original_with_numerics(
+    text: &str,
+    numerics: NumericalPolicy,
+) -> (crate::workflow::Runtime, PreparedSolve) {
     use crate::workflow::tests as fixture;
     let runtime = fixture::runtime_with(256 << 20, 1 << 20, 1 << 30);
     let rows = pse_authoring::language::parse(
@@ -37,6 +72,7 @@ async fn original(text: &str) -> (crate::workflow::Runtime, PreparedSolve) {
         intent: SolveIntent::Root,
         selection: SolverSelection::Explicit(Backend::Petsc),
         backend: BackendSettings::Petsc(native_petsc::Settings::default()),
+        numerics,
         ..Default::default()
     };
     profile.numerics.native_scaling = false;
@@ -112,10 +148,26 @@ fn execute(service: &Arc<MathService>, prepared: &PreparedPetsc, point: &[f64]) 
 
 #[tokio::test]
 async fn compiled_flow_keeps_original_offsets_scope_and_auxiliary_role() {
-    let (runtime, original) = original(
+    let (runtime, original) = original_with_numerics(
         "package p { def Root { var x:Scalar; annotation start x(0); eq balance:x==3; } }",
+        verification_numerics(),
     )
     .await;
+    assert!(!original.tolerances().rows.is_empty());
+    assert!(
+        original
+            .tolerances()
+            .rows
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
+    assert!(
+        original
+            .tolerances()
+            .variables
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
     let service = runtime.native();
     let task = scope();
     let guards = original.petsc_guard_inventory().unwrap();

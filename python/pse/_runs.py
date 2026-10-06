@@ -10,19 +10,19 @@ import attrs
 
 from pse import codec
 from pse._analyses import Analysis
-from pse.contracts.documents import AnalysisControls
 from pse._build import (
     DiagnosticReport,
     _NativePreparedOperation,
     _NativeProgressStream,
     _NativeRunHandle,
     _NativeRunResult,
-    _NativeStoredResult,
     _NativeStart,
+    _NativeStoredResult,
     _NativeStudyHandle,
 )
 from pse._inspection import TableStream
 from pse.contracts.documents import (
+    AnalysisControls,
     Completion,
     CompositionRequest,
     EligibilityDocument,
@@ -30,10 +30,10 @@ from pse.contracts.documents import (
     NumericalStrategyDocument,
     PointStatus,
     ProgressEventDocument,
-    StudyResults,
     RouteDocument,
     RuntimeAccuracyGoalAssessmentsRow,
     StudyCancel,
+    StudyResults,
     StudyStatus,
     StudyWaitControls,
 )
@@ -79,7 +79,9 @@ class StoredResult:
     def attempt_key(self) -> str:
         return self._handle.attempt_key
 
-    def table(self, relation: str, *, start: int = 0, end: int = (1 << 64) - 1) -> TableStream:
+    def table(
+        self, relation: str, *, start: int = 0, end: int = (1 << 64) - 1
+    ) -> TableStream:
         return TableStream(self._handle.table(relation, start=start, end=end))
 
     def attempt_record(self) -> TableStream:
@@ -89,7 +91,14 @@ class StoredResult:
     def progress(self) -> "ProgressStream":
         return ProgressStream(self._handle.progress())
 
-    def export(self, relation: str, destination: str, *, start: int = 0, end: int = (1 << 64) - 1) -> None:
+    def export(
+        self,
+        relation: str,
+        destination: str,
+        *,
+        start: int = 0,
+        end: int = (1 << 64) - 1,
+    ) -> None:
         self._handle.export(relation, destination, start=start, end=end)
 
 
@@ -235,6 +244,7 @@ class RunResult:
         """Return a one-consumption stream owning its final Arrow buffers."""
         return TableStream(self._handle.table(name))
 
+
 @attrs.frozen
 class RunHandle:
     """Blocking and asyncio access to the same supervised native job."""
@@ -254,7 +264,6 @@ class RunHandle:
     def canonical_attempt_key(self) -> str | None:
         """Exact producing attempt key, without truncation or ID reinterpretation."""
         return self._handle.canonical_attempt_key
-
 
     def wait(self) -> RunResult:
         """Release Python while waiting; join cancellation before a signal escapes."""

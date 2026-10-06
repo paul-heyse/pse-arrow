@@ -133,9 +133,7 @@ def test_public_dynamic_and_transient_fit(
     canonical_substrate: str,
 ) -> None:
     # Every ordinary run retains its exact canonical scientific attempt.
-    runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate
-    )
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -235,12 +233,18 @@ def test_public_dynamic_and_transient_fit(
         stream.close()
     assert joined.canonical_run_key is not None
     assert joined.canonical_attempt_key is not None
-    (stored,) = pa.table(runtime.attempt_record(joined.canonical_attempt_key)).to_pylist()
-    assert stored["run"] == joined.canonical_run_key and stored["outcome"] == "succeeded"
-    retained_samples = pa.table(runtime.results(
-        joined.canonical_run_key, joined.canonical_attempt_key,
-        "runtime.simulation_samples",
-    ))
+    (stored,) = pa.table(
+        runtime.attempt_record(joined.canonical_attempt_key)
+    ).to_pylist()
+    assert stored["run"] == joined.canonical_run_key
+    assert stored["outcome"] == "succeeded"
+    retained_samples = pa.table(
+        runtime.results(
+            joined.canonical_run_key,
+            joined.canonical_attempt_key,
+            "runtime.simulation_samples",
+        )
+    )
     # Dense storage groups the declared output and sample keys so a selected
     # output reads only its own blocks. Every original scientific column is
     # preserved; relation row ranges address that canonical stored coverage.
@@ -250,7 +254,12 @@ def test_public_dynamic_and_transient_fit(
     )
     assert retained_samples.to_pylist() == expected_samples
     destination = tmp_path / "simulation.arrow"
-    runtime.export_results(joined.canonical_run_key, joined.canonical_attempt_key, "runtime.simulation_samples", destination)
+    runtime.export_results(
+        joined.canonical_run_key,
+        joined.canonical_attempt_key,
+        "runtime.simulation_samples",
+        destination,
+    )
     assert destination.is_file()
     with pa.ipc.open_stream(destination) as reader:
         assert reader.read_all().equals(retained_samples)

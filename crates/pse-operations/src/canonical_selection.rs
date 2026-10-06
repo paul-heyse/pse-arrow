@@ -932,6 +932,7 @@ mod canonical_server_unit {
     use super::*;
     use crate::canonical::{CanonicalOptions, ObjectEdit};
     use std::{path::Path, time::Duration};
+    use surrealdb::types::Value;
 
     fn edit(
         name: &str,
@@ -1099,6 +1100,57 @@ mod canonical_server_unit {
             current.interpretations.get("existing").map(String::as_str),
             Some("kept")
         );
+    }
+
+    #[tokio::test]
+    async fn identical_selected_product_publications_settle_one_native_acknowledgment() {
+        let store = fixture().await;
+        let revision = store.edit("p", None, "source", &[edit("Root", "root", "definition", vec![])]).await.unwrap();
+        let mut selected = read(&store, revision.clone()).await;
+        store.resolve_scope(&mut selected, "p").await.unwrap();
+        // Multiple transport blocks keep both discoveries in staging while their
+        // exact immutable payload and selected-read operation identity coincide.
+        let payload = vec![37_u8; 2 * 1024 * 1024];
+        let proposed = product(&selected, &payload);
+        let start = tokio::sync::Barrier::new(2);
+        let first = async {
+            start.wait().await;
+            store.publish_product(&selected, proposed.clone()).await
+        };
+        let second = async {
+            start.wait().await;
+            store.publish_product(&selected, proposed.clone()).await
+        };
+        let (first, second) = tokio::join!(first, second);
+        // Read the real native generation/state and server clock before asserting
+        // either outcome: a losing live writer must not be mistaken for expiry.
+        let mut response = crate::canonical::bounded_query(store.db.query("SELECT * FROM canonical_stages WHERE problem='p' AND key!='source' ORDER BY key LIMIT 2; RETURN time::micros();")).await.unwrap();
+        let stages: Vec<Object> = response.take(0).unwrap();
+        let now = crate::canonical_codec::decode_int(response.take::<Value>(1).unwrap()).unwrap();
+        assert_eq!(stages.len(), 1, "same selected read and product must identify one stage");
+        let stage = wire::decode_canonical_stages(stages.into_iter().next().unwrap()).unwrap();
+        assert!(stage.generation > 0);
+        assert!(stage.expires_at > now, "publication stage expired: generation={}, expires_at={}, now={}, activated={}, closed={}, abandoned={}", stage.generation, stage.expires_at, now, stage.activated, stage.closed, stage.abandoned);
+        assert!(first.is_ok() && second.is_ok(), "identical live publication must settle, first={first:?}, second={second:?}; generation={}, expires_at={}, now={}, activated={}, closed={}, abandoned={}", stage.generation, stage.expires_at, now, stage.activated, stage.closed, stage.abandoned);
+        let key = first.unwrap();
+        assert_eq!(second.unwrap(), key);
+        assert_eq!(stage.key, key);
+        assert!(stage.activated && stage.closed && !stage.abandoned);
+        let candidate = store.product_candidate(selected.selection(), b"exact-request", "qualified-fixture", "").await.unwrap().unwrap();
+        assert_eq!(candidate.key(), key);
+        assert_eq!(store.product_acknowledged(&candidate.product).await.unwrap(), Some(key.clone()));
+        let mut qualified = selected.clone();
+        assert_eq!(store.qualify_product(&mut qualified, &candidate).await.unwrap().unwrap().payload(), payload);
+        let mut roots = crate::canonical::bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind='product' AND owner=$owner LIMIT 2;").bind(("owner", key.clone()))).await.unwrap();
+        assert_eq!(roots.take::<Vec<Object>>(0).unwrap().len(), 1);
+        assert_eq!(current_head(&store).await, revision.key);
+        assert_eq!(store.publish_product(&selected, proposed).await.unwrap(), key, "a completed repeat settles without reopening the stage");
+        let row: Option<Object> = crate::canonical::request(store.db.select(("canonical_stages", stage.key))).await.unwrap();
+        let repeated = wire::decode_canonical_stages(row.unwrap()).unwrap();
+        assert_eq!(repeated.generation, stage.generation);
+        assert_eq!(repeated.expires_at, stage.expires_at);
+        store.release(selected.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]

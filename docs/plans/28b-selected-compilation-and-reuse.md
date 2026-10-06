@@ -3,7 +3,7 @@ title: Selected compilation and durable reuse
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -119,6 +119,44 @@ remove only unnecessary earlier allocation or repeated setup. The outcome and ev
 to B4; it does not block A/C/D. SIMD, JIT or batch evaluation are not default deliverables of
 this pivot. Adopt them only for a demonstrated supported operation after comparing complete
 preparation and execution under equivalent scientific requirements.
+
+## Remaining selected-preparation and deployment slices
+
+F02 and EF05 remain at the [coordinator](28-surrealdb-unified-substrate.md#finding-dispositions).
+The [capability investigation](../design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md)
+settles native grouping options; scientific closure and reuse eligibility retain this owner.
+Current `selected_source.rs` limits namespace reads to namespace owners and builds a parsed-once
+reference inventory. Runtime canonical selection groups name acquisition in batches of 64
+and processes newly acquired rows/unresolved references. These source changes are partial
+F02 correction; they do not establish physical hydration locality or a measured speedup.
+
+| Existing package slice | Delivered operation and implementation boundary | Targeted acceptance and deletion |
+|---|---|---|
+| B1 grouped frontier, with A2 acquisition | Selected roots, interpretation and exact unresolved demands produce scientifically sufficient closure under unchanged lexical/import/provider rules. Carry namespace inventory and guard premises forward; resolve only the new frontier instead of rescanning accumulated declarations. Owners: `pse-modeling/src/selected_source.rs` and runtime `workflow/modeling/canonical.rs`. | Check nearer-name shadowing, deletion, imports, cycles, absent-name conflicts, unrelated namespaces and expiry. Include sparse `(scope,name)` pairs so independent IN sets cannot accidentally admit cross-pairs. Observe the actual query path to establish removal of repeated crossings/parsing, without a new planner or a fixed RPC quota. Remove remaining superseded singleton reads/rescans once consumers pass. |
+| B1 physical hydration, with A2/B2 | Group selected manifests/extent metadata first; fetch bounded payload groups only after extent admission. Produce the same exact Arrow physical input and interpretation consumed by shared kernels and persisted descriptions. Protect selection on misses and hits until product admission. | Scale legitimate declaration count and include mixed-size blocks; show bounded group admission, refusal before oversized decoding, exact bit/shape identity and no unrelated full-bundle hydration. Inspect current hydration before changing it: a fresh targeted receipt must settle the remaining premise. Delete duplicate probes/conversions, preserving required scientific validation. |
+| B3 deployed replay, with E2 producer tooling | Fresh runtime, worker and installed Python extension captures associate actual executable bytes, compiler/native configuration and dirty source with qualified outer attestation; relevant dependencies alone key scientific products. Consumers reopen persisted descriptions only under complete eligible context. | Qualify actual installed extension/import association, then solve/reopen/reconstruct under that deployment. Changed relevant provider/config/input refuses reuse; irrelevant source change changes outer attestation without unnecessarily re-keying the product. Fixture captures and git HEAD alone cannot establish installed eligibility. |
+
+B3 also settles the audit's honest cross-target receipt question. A receipt for a runtime
+library or worker must not silently establish installed Python target association merely
+because outer source hashes agree. Exercise a genuine qualified receipt presented for the
+other executable role and the supported Python receipt with its actual imported bytes;
+require explicit role/target association under the existing trusted-operator mint policy.
+This is a bounded target-policy control, not a presumed malicious-receipt defect. If the
+existing supported mint already enforces the distinction, retain that route and its evidence.
+
+Use direct bound record IDs, explicit projections and exact demand-pair bindings. Native
+recursive traversal can supply structural reachability; deduplicated collection and path
+enumeration have different meanings. A depth cap cannot certify complete scientific closure.
+Check representative indexes/plans with version-scoped EXPLAIN diagnostics when the actual
+query shape is uncertain; its output is not a stable golden, cache identity or latency claim.
+Do not replace scoped selection with full-package hydration or parallelize redundant probes.
+Batch size remains an implementation resource choice constrained by actual extents, not a
+new semantic contract. Preserve force-validation and fresh storage protection on cache hits.
+
+Existing EF02/EF08 focused resolution is preserved. Fresh A/B/A, value/structural edit and
+selected acquisition controls must compose with C/D consumers before E3. E4 owns comparable
+complete-operation timings. The current next step supersedes historical continuation text
+below; prior receipts retain their original source and workload limits.
 
 ## Work packages
 

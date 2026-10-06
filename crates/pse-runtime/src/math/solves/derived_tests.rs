@@ -13,6 +13,33 @@ use pse_ids::SemanticId;
 #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
 use pse_math::implicit::RegimeFactory;
 
+#[cfg(all(feature = "solver-kinsol", feature = "solver-ipopt"))]
+/// The analytical coordinates and residuals below require physical precision,
+/// independently of the ordinary engineering defaults and KKT termination.
+fn verification_numerics() -> NumericalPolicy {
+    let physical = crate::workflow::tests::physical();
+    let scalar = physical
+        .quantities
+        .quantity_types()
+        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
+        .unwrap();
+    NumericalPolicy {
+        engineering_rules: vec![pse_model::numerics::EngineeringRule {
+            rule_id: pse_ids::named_id(scalar.id.as_id(), "derived-verification-precision").into(),
+            quantity_id: scalar.id.as_id(),
+            unit_id: scalar.canonical_unit.as_id(),
+            physical_allowance: Some(1e-10),
+            relative_fraction: Some(0.0),
+            provenance: "original derived analytical coordinate and residual verification".into(),
+        }],
+        kkt: pse_model::numerics::KktTolerances {
+            stationarity: 1e-10,
+            complementarity: 1e-10,
+        },
+        ..Default::default()
+    }
+}
+
 #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
 #[tokio::test]
 async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_native_reference() {
@@ -828,11 +855,33 @@ async fn least_deviation_preserves_original_rows_metric_roles_and_actual_derivat
 #[cfg(all(feature = "solver-kinsol", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn least_deviation_exact_second_and_named_held_roles_use_actual_source() {
-    let (runtime, original) = original_order(
+    let (runtime, original) = original_order_on(
+        crate::workflow::tests::runtime_with(128 << 20, 1 << 20, 512 << 20),
         "package p { def Root { var x:Scalar; annotation start x(2); eq balance:x*x==9; } }",
         DerivativeOrder::Second,
+        SolverProfile {
+            intent: SolveIntent::Root,
+            selection: SolverSelection::Explicit(Backend::Kinsol),
+            numerics: verification_numerics(),
+            ..Default::default()
+        },
     )
     .await;
+    assert!(!original.tolerances().rows.is_empty());
+    assert!(
+        original
+            .tolerances()
+            .rows
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
+    assert!(
+        original
+            .tolerances()
+            .variables
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
     let service = runtime.native();
     let Representation::Algebraic(source) = &original.representation else {
         panic!("compiled source")
@@ -1410,6 +1459,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .await
         .unwrap();
     let mut profile = fixture::profile();
+    profile.numerics = verification_numerics();
     profile.intent = SolveIntent::Optimize;
     profile.selection = SolverSelection::Explicit(Backend::Ipopt);
     profile.controls.hessian = HessianMode::LimitedMemory;
@@ -1432,6 +1482,23 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .await
         .unwrap();
     let original = prepared.solve.clone();
+    assert!(!original.tolerances().rows.is_empty());
+    assert!(
+        original
+            .tolerances()
+            .rows
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
+    assert!(
+        original
+            .tolerances()
+            .variables
+            .iter()
+            .all(|budget| *budget <= 1e-10)
+    );
+    assert_eq!(original.accuracy().stationarity, 1e-10);
+    assert_eq!(original.accuracy().complementarity, 1e-10);
     let Representation::Algebraic(source) = &original.representation else {
         panic!("compiled source")
     };

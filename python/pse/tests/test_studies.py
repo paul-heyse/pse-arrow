@@ -29,7 +29,6 @@ from pse.contracts.enums import (
     StudyState,
 )
 from pse.contracts.identities import DeclarationId
-from pse.contracts.values import SemanticId
 from pse.tests.study_fixtures import assignment, physical_ids, point, request
 
 #: A manifest dependency on the physical primitives fixture. Its document names
@@ -378,7 +377,10 @@ def test_study_controller_moves_preserve_exact_typed_tuple_positions() -> None:
 
 
 @pytest.mark.component
-@pytest.mark.parametrize(("operation", "version"), [("admit_study", 2), ("study", 4)])
+@pytest.mark.parametrize(
+    ("operation", "version"),
+    [("admit_study", 2), ("study", 4), ("start_study", 4)],
+)
 def test_native_study_version_precedes_nested_current_decode(
     inspection_settings: pse.EngineSettings,
     operation: str,
@@ -394,9 +396,12 @@ def test_native_study_version_precedes_nested_current_decode(
     if operation == "admit_study":
         with pytest.raises(pse.InspectionError, match=pattern):
             handle.admit_study(historical)
-    else:
+    elif operation == "study":
         with pytest.raises(pse.InspectionError, match=pattern):
             handle.study(historical)
+    else:
+        with pytest.raises(pse.InspectionError, match=pattern):
+            handle.start_study(runtime._handle, historical)
 
 
 @pytest.mark.component
@@ -423,9 +428,7 @@ def test_durable_study_retains_exact_results(
     tmp_path: Path,
     canonical_substrate: str,
 ) -> None:
-    runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate
-    )
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -454,7 +457,9 @@ def test_durable_study_retains_exact_results(
     assert all(point.attempt is None and not point.settled for point in status.points)
     assert handle.result() is None
     assert runtime.work(maximum_actions=0) == 0
-    assert all(point.attempt is None and not point.settled for point in handle.status().points)
+    assert all(
+        point.attempt is None and not point.settled for point in handle.status().points
+    )
     assert runtime.study(handle.study_id).status().run == status.run
 
     # This process serves the queue: the points, then the study's finalization (and any
@@ -479,15 +484,29 @@ def test_durable_study_retains_exact_results(
     assert refused.diagnostic is not None
     assert refused.diagnostic.rule == "study.dependency.unusable"
     assert retained.run == status.run
-    outcomes = pa.table(runtime.results(retained.run, retained.attempt, "runtime.study_outcomes")).to_pylist()
-    assert [row["point_index"] for row in sorted(outcomes, key=lambda row: row["point_index"])] == [0, 1, 2, 3]
+    outcomes = pa.table(
+        runtime.results(retained.run, retained.attempt, "runtime.study_outcomes")
+    ).to_pylist()
+    assert [
+        row["point_index"]
+        for row in sorted(outcomes, key=lambda row: row["point_index"])
+    ] == [0, 1, 2, 3]
     failed_member = next(row for row in outcomes if row["point_index"] == 2)
     assert failed_member["state"] == StudyPointState.FAILED
     assert failed_member["usable"] is False
-    assert retained.points == tuple((point.point_index, point.run, point.attempt) for point in status.points)
+    assert retained.points == tuple(
+        (point.point_index, point.run, point.attempt) for point in status.points
+    )
     for point_status in status.points[:2]:
         assert point_status.attempt is not None
-        assert pa.table(runtime.results(point_status.run, point_status.attempt, "runtime.solve_variables")).num_rows > 0
+        assert (
+            pa.table(
+                runtime.results(
+                    point_status.run, point_status.attempt, "runtime.solve_variables"
+                )
+            ).num_rows
+            > 0
+        )
 
 
 @pytest.mark.integration
@@ -496,9 +515,7 @@ def test_durable_study_cancel_and_its_refusals(
     tmp_path: Path,
     canonical_substrate: str,
 ) -> None:
-    runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate
-    )
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
@@ -520,9 +537,10 @@ def test_durable_study_cancel_and_its_refusals(
     handle = package.study(definition, runtime=runtime)
     cancelled = handle.cancel()
     assert not cancelled.already_concluded
-    assert cancelled.study_id == handle.study_id
+    assert cancelled.study_id == handle.study_id.to_hex()
     runtime.work()
     status = handle.status()
+    assert status.study_id == cancelled.study_id
     assert status.state == StudyState.CONCLUDED
     assert status.result_attempt is not None
     (attempt,) = pa.table(runtime.attempt_record(status.result_attempt)).to_pylist()
@@ -535,7 +553,6 @@ def test_durable_study_cancel_and_its_refusals(
         assert occurrence.outcome.lifecycle == StudyPointState.CANCELLED
         assert occurrence.outcome.attempts == ()
         assert not occurrence.outcome.scientific.usable
-
 
 
 @pytest.mark.integration

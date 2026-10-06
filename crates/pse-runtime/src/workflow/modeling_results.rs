@@ -302,12 +302,7 @@ impl RunResult {
             }
 
             if let Some(native) = native {
-                super::results::push_native_metrics(
-                    &mut metric_rows,
-                    self.run_id,
-                    step,
-                    native,
-                )?;
+                super::results::push_native_metrics(&mut metric_rows, self.run_id, step, native)?;
                 if let Some(row) = super::results::certificate_row(self.run_id, step, native) {
                     certificate_rows.push(row).map_err(relation)?;
                 }

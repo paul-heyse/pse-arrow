@@ -126,10 +126,7 @@ fn every_current_root_verifies_without_registry_backed_recorded_interpretation()
 fn consumer_selection_ignores_unconsumed_roots_and_preserves_original_digest() {
     let registry = crate::registry().unwrap();
     let a = registry.relation("runtime.solve_runs").unwrap().id;
-    let b = registry
-        .relation("runtime.computation_runs")
-        .unwrap()
-        .id;
+    let b = registry.relation("runtime.computation_runs").unwrap().id;
     let source = recorded(SemanticContract::new(registry, &[a, b].into()).unwrap()).unwrap();
     let identity = source.identity();
     let consumer = source.select_roots(&[a].into()).unwrap();

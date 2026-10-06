@@ -38,18 +38,18 @@ impl CacheSettingsInput {
         let concurrent_loads = NonZeroUsize::new(self.concurrent_loads)
             .ok_or_else(|| invalid("concurrent_loads must be positive"))?;
         let budget = CacheBudget {
-                working_bytes: self.working_bytes,
-                metadata_bytes: self.metadata_bytes,
-                statistics_bytes: self.statistics_bytes,
-                listing_bytes: self.listing_bytes,
-                listing_ttl: self.listing_ttl_ms.map(Duration::from_millis),
-                concurrent_loads,
-                inflight_bytes: self.inflight_bytes,
-                inspection_bytes: self.inspection_bytes,
-                predicate_cache_bytes: self.predicate_cache_bytes,
-                predicate_total_bytes: self.predicate_total_bytes,
-                syntax_bytes: self.syntax_bytes,
-                ..CacheBudget::disabled(self.working_bytes)
+            working_bytes: self.working_bytes,
+            metadata_bytes: self.metadata_bytes,
+            statistics_bytes: self.statistics_bytes,
+            listing_bytes: self.listing_bytes,
+            listing_ttl: self.listing_ttl_ms.map(Duration::from_millis),
+            concurrent_loads,
+            inflight_bytes: self.inflight_bytes,
+            inspection_bytes: self.inspection_bytes,
+            predicate_cache_bytes: self.predicate_cache_bytes,
+            predicate_total_bytes: self.predicate_total_bytes,
+            syntax_bytes: self.syntax_bytes,
+            ..CacheBudget::disabled(self.working_bytes)
         };
         budget.validate(usize::MAX)?;
         Ok(budget)

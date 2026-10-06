@@ -164,8 +164,7 @@ pub(crate) fn timestamp_storage() -> DataType {
 }
 
 /// The canonical Arrow storage of the `ts_us` logical type: a UTC instant at the
-/// microsecond precision PostgreSQL `timestamptz` holds, so a stored operational time
-/// never claims precision the store cannot keep.
+/// explicitly declared microsecond precision.
 pub fn timestamp_micros_storage() -> DataType {
     DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into()))
 }

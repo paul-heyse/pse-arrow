@@ -22,6 +22,7 @@ use std::{
 
 /// Whole current source documents: the tests do not copy scientific function bodies.
 const SOURCES: &[&str] = &[
+    include_str!("../../../packages/reference/domain/models/numerical-policy.pse"),
     include_str!("../../../packages/reference/physical/models/kinds.pse"),
     include_str!("../../../packages/reference/physical/models/compatibility.pse"),
     include_str!("../../../packages/reference/physical/models/chemistry.pse"),

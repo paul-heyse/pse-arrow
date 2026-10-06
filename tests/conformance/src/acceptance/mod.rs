@@ -3,11 +3,11 @@
 //! M22-only process journeys; compilation and runner discovery are allowed in M20.
 mod coefficient_conic;
 mod complementarity_flash;
+mod connected_results_resource;
 mod dynamic_optimization;
 #[path = "../../../support/plan14.rs"]
 mod fixtures;
 mod global_certification;
 mod native_outcomes;
 mod physical_nlp;
-mod connected_results_resource;
 mod vessel_fit;
