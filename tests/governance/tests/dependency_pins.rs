@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Dependencies float; a pin carries a reason (ADR-0159).
+//! Declared dependencies are pinned exactly (ADR-0165).
 //!
-//! A caret or a plain `>=` floor needs nothing: `Cargo.lock` records what resolved. A
-//! requirement that bounds a version from above (`=`, `<`, `<=`, `~`, a wildcard) or a git
-//! source is a pin. A pin is allowed only for a member of a family in
-//! `[workspace.metadata.pse.families]` or for a dependency listed with its reason in
-//! `[workspace.metadata.pse.pins]`. A family member must itself be exact at the family's
-//! declared version, so a `cargo add` caret cannot slip a member out of its family.
-//! Python pin reasons are comments in `pyproject.toml` and are instruction-only.
+//! A registry dependency in `[workspace.dependencies]` is a single exact `=x.y.z`; a caret,
+//! a `>=` floor, a range, a tilde or a wildcard fails. A git source names a full 40-hex
+//! commit `rev`; an internal path dependency is exempt. An exact pin needs no entry: the
+//! entries of `[workspace.metadata.pse.pins]` are holds (versions not to bump casually),
+//! each with a reason, and an entry for a dependency that is not declared and pinned is
+//! stale. A member of a family in `[workspace.metadata.pse.families]` is exact at the
+//! family's declared version. Python pins are instruction-only.
 #![allow(
     clippy::expect_used,
     reason = "test reports malformed manifest contracts"
@@ -19,11 +19,12 @@ use toml::Value;
 /// The kinds of declaration this check distinguishes.
 #[derive(Debug, PartialEq, Eq)]
 enum Declaration {
-    /// An internal path dependency with no version, a caret, or a floor with no upper bound.
-    Floating,
-    /// An upper-bounding comparator (`=`, `<`, `<=`, `~`, a wildcard), or a git source at a
-    /// full commit.
+    /// An internal path dependency with no version.
+    Path,
+    /// A single exact `=x.y.z` requirement, or a git source at a full commit.
     Pinned,
+    /// A caret, floor, range, tilde or wildcard requirement.
+    Unpinned,
     /// A git source that names no full 40-hex commit: never reproducible, never allowed.
     MovingGit,
 }
@@ -34,11 +35,13 @@ fn requirement(value: &Value) -> Option<&str> {
         .or_else(|| value.get("version").and_then(Value::as_str))
 }
 
-fn bounds_from_above(comparator: &str) -> bool {
-    comparator.starts_with('=')
-        || comparator.starts_with('<')
-        || comparator.starts_with('~')
-        || comparator.contains('*')
+/// The version of a single exact `=x.y.z` requirement.
+fn exact(requirement: Option<&str>) -> Option<semver::Version> {
+    let exact = requirement?.trim().strip_prefix('=')?.trim();
+    if exact.contains(',') {
+        return None;
+    }
+    semver::Version::parse(exact).ok()
 }
 
 fn declaration(value: &Value) -> Declaration {
@@ -53,12 +56,13 @@ fn declaration(value: &Value) -> Declaration {
             Declaration::MovingGit
         };
     }
-    let pinned = requirement(value)
-        .is_some_and(|text| text.split(',').map(str::trim).any(bounds_from_above));
-    if pinned {
+    if value.get("path").is_some() && requirement(value).is_none() {
+        return Declaration::Path;
+    }
+    if exact(requirement(value)).is_some() {
         Declaration::Pinned
     } else {
-        Declaration::Floating
+        Declaration::Unpinned
     }
 }
 
@@ -107,13 +111,9 @@ fn family_of<'v>(
 
 /// Is the requirement a single exact comparator at the family's declared version?
 fn exact_at(requirement: Option<&str>, version: &str, kind: &str) -> bool {
-    let Some(exact) = requirement.and_then(|text| text.trim().strip_prefix('=')) else {
+    let Some(exact) = exact(requirement).map(|found| found.to_string()) else {
         return false;
     };
-    let exact = exact.trim();
-    if exact.contains(',') || semver::Version::parse(exact).is_err() {
-        return false;
-    }
     match kind {
         "minor" => exact.starts_with(&format!("{version}.")),
         _ => exact == version,
@@ -148,19 +148,17 @@ fn violations(manifest: &Value) -> Vec<String> {
             continue;
         }
         match declaration(value) {
-            Declaration::Floating => {}
+            Declaration::Path | Declaration::Pinned => {}
             Declaration::MovingGit => {
                 out.push(format!(
                     "{name}: a git source must name a full commit `rev`"
                 ));
             }
-            Declaration::Pinned => {
-                if !reason(name) {
-                    out.push(format!(
-                        "{name}: a pin (exact, capped or git) with no reason; use a caret, or \
-                         add `{name} = \"<reason>\"` to [workspace.metadata.pse.pins]"
-                    ));
-                }
+            Declaration::Unpinned => {
+                out.push(format!(
+                    "{name}: pin it exactly at the version Cargo.lock resolves \
+                     (`{name} = \"=x.y.z\"`, `cargo add {name}@=x.y.z`)"
+                ));
             }
         }
     }
@@ -170,7 +168,12 @@ fn violations(manifest: &Value) -> Vec<String> {
             .is_some_and(|value| declaration(value) == Declaration::Pinned);
         if !held {
             out.push(format!(
-                "{name}: listed in [workspace.metadata.pse.pins] but not pinned; remove the entry"
+                "{name}: a hold in [workspace.metadata.pse.pins] for a dependency that is not \
+                 declared and pinned; remove the entry"
+            ));
+        } else if !reason(name) {
+            out.push(format!(
+                "{name}: a hold in [workspace.metadata.pse.pins] needs its reason"
             ));
         }
     }
@@ -178,17 +181,17 @@ fn violations(manifest: &Value) -> Vec<String> {
 }
 
 #[test]
-fn workspace_pins_carry_a_reason_and_families_stay_exact() {
+fn workspace_dependencies_are_exact_and_holds_are_current() {
     let found = violations(&common::root_manifest());
     assert!(
         found.is_empty(),
-        "dependency pins without a reason, or inexact family members (ADR-0159):\n  {}",
+        "unpinned dependencies, stale holds or inexact family members (ADR-0165):\n  {}",
         found.join("\n  ")
     );
 }
 
 #[test]
-fn carets_float_and_pins_need_a_family_or_a_reason() {
+fn registry_dependencies_must_be_exact_and_holds_must_be_current() {
     let manifest = |dependencies: &str| {
         toml::from_str::<Value>(&format!(
             "[workspace.dependencies]\n{dependencies}\n\
@@ -200,14 +203,13 @@ fn carets_float_and_pins_need_a_family_or_a_reason() {
         ))
         .expect("fixture")
     };
-    // A caret, a bare path and an open floor pass; a listed pin (exact, capped, tilde or git)
+    // An exact pin with no hold, a bare path, a git source at a full commit, a listed hold
     // and family members exact at their declared version pass.
     for dependencies in [
-        "serde = '1.0.229'\nheld = '=1.0.0'",
+        "serde = '=1.0.229'\nheld = '=1.0.0'",
+        "serde = { version = '=1.0.229', features = ['derive'] }\nheld = '=1.0.0'",
         "local = { path = 'crates/local' }\nheld = '=1.0.0'",
-        "serde = '>=1.0'\nheld = '=1.0.0'",
-        "held = '>=1.0, <1.5'",
-        "held = '~1.2.3'",
+        "fork = { git = 'https://example.test/repo', rev = '0123456789abcdef0123456789abcdef01234567' }\nheld = '=1.0.0'",
         "held = { git = 'https://example.test/repo', rev = '0123456789abcdef0123456789abcdef01234567' }",
         "arrow-array = '=59.3.0'\npyo3 = '=0.29.2'\nheld = '=1.0.0'",
     ] {
@@ -217,20 +219,19 @@ fn carets_float_and_pins_need_a_family_or_a_reason() {
             "{dependencies}"
         );
     }
-    // Unlisted pins fail: exact, inside a range, an upper cap, a tilde, a wildcard minor and
-    // a git revision; so do a moving git branch, a caret or off-version family member, and a
-    // reason left behind for a dependency that floats.
+    // A caret, a floor, a range, an upper cap, a tilde and a wildcard fail; so do a moving
+    // git branch, a caret or off-version family member, and a hold left behind for a
+    // dependency that is not pinned or not declared.
     for (dependencies, offender) in [
-        ("serde = '=1.0.229'\nheld = '=1.0.0'", "serde"),
+        ("serde = '1.0.229'\nheld = '=1.0.0'", "serde"),
+        ("serde = '^1.0.229'\nheld = '=1.0.0'", "serde"),
+        ("serde = { version = '1.0.229', features = ['derive'] }\nheld = '=1.0.0'", "serde"),
+        ("serde = '>=1.0'\nheld = '=1.0.0'", "serde"),
         ("serde = '=1.0.229, <2'\nheld = '=1.0.0'", "serde"),
         ("serde = '>=1.0, <2'\nheld = '=1.0.0'", "serde"),
         ("serde = '<=1.0.300'\nheld = '=1.0.0'", "serde"),
         ("serde = '~1.0.229'\nheld = '=1.0.0'", "serde"),
         ("serde = '1.0.*'\nheld = '=1.0.0'", "serde"),
-        (
-            "fork = { git = 'https://example.test/repo', rev = '0123456789abcdef0123456789abcdef01234567' }\nheld = '=1.0.0'",
-            "fork",
-        ),
         (
             "held = { git = 'https://example.test/repo', branch = 'main' }",
             "held",
@@ -239,6 +240,7 @@ fn carets_float_and_pins_need_a_family_or_a_reason() {
         ("arrow = '=59.2.0'\nheld = '=1.0.0'", "arrow"),
         ("pyo3 = '=0.30.0'\nheld = '=1.0.0'", "pyo3"),
         ("held = '1.0.0'", "held"),
+        ("serde = '=1.0.229'", "held"),
     ] {
         let found = violations(&manifest(dependencies));
         assert!(

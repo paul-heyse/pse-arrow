@@ -1,8 +1,8 @@
 # Dependency and licence policy
 
 > **Decision: [ADR-0066](../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)**
-> (admission) · [ADR-0159](../adr/0159-dependencies-float-exact-pins-need-a-reason.md)
-> (versions float; pins need a reason) · Blueprint §3.1, §3.3.2 · Register row R-31
+> (admission) · [ADR-0165](../adr/0165-declared-dependencies-pinned-exactly.md)
+> (declared dependencies are pinned exactly) · Blueprint §3.1, §3.3.2 · Register row R-31
 
 ## The short version
 
@@ -11,39 +11,32 @@ licence is grounds to refuse one. Adding a crate or a Python package needs no AD
 design review, and no revision row in the architecture. Nothing in CI blocks a merge because of what
 you depended on or what licence it carries.
 
-**Versions float; the lockfiles pin.** Use the tool's default specifier — the `cargo add`
-caret, declared in `[workspace.dependencies]`, or `uv add` (a `>=` floor). `Cargo.lock` and `uv.lock`
-record what resolved, and `just upgrade` (or `just upgrade <package> …`) moves them to the
-latest compatible versions, at your discretion; it then regenerates the cargo-hakari
-workspace-hack, runs `just family-check` and prints what moved. Run the tests the move
-affects. A caret never crosses a major: crossing one is an explicit requirement bump in the
-manifest. Dependabot (ADR-0035) proposes the same lock moves as grouped pull requests with
-`versioning-strategy: lockfile-only`; either route is fine.
+**Declared dependencies are pinned exactly.** Every registry dependency is `=x.y.z` in
+`[workspace.dependencies]` (`cargo add name@=x.y.z`) and `==x.y.z` in `pyproject.toml`
+(`[tool.uv] add-bounds = "exact"` makes `uv add` write it); a git dependency is pinned by its
+full `rev`. `Cargo.lock` and `uv.lock` hold everything beneath, so an environment changes only
+when someone changes it on purpose.
 
-### Pin reasons
+**Change versions deliberately, on judgment.** Add or bump a dependency when the work calls
+for it, with no ADR or approval: edit that pin (or its family), run
+`just upgrade <package> …` (it moves the named packages, regenerates the cargo-hakari
+workspace-hack, runs `just family-check` and prints what moved), check that the lock diff
+moved only what you meant, run the tests it affects and name the move in the commit. No
+wholesale re-resolve (`uv lock --upgrade`, bare `cargo update`) unless the operator asks.
+Dependabot (ADR-0035) runs with `versioning-strategy: lockfile-only`, so it proposes moves
+of undeclared packages only.
 
-This is the one list of acceptable reasons ([ADR-0159](../adr/0159-dependencies-float-exact-pins-need-a-reason.md)).
-An exact version, upper cap (`<`, `<=`, `~`, a wildcard), git revision or hold-back needs an
-overt reason specific to that dependency, from this list:
+<a id="pin-reasons"></a>
 
-- a named breakage or incompatibility;
-- a type-sharing family that must resolve to one version;
-- a fork, git revision or vendored source;
-- a content-addressed acquisition;
-- committed or byte-stable generated output, or a private or unstable API use;
-- a parity or reference oracle;
-- an experimental control;
-- platform or wheel availability.
+### Holds
 
-Not reasons: reproducibility (the lockfiles give it), "already in the lock", "latest on date
-X", and a version entering a key or digest (a bump re-keys by design).
-
-Record the reason beside the pin. In Rust, family members are covered by
-`[workspace.metadata.pse.families]` and must be exact at the family's declared version;
-every other pin has a one-line entry in `[workspace.metadata.pse.pins]`, and
-`dependency_pins` checks both. In Python, the reason is a comment beside the `==` pin in
-`pyproject.toml`; it is instruction-only, with no test (ADR-0159). Remove a pin, and its
-reason, when the reason lapses.
+A hold is a pinned version that must not be bumped casually. It carries its reason: in Rust a
+one-line entry in `[workspace.metadata.pse.pins]`, in Python a comment beside the pin in
+`pyproject.toml` (instruction-only). Typical reasons are a named breakage, committed or
+byte-stable generated output, a private or unstable API use, a parity or reference oracle,
+and a fork or git revision. Family members are covered by `[workspace.metadata.pse.families]`
+and move as a unit. Remove a hold when its reason lapses. A pinned dependency with no hold
+can be bumped whenever the work calls for it.
 
 **This is not a constraint to design or execute around.** If a library gets the platform
 working, take it. The goal right now is a functional codebase — an ambitious one — and a
@@ -63,14 +56,14 @@ for a phase-0 platform still establishing what it is.
 
 ## What is still enforced, and why
 
-Relaxing admission and floating versions did not relax reproducibility. These remain
+Relaxing admission did not relax reproducibility. These remain
 project invariants, checked when the corresponding command is run manually:
 
 | Gate | What it protects |
 |---|---|
 | `just family-check` (`rust / family-check` when manually dispatched) | **One type universe.** Exactly one resolved `arrow`, `parquet`, `object_store`, `datafusion` and `pyo3`. Two majors make `downcast_ref` return `None` with no compile error — a silent failure that reads like a logic bug. This is the invariant `deny.toml`'s `multiple-versions` used to stand in for, and it states it far more precisely. |
-| `tests/governance/tests/dependency_pins.rs` | **Reasoned pins.** A requirement in `[workspace.dependencies]` that bounds a version from above (`=`, `<`, `<=`, `~`, a wildcard) or a git revision is a declared family member or has a reason in `[workspace.metadata.pse.pins]`; family members are exact at the family version; a git source names a full commit; a reason for a floating dependency is stale. Blueprint tables are not a second pin authority. |
-| Committed `Cargo.lock` and `uv.lock`, every gate `--locked` | Reproducibility. Versions move only through the lockfiles, with `just upgrade`; a run never resolves anew. |
+| `tests/governance/tests/dependency_pins.rs` | **Exact pins.** Every registry requirement in `[workspace.dependencies]` is a single exact `=x.y.z` (path dependencies exempt); a git source names a full commit; family members are exact at the family version; a hold in `[workspace.metadata.pse.pins]` has a reason and names a declared, pinned dependency. Blueprint tables are not a second pin authority. |
+| Committed `Cargo.lock` and `uv.lock`, every gate `--locked` | Reproducibility. Versions move only by a deliberate pin or lock edit; a run never resolves anew. |
 | ADR for **majoring** one of the four pinned families | A family major changes the API surface the capability maps were extracted against. |
 | ADR for adding or removing a **workspace** (`pse-*`) crate | A crate boundary is architecture, not a dependency. |
 | `reuse lint` | SPDX headers on **our own** files. Unrelated to third-party licences. |

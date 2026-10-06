@@ -4,17 +4,18 @@
 # (docs/authoritative_design/blueprint.md, revision 3).
 #
 # Every third-party dependency is declared here exactly once (blueprint §3.1) and members
-# inherit it via `.workspace = true`. Dependencies float (ADR-0159): a requirement is the
-# `cargo add` caret, Cargo.lock records what resolved, every recipe runs `--locked`, and
-# `just upgrade` moves the lock to the latest at the agent's discretion. An exact `=`
-# requirement or git revision needs a reason: membership of a family in
-# [workspace.metadata.pse.families], or a one-line entry in [workspace.metadata.pse.pins]
-# (`dependency_pins` checks both). The arrow, datafusion, object_store and pyo3 families
-# must resolve to ONE version each: `=` binds direct dependencies only and `cargo tree -d`
-# cannot flag a mixed family, so `cargo xtask family-check` asserts the resolved graph
-# against the families table; families move as a unit, and a family major needs an ADR.
-# ADDING a dependency needs no ceremony: no library and no licence is refused through
-# phases 0-1 (blueprint §3.3.2, ADR-0066, docs/dev/dependency-policy.md).
+# inherit it via `.workspace = true`. Every registry dependency is pinned exactly (`=x.y.z`,
+# `cargo add name@=x.y.z`) and a git dependency by its full `rev` (ADR-0165); Cargo.lock holds
+# everything beneath, and every recipe runs `--locked`. Changing a version is agent judgment:
+# move that dependency (or its family), check the lock diff, run the affected tests. Holds,
+# versions that must not be bumped casually, are listed with their reason in
+# [workspace.metadata.pse.pins] (`dependency_pins` checks all of this). The arrow, datafusion,
+# object_store and pyo3 families must resolve to ONE version each: `=` binds direct
+# dependencies only and `cargo tree -d` cannot flag a mixed family, so `cargo xtask
+# family-check` asserts the resolved graph against the families table; families move as a
+# unit, and a family major needs an ADR. ADDING a dependency needs no ceremony: no library and
+# no licence is refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
+# docs/dev/dependency-policy.md).
 
 [workspace]
 # A virtual manifest has no `edition`, so cargo would otherwise fall back to resolver 1.
@@ -54,7 +55,7 @@ authors = ["Paul Heyse <paul@heyse.io>"]
 publish = false
 
 [workspace.dependencies]
-allocation-counter = "0.8.1"
+allocation-counter = "=0.8.1"
 # ---- internal (path deps; `version` is added when publish flips to true) ----
 pse-codegen = { path = "crates/pse-codegen" }
 pse-model = { path = "crates/pse-model" }
@@ -105,7 +106,7 @@ arrow-schema = { version = "=59.3.0", default-features = false, features = [
   "serde",
 ] }
 arrow-ipc = { version = "=59.3.0", default-features = false }
-flatbuffers = "25.12.19"
+flatbuffers = "=25.12.19"
 arrow-select = "=59.3.0"
 arrow-cast = { version = "=59.3.0", default-features = false }
 arrow-ord = "=59.3.0"
@@ -129,42 +130,42 @@ datafusion-catalog = "=55.1.0"
 datafusion-physical-expr = "=55.1.0"
 datafusion-optimizer = "=55.1.0"
 
-url = { version = "2.5.8", features = ["serde"] }
+url = { version = "=2.5.8", features = ["serde"] }
 
 # Required by DataFusion 55 (^0.13.2); 0.14.x exists on crates.io and must not be taken.
 object_store = "=0.13.2"
 
 # ---- Python boundary (pse-py only; features added in that crate) ----
 pyo3 = "=0.29.2"
-pyo3-async-runtimes = { version = "0.29.0", features = ["tokio-runtime"] }
-pyo3-arrow = "0.19.0"
+pyo3-async-runtimes = { version = "=0.29.0", features = ["tokio-runtime"] }
+pyo3-arrow = "=0.19.0"
 pyo3-introspection = "=0.29.2"
 
 # ---- runtime ----
-surrealdb = { version = "3.3.0", default-features = false, features = [
+surrealdb = { version = "=3.3.0", default-features = false, features = [
   "protocol-grpc",
 ] }
-tokio = { version = "1.53.1", default-features = false, features = [
+tokio = { version = "=1.53.2", default-features = false, features = [
   "rt-multi-thread",
   "sync",
   "macros",
   "time",
 ] }
-tokio-util = { version = "0.7.19", default-features = false, features = [
+tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",
 ] }
-tracing = "0.1.44"
-datafusion-tracing = "55.0.0"
-instrumented-object-store = "55.0.0"
-thiserror = "2.0.20"
+tracing = "=0.1.44"
+datafusion-tracing = "=55.0.0"
+instrumented-object-store = "=55.0.0"
+thiserror = "=2.0.21"
 # Library error projections preserve native diagnostic causes without a rendering dependency.
-miette = "7.6.0"
+miette = "=7.6.0"
 
 # ---- serialization and documents ----
-serde = { version = "1.0.229", features = ["derive", "rc"] }
+serde = { version = "=1.0.229", features = ["derive", "rc"] }
 # Manifest and extension-metadata JSON only (blueprint §4.3): never a hash input, never
 # relation data. Identity framing lives in pse-ids (blueprint §5.3).
-serde_json = "1.0.151"
+serde_json = "=1.0.151"
 # JSON Schema (draft 2020-12) of the Rust-owned boundary documents, derived from their
 # serde types; the generator publishes the schemas and the Python msgspec types from them
 # (ADR-0116 Outcome 7).
@@ -172,19 +173,19 @@ schemars = "=1.2.2"
 # Validated single-value settings domains (ADR-0116 Outcome 8): a value outside its domain
 # cannot be constructed or decoded. `derive_unchecked` carries the schemars 1.x derive,
 # whose field attribute states the constraint in the schema.
-nutype = { version = "0.8.0", features = ["serde", "derive_unchecked"] }
-bytes = "1.12.1"
-chrono = { version = "0.4.45", default-features = false, features = ["std"] }
-serde-saphyr = "1.2.0"
-toml = { version = "1.1.6", default-features = false, features = [
+nutype = { version = "=0.8.0", features = ["serde", "derive_unchecked"] }
+bytes = "=1.12.1"
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+serde-saphyr = "=1.3.0"
+toml = { version = "=1.1.6", default-features = false, features = [
   "parse",
   "serde",
   "display",
 ] }
-strum = { version = "0.28.0", features = ["derive"] }
-hex = "0.4.3"
-winnow = { version = "1.0.4", default-features = false, features = ["std"] }
-sqlparser = "0.62.0"
+strum = { version = "=0.28.0", features = ["derive"] }
+hex = "=0.4.3"
+winnow = { version = "=1.0.4", default-features = false, features = ["std"] }
+sqlparser = "=0.62.0"
 
 # ---- code generation (pse-schema and xtask only) ----
 # syn 3, not the ecosystem's syn 2; a prettyplease upgrade is a regeneration commit.
@@ -197,52 +198,52 @@ syn = { version = "=3.0.5", features = [
   "parsing",
   "printing",
 ] }
-quote = "1.0.47"
-proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+quote = "=1.0.47"
+proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
 # Keep macro formatting identical in standalone schema tests and bindgen-enabled xtask.
 # Cargo unifies bindgen's `verbatim` feature into the latter graph.
 prettyplease = { version = "=0.3.0", features = ["verbatim"] }
 
 # ---- graphs, numerics, identity ----
-gmp-mpfr-sys = { version = "1.7.1", default-features = false, features = [
+gmp-mpfr-sys = { version = "=1.7.1", default-features = false, features = [
   "mpfr",
 ] }
-symbolica = { version = "3.0.0", default-features = false, features = [
+symbolica = { version = "=3.0.1", default-features = false, features = [
   "integer-gmp",
   "float-mpfr",
 ] }
-faer = { version = "0.24.4", default-features = false, features = [
+faer = { version = "=0.24.4", default-features = false, features = [
   "std",
   "sparse-linalg",
 ] }
 feos = { version = "=0.10.1", default-features = false, features = ["pcsaft"] }
 feos-core = { version = "=0.10.1", default-features = false }
-nalgebra = { version = "0.35.0", default-features = false, features = ["std"] }
-highs = "2.4.0"
-highs-sys = "1.15.0"
+nalgebra = { version = "=0.35.0", default-features = false, features = ["std"] }
+highs = "=2.4.0"
+highs-sys = "=1.15.0"
 # Raw SCIP 10.0.2 C API (ADR-0105). Default features only: bindgen over the solver
 # image's `SCIPOPTDIR` headers. The `bundled` and `from-source` profiles are refused.
-scip-sys = "0.1.28"
-clarabel = { version = "0.11.1", default-features = false, features = [
+scip-sys = "=0.1.28"
+clarabel = { version = "=0.11.1", default-features = false, features = [
   "serde",
 ] }
 quantity = { version = "=0.14.0", default-features = false }
-sundials-sys = { version = "0.6.2", default-features = false, features = [
+sundials-sys = { version = "=0.6.2", default-features = false, features = [
   "kinsol",
   "klu",
   "build_libraries",
   "static_libraries",
 ] }
-diffsol = { version = "0.16.2", default-features = false, features = ["faer"] }
+diffsol = { version = "=0.16.2", default-features = false, features = ["faer"] }
 # The linear-solver trait Diffsol re-exports only through its time-aware extension; the
 # pse-owned Newton factorizations implement it directly (Plan 22 I9). Diffsol's own version.
-diffsol-la = { version = "0.1.1", default-features = false, features = [
+diffsol-la = { version = "=0.1.1", default-features = false, features = [
   "faer",
 ] }
 pounce-presolve = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3", version = "=0.12.0" }
 pounce-nlp = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3", version = "=0.12.0" }
 pounce-common = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3", version = "=0.12.0" }
-finitediff = "0.2.0"
+finitediff = "=0.2.0"
 pounce-rs = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3", version = "=0.12.0", features = [
   "qp",
   "convex",
@@ -252,25 +253,25 @@ pounce-linsol = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944
 # The sensitivity core's backsolver contract over a FERAL KKT factor (Plan 22 S0, I1).
 pounce-sens-core = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3", version = "=0.12.0" }
 pounce-qp = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3", version = "=0.12.0" }
-egobox-ego = { version = "0.38.1", default-features = false, features = [
+egobox-ego = { version = "=0.38.1", default-features = false, features = [
   "persistent",
 ] }
-egobox-moe = { version = "0.35.3", default-features = false }
-egobox-gp = { version = "0.36.1", default-features = false }
-egobox-doe = { version = "0.35.1", default-features = false }
-argmin = { version = "0.11.0", default-features = false }
-ndarray = "0.16.1"
+egobox-moe = { version = "=0.35.5", default-features = false }
+egobox-gp = { version = "=0.36.4", default-features = false }
+egobox-doe = { version = "=0.35.1", default-features = false }
+argmin = { version = "=0.11.0", default-features = false }
+ndarray = "=0.16.1"
 # Direct FERAL for conditioning and certified inertia (Plan 22 N4); the version pounce-feral resolves.
 feral = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037069e521222ada9f22d457e3", version = "=0.18.0" }
 # Quantiles of the fit's confidence intervals (Plan 22 S3, ADR-0118 item 8); default features
 # off: its nalgebra 0.33 and rand would split the pinned graph.
-statrs = { version = "0.18.0", default-features = false }
-rayon = "1.12.0"
+statrs = { version = "=0.18.0", default-features = false }
+rayon = "=1.12.0"
 # Typed dense index spaces at coordinate boundaries (ADR-0115, Plan 22 B6).
-typed-index-collections = "3.5.0"
+typed-index-collections = "=3.5.0"
 # Enum-indexed storage; its MSRV (1.95) is below the workspace's.
-enum-map = "3.1.0"
-suitesparse_sys = { version = "0.1.4", default-features = false, features = [
+enum-map = "=3.1.0"
+suitesparse_sys = { version = "=0.1.4", default-features = false, features = [
   "static_libraries",
   "klu",
   "amd",
@@ -282,18 +283,18 @@ salsa = { version = "=0.28.4", default-features = false, features = [
   "inventory",
   "salsa_unstable",
 ] }
-rustworkx-core = "0.18.1"
-petgraph = { version = "0.8.3", default-features = false, features = [
+rustworkx-core = "=0.18.1"
+petgraph = { version = "=0.8.3", default-features = false, features = [
   "stable_graph",
   "graphmap",
 ] }
 # pse-ids is the only crate allowed to depend on blake3 (tests/governance/blake3_owner).
-# A caret: the identity digests are frozen by crates/pse-ids/tests/golden_vectors.rs, which
-# would name a release that changed them (ADR-0159).
-blake3 = { version = "1.8.7", features = ["rayon"] }
+# The identity digests are frozen by crates/pse-ids/tests/golden_vectors.rs, which would
+# name a release that changed them.
+blake3 = { version = "=1.8.7", features = ["rayon"] }
 # `explicit`-policy entity IDs, minted by `pse authoring assign-ids` only; P1 never
 # mints one (blueprint §5.1).
-uuid = { version = "1.26.1", features = ["v7"] }
+uuid = { version = "=1.27.0", features = ["v7"] }
 
 
 # ---- optional providers enter here WITH their consumer crate (blueprint §9.8, §13.6,
@@ -301,29 +302,29 @@ uuid = { version = "1.26.1", features = ["v7"] }
 # egglog =3.0.0. Nothing holds them back but a consumer (blueprint §3.3.2, ADR-0066).
 
 # ---- dev and tooling (declared here, as for runtime dependencies) ----
-proptest = "1.11.0"
-insta = "1.48.0"
-criterion = { version = "0.8.2", default-features = false, features = [
+proptest = "=1.11.0"
+insta = "=1.49.0"
+criterion = { version = "=0.8.2", default-features = false, features = [
   "csv_output",
 ] }
-tempfile = "3.27.0"
-tracing-subscriber = "0.3.23"
-cargo_metadata = "0.23.1"
-clap = { version = "4.6.6", features = ["derive"] }
-regex = "1.13.1"
-ignore = "0.4.33"
+tempfile = "=3.27.0"
+tracing-subscriber = "=0.3.23"
+cargo_metadata = "=0.23.1"
+clap = { version = "=4.6.7", features = ["derive"] }
+regex = "=1.13.1"
+ignore = "=0.4.33"
 bindgen = "=0.73.2"
-pkg-config = "0.3.34"
-cc = "1.4.6"
-semver = "1.0.28"
+pkg-config = "=0.3.34"
+cc = "=1.6.0"
+semver = "=1.0.28"
 # xtask writes python/pse/contracts/GENERATED.sha256 with it; semantic identity is
 # blake3 in pse-ids and never this (blueprint §5.3, ADR-0051).
-sha2 = "0.11.0"
+sha2 = "=0.11.0"
 # dev-dependency of pse-tests-lifecycle: the fault-injecting ObjectStore wrapper
 # implements an async trait (blueprint §24.1 "Lifecycle").
-futures-util = "0.3.34"
-async-trait = "0.1.92"
-anyhow = "1.0.104"
+futures-util = "=0.3.34"
+async-trait = "=0.1.92"
+anyhow = "=1.0.104"
 
 [workspace.lints.rust]
 # Allowed per crate, with a reason, only in [workspace.metadata.pse].unsafe-allowlist.
@@ -540,10 +541,9 @@ pyo3 = { version = "0.29", match = "minor", crates = [
   "pyo3-introspection",
 ] }
 
-# Exact requirements and git revisions outside the families above, each with the reason it
-# is held (ADR-0159). `dependency_pins` refuses any other exact `=` or git revision; a
-# dependency with no entry here is a caret and Cargo.lock holds its version. Remove the
-# entry when the reason lapses.
+# Holds: pinned dependencies outside the families above that must not be bumped casually,
+# each with its reason (ADR-0165). Every dependency is exact anyway; one with no entry here
+# may be bumped when the work calls for it. Remove the entry when the reason lapses.
 [workspace.metadata.pse.pins]
 pounce-presolve = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"
 pounce-nlp = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"

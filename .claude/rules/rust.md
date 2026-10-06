@@ -14,11 +14,11 @@ paths:
 No third-party crate is refused and no licence is grounds to refuse one through phases
 0–1. `deny.toml` bans nothing, `cargo deny` reports without gating, and blueprint §3.1 is
 about version authority, not admission. Adding a dependency needs no ADR and no design
-review — declare it in `[workspace.dependencies]` with a caret (the `cargo add` default),
-inherit it with `.workspace = true`, commit `Cargo.lock`.
-Versions float under the lock; `just upgrade` moves them to the latest compatible versions.
-An exact `=`, an upper cap or a git revision needs an exact family membership or a reason in
-`[workspace.metadata.pse.pins]` (`dependency_pins`, ADR-0159). Read
+review — declare it in `[workspace.dependencies]` pinned exactly (`cargo add name@=x.y.z`),
+inherit it with `.workspace = true`, commit `Cargo.lock`. Bump a pin when the work calls for
+it, then `just upgrade <crate>`; never a bare `cargo update` unless asked. A hold (a pin not
+to bump casually) has a reason in `[workspace.metadata.pse.pins]` (`dependency_pins`,
+ADR-0165). Read
 [`docs/dev/dependency-policy.md`](../../docs/dev/dependency-policy.md) before assuming
 something is off-limits; it also says what *is* still enforced, starting with the next
 section.

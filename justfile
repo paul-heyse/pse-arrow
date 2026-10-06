@@ -1011,42 +1011,37 @@ labels-sync:
 gh-setup *args:
     ./scripts/gh-setup.sh {{ args }}
 
-# Move the lockfiles to the latest versions the manifests allow, at the agent's discretion;
-# then run the tests the move affects (ADR-0159). Upgrade-specific checks join this recipe:
-# the cargo-hakari workspace-hack is regenerated from the moved graph (as `just codegen`
-# does) and `just family-check` must pass, so a split family fails here rather than as a
-# misleading `downcast_ref` miss in the next test. No argument moves uv.lock and Cargo.lock;
-# package names move only those packages, in whichever lockfile holds them (`name@version`
-# selects one of several resolved majors, as `cargo update -p` suggests). Carets never cross
-# a major: crossing one is an explicit requirement bump in the manifest. A family moves as
-# a unit, and an exact pin moves only by editing its manifest entry.
+# Move named packages after a deliberate version change (ADR-0165). Declared dependencies
+# are exact, so bump one by editing its pin (`cargo add name@=x.y.z`, `uv add 'name==x.y.z'`)
+# and pass its name here; an undeclared (transitive) package moves by name alone
+# (`name@version` selects one of several resolved majors, as `cargo update -p` suggests).
+# There is no whole-lock form: a wholesale re-resolve is an operator request. Upgrade-specific
+# checks join this recipe: the cargo-hakari workspace-hack is regenerated from the moved
+# graph (as `just codegen` does) and `just family-check` must pass, so a split family fails
+# here rather than as a misleading `downcast_ref` miss in the next test. A family moves as a
+# unit. Then run the tests the move affects.
 [group('mutating')]
-[doc('Move lockfiles to the latest compatible versions, regenerate hakari, check families: just upgrade [package ...]')]
-upgrade *packages:
+[doc('Move named packages after a pin edit, regenerate hakari, check families: just upgrade package ...')]
+upgrade +packages:
     #!/usr/bin/env bash
     set -euo pipefail
     before="$(mktemp -d)"
     trap 'rm -rf "$before"' EXIT
     cp Cargo.lock uv.lock "$before/"
-    if [ -z "{{ packages }}" ]; then
-        uv lock --upgrade
-        cargo update
-    else
-        for p in {{ packages }}; do
-            name="${p%%@*}"
-            moved=0
-            if grep -qiE "^name = \"${name//[-_]/[-_]}\"$" uv.lock; then
-                uv lock --upgrade-package "$name"; moved=1
-            fi
-            if grep -qE "^name = \"$name\"$" Cargo.lock; then
-                cargo update -p "$p"; moved=1
-            fi
-            if [ "$moved" = 0 ]; then
-                echo "upgrade: $name is in neither uv.lock nor Cargo.lock" >&2
-                exit 1
-            fi
-        done
-    fi
+    for p in {{ packages }}; do
+        name="${p%%@*}"
+        moved=0
+        if grep -qiE "^name = \"${name//[-_]/[-_]}\"$" uv.lock; then
+            uv lock --upgrade-package "$name"; moved=1
+        fi
+        if grep -qE "^name = \"$name\"$" Cargo.lock; then
+            cargo update -p "$p"; moved=1
+        fi
+        if [ "$moved" = 0 ]; then
+            echo "upgrade: $name is in neither uv.lock nor Cargo.lock" >&2
+            exit 1
+        fi
+    done
     cargo hakari generate
     cargo hakari manage-deps --yes
     python3 - "$before" <<'PY'

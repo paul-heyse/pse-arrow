@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 129
+revision: 131
 date: 2026-10-06
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 131 | 2026-10-06 | ADR-0165 supersedes ADR-0159: every declared dependency is pinned exactly (Rust `=`, Python `==`, git by full `rev`) and the lockfiles hold the rest; changing a version is agent judgment with no ADR; `[workspace.metadata.pse.pins]` lists holds. Amends §3.1 (authority, `dependency_pins`) and §3.3.2 (admission specifier, locked resolution). | Operator decision 2026-10-06; `PSE_DESIGN_EDIT=1`. |
 | 129 | 2026-10-06 | ADR-0164 A/B contracts: selected canonical sources, chunked leased activation, protected retention and publication identity, strict compiler-receipt replay authority, actual Cargo producer capture and compact formal layouts. C/D/E remain separately owned target migration; no production eligibility or measured speed claim. | Maintainer-authorized Plan 28a/28b execution; proposed decision status unchanged; `PSE_DESIGN_EDIT=1`. |
 | 128 | 2026-10-05 | ADR-0164 records the maintainer-authorized unified SurrealDB target: canonical revisions, selected admission and portable products, relevant producer identity, durable outcomes, protected retention and native/Arrow boundaries. Existing implementation descriptions remain predecessor evidence during Plan 28 migration; no measured gain or assembled qualification claimed. | Proposed decision under implementation authorization; `PSE_DESIGN_EDIT=1`. |
 | 126 | 2026-10-05 | ADR-0162: §24.4 adopts Core 3.4 / ProcessSimulator 1.5 execution fit as AP-07 through existing G9, with composed physical work, reuse, assurance and recovery criteria. Existing scientific gates, PS-09 solver ownership and bounded discretionary review cadence remain. | Maintainer-authorized principles adoption; Implemented policy, no product qualification or measured performance claim; `PSE_DESIGN_EDIT=1`. |

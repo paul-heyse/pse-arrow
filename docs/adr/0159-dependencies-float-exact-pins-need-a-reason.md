@@ -1,7 +1,7 @@
 ---
 id: ADR-0159
 title: Dependencies float; exact pins need a recorded reason
-status: accepted
+status: superseded
 date: 2026-10-04
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§3.1, §3.3.2]
 review: docs/design_review/reviews/design_review_dependency-float-policy_2026-10-04.md#9-decision
 evidence: Implemented
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0165
 revisit: A version that floated under a caret or `>=` floor breaks a build, a test or an identity contract (the dependency then gets a recorded pin); a `==` pin or Python cap is added without a reason, which would end the instruction-only route for Python reasons; or the first crate flips to `publish = true`, or the first PyPI release (register row R-31).
 verification: Governance test `dependency_pins` (a requirement that bounds a version from above — `=`, `<`, `<=`, `~`, a wildcard — or a git revision is a declared family member or has a `[workspace.metadata.pse.pins]` reason; family members are exact at the family version; stale reasons fail; its unit cases cover a caret, a floor, unlisted exact, capped, tilde, wildcard and git pins, listed pins, exact and caret family members); `just family-check`; `just upgrade` regenerates the workspace-hack and runs `family-check`; `cargo metadata --locked` and `uv lock --check` on the converted manifests with no resolved version moved.
 standard: core-3.3 / process-simulator-1.4
@@ -150,3 +150,4 @@ qualifies behaviour at the resolved version.
 - 2026-10-04 — accepted on the governance-tier design review
   (`design_review_dependency-float-policy_2026-10-04.md`, verdict Accept-scoped); findings
   F01–F07 resolved in commit `b8ddd5412`.
+- 2026-10-06 — superseded by ADR-0165.

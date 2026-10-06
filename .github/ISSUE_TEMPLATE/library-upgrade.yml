@@ -8,19 +8,19 @@ body:
   - type: markdown
     attributes:
       value: >-
-        Dependencies float under carets and `>=` floors; the committed lockfiles record
-        what resolved, and `just upgrade` moves them to the latest compatible versions. A
+        Every declared dependency is pinned exactly and the committed lockfiles hold the
+        rest; a version moves when someone edits its pin on purpose. A
         *family* (arrow, datafusion, pyo3, object_store) is pinned with `=` once in
         `[workspace.dependencies]` and moves as a unit — a partial move is a bug, and
         `cargo tree -d` cannot detect it, which is why `cargo xtask family-check` exists.
-        Other exact pins carry a recorded reason (ADR-0159).
+        Holds (pins not to bump casually) carry a recorded reason (ADR-0165).
 
 
-        Routine lock moves (`just upgrade`, or grouped Dependabot pull requests) and patch
+        Ordinary pin bumps (`just upgrade <package>`, or grouped Dependabot pull requests) and patch
         bumps inside a family do not need this issue. **Adding a new dependency does not
         need it either** — no library and no licence is refused during phases 0-1
         ([dependency policy](https://github.com/paul-heyse/pse-arrow/blob/main/docs/dev/dependency-policy.md)).
-        Use this form for a family major, a major requirement bump, moving a reasoned pin, or a drop — see
+        Use this form for a family major, a major requirement bump, moving a hold, or a drop — see
         [GOVERNANCE.md §5](https://github.com/paul-heyse/pse-arrow/blob/main/GOVERNANCE.md#5-how-the-pins-move).
 
   - type: dropdown

@@ -141,18 +141,17 @@ Say what you verified using the §D vocabulary, and say what you did not.
 - **Generated sources are committed and diffed.** `rust / codegen-diff` runs
   `cargo xtask codegen --check` and fails on any drift, including untracked files. If you
   change a schema, run `just codegen` and commit the result *in the same PR*.
-- **Dependencies float; the lockfiles pin.** Rust dependencies are declared once in
-  `[workspace.dependencies]` with the `cargo add` caret; Python libraries carry `>=`
-  floors. `Cargo.lock` and `uv.lock` are committed and every gate passes `--locked`.
-  `just upgrade` (or `just upgrade <package> …`) moves them to the latest the manifests
-  allow; run the tests the move affects (ADR-0159).
-- **A pin needs a reason.** An exact `=`/`==` requirement, cap or git revision is kept only
-  for a family member or with a reason specific to that dependency, recorded in
+- **Dependencies are pinned exactly.** Rust dependencies are declared once in
+  `[workspace.dependencies]` as `=x.y.z` (`cargo add name@=x.y.z`); Python dependencies are
+  `==x.y.z`. `Cargo.lock` and `uv.lock` are committed and every gate passes `--locked`. Bump
+  a pin when the work calls for it, run `just upgrade <package> …` and the tests the move
+  affects; no wholesale re-resolve unless the operator asks (ADR-0165).
+- **A hold needs a reason.** A pin that must not be bumped casually carries its reason in
   `[workspace.metadata.pse.pins]` (Rust) or beside the pin in `pyproject.toml` (Python);
   `dependency_pins` checks the Rust side. A family **major** (arrow, datafusion, pyo3,
   object_store) needs an ADR, a regenerated capability map, and a green `family-check`.
 - **Adding a dependency needs none of that.** No library is refused and no licence is
-  grounds to refuse one through phases 0–1: add it with the default specifier, commit the
+  grounds to refuse one through phases 0–1: add it pinned exactly, commit the
   lockfile, and carry on. See [dependency policy](docs/dev/dependency-policy.md) for what
   *is* still enforced and why.
 - `cargo tree -d` cannot detect a *mixed* family — `cargo xtask family-check` is the

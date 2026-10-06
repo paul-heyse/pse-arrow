@@ -63,13 +63,13 @@ Do not restate these; cite them.
   Only decisions whose rationale explains the current system are retained (ADR-0096).
 - **`docs/adr/register.md`** — every deferred decision with its trigger, check and next
   review date. `just register-check` runs the ones that are due.
-- **`Cargo.toml` header comment** — dependencies float as carets under `Cargo.lock`; why
-  the arrow/datafusion/object_store/pyo3 family pins are what they are, why `=` pins alone
-  are not sufficient, and `[workspace.metadata.pse.pins]`, the reason for every other exact
-  pin (ADR-0159).
-- **`pyproject.toml`** — libraries and tools carry `>=` floors and run at whatever
-  `uv.lock` resolved, never installed ad hoc; the parity group and test oracles are `==`
-  pins, each with its reason beside it. No release of `uv` itself is
+- **`Cargo.toml` header comment** — every dependency is pinned exactly, Cargo.lock holds the
+  rest; why the arrow/datafusion/object_store/pyo3 family pins are what they are, why `=`
+  pins alone are not sufficient, and `[workspace.metadata.pse.pins]`, the holds with their
+  reasons (ADR-0165).
+- **`pyproject.toml`** — libraries and tools are `==` pins and run at what `uv.lock`
+  resolved, never installed ad hoc; the parity group and test oracles are holds, each with
+  its reason beside it. No release of `uv` itself is
   required.
 - **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
   `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.

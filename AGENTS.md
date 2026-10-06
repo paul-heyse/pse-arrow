@@ -199,8 +199,8 @@ pin reasons are declared in Cargo.toml and pyproject.toml; the layered review st
 - **`typing.Any` is banned in Python.** `from __future__ import annotations` is allowed:
   `pse.governance` and the codec resolve postponed annotations before inspecting them.
 - **No library or licence is refused** through phases 0–1. Admission is advisory; the one
-  type universe, locked resolution, reasoned pins and the import boundaries are not
-  (§3.3.2, ADR-0066, ADR-0159).
+  type universe, locked resolution, exact pins and the import boundaries are not
+  (§3.3.2, ADR-0066, ADR-0165).
 - **Exactly one of `unit`/`component`/`integration`/`performance`** per Python test;
   `conftest.py` hard-fails at collection otherwise.
 - **The parity suite fails, it never skips.** A missing solver or a wrong IDAES version
@@ -208,23 +208,20 @@ pin reasons are declared in Cargo.toml and pyproject.toml; the layered review st
 
 ## Dependencies
 
-- **Add freely.** Add any library the work warrants without asking: no ADR and no pin
-  entry. Use the tool's default specifier — `uv add` (a `>=` floor), and for Rust the
-  `cargo add` caret, declared in `[workspace.dependencies]` and inherited with
-  `.workspace = true`.
-- **Latest compatible by default.** The resolver picks versions; the committed lockfiles
-  record them and the `--locked` gates keep runs reproducible. Move to the latest compatible
-  versions at your discretion with `just upgrade` (or `just upgrade <package> …`), which also
-  regenerates the workspace-hack and runs `just family-check`; then run the tests the move
-  affects. Crossing a major is an explicit requirement bump in the manifest. A family moves
-  as a unit; a family major needs an ADR.
-- **Pin only for a reason.** An exact version, upper cap, git rev or hold-back needs an overt
-  reason specific to that dependency, from the one list of acceptable reasons in
-  [the dependency policy](docs/dev/dependency-policy.md#pin-reasons), recorded beside it: a
-  `[workspace.metadata.pse.pins]` entry in `Cargo.toml` (family members are covered by
-  `[workspace.metadata.pse.families]` and must be exact at the family version), or a comment
-  beside the `==` pin in `pyproject.toml`. The `dependency_pins` governance test checks the
-  Rust side; Python reasons are instruction-only (ADR-0159).
+- **Pinned.** Every declared dependency is pinned exactly: `==x.y.z` (`[tool.uv] add-bounds =
+  "exact"` makes `uv add` write it) / `=x.y.z` in `[workspace.dependencies]`
+  (`cargo add name@=x.y.z`), inherited with `.workspace = true`; a git dependency by its full
+  `rev`. The committed lockfiles hold everything beneath, so environments change only when
+  someone changes them on purpose. `dependency_pins` checks the Rust side (ADR-0165).
+- **Change versions deliberately, on judgment.** Add or bump a dependency when the work calls
+  for it, with no ADR or approval: edit that pin (or its family), run `just upgrade <package> …`
+  (moves it, regenerates the workspace-hack, runs `just family-check`), check the lock diff
+  moved only what you meant, run the tests it affects and name the move in the commit. No
+  wholesale re-resolve (`uv lock --upgrade`, bare `cargo update`) unless the operator asks. A
+  family moves as a unit; a family major needs an ADR.
+- **Holds go in `[workspace.metadata.pse.pins]`** (Python: a comment beside the pin). A version
+  that must not be bumped casually (a parity oracle, committed generated output, a known
+  breakage) gets an entry with its reason ([the dependency policy](docs/dev/dependency-policy.md#pin-reasons)).
 
 ## Gotchas that have already cost time here
 

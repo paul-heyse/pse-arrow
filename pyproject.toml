@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The one Python project of pse-arrow (import name `pse`; blueprint §21). Dependencies
-# float (blueprint §3.1, ADR-0159): libraries carry `>=` floors (the `uv add` default),
-# uv.lock records what resolved, and `just upgrade` moves it. An `==` pin needs a reason
-# specific to that dependency, written beside it here. No package and no licence is
-# refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
+# The one Python project of pse-arrow (import name `pse`; blueprint §21). Every declared
+# dependency is pinned exactly (blueprint §3.1, ADR-0165; `add-bounds = "exact"` makes
+# `uv add` write `==`), and uv.lock holds everything beneath. Changing a version is agent
+# judgment; a hold (a pin not to bump casually) carries its reason beside it here. No
+# package and no licence is refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
 # docs/dev/dependency-policy.md). Two interpreter ranges: the platform package targets
 # CPython >= 3.11; the parity environment (idaes-pse 2.13.0) is 3.11-3.14, expressed as a
 # dependency group with a marker rather than a second project, so one uv.lock covers both.
@@ -46,20 +46,19 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Mathematics",
   "Typing :: Typed",
 ]
-# Floors at the locked versions (ADR-0159); uv.lock holds the resolved ones. Adding a
-# dependency here needs no ADR and no pin.
+# Exact (ADR-0165); uv.lock holds the rest. Adding a dependency here needs no ADR.
 dependencies = [
-  "pyarrow>=25.0.1",
-  "attrs>=26.1.0",
-  "cattrs>=26.2.0",
-  "msgspec>=0.21.1",
+  "pyarrow==25.0.1",
+  "attrs==26.1.0",
+  "cattrs==26.2.0",
+  "msgspec==0.21.1",
 ]
 
 [project.optional-dependencies]
 # NumPy is used only by the explicit array boundary, not mathematical execution.
 array = [
-  "numpy>=2.5.3; python_full_version >= '3.12'",
-  "numpy>=2.4.6; python_full_version < '3.12'",
+  "numpy==2.5.3; python_full_version >= '3.12'",
+  "numpy==2.4.6; python_full_version < '3.12'",
 ]
 
 [project.urls]
@@ -68,8 +67,8 @@ Documentation = "https://paul-heyse.github.io/pse-arrow/"
 Repository = "https://github.com/paul-heyse/pse-arrow"
 Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 
-# PEP 735. Tools carry floors like the libraries; `just upgrade` moves the lock. The `==`
-# pins below are oracles, each with its reason.
+# PEP 735. Tools are pinned exactly like the libraries. The oracles below are holds, each
+# with its reason.
 [dependency-groups]
 # Independent frozen thermodynamic references; never a production dependency. Pinned: a
 # reference oracle must not move under the comparisons that cite it.
@@ -77,24 +76,23 @@ thermo-reference = [
   { include-group = "test" },
   "teqp==0.23.1; python_version == '3.12'",
 ]
-# Tools that only execute (formatters, linters, type checkers, test runners) carry
-# floors: uv.lock records what resolved, `just upgrade` moves them, and nothing in CI or
-# `just doctor` asserts a particular release.
+# Tools that only execute (formatters, linters, type checkers, test runners): exact pins
+# with no hold; bump one when the work calls for it.
 quality = [
-  "ruff>=0.16.7",
-  "pyrefly>=1.3.0",
-  "import-linter>=2.15",
-  "reuse>=6.2.0",
-  "taplo>=0.9.3",
-  "typos>=1.50.1",
-  "pre-commit>=4.6.2",
-  "maturin>=1.15.0",
+  "ruff==0.16.7",
+  "pyrefly==1.3.1",
+  "import-linter==2.15",
+  "reuse==6.2.0",
+  "taplo==0.9.3",
+  "typos==1.50.2",
+  "pre-commit==4.6.2",
+  "maturin==1.15.0",
 ]
 test = [
-  "pytest>=9.1.1",
-  "pytest-cov>=7.1.0",
-  "pytest-xdist>=3.8.0",
-  "unittest-xml-reporting>=4.0.0",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "pytest-xdist==3.8.0",
+  "unittest-xml-reporting==4.0.0",
   # Test-time oracles only (blueprint §24.1); import-linter keeps them out of pse proper.
   # Pinned: the oracle values the tests compare against are qualified at these releases.
   # One universal uv.lock resolves groups and extras together, so this numpy pin also fixes
@@ -129,6 +127,8 @@ dev = [
 
 [tool.uv]
 package = true
+# `uv add` writes an exact `==` pin (ADR-0165).
+add-bounds = "exact"
 python-preference = "managed"
 default-groups = ["dev"]
 # Rebuild the extension when Rust inputs change (uv's defaults watch only pyproject/src).

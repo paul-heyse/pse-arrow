@@ -177,12 +177,12 @@ A parity run can be requested to review the pinned interpreters. The pin is neve
 in the same PR as a behavioural change on our side.
 
 **Adding or upgrading a dependency.** Nothing. No library is refused and no licence is
-grounds to refuse one through phases 0–1: add it with the default specifier (a caret, or a
-`>=` floor in Python), commit the lockfile. No ADR, no design review, no blueprint row.
-Versions float under the committed lockfiles; `just upgrade` moves them to the latest at the
-contributor's discretion. An exact pin, cap or git revision needs a reason specific to that
-dependency, recorded beside it (`[workspace.metadata.pse.pins]` in `Cargo.toml`, a comment
-in `pyproject.toml`; ADR-0159). See [dependency policy](docs/dev/dependency-policy.md) and
+grounds to refuse one through phases 0–1: add or bump it pinned exactly (`=x.y.z` in Rust,
+`==x.y.z` in Python), commit the lockfile. No ADR, no design review, no blueprint row. Every
+declared dependency is exact and the lockfiles hold the rest; changing a version is the
+contributor's judgment, never a wholesale re-resolve unless the operator asks. A hold (a pin
+not to bump casually) carries its reason (`[workspace.metadata.pse.pins]` in `Cargo.toml`, a
+comment in `pyproject.toml`; ADR-0165). See [dependency policy](docs/dev/dependency-policy.md) and
 ADR-0066 for the reasoning, what is still enforced, and register row R-31 — the dated
 obligation to answer the licensing question before anything is published.
 
@@ -207,7 +207,7 @@ pinned family needs none of them:
 
 Dependabot proposes these as grouped PRs (`arrow-family`, `datafusion-family`,
 `pyo3-family`, `codegen`, `numerics`) so the unit is preserved; a PR that moves part of a
-group is closed, not merged. Python dependencies move with `just upgrade [package]`;
+group is closed, not merged. Python dependencies move by editing the pin, then `just upgrade <package>`;
 `idaes-pse` is explicitly ignored by Dependabot because it is the parity pin.
 
 **The Rust toolchain and MSRV.** `rust-toolchain.toml` pins one dated nightly, the only

@@ -35,32 +35,33 @@ numerical algorithms, relational execution and storage.
 > supply-chain checks stand. The dependency ceilings do not follow the
 > feature-only edge to `pse-workspace-hack`. Implemented.
 >
-> Decision: [ADR-0159](../../adr/0159-dependencies-float-exact-pins-need-a-reason.md),
-> amending ADR-0122's exact-pin clause (its Outcome item 6), amends the authority rule below:
-> dependencies float under the committed lockfiles, and an exact pin, cap or git revision
-> needs a family membership or a recorded reason. ADR-0122 still owns the toolchain,
-> feature-unification, lockfile and supply-chain decisions above. Implemented.
+> Decision: [ADR-0165](../../adr/0165-declared-dependencies-pinned-exactly.md), superseding
+> ADR-0159, amends the authority rule below: every declared dependency is pinned exactly and
+> the committed lockfiles hold everything beneath; changing a version is agent judgment.
+> ADR-0122 still owns the toolchain, feature-unification, lockfile and supply-chain
+> decisions above. Implemented.
 
 **Authority.** Every third-party Rust dependency is declared once, in
 `[workspace.dependencies]` of the root `Cargo.toml`. Members inherit it with
-`.workspace = true`. Requirements are carets (the `cargo add` default); runtime Python
-libraries and tools carry `>=` floors in `pyproject.toml`. `Cargo.lock` and `uv.lock` are
-committed and record what resolved, and every recipe runs `--locked`, so a run never
-resolves anew; `just upgrade` moves the lockfiles to the latest the manifests allow. An
-exact `=` or `==` version, an upper cap or a git revision is allowed only with a reason
-specific to that dependency, from the [dependency policy's list](../../dev/dependency-policy.md#pin-reasons):
-membership of a family (below), or an entry in `[workspace.metadata.pse.pins]` (for Python,
-an instruction-only comment beside the pin). Reproducibility is not such a reason, because
-the lockfiles provide it. A caret never crosses a major; crossing one is an explicit
-requirement bump. `rust-toolchain.toml` pins one dated
+`.workspace = true`. Every registry requirement is exact (`=x.y.z`, `cargo add
+name@=x.y.z`); a git dependency is pinned by its full `rev`; every declared Python
+dependency is `==x.y.z` in `pyproject.toml` (`[tool.uv] add-bounds = "exact"`). `Cargo.lock`
+and `uv.lock` are committed and hold everything beneath, and every recipe runs `--locked`,
+so a run never resolves anew and an environment changes only when someone changes it on
+purpose. Changing a version is agent judgment with no ADR: edit that pin (or its family),
+run `just upgrade <package>`, check the lock diff and run the affected tests. No wholesale
+re-resolve happens unless the operator asks. A version that must not be bumped casually is
+a hold, with its reason in `[workspace.metadata.pse.pins]` (for Python, an
+instruction-only comment beside the pin; [dependency policy](../../dev/dependency-policy.md#pin-reasons)).
+`rust-toolchain.toml` pins one dated
 nightly, and `rust-version` is the stable language floor at or below it
 ([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md); governance test
 `toolchain_matches_msrv`). No build runs on stable Rust: the pin moves to a recent nightly
 when the project needs one, and a breakage is fixed when it appears (maintainer decision,
 2026-09-29; build-review F07). The manifests contain no `[patch]` or `[replace]` tables.
-The `dependency_pins` governance test checks that each upper-bounding declaration or git
-revision is a family member or has a recorded reason, and that family members are exact at
-the family version. No prose table in this collection is a second pin authority. Read a
+The `dependency_pins` governance test checks that every registry declaration is exact, that
+a git source names a full commit, that family members are exact at the family version, and
+that every hold has a reason and names a declared, pinned dependency. No prose table in this collection is a second pin authority. Read a
 version from the lockfile (`Cargo.lock`, `uv.lock`), and read the
 [capability maps](../../capability-maps/README.md) for what their extraction version exposes.
 
@@ -310,21 +311,21 @@ workstation, not language limits ([§23](operations-and-validation.md#section-23
 #### 3.3.2 Dependency admission and licence policy
 
 > Decision: [ADR-0066](../../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)
-> (admission); [ADR-0159](../../adr/0159-dependencies-float-exact-pins-need-a-reason.md)
-> (versions float, pins need a reason)
+> (admission); [ADR-0165](../../adr/0165-declared-dependencies-pinned-exactly.md)
+> (declared dependencies are pinned exactly)
 
 No third-party library is refused, and no licence is grounds to refuse one. Adding a
 crate or Python package needs no ADR, no design review and no documentation row. Declare
-it in the owning manifest with the tool's default specifier (a caret, or a `>=` floor),
-commit the lockfile, and keep `just family-check` clean. Substitution is a later,
+it in the owning manifest pinned exactly (`=x.y.z`, or `==x.y.z` in Python), commit the
+lockfile, and keep `just family-check` clean. Substitution is a later,
 evidence-backed decision. Do not design around it now.
 
 Admission is relaxed. These rules are not:
 
 - **One type universe.** See [§3.1](#section-3-1).
-- **Locked resolution and reasoned pins.** Every dependency resolves through the committed
-  lockfiles under `--locked`. An exact pin, cap or git revision carries a family membership
-  or a recorded reason ([§3.1](#section-3-1)).
+- **Locked resolution and exact pins.** Every dependency resolves through the committed
+  lockfiles under `--locked`, and every declared dependency is pinned exactly; a hold
+  carries a recorded reason ([§3.1](#section-3-1)).
 - **Semantic boundaries.** A library placed under [§3.3](#section-3-3) or
   [§3.3.1](#section-3-3-1) does not define units, identity, schemas or canonical encoding.
 - **Declared provenance.** A library that affects meaning or output enters artifact
