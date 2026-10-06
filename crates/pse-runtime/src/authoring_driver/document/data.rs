@@ -23,6 +23,47 @@ use std::collections::HashMap;
 /// The field metadata key under which a document may state a column's unit.
 pub const UNIT_METADATA: &str = "unit";
 
+/// Decode one immutable selected data document through the same Arrow admission
+/// path as authored ingress, charging construction before metadata/page decoding.
+/// The returned lease must accompany the document until another admitted owner
+/// has reserved its retained extent.
+/// # Errors
+/// Original Parquet/type/budget refusal, allocation refusal or cancellation.
+pub fn decode_selected_data(
+    id: SemanticId,
+    path: String,
+    bytes: bytes::Bytes,
+    budget: pse_authoring::ParseBudget,
+    pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<
+    (
+        std::sync::Arc<pse_modeling::document::DataDocument>,
+        std::sync::Arc<pse_columnar::AllocationLease>,
+    ),
+    DriverError,
+> {
+    let mut allocation = Allocation::new(pool, cancel);
+    allocation.grow(
+        bytes
+            .len()
+            .saturating_add(path.capacity())
+            .saturating_add(512),
+    )?;
+    let rows = decode(&path, &bytes, budget, Some(&mut allocation))?;
+    let mut document = std::sync::Arc::new(pse_modeling::document::DataDocument {
+        allocation_owner: None,
+        id,
+        path,
+        content_hash: pse_ids::preimage::hash(&bytes),
+        rows,
+    });
+    allocation.retain(0, document.retained_bytes().saturating_add(256))?;
+    let lease = allocation.finish();
+    std::sync::Arc::make_mut(&mut document).attach_owner(lease.clone());
+    Ok((document, lease))
+}
+
 /// Decode the Parquet bytes of the data document at `path`.
 ///
 /// # Errors

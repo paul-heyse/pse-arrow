@@ -4596,6 +4596,7 @@ impl MathService {
                         ProblemError::Limit { .. } => Withheld::Memory,
                         ProblemError::Math(
                             pse_math::MathError::Limit(_)
+                            | pse_math::MathError::ByteLimit { .. }
                             | pse_math::MathError::SlotLimit { .. }
                             | pse_math::MathError::WorkLimit { .. },
                         ) => Withheld::Memory,

@@ -38,6 +38,7 @@ pub mod s6_1_identity;
 pub mod s6_2_physical;
 pub mod s7_operators;
 pub mod solve_settings;
+pub mod substrate;
 
 use crate::builder::{Registry, RegistryBuilder};
 use crate::error::SchemaError;
@@ -101,6 +102,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     modeling_native_analysis::register(builder);
     publication::declare(builder);
     operations::declare(builder);
+    substrate::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);
     normalization::declare(builder);

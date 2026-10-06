@@ -58,7 +58,7 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    let package = runtime.modeling_package(rows, physical)?;
+    let package = runtime.modeling_package(rows, physical).await?;
     let analysis = package
         .declared_execution(
             root,

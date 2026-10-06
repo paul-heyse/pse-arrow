@@ -18,6 +18,7 @@ import pytest
 
 import pse
 from pse.contracts.documents import ResourceReport
+from pse.contracts.extension_types import PseSemanticId
 from pse.contracts.values import SemanticId
 from pse.tests.test_native_registry import PublicationIndex, publication_index
 
@@ -55,10 +56,18 @@ def test_publication_streams_values_schema_empty_and_final_array_lease(
         (name.catalog, name.schema, name.table) for name in publication.tables()
     } == set(index.tables)
     with (
-        publication.table("workspace", "authored", "packages") as empty,
+        publication.table("workspace", "reference", "schema_migrations") as empty,
         pa.RecordBatchReader.from_stream(empty) as reader,
     ):
-        assert "package_id" in reader.schema.names
+        assert [
+            (field.name, field.type, field.nullable) for field in reader.schema
+        ] == [
+            ("relation_id", PseSemanticId(), False),
+            ("from_version", pa.int64(), False),
+            ("to_version", pa.int64(), False),
+            ("plan_spec", pa.string(), False),
+            ("doc", pa.string(), False),
+        ]
         assert list(reader) == []
     stream = publication.table("workspace", "reference", "schema_relations")
     with pytest.raises(pse.InspectionError, match="casts are unsupported"):
@@ -253,7 +262,7 @@ assert all(row.pinned_bytes in (None, 0) for row in publication.cache_usage())
 
 @pytest.mark.component
 def test_inspection_annotations_evaluate_on_the_running_interpreter(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
     for target in (
         pse.FieldTransfer,
@@ -269,7 +278,9 @@ def test_inspection_annotations_evaluate_on_the_running_interpreter(
     assert annotations["pool_reserved_now"] is int
     assert annotations["pool_peak_bytes"] is int
     assert annotations["limit_bytes"] is int
-    usage = pse.Runtime(inspection_settings).resource_usage()
+    usage = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate
+    ).resource_usage()
     assert isinstance(usage, ResourceReport)
     assert 0 <= usage.pool_reserved_now <= usage.pool_peak_bytes <= usage.limit_bytes
 

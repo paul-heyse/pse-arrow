@@ -104,6 +104,26 @@ pub struct Problem {
     pattern: SymbolicSparseColMat<usize>,
     symbolic: SymbolicLu<usize>,
 }
+fn selected_inputs(
+    worker: &Worker,
+    unknowns: &[f64],
+    parameters: &[f64],
+) -> Result<Vec<f64>, MathError> {
+    worker
+        .input_formals()
+        .iter()
+        .map(|formal| {
+            if *formal < unknowns.len() {
+                unknowns.get(*formal)
+            } else {
+                parameters.get(*formal - unknowns.len())
+            }
+            .copied()
+            .ok_or_else(|| MathError::Contract("implicit compiled input signature".into()))
+        })
+        .collect()
+}
+
 impl Problem {
     /// Bind compiled residuals with their library-owned structural Jacobian support.
     pub fn new(
@@ -258,23 +278,20 @@ impl Problem {
                 requirement: "implicit unknown outside its declared interval",
             });
         }
-        let values = unknowns
-            .iter()
-            .chain(parameters)
-            .copied()
-            .collect::<Vec<_>>();
-        let mut evaluation =
-            self.worker
+        let mut worker = self
+            .worker
+            .lock()
+            .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
+        let values = selected_inputs(&worker, unknowns, parameters)?;
+        let mut evaluation = worker.evaluate(
+            &values,
+            order,
+            &mut *self
+                .providers
                 .lock()
-                .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?
-                .evaluate(
-                    &values,
-                    order,
-                    &mut *self.providers.lock().map_err(|_| {
-                        MathError::Library("implicit provider lock poisoned".into())
-                    })?,
-                    cancel,
-                )?;
+                .map_err(|_| MathError::Library("implicit provider lock poisoned".into()))?,
+            cancel,
+        )?;
         for (value, offset) in evaluation.values.iter_mut().zip(&self.residual_offsets) {
             *value -= offset;
         }
@@ -1045,6 +1062,182 @@ mod deadline_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn compact_value_inputs_preserve_unknown_and_parameter_formal_positions() {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let id = SemanticId::from_bytes([96; 16]);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = crate::typed::BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            64,
+            crate::typed::BodyLimits::default(),
+        )
+        .unwrap();
+        let unknown = builder
+            .input(1, quantity, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let parameter = builder
+            .input(47, quantity, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let output = builder
+            .binary(crate::typed::Binary::Sub, unknown, parameter, None, id)
+            .unwrap();
+        let body = builder
+            .prepare(&[output])
+            .unwrap()
+            .compile(
+                &[0],
+                &[],
+                DerivativeOrder::Value,
+                crate::library::Optimization::default(),
+                crate::jets::EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let mut worker = body.worker();
+        assert_eq!(worker.input_formals(), &[1, 47]);
+        let mut parameters = vec![0.0; 62];
+        parameters[45] = 3.0;
+        let values = selected_inputs(&worker, &[91.0, 7.0], &parameters).unwrap();
+        assert_eq!(values, [7.0, 3.0]);
+        assert_eq!(
+            worker
+                .evaluate(
+                    &values,
+                    DerivativeOrder::Value,
+                    &mut BTreeMap::new(),
+                    &cancel
+                )
+                .unwrap()
+                .values,
+            [4.0]
+        );
+        assert!(selected_inputs(&worker, &[91.0, 7.0], &[]).is_err());
+    }
+    #[test]
+    fn compact_hints_and_nominals_use_their_independent_input_signatures() {
+        #[derive(Debug)]
+        struct Resolver {
+            unknown: Unknown,
+        }
+        impl HintResolver for Resolver {
+            fn identity(&self) -> ContentHash {
+                ContentHash::from_bytes([96; 32])
+            }
+            fn retained_bytes(&self) -> usize {
+                128
+            }
+            fn time_limit(&self) -> Duration {
+                Duration::from_secs(10)
+            }
+            fn resolve(
+                &self,
+                values: &[f64],
+                terms: Option<&[f64]>,
+                _: Option<&[f64]>,
+            ) -> Result<(Vec<Unknown>, Options), MathError> {
+                Ok((
+                    vec![self.unknown.clone()],
+                    Options {
+                        start: vec![values[0]],
+                        variable_nominals: vec![terms.map_or(2.0, |terms| terms[0])],
+                        variable_tolerance: vec![1e-9],
+                        residual_tolerance: vec![1e-9],
+                        iterations: 10,
+                        time_limit: self.time_limit(),
+                        derivative_tolerance: 1e-10,
+                    },
+                ))
+            }
+        }
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let id = SemanticId::from_bytes([97; 16]);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = crate::typed::BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            64,
+            crate::typed::BodyLimits::default(),
+        )
+        .unwrap();
+        let unknown = builder
+            .input(0, quantity, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let parameter = builder
+            .input(47, quantity, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let residual = builder
+            .binary(
+                crate::typed::Binary::Sub,
+                unknown.clone(),
+                parameter.clone(),
+                None,
+                id,
+            )
+            .unwrap();
+        let nominal = builder
+            .binary(
+                crate::typed::Binary::Add,
+                unknown,
+                parameter.clone(),
+                None,
+                id,
+            )
+            .unwrap();
+        let source = builder.prepare(&[residual, parameter, nominal]).unwrap();
+        let compile = |outputs: &[usize], axes: &[usize], order| {
+            Arc::new(
+                source
+                    .compile(
+                        outputs,
+                        axes,
+                        order,
+                        crate::library::Optimization::default(),
+                        crate::jets::EvaluationLimits::default(),
+                        &cancel,
+                    )
+                    .unwrap(),
+            )
+        };
+        let unknown = Unknown {
+            id,
+            lower: -10.0,
+            upper: 10.0,
+        };
+        let mut problem = Arc::new(
+            Problem::new(
+                id,
+                ContentHash::from_bytes([97; 32]),
+                vec![unknown.clone()],
+                vec![pse_ids::named_id(id, "equation")],
+                63,
+                compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First),
+                128,
+            )
+            .unwrap(),
+        );
+        let hints = compile(&[1], &[], DerivativeOrder::Value);
+        let terms = compile(&[2], &[], DerivativeOrder::Value);
+        assert_eq!(hints.input_formals(), [47]);
+        assert_eq!(terms.input_formals(), [0, 47]);
+        let mut configuration = ConfigurationWorker::new(
+            Configuration::Hints(Arc::new(Resolver { unknown })),
+            Some(&hints),
+            Some(&terms),
+        );
+        let mut parameters = vec![0.0; 63];
+        parameters[46] = 3.0;
+        let options = configuration
+            .resolve(&mut problem, &parameters, &cancel, None)
+            .unwrap();
+        assert_eq!(options.start, [3.0]);
+        assert_eq!(options.variable_nominals, [5.0]);
+    }
     #[derive(Debug)]
     struct CountedLinear(Arc<std::sync::atomic::AtomicUsize>);
     impl InnerSolver for CountedLinear {

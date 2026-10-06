@@ -1100,6 +1100,7 @@ mod tests {
             .declaration_id;
         let package = rt
             .modeling_package(declarations, super::super::super::tests::physical())
+            .await
             .unwrap();
         let analysis = ModelingAnalysis {
             root,
@@ -1194,7 +1195,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(declarations, physical).unwrap();
+        let package = rt.modeling_package(declarations, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let mut analysis = ModelingAnalysis {
             root,
@@ -1303,7 +1304,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let analysis = ModelingAnalysis {
@@ -1459,7 +1460,7 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let nested = rt.modeling_package(rows, physical).unwrap();
+            let nested = rt.modeling_package(rows, physical).await.unwrap();
             let analysis = ModelingAnalysis {
                 root,
                 instance: pse_modeling::specialize::root_instance(root),

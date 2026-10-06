@@ -735,6 +735,7 @@ fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() 
     assert_eq!(projected.support().controls, BTreeSet::from([1]));
     assert_eq!(projected.remaining_occurrences(), 0);
     assert_eq!(projected.derivative_operations(), 0);
+    assert_eq!(projected.input_formals(), &[1]);
     let mut worker = projected
         .compile(
             Optimization::default(),
@@ -745,7 +746,7 @@ fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() 
         .worker();
     let result = worker
         .evaluate(
-            &[4.0, 3.0],
+            &[3.0],
             DerivativeOrder::Second,
             &mut BTreeMap::new(),
             &cancel,
@@ -756,7 +757,7 @@ fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() 
     assert_eq!(result.hessians, vec![2.0]);
     assert!(matches!(
         worker.evaluate(
-            &[4.0, -3.0],
+            &[-3.0],
             DerivativeOrder::Second,
             &mut BTreeMap::new(),
             &cancel

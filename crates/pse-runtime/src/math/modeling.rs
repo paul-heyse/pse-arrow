@@ -21,9 +21,6 @@ pub struct ModelingRevision {
     _lease: Arc<AllocationLease>,
 }
 impl ModelingRevision {
-    pub(crate) fn physical_scope(&self) -> &pse_modeling::PhysicalScope {
-        self.admitted.physical_scope()
-    }
     /// What specializing `root` as `instance` solves (`pse_model::lineage`).
     fn solved(
         &self,
@@ -36,9 +33,6 @@ impl ModelingRevision {
             ))
         })
     }
-    pub(crate) fn retained_bytes(&self) -> usize {
-        self.admitted.retained_bytes() + size_of::<Self>() + 128
-    }
     pub(crate) fn identity(&self) -> pse_ids::roles::SourceRevisionHash {
         self.identity
     }
@@ -46,6 +40,8 @@ impl ModelingRevision {
         self.admitted.declarations()
     }
     /// The package data documents the declarations were admitted with (ADR-0125).
+    #[cfg(test)]
+    #[cfg(test)]
     pub(crate) fn documents(&self) -> &Arc<pse_modeling::document::DocumentInventory> {
         self.admitted.documents()
     }
@@ -96,9 +92,21 @@ pub(crate) fn source_revision(
 pub struct ModelingPreparation {
     product: PreparedModeling,
     solved: Solved,
+    consumed_sources: Arc<BTreeMap<String, String>>,
     _owner: Arc<super::products::ProductOwner>,
 }
 impl ModelingPreparation {
+    pub(crate) fn with_consumed_source_versions(
+        mut self,
+        versions: BTreeMap<String, String>,
+    ) -> Self {
+        self.consumed_sources = Arc::new(versions);
+        self
+    }
+    /// Exact immutable source objects consumed before scientific preparation.
+    pub(crate) fn consumed_source_versions(&self) -> &BTreeMap<String, String> {
+        &self.consumed_sources
+    }
     /// Source lineage, original values, typed mathematics and structural evidence.
     pub fn compiled(&self) -> &PreparedModeling {
         &self.product
@@ -768,6 +776,7 @@ impl MathService {
         let solved = lineage.solved(root, instance)?;
         let owner = self.own_modeling_product(&product, lease)?;
         Ok(ModelingPreparation {
+            consumed_sources: Arc::default(),
             product: product.with_owner(owner.clone()),
             solved,
             _owner: owner,
@@ -804,6 +813,7 @@ mod tests {
             documents: BTreeMap::from([(
                 id,
                 Arc::new(DataDocument {
+                    allocation_owner: None,
                     id,
                     path: "data/t.parquet".into(),
                     content_hash: pse_ids::encoding_checksum(bytes).content_hash(),

@@ -93,6 +93,7 @@ pub(super) fn from_documents(
             runtime
                 .inner
                 .modeling_from_documents(&owned, physical.inner.clone())
+                .await
         },
         || cancel.cancel(),
     )?;
@@ -100,10 +101,7 @@ pub(super) fn from_documents(
         owner: runtime.owner.clone(),
         inner,
         limits: Default::default(),
-        sources: Some(Arc::new(native::PackageSources {
-            physical: physical.documents.as_ref().clone(),
-            modeling: documents,
-        })),
+        physical_sources: Some(physical.documents.clone()),
     })
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -112,9 +110,22 @@ pub(crate) struct NativeModelingPackage {
     owner: Arc<runtime::Runtime>,
     inner: native::ModelingPackage,
     limits: pse_modeling::Limits,
-    /// The authored documents the package was admitted from, which a durable study stores
-    /// for its workers; none once the package was changed in memory.
-    sources: Option<Arc<native::PackageSources>>,
+    /// Shared whole physical prerequisite; modeling sources live only in the canonical store.
+    physical_sources: Option<Arc<BTreeMap<String, Vec<u8>>>>,
+}
+impl NativeModelingPackage {
+    pub(super) fn from_revision(
+        owner: Arc<runtime::Runtime>,
+        inner: native::ModelingPackage,
+        physical_sources: Arc<BTreeMap<String, Vec<u8>>>,
+    ) -> Self {
+        Self {
+            owner,
+            inner,
+            limits: Default::default(),
+            physical_sources: Some(physical_sources),
+        }
+    }
 }
 /// Explicit source expansion limits, independent of runtime memory and native work budgets.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -175,6 +186,14 @@ impl ModelingLimits {
 }
 #[pymethods]
 impl NativeModelingPackage {
+    #[getter]
+    fn canonical_revision(&self) -> String {
+        self.inner.canonical_revision().key.clone()
+    }
+    #[getter]
+    fn canonical_problem(&self) -> String {
+        self.inner.canonical_revision().problem.clone()
+    }
     fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
         let edit: native::DeclarationEdit = documents::decode(
             py,
@@ -182,15 +201,18 @@ impl NativeModelingPackage {
             source,
             self.owner.shared.budget().math.workspace_bytes / 2,
         )?;
-        let inner = py
-            .detach(|| self.inner.with_declarations(edit.declarations))
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        // Edited declarations are not its authored documents: no durable study from it.
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.with_declarations(edit.declarations),
+            || {},
+        )?;
+        // The changed declarations now have their own immutable canonical revision.
         Ok(Self {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-            sources: None,
+            physical_sources: self.physical_sources.clone(),
         })
     }
     fn with_fit_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
@@ -203,16 +225,17 @@ impl NativeModelingPackage {
             source,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let inner = self
-            .inner
-            .clone()
-            .with_fit_declarations(data)
-            .map_err(|e| errors::diagnostic(py, &e))?;
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.clone().with_fit_declarations(data),
+            || {},
+        )?;
         Ok(Self {
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
-            sources: None,
+            physical_sources: self.physical_sources.clone(),
         })
     }
 
@@ -252,7 +275,7 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
             inner: self.inner.clone(),
             limits: limits.limits,
-            sources: None,
+            physical_sources: None,
         }
     }
 
@@ -642,19 +665,19 @@ impl NativeModelingPackage {
             request,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let sources = self.sources.as_deref().cloned().unwrap_or_default();
-        let physical = pse_runtime::authoring_driver::document::package_checksum(&sources.physical);
-        let modeling = sources
-            .modeling
-            .iter()
+        let physical = self
+            .physical_sources
+            .as_deref()
             .map(pse_runtime::authoring_driver::document::package_checksum)
-            .collect();
+            .unwrap_or_else(|| {
+                pse_runtime::authoring_driver::document::package_checksum(&BTreeMap::new())
+            });
         let cancel = CancelSource::new();
         let definition = blocking(
             py,
             &self.owner,
             self.inner
-                .admit_study_points(physical, modeling, &request.points, &cancel),
+                .admit_study_points(physical, &request.points, &cancel),
             || cancel.cancel(),
         )?;
         documents::encode(py, &definition)
@@ -673,7 +696,7 @@ impl NativeModelingPackage {
             controls,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let definition = documents::decode_versioned::<native::StudyDefinition, 6>(
+        let definition = documents::decode_versioned::<native::StudyDefinition, 7>(
             py,
             "operation",
             definition,
@@ -691,7 +714,7 @@ impl NativeModelingPackage {
             owner: self.owner.clone(),
         })
     }
-    /// Persist the same admitted document and its exact source bundles.
+    /// Persist the admitted document and reopen its exact canonical modeling revision.
     #[pyo3(signature=(runtime, workspace, definition, *, controls=None))]
     fn start_study(
         &self,
@@ -710,10 +733,10 @@ impl NativeModelingPackage {
             controls,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let sources = self.sources.as_ref().ok_or_else(|| {
+        let physical_sources = self.physical_sources.as_ref().ok_or_else(|| {
             invalid(
                 py,
-                "a durable study requires the selected package's immutable source documents",
+                "a durable study requires the shared physical source prerequisite",
             )
         })?;
         let workspace: native::Workspace = documents::decode(
@@ -722,7 +745,7 @@ impl NativeModelingPackage {
             workspace,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let definition = documents::decode_versioned::<native::StudyDefinition, 6>(
+        let definition = documents::decode_versioned::<native::StudyDefinition, 7>(
             py,
             "operation",
             definition,
@@ -737,7 +760,7 @@ impl NativeModelingPackage {
             &runtime.owner,
             runtime.inner.start_defined_study(
                 &workspace,
-                sources.as_ref().clone(),
+                physical_sources.as_ref().clone(),
                 definition,
                 retry,
                 priority,
@@ -929,12 +952,37 @@ impl NativeModelingPackage {
         }
     }
     fn declarations(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        use pse_model::HeapUsage;
+        let declarations = blocking(py, &self.owner, self.inner.declarations(), || {})?;
+        let bytes = declarations
+            .iter()
+            .try_fold(4096usize, |bytes, row| bytes.checked_add(row.owned_bytes()))
+            .and_then(|bytes| bytes.checked_mul(8))
+            .ok_or_else(|| invalid(py, "declaration export extent"))?;
+        let pool = self.owner.shared.pool();
+        let scratch =
+            pse_columnar::MemoryConsumer::new("modeling:python-declaration-export").register(&pool);
+        scratch
+            .try_grow(bytes)
+            .map_err(|error| errors::diagnostic(py, &pse_columnar::CanonError::from(error)))?;
         documents::encode(
             py,
             &native::DeclarationInventory {
-                declarations: self.inner.declarations().to_vec(),
+                declarations: declarations.to_vec(),
             },
         )
+    }
+    /// Explicit complete source Arrow export, independent of routine preparation.
+    fn source_tables(&self, py: Python<'_>) -> PyResult<BTreeMap<String, inspection::TableStream>> {
+        let tables = blocking(py, &self.owner, self.inner.source_tables(), || {})?;
+        tables
+            .into_iter()
+            .map(|(relation, batch)| {
+                inspection::TableStream::from_batch(batch)
+                    .map(|stream| (relation.to_string(), stream))
+                    .map_err(|error| errors::diagnostic(py, &error))
+            })
+            .collect()
     }
     #[pyo3(signature=(owner_id=None, *, controls=None))]
     fn knowledge(
@@ -954,14 +1002,14 @@ impl NativeModelingPackage {
         )?;
         let selected = owner_id.map(|id| declaration(py, id)).transpose()?;
         let cancel = pse_columnar::CancellationToken::new();
-        let inner = py
-            .detach(|| {
-                self.inner
-                    .knowledge(selected, maximum_cells, maximum_bytes, &cancel)
-            })
-            .map_err(|error| errors::diagnostic(py, &error))?;
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .knowledge(selected, maximum_cells, maximum_bytes, &cancel),
+            || cancel.cancel(),
+        )?;
         Ok(NativeModelingKnowledge {
-            owner: self.owner.clone(),
             inner: Arc::new(inner),
         })
     }
@@ -1271,7 +1319,6 @@ impl ModelingDiagnosticSettings {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeModelingKnowledge {
-    owner: Arc<runtime::Runtime>,
     inner: Arc<native::ModelingKnowledge>,
 }
 #[pymethods]
@@ -1283,30 +1330,6 @@ impl NativeModelingKnowledge {
     fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         inspection::TableStream::from_batch(self.inner.table().clone())
             .map_err(|e| errors::diagnostic(py, &e))
-    }
-    fn query(&self, py: Python<'_>, sql: &str) -> PyResult<inspection::TableStream> {
-        let cancel = pse_columnar::CancellationToken::new();
-        let batch_size =
-            std::num::NonZeroUsize::new(self.owner.shared.budget().execution.batch_size)
-                .ok_or_else(|| invalid(py, "batch size must be positive"))?;
-        let reader = blocking(
-            py,
-            &self.owner,
-            async {
-                let session = self.inner.query_session(&cancel)?;
-                Ok::<_, native::WorkflowError>(
-                    pse_catalog::inspection::TableReader::query(
-                        &session,
-                        sql,
-                        batch_size,
-                        cancel.clone(),
-                    )
-                    .await?,
-                )
-            },
-            || cancel.cancel(),
-        )?;
-        Ok(inspection::TableStream::new(reader, self.owner.clone()))
     }
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]

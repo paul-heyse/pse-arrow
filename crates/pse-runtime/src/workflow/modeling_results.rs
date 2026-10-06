@@ -5,7 +5,7 @@ use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use crate::math::solves::Outcome;
 use pse_ids::SemanticId;
 use pse_relations::{
-    columnar::{FieldCheckedBatch, RelationRow},
+    columnar::FieldCheckedBatch,
     generated::{
         enums::DualQualification,
         runtime::{
@@ -410,11 +410,7 @@ impl RunResult {
                 ))
                 .map_err(relation)?;
         }
-        let sources = requests
-            .iter()
-            .map(|p| p.source.source_tables())
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut batches = sequence_sources(sources, &self.runtime, &validation)?;
+        let mut batches = BTreeMap::new();
         batches.extend(
             collection
                 .finish()
@@ -452,77 +448,11 @@ impl RunResult {
     }
 }
 
-fn sequence_sources(
-    mut sources: Vec<BTreeMap<SemanticId, FieldCheckedBatch>>,
-    runtime: &super::Runtime,
-    validation: &pse_relations::validate::ValidationContext,
-) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
-    let mut batches = if sources.is_empty() {
-        BTreeMap::new()
-    } else {
-        sources.remove(0)
-    };
-    // One package already exported and validated its complete source context.
-    // Rebuilding it here would repeat the same validation for every study point.
-    if sources.is_empty() {
-        return Ok(batches);
-    }
-    let registry = &runtime.registry;
-    let maximum_tables = batches
-        .len()
-        .checked_add(3)
-        .ok_or_else(|| contract("sequence source extent"))?;
-    let owner = runtime.shared.math().reserve(
-        "modeling:sequence-source-map",
-        super::modeling::source_map_extent(maximum_tables)?,
-    )?;
-    macro_rules! merge_source {
-        ($module:ident,$key:expr) => {{
-            use pse_relations::generated::authored::$module as wire;
-            let mut rows = BTreeMap::new();
-            for batch in batches
-                .get(&wire::RELATION_ID)
-                .into_iter()
-                .chain(sources.iter().filter_map(|s| s.get(&wire::RELATION_ID)))
-            {
-                for row in wire::Row::rows(batch).map_err(relation)? {
-                    if let Some(old) = rows.insert(($key)(&row), row.clone())
-                        && old != row
-                    {
-                        return Err(contract("conflicting source context in authored sequence"));
-                    }
-                }
-            }
-            let mut builder =
-                wire::Builder::with_registry(registry, rows.len(), validation).map_err(relation)?;
-            for row in rows.into_values() {
-                builder.push(row).map_err(relation)?;
-            }
-            batches.insert(wire::RELATION_ID, builder.finish().map_err(relation)?);
-        }};
-    }
-    merge_source!(
-        modeling_declarations,
-        |r: &pse_relations::generated::authored::modeling_declarations::Row| r.declaration_id
-    );
-    merge_source!(
-        documents,
-        |r: &pse_relations::generated::authored::documents::Row| r.document_id
-    );
-    merge_source!(
-        packages,
-        |r: &pse_relations::generated::authored::packages::Row| r.package_id
-    );
-    for table in batches.values_mut() {
-        *table = table.clone().with_export_owner(owner.clone());
-    }
-    Ok(batches)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pse_relations::generated::authored::modeling_declarations as wire;
+    use pse_relations::columnar::RelationRow;
+    #[cfg(feature = "native-solvers")]
     use std::sync::Arc;
 
     #[tokio::test]
@@ -544,6 +474,7 @@ mod tests {
             .declaration_id;
         let package = runtime
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let mut case = pse_compiler::workspace::ModelingCaseBindings {
             variables: BTreeMap::from([(
@@ -692,6 +623,7 @@ mod tests {
                 .declaration_id;
             let package = runtime
                 .modeling_package(declarations, fixture::physical())
+                .await
                 .unwrap();
             let mut analysis = ModelingAnalysis {
                 root,
@@ -846,52 +778,5 @@ mod tests {
                 "last table releases the retained source, result and buffer charges"
             );
         }
-    }
-
-    #[test]
-    fn single_source_keeps_retained_buffers_and_sequence_conflicts_are_refused() {
-        let runtime = super::super::tests::runtime();
-        let rows = pse_authoring::language::parse(
-            "package application {}",
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            Default::default(),
-        )
-        .unwrap();
-        let package = runtime
-            .modeling_package(rows.clone(), super::super::tests::physical())
-            .unwrap();
-        let source = package.source_tables().unwrap();
-        let validation = runtime.validation_context().unwrap();
-        let expected_keys = source.keys().copied().collect::<Vec<_>>();
-        let expected = source[&wire::RELATION_ID].clone();
-        let single = sequence_sources(vec![source], &runtime, &validation).unwrap();
-        assert_eq!(single.keys().copied().collect::<Vec<_>>(), expected_keys);
-        assert!(Arc::ptr_eq(
-            &single[&wire::RELATION_ID].batch().columns()[0],
-            &expected.batch().columns()[0],
-        ));
-        let matching = sequence_sources(
-            vec![
-                package.source_tables().unwrap(),
-                package.source_tables().unwrap(),
-            ],
-            &runtime,
-            &validation,
-        )
-        .unwrap();
-        assert_eq!(
-            wire::Row::rows(&matching[&wire::RELATION_ID]).unwrap(),
-            rows
-        );
-
-        let mut conflict = rows;
-        conflict[0].name = "conflicting_name".into();
-        let conflicting = package
-            .with_declarations(conflict)
-            .unwrap()
-            .source_tables()
-            .unwrap();
-        assert!(sequence_sources(vec![single, conflicting], &runtime, &validation).is_err());
     }
 }

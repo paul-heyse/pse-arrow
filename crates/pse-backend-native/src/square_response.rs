@@ -303,6 +303,7 @@ fn partial_failure(cause: ProblemError) -> Withheld {
         match cause {
             pse_math::MathError::Instance { cause, .. } => memory(cause),
             pse_math::MathError::Limit(_)
+            | pse_math::MathError::ByteLimit { .. }
             | pse_math::MathError::SlotLimit { .. }
             | pse_math::MathError::WorkLimit { .. } => true,
             _ => false,

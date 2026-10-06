@@ -1217,7 +1217,7 @@ impl ModelingPackage {
             .shared
             .math()
             .validate_modeling_partition(
-                self.workspace.clone(),
+                self.numerical_workspace()?,
                 model.clone(),
                 algebraic.iter().map(|(id, _)| *id).collect(),
                 states
@@ -1728,7 +1728,7 @@ impl ModelingPackage {
                 .shared
                 .math()
                 .prepare_modeling_functions(
-                    self.workspace.clone(),
+                    self.numerical_workspace()?,
                     model.clone(),
                     selected,
                     derivative_coordinates.clone(),
@@ -1877,7 +1877,7 @@ impl ModelingPackage {
                     .shared
                     .math()
                     .prepare_modeling_functions(
-                        self.workspace.clone(),
+                        self.numerical_workspace()?,
                         model.clone(),
                         sample_rows.into_iter().collect(),
                         derivative_coordinates.clone(),
@@ -1896,7 +1896,7 @@ impl ModelingPackage {
                     .shared
                     .math()
                     .prepare_modeling_functions(
-                        self.workspace.clone(),
+                        self.numerical_workspace()?,
                         model.clone(),
                         all_check_rows.into_iter().collect(),
                         derivative_coordinates.clone(),
@@ -2381,7 +2381,7 @@ impl ModelingPackage {
             .shared
             .math()
             .prepare_modeling_functions(
-                self.workspace.clone(),
+                self.numerical_workspace()?,
                 model.clone(),
                 rows.into_iter().collect(),
                 vec![],
@@ -2515,7 +2515,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical()).unwrap();
+        let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let profile = native::Profile {
             method: native::Method::Diffsol,
@@ -2724,7 +2724,7 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime.modeling_package(rows, physical()).unwrap();
+            let package = runtime.modeling_package(rows, physical()).await.unwrap();
             let prepared = package
                 .prepare_simulation(
                     root,
@@ -2856,7 +2856,7 @@ mod tests {
                 .find(|r| r.name == "dynamic")
                 .unwrap()
                 .declaration_id;
-            let package = runtime.modeling_package(rows, physical()).unwrap();
+            let package = runtime.modeling_package(rows, physical()).await.unwrap();
             let prepared = package
                 .declared_simulation(
                     root,
@@ -2926,7 +2926,7 @@ mod tests {
                     .find(|r| r.name == "stopped")
                     .unwrap()
                     .declaration_id;
-                let package = runtime.modeling_package(rows, physical()).unwrap();
+                let package = runtime.modeling_package(rows, physical()).await.unwrap();
                 let prepared = package
                     .declared_simulation(root, compiler, None, Limits::default(), &cancel)
                     .await
@@ -2943,7 +2943,10 @@ mod tests {
                         pse_authoring::ParseBudget::default(),
                     )
                     .unwrap();
-                    let error = runtime.modeling_package(rows, physical()).unwrap_err();
+                    let error = runtime
+                        .modeling_package(rows, physical())
+                        .await
+                        .unwrap_err();
                     assert!(
                         error.to_string().contains("terminal without resets"),
                         "{error}"
@@ -3048,7 +3051,10 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+            let package = runtime
+                .modeling_package(rows, physical.clone())
+                .await
+                .unwrap();
             let prepared = package
                 .prepare_simulation(
                     root,
@@ -3153,7 +3159,10 @@ mod tests {
                     .find(|r| r.name == "Root")
                     .unwrap()
                     .declaration_id;
-                let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+                let package = runtime
+                    .modeling_package(rows, physical.clone())
+                    .await
+                    .unwrap();
                 let prepared = package
                     .prepare_simulation(
                         root,
@@ -3252,7 +3261,7 @@ mod tests {
                     .find(|r| r.name == "Root")
                     .unwrap()
                     .declaration_id;
-                let package = runtime.modeling_package(rows, physical()).unwrap();
+                let package = runtime.modeling_package(rows, physical()).await.unwrap();
                 let prepared = package
                     .prepare_simulation(
                         root,
@@ -3382,7 +3391,7 @@ mod tests {
             .filter(|row| row.name.starts_with("initial_"))
             .map(|row| row.declaration_id)
             .collect::<BTreeSet<_>>();
-        let package = runtime.modeling_package(rows, physical()).unwrap();
+        let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let mut methods = vec![native::Method::Diffsol];
         #[cfg(feature = "solver-idas")]
         methods.push(native::Method::Idas);
@@ -3503,7 +3512,10 @@ mod tests {
                     .find(|row| row.name == "stock")
                     .unwrap()
                     .declaration_id;
-                let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+                let package = runtime
+                    .modeling_package(rows, physical.clone())
+                    .await
+                    .unwrap();
                 let prepared = package
                     .declared_simulation(
                         root,
@@ -3778,7 +3790,7 @@ mod tests {
             .find(|row| row.name == "evented")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let mut methods = vec![native::Method::Diffsol];
         #[cfg(feature = "solver-idas")]
         methods.push(native::Method::Idas);
@@ -3834,7 +3846,7 @@ mod tests {
             .find(|r| r.name == "evented")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let error = package
             .declared_simulation(
                 root,
@@ -3888,7 +3900,7 @@ mod tests {
             rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
             reparsed.iter().map(|r| &r.value).collect::<Vec<_>>()
         );
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let policy = ModelingConformancePolicy {
             compiler: super::super::super::tests::compiler_profile(),
             solver: super::super::super::tests::profile(),
@@ -3983,7 +3995,7 @@ mod tests {
         );
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let (scheduled, on_state) = (root("scheduled"), root("on_state"));
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let prepared = package
@@ -4093,7 +4105,7 @@ mod tests {
         );
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let (evented, mistyped, stopped) = (root("evented"), root("mistyped"), root("stopped"));
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let profile = native::Profile {
             end: 2.,
@@ -4182,7 +4194,7 @@ mod tests {
         .unwrap();
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let tests = ["either", "rising", "falling"].map(root);
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let (rise, fall) = (0.5 - 0.5f64.sqrt() / 2., 0.5 + 0.5f64.sqrt() / 2.);
@@ -4268,7 +4280,7 @@ mod tests {
         .unwrap();
         let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
         let [decay, relaxed, signs] = ["decay", "relaxed", "signs"].map(root);
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let prepare = |root, profile| {
@@ -4354,7 +4366,10 @@ mod tests {
             .find(|r| r.name == "evented")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+        let package = runtime
+            .modeling_package(rows, physical.clone())
+            .await
+            .unwrap();
         let cancel = crate::CancelSource::new();
         let error = package
             .prepare(
@@ -4386,7 +4401,7 @@ mod tests {
         let rows = parse(&format!(
             "package p {{ {def} test declared fixture {{ dof 0; route simultaneous; procedure solve; {events} }} {{ child root: Root = Root(); }} }}"
         ));
-        let error = runtime.modeling_package(rows, physical).unwrap_err();
+        let error = runtime.modeling_package(rows, physical).await.unwrap_err();
         assert!(error.to_string().contains("integrated route"), "{error}");
     }
     #[tokio::test]
@@ -4420,7 +4435,10 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+            let package = runtime
+                .modeling_package(rows, physical.clone())
+                .await
+                .unwrap();
             let profile = native::Profile {
                 method,
                 end: 2.,
@@ -4569,7 +4587,7 @@ mod tests {
                 .find(|row| row.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime.modeling_package(rows, physical()).unwrap();
+            let package = runtime.modeling_package(rows, physical()).await.unwrap();
             let error = package
                 .prepare_simulation(
                     root,
@@ -4615,7 +4633,7 @@ mod tests {
                 .unwrap()
                 .declaration_id;
             let package = runtime
-                .modeling_package(declarations, physical.clone())
+                .modeling_package(declarations, physical.clone()).await
                 .unwrap();
             let cancel = crate::CancelSource::new();
             let prepared = package
@@ -4707,7 +4725,10 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+            let package = runtime
+                .modeling_package(rows, physical.clone())
+                .await
+                .unwrap();
             let result = package
                 .prepare_simulation(
                     root,
@@ -4815,7 +4836,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let profile = native::Profile {
             end: 1.,
             samples: vec![0., 1.],
@@ -4876,7 +4897,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let profile = native::Profile {
@@ -5042,7 +5063,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let y_declaration = rows.iter().find(|r| r.name == "y").unwrap().declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let mut methods = vec![native::Method::Diffsol];
         #[cfg(feature = "solver-idas")]
@@ -5144,7 +5165,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let profile = native::Profile {
@@ -5190,6 +5211,7 @@ mod tests {
         }
         let singular = package
             .with_declarations(parse(&source.replace("y == 2*p", "p == 2")))
+            .await
             .unwrap();
         assert!(
             singular
@@ -5209,6 +5231,7 @@ mod tests {
         );
         let no_initial = package
             .with_declarations(parse(&source.replace("eq initial: x[0{s}] == offset;", "")))
+            .await
             .unwrap();
         assert!(
             no_initial
@@ -5233,6 +5256,7 @@ mod tests {
                 "annotation start x(0{s});",
                 "annotation start x(0{s}); annotation valid x(0{s},2{s});",
             )))
+            .await
             .unwrap();
         let prepared = guarded
             .prepare_simulation(
@@ -5297,6 +5321,7 @@ mod tests {
                 "annotation start x(0{s});",
                 "annotation start x(0{s}); annotation bounds x(0{s},2{s});",
             )))
+            .await
             .unwrap();
         let profile = prepared.profile.clone();
         let case = ModelingCaseBindings {
@@ -5352,7 +5377,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let simulation = package

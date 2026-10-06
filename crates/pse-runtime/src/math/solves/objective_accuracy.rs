@@ -362,6 +362,7 @@ mod tests {
                 .declaration_id;
             let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
                 .modeling_package(rows, fixture::physical())
+                .await
                 .unwrap();
             let mut solver = fixture::profile();
             solver.intent = SolveIntent::Optimize;

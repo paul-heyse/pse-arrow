@@ -730,7 +730,7 @@ mod native_tests {
     use pse_compiler::workspace::ModelingCaseBindings;
     use std::time::Duration;
 
-    fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, ModelingAnalysis) {
+    async fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, ModelingAnalysis) {
         let physical = physical();
         let rows = pse_authoring::language::parse(
             source,
@@ -744,7 +744,7 @@ mod native_tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let mut solver = profile();
         solver.selection = SolverSelection::Explicit(Backend::Kinsol);
         solver.controls.reuse = ReusePolicy::AllowRebuild;
@@ -792,7 +792,7 @@ mod native_tests {
         let (package, analysis) = package_on(
             &runtime,
             "package p { def Root { param t: Scalar = 100; var x: Scalar; eq residual: x*x == t; annotation start x(1); continue ramp on t from 1 to 100; } }",
-        );
+        ).await;
         let before = runtime.native().preparations();
         let report = package
             .initialize_model(
@@ -849,7 +849,7 @@ mod native_tests {
         let (package, mut analysis) = package_on(
             &runtime,
             "package p { def Root { var t: Scalar; var x: Scalar; var y: Scalar; eq e: x == 2+t; eq f: y == x; annotation start x(1); annotation start y(1); annotation check y(y > 0); } }",
-        );
+        ).await;
         analysis.case.values.insert("t".into(), 1.);
         analysis.case.variables.insert(
             "t".into(),

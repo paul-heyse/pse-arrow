@@ -760,10 +760,10 @@ impl Runtime {
             if step.source.physical.identity() != steps[0].source.physical.identity() {
                 return Err(contract("sequence needs one admitted physical context"));
             }
-            for row in step.source.declarations() {
+            for (logical, version) in step.model.model.consumed_source_versions() {
                 if declarations
-                    .insert(row.declaration_id, row)
-                    .is_some_and(|old| old != row)
+                    .insert(logical, version)
+                    .is_some_and(|old| old != version)
                 {
                     return Err(contract(
                         "sequence contains conflicting source declarations",
@@ -936,6 +936,7 @@ mod modeling_failure_tests {
             .declaration_id;
         let package = runtime
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let cancel = crate::CancelSource::new();
         let mut solver = fixture::profile();

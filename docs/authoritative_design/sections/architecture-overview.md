@@ -333,6 +333,8 @@ evidence never establishes global stability or empirical accuracy. See
 
 ### D10. Computation placement follows the operation
 
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; maintainer-authorized Plan 28 target). The canonical target is one supervised remote SurrealDB substrate for authored revisions, semantic dependencies, portable compilation descriptions, operational state and scientific outcomes. Native queries select structure; shared Rust kernels retain physical inference and scientific admission; mathematical/native libraries execute it. Registry declarations own storage and Arrow lowerings. The following ADR-0114 description records the implemented baseline being replaced; Plan 28 owns migration status.
+
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
 > [ADR-0066](../../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)
 >
@@ -386,6 +388,8 @@ intact and is retained as evidence. *Because* mutation erases the history a resu
 on. See [§17](numerical-execution.md#section-17) and [§19](workflows-and-results.md#section-19).
 
 ### D14. Reuse follows complete declared dependencies
+
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Product eligibility consumes exact positive references, absent names, membership scopes and interpretation identities. Relevant producer identities are separate from complete outer executable/dirty-build attestation. Unknown implementation inputs prohibit persistent reuse. Mutable conflict generations protect decisions and are not blanket semantic keys.
 
 > Decision: [ADR-0089](../../adr/0089-semantic-identity-projections.md)
 

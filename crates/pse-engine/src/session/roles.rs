@@ -35,7 +35,7 @@ impl EngineFactory {
             .with_unique_relation_aliases(cancel)
     }
 
-    /// Bind generated or previously admitted fields without repeating value scans.
+    /// Bind retained fields, rechecking values only when the actual native owner differs.
     /// # Errors
     /// A role/declaration mismatch, cancellation or resource failure.
     pub fn candidate_checked_roles(
@@ -107,7 +107,7 @@ impl EngineSession {
     }
 
     /// Add generated fields by their declared relation while retaining immutable owners.
-    /// No established local value predicate is repeated at this binding boundary.
+    /// Same-owner local assurance is retained; another native owner rechecks values.
     /// # Errors
     /// Attempted replacement, declaration mismatch, cancellation or resources.
     pub fn with_checked_workspace(
@@ -125,7 +125,12 @@ impl EngineSession {
                 .registry
                 .relation_by_key(key)
                 .ok_or_else(|| invalid("workspace declaration is absent"))?;
-            input.check_declaration(&result.registry, spec)?;
+            let input = input.readmit_context(
+                &result.registry,
+                spec,
+                result.validation_context()?.as_ref(),
+                cancel,
+            )?;
             let input = input.retained(&result.pool, cancel)?;
             let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));
             result
@@ -164,7 +169,12 @@ impl EngineSession {
                 .registry
                 .relation_by_id(input.relation_id())
                 .ok_or_else(|| invalid("role input declaration is absent"))?;
-            input.check_declaration(&result.registry, spec)?;
+            let input = input.readmit_context(
+                &result.registry,
+                spec,
+                result.validation_context()?.as_ref(),
+                cancel,
+            )?;
             let key = spec.key;
             let input = input.retained(&result.pool, cancel)?;
             let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));

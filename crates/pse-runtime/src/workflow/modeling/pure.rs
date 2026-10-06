@@ -17,7 +17,8 @@ use std::{
     },
 };
 
-/// Run exclusively pure authored tests without constructing workflow or native-solver services.
+/// Explicit ephemeral diagnostic: run exclusively pure authored tests without
+/// constructing a normal source package, canonical revision or native-solver services.
 /// Physical data still passes through its authoritative relational admission boundary.
 #[expect(
     clippy::too_many_arguments,
@@ -90,11 +91,13 @@ pub async fn conform_pure_documents(
         &token,
     )
     .await?;
-    let (rows, names, _fit_declarations, _sources, data_documents) = document_inputs(
+    let (rows, names, _fit_declarations, _sources, data_documents, _input_lease) = document_inputs(
         &load(&documents)?,
         &registry,
         &physical,
         budget.math.workspace_bytes,
+        &resources.pool,
+        &token,
     )?;
     let reserve =
         |name: &'static str, bytes: usize| -> Result<Arc<AllocationLease>, WorkflowError> {

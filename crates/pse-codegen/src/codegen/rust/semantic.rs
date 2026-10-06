@@ -185,6 +185,13 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
                     .replace('/', ".");
                 if relative.components().count() > 1
                     && !consumers.contains(&consumer)
+                    && !matches!(
+                        consumer.as_str(),
+                        "authored.modeling_declarations"
+                            | "authored.packages"
+                            | "authored.documents"
+                            | "authored.fit_cases"
+                    )
                     && let syn::Item::Struct(value) = &mut item
                 {
                     value.attrs.retain(|attr| {

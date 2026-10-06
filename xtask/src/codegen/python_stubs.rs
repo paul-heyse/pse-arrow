@@ -53,7 +53,7 @@ pub(crate) fn run(root: &Path, extension: Option<&Path>, check: bool) -> Result<
             fs::read(&target).with_context(|| format!("reading {}", target.display()))? == output,
             "native stub differs from actual compiled API; run just py-sync"
         );
-    } else {
+    } else if !matches!(fs::read(&target), Ok(previous) if previous == output) {
         fs::write(&target, output).with_context(|| format!("writing {}", target.display()))?;
     }
     println!(

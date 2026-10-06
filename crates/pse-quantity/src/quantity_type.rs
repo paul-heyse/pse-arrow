@@ -7,7 +7,7 @@ use crate::{
     BasisId, EntityKindId, QuantityKindId, QuantityTypeId, ReferenceStateId, ScaleKind, UnitId,
 };
 /// Components that determine one registered physical type.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QuantityTypeKey {
     /// The measured quantity kind.
     pub kind: QuantityKindId,

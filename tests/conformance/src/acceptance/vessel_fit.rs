@@ -85,9 +85,11 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
                 let physical = physical(&owner).await;
                 let admitted = runtime(&owner)
                     .modeling_package(declarations(&bank), physical.clone())
+                    .await
                     .unwrap();
                 let knowledge = admitted
                     .knowledge(None, 128, 1 << 20, &owner.cancel)
+                    .await
                     .unwrap();
                 let cells = pse_relations::generated::runtime::modeling_knowledge::Row::rows(
                     knowledge.table(),
@@ -108,6 +110,7 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
                 assert!(
                     runtime(&owner)
                         .modeling_package(declarations(&refused), physical)
+                        .await
                         .is_err()
                 );
             }

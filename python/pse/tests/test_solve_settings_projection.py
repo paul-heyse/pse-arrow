@@ -61,8 +61,10 @@ def identity(n: int) -> SemanticId:
 
 
 @pytest.fixture
-def runtime(inspection_settings: pse.EngineSettings) -> pse.Runtime:
-    return pse.Runtime(inspection_settings)
+def runtime(
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
+) -> pse.Runtime:
+    return pse.Runtime(inspection_settings, substrate=canonical_substrate)
 
 
 @pytest.fixture

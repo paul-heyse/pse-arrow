@@ -51,6 +51,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     let z_decl = declaration("z");
     let package = runtime
         .modeling_package(rows.clone(), physical.clone())
+        .await
         .unwrap();
     let cancel = crate::CancelSource::new();
     let prepared = package
@@ -483,7 +484,10 @@ async fn original_order_on(
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     let prepared = package
         .prepare_solve(
             root,
@@ -1401,7 +1405,10 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical.clone()).unwrap();
+    let package = runtime
+        .modeling_package(rows, physical.clone())
+        .await
+        .unwrap();
     let mut profile = fixture::profile();
     profile.intent = SolveIntent::Optimize;
     profile.selection = SolverSelection::Explicit(Backend::Ipopt);
@@ -2153,7 +2160,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         .declaration_id;
     let physical = crate::workflow::tests::physical();
     let quantities = physical.quantities.clone();
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let solver = SolverProfile {
         intent: SolveIntent::Initialize,
         selection: SolverSelection::Explicit(Backend::Ipopt),
@@ -2743,9 +2750,14 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
     let sources =
         OwnedDocumentSet::try_from_bundles(packages.into_iter().map(load).collect(), &pool, &token)
             .unwrap();
-    let package = runtime.modeling_from_documents(&sources, physical).unwrap();
+    let package = runtime
+        .modeling_from_documents(&sources, physical)
+        .await
+        .unwrap();
     let root = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|row| row.name == "measurement_value_sweep")
         .unwrap()

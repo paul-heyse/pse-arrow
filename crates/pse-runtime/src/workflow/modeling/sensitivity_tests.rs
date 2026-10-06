@@ -47,7 +47,7 @@ pub(in crate::workflow) const LINEAR: &str = "package p {
       annotation bounds x(-10, 10);
       annotation start x(0); } }";
 
-pub(in crate::workflow) fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+pub(in crate::workflow) async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -63,6 +63,7 @@ pub(in crate::workflow) fn package(text: &str) -> (ModelingPackage, DeclarationI
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30)
         .modeling_package(rows, physical)
+        .await
         .unwrap();
     (package, root)
 }
@@ -103,7 +104,7 @@ pub(in crate::workflow) async fn solve_propagating(
     outputs: &[&str],
     propagation: impl FnOnce(&[SemanticId], &[SemanticId]) -> Option<crate::math::settings::Propagation>,
 ) -> (Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
-    let (package, root) = package(text);
+    let (package, root) = package(text).await;
     let cancel = crate::CancelSource::new();
     let mut analysis = analysis(root, selection);
     analysis.bindings.demand = ["a", "b"]

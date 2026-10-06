@@ -14,8 +14,9 @@ fn declarations(source: &str) -> Vec<Declaration> {
 }
 async fn prepared(package: &ModelingPackage) -> ModelingPreparation {
     let root = package
-        .revision
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|row| row.name == "Root")
         .unwrap()
@@ -40,6 +41,7 @@ async fn shared_bodies_escape_fresh_workspaces_and_cache_invalidation_with_owned
     let source = "package p { def Root { var x: Scalar; eq a:x*x==1; eq b:x==2; } }";
     let first = runtime
         .modeling_package(declarations(source), super::super::tests::physical())
+        .await
         .unwrap();
     let a = prepared(&first).await;
     let second = runtime
@@ -47,6 +49,7 @@ async fn shared_bodies_escape_fresh_workspaces_and_cache_invalidation_with_owned
             declarations(&format!("\n\n{source}")),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
     let b = prepared(&second).await;
     assert_ne!(a.compiled().occurrences(), b.compiled().occurrences());
@@ -97,10 +100,12 @@ async fn refused_allocation_leaves_the_same_admitted_package_retryable() {
             declarations("package p { def Root { var x:Scalar; eq a:x*x==1; } }"),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
     let root = package
-        .revision
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|row| row.name == "Root")
         .unwrap()
@@ -139,7 +144,7 @@ async fn escaped_nested_body_retains_its_admission_owner_after_eviction() {
     let service = runtime.shared.math();
     let pool = runtime.shared.pool();
     let baseline = pool.reserved();
-    let package=runtime.modeling_package(declarations("package p { def Root { implicit inner {var y:Scalar; eq root:y==2; annotation start y(1);} realize r on inner using nested; eq pin:inner.y==2; } }"),super::super::tests::physical()).unwrap();
+    let package=runtime.modeling_package(declarations("package p { def Root { implicit inner {var y:Scalar; eq root:y==2; annotation start y(1);} realize r on inner using nested; eq pin:inner.y==2; } }"),super::super::tests::physical()).await.unwrap();
     let model = prepared(&package).await;
     let attached = model.compiled().clone().with_owner(Arc::new(()));
     assert!(
@@ -182,10 +187,12 @@ async fn shared_body_cache_invalidates_the_complete_physical_closure() {
     assert_ne!(original.key, changed.key);
     let first = runtime
         .modeling_package(declarations(source), original)
+        .await
         .unwrap();
     let a = prepared(&first).await;
     let second = runtime
         .modeling_package(declarations(source), changed)
+        .await
         .unwrap();
     let b = prepared(&second).await;
     assert!(!a.compiled().admitted.bodies.is_empty());
@@ -207,8 +214,97 @@ async fn shared_body_cache_invalidates_the_complete_physical_closure() {
     drop(second);
     assert_eq!(pool.reserved(), baseline);
 }
-#[test]
-fn durable_package_admission_reuses_owned_revision_and_preserves_accelerators_on_edits() {
+#[tokio::test]
+async fn canonical_edits_preserve_unchanged_memberships_and_skip_true_noops() {
+    let runtime = super::super::tests::runtime();
+    let original = "package p { def Root { var x: Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==2; } }";
+    let first = runtime
+        .modeling_package(declarations(original), super::super::tests::physical())
+        .await
+        .unwrap();
+    let noop = first
+        .with_declarations(declarations(original))
+        .await
+        .unwrap();
+    assert_eq!(first.canonical_revision(), noop.canonical_revision());
+    let store = runtime.canonical.store();
+    let pin = store
+        .protect(
+            first.canonical_revision().clone(),
+            std::time::Duration::from_secs(60),
+        )
+        .await
+        .unwrap();
+    let root = declarations(original)
+        .into_iter()
+        .find(|row| row.name == "Root")
+        .unwrap();
+    let before = store
+        .select_names(&pin, &canonical::scope(root.parent_id), &["Root".into()])
+        .await
+        .unwrap();
+    let changed = first.with_declarations(declarations("package p { def Root { var x: Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
+    assert_eq!(
+        changed.canonical_revision().sequence,
+        first.canonical_revision().sequence + 1
+    );
+    let current = store
+        .protect(
+            changed.canonical_revision().clone(),
+            std::time::Duration::from_secs(60),
+        )
+        .await
+        .unwrap();
+    let after = store
+        .select_names(
+            &current,
+            &canonical::scope(root.parent_id),
+            &["Root".into()],
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        before, after,
+        "unrelated edits preserve the exact membership interval"
+    );
+    let removed = changed
+        .with_declarations(declarations(
+            "package p { def Root { var x: Scalar; eq a:x*x==1; } }",
+        ))
+        .await
+        .unwrap();
+    let final_pin = store
+        .protect(
+            removed.canonical_revision().clone(),
+            std::time::Duration::from_secs(60),
+        )
+        .await
+        .unwrap();
+    assert!(
+        store
+            .select_names(
+                &final_pin,
+                &canonical::scope(root.parent_id),
+                &["Other".into()]
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        store
+            .select_names(&pin, &canonical::scope(root.parent_id), &["Root".into()])
+            .await
+            .unwrap(),
+        before
+    );
+    store.release(&pin).await.unwrap();
+    store.release(&current).await.unwrap();
+    store.release(&final_pin).await.unwrap();
+}
+
+#[tokio::test]
+async fn canonical_package_admission_preserves_source_identity_and_accelerators_on_edits() {
     let runtime = super::super::tests::runtime();
     let source = "package p { def Root { var x: Scalar; eq a:x*x==1; } }";
     let texts = BTreeMap::from([
@@ -229,17 +325,21 @@ fn durable_package_admission_reuses_owned_revision_and_preserves_accelerators_on
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
     let second = runtime
         .package_from_sources(
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
-    assert!(std::ptr::eq(
-        first.revision.checked(),
-        second.revision.checked()
-    ));
+    assert_eq!(first.revision.identity(), second.revision.identity());
+    assert_eq!(
+        first.canonical_revision(),
+        second.canonical_revision(),
+        "the ingress cache retains a compact immutable revision handle"
+    );
     let mut other_context = runtime.clone();
     other_context.sessions = Arc::new(runtime.sessions.as_ref().clone());
     let scoped = other_context
@@ -247,12 +347,15 @@ fn durable_package_admission_reuses_owned_revision_and_preserves_accelerators_on
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
-    assert!(
-        !std::ptr::eq(first.revision.checked(), scoped.revision.checked()),
-        "exact admission context owns closure reuse"
+    assert_eq!(first.revision.identity(), scoped.revision.identity());
+    assert_ne!(
+        first.canonical_revision().problem,
+        scoped.canonical_revision().problem,
+        "exact validation context owns ingress reuse"
     );
-    let edited = first.with_declarations(declarations(source)).unwrap();
+    let edited = first.with_declarations(declarations(source)).await.unwrap();
     assert!(Arc::ptr_eq(&first.accelerators, &edited.accelerators));
     runtime.shared.math().clear_program_cache();
     let fresh = runtime
@@ -260,11 +363,13 @@ fn durable_package_admission_reuses_owned_revision_and_preserves_accelerators_on
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
-    assert!(!std::ptr::eq(
-        first.revision.checked(),
-        fresh.revision.checked()
-    ));
+    assert_eq!(first.revision.identity(), fresh.revision.identity());
+    assert_ne!(
+        first.canonical_revision().problem,
+        fresh.canonical_revision().problem
+    );
 }
 
 #[tokio::test]
@@ -278,6 +383,7 @@ async fn solver_view_rebinds_share_plan_storage_and_charge_fresh_wrappers() {
             declarations("package p { def Root { param p:Scalar; var x: Scalar; eq a:x*p==1; } }"),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
     let model = prepared(&package).await;
     let symbol = |name: &str| {
@@ -345,6 +451,7 @@ package p { def Root { param p:Scalar; var x: Scalar; eq a:x*p==1; } }",
             ),
             super::super::tests::physical(),
         )
+        .await
         .unwrap();
     let shifted_model = prepared(&shifted_package).await;
     let shifted = shifted_package

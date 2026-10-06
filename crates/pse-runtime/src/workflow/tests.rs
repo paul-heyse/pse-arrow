@@ -90,7 +90,17 @@ pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
             .session_factory(pse_engine::session::native_engine_profile())
             .unwrap(),
     );
-    Runtime::from_shared(shared, registry, sessions)
+    Runtime::from_shared(shared, registry, sessions, canonical_deployment())
+}
+pub(crate) fn canonical_deployment() -> CanonicalDeployment {
+    CanonicalDeployment::new(
+        pse_operations::testing::canonical_fixture_store().unwrap(),
+        OuterAttestation {
+            source: pse_ids::ContentHash::from_bytes([0; 32]),
+            build: pse_ids::ContentHash::from_bytes([1; 32]),
+        },
+        None,
+    )
 }
 pub(crate) fn physical() -> PhysicalContext {
     // Fixture only: production requires source-backed PhysicalInventory admission.

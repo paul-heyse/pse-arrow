@@ -33,7 +33,7 @@ const PHASE_STABILITY_FIXTURES: &str = "881a0e9fb03144108d64f181a79d1e9f";
 /// phase-stability fixtures at run time: an unstable feed fails the model's own stability
 /// check, so it is no conformance fixture. The reference phase is the feed's vapor root; the
 /// trial density stays below the smallest covolume limit 1/b of either component.
-fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, SemanticId) {
+async fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, SemanticId) {
     let name = "tpd_pr_two_phase";
     let source = format!(
         "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use eos_data @\"1.0.0\"; use cubic @\"1.0.0\"; use properties @\"1.0.0\"; test {name} fixture {{dof 1; route steady; procedure solve; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m^3}}; value root.trial_upper=10500{{mol/m^3}}; value root.reference.rho=34{{mol/m^3}}; value root.trial.rho=9505.77{{mol/m^3}}; {header}}} {{ permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false; child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=bt_ideal.aromatics,law=eos_data.potential,feed=bt_feed); }} }}"
@@ -50,13 +50,13 @@ fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, S
         .find(|r| r.name == name)
         .unwrap()
         .declaration_id;
-    let mut rows = package.declarations().to_vec();
+    let mut rows = package.declarations().await.unwrap().to_vec();
     rows.extend(
         extra
             .into_iter()
             .filter(|r| r.value.kind.as_str() != "package"),
     );
-    (package.with_declarations(rows).unwrap(), case.as_id())
+    (package.with_declarations(rows).await.unwrap(), case.as_id())
 }
 /// The authored stability check `tpd > -tolerance` of the phase-stability model.
 const TPD_CHECK: &str = "cf7deebc57f244f8a52ec8e924140225";
@@ -142,7 +142,7 @@ async fn tpd_detects_known_instability() {
     );
     let owner = WorkflowRuntime::new().unwrap();
     let source = seed_package(&owner).await;
-    let (package, case) = unstable_case(&source, "");
+    let (package, case) = unstable_case(&source, "").await;
     let result = seed_prepare(
         &package,
         case,
@@ -195,15 +195,16 @@ async fn fixture_intent_selects_certify() {
     let source = seed_package(&owner).await;
     let fixture = DeclarationId::from(SemanticId::parse_hex(TPD_IDEAL).unwrap());
     // Only this fixture runs.
-    let rows = source.declarations().to_vec();
+    let rows = source.declarations().await.unwrap().to_vec();
     let mut solver = profile(Backend::Ipopt, true);
     solver.selection = SolverSelection::Auto;
     solver.controls.time_limit = Duration::from_secs(300);
     assert_eq!(solver.intent, SolveIntent::Optimize);
     let conform = |rows: Vec<_>| {
-        let package = source.with_declarations(rows).unwrap();
+        let source = &source;
         let solver = solver.clone();
         async move {
+            let package = source.with_declarations(rows).await.unwrap();
             package
                 .conform(
                     pse_runtime::workflow::ModelingConformancePolicy {
@@ -403,13 +404,13 @@ async fn pcsaft_tpd(
         .find(|r| r.name == name)
         .unwrap()
         .declaration_id;
-    let mut rows = package.declarations().to_vec();
+    let mut rows = package.declarations().await.unwrap().to_vec();
     rows.extend(
         extra
             .into_iter()
             .filter(|r| r.value.kind.as_str() != "package"),
     );
-    let package = package.with_declarations(rows).unwrap();
+    let package = package.with_declarations(rows).await.unwrap();
     let cancel = CancelSource::new();
     let analysis = package
         .declared_execution(

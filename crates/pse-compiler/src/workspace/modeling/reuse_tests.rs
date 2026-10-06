@@ -136,8 +136,11 @@ impl ModelingBodyRetention for RefuseOnce {
     fn generation(&self) -> u64 {
         0
     }
-    fn get(&self, _: pse_ids::roles::SemanticBodyHash) -> Option<Arc<AdmittedBody>> {
-        None
+    fn get(
+        &self,
+        _: pse_ids::roles::SemanticBodyHash,
+    ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
+        Ok(None)
     }
     fn retain(
         &self,
@@ -203,12 +206,17 @@ impl ModelingBodyRetention for WrongBodyOnce {
     fn generation(&self) -> u64 {
         0
     }
-    fn get(&self, key: pse_ids::roles::SemanticBodyHash) -> Option<Arc<AdmittedBody>> {
-        let body = self.body.lock().unwrap().clone()?;
+    fn get(
+        &self,
+        key: pse_ids::roles::SemanticBodyHash,
+    ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
+        let Some(body) = self.body.lock().unwrap().clone() else {
+            return Ok(None);
+        };
         if body.semantic_identity() != Some(key) && !self.poisoned.swap(true, Ordering::Relaxed) {
-            Some(body)
+            Ok(Some(body))
         } else {
-            None
+            Ok(None)
         }
     }
     fn retain(

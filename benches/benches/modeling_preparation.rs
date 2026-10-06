@@ -96,6 +96,14 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
+        pse_runtime::workflow::CanonicalDeployment::new(
+            pse_operations::testing::canonical_fixture_store().unwrap(),
+            pse_runtime::workflow::OuterAttestation {
+                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                build: pse_ids::ContentHash::from_bytes([1; 32]),
+            },
+            None,
+        ),
     );
     let physical = runtime
         .physical_from_documents(&documents(&["physical"], None), &owner.cancel)
@@ -126,6 +134,7 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
             ),
             physical,
         )
+        .await
         .unwrap()
 }
 
@@ -260,16 +269,15 @@ fn test_name(workload: &Value) -> String {
 }
 
 /// The workload's authored test in the bench package.
-fn case(package: &ModelingPackage, workload: &Value) -> pse_modeling::DeclarationId {
+async fn case(package: &ModelingPackage, workload: &Value) -> pse_modeling::DeclarationId {
     let name = test_name(workload);
-    package
-        .declarations()
+    let declarations = package.declarations().await.unwrap();
+    declarations
         .iter()
         .find(|r| {
             r.name == name
                 && r.value.kind.as_str() == "test"
-                && package
-                    .declarations()
+                && declarations
                     .iter()
                     .any(|p| Some(p.declaration_id) == r.parent_id && p.name == "preparation_bench")
         })
@@ -504,7 +512,7 @@ fn preparation(c: &mut Criterion) {
                         WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap())
                             .unwrap();
                     let package = executor.block_on(seed(&owner, &bench));
-                    let case = case(&package, workload);
+                    let case = executor.block_on(case(&package, workload));
                     let mut stages = Vec::new();
                     for stage in ["cold", "warm", "value", "structural"] {
                         let (elapsed, record) = executor

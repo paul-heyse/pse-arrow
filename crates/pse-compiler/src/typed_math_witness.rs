@@ -68,22 +68,38 @@ impl<'a, 'b> Lower<'a, 'b> {
         else {
             return Ok(());
         };
-        let mut builder = builder.scientific_pass()?;
-        let mut lower = self.witness_lower(WitnessPass::Potential {
-            response: function.id,
-            selected,
-            witness: ScientificWitness::default(),
-        });
-        let value = lower.function(name, args, &[], &mut builder, depth, source)?;
-        let pass = lower
-            .witness_pass
-            .as_ref()
-            .ok_or_else(|| MathError::Contract("scientific witness pass absent".into()))?;
-        if !builder.retains_scientific_witness(&value, pass.witness())? {
-            return Err(MathError::Contract(format!(
-                "response {} must retain its selected potential or partials after normalization",
-                function.id
-            )));
+        let mut key = FramedHasher::new(pse_ids::Frame::MathProofReceiptRequestV1);
+        key.str("scientific-response-dependency")
+            .id(&function.id.as_id())
+            .id(&selected.as_id())
+            .u64(args.len() as u64);
+        for argument in args {
+            key.str(&dsl::render_expr(argument));
+        }
+        let receipt = pse_math::typed::receipts::proof(key.finish_hash(), || {
+            let mut builder = builder.scientific_pass()?;
+            let mut lower = self.witness_lower(WitnessPass::Potential {
+                response: function.id,
+                selected,
+                witness: ScientificWitness::default(),
+            });
+            let value = lower.function(name, args, &[], &mut builder, depth, source)?;
+            let pass = lower
+                .witness_pass
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("scientific witness pass absent".into()))?;
+            if !builder.retains_scientific_witness(&value, pass.witness())? {
+                return Err(MathError::Contract(format!(
+                    "response {} must retain its selected potential or partials after normalization",
+                    function.id
+                )));
+            }
+            Ok(Vec::new())
+        })?;
+        if !receipt.is_empty() {
+            return Err(MathError::Contract(
+                "scientific dependency receipt has unexpected branch payload".into(),
+            ));
         }
         Ok(())
     }

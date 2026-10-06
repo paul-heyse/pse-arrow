@@ -622,7 +622,7 @@ mod refinement_tests {
         let runtime = fixture::runtime();
         let physical = fixture::physical();
         let quantities = physical.quantities.clone();
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let solver = SolverProfile {
             intent: SolveIntent::Root,
@@ -808,7 +808,10 @@ mod refinement_tests {
             .unwrap()
             .declaration_id;
         let runtime = fixture::runtime();
-        let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+        let package = runtime
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
         let cancel = crate::CancelSource::new();
         let baseline = package
             .prepare_solve(

@@ -23,6 +23,13 @@ slow-timeout = { period = "60s", terminate-after = 2 }
 leak-timeout = "500ms"
 
 [[profile.default.overrides]]
+filter = 'package(pse-runtime) & binary(worker)'
+# One case owns the finite managed profile; its study can use both slots.
+# Scheduler waiting precedes case execution and does not consume its deadline.
+test-group = "serial"
+threads-required = 1
+
+[[profile.default.overrides]]
 # Tests that create a TestDatabase on the local PostgreSQL server.
 filter = '(package(pse-operations) & (test(store_tests::) | test(study_tests::) | test(tables_tests::) | test(migration_tests::) | test(retirement::tests::))) | (package(pse-runtime) & (test(durable_tests::) | test(worker_tests::) | test(study_tests::) | test(horizon_tests::) | test(operational_tables_tests::) | binary(publication_catalog) | binary(worker))) | (package(pse-tests-conformance) & test(acceptance::publication_resource::))'
 test-group = "store"

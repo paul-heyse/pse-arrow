@@ -39,7 +39,12 @@ struct Epoch {
 /// An invocation's stable provider inventory. Retained values are field checked;
 /// no changing row counts, constraints or ordering are advertised to the optimizer.
 #[derive(Debug, Clone)]
-pub struct RoundInputs(Arc<Mutex<Epoch>>);
+pub struct RoundInputs(
+    Arc<Mutex<Epoch>>,
+    Arc<pse_schema::Registry>,
+    Arc<pse_relations::validate::ValidationContext>,
+    CancellationToken,
+);
 impl RoundInputs {
     /// Replace a named source between fully settled executions.
     /// # Errors
@@ -50,12 +55,15 @@ impl RoundInputs {
     /// Validate and install an entire epoch atomically. No input changes on failure.
     /// # Errors
     /// Live readers, an unknown name, schema change or poisoned lock.
-    pub fn replace_many(&self, inputs: BTreeMap<String, FieldCheckedBatch>) -> Result<()> {
+    pub fn replace_many(&self, mut inputs: BTreeMap<String, FieldCheckedBatch>) -> Result<()> {
         let mut epoch = self.0.lock().map_err(|_| invalid("round lock poisoned"))?;
         if epoch.readers != 0 {
             return Err(invalid("cannot advance an epoch with live streams"));
         }
-        for (name, input) in &inputs {
+        self.3
+            .checkpoint()
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
+        for (name, input) in &mut inputs {
             let current = epoch
                 .inputs
                 .get(name)
@@ -65,7 +73,17 @@ impl RoundInputs {
             {
                 return Err(invalid("round source schema changed"));
             }
+            let spec = self
+                .1
+                .relation_by_id(input.relation_id())
+                .ok_or_else(|| invalid("round declaration absent"))?;
+            *input = input
+                .readmit_context(&self.1, spec, &self.2, &self.3)
+                .map_err(|error| DataFusionError::External(Box::new(error)))?;
         }
+        self.3
+            .checkpoint()
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
         epoch.inputs.extend(inputs);
         Ok(())
     }
@@ -82,7 +100,12 @@ impl EngineSession {
         cancel: &CancellationToken,
     ) -> std::result::Result<(Self, RoundInputs), EngineError> {
         let mut session = self.clone();
-        let inputs = RoundInputs(Arc::new(Mutex::new(Epoch::default())));
+        let inputs = RoundInputs(
+            Arc::new(Mutex::new(Epoch::default())),
+            session.registry.clone(),
+            session.validation_context()?,
+            cancel.clone(),
+        );
         for (slot, name, reference, input) in relations
             .into_iter()
             .map(|(key, input)| {
@@ -107,7 +130,7 @@ impl EngineSession {
                 .registry
                 .relation_by_id(input.relation_id())
                 .ok_or_else(|| engine(invalid("round declaration absent")))?;
-            input.check_declaration(&session.registry, spec)?;
+            let input = input.readmit_context(&session.registry, spec, &inputs.2, cancel)?;
             let input = input.retained(&session.pool, cancel)?;
             let schema = super::query_schema::schema(input.batch().schema().as_ref());
             let provider: Arc<dyn TableProvider> = Arc::new(RoundTable {
@@ -373,11 +396,18 @@ mod tests {
     }
     #[test]
     fn epoch_replacement_is_atomic_when_a_later_source_is_invalid() {
-        let (_, empty, values) = fixture();
-        let inputs = RoundInputs(Arc::new(Mutex::new(Epoch {
-            inputs: BTreeMap::from([("a".into(), empty.clone())]),
-            readers: 0,
-        })));
+        let (registry, empty, values) = fixture();
+        let validation = pse_relations::validate::ValidationContext::local(&registry).unwrap();
+        let registry = Arc::new(registry);
+        let inputs = RoundInputs(
+            Arc::new(Mutex::new(Epoch {
+                inputs: BTreeMap::from([("a".into(), empty.clone())]),
+                readers: 0,
+            })),
+            registry,
+            validation,
+            CancellationToken::new(),
+        );
         assert!(
             inputs
                 .replace_many(BTreeMap::from([
@@ -390,11 +420,18 @@ mod tests {
     }
     #[tokio::test]
     async fn round_stream_blocks_turnover_and_retains_unknown_statistics() {
-        let (_, empty, values) = fixture();
-        let inputs = RoundInputs(Arc::new(Mutex::new(Epoch {
-            inputs: BTreeMap::from([("x".into(), empty.clone())]),
-            readers: 0,
-        })));
+        let (registry, empty, values) = fixture();
+        let validation = pse_relations::validate::ValidationContext::local(&registry).unwrap();
+        let registry = Arc::new(registry);
+        let inputs = RoundInputs(
+            Arc::new(Mutex::new(Epoch {
+                inputs: BTreeMap::from([("x".into(), empty.clone())]),
+                readers: 0,
+            })),
+            registry,
+            validation,
+            CancellationToken::new(),
+        );
         let table = RoundTable {
             partition: Arc::new(EpochPartition {
                 name: "x".into(),
@@ -527,3 +564,150 @@ mod tests {
 /// Explicit support for source-specific reset contracts outside the generic engine.
 #[derive(Clone, Debug)]
 pub struct RoundResetSupport(pub fn(&dyn ExecutionPlan) -> bool);
+
+#[cfg(test)]
+mod native_owner_unit {
+    use super::super::EngineFactory;
+    use super::*;
+    use datafusion::{
+        arrow::{
+            array::{Int64Array, RecordBatch},
+            datatypes::DataType,
+        },
+        common::ScalarValue,
+        execution::session_state::SessionStateBuilder,
+        logical_expr::{ColumnarValue, Volatility, create_udf},
+    };
+    use pse_relations::columnar::FieldCheckedBatch;
+    use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
+
+    #[test]
+    fn checked_receivers_and_round_replacements_use_the_actual_native_owner() {
+        let mut declarations = pse_schema::RegistryBuilder::new();
+        declarations.declare_relation(
+            RelationDecl::new(
+                Namespace::Authored,
+                "inputs",
+                1,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "native receiving owner",
+            )
+            .pk(&["value"])
+            .columns(vec![FieldContract::key(
+                "value",
+                FieldContract::native(DataType::Int64),
+                "value",
+            )])
+            .checks(BTreeMap::from([(
+                "floor".into(),
+                "value >= native_floor()".into(),
+            )])),
+        );
+        let registry = Arc::new(declarations.build().unwrap());
+        let spec = registry.relation("authored.inputs").unwrap();
+        let cancel = CancellationToken::new();
+        let session = |floor| {
+            let native = datafusion::prelude::SessionContext::new();
+            let function = create_udf(
+                "native_floor",
+                vec![],
+                DataType::Int64,
+                Volatility::Immutable,
+                Arc::new(move |_| Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(floor))))),
+            );
+            EngineFactory::from_builder(
+                native.runtime_env(),
+                Arc::new(pse_columnar::GreedyMemoryPool::new(8 << 20)),
+                "receiving-owner-unit",
+                SessionStateBuilder::from(native.state())
+                    .with_scalar_functions(vec![Arc::new(function)]),
+            )
+            .candidate(BTreeMap::new(), registry.clone(), &cancel)
+            .unwrap()
+        };
+        let accepted = session(1);
+        let refused = session(3);
+        let permissive = session(-5);
+        let admitted = |value, owner: &EngineSession| {
+            FieldCheckedBatch::admit(
+                &registry,
+                spec,
+                RecordBatch::try_new(
+                    pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+                    vec![Arc::new(Int64Array::from(vec![value]))],
+                )
+                .unwrap(),
+                owner.validation_context().unwrap().as_ref(),
+                &cancel,
+            )
+            .unwrap()
+        };
+        let input = admitted(2, &accepted);
+        let prepared = accepted
+            .validation_context()
+            .unwrap()
+            .relation(&registry, spec)
+            .unwrap();
+        let count = prepared.evaluation_count();
+        let rows = || BTreeMap::from([(spec.key, input.clone())]);
+        let roles = || BTreeMap::from([("x".into(), input.clone())]);
+        accepted.with_checked_workspace(rows(), &cancel).unwrap();
+        accepted.with_checked_role_inputs(roles(), &cancel).unwrap();
+        let (_, round) = accepted
+            .with_round_inputs(BTreeMap::new(), roles(), &cancel)
+            .unwrap();
+        assert_eq!(
+            prepared.evaluation_count(),
+            count,
+            "all unchanged receiving owners retain local assurance"
+        );
+        assert!(refused.with_checked_workspace(rows(), &cancel).is_err());
+        assert!(refused.with_checked_role_inputs(roles(), &cancel).is_err());
+        assert!(
+            refused
+                .with_round_inputs(BTreeMap::new(), roles(), &cancel)
+                .is_err()
+        );
+        // A successful receiving admission must retain its new owner for later reuse.
+        let other = input
+            .readmit_context(
+                &registry,
+                spec,
+                permissive.validation_context().unwrap().as_ref(),
+                &cancel,
+            )
+            .unwrap();
+        let other_prepared = permissive
+            .validation_context()
+            .unwrap()
+            .relation(&registry, spec)
+            .unwrap();
+        let other_count = other_prepared.evaluation_count();
+        other
+            .validate_context(
+                &registry,
+                spec,
+                permissive.validation_context().unwrap().as_ref(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(other_prepared.evaluation_count(), other_count);
+        let invalid_here = admitted(-1, &permissive);
+        assert!(round.replace("x", invalid_here).is_err());
+        assert_eq!(
+            round.0.lock().unwrap().inputs["x"]
+                .batch()
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap()
+                .value(0),
+            2,
+            "failed changed-owner admission leaves the previous epoch intact"
+        );
+        round.replace("x", input.clone()).unwrap();
+        cancel.cancel();
+        assert!(round.replace("x", input).is_err());
+    }
+}

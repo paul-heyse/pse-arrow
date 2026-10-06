@@ -16,7 +16,10 @@ pub trait ModelingBodyRetention: std::fmt::Debug + Send + Sync + std::panic::Ref
     /// Capture a retention epoch before admission begins.
     fn generation(&self) -> u64;
     /// Look up an immutable body by its complete admitted semantic dependency key.
-    fn get(&self, key: pse_ids::roles::SemanticBodyHash) -> Option<Arc<AdmittedBody>>;
+    fn get(
+        &self,
+        key: pse_ids::roles::SemanticBodyHash,
+    ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError>;
     /// Retain actual allocation ownership on the returned body, whether or not cached.
     fn retain(
         &self,

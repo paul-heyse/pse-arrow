@@ -19,7 +19,7 @@ pub fn guarded_real_policy() -> ContentHash {
 }
 
 /// Reuse identity inputs. Ordinary case values and instance identities are excluded.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct BodySpec {
     /// Canonical typed source definition content.
     pub definition: ContentHash,
@@ -269,6 +269,32 @@ pub struct InstanceBinding {
     pub contributions: Vec<Contribution>,
 }
 impl InstanceBinding {
+    /// Bind only an evaluator's explicit authored-formal signature, in dense input order.
+    /// # Errors
+    /// Duplicate or unknown formals, missing scalar, or invalid numerical conversion.
+    pub fn values_selected(
+        &self,
+        case: &CaseValues,
+        formals: &[usize],
+    ) -> Result<Vec<f64>, MathError> {
+        if formals.iter().collect::<BTreeSet<_>>().len() != formals.len() {
+            return Err(MathError::Contract("duplicate selected formal".into()));
+        }
+        formals
+            .iter()
+            .map(|&formal| {
+                let slot = self
+                    .slots
+                    .get(formal)
+                    .ok_or_else(|| MathError::Contract("unknown selected formal".into()))?;
+                let value = *case
+                    .scalars
+                    .get(&slot.source)
+                    .ok_or_else(|| MathError::Contract("missing case scalar".into()))?;
+                Ok(slot.conversion.apply(value)?.value())
+            })
+            .collect()
+    }
     /// Bind one trial into local canonical coordinates.
     /// # Errors
     /// Missing or nonfinite current value; no defaulting absent ragged members to zero.
@@ -858,5 +884,57 @@ impl CaseValues {
             value.frame(&mut h);
         }
         h.finish_hash()
+    }
+}
+
+#[cfg(test)]
+mod selected_binding_tests {
+    use super::*;
+
+    #[test]
+    fn selected_binding_preserves_order_aliases_and_checks_only_required_scalars() {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = pse_quantity::standard::ids::quantity("neutral");
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let source = Port {
+            id: SemanticId::from_bytes([1; 16]),
+            quantity,
+            unit,
+        };
+        let absent = Port {
+            id: SemanticId::from_bytes([2; 16]),
+            quantity,
+            unit,
+        };
+        let binding = InstanceBinding {
+            instance: SemanticId::NIL,
+            body: ContentHash::from_bytes([0; 32]),
+            checked_members: BTreeMap::new(),
+            contributions: vec![],
+            slots: vec![
+                SlotBinding::new(&source, &source, &registry).unwrap(),
+                SlotBinding::new(&absent, &absent, &registry).unwrap(),
+                SlotBinding::new(&source, &source, &registry).unwrap(),
+            ],
+        };
+        let mut values = CaseValues {
+            scalars: BTreeMap::from([(source.id, 7.)]),
+        };
+        assert_eq!(binding.values_selected(&values, &[2, 0]).unwrap(), [7., 7.]);
+        assert!(binding.values_selected(&values, &[]).unwrap().is_empty());
+        assert!(matches!(
+            binding.values_selected(&values, &[0, 0]),
+            Err(MathError::Contract(_))
+        ));
+        assert!(matches!(
+            binding.values_selected(&values, &[3]),
+            Err(MathError::Contract(_))
+        ));
+        assert!(matches!(
+            binding.values_selected(&values, &[1]),
+            Err(MathError::Contract(_))
+        ));
+        values.scalars.insert(source.id, f64::NAN);
+        assert!(binding.values_selected(&values, &[0]).is_err());
     }
 }

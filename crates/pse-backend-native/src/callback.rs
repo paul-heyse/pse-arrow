@@ -63,6 +63,7 @@ pub fn classify(error: &ProblemError) -> Failure {
             | E::Evaluation { .. }
             | E::Limit(_)
             | E::Refinement { .. }
+            | E::ByteLimit { .. }
             | E::SlotLimit { .. }
             | E::WorkLimit { .. }
             | E::Quantity(_) => Failure::Fatal,

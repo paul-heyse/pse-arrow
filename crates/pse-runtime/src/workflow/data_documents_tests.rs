@@ -101,7 +101,7 @@ fn sources(text: &str, document: Vec<u8>) -> BTreeMap<String, Vec<u8>> {
         (DATA.to_owned(), document),
     ])
 }
-fn load(
+async fn load(
     rt: &Runtime,
     sources: &BTreeMap<String, Vec<u8>>,
 ) -> Result<ModelingPackage, WorkflowError> {
@@ -116,23 +116,25 @@ fn load(
         &rt.validation_context().unwrap(),
     )?;
     let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &token)?;
-    rt.modeling_from_documents(&documents, physical())
+    rt.modeling_from_documents(&documents, physical()).await
 }
-fn refusal(rt: &Runtime, sources: &BTreeMap<String, Vec<u8>>) -> String {
-    match load(rt, sources) {
+async fn refusal(rt: &Runtime, sources: &BTreeMap<String, Vec<u8>>) -> String {
+    match load(rt, sources).await {
         Ok(_) => panic!("admitted"),
         Err(error) => error.to_string(),
     }
 }
-fn entity(package: &ModelingPackage, name: &str) -> Value {
-    let p = package.revision.checked();
+async fn entity(package: &ModelingPackage, name: &str) -> Value {
+    let revision = package.all_revision().await.unwrap();
+    let p = revision.checked();
     Value::Entity {
         id: p.entry(&format!("minimal_named.{name}")).unwrap(),
         kind: p.entry("minimal_named.item").unwrap(),
     }
 }
-fn member(package: &ModelingPackage, name: &str) -> Value {
-    let p = package.revision.checked();
+async fn member(package: &ModelingPackage, name: &str) -> Value {
+    let revision = package.all_revision().await.unwrap();
+    let p = revision.checked();
     let enumeration = p.entry("minimal_named.phase").unwrap();
     Value::Enum {
         enumeration,
@@ -156,33 +158,41 @@ fn magnitude(value: &Value) -> f64 {
         other => panic!("a quantity: {other:?}"),
     }
 }
-fn table<'p>(package: &'p ModelingPackage, name: &str) -> &'p pse_modeling::data::Table {
-    let p = package.revision.checked();
+async fn table(package: &ModelingPackage, name: &str) -> pse_modeling::data::Table {
+    let revision = package.all_revision().await.unwrap();
+    let p = revision.checked();
     p.table(p.entry(&format!("minimal_named.{name}")).unwrap())
         .unwrap()
+        .clone()
 }
 
 /// ADR-0125: a Parquet document loaded with its package is decoded by Arrow type and its
 /// rows admitted through the declared relation: magnitudes converted from the declared
 /// storage unit (a matching stated unit accepted), a dictionary naming members, a null of
 /// an optional column absent, and integers, text and Booleans as themselves.
-#[test]
-fn parquet_dataset_admits_through_declared_relation() {
+#[tokio::test]
+async fn parquet_dataset_admits_through_declared_relation() {
     let rt = runtime();
-    let package = load(&rt, &sources(BANK, parquet(bank_columns()))).unwrap();
-    let bank = table(&package, "bank");
+    let package = load(&rt, &sources(BANK, parquet(bank_columns())))
+        .await
+        .unwrap();
+    let bank = table(&package, "bank").await;
     assert_eq!(bank.rows.len(), 2);
-    let row = &bank.rows[&vec![entity(&package, "a"), member(&package, "liquid")]];
+    let row = &bank.rows[&vec![
+        entity(&package, "a").await,
+        member(&package, "liquid").await,
+    ]];
     assert_eq!(magnitude(&row.cells[0]), 1500.0);
     assert!((magnitude(&row.cells[1]) - 298.15).abs() < 1e-9);
     assert_eq!(row.cells[2], Value::Integer(1));
     assert_eq!(row.cells[3], Value::Text("first".into()));
     assert_eq!(row.cells[4], Value::Boolean(true));
-    let row = &bank.rows[&vec![entity(&package, "b"), member(&package, "vapor")]];
+    let row = &bank.rows[&vec![entity(&package, "b").await, member(&package, "vapor").await]];
     assert_eq!(magnitude(&row.cells[0]), -2000.0);
     assert_eq!(row.cells[1], Value::Missing);
     // The data document is a package document: its identity is `named_id(package, path)`.
-    let documents = package.revision.documents();
+    let revision = package.all_revision().await.unwrap();
+    let documents = revision.documents();
     let (id, document) = documents.documents.iter().next().unwrap();
     assert_eq!(document.path, DATA);
     assert_eq!(
@@ -191,8 +201,8 @@ fn parquet_dataset_admits_through_declared_relation() {
     );
 }
 
-#[test]
-fn worker_source_loader_preserves_binary_keyed_documents() {
+#[tokio::test]
+async fn worker_source_loader_preserves_binary_keyed_documents() {
     let rt = runtime();
     let text = r#"package minimal_named {
  entity kind source provenance {} entity source s {} enum role {given}
@@ -207,17 +217,20 @@ fn worker_source_loader_preserves_binary_keyed_documents() {
     // This is the same package-from-sources entry the durable worker invokes.
     let loaded = rt
         .package_from_sources(std::slice::from_ref(&documents), physical())
+        .await
         .unwrap();
-    let direct = load(&rt, &documents).unwrap();
+    let direct = load(&rt, &documents).await.unwrap();
     assert_eq!(loaded.revision.identity(), direct.revision.identity());
-    let inventory = loaded.revision.documents();
+    let revision = loaded.all_revision().await.unwrap();
+    let inventory = revision.documents();
     let document = inventory.documents.values().next().unwrap();
     assert_eq!(
         document.content_hash,
         pse_ids::encoding_checksum(&bytes).content_hash()
     );
     assert_eq!(document.rows.rows(), 2);
-    let p = loaded.revision.checked();
+    let revision = loaded.all_revision().await.unwrap();
+    let p = revision.checked();
     let kind = p.entry("minimal_named.node").unwrap();
     let id = pse_modeling::entity::keyed_identity(kind, &[Value::Integer(2)]);
     assert_eq!(magnitude(&p.record(id).unwrap().values["value"]), 4.0);
@@ -225,12 +238,12 @@ fn worker_source_loader_preserves_binary_keyed_documents() {
 
 /// A column whose Arrow type does not store its declared type is refused, naming the
 /// column and its declared type.
-#[test]
-fn parquet_column_type_mismatch_refused() {
+#[tokio::test]
+async fn parquet_column_type_mismatch_refused() {
     let rt = runtime();
     let mut columns = bank_columns();
     columns[2] = ("h", Arc::new(StringArray::from(vec!["1.5", "-2.0"])), None);
-    let error = refusal(&rt, &sources(BANK, parquet(columns)));
+    let error = refusal(&rt, &sources(BANK, parquet(columns))).await;
     assert!(
         error.contains("column h") && error.contains("declared") && error.contains("Utf8"),
         "{error}"
@@ -238,10 +251,18 @@ fn parquet_column_type_mismatch_refused() {
     // A column the declaration does not name, and a declared column missing.
     let mut columns = bank_columns();
     columns.push(("extra", Arc::new(Int64Array::from(vec![1, 2])), None));
-    assert!(refusal(&rt, &sources(BANK, parquet(columns))).contains("has column extra"));
+    assert!(
+        refusal(&rt, &sources(BANK, parquet(columns)))
+            .await
+            .contains("has column extra")
+    );
     let mut columns = bank_columns();
     columns.remove(4);
-    assert!(refusal(&rt, &sources(BANK, parquet(columns))).contains("has no column n"));
+    assert!(
+        refusal(&rt, &sources(BANK, parquet(columns)))
+            .await
+            .contains("has no column n")
+    );
     // An Arrow type no data document stores is refused where the document is decoded.
     let mut columns = bank_columns();
     columns[4] = (
@@ -249,18 +270,18 @@ fn parquet_column_type_mismatch_refused() {
         Arc::new(datafusion::arrow::array::Int32Array::from(vec![1, 2])),
         None,
     );
-    let error = refusal(&rt, &sources(BANK, parquet(columns)));
+    let error = refusal(&rt, &sources(BANK, parquet(columns))).await;
     assert!(error.contains("column n has Arrow type Int32"), "{error}");
 }
 
 /// Units come only from the declaration: a stated unit other than the declared storage
 /// unit is refused, never used.
-#[test]
-fn parquet_metadata_unit_disagreement_is_refused() {
+#[tokio::test]
+async fn parquet_metadata_unit_disagreement_is_refused() {
     let rt = runtime();
     let mut columns = bank_columns();
     columns[2].2 = Some("J");
-    let error = refusal(&rt, &sources(BANK, parquet(columns)));
+    let error = refusal(&rt, &sources(BANK, parquet(columns))).await;
     assert!(
         error.contains("column h")
             && error.contains("states unit J")
@@ -270,20 +291,27 @@ fn parquet_metadata_unit_disagreement_is_refused() {
     // A unit stated on a column that is no quantity is refused too.
     let mut columns = bank_columns();
     columns[4].2 = Some("K");
-    assert!(refusal(&rt, &sources(BANK, parquet(columns))).contains("only a quantity column"));
+    assert!(
+        refusal(&rt, &sources(BANK, parquet(columns)))
+            .await
+            .contains("only a quantity column")
+    );
 }
 
 /// Utf8 values of a reference column resolve through the identifier index of the declared
 /// scheme; identities resolve directly; an unknown value is refused.
-#[test]
-fn parquet_reference_by_identifier_scheme_resolves() {
+#[tokio::test]
+async fn parquet_reference_by_identifier_scheme_resolves() {
     let rt = runtime();
-    let package = load(&rt, &sources(BANK, parquet(bank_columns()))).unwrap();
-    let a = entity(&package, "a");
+    let package = load(&rt, &sources(BANK, parquet(bank_columns())))
+        .await
+        .unwrap();
+    let a = entity(&package, "a").await;
     assert!(
         table(&package, "bank")
+            .await
             .rows
-            .contains_key(&vec![a.clone(), member(&package, "liquid")])
+            .contains_key(&vec![a.clone(), member(&package, "liquid").await])
     );
     let mut columns = bank_columns();
     columns[0] = (
@@ -291,7 +319,7 @@ fn parquet_reference_by_identifier_scheme_resolves() {
         Arc::new(StringArray::from(vec!["71-43-2", "0-00-0"])),
         None,
     );
-    let error = refusal(&rt, &sources(BANK, parquet(columns)));
+    let error = refusal(&rt, &sources(BANK, parquet(columns))).await;
     assert!(
         error.contains("\"0-00-0\"") && error.contains("column j"),
         "{error}"
@@ -307,20 +335,22 @@ fn parquet_reference_by_identifier_scheme_resolves() {
         "j",
         Arc::new(
             FixedSizeBinaryArray::try_from_iter(
-                [identity(a), identity(entity(&package, "b"))].into_iter(),
+                [identity(a), identity(entity(&package, "b").await)].into_iter(),
             )
             .unwrap(),
         ),
         None,
     );
-    let package = load(&rt, &sources(&by_identity, parquet(columns))).unwrap();
-    assert_eq!(table(&package, "bank").rows.len(), 2);
+    let package = load(&rt, &sources(&by_identity, parquet(columns)))
+        .await
+        .unwrap();
+    assert_eq!(table(&package, "bank").await.rows.len(), 2);
 }
 
 /// ADR-0123 Outcome 8, ADR-0125: the bytes of a data document enter the package checksum
 /// and the source revision; unchanged bytes reproduce both.
-#[test]
-fn data_bytes_enter_package_checksum_and_source_revision() {
+#[tokio::test]
+async fn data_bytes_enter_package_checksum_and_source_revision() {
     let rt = runtime();
     let original = sources(BANK, parquet(bank_columns()));
     // One changed byte changes the package checksum, which frames exact bytes.
@@ -338,9 +368,9 @@ fn data_bytes_enter_package_checksum_and_source_revision() {
     let mut columns = bank_columns();
     columns[4] = ("n", Arc::new(Int64Array::from(vec![1, 3])), None);
     let changed = sources(BANK, parquet(columns));
-    let first = load(&rt, &original).unwrap();
-    let again = load(&rt, &original).unwrap();
-    let other = load(&rt, &changed).unwrap();
+    let first = load(&rt, &original).await.unwrap();
+    let again = load(&rt, &original).await.unwrap();
+    let other = load(&rt, &changed).await.unwrap();
     assert_eq!(first.revision.identity(), again.revision.identity());
     assert_ne!(first.revision.identity(), other.revision.identity());
     // The loaded package header carries the checksum over its exact documents.
@@ -366,8 +396,8 @@ fn data_bytes_enter_package_checksum_and_source_revision() {
 /// A table of 10⁵ document rows admits through the relation without a single cell: the
 /// declaration carries no rows, its IR does not grow with the document, and every row is
 /// admitted typed column by column.
-#[test]
-fn large_table_admits_without_cell_evaluation() {
+#[tokio::test]
+async fn large_table_admits_without_cell_evaluation() {
     const ROWS: i64 = 100_000;
     let rt = runtime_with(256 << 20, 1 << 20, 1 << 30);
     let text = r#"package minimal_named {
@@ -389,20 +419,24 @@ fn large_table_admits_without_cell_evaluation() {
             ),
         ])
     };
-    let large = load(&rt, &sources(text, document(ROWS))).unwrap();
-    let small = load(&rt, &sources(text, document(10))).unwrap();
-    let level = table(&large, "level");
+    let large = load(&rt, &sources(text, document(ROWS))).await.unwrap();
+    let small = load(&rt, &sources(text, document(10))).await.unwrap();
+    let level = table(&large, "level").await;
     assert_eq!(level.rows.len(), ROWS as usize);
     assert_eq!(
         magnitude(&level.rows[&vec![Value::Integer(ROWS - 1)]].cells[0]),
         (ROWS - 1) as f64 * 0.5
     );
-    assert_eq!(table(&small, "level").rows.len(), 10);
+    assert_eq!(table(&small, "level").await.rows.len(), 10);
     // The declarations are the same rows, cell-free, whatever the document holds.
-    assert_eq!(large.declarations(), small.declarations());
+    let large_declarations = large.declarations().await.unwrap();
+    let small_declarations = small.declarations().await.unwrap();
+    assert_eq!(&*large_declarations, &*small_declarations);
     assert!(
         large
             .declarations()
+            .await
+            .unwrap()
             .iter()
             .filter_map(|d| d.value.dataset.as_ref())
             .all(|d| d.rows.is_empty() && d.document.as_deref() == Some(DATA))
@@ -410,14 +444,18 @@ fn large_table_admits_without_cell_evaluation() {
 }
 
 #[tokio::test]
-async fn knowledge_projection_is_bounded_readonly_and_retains_binary_revision() {
+async fn knowledge_projection_is_bounded_and_retains_exact_binary_source() {
     use pse_model::generated::enums::ModelingKnowledgeValueKind;
     use pse_model::generated::runtime::modeling_knowledge::Row as KnowledgeRow;
     use pse_relations::columnar::RelationRow;
     let rt = runtime();
-    let original = load(&rt, &sources(BANK, parquet(bank_columns()))).unwrap();
+    let original = load(&rt, &sources(BANK, parquet(bank_columns())))
+        .await
+        .unwrap();
     let owner = original
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|row| row.name == "bank" && row.value.table.is_some())
         .unwrap()
@@ -425,6 +463,7 @@ async fn knowledge_projection_is_bounded_readonly_and_retains_binary_revision() 
     let cancel = pse_columnar::CancellationToken::new();
     let knowledge = original
         .knowledge(Some(owner), 20, 1 << 20, &cancel)
+        .await
         .unwrap();
     let rows = KnowledgeRow::rows(knowledge.table()).unwrap();
     assert_eq!(rows.len(), 10);
@@ -447,55 +486,38 @@ async fn knowledge_projection_is_bounded_readonly_and_retains_binary_revision() 
     assert!(
         original
             .knowledge(Some(owner), 9, 1 << 20, &cancel)
+            .await
             .is_err()
     );
-    assert!(original.knowledge(Some(owner), 20, 128, &cancel).is_err());
+    assert!(
+        original
+            .knowledge(Some(owner), 20, 128, &cancel)
+            .await
+            .is_err()
+    );
     let mut columns = bank_columns();
     columns[2].1 = Arc::new(Float64Array::from(vec![2.5, -2.]));
-    let changed = load(&rt, &sources(BANK, parquet(columns))).unwrap();
+    let changed = load(&rt, &sources(BANK, parquet(columns))).await.unwrap();
     let current = changed
         .knowledge(Some(owner), 20, 1 << 20, &cancel)
+        .await
         .unwrap();
     assert_ne!(knowledge.source_revision(), current.source_revision());
     assert_eq!(
         KnowledgeRow::rows(knowledge.table()).unwrap()[0].source_revision,
         knowledge.source_revision().as_id()
     );
-    let session = knowledge.query_session(&cancel).unwrap();
-    let batches = session
-        .sql(
-            "SELECT count(*) AS cells FROM workspace.runtime.modeling_knowledge",
-            &cancel,
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        batches[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .unwrap()
-            .value(0),
-        10
-    );
-    let names=session.sql("SELECT n.name FROM workspace.runtime.modeling_knowledge_names n JOIN workspace.authored.modeling_declarations d ON n.declaration_id=d.declaration_id WHERE d.name='bank'",&cancel).await.unwrap();
-    assert_eq!(names.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
-    assert!(
-        session
-            .sql("DELETE FROM workspace.runtime.modeling_knowledge", &cancel)
-            .await
-            .is_err()
-    );
     cancel.cancel();
     assert!(
         original
             .knowledge(Some(owner), 20, 1 << 20, &cancel)
+            .await
             .is_err()
     );
 }
 
-#[test]
-fn keyed_parquet_references_resolve_across_documents_before_value_admission() {
+#[tokio::test]
+async fn keyed_parquet_references_resolve_across_documents_before_value_admission() {
     let rt = runtime();
     let text = r#"package minimal_named {
         entity kind source provenance {} entity source s {} enum role {given}
@@ -521,18 +543,20 @@ fn keyed_parquet_references_resolve_across_documents_before_value_admission() {
     };
     let mut inputs = sources(text, document(1, None));
     inputs.insert("data/second.parquet".into(), document(2, None));
-    let original = load(&rt, &inputs).unwrap();
-    let kind = original
-        .revision
+    let original = load(&rt, &inputs).await.unwrap();
+    let original_revision = original.all_revision().await.unwrap();
+    let kind = original_revision
         .checked()
         .entry("minimal_named.node")
         .unwrap();
     let identity = |number| pse_modeling::entity::keyed_identity(kind, &[Value::Integer(number)]);
     inputs.insert(DATA.into(), document(1, Some(identity(2).as_id())));
-    let admitted = load(&rt, &inputs).unwrap();
+    let admitted = load(&rt, &inputs).await.unwrap();
     assert_eq!(
         admitted
-            .revision
+            .all_revision()
+            .await
+            .unwrap()
             .checked()
             .record(identity(1))
             .unwrap()
@@ -544,12 +568,12 @@ fn keyed_parquet_references_resolve_across_documents_before_value_admission() {
     );
     // The target document cannot be absent or manufacture a target from its reference.
     inputs.insert("data/second.parquet".into(), document(3, None));
-    let error = refusal(&rt, &inputs);
+    let error = refusal(&rt, &inputs).await;
     assert!(error.contains("no admitted entity"), "{error}");
 }
 
-#[test]
-fn measured_parquet_attributes_use_admitted_quantities_uncertainty_and_origin() {
+#[tokio::test]
+async fn measured_parquet_attributes_use_admitted_quantities_uncertainty_and_origin() {
     let rt = runtime();
     let text = r#"package minimal_named {
         entity kind source provenance {} entity source measured_source {}
@@ -571,8 +595,9 @@ fn measured_parquet_attributes_use_admitted_quantities_uncertainty_and_origin() 
             None,
         ),
     ]);
-    let package = load(&rt, &sources(text, document)).unwrap();
-    let admitted = package.revision.checked();
+    let package = load(&rt, &sources(text, document)).await.unwrap();
+    let revision = package.all_revision().await.unwrap();
+    let admitted = revision.checked();
     let root = admitted.entry("minimal_named.FitExperiment").unwrap();
     let kind = admitted.entry("minimal_named.reading").unwrap();
     let record = pse_modeling::entity::keyed_identity(kind, &[Value::Integer(1)]);

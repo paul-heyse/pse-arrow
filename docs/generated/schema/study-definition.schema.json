@@ -4940,15 +4940,11 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 6 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
+  "description": "Version 7 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
   "properties": {
-    "modeling": {
-      "description": "The source bundles of the modeling package closure, in load order.",
-      "items": {
-        "pattern": "^blake3:[0-9a-fA-F]{64}$",
-        "type": "string"
-      },
-      "type": "array"
+    "modeling_revision": {
+      "description": "The exact immutable canonical modeling revision.",
+      "type": "string"
     },
     "physical": {
       "description": "The source bundle of the physical package.",
@@ -4963,8 +4959,8 @@
       "type": "array"
     },
     "version": {
-      "const": 6,
-      "default": 6,
+      "const": 7,
+      "default": 7,
       "description": "Document version.",
       "type": "integer"
     }
@@ -4972,7 +4968,7 @@
   "required": [
     "version",
     "physical",
-    "modeling",
+    "modeling_revision",
     "points"
   ],
   "title": "StudyDefinition",

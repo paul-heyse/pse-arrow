@@ -19,6 +19,7 @@ async fn automatic_workflow_causal_acyclic_refusal_retains_original_alternatives
         .declaration_id;
     let package = runtime()
         .modeling_package(declarations, physical())
+        .await
         .unwrap();
     let cancel = crate::CancelSource::new();
     let mut profile = super::super::tests::profile(SolveIntent::Root);
@@ -89,6 +90,7 @@ async fn automatic_workflow_causal_missing_locality_preserves_original_completio
         .declaration_id;
     let package = runtime()
         .modeling_package(declarations, physical())
+        .await
         .unwrap();
     let cancel = crate::CancelSource::new();
     let mut profile = super::super::tests::profile(SolveIntent::Root);
@@ -183,6 +185,7 @@ async fn causal_reconstruction_case(
         .declaration_id;
     let package = runtime()
         .modeling_package(declarations, physical())
+        .await
         .unwrap();
     let cancel = crate::CancelSource::new();
     let mut profile = super::super::tests::profile(SolveIntent::Root);
@@ -437,7 +440,10 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(declarations, physical()).unwrap();
+        let package = runtime
+            .modeling_package(declarations, physical())
+            .await
+            .unwrap();
         let cancel = crate::CancelSource::new();
         let analysis = package
             .declared_execution(
@@ -553,7 +559,10 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(declarations, physical()).unwrap();
+    let package = runtime
+        .modeling_package(declarations, physical())
+        .await
+        .unwrap();
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(
@@ -804,7 +813,10 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(declarations, physical()).unwrap();
+    let package = runtime
+        .modeling_package(declarations, physical())
+        .await
+        .unwrap();
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(
@@ -1196,7 +1208,10 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(declarations, physical()).unwrap();
+    let package = runtime
+        .modeling_package(declarations, physical())
+        .await
+        .unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_execution(

@@ -18,6 +18,7 @@ workspace = true
 
 [features]
 default = []
+canonical-tests = ["pse-operations/canonical-tests"]
 solver-ipopt = ["pse-backend-native/ipopt"]
 solver-uno = ["pse-backend-native/uno"]
 solver-petsc = ["pse-backend-native/petsc"]
@@ -51,7 +52,6 @@ tracing.workspace = true
 faer.workspace = true
 # Normal and χ² quantiles of the fit's confidence intervals (Plan 22 S3).
 statrs.workspace = true
-pse-buildinfo.workspace = true
 url.workspace = true
 pse-backend-native.workspace = true
 pse-math.workspace = true
@@ -65,8 +65,7 @@ toml.workspace = true
 pse-model.workspace = true
 pse-modeling.workspace = true
 pse-compiler.workspace = true
-# `signal`: the pse-worker binary stops cleanly on an interrupt.
-tokio = { workspace = true, features = ["signal"] }
+tokio.workspace = true
 pse-quantity.workspace = true
 pse-authoring.workspace = true
 pse-relations.workspace = true
@@ -90,7 +89,6 @@ miette.workspace = true
 # The operational store: durable attempts, jobs, streams and seeds (ADR-0112).
 pse-operations.workspace = true
 chrono.workspace = true
-clap.workspace = true
 pse-workspace-hack.workspace = true
 
 [dev-dependencies]
@@ -109,15 +107,3 @@ tokio.workspace = true
 # linked native solvers.
 name = "worker"
 required-features = ["native-solvers"]
-
-[[bin]]
-# The durable job worker (ADR-0112 Outcome 18): the composition root that owns
-# `MathService` and the workflows claims jobs from the operational store.
-name = "pse-worker"
-path = "src/bin/pse-worker.rs"
-
-[[bin]]
-# Catalog-owned publication maintenance (ADR-0114 Outcome 7): export, retire, collect
-# and reclaim for one registered workspace.
-name = "pse-publication"
-path = "src/bin/pse-publication.rs"

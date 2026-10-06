@@ -498,8 +498,8 @@ impl RunResult {
             release_members: vec![],
             semantic_identity,
             implementation: descriptor::RuntimeArtifactDescriptorsFieldImplementation {
-                source: pse_buildinfo::SOURCE_IDENTITY,
-                build: pse_buildinfo::BUILD_IDENTITY,
+                source: self.runtime.canonical.attestation().source,
+                build: self.runtime.canonical.attestation().build,
                 registry: self.runtime.registry.fingerprint(),
                 algorithms: algorithms.finish_hash(),
             },

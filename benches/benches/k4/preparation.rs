@@ -20,6 +20,8 @@ async fn stage(
 ) -> (Duration, Value, ModelingDiagnosticPreparation) {
     let root = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|r| r.name == "Root")
         .unwrap()
@@ -90,6 +92,14 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
+        pse_runtime::workflow::CanonicalDeployment::new(
+            pse_operations::testing::canonical_fixture_store().unwrap(),
+            pse_runtime::workflow::OuterAttestation {
+                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                build: pse_ids::ContentHash::from_bytes([1; 32]),
+            },
+            None,
+        ),
     );
     let sources = support::sources(support::SOURCE);
     let setup = Instant::now();
@@ -225,6 +235,14 @@ async fn pressure(
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
+        pse_runtime::workflow::CanonicalDeployment::new(
+            pse_operations::testing::canonical_fixture_store().unwrap(),
+            pse_runtime::workflow::OuterAttestation {
+                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                build: pse_ids::ContentHash::from_bytes([1; 32]),
+            },
+            None,
+        ),
     );
     let service = owner.runtime.math();
     let pool = owner.runtime.pool();
@@ -234,6 +252,8 @@ async fn pressure(
     let package = support::package(&runtime, owner, &sources).await;
     let root = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|r| r.name == "Root")
         .unwrap()

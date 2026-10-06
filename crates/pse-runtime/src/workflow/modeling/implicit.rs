@@ -554,7 +554,10 @@ mod tests {
                 .find(|row| row.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+            let package = runtime
+                .modeling_package(rows, fixture::physical())
+                .await
+                .unwrap();
             let cancel = crate::CancelSource::new();
             let compiler = fixture::compiler_profile();
             let mut solver = fixture::profile();
@@ -780,7 +783,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let compiler = super::super::super::tests::compiler_profile();
         let model = package
@@ -864,7 +867,7 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = rt.modeling_package(rows, physical.clone()).unwrap();
+            let package = rt.modeling_package(rows, physical.clone()).await.unwrap();
             let compiler = super::super::super::tests::compiler_profile();
             let cancel = crate::CancelSource::new();
             let mut solver = super::super::super::tests::profile();
@@ -916,7 +919,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let model = package
@@ -1027,7 +1030,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let model = package
@@ -1098,7 +1101,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let mut solver = super::super::super::tests::profile();
@@ -1185,7 +1188,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let mut solver = super::super::super::tests::profile();
@@ -1281,7 +1284,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let mut solver = super::super::super::tests::profile();
         solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Kinsol,

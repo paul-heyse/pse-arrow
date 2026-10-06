@@ -17,9 +17,11 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 /// Select real complementarity fixture identities from the intact loaded package.
-fn complementarity_fixtures(package: &ModelingPackage) -> BTreeMap<String, SemanticId> {
+async fn complementarity_fixtures(package: &ModelingPackage) -> BTreeMap<String, SemanticId> {
     let tests = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .filter(|r| r.value.kind.as_str() == "test" && r.name.starts_with("complementarity_"))
         .map(|r| (r.name.clone(), r.declaration_id.as_id()))
@@ -61,7 +63,7 @@ async fn solve(package: &ModelingPackage, case: SemanticId, solver: SolverProfil
 async fn flash_phase_disappearance_agrees_across_realizations() {
     let owner = WorkflowRuntime::new().unwrap();
     let package = seed_package(&owner).await;
-    let cases = complementarity_fixtures(&package);
+    let cases = complementarity_fixtures(&package).await;
     for (feed, beta) in [("liquid", 0.0), ("two_phase", 0.3961), ("vapor", 1.0)] {
         // smooth(math.smooth_min, 1e-4): a square system on the NLP route.
         let smooth = solve(

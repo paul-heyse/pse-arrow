@@ -131,8 +131,22 @@ impl ConfigurationWorker {
             Configuration::Hints(resolver) => {
                 let values = if let Some(worker) = &mut self.hints {
                     // Admission proves these unknown coordinates are absent from hint dependencies.
-                    let mut point = vec![0.; problem.unknowns.len()];
-                    point.extend_from_slice(inputs);
+                    let point = worker
+                        .input_formals()
+                        .iter()
+                        .map(|formal| {
+                            formal
+                                .checked_sub(problem.unknowns.len())
+                                .and_then(|parameter| inputs.get(parameter))
+                                .copied()
+                                .ok_or_else(|| {
+                                    MathError::Contract(
+                                        "implicit hint references an unknown or missing parameter"
+                                            .into(),
+                                    )
+                                })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
                     worker
                         .evaluate(
                             &point,
@@ -148,8 +162,7 @@ impl ConfigurationWorker {
                 };
                 let initial = resolver.resolve(&values, None, semantic_anchor)?;
                 if let Some(worker) = &mut self.terms {
-                    let mut nominal = initial.1.variable_nominals.clone();
-                    nominal.extend_from_slice(inputs);
+                    let nominal = selected_inputs(worker, &initial.1.variable_nominals, inputs)?;
                     let terms = worker
                         .evaluate(
                             &nominal,

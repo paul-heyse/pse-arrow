@@ -14,6 +14,7 @@ pub mod newtype;
 pub mod postgres;
 pub mod preimage;
 pub mod roles;
+pub mod scientific_replay;
 pub use derive::{Frame, FramedHasher, derive_hash, derive_id, named_id};
 pub use encoding::{EncodingHasher, encoding_checksum};
 pub use error::IdError;

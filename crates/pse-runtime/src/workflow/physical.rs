@@ -75,6 +75,7 @@ impl PhysicalContext {
         documents.validate_context(
             &registry,
             sessions.validation_context(&registry)?.as_ref(),
+            sessions.pool(),
             cancel,
         )?;
         let headers = documents
@@ -113,12 +114,24 @@ impl PhysicalContext {
                 ));
             }
         };
-        let batches = crate::authoring_driver::p1::source_batches(
+        let mut batches = crate::authoring_driver::p1::source_context_batches(
             documents.bundles(),
             &registry,
             &headers,
             limits,
         )?;
+        if let Some(entities) = crate::authoring_driver::p1::physical_declaration_batch(
+            documents.bundles(),
+            &registry,
+            sessions.validation_context(&registry)?.as_ref(),
+            sessions.pool(),
+            cancel,
+        )? {
+            batches.insert(
+                pse_relations::generated::authored::modeling_declarations::RELATION_ID,
+                entities,
+            );
+        }
         let keys = crate::physical::input_keys(&registry);
         let roots = keys
             .iter()

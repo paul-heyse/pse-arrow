@@ -36,6 +36,7 @@ mod dependency_ceilings;
 mod feos_reference;
 #[cfg(feature = "package-fixtures")]
 mod inspection_fixture;
+mod producer_identity;
 #[path = "../../scripts/workspace.rs"]
 mod workspace;
 
@@ -59,9 +60,22 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Initialize a clean canonical database through its generated declaration route.
+    #[cfg(feature = "canonical-tools")]
+    CanonicalInit {
+        state: PathBuf,
+    },
+    /// Derive a relevant producer identity from selected Cargo units and consumed inputs.
+    ProducerIdentityFixture {
+        #[arg(long)]
+        output: PathBuf,
+    },
+    ProducerIdentity(Box<ProducerIdentityArgs>),
     /// Freeze independent FeOS PC-SAFT properties as typed oracle Parquet banks.
     #[cfg(feature = "thermodynamic-oracles")]
-    FeosReference { output: PathBuf },
+    FeosReference {
+        output: PathBuf,
+    },
     /// Publish and reopen a fresh current store for inspection tests.
     #[cfg(feature = "package-fixtures")]
     InspectionFixture {
@@ -115,6 +129,39 @@ enum Cmd {
     },
 }
 
+/// Inputs to one producer derivation; boxed in the command enum.
+#[derive(Debug, clap::Args)]
+struct ProducerIdentityArgs {
+    #[arg(long)]
+    package: String,
+    #[arg(long, default_value = "dev")]
+    profile: String,
+    #[arg(long)]
+    target: Option<String>,
+    #[arg(long, value_delimiter = ',')]
+    features: Vec<String>,
+    #[arg(long)]
+    no_default_features: bool,
+    #[arg(long)]
+    dep_info: Vec<PathBuf>,
+    #[arg(long = "input")]
+    declared_inputs: Vec<PathBuf>,
+    #[arg(long)]
+    native_input: Vec<PathBuf>,
+    #[arg(long = "environment")]
+    environment: Vec<String>,
+    #[arg(long)]
+    declarations: Option<PathBuf>,
+    /// Complete outer source attestation that contains this deployment.
+    #[arg(long, requires = "outer_build")]
+    outer_source: Option<String>,
+    /// Complete outer build attestation that contains this deployment.
+    #[arg(long, requires = "outer_source")]
+    outer_build: Option<String>,
+    #[arg(long)]
+    output: PathBuf,
+}
+
 /// Committed generators and the contract bootstrap phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Target {
@@ -145,6 +192,81 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let root = workspace_root()?;
     match cli.command {
+        #[cfg(feature = "canonical-tools")]
+        Cmd::CanonicalInit { state } => {
+            let options = pse_operations::canonical::CanonicalOptions::from_state(&state)?;
+            let executor = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()?;
+            executor.block_on(async {
+                let store = pse_operations::canonical::CanonicalStore::connect(&options).await?;
+                store.create().await?;
+                store.open().await
+            })?;
+            println!("canonical database initialized and interpretation verified");
+            Ok(())
+        }
+        Cmd::ProducerIdentityFixture { output } => {
+            producer_identity::qualified_fixture(&root, &output)?;
+            Ok(())
+        }
+        Cmd::ProducerIdentity(args) => {
+            let ProducerIdentityArgs {
+                package,
+                profile,
+                target,
+                features,
+                no_default_features,
+                dep_info,
+                declared_inputs,
+                native_input,
+                environment,
+                declarations,
+                outer_source,
+                outer_build,
+                output,
+            } = *args;
+            let declared_environment = environment
+                .into_iter()
+                .map(|entry| {
+                    let (key, value) = entry
+                        .split_once('=')
+                        .context("environment must be KEY=VALUE")?;
+                    ensure!(!key.is_empty(), "environment key must be nonempty");
+                    Ok((key.to_owned(), value.to_owned()))
+                })
+                .collect::<Result<BTreeMap<_, _>>>()?;
+            let declarations = match declarations {
+                Some(path) => serde_json::from_slice(&std::fs::read(path)?)?,
+                None => producer_identity::InputDeclarations::default(),
+            };
+            let mut identity = producer_identity::run(&producer_identity::ProducerOptions {
+                workspace_root: root,
+                package,
+                profile,
+                target,
+                features,
+                no_default_features,
+                dep_info,
+                declared_inputs,
+                native_inputs: native_input,
+                declared_environment,
+                declarations,
+            })?;
+            if let (Some(source), Some(build)) = (outer_source, outer_build) {
+                identity.outer_attestation = Some(producer_identity::OuterAttestation {
+                    source: pse_ids::ContentHash::parse_hex(&source)?,
+                    build: pse_ids::ContentHash::parse_hex(&build)?,
+                });
+            }
+            producer_identity::write_if_changed(&output, &identity)?;
+            println!(
+                "producer identity {}: persistent reuse eligible={}",
+                identity.identity, identity.persistent_reuse_eligible
+            );
+            Ok(())
+        }
         #[cfg(feature = "thermodynamic-oracles")]
         Cmd::FeosReference { output } => feos_reference::run(&root, &output),
         #[cfg(feature = "package-fixtures")]

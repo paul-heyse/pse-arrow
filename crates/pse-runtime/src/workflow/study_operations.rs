@@ -1022,7 +1022,7 @@ mod study_operation_unit {
         for request in requests {
             let original = operation(request);
             let value = serde_json::to_value(&original).unwrap();
-            assert_eq!(value["version"], 4);
+            assert_eq!(value["version"], 5);
             let decoded: StudyOperation = serde_json::from_value(value.clone()).unwrap();
             assert_eq!(decoded.source, original.source);
             assert_eq!(decoded.output_roles(), original.output_roles());

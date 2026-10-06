@@ -1,8 +1,8 @@
 ---
 title: Selected compilation and durable reuse
-status: draft
+status: in-progress
 date: 2026-10-05
-adrs: []
+adrs: [ADR-0164]
 review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
@@ -124,10 +124,10 @@ preparation and execution under equivalent scientific requirements.
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
 |---|---|---|---|
-| B1 — Selected kernel boundary | R0 and implemented A2 selection/codec slice. Resolve selected physical/modeling inputs and share admission/inference/specialization kernels. Preserve required context and global obligations. | Migrate authored `.pse`, Rust and Python modeling entry points and workflow composition. Remove their complete-bundle hydration requirement and `BundleOwner::_parent` retention when the last caller moves. | Scheduled |
-| B2 — Durable descriptions and dependencies | B1 plus A2 immutable storage/guards/protection. Persist portable products and complete dependencies; implement ordinary-solve reconstruction, discovery, eligibility and invalidation. | C2 consumes working reconstruction; move Salsa to optional acceleration and delete overlapping cache/validation mechanisms with no remaining consumer. | Scheduled |
-| B3 — Provenance and numerical preparation | B2 and R0 identity decision. Separate outer attestation from product keys; reconstruct and share compatible immutable numerical products without retaining whole revisions. | Migrate artifact requests and value-only, dynamics, fitting and study preparation. Delete global build keys from scientific reuse and unconditional repeated preparation. | Scheduled |
-| B4 — Formal coordinate preparation | B1 and exact library signature evidence. Decide compact mapping versus required complete signature, implement justified improvement and record any remaining limitation. | Migrate every consumer of the changed evaluator layout together. Remove displaced dense maps/tests; preserve actual guard/provider work. | Scheduled |
+| B1 — Selected kernel boundary | R0 and implemented A2 selection/codec slice. Resolve selected physical/modeling inputs and share admission/inference/specialization kernels. Preserve required context and global obligations. | Migrate authored `.pse`, Rust and Python modeling entry points and workflow composition. Remove their complete-bundle hydration requirement and `BundleOwner::_parent` retention when the last caller moves. | Implemented; final verification in progress |
+| B2 — Durable descriptions and dependencies | B1 plus A2 immutable storage/guards/protection. Persist portable products and complete dependencies; implement ordinary-solve reconstruction, discovery, eligibility and invalidation. | C2 consumes working reconstruction; move Salsa to optional acceleration and delete overlapping cache/validation mechanisms with no remaining consumer. | Implemented; final verification in progress |
+| B3 — Provenance and numerical preparation | B2 and R0 identity decision. Separate outer attestation from product keys; reconstruct and share compatible immutable numerical products without retaining whole revisions. | Migrate artifact requests and value-only, dynamics, fitting and study preparation. Delete global build keys from scientific reuse and unconditional repeated preparation. | Implemented; final verification in progress |
+| B4 — Formal coordinate preparation | B1 and exact library signature evidence. Decide compact mapping versus required complete signature, implement justified improvement and record any remaining limitation. | Migrate every consumer of the changed evaluator layout together. Remove displaced dense maps/tests; preserve actual guard/provider work. | Implemented; final verification in progress |
 
 These packages cross document boundaries. B1 can begin after A2's selected version and codec
 slice works; it does not need A3's complete revision authoring UI. B2 can initially publish a
@@ -165,21 +165,136 @@ quantitative comparison; B4 may conclude that some dense library input is necess
 
 ## Checkpoint and next step
 
-No B package is implemented by plan authoring. The next executable work is R0, then A2's
-selection/codec slice and B1. B4's signature investigation is independent of server deployment.
-The coordinator owns US05/EF01/EF02/EF05/EF08 dispositions; this document owns B progress and
-eventual local evidence.
+B1–B4 functional mechanisms are implemented. Checked batches and immutable typed rows
+retain the actual native validation owner. Same-owner readmission preserves existing
+evidence; changed owners and values receive native checks. Engine receiving boundaries
+retain the receiving owner, and failed round replacement leaves the prior epoch unchanged.
+Canonical resolution supplies the sufficient
+lexical/import/member/inverse-supplier closure with presence and absence premises. Routine
+modeling handles retain canonical revision, physical/provider context and attempt-local
+factories; they do not retain a complete declaration workspace. Inventories and source
+Arrow exports are explicit. The global physical entity universe has its own native
+projection; selected modeling and physical meaning are not conflated.
+
+Portable products retain selected syntax and complete owning-kernel construction receipts.
+Strict reconstruction uses the ordinary numerical builder without fresh inference or proof
+fallback. Opaque authority authenticates exact whole records to the qualified compiler-issued
+payload and request. Scientific writer and deployment/replay qualification roles cross
+explicit audited trust assertions. Decode scratch is reserved before parsing. Compact
+formal mappings include guards/providers/nested scopes; all consumers gather the worker's
+actual input formals, while derivative axes keep their requested order.
+
+Portable recipes have a finite 64 MiB logical limit, with independently bounded envelope
+metadata. Encoding counts the actual extent before allocation. Canonical product bodies
+and dependencies travel through immutable blocks beneath the 4 MiB protocol limit.
+Store-issued candidate extents support reservation before hydration; strict reconstruction
+also reserves its owning-kernel decode allowance. These format limits confer no entitlement
+to process memory: a smaller admitted pool refuses before allocation.
+
+Relevant producer tooling now captures actual Cargo production units and emitted dep-info.
+A genuine finite Rust tool capture qualifies and drives a persisted native reconstruction
+control. The inspected real `pse-runtime` dev deployment remains **ineligible**: 153 concrete
+refusals cover unreviewed build-script/procedural-macro I/O, ambiguous artifact associations,
+Cargo configuration, active environment and native closure. This is an explicit qualification
+boundary, not permission to manufacture a production receipt. Supplied source-bound reviews
+and complete actual native/configuration inputs are required before that deployment can reuse
+scientific products across builds. Normal admission and canonical persistence remain available.
+
+The maintainer requested closeout and a committed checkpoint on 2026-10-06, then cessation
+of work. Functional scope and focused controls are complete; final assembled A/B acceptance
+is pending. No compile-time or solve-time gain is inferred from structural controls.
+
+On resumption, reopen the preserved supervised state and use the refreshed linked native
+extension. Run `just native-python <output> -n1` with the prior selection
+`modeling or studies or workflow or solve_settings_projection or operational_store_isolation
+or publication_streams or plan14_acceptance or operational_queries` (84 cases). Keep the
+original 1,000-point study and scientific assertions. Then rerun the 106-control runtime
+selection through `just unit-native-package pse-runtime canonical-tests,pse-relations/force-validate`,
+selecting modeling, fitting, strategies, horizon, uncertainty, workflow, mathematical
+preparation, data-document and source-ownership controls. These final reruns are required
+because the earlier assembled pass preceded the last product/validation-owner integration.
+Finish remaining manual scope-end checks and record actual results before A/B closure.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Pending implementation and named evidence.
+**Implemented:** selected kernel inputs, actual persisted semantic dependencies, portable
+strict reconstruction, producer capture/controlled qualification, compact preparation and
+consumer migration. Global `SOURCE_IDENTITY`/`BUILD_IDENTITY` keys were removed from compiler
+and mathematical reuse; complete outer attestation is supplied only by composition roots.
+Bundle ancestry ownership and implicit routine whole-source Arrow exports were deleted.
+Worker/study payloads now identify actual canonical modeling revisions; required physical
+context remains explicit. Modeling-knowledge SQL convenience was removed in Rust/Python,
+leaving typed projections and Arrow. Full Runtime/TableReader result-query migration is D.
+Unchanged generator outputs preserve their source timestamps.
+
+**Tested**, baseline zero, with explicit force-validation and linked native environment:
+compiler scientific/replay controls passed 33/33; final authority-binding subset passed 2/2;
+producer controls passed 17/17 including actual Cargo consumed-helper rekey, uncompiled
+inline/file test locality and source-bound Cargo configuration executors. Configuration
+qualification binds raw configuration, resolved executable bytes, declared inputs and
+before/after capture; unknown, stale or incomplete closure refuses reuse. Canonical
+portable controls passed 12/12 using an actual
+eligible finite tool receipt, publication, client/service drop, reconnect and strict
+ordinary scalar solve `9 -> 2`, plus refusal of corrupt qualified payloads and typed
+callback deadline/cancellation controls. Neutral authority passed its pure unit and
+`just scientific-replay-miri` (1 selected pure control, no native FFI). Native compact
+implicit controls passed 26/26, including sparse high-ordinal formals and different
+hint/nominal signatures. Selected-source controls passed 4/4; source/ownership regression
+selection passed 31/31, including repeated revision edits and escaped shared payload leases.
+The large portable control persists a compiler-issued 4,773,984-byte recipe, reconnects
+and strictly reconstructs it with independently expected residual 7 and derivative 1.
+Protected candidate hydration refuses an inadequate pool before inspecting corrupt blocks.
+The compiler's eight portable controls include logical byte preflight and strict
+reconstruction above the former single-message bound.
+EF02's final force-validated local controls passed through `just unit-package`: 22/22
+selected `pse-relations` columnar/prepared controls, 26/26 selected `pse-engine` admission,
+input, preparation, role and round controls, and 6/6 selected `pse-runtime` document
+controls. Actual evaluation counters distinguish unchanged native-owner reuse from
+changed UDF meaning under identical schema. Cloning typed rows clears their certificate;
+sharing the immutable row owner retains it. Raw admission and builder completion retain
+their checks. Changed-owner projection reserves scratch, cancellation precedes cached
+reuse, and invalid replacement preserves the prior round value.
+
+Final assembled workflows remain pending at the maintainer-requested checkpoint. A owns
+the common closeout checks and the interrupted reference-only run's evidence boundary.
+`just codegen-unit-test` passed all 16 generator and global physical inventory controls,
+including unchanged-output timestamp preservation and independent physical fixture values.
+The finite producer fixture establishes the qualification/replay mechanism under its named
+scope; it does not qualify the real compiler/math/native deployment. No production producer
+eligibility, full-series qualification or quantitative performance improvement is claimed.
 
 ### A mistake made and corrected
 
-Pending execution.
+The first replay representation contained hashes without sufficient admitted mathematical
+meaning. Selected syntax and concrete owning-kernel receipts now supply strict reconstruction.
+Review exposed safe receipt/producer impersonation and missed dense implicit consumers;
+opaque exact-record authority and audited mint/writer roles now fence replay, and consumers
+gather the actual compact signature. Actual tool integration also found mismatched bare/prefixed
+outer hash encoding; both producer tool and runtime now use the owning `ContentHash` wire type.
+Full generation exposed missing global physical entity-kind projection after routine modeling
+columns were removed; the physical boundary now requests only the declaration kinds it consumes.
+Assembled workflows exposed tests that still consumed implicit source exports or edited an
+old head repeatedly. They now request explicit exports and edit the current revision.
+Scientific import, fixture and typing refusals run on their actual selected demands;
+global data declaration prerequisites remain checked by the shared admission kernel.
+Full reference cases exposed a portable recipe limit tied to one RPC, and study admission
+obscured that refusal behind an unclassified diagnostic. Logical recipe limits are now
+independent of block transport, and finite byte refusals retain their resource facts.
+Large-product controls exercise actual compiler-issued reconstruction and protected storage
+rather than bypassing persistence or reducing the scientific workload.
+The final obligation check also found discarded native validation owners at authored
+ingress and SQL-text-only projection reuse. Actual local owner retention and receiving
+context readmission replace those assumptions. A negative fixture that privately mutated
+an admitted immutable row object now exercises a genuine changed row owner; the original
+invalid-value refusal remains required.
 
 ### Deviations from the plan, deliberate
 
-Pending execution; consequential decision changes follow the decision route.
+Conservative raw consumed-source fallback resolves macro/location representation uncertainty;
+it may rekey on inline text that a normalized representation could otherwise exclude.
+Unreviewed executable I/O/native closure remains a refusal. This accepts extra invalidation,
+not unsafe reuse. Minimal adjacent worker/study/Python and generator changes were authorized
+for runnable A/B consumers; full C/D/E migrations and E4 measurements remain separately owned.
+No unsupported SIMD/JIT/batch evaluator path or second persistent authority was introduced.

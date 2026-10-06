@@ -366,7 +366,7 @@ async fn provider_streams_bounded_pages_and_honours_limit_and_projection() {
 async fn operational_tables_join_results_in_datafusion() {
     let database = TestDatabase::create().await.unwrap();
     let durable_runtime = durable_runtime(&database, "query").await;
-    let (package, analysis) = package_on(&durable_runtime, LINEAR);
+    let (package, analysis) = package_on(&durable_runtime, LINEAR).await;
     let cancel = crate::CancelSource::new();
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();

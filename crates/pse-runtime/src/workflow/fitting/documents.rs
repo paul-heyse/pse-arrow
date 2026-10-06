@@ -94,8 +94,8 @@ mod boundary_unit {
     #[test]
     fn fit_preparation_defaults_are_owned_and_resolved_in_rust() {
         let omitted: FitPreparationDocument =
-            serde_json::from_str(r#"{"solver":{"version":3}}"#).unwrap();
-        let explicit: FitPreparationDocument = serde_json::from_str(r#"{"solver":{"version":3},"simulations":{},"rank_tolerance":1e-8,"max_cells":1000000,"derivatives":"responses","uncertainty":null}"#).unwrap();
+            serde_json::from_str(r#"{"solver":{"version":4}}"#).unwrap();
+        let explicit: FitPreparationDocument = serde_json::from_str(r#"{"solver":{"version":4},"simulations":{},"rank_tolerance":1e-8,"max_cells":1000000,"derivatives":"responses","uncertainty":null}"#).unwrap();
         let omitted = omitted.profile().unwrap();
         let explicit = explicit.profile().unwrap();
         assert_eq!(omitted.rank_tolerance, explicit.rank_tolerance);

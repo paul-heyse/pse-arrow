@@ -193,6 +193,242 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `permits_result` | `Boolean` | false | `payload` | — | — |
 | `permits_seed` | `Boolean` | false | `payload` | — | — |
 
+## `canonical_edges`
+
+Authored structural reference resolved at a selected immutable revision.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `source_version` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `target_scope` | `Utf8` | false | `payload` | — | — |
+| `target_name` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_guards`
+
+Named conflict register; generation is separate from semantic eligibility.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_interpretations`
+
+Installed schema, codec and structural operation interpretation.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `schema_digest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_memberships`
+
+Changed membership interval and native problem-to-version graph edge; historical selection is explicit.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | `runtime.canonical_problems.key` | — |
+| `scope` | `Utf8` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `logical` | `Utf8` | false | `payload` | — | — |
+| `version` | `Utf8` | false | `payload` | `runtime.canonical_version_manifests.key` | — |
+| `from_sequence` | `UInt64` | false | `payload` | — | — |
+| `to_sequence` | `UInt64` | true | `payload` | — | — |
+
+## `canonical_payload_blocks`
+
+Bounded exact source payload transport block.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `payload` | `Binary` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_problems`
+
+Linear problem head; guarded compare-and-set advances it.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `head` | `Utf8` | false | `payload` | — | — |
+| `sequence` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_products`
+
+Portable admitted scientific description and complete dependency witness; contains no native handles.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `payload` | `Binary` | false | `payload` | — | — |
+| `dependencies` | `Binary` | false | `payload` | — | — |
+| `producer` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_protections`
+
+Protected immutable read/preparation selection; expiry fences further use.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `sequence` | `UInt64` | false | `payload` | — | — |
+| `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `released` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_reclaimed_ranges`
+
+Bounded reclamation tombstone; receipt retention does not resurrect reclaimed source selection.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `from_sequence` | `UInt64` | false | `payload` | — | — |
+| `to_sequence` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_revisions`
+
+Immutable authored revision and idempotent edit operation.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `sequence` | `UInt64` | false | `payload` | — | — |
+| `parent` | `Utf8` | true | `payload` | — | — |
+| `operation` | `Utf8` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_roots`
+
+Explicitly retained immutable revision root for a product, run, analysis or history.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `sequence` | `UInt64` | false | `payload` | — | — |
+| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_staged_edits`
+
+Source edit metadata activated atomically after immutable payload staging closes.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `stage` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `logical` | `Utf8` | false | `payload` | — | — |
+| `scope` | `Utf8` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `version` | `Utf8` | true | `payload` | — | — |
+
+## `canonical_stages`
+
+Fenced bounded staging lease and permanent idempotent operation identity.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `expected_head` | `Utf8` | true | `payload` | — | — |
+| `request_digest` | `Utf8` | false | `payload` | — | — |
+| `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `closed` | `Boolean` | false | `payload` | — | — |
+| `activated` | `Boolean` | false | `payload` | — | — |
+| `edit_count` | `UInt64` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `abandoned` | `Boolean` | false | `payload` | — | — |
+| `cleanup_complete` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_version_manifests`
+
+Closed immutable source payload manifest; transport blocks do not change scientific meaning.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `logical` | `Utf8` | false | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `payload_digest` | `Utf8` | false | `payload` | — | — |
+| `payload_len` | `UInt64` | false | `payload` | — | — |
+| `block_count` | `UInt64` | false | `payload` | — | — |
+| `reference_count` | `UInt64` | false | `payload` | — | — |
+| `creator_stage` | `Utf8` | false | `payload` | — | — |
+| `closed` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_version_receipts`
+
+Permanent immutable version identity fence, retained after payload reclamation.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `content_digest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_versions`
+
+Immutable logical object version; payload codec belongs to the scientific declaration owner.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `logical` | `Utf8` | false | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `payload` | `Binary` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+
 ## `change_events`
 
 Typed native CDF identity; each event travels with its complete declared before/after row value.

@@ -10,7 +10,7 @@ use pse_math::{
     assembly::{AssemblyLimits, CasePlan, LocalDemand},
     binding::{CaseLimits, CaseStructure, CaseValues, Target},
     coefficients::Coefficients,
-    guarded::{CompiledBody, PreparedBody},
+    guarded::CompiledBody,
     jets::EvaluationLimits,
     library::Optimization,
     typed::BodyLimits,
@@ -377,7 +377,6 @@ pub struct ArtifactRequest {
     key: ContentHash,
     environment: ContentHash,
     demand: LocalDemand,
-    body: Arc<PreparedBody>,
     support: Arc<pse_math::guarded::PreparedSupport>,
     optimization: Optimization,
     evaluation: EvaluationLimits,
@@ -385,7 +384,6 @@ pub struct ArtifactRequest {
 impl ArtifactRequest {
     /// Preserve product accounting if the request outlives its preparation.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        self.body = Arc::new(self.body.as_ref().clone().with_owner(owner.clone()));
         self.support = Arc::new(self.support.as_ref().clone().with_owner(owner));
         self
     }
@@ -396,7 +394,8 @@ impl ArtifactRequest {
                 * size_of::<usize>()
             + 64
     }
-    /// Complete source/build/numerical identity.
+    /// Numerical signature for the process-local accelerator. Durable descriptions
+    /// additionally require their selected relevant producer interpretation.
     pub fn key(&self) -> ContentHash {
         self.key
     }
@@ -428,14 +427,14 @@ fn artifact_requests(
 ) -> Arc<Vec<ArtifactRequest>> {
     Arc::new(p.demands().iter().enumerate().map(|(index, d)|{
         let mut h=FramedHasher::new(if d.directional { pse_ids::Frame::MathDirectionalArtifactV1 } else { pse_ids::Frame::MathArtifactV5 });
-        h.hash(&d.body).hash(environment).hash(&pse_buildinfo::SOURCE_IDENTITY).hash(&pse_buildinfo::BUILD_IDENTITY)
+        h.hash(&d.body).hash(environment)
             .str("pse-math-evaluator-abi-v4;demanded-support;interpreted-f64;numerica-jets;real-algebra;no-jit;no-simd")
             .u64(d.order as u64).u64(d.outputs.len() as u64);
         for &x in &d.outputs{h.u64(x as u64);}h.u64(d.coordinates.len() as u64);for &x in &d.coordinates{h.u64(x as u64);}
         if d.directional { h.str("directional-first;one-taylor-axis;runtime-formal-seeds-v1"); }
         h.u64(p.supports()[index].remaining_occurrences() as u64);
         for x in [profile.optimization.cores,profile.optimization.horner_iterations,profile.optimization.cpe_iterations,profile.evaluation.derivative_components,profile.evaluation.operations,profile.evaluation.scratch_bytes,profile.evaluation.provider_calls]{h.u64(x as u64);}
-        ArtifactRequest{key:h.finish_hash(),environment:*environment,demand:d.clone(),body:p.bodies()[&d.body].clone(),support:p.supports()[index].clone(),optimization:profile.optimization,evaluation:profile.evaluation}
+        ArtifactRequest{key:h.finish_hash(),environment:*environment,demand:d.clone(),support:p.supports()[index].clone(),optimization:profile.optimization,evaluation:profile.evaluation}
     }).collect())
 }
 /// Pure general function projection; roles are supplied by the consuming physical workflow.

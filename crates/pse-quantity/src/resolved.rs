@@ -13,6 +13,8 @@ use crate::{
     QuantityTypeId, QuantityTypeKey, Ratio, ScaleKind, UnitFactor, UnitId,
 };
 use std::collections::BTreeMap;
+#[path = "resolved_receipts.rs"]
+pub mod receipts;
 
 /// Scoped authority of one admitted scientific response formula. It never changes the
 /// rules of ordinary arithmetic or overrides a matched registered operation.
@@ -55,8 +57,15 @@ impl AdmittedOutputBoundary {
         target: QuantityTypeId,
         registry: &QuantityRegistry,
     ) -> Result<Self, QuantityError> {
-        let target = ResolvedPhysicalContract::named(target, source.indices.clone(), registry)?;
-        Self::declared_contract(operation, source, target)
+        let mut key = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+        key.str("declared-role-boundary")
+            .id(&operation)
+            .id(&target.as_id());
+        source.frame(&mut key);
+        receipts::boundary(key.finish_hash(), || {
+            let target = ResolvedPhysicalContract::named(target, source.indices.clone(), registry)?;
+            Self::declared_contract(operation, source, target)
+        })
     }
     /// Authorize an admitted anonymous target without manufacturing a public type ID.
     pub fn declared_contract(
@@ -236,6 +245,19 @@ pub fn infer_in_context(
     checker: &dyn InvariantChecker,
     authority: Option<&PhysicalFormulaAuthority>,
 ) -> Result<ResolvedInference, QuantityError> {
+    receipts::dispatch(request, values, expected, authority, || {
+        infer_unrecorded(request, values, expected, registry, checker, authority)
+    })
+}
+fn infer_unrecorded(
+    request: &OpRequest<'_>,
+    values: &[ResolvedPhysicalContract],
+    expected: Option<QuantityTypeId>,
+    registry: &QuantityRegistry,
+    checker: &dyn InvariantChecker,
+    authority: Option<&PhysicalFormulaAuthority>,
+) -> Result<ResolvedInference, QuantityError> {
+    receipts::require_admission_mode()?;
     let named = values
         .iter()
         .map(|value| {

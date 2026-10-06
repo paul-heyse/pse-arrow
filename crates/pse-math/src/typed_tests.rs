@@ -688,9 +688,7 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
         pool >= declared && pool.is_multiple_of(FORMAL_CHUNK),
         "{pool}"
     );
-    let mut values = vec![0.0; inputs];
-    values[inputs - 1] = 2.5;
-    let jet = body
+    let artifact = body
         .compile(
             &[0],
             &[inputs - 1],
@@ -699,10 +697,12 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
             Default::default(),
             &Arc::new(AtomicBool::new(false)),
         )
-        .unwrap()
+        .unwrap();
+    assert_eq!(artifact.input_formals(), &[inputs - 1]);
+    let jet = artifact
         .worker()
         .evaluate(
-            &values,
+            &[2.5],
             DerivativeOrder::First,
             &mut BTreeMap::new(),
             &Arc::new(AtomicBool::new(false)),

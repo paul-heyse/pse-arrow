@@ -13,7 +13,18 @@
 use crate::{DimensionError, Ratio};
 
 /// A canonical product of unit symbols with nonzero rational exponents, in symbol order.
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+)]
 pub struct UnitProduct {
     factors: Vec<(String, Ratio)>,
 }

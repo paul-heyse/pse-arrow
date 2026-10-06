@@ -48,7 +48,7 @@ async fn solve_source(
         .ok_or("fixture Root declaration absent")?
         .declaration_id;
     let runtime = fixture::runtime_with(64 << 20, 16 << 20, 1 << 30);
-    let package = runtime.modeling_package(rows, fixture::physical())?;
+    let package = runtime.modeling_package(rows, fixture::physical()).await?;
     let mut solver = fixture::profile();
     solver.selection = SolverSelection::Explicit(Backend::Pounce);
     solver.intent = SolveIntent::Root;

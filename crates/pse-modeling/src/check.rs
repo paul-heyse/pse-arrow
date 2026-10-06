@@ -224,22 +224,13 @@ impl CheckedPackage {
     /// package that sees the physical names, and each name, qualified by that package
     /// (ADR-0123 Outcome 8).
     pub fn physical_bindings(&self) -> BTreeMap<String, SemanticId> {
-        let mut bindings = BTreeMap::new();
-        for package in self
-            .declarations
-            .values()
-            .filter(|row| row.parent_id.is_none() && self.scope.sees(row.document_id))
-        {
-            for (name, value) in self.quantities.physical_names() {
-                let id = match value {
-                    pse_quantity::PhysicalName::QuantityType(id) => id.as_id(),
-                    pse_quantity::PhysicalName::ReferenceState(id) => id.as_id(),
-                };
-                bindings.insert(format!("{}.{name}", package.name), id);
-            }
-        }
-        bindings
+        crate::selected_source::physical_bindings(
+            self.declarations.values(),
+            &self.scope,
+            &self.quantities,
+        )
     }
+
     /// The one quantity type every reference state states `attribute` in, which types
     /// `state.temperature` and `state.pressure` (ADR-0123 Outcome 6).
     pub(crate) fn reference_attribute_type(
@@ -410,7 +401,7 @@ impl CheckedPackage {
     /// Resolve decoded atomic segments without flattening quoted dots into member edges.
     pub(crate) fn resolve_segments(
         &self,
-        mut owner: DeclarationId,
+        owner: DeclarationId,
         segments: &[dsl::PathSegment],
     ) -> Option<DeclarationId> {
         let (first, tail) = segments.split_first()?;
@@ -424,81 +415,14 @@ impl CheckedPackage {
         {
             return Some(id);
         }
-        let selected = loop {
-            if self.functions.get(&owner).is_some_and(|function| {
-                function
-                    .arguments
-                    .iter()
-                    .any(|(name, _)| *name == first.name)
-            }) || self
-                .declarations
-                .get(&owner)
-                .and_then(|row| row.value.scope.as_ref())
-                .is_some_and(|scope| {
-                    scope
-                        .parameters
-                        .iter()
-                        .any(|parameter| parameter.name == first.name)
-                })
-            {
-                return None;
+        match crate::selected_source::resolve_segments(&mut CheckedLexical(self), owner, segments) {
+            crate::selected_source::Lookup::Found(ids) => ids.first().copied(),
+            crate::selected_source::Lookup::Absent | crate::selected_source::Lookup::Pending => {
+                None
             }
-            if let Some(id) = self
-                .children
-                .get(&owner)
-                .into_iter()
-                .flatten()
-                .find_map(|id| {
-                    let row = &self.declarations[id];
-                    row.value
-                        .import
-                        .as_ref()
-                        .filter(|import| import.alias.as_deref().unwrap_or(&row.name) == first.name)
-                        .and_then(|_| self.names.get(&row.name).copied())
-                })
-            {
-                break id;
-            }
-            if let Some(id) = self.declared_member(owner, &first.name).or_else(|| {
-                self.children
-                    .get(&owner)
-                    .and_then(|children| {
-                        children
-                            .iter()
-                            .find(|id| self.declarations[id].name == first.name)
-                    })
-                    .copied()
-            }) {
-                let row = &self.declarations[&id];
-                if let Some(import) = &row.value.import
-                    && import.alias.as_deref().unwrap_or(&row.name) == first.name
-                {
-                    break self.names.get(&row.name).copied()?;
-                }
-                break id;
-            }
-            let row = self.declarations.get(&owner)?;
-            if let Some(parent) = row.parent_id {
-                owner = parent;
-            } else if row.name == first.name {
-                break owner;
-            } else {
-                return None;
-            }
-        };
-        tail.iter().try_fold(selected, |owner, segment| {
-            self.declared_member(owner, &segment.name).or_else(|| {
-                self.children
-                    .get(&owner)
-                    .and_then(|children| {
-                        children
-                            .iter()
-                            .find(|id| self.declarations[id].name == segment.name)
-                    })
-                    .copied()
-            })
-        })
+        }
     }
+
     /// Resolve lexical names, explicit imports, and names within the owning package.
     pub fn resolve(&self, mut owner: DeclarationId, name: &str) -> Option<DeclarationId> {
         if let Some(id) = name
@@ -1877,164 +1801,10 @@ impl CheckedPackage {
                         .copied(),
                 );
             }
-            let mut texts = Vec::new();
-            let mut types: Vec<&Vec<pse_authoring::language::TypeNode>> = Vec::new();
-            // Cells name declarations only as reference paths (ADR-0123 Outcome 1).
-            let mut cells: Vec<&pse_authoring::language::Cell> = Vec::new();
-            // Completeness names declared sets and enumerations by path (Outcome 3).
-            let mut sets: Vec<&Vec<String>> = Vec::new();
-            // Provenance and oracles name sources, roles and lineage by path (Outcome 5).
-            let mut paths: Vec<&Vec<String>> = Vec::new();
             if row.value.import.is_some()
                 && let Some(target) = self.names.get(&row.name)
             {
                 pending.push(*target);
-            }
-            if let Some(v) = &row.value.scope {
-                texts.extend(v.bases.iter().map(String::as_str));
-                if let Some(selection) = &v.selection {
-                    texts.push(&selection.criterion);
-                    texts.push(&selection.tolerance);
-                }
-                texts.extend(v.branch.as_deref());
-                if let Some(operation) = &v.operational {
-                    texts.extend(operation.anchors.iter().map(|a| a.expression.as_str()));
-                    texts.extend(operation.neighborhood.as_deref());
-                }
-                texts.extend(v.eligibility.as_deref());
-                // A test depends on its oracle source (ADR-0123 Outcome 5).
-                paths.extend(v.oracle.iter());
-                if let Some(fixture) = &v.fixture {
-                    if let Some(expected) = &fixture.expected_failure
-                        && let Some(v) = &expected.applicability
-                    {
-                        texts.extend([v.claim.as_str(), v.form.as_str()]);
-                        texts.extend(v.sets.iter().map(String::as_str));
-                    }
-                    if let Some(integration) = &fixture.integration {
-                        texts.extend(integration.samples.iter().map(String::as_str));
-                        texts.push(&integration.initial_step);
-                        for q in &integration.quadratures {
-                            texts.push(&q.target);
-                            texts.push(&q.absolute_tolerance);
-                        }
-                        for s in &integration.schedules {
-                            texts.push(&s.target);
-                            texts.extend(
-                                s.times
-                                    .iter()
-                                    .chain(&s.values)
-                                    .chain(s.lower.iter().chain(&s.upper))
-                                    .map(String::as_str),
-                            );
-                        }
-                    }
-                    if let Some(shooting) = &fixture.shooting {
-                        texts.extend(shooting.nodes.iter().map(String::as_str));
-                    }
-                    for e in fixture.modes.iter().flat_map(|m| &m.events) {
-                        texts.push(&e.guard);
-                        texts.push(&e.tolerance);
-                        for r in &e.reset {
-                            texts.push(&r.target);
-                            texts.push(&r.expression);
-                        }
-                    }
-                    for s in &fixture.specifications {
-                        texts.push(&s.target);
-                        texts.extend(s.expression.as_deref());
-                    }
-                }
-                for p in &v.parameters {
-                    types.push(&p.r#type);
-                    texts.extend(p.default_value.as_deref());
-                }
-            }
-            if let Some(v) = &row.value.binding {
-                types.extend(v.r#type.as_ref());
-                texts.extend(v.expression.as_deref());
-                texts.extend(v.defined_by.as_deref());
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.function {
-                if let Some(external) = &v.external {
-                    texts.push(&external.output);
-                }
-                texts.extend(v.body.as_deref());
-                texts.extend(v.validity.as_deref());
-                texts.extend(v.applicability.iter().map(String::as_str));
-                types.push(&v.return_type);
-                types.extend(v.arguments.iter().map(|a| &a.r#type));
-            }
-            if let Some(v) = &row.value.applicability {
-                texts.extend([v.owner.as_str(), v.evidence.as_str()]);
-                texts.extend(v.predicate.as_deref());
-                texts.extend(v.lower.as_deref());
-                texts.extend(v.upper.as_deref());
-                texts.extend(
-                    v.alternatives
-                        .iter()
-                        .chain(&v.dependencies)
-                        .map(String::as_str),
-                );
-                types.extend(v.arguments.iter().map(|a| &a.r#type));
-            }
-            if let Some(v) = &row.value.permission {
-                texts.extend(v.targets.iter().map(String::as_str));
-            }
-            if let Some(v) = &row.value.coordinate_map {
-                types.extend(v.arguments.iter().map(|a| &a.r#type));
-                texts.extend(v.validity.as_deref());
-                pending.extend(self.children.get(&id).into_iter().flatten().copied());
-            }
-            if let Some(v) = &row.value.coordinate_slot {
-                texts.push(&v.expression);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.reconstruction {
-                texts.extend([
-                    v.map.as_str(),
-                    v.reference.as_str(),
-                    v.normalization.as_str(),
-                ]);
-                types.push(&v.return_type);
-                types.extend(v.arguments.iter().map(|a| &a.r#type));
-            }
-            if let Some(v) = &row.value.response {
-                texts.push(&v.body);
-                types.push(&v.return_type);
-                types.extend(v.arguments.iter().map(|a| &a.r#type));
-            }
-            if let Some(v) = &row.value.reference_translation {
-                texts.extend([
-                    v.source_anchor.as_str(),
-                    v.target_anchor.as_str(),
-                    v.temperature.as_str(),
-                    v.pressure.as_str(),
-                ]);
-                types.push(&v.return_type);
-                types.extend(v.arguments.iter().map(|a| &a.r#type));
-                paths.extend(provenance_paths(&v.provenance));
-            }
-            if let Some(v) = &row.value.boundary {
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.exchange {
-                texts.extend([v.from.as_str(), v.to.as_str()]);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.table {
-                types.extend(v.value_type.as_ref());
-                cells.extend(v.default_value.as_ref());
-                types.extend(v.keys.iter().map(|k| &k.r#type));
-                types.extend(v.columns.iter().map(|c| &c.r#type));
-                texts.extend(v.columns.iter().filter_map(|c| c.derived.as_deref()));
-                texts.extend(v.requirements.iter().map(String::as_str));
-                sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
-                types.extend(v.envelopes.iter().map(|e| &e.r#type));
-            }
-            if let Some(v) = &row.value.envelope {
-                types.push(&v.r#type);
             }
             // A table or a kind depends on the datasets that supply its rows, a kind also on
             // those of its refinements.
@@ -2051,133 +1821,13 @@ impl CheckedPackage {
             if let Some(kind) = self.kinds.get(&id) {
                 pending.extend(kind.base);
             }
-            if let Some(v) = &row.value.dataset {
-                texts.push(&v.target);
-                paths.extend(provenance_paths(&v.provenance));
-                sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
-                cells.extend(v.bindings.iter().map(|b| &b.value));
-                for r in &v.rows {
-                    cells.extend(r.keys.iter().chain(&r.values));
-                }
-            }
-            if let Some(v) = &row.value.entity {
-                texts.push(&v.kind_name);
-                cells.extend(v.attributes.iter().map(|a| &a.value));
-                paths.extend(v.provenance.iter().flat_map(provenance_paths));
-                paths.extend(
-                    v.attributes
-                        .iter()
-                        .flat_map(|a| a.provenance.iter().flat_map(provenance_paths)),
-                );
-            }
-            if let Some(v) = &row.value.attribute {
-                types.extend(v.r#type.as_ref());
-                cells.extend(v.value.as_ref());
-                texts.extend(v.derived.as_deref());
-            }
-            if let Some(v) = &row.value.constant {
-                types.push(&v.r#type);
-                cells.push(&v.value);
-                paths.extend(provenance_paths(&v.provenance));
-            }
-            if let Some(v) = &row.value.equation {
-                texts.push(&v.expression);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-                texts.extend(v.condition.as_ref().map(|c| c.variable.as_str()));
-            }
-            if let Some(v) = &row.value.ordered_set {
-                texts.extend([v.member.as_str(), v.weight.as_str()]);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.cardinality {
-                texts.extend([v.count.as_str(), v.member.as_str()]);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.piecewise {
-                texts.extend([
-                    v.output.as_str(),
-                    v.input.as_str(),
-                    v.abscissa.as_str(),
-                    v.ordinate.as_str(),
-                ]);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.logic {
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.complementarity {
-                texts.extend([v.first.as_str(), v.second.as_str()]);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.realization {
-                texts.extend(v.argument.as_deref());
-                texts.extend(v.function.as_deref());
-            }
-            if let Some(v) = &row.value.guard {
-                texts.push(&v.predicate);
-            }
-            if let Some(v) = &row.value.requirement {
-                texts.push(&v.predicate);
-            }
-            if let Some(v) = &row.value.accumulator {
-                types.push(&v.r#type);
-                texts.push(&v.tolerance);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.contribution {
-                texts.push(&v.target);
-                texts.push(&v.expression);
-                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-            }
-            if let Some(v) = &row.value.connection {
-                texts.push(&v.from);
-                texts.push(&v.to);
-            }
-            if let Some(v) = &row.value.annotation {
-                texts.push(&v.target);
-                texts.extend(v.arguments.iter().map(String::as_str));
-                if let Some(o) = &v.objective {
-                    texts.extend(
-                        [
-                            &o.weight,
-                            &o.normalization,
-                            &o.absolute_tolerance,
-                            &o.relative_tolerance,
-                        ]
-                        .into_iter()
-                        .flatten()
-                        .map(String::as_str),
-                    );
-                }
-            }
-            if let Some(v) = &row.value.continuous {
-                types.push(&v.r#type);
-                texts.extend([v.lower.as_str(), v.upper.as_str()]);
-            }
-            if let Some(v) = &row.value.discretization {
-                texts.extend([
-                    v.target.as_str(),
-                    v.scheme.as_str(),
-                    v.elements.as_str(),
-                    v.order.as_str(),
-                ]);
-            }
-            if let Some(v) = &row.value.realization {
-                texts.push(&v.target);
-            }
-            if let Some(v) = &row.value.temporal {
-                texts.extend([v.target.as_str(), v.axis.as_str()]);
-            }
-            if let Some(v) = &row.value.relaxation {
-                texts.extend([v.target.as_str(), v.nominal.as_str()]);
-            }
-            if let Some(v) = &row.value.continuation {
-                texts.extend([v.target.as_str(), v.start.as_str(), v.end.as_str()]);
-            }
-            if let Some(v) = &row.value.expectation {
-                texts.extend([v.actual.as_str(), v.expected.as_str(), v.tolerance.as_str()]);
-                texts.extend(v.relative_tolerance.as_deref());
-            }
+            let crate::selected_source::SourceRequirements {
+                names: texts,
+                types,
+                cells,
+                sets,
+                paths,
+            } = crate::selected_source::requirements(row);
             for text in texts {
                 pending.extend(self.resolve(id, text));
             }
@@ -2278,7 +1928,7 @@ impl CheckedPackage {
     }
 }
 /// The paths a provenance names: its source, its role and its lineage entries.
-fn provenance_paths(
+pub(crate) fn provenance_paths(
     provenance: &pse_authoring::language::ModelingProvenance,
 ) -> impl Iterator<Item = &Vec<String>> {
     [&provenance.source, &provenance.role]
@@ -2287,33 +1937,70 @@ fn provenance_paths(
 }
 /// The paths a cell names: its reference, its set's references, an identifier's scheme,
 /// and a keyed-row reference's target with the paths of its key cells.
-fn cell_paths(cell: &pse_authoring::language::Cell) -> Vec<String> {
-    use pse_authoring::language::CellSelected;
-    match cell.value.selected() {
-        Ok(CellSelected::Reference(v)) => vec![v.path.join(".")],
-        Ok(CellSelected::References(v)) => v
-            .paths
-            .iter()
-            .flat_map(|p| {
-                std::iter::once(p.path.join(".")).chain(
-                    p.keys
-                        .iter()
-                        .flatten()
-                        .filter_map(|key| pse_authoring::language::key_cell_value(key).ok())
-                        .flat_map(|cell| cell_paths(&cell)),
-                )
-            })
-            .collect(),
-        Ok(CellSelected::Identifier(v)) => vec![v.scheme.join(".")],
-        Ok(CellSelected::Row(v)) => std::iter::once(v.target.join("."))
-            .chain(
-                v.keys
+pub(crate) fn cell_paths(cell: &pse_authoring::language::Cell) -> Vec<String> {
+    crate::selected_source::cell_paths(cell)
+        .into_iter()
+        .map(|parts| parts.join("."))
+        .collect()
+}
+
+struct CheckedLexical<'a>(&'a CheckedPackage);
+impl crate::selected_source::LexicalLookup for CheckedLexical<'_> {
+    fn declaration(&self, id: DeclarationId) -> Option<&Declaration> {
+        self.0.declarations.get(&id)
+    }
+    fn bound(&self, owner: DeclarationId, name: &str) -> bool {
+        self.0.functions.get(&owner).is_some_and(|function| {
+            function
+                .arguments
+                .iter()
+                .any(|(argument, _)| argument == name)
+        }) || self
+            .0
+            .declarations
+            .get(&owner)
+            .and_then(|row| row.value.scope.as_ref())
+            .is_some_and(|scope| {
+                scope
+                    .parameters
                     .iter()
-                    .filter_map(|key| pse_authoring::language::key_cell_value(key).ok())
-                    .flat_map(|cell| cell_paths(&cell)),
-            )
-            .collect(),
-        _ => Vec::new(),
+                    .any(|parameter| parameter.name == name)
+            })
+    }
+    fn imported(&mut self, owner: DeclarationId, name: &str) -> crate::selected_source::Lookup {
+        let id = self
+            .0
+            .children
+            .get(&owner)
+            .into_iter()
+            .flatten()
+            .find_map(|id| {
+                let row = &self.0.declarations[id];
+                row.value
+                    .import
+                    .as_ref()
+                    .filter(|import| import.alias.as_deref().unwrap_or(&row.name) == name)
+                    .and_then(|_| self.0.names.get(&row.name).copied())
+            });
+        id.map_or(crate::selected_source::Lookup::Absent, |id| {
+            crate::selected_source::Lookup::Found(vec![id])
+        })
+    }
+    fn member(&mut self, owner: DeclarationId, name: &str) -> crate::selected_source::Lookup {
+        let id = self.0.declared_member(owner, name).or_else(|| {
+            self.0
+                .children
+                .get(&owner)
+                .and_then(|children| {
+                    children
+                        .iter()
+                        .find(|id| self.0.declarations[id].name == name)
+                })
+                .copied()
+        });
+        id.map_or(crate::selected_source::Lookup::Absent, |id| {
+            crate::selected_source::Lookup::Found(vec![id])
+        })
     }
 }
 
@@ -2322,134 +2009,15 @@ pub(crate) fn dependency_syntax(
     owner: DeclarationId,
     value: &crate::expression::occurrences::Syntax,
 ) -> BTreeSet<DeclarationId> {
-    use pse_authoring::{
-        dsl::{Equation, EquationKind, Expr, ExprKind},
-        language::StaticValue,
-    };
-    fn path(
-        p: &CheckedPackage,
-        owner: DeclarationId,
-        path: &dsl::Path,
-        out: &mut BTreeSet<DeclarationId>,
-    ) {
-        if let Some(id) = (1..=path.segments.len())
-            .rev()
-            .find_map(|end| p.resolve_segments(owner, &path.segments[..end]))
-        {
-            out.insert(id);
-        }
-    }
-    fn expression(
-        p: &CheckedPackage,
-        owner: DeclarationId,
-        e: &Expr,
-        out: &mut BTreeSet<DeclarationId>,
-    ) {
-        for value in e.free_paths() {
-            path(p, owner, value, out);
-        }
-        e.walk(|node| call(p, owner, node, out));
-    }
-    fn call(
-        p: &CheckedPackage,
-        owner: DeclarationId,
-        node: &Expr,
-        out: &mut BTreeSet<DeclarationId>,
-    ) {
-        let name = match &node.kind {
-            ExprKind::NamedCall { name, .. } => Some(name),
-            ExprKind::Partial { function, .. } => Some(function),
-            _ => None,
-        };
-        if let Some(name) = name {
-            if let Some(id) = p.resolve_segments(owner, &name.segments) {
-                out.insert(id);
-            }
-            path(p, owner, name, out);
-        }
-    }
-    fn predicate(
-        p: &CheckedPackage,
-        owner: DeclarationId,
-        value: &dsl::Predicate,
-        out: &mut BTreeSet<DeclarationId>,
-    ) {
-        for value in value.paths() {
-            path(p, owner, value, out);
-        }
-        value.walk_expressions(|node| call(p, owner, node, out));
-    }
-    fn syntax(
-        p: &CheckedPackage,
-        owner: DeclarationId,
-        value: &StaticValue,
-        out: &mut BTreeSet<DeclarationId>,
-    ) {
-        match value {
-            StaticValue::Expression(e) => expression(p, owner, e, out),
-            StaticValue::Set(values) | StaticValue::Tuple(values) => {
-                for v in values {
-                    syntax(p, owner, v, out);
-                }
-            }
-            StaticValue::Comprehension {
-                body,
-                bindings,
-                filter,
-            } => {
-                for (_, v) in bindings {
-                    syntax(p, owner, v, out);
-                }
-                syntax(p, owner, body, out);
-                if let Some(filter) = filter {
-                    predicate(p, owner, filter, out);
-                }
-            }
-            StaticValue::Apply { name, arguments } => {
-                if let Some(id) = p.resolve(owner, name) {
-                    out.insert(id);
-                }
-                for (_, v) in arguments {
-                    syntax(p, owner, v, out);
-                }
-            }
-            StaticValue::Text(_) => {}
-        }
-    }
-    fn equation(
-        p: &CheckedPackage,
-        owner: DeclarationId,
-        value: &Equation,
-        out: &mut BTreeSet<DeclarationId>,
-    ) {
-        match &value.kind {
-            EquationKind::Relation { lhs, rhs, .. } => {
-                expression(p, owner, lhs, out);
-                expression(p, owner, rhs, out);
-            }
-            EquationKind::Conditional {
-                guard,
-                then,
-                otherwise,
-            } => {
-                predicate(p, owner, guard, out);
-                equation(p, owner, then, out);
-                equation(p, owner, otherwise, out);
-            }
-        }
-    }
-    use crate::expression::occurrences::Syntax;
-    let mut out = BTreeSet::new();
-    match value {
-        Syntax::Expression(value) => expression(p, owner, value, &mut out),
-        Syntax::Static(value) => syntax(p, owner, value, &mut out),
-        Syntax::Equation(value) => equation(p, owner, value, &mut out),
-        Syntax::Predicate(value) => predicate(p, owner, value, &mut out),
-        Syntax::Logic(value) => {
-            value.expressions(&mut |value| expression(p, owner, value, &mut out))
-        }
-    }
-    out
+    crate::selected_source::syntax_references(value)
+        .into_iter()
+        .filter_map(|reference| match reference {
+            crate::selected_source::SourceReference::Name(name) => p.resolve(owner, &name),
+            crate::selected_source::SourceReference::Segments(path) => (1..=path.segments.len())
+                .rev()
+                .find_map(|end| p.resolve_segments(owner, &path.segments[..end])),
+        })
+        .collect()
 }
 pub(crate) fn dependency_expression(
     p: &CheckedPackage,

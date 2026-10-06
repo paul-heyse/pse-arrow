@@ -5,9 +5,8 @@
 #
 # The maintainer chooses when to run these checks and how to handle their results.
 #
-# Miri is deliberately absent: there is no `unsafe` outside the FFI crates, where Miri
-# cannot follow the calls anyway. Re-adoption has a register row whose trigger is the
-# first non-FFI `unsafe` block.
+# Miri covers the pure scientific replay authority introduced by ADR-0164.
+# Native FFI owners remain outside this interpreter scope.
 name: rust-scheduled
 
 on:
@@ -32,6 +31,20 @@ env:
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
 
 jobs:
+  scientific-replay-miri:
+    name: scientific-replay-miri
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: miri
+          save-if: "true"
+      - name: pure scientific replay authority
+        run: cargo miri test -p pse-ids -p pse-relations --lib --locked --features pse-relations/force-validate scientific_replay::tests
+
   # Owner: maintainer. Response: a broken feature combination is a bug in the feature
   # wiring, not a reason to drop the combination — fix the cfg or make the feature
   # additive (docs/dev/ci.md).

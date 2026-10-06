@@ -170,7 +170,10 @@ mod tests {
                 .find(|r| r.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = rt.modeling_package(declarations, physical.clone()).unwrap();
+            let package = rt
+                .modeling_package(declarations, physical.clone())
+                .await
+                .unwrap();
             let cancel = crate::CancelSource::new();
             let analysis = ModelingAnalysis {
                 root,

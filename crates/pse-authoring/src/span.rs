@@ -16,7 +16,10 @@ use pse_ids::SemanticId;
 /// Parser byte offsets use `u32`; their declared Arrow representation uses bounded
 /// nonnegative `Int64` fields. A document larger than 4 GiB is outside this parser's
 /// envelope.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
 pub struct SourceSpan {
     /// The document, by identity.
     pub document_id: SemanticId,

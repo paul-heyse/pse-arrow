@@ -194,7 +194,7 @@ crate::closed_enum! {
     }
 }
 /// Evidence of the physical rule selected for this node.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum OperationSelection {
     /// A closed built-in rule.
     BuiltIn(BuiltInRule),
@@ -207,7 +207,7 @@ pub enum OperationSelection {
     },
 }
 /// A selected conversion, with its original operand ordinal.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct OperandConversion {
     /// Original operand position.
     pub operand: u16,

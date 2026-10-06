@@ -15,6 +15,15 @@
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum IdError {
+    /// A scientific replay descriptor exceeds its bounded wire extent.
+    #[error("scientific replay descriptor exceeds the bounded wire extent")]
+    ScientificRecipeLimit,
+    /// A scientific replay descriptor is malformed JSON.
+    #[error("malformed scientific replay descriptor")]
+    ScientificRecipeEncoding,
+    /// The qualified immutable descriptor digest differs from its actual bytes.
+    #[error("scientific replay descriptor differs from qualified payload digest")]
+    ScientificRecipeDigest,
     /// A byte slice did not have the exact declared width.
     #[error("expected {expected} bytes, received {actual}")]
     Length {
@@ -53,7 +62,7 @@ pub enum IdError {
 pse_diagnostics::impl_diagnostic! {
     IdError,
     code(this) { match this {
-            Self::Length { .. } | Self::HexLength { .. } | Self::HexDigit { .. } | Self::Prefix { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+            Self::ScientificRecipeLimit | Self::ScientificRecipeEncoding | Self::ScientificRecipeDigest | Self::Length { .. } | Self::HexLength { .. } | Self::HexDigit { .. } | Self::Prefix { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
 
 
 

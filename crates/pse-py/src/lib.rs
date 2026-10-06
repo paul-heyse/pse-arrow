@@ -6,7 +6,7 @@
 #![recursion_limit = "256"]
 #![allow(
     unsafe_code,
-    reason = "pyo3 expansions carry the CPython ABI glue (blueprint §21)"
+    reason = "pyo3 CPython ABI glue (blueprint §21) and ADR-0164 controlled deployment qualification"
 )]
 
 //! pyo3 + pyo3-arrow extension module (cdylib) that is the whole Python boundary

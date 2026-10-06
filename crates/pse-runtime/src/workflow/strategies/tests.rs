@@ -233,7 +233,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let original = package.revision.identity();
     let cancel = crate::CancelSource::new();
     let analysis = package
@@ -327,7 +327,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_execution(
@@ -462,7 +462,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     assert_ne!(report.run_id.as_id(), SemanticId::NIL);
     assert!(trace_rows.iter().all(|row| row.run_id == report.run_id));
     let original = package.revision.identity();
-    let mut rows = package.declarations().to_vec();
+    let mut rows = package.declarations().await.unwrap().to_vec();
     rows.iter_mut()
         .find(|r| r.name == "output")
         .unwrap()
@@ -471,7 +471,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         .as_mut()
         .unwrap()
         .expression = Some("x/2+a+hidden".into());
-    let revised = package.with_declarations(rows).unwrap();
+    let revised = package.with_declarations(rows).await.unwrap();
     assert_ne!(revised.revision.identity(), original);
     assert_eq!(package.revision.identity(), original);
     let error = revised

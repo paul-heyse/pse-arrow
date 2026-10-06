@@ -794,7 +794,7 @@ impl ModelingPackage {
                 .runtime
                 .native()
                 .prepare_modeling_functions(
-                    self.workspace.clone(),
+                    self.numerical_workspace()?,
                     resolved.model.model.clone(),
                     unit.inputs
                         .iter()
@@ -911,7 +911,7 @@ impl ModelingPackage {
                         self.runtime
                             .native()
                             .prepare_conditional_unit(
-                                self.workspace.clone(),
+                                self.numerical_workspace()?,
                                 resolved.model.model.clone(),
                                 resolved.model.case.clone(),
                                 unit.node,
@@ -935,7 +935,7 @@ impl ModelingPackage {
                 .runtime
                 .native()
                 .prepare_modeling_functions(
-                    self.workspace.clone(),
+                    self.numerical_workspace()?,
                     resolved.model.model.clone(),
                     outputs,
                     Vec::new(),

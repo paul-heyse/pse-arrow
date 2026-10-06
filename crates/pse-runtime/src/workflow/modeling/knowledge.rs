@@ -9,42 +9,22 @@ use pse_model::generated::structures::{
     ModelingKnowledgeLineage, ModelingKnowledgeUncertainty, ModelingKnowledgeValueNode as Node,
 };
 use pse_modeling::{entity::Uncertainty, provenance::Provenance, specialize::Value};
-use pse_relations::columnar::{Collection, FieldCheckedBatch, RelationRow};
-use std::sync::Arc;
+use pse_relations::columnar::{Collection, FieldCheckedBatch};
 
-/// A read-only projection retaining the immutable source owner and accounted Arrow batch.
+/// A read-only accounted Arrow projection of an exact selected source revision.
 #[derive(Clone, Debug)]
 pub struct ModelingKnowledge {
-    runtime: Runtime,
-    revision: ModelingRevision,
+    source_revision: pse_ids::roles::SourceRevisionHash,
     table: FieldCheckedBatch,
-    metadata: BTreeMap<pse_schema::model::RelationKey, FieldCheckedBatch>,
 }
 impl ModelingKnowledge {
     /// Identity of the exact admitted source, physical environment and data documents.
     pub fn source_revision(&self) -> pse_ids::roles::SourceRevisionHash {
-        self.revision.identity()
+        self.source_revision
     }
     /// Registry-declared cells, including their origins and typed values.
     pub fn table(&self) -> &FieldCheckedBatch {
         &self.table
-    }
-    /// Read-only DataFusion scope over `workspace.runtime.modeling_knowledge`.
-    pub fn query_session(
-        &self,
-        cancel: &pse_columnar::CancellationToken,
-    ) -> Result<pse_engine::session::EngineSession, WorkflowError> {
-        let session = self.runtime.sessions.candidate(
-            BTreeMap::new(),
-            Arc::clone(&self.runtime.registry),
-            cancel,
-        )?;
-        let mut tables = self.metadata.clone();
-        tables.insert(
-            Row::relation(&self.runtime.registry).map_err(relation)?.key,
-            self.table.clone(),
-        );
-        Ok(session.with_checked_workspace(tables, cancel)?)
     }
 }
 struct Cell<'a> {
@@ -62,7 +42,7 @@ struct Cell<'a> {
 impl ModelingPackage {
     /// Project admitted cells with an optional exact owner selection. Refuse an oversized
     /// projection before owned growth; inspection does not authorize a production read.
-    pub fn knowledge(
+    pub async fn knowledge(
         &self,
         owner: Option<DeclarationId>,
         maximum_cells: usize,
@@ -72,7 +52,18 @@ impl ModelingPackage {
         if maximum_cells == 0 || maximum_cells > 1_000_000 || maximum_bytes == 0 {
             return Err(contract("bounded knowledge projection policy"));
         }
-        let view = self.revision.checked().knowledge();
+        cancel
+            .checkpoint()
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
+        let revision = match owner {
+            Some(owner) => {
+                self.selected_revision(owner, &crate::CancelSource::new())
+                    .await?
+            }
+            None => self.all_revision().await?,
+        };
+        let view = revision.checked().knowledge();
         let visit = |consumer: &mut dyn FnMut(Cell<'_>) -> Result<(), WorkflowError>| -> Result<(),WorkflowError> {
             let matches = |id| owner.is_none_or(|owner| owner == id);
             for (id, record) in view.records().filter(|(id, _)| matches(*id)) {
@@ -101,8 +92,7 @@ impl ModelingPackage {
             Ok(())
         };
         let mut cells = 0usize;
-        let mut bytes = self
-            .revision
+        let mut bytes = revision
             .declarations()
             .iter()
             .fold(4096usize, |bytes, row| {
@@ -175,7 +165,7 @@ impl ModelingPackage {
             let provenance = cell.provenance;
             columns
                 .push(Row {
-                    source_revision: self.revision.identity().as_id(),
+                    source_revision: revision.identity().as_id(),
                     owner_id: cell.owner,
                     row_index: i64::try_from(cell.row)
                         .map_err(|_| contract("knowledge row index"))?,
@@ -210,38 +200,9 @@ impl ModelingPackage {
             .into_values()
             .next()
             .ok_or_else(|| contract("knowledge relation absent"))?;
-        let validation = self.runtime.validation_context()?;
-        let mut columns = Collection::new(&self.runtime.registry, &pool, cancel, &validation);
-        use pse_model::generated::runtime::modeling_knowledge_names::Row as Name;
-        columns.ensure::<Name>().map_err(relation)?;
-        columns.ensure::<Declaration>().map_err(relation)?;
-        for (name, declaration) in view.names() {
-            cancel
-                .checkpoint()
-                .map_err(pse_relations::RelationError::from)
-                .map_err(relation)?;
-            columns
-                .push(Name {
-                    source_revision: self.revision.identity().as_id(),
-                    name: name.into(),
-                    declaration_id: declaration,
-                })
-                .map_err(relation)?;
-        }
-        for row in self.revision.declarations() {
-            cancel
-                .checkpoint()
-                .map_err(pse_relations::RelationError::from)
-                .map_err(relation)?;
-            columns.push(row.clone()).map_err(relation)?;
-        }
-        let mut metadata = self.physical.sources.clone();
-        metadata.extend(columns.finish().map_err(relation)?);
         Ok(ModelingKnowledge {
-            runtime: self.runtime.clone(),
-            revision: self.revision.clone(),
+            source_revision: revision.identity(),
             table,
-            metadata,
         })
     }
 }

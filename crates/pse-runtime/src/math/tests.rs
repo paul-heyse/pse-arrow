@@ -6,6 +6,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub(super) fn service() -> Arc<MathService> {
     service_and_cache().0
 }
+#[cfg(feature = "canonical-tests")]
+pub(super) fn limited_service(bytes: usize) -> Arc<MathService> {
+    service_in(bytes).0
+}
 fn service_and_cache() -> (
     Arc<MathService>,
     Arc<pse_engine::cache_service::NativeCacheService>,

@@ -369,6 +369,14 @@ fn write_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
             .parent()
             .context("generated file has no parent")?;
         fs::create_dir_all(parent)?;
+        match fs::read(&destination) {
+            Ok(previous) if previous == *bytes => continue,
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(error).with_context(|| format!("reading {}", destination.display()));
+            }
+        }
         fs::write(&destination, bytes)
             .with_context(|| format!("writing {}", destination.display()))?;
     }
@@ -432,6 +440,23 @@ fn untracked_check(root: &Path, paths: &[PathBuf]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unchanged_generation_preserves_the_source_timestamp() {
+        let directory = tempfile::tempdir().unwrap();
+        let tree = python_tree();
+        write_tree(directory.path(), &tree).unwrap();
+        let path = directory.path().join(tree.files.keys().next().unwrap());
+        let stamp = std::time::UNIX_EPOCH + std::time::Duration::from_secs(17);
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(stamp))
+            .unwrap();
+        write_tree(directory.path(), &tree).unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), stamp);
+    }
 
     #[test]
     fn contract_bootstrap_preserves_package_fixture_outputs() {

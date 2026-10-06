@@ -3,8 +3,11 @@
 
 //! Direct authored syntax to physically admitted library bodies.
 //! Source occurrences and formal bindings remain separate from Symbolica arithmetic.
+#[path = "typed_math_portable.rs"]
+mod portable;
 #[path = "typed_math_witness.rs"]
 mod witness;
+pub use portable::{portable_payload_hash, reconstruct_portable};
 use pse_authoring::dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, PredicateKind};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::DerivativeOrder;
@@ -42,7 +45,7 @@ fn indicator_arms() -> (Expr, Expr) {
 }
 
 /// One formal scalar declaration, independent of global instance values.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct Formal {
     /// Resolved authored path.
     pub path: String,
@@ -95,7 +98,7 @@ pub struct ProviderCall {
 }
 
 /// Physical validity attached to a resolved local path, before library normalization.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct Validity {
     /// Lower endpoint of the validity range.
     pub lower: Expr,
@@ -135,7 +138,8 @@ pub struct Request<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdmittedBody {
     semantic_identity: Option<pse_ids::roles::SemanticBodyHash>,
-    /// Durable semantic specification.
+    portable: Option<Arc<portable::Recipe>>,
+    /// Complete admission and dependency identity descriptor.
     pub(crate) spec: BodySpec,
     /// Result's complete physical contract.
     pub(crate) quantities: Vec<QuantityTypeId>,
@@ -154,7 +158,43 @@ impl AdmittedBody {
         identity: pse_ids::roles::SemanticBodyHash,
     ) -> Self {
         self.semantic_identity = Some(identity);
+        if let Some(recipe) = &mut self.portable {
+            let recipe = Arc::make_mut(recipe);
+            recipe.semantic_identity = Some(identity);
+            recipe.checked_members = Some(self.math.checked_members().clone());
+        }
         self
+    }
+    /// Whether this admitted workflow retained complete portable construction receipts.
+    pub fn has_portable_payload(&self) -> bool {
+        self.portable.is_some()
+    }
+    /// Encode the selected admitted semantic recipe and complete concrete physical receipts.
+    /// # Errors
+    /// A workflow lacking complete receipt coverage or an oversized payload.
+    pub fn portable_payload(&self) -> Result<Vec<u8>, MathError> {
+        self.portable
+            .as_ref()
+            .ok_or_else(|| {
+                MathError::Contract(
+                    "this workflow has no complete portable admission receipts".into(),
+                )
+            })?
+            .encode()
+    }
+    /// Exact serialized extent without allocating the payload. Storage consumers use
+    /// this preflight to reserve encoding scratch before calling `portable_payload`.
+    /// # Errors
+    /// Missing receipt coverage, invalid serialization or the logical byte limit.
+    pub fn portable_payload_bytes(&self) -> Result<usize, MathError> {
+        self.portable
+            .as_ref()
+            .ok_or_else(|| {
+                MathError::Contract(
+                    "this workflow has no complete portable admission receipts".into(),
+                )
+            })?
+            .encoded_bytes()
     }
     /// Borrow its admitted specification without exposing mutation of its witness.
     pub fn spec(&self) -> &BodySpec {
@@ -174,6 +214,7 @@ impl AdmittedBody {
             + self.spec.providers.capacity() * size_of::<ContentHash>()
             + self.quantities.capacity() * size_of::<QuantityTypeId>()
             + self.occurrences.capacity() * size_of::<Occurrence>()
+            + self.portable.as_ref().map_or(0, |v| v.bytes())
     }
     /// Additional owned descriptor and math-handle wrappers when attaching an owner;
     /// immutable library mathematics stays shared.
@@ -302,6 +343,54 @@ impl Request<'_> {
         local_quantities: &BTreeMap<String, QuantityTypeId>,
         validity: &BTreeMap<String, Validity>,
     ) -> Result<AdmittedBody, MathError> {
+        let records = functions
+            .iter()
+            .map(|(name, value)| {
+                (
+                    name.clone(),
+                    pse_modeling::portable::FunctionRecord::capture(value),
+                )
+            })
+            .collect();
+        let ((mut body, proofs), receipts) = pse_quantity::resolved::receipts::capture(|| {
+            pse_math::typed::receipts::capture(|| {
+                self.admit_modeling_outputs_inner(
+                    registry,
+                    checker,
+                    cancelled,
+                    functions,
+                    outputs,
+                    local_quantities,
+                    validity,
+                )
+            })
+        })?;
+        body.portable = Some(Arc::new(portable::Recipe::capture(
+            self,
+            records,
+            outputs,
+            local_quantities,
+            validity,
+            receipts,
+            proofs,
+            &body.spec,
+        )));
+        Ok(body)
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "same selected admitted construction inputs as its public entry point"
+    )]
+    fn admit_modeling_outputs_inner(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        cancelled: &Arc<AtomicBool>,
+        functions: &BTreeMap<String, pse_modeling::Function>,
+        outputs: &[QuantityTypeId],
+        local_quantities: &BTreeMap<String, QuantityTypeId>,
+        validity: &BTreeMap<String, Validity>,
+    ) -> Result<AdmittedBody, MathError> {
         if !outputs.is_empty() && outputs.len() != self.expressions.len() {
             return Err(MathError::Contract("output physical contract arity".into()));
         }
@@ -400,6 +489,7 @@ impl Request<'_> {
         };
         Ok(AdmittedBody {
             semantic_identity: None,
+            portable: None,
             spec,
             quantities,
             occurrences: lower.occurrences,
@@ -2198,6 +2288,9 @@ mod tests {
                 )
                 .unwrap();
             let compiled = admitted
+                // Complete checked occurrence metadata is restored under strict
+                // receipts before executing both guarded branches below.
+                .portable_payload().map(|payload|portable::reconstruct_fixture(&payload,portable_payload_hash(&payload),admitted.spec(),&registry,&cancelled).unwrap()).unwrap()
                 .math
                 .compile(
                     &[0],
@@ -3016,7 +3109,29 @@ mod tests {
         .unwrap();
         assert_eq!(admitted.spec, body.spec);
         assert_eq!(body.spec.providers.len(), 1);
-        let mut worker = body.worker();
+        let payload = admitted.portable_payload().unwrap();
+        let spec = admitted.spec.clone();
+        drop(admitted);
+        let restored = portable::reconstruct_fixture(
+            &payload,
+            portable_payload_hash(&payload),
+            &spec,
+            &registry,
+            &cancel,
+        )
+        .unwrap();
+        let restored_math = restored
+            .math
+            .compile(
+                &[0],
+                &[],
+                DerivativeOrder::Value,
+                Optimization::default(),
+                pse_math::jets::EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let mut worker = restored_math.worker();
         let mut workers =
             BTreeMap::from([(registration.spec().key(), registration.worker().unwrap())]);
         assert!(
@@ -3039,5 +3154,119 @@ mod tests {
                 .evaluate(&[3.0], DerivativeOrder::Value, &mut workers, &cancel)
                 .is_err()
         );
+    }
+    #[test]
+    fn portable_admitted_body_reconstructs_finite_filtered_and_guarded_programs() {
+        pse_math::initialize().unwrap();
+        let body = indexed(
+            "sum(i in species where i in selected | flow[i] + flow[i])",
+            &[1, 2],
+            &[1, 2],
+            "neutral",
+        )
+        .unwrap();
+        let payload = body.prepared.portable_payload().unwrap();
+        let spec = body.prepared.spec.clone();
+        drop(body);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let original = standard_registry().unwrap();
+        let mut shaped = original
+            .quantity_type(ids::quantity("neutral"))
+            .unwrap()
+            .clone();
+        shaped.id = QuantityTypeId::from_id(SemanticId::from_bytes([91; 16]));
+        shaped.name = None;
+        shaped.key.shape = vec![original.entity_kind_named("species").unwrap()];
+        let mut builder = original.to_builder();
+        if original.resolve_key(&shaped.key).is_err() {
+            builder.quantity_type(shaped);
+        }
+        let registry = builder.build().unwrap();
+        let rebuilt = portable::reconstruct_fixture(
+            &payload,
+            portable_payload_hash(&payload),
+            &spec,
+            &registry,
+            &cancel,
+        )
+        .unwrap();
+        let compiled = rebuilt
+            .math
+            .compile(
+                &[0],
+                &[],
+                DerivativeOrder::Value,
+                Optimization::default(),
+                pse_math::jets::EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(
+            compiled
+                .worker()
+                .evaluate(
+                    &[4.0],
+                    DerivativeOrder::Value,
+                    &mut BTreeMap::new(),
+                    &cancel
+                )
+                .unwrap()
+                .values,
+            vec![8.0]
+        );
+        let length = match registry.physical_name("Length").unwrap() {
+            pse_quantity::PhysicalName::QuantityType(id) => id,
+            other => panic!("{other:?}"),
+        };
+        let body = compile(
+            "if p > 0{m} then x - 2{m} else x + 2{m}",
+            &[
+                Formal {
+                    path: "x".into(),
+                    quantity: length,
+                },
+                Formal {
+                    path: "p".into(),
+                    quantity: length,
+                },
+            ],
+            DerivativeOrder::Value,
+        )
+        .unwrap();
+        let payload = body.prepared.portable_payload().unwrap();
+        let spec = body.prepared.spec.clone();
+        drop(body);
+        let rebuilt = portable::reconstruct_fixture(
+            &payload,
+            portable_payload_hash(&payload),
+            &spec,
+            &registry,
+            &cancel,
+        )
+        .unwrap();
+        let compiled = rebuilt
+            .math
+            .compile(
+                &[0],
+                &[0],
+                DerivativeOrder::First,
+                Optimization::default(),
+                pse_math::jets::EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        for x in [2.0, -2.0] {
+            let result = compiled
+                .worker()
+                .evaluate(
+                    &[x, x],
+                    DerivativeOrder::First,
+                    &mut BTreeMap::new(),
+                    &cancel,
+                )
+                .unwrap();
+            assert_eq!(result.values, vec![0.0]);
+            assert_eq!(result.jacobian, vec![1.0]);
+        }
     }
 }

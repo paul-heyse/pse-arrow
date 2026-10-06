@@ -14,19 +14,26 @@ from pse._build import _TestOperationalStore
 def test_isolated_store_teardown_preserves_other_owned_store(
     inspection_settings: pse.EngineSettings,
     operational_store: pse.OperationalStore,
+    canonical_substrate: str,
 ) -> None:
-    first = pse.Runtime(inspection_settings, store=operational_store)
+    first = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
     owner = _TestOperationalStore()
     try:
         other_store = owner.store()
         assert other_store.url != operational_store.url
-        second = pse.Runtime(inspection_settings, store=other_store)
+        second = pse.Runtime(
+            inspection_settings, substrate=canonical_substrate, store=other_store
+        )
         assert first.jobs() == ()
         assert second.jobs() == ()
 
         owner.remove()
         with pytest.raises(pse.InspectionError):
-            pse.Runtime(inspection_settings, store=other_store)
+            pse.Runtime(
+                inspection_settings, substrate=canonical_substrate, store=other_store
+            )
         with pytest.raises(pse.InspectionError, match="removed"):
             owner.store()
         assert first.jobs() == ()
@@ -36,12 +43,17 @@ def test_isolated_store_teardown_preserves_other_owned_store(
 
 @pytest.mark.component
 def test_abandoned_isolated_store_owner_drops_its_database(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
     owner = _TestOperationalStore()
     store = owner.store()
-    assert pse.Runtime(inspection_settings, store=store).jobs() == ()
+    assert (
+        pse.Runtime(
+            inspection_settings, substrate=canonical_substrate, store=store
+        ).jobs()
+        == ()
+    )
     del owner
     gc.collect()
     with pytest.raises(pse.InspectionError):
-        pse.Runtime(inspection_settings, store=store)
+        pse.Runtime(inspection_settings, substrate=canonical_substrate, store=store)

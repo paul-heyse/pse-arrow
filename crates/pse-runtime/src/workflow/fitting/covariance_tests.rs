@@ -29,7 +29,7 @@ use pse_relations::{
 #[tokio::test]
 async fn linear_regression_covariance_analytic() {
     let (expected, estimate) = analytic();
-    let package = package(declared(), [1.0; 4]);
+    let package = package(declared(), [1.0; 4]).await;
     for (hessian, approximation) in [
         (HessianMode::Exact, CovarianceApproximation::Exact),
         (
@@ -103,6 +103,7 @@ async fn covariance_withheld_without_declared_sigma() {
     let mut sigma = declared();
     sigma[1] = None;
     let error = package(sigma, [1.0; 4])
+        .await
         .prepare_fit(
             id(32).into(),
             profile(HessianMode::Exact, None),
@@ -125,7 +126,7 @@ async fn covariance_withheld_without_declared_sigma() {
 #[tokio::test]
 async fn covariance_withheld_with_nonunit_importance() {
     let result = fit(
-        &package(declared(), [1.0, 1.0, 2.0, 1.0]),
+        &package(declared(), [1.0, 1.0, 2.0, 1.0]).await,
         profile(
             HessianMode::Exact,
             Some(FitUncertainty {
@@ -187,6 +188,7 @@ async fn covariance_withheld_with_nonunit_importance() {
 #[tokio::test]
 async fn covariance_withheld_without_responses() {
     let mut prepared = package(declared(), [1.0; 4])
+        .await
         .prepare_fit(
             id(32).into(),
             profile(HessianMode::LimitedMemory, None),
@@ -242,7 +244,7 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             predictions: false,
         }),
     );
-    let package = package(declared(), [1.0; 4]);
+    let package = package(declared(), [1.0; 4]).await;
     // The chains do not depend on how many run at once.
     let prepared = package
         .prepare_fit(
@@ -353,7 +355,7 @@ async fn profile_chain_seeds_from_predecessor() {
         })
     };
     let result = fit(
-        &package_with(true, declared(), [2.0, 1.0, 1.0, 1.0]),
+        &package_with(true, declared(), [2.0, 1.0, 1.0, 1.0]).await,
         profile(HessianMode::LimitedMemory, uncertainty()),
     )
     .await;
@@ -363,7 +365,7 @@ async fn profile_chain_seeds_from_predecessor() {
         Some(Err(FitWithheld::NonunitImportance(_)))
     ));
     let result = fit(
-        &package_with(true, declared(), [1.0; 4]),
+        &package_with(true, declared(), [1.0; 4]).await,
         profile(HessianMode::LimitedMemory, uncertainty()),
     )
     .await;
@@ -453,7 +455,7 @@ async fn profile_chain_seeds_from_predecessor() {
 /// Admission: a level and profile controls in range, and no parametric sensitivity request.
 #[tokio::test]
 async fn fit_uncertainty_admission() {
-    let package = package(declared(), [1.0; 4]);
+    let package = package(declared(), [1.0; 4]).await;
     let prepare = |profile| {
         let package = package.clone();
         async move {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
+mod canonical;
 pub(super) mod cases;
 mod conformance;
 pub(super) mod declared;
@@ -77,10 +78,7 @@ pub(super) mod documents;
 pub(super) mod results;
 mod views;
 use super::{PhysicalContext, Runtime, WorkflowError, contract, relation};
-use crate::math::{
-    Workspace,
-    modeling::{ModelingPreparation, ModelingRevision},
-};
+use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 use pse_authoring::language::Declaration;
@@ -91,81 +89,9 @@ use pse_relations::columnar::RelationRow;
 pub use results::{ModelingCheck, ModelingReport, ModelingResult};
 use std::{
     collections::BTreeMap,
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, Mutex},
 };
 
-#[derive(Debug)]
-struct SourceBatchIdentity {
-    rows: usize,
-    schema: Weak<datafusion::arrow::datatypes::Schema>,
-    columns: Vec<Weak<dyn datafusion::arrow::array::Array>>,
-}
-impl SourceBatchIdentity {
-    fn new(batch: &pse_relations::columnar::FieldCheckedBatch) -> Self {
-        let batch = batch.batch();
-        Self {
-            rows: batch.num_rows(),
-            schema: Arc::downgrade(batch.schema_ref()),
-            columns: batch.columns().iter().map(Arc::downgrade).collect(),
-        }
-    }
-    fn matches(&self, batch: &pse_relations::columnar::FieldCheckedBatch) -> bool {
-        let batch = batch.batch();
-        self.rows == batch.num_rows()
-            && Weak::ptr_eq(&self.schema, &Arc::downgrade(batch.schema_ref()))
-            && self.columns.len() == batch.num_columns()
-            && self
-                .columns
-                .iter()
-                .zip(batch.columns())
-                .all(|(a, b)| Weak::ptr_eq(a, &Arc::downgrade(b)))
-    }
-}
-#[derive(Debug)]
-struct SourceExport {
-    revision: pse_ids::roles::SourceRevisionHash,
-    documents: Weak<crate::authoring_driver::document::Batches>,
-    physical: pse_ids::ContentHash,
-    physical_sources: BTreeMap<pse_schema::model::RelationKey, SourceBatchIdentity>,
-    registry: Weak<pse_schema::Registry>,
-    validation: Weak<pse_engine::session::EngineFactory>,
-    pool: Weak<dyn pse_columnar::MemoryPool>,
-    tables: BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>,
-    _metadata: Arc<pse_columnar::AllocationLease>,
-}
-impl SourceExport {
-    fn export_tables(
-        &self,
-        runtime: &Runtime,
-    ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
-    {
-        let owner = runtime.shared.math().reserve(
-            "modeling:source-export-map",
-            source_map_extent(self.tables.len())?,
-        )?;
-        let mut tables = self.tables.clone();
-        for table in tables.values_mut() {
-            *table = table.clone().with_export_owner(owner.clone());
-        }
-        Ok(tables)
-    }
-    fn matches(&self, package: &ModelingPackage) -> bool {
-        self.revision == package.revision.identity()
-            && Weak::ptr_eq(&self.documents, &Arc::downgrade(&package.document_sources))
-            && self.physical == package.physical.key
-            && Weak::ptr_eq(&self.registry, &Arc::downgrade(&package.runtime.registry))
-            && Weak::ptr_eq(&self.validation, &Arc::downgrade(&package.runtime.sessions))
-            && Weak::ptr_eq(&self.pool, &Arc::downgrade(&package.runtime.shared.pool()))
-            && self.physical_sources.len() == package.physical.sources.len()
-            && self.physical_sources.iter().all(|(key, cached)| {
-                package
-                    .physical
-                    .sources
-                    .get(key)
-                    .is_some_and(|current| cached.matches(current))
-            })
-    }
-}
 pub(in crate::workflow) fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
     tables
         .checked_mul(
@@ -182,22 +108,30 @@ pub(in crate::workflow) fn source_map_extent(tables: usize) -> Result<usize, Wor
 #[derive(Clone, Debug)]
 pub struct ModelingPackage {
     pub(in crate::workflow) runtime: Runtime,
-    pub(in crate::workflow) workspace: Workspace,
-    pub(in crate::workflow) revision: ModelingRevision,
-    document_sources: Arc<crate::authoring_driver::document::Batches>,
-    source_export: Arc<Mutex<Option<SourceExport>>>,
-    pub(in crate::workflow) fit_declarations: Arc<super::fitting::FitDeclarations>,
+    pub(in crate::workflow) revision: canonical::SourceRevision,
     accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
     pub(in crate::workflow) physical: PhysicalContext,
     pub(in crate::workflow) quantities: Arc<pse_quantity::QuantityRegistry>,
 }
+/// Explicit immutable source inventory, retaining deployment memory charges
+/// until the generated declaration rows are no longer held by the caller.
+#[derive(Debug)]
+pub struct OwnedDeclarations {
+    rows: Vec<Declaration>,
+    _leases: Vec<Arc<pse_columnar::AllocationLease>>,
+}
+impl std::ops::Deref for OwnedDeclarations {
+    type Target = [Declaration];
+    fn deref(&self) -> &Self::Target {
+        &self.rows
+    }
+}
+
 /// Immutable admitted package payload; excludes runtime services and mutable workspaces.
 #[derive(Clone, Debug)]
 pub(crate) struct PackageAdmission {
-    revision: ModelingRevision,
-    sources: Arc<crate::authoring_driver::document::Batches>,
-    fits: Arc<super::fitting::FitDeclarations>,
+    revision: canonical::SourceRevision,
     accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
     _lease: Arc<pse_columnar::AllocationLease>,
@@ -206,15 +140,9 @@ pub(crate) struct PackageAdmission {
 }
 impl PackageAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
-        use pse_model::HeapUsage;
-        self.revision.retained_bytes()
-            + self.fits.fits.owned_bytes()
-            + self
-                .sources
-                .values()
-                .map(|source| source.batch().get_array_memory_size() + 128)
-                .sum::<usize>()
-            + size_of::<Self>()
+        size_of::<Self>()
+            + self.revision.canonical.problem.capacity()
+            + self.revision.canonical.key.capacity()
             + 256
     }
 }
@@ -222,15 +150,12 @@ impl ModelingPackage {
     pub(crate) fn admission(&self) -> Result<PackageAdmission, WorkflowError> {
         Ok(PackageAdmission {
             revision: self.revision.clone(),
-            sources: self.document_sources.clone(),
-            fits: self.fit_declarations.clone(),
             accelerators: self.accelerators.clone(),
             providers: self.providers.clone(),
             _lease: self.runtime.shared.math().reserve(
                 "modeling:package-admission",
                 size_of::<PackageAdmission>()
                     + 256
-                    + self.document_sources.len() * 128
                     + self
                         .providers
                         .keys()
@@ -248,18 +173,9 @@ impl Runtime {
         admitted: PackageAdmission,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let service = self.shared.math();
-        let workspace = service.workspace(
-            compiler_context(&physical, &admitted.providers),
-            WorkspaceLimits::default(),
-        )?;
         Ok(ModelingPackage {
             runtime: self.clone(),
-            workspace,
             revision: admitted.revision,
-            document_sources: admitted.sources,
-            source_export: Default::default(),
-            fit_declarations: admitted.fits,
             accelerators: admitted.accelerators,
             providers: admitted.providers,
             quantities: physical.quantities.clone(),
@@ -289,14 +205,15 @@ fn compiler_context(
             .collect(),
     }
 }
-/// Declarations, their physical-name scope, fit data, source batches decoded from the
-/// documents and the package data documents (ADR-0125).
+/// Typed declarations, physical scope, fit data, source context, data inventory
+/// and ownership of the compiler-input copy (ADR-0125).
 type DocumentCompilerContext = (
     Vec<Declaration>,
     PhysicalScope,
     super::FitDeclarations,
     crate::authoring_driver::document::Batches,
     Arc<pse_modeling::document::DocumentInventory>,
+    Arc<pse_columnar::AllocationLease>,
 );
 /// The package data documents of a closure and the package of each text document, which a
 /// dataset's document path resolves in (ADR-0125).
@@ -338,13 +255,43 @@ fn document_inputs(
     registry: &pse_schema::Registry,
     physical: &PhysicalContext,
     workspace_bytes: usize,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
 ) -> Result<DocumentCompilerContext, WorkflowError> {
+    use pse_model::HeapUsage;
     documents.validate_registry(registry)?;
+    cancel
+        .checkpoint()
+        .map_err(pse_relations::RelationError::from)
+        .map_err(relation)?;
+    let (count, bytes) = documents
+        .bundles()
+        .iter()
+        .flat_map(|bundle| &bundle.documents)
+        .filter_map(|document| document.modeling_rows())
+        .flat_map(|rows| rows.iter())
+        .try_fold(
+            (0usize, size_of::<Vec<Declaration>>()),
+            |(count, n), row| Some((count.checked_add(1)?, n.checked_add(row.owned_bytes())?)),
+        )
+        .ok_or_else(|| contract("typed document input extent"))?;
+    let allocation =
+        pse_columnar::MemoryConsumer::new("modeling:typed-document-inputs").register(pool);
+    allocation
+        .try_grow(bytes)
+        .map_err(pse_columnar::CanonError::from)
+        .map_err(pse_relations::RelationError::from)
+        .map_err(relation)?;
+    let lease = pse_columnar::AllocationLease::new(allocation);
     let mut headers = documents
         .bundles()
         .iter()
         .map(|b| b.package.clone())
         .collect::<Vec<_>>();
+    cancel
+        .checkpoint()
+        .map_err(pse_relations::RelationError::from)
+        .map_err(relation)?;
     // A manifest may depend on the package the physical context was admitted from without
     // repeating its documents (ADR-0123 Outcome 6).
     if let Some(declaring) = &physical.package
@@ -356,17 +303,21 @@ fn document_inputs(
         nodes: headers.len(),
         edges: workspace_bytes / 128,
     };
-    let batches = crate::authoring_driver::p1::source_batches(
+    let batches = crate::authoring_driver::p1::source_context_batches(
         documents.bundles(),
         registry,
         &headers,
         limits,
     )?;
-    use pse_relations::generated::authored::modeling_declarations as wire;
-    let batch = batches
-        .get(&wire::RELATION_ID)
-        .ok_or_else(|| contract("documents contain no modeling declarations"))?;
-    let rows = wire::Row::rows(batch).map_err(relation)?;
+    let mut rows = Vec::with_capacity(count);
+    rows.extend(
+        documents
+            .bundles()
+            .iter()
+            .flat_map(|bundle| &bundle.documents)
+            .filter_map(|document| document.modeling_rows())
+            .flat_map(|rows| rows.iter().cloned()),
+    );
     validate_import_versions(&rows, documents)?;
     let scope = physical_scope(documents, physical);
     let context = [
@@ -382,11 +333,12 @@ fn document_inputs(
         super::FitDeclarations::from_batches(&batches)?,
         context,
         Arc::new(data_documents(documents)),
+        lease,
     ))
 }
 impl Runtime {
-    /// Load the generated generic IR directly from admitted `.pse` documents.
-    pub fn modeling_from_documents(
+    /// Persist native-admitted authored source once; later preparations select immutable records.
+    pub async fn modeling_from_documents(
         &self,
         documents: &crate::authoring_driver::document::OwnedDocumentSet,
         physical: PhysicalContext,
@@ -395,42 +347,39 @@ impl Runtime {
         documents.validate_context(
             &self.registry,
             &validation,
+            &self.shared.pool(),
             &pse_columnar::CancellationToken::new(),
         )?;
-        let (rows, scope, data, sources, inventory) = document_inputs(
+        let (rows, scope, fits, sources, inventory, _input_lease) = document_inputs(
             documents,
             &self.registry,
             &physical,
             self.shared.budget().math.workspace_bytes,
+            &self.shared.pool(),
+            &pse_columnar::CancellationToken::new(),
         )?;
-        let mut package = self
-            .modeling_package_scoped(rows, physical, scope, inventory, BTreeMap::new())?
-            .with_fit_declarations(data)?;
-        let pool = self.shared.pool();
-        let cancel = pse_columnar::CancellationToken::new();
-        package.document_sources = Arc::new(
-            sources
-                .into_iter()
-                .map(|(id, b)| {
-                    b.retained(&pool, &cancel)
-                        .map(|b| (id, b))
-                        .map_err(relation)
-                })
-                .collect::<Result<_, _>>()?,
-        );
-        Ok(package)
+        self.persist_modeling(
+            rows,
+            physical,
+            scope,
+            inventory,
+            sources,
+            fits,
+            BTreeMap::new(),
+        )
+        .await
     }
-    /// Admit generated declarations without serializing through a text document. Rows
-    /// admitted without manifests see the physical names everywhere.
-    pub fn modeling_package(
+    /// Persist registry-generated rows without serializing through a text document.
+    pub async fn modeling_package(
         &self,
         rows: Vec<Declaration>,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
         self.modeling_package_registered(rows, physical, BTreeMap::new())
+            .await
     }
-    /// Supply native capabilities explicitly; declaration strings never instantiate implementations.
-    pub fn modeling_package_registered(
+    /// Native capabilities remain explicitly supplied services; source names load no code.
+    pub async fn modeling_package_registered(
         &self,
         rows: Vec<Declaration>,
         physical: PhysicalContext,
@@ -440,33 +389,61 @@ impl Runtime {
             package: physical.package.as_ref().map(|p| p.name.clone()),
             documents: None,
         };
-        self.modeling_package_scoped(rows, physical, scope, Default::default(), providers)
+        self.persist_modeling(
+            rows,
+            physical,
+            scope,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            providers,
+        )
+        .await
     }
-    fn modeling_package_scoped(
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one authored ingress persists declarations with their physical scope, document provenance, source leases, fit declarations and provider registrations"
+    )]
+    async fn persist_modeling(
         &self,
         rows: Vec<Declaration>,
         physical: PhysicalContext,
         scope: PhysicalScope,
         documents: Arc<pse_modeling::document::DocumentInventory>,
+        sources: crate::authoring_driver::document::Batches,
+        fits: super::fitting::FitDeclarations,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let service = self.shared.math();
-        let inputs = compiler_context(&physical, &providers);
-        let workspace = service.workspace(inputs, WorkspaceLimits::default())?;
-        let revision =
-            service.modeling_revision(&workspace, rows, scope, documents, &physical.key)?;
+        let revision = canonical::persist(
+            self, rows, &physical, scope, &documents, &sources, &fits, None,
+        )
+        .await?;
+        self.package_from_canonical(revision, physical, providers)
+    }
+    fn package_from_canonical(
+        &self,
+        revision: canonical::SourceRevision,
+        physical: PhysicalContext,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+    ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
             runtime: self.clone(),
-            workspace,
             revision,
-            document_sources: Default::default(),
-            source_export: Default::default(),
-            fit_declarations: Arc::new(super::fitting::FitDeclarations::default()),
             accelerators: Arc::new(pse_math::implicit::accelerators::Accelerators::standard()),
             providers: Arc::new(providers),
-            physical: physical.clone(),
-            quantities: physical.quantities,
+            quantities: physical.quantities.clone(),
+            physical,
         })
+    }
+    /// Reopen an exact canonical revision after restart; no authored text or package hydration.
+    pub async fn modeling_revision(
+        &self,
+        revision: pse_model::generated::runtime::canonical_revisions::Row,
+        physical: PhysicalContext,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        let source = canonical::SourceRevision::open(self, revision).await?;
+        self.package_from_canonical(source, physical, providers)
     }
 }
 /// Which documents see the physical names (ADR-0123 Outcome 6): those of packages whose
@@ -566,89 +543,42 @@ impl ModelingPackage {
         self
     }
 
-    /// Original registry-generated source declarations, retaining their immutable revision owner.
-    pub fn declarations(&self) -> &[Declaration] {
-        self.revision.declarations()
+    /// Attempt-local numerical compilation from already admitted preparations.
+    /// Immutable mathematical artifacts remain shared through the service cache.
+    pub(in crate::workflow) fn numerical_workspace(
+        &self,
+    ) -> Result<Workspace, crate::math::MathRuntimeError> {
+        self.runtime.shared.math().workspace(
+            compiler_context(&self.physical, &self.providers),
+            WorkspaceLimits::default(),
+        )
     }
-    /// Merge retained physical declarations with this source by semantic identity.
-    /// Physical entity kinds share the modeling relation; an empty physical selection
-    /// must never replace the model, and conflicting declarations cannot be published.
-    pub(in crate::workflow) fn source_tables(
+
+    /// Explicit full source inventory; ordinary preparation reads only its dependency closure.
+    pub async fn declarations(&self) -> Result<OwnedDeclarations, WorkflowError> {
+        self.declaration_inventory().await
+    }
+    /// Exact immutable canonical revision, independent of semantic compiler source hashes.
+    pub fn canonical_revision(&self) -> &pse_model::generated::runtime::canonical_revisions::Row {
+        &self.revision.canonical
+    }
+    /// Generate full source tables only for an explicit export/publication request.
+    pub async fn source_tables(
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
-        let mut cache = self
-            .source_export
-            .lock()
-            .map_err(|_| WorkflowError::Internal("modeling source export cache poisoned".into()))?;
-        if let Some(export) = cache.as_ref().filter(|export| export.matches(self)) {
-            return export.export_tables(&self.runtime);
-        }
-        // A changed input cannot reuse this product. Release its cache-only claims
-        // before constructing the replacement; escaped tables retain their own owners.
-        *cache = None;
-        let mut tables = self.encode_source_tables()?;
-        let pool = self.runtime.shared.pool();
-        let cancel = pse_columnar::CancellationToken::new();
-        for table in tables.values_mut() {
-            *table = table.retained(&pool, &cancel).map_err(relation)?;
-        }
-        // Checked storage accounts its own shared column vectors. This grant covers
-        // only the cache map and its exact-input identity inventory.
-        let metadata = source_map_extent(tables.len())?
-            .checked_add(size_of::<SourceExport>() + 256)
-            .and_then(|n| {
-                self.physical.sources.values().try_fold(n, |n, table| {
-                    table
-                        .batch()
-                        .num_columns()
-                        .checked_mul(size_of::<Weak<dyn datafusion::arrow::array::Array>>())
-                        .and_then(|columns| n.checked_add(columns))
-                        .and_then(|n| {
-                            n.checked_add(
-                                size_of::<SourceBatchIdentity>()
-                                    + size_of::<pse_schema::model::RelationKey>()
-                                    + 128,
-                            )
-                        })
-                })
-            })
-            .ok_or_else(|| contract("source export cache extent"))?;
-        let metadata = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:source-export-cache", metadata)?;
-        let export = SourceExport {
-            revision: self.revision.identity(),
-            documents: Arc::downgrade(&self.document_sources),
-            physical: self.physical.key,
-            physical_sources: self
-                .physical
-                .sources
-                .iter()
-                .map(|(key, batch)| (*key, SourceBatchIdentity::new(batch)))
-                .collect(),
-            registry: Arc::downgrade(&self.runtime.registry),
-            validation: Arc::downgrade(&self.runtime.sessions),
-            pool: Arc::downgrade(&pool),
-            _metadata: metadata,
-            tables,
-        };
-        let tables = export.export_tables(&self.runtime)?;
-        *cache = Some(export);
-        Ok(tables)
+        self.encode_source_tables().await
     }
-    fn encode_source_tables(
+    async fn encode_source_tables(
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
         use pse_model::HeapUsage;
         use pse_relations::generated::authored::modeling_declarations as wire;
+        let (source_rows, _, _, document_sources, _source_owners) = self.full_source().await?;
         let registry = &self.runtime.registry;
         let validation = self.runtime.validation_context()?;
-        let bytes = self
-            .declarations()
+        let bytes = source_rows
             .iter()
             .map(HeapUsage::owned_bytes)
             .try_fold(4096usize, usize::checked_add)
@@ -656,7 +586,7 @@ impl ModelingPackage {
                 self.physical
                     .sources
                     .values()
-                    .chain(self.document_sources.values())
+                    .chain(document_sources.values())
                     .try_fold(n, |n, b| {
                         n.checked_add(b.batch().get_array_memory_size().checked_mul(8)?)
                     })
@@ -667,14 +597,13 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("modeling:source-export", bytes)?;
-        let mut tables = self.document_sources.as_ref().clone();
+        let mut tables = document_sources.clone();
         let mut physical = Vec::new();
         macro_rules! merge_context {
             ($module:ident, $key:expr, $batch:expr) => {{
                 use pse_relations::generated::authored::$module as context;
                 let mut rows = BTreeMap::new();
-                for source in self
-                    .document_sources
+                for source in document_sources
                     .get(&context::RELATION_ID)
                     .into_iter()
                     .chain(std::iter::once($batch))
@@ -723,7 +652,7 @@ impl ModelingPackage {
             }
         }
         let mut rows = BTreeMap::new();
-        for row in physical.iter().chain(self.declarations()) {
+        for row in physical.iter().chain(&source_rows) {
             if let Some(old) = rows.insert(row.declaration_id, row)
                 && old != row
             {
@@ -784,7 +713,7 @@ impl ModelingPackage {
             .runtime
             .native()
             .prepare_modeling_initialization(
-                self.workspace.clone(),
+                self.numerical_workspace()?,
                 resolved.model.case,
                 a.compiler,
                 resolved.numerical,
@@ -807,20 +736,46 @@ impl ModelingPackage {
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
-        let model = self
+        let selected = self.selected_source(analysis.root, cancel).await?;
+        let prepared = (|| {
+            let (workspace, watch) = self.canonical_workspace(&selected, cancel)?;
+            let revision = self.admit_source_in(&workspace, &selected)?;
+            Ok::<_, WorkflowError>((workspace, watch, revision))
+        })();
+        let (workspace, _watch, revision) = match prepared {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = self
+                    .runtime
+                    .canonical
+                    .store()
+                    .release(selected.read.selection())
+                    .await;
+                return Err(error);
+            }
+        };
+        let result = self
             .runtime
             .shared
             .math()
             .prepare_semantic_modeling_revision(
-                self.workspace.clone(),
-                self.revision.clone(),
+                workspace,
+                revision,
                 analysis.root,
                 analysis.instance,
                 analysis.bindings.clone(),
                 analysis.limits,
                 cancel,
             )
-            .await?;
+            .await;
+        let release = self
+            .runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await;
+        let model = result?;
+        release?;
         Ok(self
             .runtime
             .native()
@@ -830,27 +785,38 @@ impl ModelingPackage {
     /// Replace source declarations while preserving which documents see the physical
     /// names and the package data documents. No old document text is retained as the source
     /// of the edited IR.
-    pub fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
-        let revision = self.runtime.shared.math().modeling_revision(
-            &self.workspace,
+    pub async fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
+        let (_, scope, mut documents, mut sources, _source_owners) = self.full_source().await?;
+        Arc::make_mut(&mut documents).field_spans.clear();
+        if let Some(batch) =
+            sources.get_mut(&pse_relations::generated::authored::documents::RELATION_ID)
+        {
+            use pse_relations::generated::authored::documents as wire;
+            let rows = wire::Row::rows(batch).map_err(relation)?;
+            let validation = self.runtime.validation_context()?;
+            let mut builder =
+                wire::Builder::with_registry(&self.runtime.registry, rows.len(), &validation)
+                    .map_err(relation)?;
+            for mut row in rows {
+                row.source_text = None;
+                builder.push(row).map_err(relation)?;
+            }
+            *batch = builder.finish().map_err(relation)?;
+        }
+        let revision = canonical::persist(
+            &self.runtime,
             rows,
-            self.revision.physical_scope().clone(),
-            self.revision.documents().clone(),
-            &self.physical.key,
-        )?;
+            &self.physical,
+            scope,
+            &documents,
+            &sources,
+            &Default::default(),
+            Some(&self.revision),
+        )
+        .await?;
         Ok(Self {
-            // Direct IR edits provide no replacement document bytes. Preserve no
-            // stale source text as the declaration of the new revision.
-            document_sources: Default::default(),
-            source_export: Default::default(),
-            runtime: self.runtime.clone(),
-            workspace: self.workspace.clone(),
             revision,
-            fit_declarations: self.fit_declarations.clone(),
-            accelerators: self.accelerators.clone(),
-            providers: self.providers.clone(),
-            physical: self.physical.clone(),
-            quantities: self.quantities.clone(),
+            ..self.clone()
         })
     }
     /// Finite K3 admission and inspection; solver orchestration belongs to the subsequent lowering packets.
@@ -862,20 +828,41 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
-        Ok(self
+        let selected = self.selected_source(root, cancel).await?;
+        let prepared = (|| {
+            let (workspace, watch) = self.canonical_workspace(&selected, cancel)?;
+            let revision = self.admit_source_in(&workspace, &selected)?;
+            Ok::<_, WorkflowError>((workspace, watch, revision))
+        })();
+        let (workspace, _watch, revision) = match prepared {
+            Ok(revision) => revision,
+            Err(error) => {
+                let _ = self
+                    .runtime
+                    .canonical
+                    .store()
+                    .release(selected.read.selection())
+                    .await;
+                return Err(error);
+            }
+        };
+        let result = self
             .runtime
             .shared
             .math()
             .prepare_modeling_revision(
-                self.workspace.clone(),
-                self.revision.clone(),
-                root,
-                instance,
-                bindings,
-                limits,
-                cancel,
+                workspace, revision, root, instance, bindings, limits, cancel,
             )
-            .await?)
+            .await;
+        let release = self
+            .runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await;
+        let result = result?;
+        release?;
+        Ok(result.with_consumed_source_versions(selected.versions))
     }
 }
 
@@ -886,66 +873,8 @@ mod reuse_tests;
 mod tests {
     use super::*;
 
-    #[test]
-    fn source_export_clones_reuse_owned_buffers_and_changed_inputs_rebuild() {
-        use pse_relations::generated::authored::modeling_declarations as wire;
-        let runtime = super::super::tests::runtime();
-        let parse = |text| {
-            pse_authoring::language::parse(
-                text,
-                SemanticId::NIL,
-                pse_authoring::language::IdentityPolicy::Named,
-                Default::default(),
-            )
-            .unwrap()
-        };
-        let package = runtime
-            .modeling_package(
-                parse("package application {}"),
-                super::super::tests::physical(),
-            )
-            .unwrap();
-        let pool = runtime.shared.pool();
-        let first = package.source_tables().unwrap();
-        let retained = pool.reserved();
-        let cloned = package.clone();
-        let second = cloned.source_tables().unwrap();
-        assert_eq!(
-            pool.reserved() - retained,
-            source_map_extent(second.len()).unwrap(),
-            "only the new escaping map is charged; storage and buffers remain shared"
-        );
-        assert!(Arc::ptr_eq(
-            &first[&wire::RELATION_ID].batch().columns()[0],
-            &second[&wire::RELATION_ID].batch().columns()[0],
-        ));
-        let replacement = package
-            .with_declarations(parse("package replacement {}"))
-            .unwrap();
-        let changed = replacement.source_tables().unwrap();
-        let rows = wire::Row::rows(&changed[&wire::RELATION_ID]).unwrap();
-        assert!(rows.iter().any(|row| row.name == "replacement"));
-        assert!(!rows.iter().any(|row| row.name == "application"));
-
-        // Another validation factory/pool cannot inherit this export's admission.
-        let mut relocated = cloned;
-        relocated.runtime = super::super::tests::runtime();
-        let other = relocated.source_tables().unwrap();
-        assert!(!Arc::ptr_eq(
-            &first[&wire::RELATION_ID].batch().columns()[0],
-            &other[&wire::RELATION_ID].batch().columns()[0],
-        ));
-        drop((package, replacement, relocated, second, changed, other));
-        assert!(
-            wire::Row::rows(&first[&wire::RELATION_ID])
-                .unwrap()
-                .iter()
-                .any(|row| row.name == "application")
-        );
-    }
-
-    #[test]
-    fn checked_source_export_keeps_storage_and_map_charges_after_packages_drop() {
+    #[tokio::test]
+    async fn checked_source_export_keeps_storage_and_map_charges_after_packages_drop() {
         use pse_relations::generated::authored::modeling_declarations as wire;
         let runtime = super::super::tests::runtime();
         let pool = runtime.shared.pool();
@@ -958,8 +887,9 @@ mod tests {
         .unwrap();
         let package = runtime
             .modeling_package(rows, super::super::tests::physical())
+            .await
             .unwrap();
-        let tables = package.source_tables().unwrap();
+        let tables = package.source_tables().await.unwrap();
         let escaped = tables[&wire::RELATION_ID].clone();
         let map_bytes = source_map_extent(tables.len()).unwrap();
         drop(tables);
@@ -993,97 +923,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn checked_source_table_outlives_joined_result_with_accounted_metadata() {
-        use pse_relations::generated::authored::modeling_declarations as wire;
-        let runtime = super::super::tests::runtime();
-        let pool = runtime.shared.pool();
-        let rows = pse_authoring::language::parse(
-            "package escaped { def Root { param x:Scalar=2; eq fixed:x*x==4; } }",
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            Default::default(),
-        )
-        .unwrap();
-        let root = rows
-            .iter()
-            .find(|row| row.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let package = runtime
-            .modeling_package(rows, super::super::tests::physical())
-            .unwrap();
-        let mut compiler = super::super::tests::compiler_profile();
-        compiler.assembly.worker_bytes = 2 << 20;
-        let prepared = package
-            .prepare_solve(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                pse_kernels::DerivativeOrder::Value,
-                compiler,
-                super::super::tests::profile(),
-                Default::default(),
-                &crate::CancelSource::new(),
-            )
-            .await
-            .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
-        assert!(result.usable());
-        let escaped = result.table("authored.modeling_declarations").unwrap();
-        drop(result);
-        drop(prepared);
-        drop(package);
-        drop(runtime);
-        assert!(pool.reserved() > source_map_extent(1).unwrap());
-        assert!(
-            wire::Row::rows(&escaped)
-                .unwrap()
-                .iter()
-                .any(|row| row.name == "Root")
-        );
-        drop(escaped);
-        assert_eq!(
-            pool.reserved(),
-            0,
-            "checked source export was the last retained run owner"
-        );
-    }
-
-    #[test]
-    fn source_export_resource_failure_can_retry_without_poisoning_clones() {
-        let runtime = super::super::tests::runtime();
-        let rows = pse_authoring::language::parse(
-            "package retry {}",
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            Default::default(),
-        )
-        .unwrap();
-        let package = runtime
-            .modeling_package(rows, super::super::tests::physical())
-            .unwrap();
-        let pool = runtime.shared.pool();
-        let available = runtime.shared.budget().memory_limit_bytes.get() - pool.reserved();
-        let held = runtime
-            .shared
-            .math()
-            .reserve("source-export-test:occupied", available)
-            .unwrap();
-        assert!(package.source_tables().is_err());
-        drop(held);
-        let first = package.clone().source_tables().unwrap();
-        let second = package.source_tables().unwrap();
-        assert!(!first.is_empty());
-        assert_eq!(
-            first.keys().collect::<Vec<_>>(),
-            second.keys().collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn source_export_merges_physical_modeling_rows_and_rejects_conflicts() {
+    async fn source_export_merges_physical_modeling_rows_and_rejects_conflicts() {
         use pse_relations::generated::authored::modeling_declarations as wire;
         let runtime = super::super::tests::runtime();
         let parse = |text| {
@@ -1098,6 +938,7 @@ mod tests {
         let rows = parse("package application {}");
         let mut package = runtime
             .modeling_package(rows.clone(), super::super::tests::physical())
+            .await
             .unwrap();
         let spec = runtime.registry.relation_by_id(wire::RELATION_ID).unwrap();
         let table = |rows: Vec<Declaration>| {
@@ -1117,7 +958,7 @@ mod tests {
                 .physical
                 .sources
                 .insert(spec.key, table(physical.clone()));
-            let exported = package.source_tables().unwrap();
+            let exported = package.source_tables().await.unwrap();
             let retained = wire::Row::rows(&exported[&wire::RELATION_ID]).unwrap();
             let expected = rows
                 .iter()
@@ -1135,7 +976,7 @@ mod tests {
         let mut conflict = rows.clone();
         conflict[0].name = "conflicting_name".into();
         package.physical.sources.insert(spec.key, table(conflict));
-        assert!(package.source_tables().is_err());
+        assert!(package.source_tables().await.is_err());
     }
     #[tokio::test]
     async fn generic_documents_prepare_revisions_and_cancel_without_poisoning() {
@@ -1179,7 +1020,53 @@ mod tests {
             &token,
         )
         .unwrap();
-        let package = rt.modeling_from_documents(&documents, physical).unwrap();
+        let expected = documents
+            .bundles()
+            .iter()
+            .flat_map(|bundle| &bundle.documents)
+            .filter_map(|document| document.modeling_rows())
+            .flat_map(|rows| rows.iter().cloned())
+            .collect::<Vec<_>>();
+        assert!(
+            documents
+                .bundles()
+                .iter()
+                .all(|bundle| !bundle.batches.contains_key(
+                    &pse_relations::generated::authored::modeling_declarations::RELATION_ID,
+                ))
+        );
+        let retained = pool.reserved();
+        let inputs = document_inputs(
+            &documents,
+            &rt.registry,
+            &physical,
+            rt.shared.budget().math.workspace_bytes,
+            &pool,
+            &token,
+        )
+        .unwrap();
+        assert_eq!(inputs.0, expected);
+        assert!(pool.reserved() > retained);
+        drop(inputs);
+        assert_eq!(pool.reserved(), retained);
+        let small: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        assert!(
+            document_inputs(
+                &documents,
+                &rt.registry,
+                &physical,
+                rt.shared.budget().math.workspace_bytes,
+                &small,
+                &token
+            )
+            .is_err()
+        );
+        assert_eq!(small.reserved(), 0);
+        let package = rt
+            .modeling_from_documents(&documents, physical)
+            .await
+            .unwrap();
         let original = package
             .prepare(
                 root,
@@ -1201,7 +1088,7 @@ mod tests {
             .as_mut()
             .unwrap()
             .expression = Some("3".into());
-        let revised = package.with_declarations(updated).unwrap();
+        let revised = package.with_declarations(updated).await.unwrap();
         let changed = revised
             .prepare(
                 root,
@@ -1212,10 +1099,30 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(pse_math::SharedAllocation::ptr_eq(
-            &original.compiled().admitted,
-            &changed.compiled().admitted
-        ));
+        assert!(!original.compiled().admitted.bodies.is_empty());
+        for (key, body) in &original.compiled().admitted.bodies {
+            let revised_body = &changed.compiled().admitted.bodies[key];
+            assert_eq!(body.spec().key(), revised_body.spec().key());
+            assert!(
+                Arc::ptr_eq(body.math(), revised_body.math()),
+                "a default input edit preserves the admitted scientific mathematics"
+            );
+        }
+        let initial = |model: &ModelingPreparation| {
+            let symbol = model
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path == "p" || symbol.lineage.path.ends_with(".p"))
+                .unwrap();
+            match symbol.initial.as_ref().unwrap() {
+                pse_modeling::specialize::Value::Number { bits, .. } => f64::from_bits(*bits),
+                other => panic!("expected the authored scalar input, got {other:?}"),
+            }
+        };
+        assert_eq!(initial(&original), 2.0);
+        assert_eq!(initial(&changed), 3.0);
         assert_ne!(
             original.compiled().model.symbols,
             changed.compiled().model.symbols
@@ -1270,6 +1177,50 @@ mod import_tests {
         .into_iter()
         .map(|path| (path.to_owned(), std::fs::read(root.join(path)).unwrap()))
         .collect()
+    }
+    #[tokio::test]
+    async fn pure_document_conformance_uses_admitted_typed_rows() {
+        let rt = super::super::tests::runtime();
+        let manifest = include_str!("../../../../tests/fixtures/packages/minimal_named/package.toml")
+            .replace("dependencies = []", r#"dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]"#);
+        let documents = BTreeMap::from([
+            ("package.toml".to_owned(), manifest.into_bytes()),
+            ("models/analytic.pse".to_owned(), b"package p { fn cube(x:Scalar)->Scalar=x*x*x; test analytic fixture { dof 0; route steady; procedure check; } { expect cube(2)==8 tolerance 1e-12; } }".to_vec()),
+        ]);
+        let report = conform_pure_documents(
+            vec![documents],
+            primitives(),
+            rt.shared.budget().clone(),
+            ModelingFixtureSelection::Package,
+            4,
+            16,
+            crate::workflow::PreparationSettings::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+        use pse_model::generated::enums::{
+            ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
+        };
+        assert!(report.complete);
+        let expectation = report
+            .checks
+            .iter()
+            .find(|check| check.kind == Kind::Expectation && check.deviation.is_some())
+            .unwrap();
+        assert_eq!(expectation.status, Status::Passed);
+        assert_eq!(expectation.deviation, Some(0.0));
+        assert_eq!(expectation.tolerance, Some(1e-12));
+        // The fixture has no validity envelope or conservation closure; their
+        // explicit NotApplicable inventory rows accompany the evaluated checks.
+        assert!(
+            report
+                .checks
+                .iter()
+                .all(|check| matches!(check.status, Status::Passed | Status::NotApplicable)),
+            "{:?}",
+            report.checks
+        );
     }
     fn load(
         rt: &Runtime,
@@ -1411,20 +1362,28 @@ mod import_tests {
             "package app { def Root { var x: Scalar; } }",
             "package app { def Root { var x: \"physical-primitives\".Scalar; } }",
         ] {
-            assert!(
-                rt.modeling_from_documents(&package(&dependent, source), physical.clone())
-                    .is_ok(),
-                "{source}"
-            );
-            let refused = rt
-                .modeling_from_documents(&package(manifest, source), physical.clone())
-                .unwrap_err()
-                .to_string();
+            let selected = async |manifest: &str| {
+                let package = rt
+                    .modeling_from_documents(&package(manifest, source), physical.clone())
+                    .await?;
+                let root = package
+                    .declarations()
+                    .await?
+                    .iter()
+                    .find(|row| row.name == "Root")
+                    .unwrap()
+                    .declaration_id;
+                package
+                    .selected_revision(root, &crate::CancelSource::new())
+                    .await
+            };
+            assert!(selected(&dependent).await.is_ok(), "{source}");
+            let refused = selected(manifest).await.unwrap_err().to_string();
             assert!(refused.contains("unknown type"), "{source}: {refused}");
         }
     }
-    #[test]
-    fn modeling_closure_refuses_missing_conflicting_and_cyclic_dependencies() {
+    #[tokio::test]
+    async fn modeling_closure_refuses_missing_conflicting_and_cyclic_dependencies() {
         let rt = super::super::tests::runtime();
         let physical = super::super::tests::physical();
         let token = pse_columnar::CancellationToken::new();
@@ -1465,23 +1424,45 @@ mod import_tests {
             &dependency(81, 1),
             "package app {use lib @\"1.0.0\"; def Root {let result:Scalar=lib.twice(2);}}",
         );
-        let admit = |parts| {
+        let admit = async |parts| {
             let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
                 parts, &pool, &token,
             )
             .unwrap();
-            rt.modeling_from_documents(&documents, physical.clone())
+            let package = rt
+                .modeling_from_documents(&documents, physical.clone())
+                .await?;
+            // Draft persistence is structural; these controls demand the authored
+            // importing scope/function before checking its scientific obligations.
+            let declarations = package.declarations().await?;
+            for declaration in declarations
+                .iter()
+                .filter(|row| row.name == "Root" || row.name == "f" || row.value.import.is_some())
+            {
+                package
+                    .selected_revision(declaration.declaration_id, &crate::CancelSource::new())
+                    .await?;
+            }
+            Ok::<_, WorkflowError>(package)
         };
-        assert!(admit(vec![library.clone(), application.clone()]).is_ok());
-        assert!(admit(vec![application.clone()]).is_err());
-        assert!(admit(vec![library.clone(), library.clone(), application.clone()]).is_err());
+        assert!(
+            admit(vec![library.clone(), application.clone()])
+                .await
+                .is_ok()
+        );
+        assert!(admit(vec![application.clone()]).await.is_err());
+        assert!(
+            admit(vec![library.clone(), library.clone(), application.clone()])
+                .await
+                .is_err()
+        );
         let cycle = package(
             81,
             "lib",
             &dependency(82, 1),
             "package lib {fn twice(x:Scalar)->Scalar=2*x;}",
         );
-        assert!(admit(vec![cycle, application.clone()]).is_err());
+        assert!(admit(vec![cycle, application.clone()]).await.is_err());
         for (dependency_text, source_text) in [
             (dependency(81, 2), "package app {}"),
             (String::new(), "package app {use lib @\"1.0.0\";}"),
@@ -1491,15 +1472,15 @@ mod import_tests {
             ),
         ] {
             let bad = package(82, "app", &dependency_text, source_text);
-            assert!(admit(vec![library.clone(), bad]).is_err());
+            assert!(admit(vec![library.clone(), bad]).await.is_err());
         }
     }
     /// ADR-0123 Outcome 7: an import resolves its target package by identity. A manifest
     /// dependency on another package at the same version grants nothing; the dependency on
     /// the target's identity must carry a requirement that admits the target's version, as
     /// the import's own typed requirement must.
-    #[test]
-    fn import_requires_dependency_by_identity() {
+    #[tokio::test]
+    async fn import_requires_dependency_by_identity() {
         let rt = super::super::tests::runtime();
         let physical = super::super::tests::physical();
         let token = pse_columnar::CancellationToken::new();
@@ -1547,12 +1528,13 @@ mod import_tests {
                 "package app {use lib @\"1.0.0\"; def Root {let result:Scalar=lib.twice(2);}}",
             )
         };
-        let admit = |parts| {
+        let admit = async |parts| {
             let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
                 parts, &pool, &token,
             )
             .unwrap();
             rt.modeling_from_documents(&documents, physical.clone())
+                .await
         };
         assert!(
             admit(vec![
@@ -1560,6 +1542,7 @@ mod import_tests {
                 other.clone(),
                 application(&[(91, 1)])
             ])
+            .await
             .is_ok()
         );
         // The same version, depended on under another identity, is not the target.
@@ -1568,14 +1551,19 @@ mod import_tests {
             other.clone(),
             application(&[(93, 1)]),
         ])
+        .await
         .unwrap_err()
         .to_string();
         assert!(refused.contains("exact manifest dependency"), "{refused}");
         // The typed requirement is checked against the manifest version.
-        assert!(admit(vec![library, other, application(&[(91, 2)])]).is_err());
+        assert!(
+            admit(vec![library, other, application(&[(91, 2)])])
+                .await
+                .is_err()
+        );
     }
-    #[test]
-    fn modeling_document_import_checks_the_admitted_version() {
+    #[tokio::test]
+    async fn modeling_document_import_checks_the_admitted_version() {
         let rt = super::super::tests::runtime();
         let physical = super::super::tests::physical();
         for (version, valid) in [("1.0.0", true), ("2.0.0", false)] {
@@ -1617,6 +1605,7 @@ mod import_tests {
             .unwrap();
             assert_eq!(
                 rt.modeling_from_documents(&documents, physical.clone())
+                    .await
                     .is_ok(),
                 valid
             );

@@ -80,16 +80,19 @@ pub(super) async fn authored_job(
         .unwrap();
     let package = runtime
         .package_from_sources(std::slice::from_ref(&modeling), context)
+        .await
         .unwrap();
     let case = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|d| d.name == "Root")
         .unwrap()
         .declaration_id;
     ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
-        modeling: vec![operations.put_sources(&modeling).await.unwrap()],
+        modeling_revision: package.canonical_revision().key.clone(),
         case,
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
@@ -147,11 +150,47 @@ async fn worker_runs_an_authored_job_and_stores_its_seed() {
         .enqueue(&job, "square", retry(), 0)
         .await
         .unwrap();
-    // The payload's sources round-trip through the store with verified hashes.
     assert_eq!(
-        operations.sources(&job.modeling[0]).await.unwrap(),
-        sources(SQUARE).1
+        database
+            .session()
+            .await
+            .unwrap()
+            .count("SELECT COUNT(*) FROM pse_ops.source_bundles")
+            .await
+            .unwrap(),
+        1,
+        "only the physical prerequisite is stored as a PostgreSQL source bundle"
     );
+    // The worker reopens the exact server revision without modeling source bundles.
+    let revision = runtime
+        .canonical
+        .store()
+        .revision(&job.modeling_revision)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(revision.key, job.modeling_revision);
+    let attempt = operations
+        .store()
+        .attempts()
+        .get(enqueued.attempt_id())
+        .await
+        .unwrap();
+    runtime
+        .canonical
+        .store()
+        .retain_revision(
+            &revision,
+            &pse_operations::canonical_retention::RetentionOwner::Run(attempt.run_id.to_string()),
+        )
+        .await
+        .unwrap();
+    runtime
+        .canonical
+        .store()
+        .forget_history(&revision)
+        .await
+        .unwrap();
     let (processed, result) = runtime.work_once_with_result().await.unwrap();
     assert_eq!(
         processed.state(),
@@ -317,7 +356,7 @@ fn job_request_identity_independent_of_key_order() {
     }
     let job = ModelingJob {
         physical: pse_ids::ContentHash::from_bytes([1; 32]),
-        modeling: vec![pse_ids::ContentHash::from_bytes([2; 32])],
+        modeling_revision: "fixture-revision".into(),
         case: pse_model::generated::identities::DeclarationId::from_bytes([3; 16]),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: ipopt(),
@@ -356,7 +395,7 @@ fn job_request_identity_independent_of_key_order() {
 }
 
 #[test]
-fn study_job_v8_codec_unit_retains_binding_policy_and_operation() {
+fn study_job_v9_codec_unit_retains_revision_binding_policy_and_operation() {
     use pse_model::study::*;
     let hash = pse_ids::ContentHash::from_bytes([1; 32]);
     let binding = AdmittedBinding {
@@ -394,16 +433,25 @@ fn study_job_v8_codec_unit_retains_binding_policy_and_operation() {
     };
     let payload = JobPayload::new(JobTask::StudyOperation(Box::new(StudyOperationJob {
         physical: hash,
-        modeling: vec![hash],
+        modeling_revision: "fixture-revision".into(),
         point,
     })));
     let encoded = serde_json::to_value(payload).unwrap();
-    assert_eq!(encoded["version"], 8);
-    assert_eq!(encoded["task"]["point"]["operation"]["version"], 4);
+    assert_eq!(encoded["version"], 9);
+    assert_eq!(encoded["task"]["point"]["operation"]["version"], 5);
     assert_eq!(encoded["task"]["kind"], "study_operation");
     let decoded: JobPayload = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
     for broken in [
+        {
+            let mut value = encoded.clone();
+            value["task"]
+                .as_object_mut()
+                .unwrap()
+                .remove("modeling_revision");
+            value["task"]["modeling"] = serde_json::json!([]);
+            value
+        },
         {
             let mut value = encoded.clone();
             value["version"] = serde_json::json!(5);
@@ -776,7 +824,7 @@ fn automatic_job_payload_roundtrip_retains_constraints_and_typed_identity() {
     });
     let job = ModelingJob {
         physical: pse_ids::ContentHash::from_bytes([1; 32]),
-        modeling: vec![pse_ids::ContentHash::from_bytes([2; 32])],
+        modeling_revision: "fixture-revision".into(),
         case: pse_model::generated::identities::DeclarationId::from_bytes([3; 16]),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,

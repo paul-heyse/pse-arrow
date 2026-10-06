@@ -12,6 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub mod portable;
 mod shape;
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
 pub use shape::{ProviderShape, ProviderShapes};

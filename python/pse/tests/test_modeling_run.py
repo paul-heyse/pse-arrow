@@ -33,9 +33,12 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     inspection_settings: pse.EngineSettings,
     operational_store: pse.OperationalStore,
     tmp_path: Path,
+    canonical_substrate: str,
 ) -> None:
     # Only durable runs publish (ADR-0112 Outcome 16); every run is a stored attempt.
-    runtime = pse.Runtime(inspection_settings, store=operational_store)
+    runtime = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -95,16 +98,22 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     assert warmed.run_id != result.run_id
     primal = {SemanticId(rows[0]["symbol_id"]): 1.5}
     assert prepared.with_primal_start(primal).start().wait().usable
-    # The manifest's typed dependency on the primitives, whose physical document names
-    # `Scalar`, is part of the published source (ADR-0123 Outcomes 6 and 7).
-    packages = pa.table(result.table("authored.packages")).to_pylist()
+    # Source inventory is explicitly read from the immutable package revision.
+    sources = package.source_tables()
+    packages = pa.table(
+        sources[SemanticId.from_hex("0836e02bdfe70fb065cdea4dc123f230")]
+    ).to_pylist()
     assert any(
         dependency["version_req"]["operator"] == "exact"
         for row in packages
         for dependency in row["dependencies"]
     ), packages
-    documents = pa.table(result.table("authored.documents")).to_pylist()
+    documents = pa.table(
+        sources[SemanticId.from_hex("a98911fe15eafd4f6520725e5b50f7d1")]
+    ).to_pylist()
     assert any(row["source_text"] == source for row in documents), documents
+    for stream in sources.values():
+        stream.close()
     assert result.attempt_id is not None
     assert result.attempt_id == handle.attempt_id
     (listed,) = runtime.runs(run_id=result.run_id)

@@ -155,6 +155,9 @@ pyo3-arrow = "0.19.0"
 pyo3-introspection = "=0.29.2"
 
 # ---- runtime ----
+surrealdb = { version = "3.3.0", default-features = false, features = [
+  "protocol-grpc",
+] }
 tokio = { version = "1.53.1", default-features = false, features = [
   "rt-multi-thread",
   "sync",
@@ -487,12 +490,17 @@ delta-kernel-revision = "8ba063f8f84fec222000f66d40d70911d7c79675"
 # Passed to every test invocation by the justfile and CI; never a default feature.
 validate-features = ["pse-relations/force-validate"]
 unsafe-allowlist = [
+  "xtask",              # ADR-0164: composition-owned worker deployment qualification.
+  "pse-operations",     # ADR-0164: compiler-issued scientific publisher trust assertion.
+  "pse-compiler",       # ADR-0164: test-only mint for compiler-issued recipe controls.
+  "pse-ids",            # ADR-0164: sealed scientific reconstruction trust permit.
+  "pse-runtime",        # ADR-0164: mint only after qualified controlled-store retrieval.
   "pse-math",           # ADR-0088: immutable linked GMP/MPFR version strings only.
   "pse-ipopt-sys",
   "pse-uno-sys",        # ADR-0157: shielded Uno project ABI.
   "pse-petsc-sys",      # ADR-0157: MPIUNI real-double project ABI.
   "pse-backend-native",
-  "pse-py",
+  "pse-py",             # CPython ABI and ADR-0164 controlled deployment qualification.
 ]
 
 # Native validated mathematics, prepared by scripts/native_cache.py. The archive

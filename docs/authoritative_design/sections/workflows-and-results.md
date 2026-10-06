@@ -934,6 +934,8 @@ full numerical equivalence
 
 ### 21.1 Extension module, jobs and Arrow streams
 
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Native typed problem/revision/run/output selectors and bounded Arrow streams replace Runtime, modeling-knowledge and TableReader SQL convenience. Streams protect their exact immutable selection and treat rows as provisional until successful statement completion. Ordinary runtime construction is durable; ephemeral execution is explicitly requested.
+
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > shared vocabulary (restating ADR-0090);
 > [ADR-0116](../../adr/0116-typed-boundary-documents.md) (superseding ADR-0113) — typed backend settings, registry names and typed

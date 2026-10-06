@@ -14,7 +14,7 @@ use pse_kernels::DerivativeOrder;
 
 /// A package on a runtime whose native jobs admit a foreign allowance SCIP takes as its
 /// memory limit.
-fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -30,6 +30,7 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
         .modeling_package(rows, physical)
+        .await
         .unwrap();
     (package, root)
 }
@@ -102,7 +103,10 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
                 ..Default::default()
             },
         );
-        let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+        let package = runtime
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
         let mut request = analysis(
             root,
             profile(
@@ -141,7 +145,7 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
 
 #[tokio::test]
 async fn price_taker_quadratic_cost_miqp() {
-    let (package, root) = package(PRICE_TAKER);
+    let (package, root) = package(PRICE_TAKER).await;
     // Only SCIP represents a mixed-integer quadratic program; HiGHS refuses the class.
     let explicit = analysis(
         root,
@@ -179,7 +183,7 @@ async fn price_taker_quadratic_cost_miqp() {
 #[tokio::test]
 async fn limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal() {
     use pse_model::generated::enums::{CandidateQualifier, CandidateUse, IncumbentPolicy};
-    let (package, root) = package(PRICE_TAKER);
+    let (package, root) = package(PRICE_TAKER).await;
     let mut solver = profile(
         SolveIntent::Optimize,
         SolverSelection::Explicit(Backend::Scip),
@@ -301,7 +305,7 @@ fn implicit_oracle(lower: f64, upper: f64) -> f64 {
 
 #[tokio::test]
 async fn certify_exports_implicit_residuals_exactly() {
-    let (package, root) = package(IMPLICIT);
+    let (package, root) = package(IMPLICIT).await;
     let result = solve(
         &package,
         &analysis(root, profile(SolveIntent::Certify, SolverSelection::Auto)),
@@ -355,7 +359,7 @@ const OBSTRUCTION: &str = "package p { def Root { var x:Scalar;
 
 #[tokio::test]
 async fn certified_infeasibility_beside_local_explanation() {
-    let (package, root) = package(OBSTRUCTION);
+    let (package, root) = package(OBSTRUCTION).await;
     let mut solver = profile(SolveIntent::FeasiblePoint, SolverSelection::Auto);
     solver.backend = BackendSettings::Default;
     let analysis = analysis(root, solver);
@@ -405,7 +409,7 @@ async fn certified_infeasibility_beside_local_explanation() {
     );
     assert!(!certificate.result.accepted);
     // A feasible model yields no proof.
-    let (feasible, root) = package_feasible();
+    let (feasible, root) = package_feasible().await;
     let certificate = feasible
         .certify_infeasibility(
             &self::analysis(
@@ -419,14 +423,14 @@ async fn certified_infeasibility_beside_local_explanation() {
     assert!(!certificate.proven());
     assert!(certificate.members.is_empty());
 }
-fn package_feasible() -> (ModelingPackage, DeclarationId) {
-    package(&OBSTRUCTION.replace("eq hi: x*x <= 1;", ""))
+async fn package_feasible() -> (ModelingPackage, DeclarationId) {
+    package(&OBSTRUCTION.replace("eq hi: x*x <= 1;", "")).await
 }
 
 #[tokio::test]
 async fn solution_pool_published() {
     use pse_relations::{columnar::RelationRow, generated::runtime::solution_pool};
-    let (package, root) = package(PRICE_TAKER);
+    let (package, root) = package(PRICE_TAKER).await;
     let mut solver = profile(SolveIntent::Optimize, SolverSelection::Auto);
     solver.backend = BackendSettings::Scip(ScipSettings {
         pool: 3,

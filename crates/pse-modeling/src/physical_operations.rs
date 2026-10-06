@@ -648,6 +648,37 @@ impl PhysicalOperation {
         checker: &dyn pse_quantity::infer::InvariantChecker,
         at: DeclarationId,
     ) -> Result<pse_quantity::AdmittedOutputBoundary> {
+        let mut key = pse_ids::FramedHasher::new(pse_ids::Frame::MathConcreteReceiptRequestV1);
+        key.str("modeling-role-boundary").id(&at.as_id());
+        self.frame(&mut key);
+        source.frame(&mut key);
+        let Some(scheme) = target.quantity_scheme() else {
+            return Err(invalid(
+                at,
+                "physical role boundary requires a numerical target",
+            ));
+        };
+        scheme.frame(&mut key);
+        if let Some(refinement) = target.physical_refinement() {
+            refinement.frame(&mut key);
+        }
+        pse_quantity::resolved::receipts::boundary(key.finish_hash(), || {
+            self.admit_numeric_result_inner(source, target, registry, checker, at)
+                .map_err(|e| pse_quantity::QuantityError::InferencePrecondition {
+                    rule: "physical.role_boundary",
+                    detail: e.to_string(),
+                })
+        })
+        .map_err(|e| invalid(at, e.to_string()))
+    }
+    fn admit_numeric_result_inner(
+        &self,
+        source: &pse_quantity::ResolvedPhysicalContract,
+        target: &Type,
+        registry: &pse_quantity::QuantityRegistry,
+        checker: &dyn pse_quantity::infer::InvariantChecker,
+        at: DeclarationId,
+    ) -> Result<pse_quantity::AdmittedOutputBoundary> {
         if matches!(
             self,
             Self::ReferenceTranslation(_)

@@ -106,7 +106,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let cancel = crate::CancelSource::new();
     let profile = native::Profile {
         end: 1.0,

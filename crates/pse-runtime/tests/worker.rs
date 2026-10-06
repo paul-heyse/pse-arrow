@@ -38,6 +38,91 @@ use pse_runtime::{
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
 
+/// One journey owns this profile's finite worker slots at a time, including across
+/// Nextest test processes. The two-worker study consumes both configured slots.
+struct ManagedWorkerCase {
+    _lock: std::fs::File,
+    units: Vec<String>,
+}
+impl ManagedWorkerCase {
+    fn acquire() -> Self {
+        use std::os::unix::fs::OpenOptionsExt;
+        let state = std::env::var_os("PSE_SURREAL_STATE")
+            .expect("worker-test selects owned canonical state");
+        pse_operations::canonical::CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        let lock = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .mode(0o600)
+            .open(Path::new(&state).join(".worker-integration.lock"))
+            .unwrap();
+        lock.lock().unwrap();
+        let output = supervisor().arg("status").output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let status: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let units = status["worker_units"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|unit| unit.as_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        let checked = supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))").status().unwrap();
+        assert!(
+            checked.success(),
+            "another process already owns this fixture profile's worker slots"
+        );
+        Self { _lock: lock, units }
+    }
+    fn kill_solver(&self) {
+        // The scientific process is in slot zero in this serial single-worker case.
+        // Killing only its launcher would deliberately leave the scope alive.
+        let code = "from scripts import surreal_server as s; import sys; s.systemctl('kill','--kill-whom=all','--signal=SIGKILL',sys.argv[1])";
+        assert!(
+            supervisor_python(code)
+                .arg(&self.units[0])
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+}
+impl Drop for ManagedWorkerCase {
+    fn drop(&mut self) {
+        for unit in &self.units {
+            let _ = supervisor_python("from scripts import surreal_server as s; import sys; s.systemctl('stop',sys.argv[1],check=False)").arg(unit).status();
+        }
+    }
+}
+fn python() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.venv/bin/python")
+}
+fn supervisor() -> std::process::Command {
+    let mut command = std::process::Command::new(python());
+    command.arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/surreal_server.py"));
+    command
+}
+fn supervisor_python(code: &str) -> std::process::Command {
+    let mut command = std::process::Command::new(python());
+    command
+        .args(["-c", code])
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
+    command
+}
+fn managed_worker(database: &str) -> std::process::Command {
+    let mut command = supervisor();
+    command
+        .args(["worker", "--worker-command"])
+        .arg(std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"))
+        .args(["--canonical-database", database]);
+    command
+}
+
 const SQUARE: &str = r#"package algebraic { def Root {
     var x:Scalar;
     eq square:x*x==4;
@@ -129,7 +214,19 @@ fn runtime() -> (Arc<SharedRuntime>, Runtime) {
     );
     (
         shared.clone(),
-        Runtime::from_shared(shared, registry, sessions),
+        Runtime::from_shared(
+            shared,
+            registry,
+            sessions,
+            pse_runtime::workflow::CanonicalDeployment::new(
+                pse_operations::testing::canonical_fixture_store().unwrap(),
+                pse_runtime::workflow::OuterAttestation {
+                    source: pse_ids::ContentHash::from_bytes([0; 32]),
+                    build: pse_ids::ContentHash::from_bytes([1; 32]),
+                },
+                None,
+            ),
+        ),
     )
 }
 
@@ -167,6 +264,7 @@ async fn package(
     (
         runtime
             .modeling_from_documents(&modeling, context.clone())
+            .await
             .unwrap(),
         context,
     )
@@ -183,6 +281,7 @@ fn settings() -> SolveSettings {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn worker_runs_authored_case_end_to_end() {
+    let _managed = ManagedWorkerCase::acquire();
     let database = TestDatabase::create().await.unwrap();
     let operations = Operations::connect(database.url(), "enqueuer", LeasePolicy::default())
         .await
@@ -193,13 +292,15 @@ async fn worker_runs_authored_case_end_to_end() {
     let (package, _) = package(&shared, &local, &physical, &modeling).await;
     let case = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|d| d.name == "Root")
         .unwrap()
         .declaration_id;
     let job = ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
-        modeling: vec![operations.put_sources(&modeling).await.unwrap()],
+        modeling_revision: package.canonical_revision().key.clone(),
         case,
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: settings(),
@@ -212,8 +313,9 @@ async fn worker_runs_authored_case_end_to_end() {
 
     // The worker binary, in its own process, claims and runs the job, then stops.
     let url = database.url().to_owned();
+    let canonical_database = local.canonical_store().database().to_owned();
     let status = tokio::task::spawn_blocking(move || {
-        std::process::Command::new(env!("CARGO_BIN_EXE_pse-worker"))
+        managed_worker(&canonical_database)
             .args([
                 "--url",
                 &url,
@@ -222,8 +324,6 @@ async fn worker_runs_authored_case_end_to_end() {
                 "--until-idle",
                 "--heartbeat-ms",
                 "200",
-                "--memory-mib",
-                "8192",
                 "--threads",
                 "2",
             ])
@@ -314,11 +414,11 @@ fn target_document() -> Vec<u8> {
     bytes
 }
 
-/// ADR-0125, review F09: a package with a data document is stored as a durable source
-/// bundle whose binary document round-trips byte for byte and is verified against its
-/// hashes; the worker binary loads it, admits the document's rows and solves the case.
+/// A separate worker reopens the canonical modeling revision, selects its Parquet data
+/// object and admits those rows before solving the case.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn durable_job_round_trips_a_package_with_a_data_document() {
+    let _managed = ManagedWorkerCase::acquire();
     let database = TestDatabase::create().await.unwrap();
     let operations = Operations::connect(database.url(), "enqueuer", LeasePolicy::default())
         .await
@@ -330,30 +430,40 @@ async fn durable_job_round_trips_a_package_with_a_data_document() {
     let (package, _) = package(&shared, &local, &physical, &modeling).await;
     let case = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|d| d.name == "Root")
         .unwrap()
         .declaration_id;
     let job = ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
-        modeling: vec![operations.put_sources(&modeling).await.unwrap()],
+        modeling_revision: package.canonical_revision().key.clone(),
         case,
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: settings(),
         start: JobStart::Fresh,
     };
-    // The stored bundle is the package's exact bytes, its Parquet document included.
+    // The worker receives an exact immutable revision containing the Parquet data object.
     assert_eq!(
-        operations.sources(&job.modeling[0]).await.unwrap(),
-        modeling
+        local
+            .canonical()
+            .store()
+            .revision(&job.modeling_revision)
+            .await
+            .unwrap()
+            .unwrap()
+            .key,
+        package.canonical_revision().key
     );
     let enqueued = operations
         .enqueue(&job, "data-document-square", RetryPolicy::ONCE, 0)
         .await
         .unwrap();
     let url = database.url().to_owned();
+    let canonical_database = local.canonical_store().database().to_owned();
     let status = tokio::task::spawn_blocking(move || {
-        std::process::Command::new(env!("CARGO_BIN_EXE_pse-worker"))
+        managed_worker(&canonical_database)
             .args([
                 "--url",
                 &url,
@@ -362,8 +472,6 @@ async fn durable_job_round_trips_a_package_with_a_data_document() {
                 "--until-idle",
                 "--heartbeat-ms",
                 "200",
-                "--memory-mib",
-                "8192",
                 "--threads",
                 "2",
             ])
@@ -551,6 +659,8 @@ async fn long_scip_job(
     let (package, _) = package(shared, local, &physical, &modeling).await;
     let case = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|d| d.name == "Root")
         .unwrap()
@@ -563,7 +673,7 @@ async fn long_scip_job(
     settings.controls.time_limit = time_limit;
     ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
-        modeling: vec![operations.put_sources(&modeling).await.unwrap()],
+        modeling_revision: package.canonical_revision().key.clone(),
         case,
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
@@ -572,8 +682,13 @@ async fn long_scip_job(
 }
 
 /// Spawn the worker binary against `url`, serving until idle with a short lease.
-fn spawn_worker(url: &str, name: &str, lease_seconds: u64) -> std::process::Child {
-    std::process::Command::new(env!("CARGO_BIN_EXE_pse-worker"))
+fn spawn_worker(
+    url: &str,
+    name: &str,
+    lease_seconds: u64,
+    canonical_database: &str,
+) -> std::process::Child {
+    managed_worker(canonical_database)
         .args([
             "--url",
             url,
@@ -584,8 +699,6 @@ fn spawn_worker(url: &str, name: &str, lease_seconds: u64) -> std::process::Chil
             &lease_seconds.to_string(),
             "--heartbeat-ms",
             "200",
-            "--memory-mib",
-            "8192",
             "--threads",
             "2",
         ])
@@ -642,6 +755,7 @@ async fn incumbents(database: &TestDatabase, attempt: AttemptId) -> Vec<(f64, Op
 /// the solution, SCIP stores it as a start, and its result is no worse.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
+    let managed = ManagedWorkerCase::acquire();
     let database = TestDatabase::create().await.unwrap();
     let policy = LeasePolicy {
         lease: std::time::Duration::from_secs(2),
@@ -680,7 +794,12 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
     // The first worker runs the solve in its own process; once an incumbent with its
     // solution is stored, the process is killed.
     let started = tokio::time::Instant::now();
-    let mut worker = spawn_worker(database.url(), "worker-killed", 2);
+    let mut worker = spawn_worker(
+        database.url(),
+        "worker-killed",
+        2,
+        local.canonical_store().database(),
+    );
     until(
         std::time::Duration::from_secs(40),
         "a captured incumbent",
@@ -693,7 +812,7 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
         },
     )
     .await;
-    worker.kill().unwrap();
+    managed.kill_solver();
     let status = worker.wait().unwrap();
     assert!(!status.success(), "{status}");
     let stored = incumbents(&database, first).await;
@@ -808,6 +927,7 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
 /// worker's watcher, and the attempt ends cancelled long before the solve's time limit.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn cross_process_cancel_stops_scip() {
+    let _managed = ManagedWorkerCase::acquire();
     let database = TestDatabase::create().await.unwrap();
     let operations = Operations::connect(database.url(), "enqueuer", LeasePolicy::default())
         .await
@@ -826,7 +946,12 @@ async fn cross_process_cancel_stops_scip() {
         .await
         .unwrap();
     let attempt = enqueued.attempt_id();
-    let mut worker = spawn_worker(database.url(), "worker-cancelled", 30);
+    let mut worker = spawn_worker(
+        database.url(),
+        "worker-cancelled",
+        30,
+        local.canonical_store().database(),
+    );
     // SCIP is searching once its first incumbent is stored.
     until(
         std::time::Duration::from_secs(40),
@@ -899,7 +1024,19 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
     );
     (
         shared.clone(),
-        Runtime::from_shared(shared, registry, sessions),
+        Runtime::from_shared(
+            shared,
+            registry,
+            sessions,
+            pse_runtime::workflow::CanonicalDeployment::new(
+                pse_operations::testing::canonical_fixture_store().unwrap(),
+                pse_runtime::workflow::OuterAttestation {
+                    source: pse_ids::ContentHash::from_bytes([0; 32]),
+                    build: pse_ids::ContentHash::from_bytes([1; 32]),
+                },
+                None,
+            ),
+        ),
     )
 }
 
@@ -921,6 +1058,7 @@ const PARAMETRIC: &str = r#"package algebraic { def Root {
 /// holds the summary and every completed point's members.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn study_parallel_workers_publish_once() {
+    let _managed = ManagedWorkerCase::acquire();
     use pse_model::study::{OccurrenceKey, StartPolicy};
     use pse_runtime::workflow::{
         BindingAssignment, BindingQuantity, BindingTarget, CaseOperation, OperationRequest,
@@ -938,6 +1076,8 @@ async fn study_parallel_workers_publish_once() {
     let (package, context) = package(&shared, &local, &physical, &modeling).await;
     let case = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|d| d.name == "Root")
         .unwrap()
@@ -1003,7 +1143,8 @@ async fn study_parallel_workers_publish_once() {
 
     // Two worker processes serve the queue at once and stop when it is empty.
     let url = database.url().to_owned();
-    let mut workers = ["worker-left", "worker-right"].map(|name| spawn_worker(&url, name, 30));
+    let mut workers = ["worker-left", "worker-right"]
+        .map(|name| spawn_worker(&url, name, 30, local.canonical_store().database()));
     let statuses =
         tokio::task::spawn_blocking(move || workers.each_mut().map(|w| w.wait().unwrap()))
             .await

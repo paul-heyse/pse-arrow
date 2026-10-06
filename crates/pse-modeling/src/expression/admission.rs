@@ -15,7 +15,7 @@ use std::{
 };
 
 /// Exact syntax occurrence within a single checked expression body.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct ExpressionOccurrence {
     /// Root expression identity and deterministic preorder position in its authored AST.
     pub body: pse_ids::ContentHash,
@@ -125,7 +125,7 @@ impl AdmissionRecorder {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum PhysicalRequest {
     Add,
     Sub,
@@ -175,6 +175,63 @@ pub struct PhysicalAdmission {
     request: PhysicalRequest,
     operands: Vec<Scheme>,
     resolved: Option<ResolvedInference>,
+}
+/// Untrusted persisted obligation and its complete optional concrete admission.
+/// This wire does not deserialize a `PhysicalAdmission` or admitted physical witness.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PhysicalAdmissionRecord {
+    request: PhysicalRequest,
+    operands: Vec<pse_quantity::resolved::receipts::SchemeRecord>,
+    resolved: Option<pse_quantity::resolved::receipts::InferenceRecord>,
+}
+impl PhysicalAdmissionRecord {
+    /// Complete owned extent of schemes and concrete operation result.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.operands.capacity() * size_of::<pse_quantity::resolved::receipts::SchemeRecord>()
+            + self
+                .operands
+                .iter()
+                .map(pse_quantity::resolved::receipts::SchemeRecord::retained_bytes)
+                .sum::<usize>()
+            + self.resolved.as_ref().map_or(
+                0,
+                pse_quantity::resolved::receipts::InferenceRecord::retained_bytes,
+            )
+    }
+    /// Capture the owning checked operation without specializing or re-inferring it.
+    pub fn capture(value: &PhysicalAdmission) -> Self {
+        Self {
+            request: value.request.clone(),
+            operands: value
+                .operands
+                .iter()
+                .map(pse_quantity::resolved::receipts::SchemeRecord::capture)
+                .collect(),
+            resolved: value
+                .resolved
+                .as_ref()
+                .map(pse_quantity::resolved::receipts::InferenceRecord::capture),
+        }
+    }
+    /// Restore only inside the enclosing qualified strict numerical reconstruction.
+    pub fn restore(&self, at: DeclarationId) -> Result<PhysicalAdmission> {
+        pse_quantity::resolved::receipts::require_record(self)
+            .map_err(|e| invalid(at, e.to_string()))?;
+        Ok(PhysicalAdmission {
+            request: self.request.clone(),
+            operands: self
+                .operands
+                .iter()
+                .map(|v| v.restore().map_err(|e| invalid(at, e.to_string())))
+                .collect::<Result<_>>()?,
+            resolved: self
+                .resolved
+                .as_ref()
+                .map(|v| v.restore().map_err(|e| invalid(at, e.to_string())))
+                .transpose()?,
+        })
+    }
 }
 impl PartialEq for PhysicalAdmission {
     fn eq(&self, other: &Self) -> bool {

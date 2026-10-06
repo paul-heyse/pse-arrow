@@ -144,6 +144,26 @@ the durable attempt of the run it publishes ([§20.2](#section-20-2)).
 
 ### 5.3 Canonical framing and hashing
 
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Versioned relevant producer identities replace whole-tree build hashes in scientific product eligibility. Actual consumed source/generated/native inputs and Cargo units govern those identities; unknown inputs block persistent reuse. Complete executable attestation remains at the run boundary.
+
+Relevant producer capture uses the actual selected Cargo library units, resolved source/version,
+features/profile/target and emitted compiler dep-info, including consumed generated/native inputs.
+Uncompiled tests/examples are excluded; ambiguous associations and unreviewed executable I/O
+remain refusals. A source-bound completeness declaration can qualify reviewed build-script and
+procedural-macro owners. Consumed raw source is a conservative fallback when normalized source
+cannot preserve macro/location meaning; that fallback may invalidate on otherwise irrelevant
+inline text changes. No blanket closure claim follows from Cargo rerun hints or file discovery.
+Operator qualification must be bound to the linked executable's complete outer attestation;
+incomplete deployment evidence permits normal admission and persistence but refuses cross-build
+scientific replay.
+
+Product publication and scientific request have separate identities. A store-issued protected
+admission supplies a stable publication identity through transaction/acknowledgment retries.
+Already rooted exact descriptions are shared without changing their immutable origin. Explicit
+release fences that publication; fresh scientific admission can publish another. Generic retained
+root operations cannot create or relocate product roots.
+
+
 > Decision: [ADR-0155](../../adr/0155-numerical-derived-families.md) and
 > [ADR-0154](../../adr/0154-declared-numerical-strategy.md) (proposed target).
 
@@ -349,6 +369,8 @@ operational store's relations join the same hierarchy as read-only providers und
 
 ## 20. Persistence, publication and reproducibility
 
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). One canonical SurrealDB database replaces PG/Delta publication composition. Normal runs automatically retain scientific outcomes; ephemeral execution is explicit. Closed bounded staging followed by fenced atomic descriptor admission defines coherent visibility. Protected reads, retained roots and bounded collection share a retention guard. Offline backup drains work and copies a stopped coherent target database. Existing descriptions record the implemented predecessor during Plan 28 migration.
+
 Durability is an explicit effect, and visibility is decided by one conditional commit.
 Execution stays in memory until a caller asks to publish; publication never re-runs
 science, and a scientifically failed attempt can still be published faithfully. PostgreSQL
@@ -492,6 +514,8 @@ metadata and hashes alone never certify validity, execution or equivalence. Resu
 meaning is owned by [§19](workflows-and-results.md#section-19).
 
 ### 20.4 Reproduction, reuse and retention
+
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Reachability includes heads, explicitly retained history/products/runs/analyses, active attempts and protected reads/preparations. Protection expiry fences continuation and admission before reclamation. Scientific history is intentionally retained; no in-memory eviction policy implies historical deletion.
 
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — catalog reader leases,
 > change windows and two-phase deletion replace the local lock files (Plan 22 O8,
@@ -658,6 +682,8 @@ substitute for one another. Supported historical data does not retain historical
 APIs. Generated relation contracts remain the declarations, not inferred storage layouts.
 
 ### 20.6 Operational store and durable execution
+
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). `pse-operations` owns the thin gRPC client and typed operations against authenticated loopback RocksDB with synchronous acknowledgment. Immutable operation identities settle uncertain acknowledgments; short guarded transactions fence claims, cancellation and terminal admission. Native work stays outside them. `pse-operations-queries` and `pse-catalog` retire with their last consumers.
 
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — the registry generates
 > the store's schema, and statements are SQL files compiled by Cornucopia into

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One immutable admitted study definition used by both executors. Durable creation stores
-//! exact source bundles, operations, physically admitted bindings and typed point policy.
+//! an exact canonical modeling revision, a physical source bundle, operations and physically admitted bindings and typed point policy.
 //! Workers acquire inputs, ask the shared policy for a fenced start, and retain outcomes
 //! independently of result availability. Finalization publishes every recorded member and
 //! one structured outcome for each requested occurrence.
@@ -46,7 +46,7 @@ pub const MAXIMUM_STUDY_POINTS: usize = 100_000;
 const COMMIT_ATTEMPTS: usize = 64;
 
 /// The authored sources of a package closure, each document's exact bytes by path (a
-/// data document's included, ADR-0125): what a worker loads.
+/// data document's included, ADR-0125): initial authored ingress only.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PackageSources {
     /// The physical package's documents.
@@ -96,7 +96,7 @@ pub struct StudyRequest {
 /// A durable study to start.
 #[derive(Clone, Debug)]
 pub struct StudyPlan {
-    /// The package closure's sources, stored content-addressed for the workers.
+    /// Initial authored ingress; modeling sources are persisted once into a canonical revision.
     pub sources: PackageSources,
     /// The points, in index order.
     pub points: Vec<StudyPoint>,
@@ -106,9 +106,9 @@ pub struct StudyPlan {
     pub priority: i32,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 6;
+const STUDY_DEFINITION_VERSION: u32 = 7;
 
-/// Version 6 of a study's definition: the store's `definition` document and the content of
+/// Version 7 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -117,8 +117,8 @@ pub struct StudyDefinition {
     pub version: Version<STUDY_DEFINITION_VERSION>,
     /// The source bundle of the physical package.
     pub physical: ContentHash,
-    /// The source bundles of the modeling package closure, in load order.
-    pub modeling: Vec<ContentHash>,
+    /// The exact immutable canonical modeling revision.
+    pub modeling_revision: String,
     /// The points, in index order.
     pub points: Vec<StudyPointDefinition>,
 }
@@ -280,7 +280,6 @@ impl super::ModelingPackage {
     pub async fn admit_study_points(
         &self,
         physical: ContentHash,
-        modeling: Vec<ContentHash>,
         points: &[StudyPoint],
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
@@ -343,7 +342,7 @@ impl super::ModelingPackage {
         let definition = StudyDefinition {
             version: Version,
             physical,
-            modeling,
+            modeling_revision: self.canonical_revision().key.clone(),
             points: admitted,
         };
         pse_operations::study_policy::admit(&definition.graph()).map_err(|error| {
@@ -369,14 +368,21 @@ impl Runtime {
             .await?;
         let state = std::sync::Arc::new(self.sessions.native_state().clone());
         for row in records {
-            let record = operations.store().studies().get(row.study_id).await?;
+            let points = operations
+                .store()
+                .studies()
+                .unresolved_points(row.study_id)
+                .await?;
+            if points.is_empty() {
+                continue;
+            }
             let intent = operations
                 .store()
                 .catalog()
                 .intent(row.publication_id)
                 .await?
                 .ok_or_else(|| contract("study intent unavailable during receipt recovery"))?;
-            for point in record.points {
+            for point in points {
                 if point.job_state == JobState::Running
                     || point
                         .outcome
@@ -598,22 +604,20 @@ impl Runtime {
             )));
         }
         let physical = operations.put_sources(&plan.sources.physical).await?;
-        let mut modeling = Vec::with_capacity(plan.sources.modeling.len());
-        for bundle in &plan.sources.modeling {
-            modeling.push(operations.put_sources(bundle).await?);
-        }
         let cancel = crate::CancelSource::new();
-        let package = self.package_from_sources(
-            &plan.sources.modeling,
-            self.physical_from_sources(&plan.sources.physical, &cancel)
-                .await?,
-        )?;
+        let package = self
+            .package_from_sources(
+                &plan.sources.modeling,
+                self.physical_from_sources(&plan.sources.physical, &cancel)
+                    .await?,
+            )
+            .await?;
         let definition = package
-            .admit_study_points(physical, modeling, &plan.points, &cancel)
+            .admit_study_points(physical, &plan.points, &cancel)
             .await?;
         self.start_defined_study(
             workspace,
-            plan.sources,
+            plan.sources.physical,
             definition,
             plan.retry,
             plan.priority,
@@ -625,26 +629,31 @@ impl Runtime {
     pub async fn start_defined_study(
         &self,
         workspace: &Workspace,
-        sources: PackageSources,
+        physical_sources: BTreeMap<String, Vec<u8>>,
         definition: StudyDefinition,
         retry: RetryPolicy,
         priority: i32,
     ) -> Result<StudyHandle, WorkflowError> {
         let operations = self.operations()?;
-        let physical = operations.put_sources(&sources.physical).await?;
-        let mut modeling = Vec::with_capacity(sources.modeling.len());
-        for bundle in &sources.modeling {
-            modeling.push(operations.put_sources(bundle).await?);
-        }
-        if physical != definition.physical || modeling != definition.modeling {
-            return Err(contract("admitted study source bundle identities differ"));
+        let physical = operations.put_sources(&physical_sources).await?;
+        if physical != definition.physical {
+            return Err(contract("admitted study physical source identity differs"));
         }
         let cancel = crate::CancelSource::new();
-        let package = self.package_from_sources(
-            &sources.modeling,
-            self.physical_from_sources(&sources.physical, &cancel)
-                .await?,
-        )?;
+        let revision = self
+            .canonical
+            .store()
+            .revision(&definition.modeling_revision)
+            .await?
+            .ok_or_else(|| contract("immutable canonical modeling revision is absent"))?;
+        let package = self
+            .modeling_revision(
+                revision.clone(),
+                self.physical_from_sources(&physical_sources, &cancel)
+                    .await?,
+                BTreeMap::new(),
+            )
+            .await?;
         pse_operations::study_policy::admit(&definition.graph()).map_err(|error| {
             WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
         })?;
@@ -663,10 +672,17 @@ impl Runtime {
                 return Err(contract("immutable study seed need differs from owner"));
             }
         }
-        let request_identity = identity(pse_ids::Frame::DurableStudyRequestV4, &definition)?;
+        let request_identity = identity(pse_ids::Frame::DurableStudyRequestV5, &definition)?;
         let study_id: StudyId = pse_operations::mint_id();
         let attempt_id: AttemptId = pse_operations::mint_id();
         let run_id: RunId = pse_operations::mint_id();
+        self.canonical
+            .store()
+            .retain_revision(
+                &revision,
+                &pse_operations::canonical_retention::RetentionOwner::Run(run_id.to_string()),
+            )
+            .await?;
         let publication_id: PublicationId = pse_operations::mint_id();
         let job = |attempt: NewAttempt, key: String, task: JobTask| {
             Ok::<_, WorkflowError>(NewJob {
@@ -683,7 +699,7 @@ impl Runtime {
             let point_index = point.policy.key.0;
             let operation_job = StudyOperationJob {
                 physical: definition.physical,
-                modeling: definition.modeling.clone(),
+                modeling_revision: definition.modeling_revision.clone(),
                 point: StudyPointBinding {
                     study_id,
                     point_index,
@@ -705,7 +721,7 @@ impl Runtime {
                 },
                 operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
                     pse_ids::roles::OperationalJobHash::from(identity(
-                        pse_ids::Frame::DurableJobRequestV5,
+                        pse_ids::Frame::DurableJobRequestV6,
                         &operation_job,
                     )?),
                 ),
@@ -731,7 +747,7 @@ impl Runtime {
                 kind: AttemptKind::StudyFinalization,
                 operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
                     pse_ids::roles::OperationalJobHash::from(identity(
-                        pse_ids::Frame::DurableJobRequestV5,
+                        pse_ids::Frame::DurableJobRequestV6,
                         &(AttemptKind::StudyFinalization, request_identity, study_id),
                     )?),
                 ),
@@ -754,7 +770,7 @@ impl Runtime {
                     operational_job_identity:
                         pse_ids::roles::RecordedOperationalJobIdentity::current(
                             pse_ids::roles::OperationalJobHash::from(identity(
-                                pse_ids::Frame::DurableJobRequestV5,
+                                pse_ids::Frame::DurableJobRequestV6,
                                 &(AttemptKind::Study, request_identity, study_id),
                             )?),
                         ),
@@ -816,7 +832,7 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<Published, WorkflowError> {
         let store = operations.store();
-        let record = store.studies().get(study).await?;
+        let record = store.studies().summary_record(study).await?;
         let catalog = store.catalog();
         let publication_id = record.study.publication_id;
         let intent =

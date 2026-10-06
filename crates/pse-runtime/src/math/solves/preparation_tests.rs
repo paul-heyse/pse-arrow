@@ -8,14 +8,16 @@ use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use pse_modeling::{Bindings, DeclarationId, Limits};
 
-fn package(text: &str) -> (ModelingPackage, DeclarationId) {
-    let (package, root, _) = package_and_runtime(text);
+async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+    let (package, root, _) = package_and_runtime(text).await;
     (package, root)
 }
-fn package_and_runtime(text: &str) -> (ModelingPackage, DeclarationId, crate::workflow::Runtime) {
-    package_with_runtime(text, fixture::runtime())
+async fn package_and_runtime(
+    text: &str,
+) -> (ModelingPackage, DeclarationId, crate::workflow::Runtime) {
+    package_with_runtime(text, fixture::runtime()).await
 }
-fn package_with_runtime(
+async fn package_with_runtime(
     text: &str,
     runtime: crate::workflow::Runtime,
 ) -> (ModelingPackage, DeclarationId, crate::workflow::Runtime) {
@@ -31,7 +33,10 @@ fn package_with_runtime(
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     (package, root, runtime)
 }
 
@@ -40,7 +45,7 @@ async fn prepare(
     intent: SolveIntent,
     selection: SolverSelection,
 ) -> ModelingSolvePreparation {
-    let (package, root) = package(text);
+    let (package, root) = package(text).await;
     package
         .prepare_solve(
             root,
@@ -82,7 +87,8 @@ fn ready(solve: &PreparedSolve) -> &AlgebraicCase {
 async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_opaque_counters() {
     let (package, root, runtime) = package_and_runtime(
         "package p { def Root { var x:Scalar; eq root:x*x==4; annotation start x(1); } }",
-    );
+    )
+    .await;
     let limits = pse_model::strategy::WorkLimits {
         attempts: 4,
         evaluations: Some(500),
@@ -196,7 +202,7 @@ async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
                 ..Default::default()
             },
         ),
-    );
+    ).await;
     for (hessian, order) in [
         (HessianMode::Exact, DerivativeOrder::Second),
         (HessianMode::LimitedMemory, DerivativeOrder::First),
@@ -286,7 +292,7 @@ async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
 async fn demanded_krylov_route_prepares_actions_from_value_under_a_narrow_jet_budget() {
     let (package, root, runtime) = package_and_runtime(
         "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(2); annotation start y(3); eq first:x*x==1; eq second:y==x+1; } }",
-    );
+    ).await;
     let mut compiler = fixture::compiler_profile();
     compiler.evaluation.derivative_components = 2;
     let prepared = package
@@ -359,7 +365,7 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
     use native::settings::kinsol::{Linear, Method};
     let (package, root, runtime) = package_and_runtime(
         "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(1.5); annotation start y(1.2); eq first:x*x+y==5; eq second:y*y+x==3; } }",
-    );
+    ).await;
     let service = runtime.native();
     let driver = crate::CancelSource::new();
     let scope = pse_kernels::ExecutionScope::new(

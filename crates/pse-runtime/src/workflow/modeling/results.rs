@@ -1767,8 +1767,8 @@ mod tests {
     use super::*;
     use pse_compiler::workspace::ModelingCaseBindings;
     use pse_relations::columnar::RelationRow;
-    #[test]
-    fn report_transfer_context_retains_actual_owner_order_and_direction() {
+    #[tokio::test]
+    async fn report_transfer_context_retains_actual_owner_order_and_direction() {
         use pse_modeling::specialize::Value;
         use pse_modeling::{BoundaryRef, PhysicalRefinement, TransferDirection, Type};
         let instance = SemanticId::from_bytes([1; 16]).into();
@@ -1897,7 +1897,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_solve(

@@ -108,7 +108,8 @@ impl Type {
 /// Which modeling documents see the names of the physical document (ADR-0123 Outcome 6).
 /// A document sees them when its manifest depends on the package that declared them, and
 /// then also reads them qualified as `<package>.<Name>`.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PhysicalScope {
     /// The package that declared the names, when admission knows it.
     pub package: Option<String>,

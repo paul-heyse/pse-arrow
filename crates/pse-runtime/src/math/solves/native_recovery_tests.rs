@@ -17,7 +17,10 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
         .unwrap()
         .declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     let cancel = crate::CancelSource::new();
     let mut solver = fixture::profile();
     solver.selection = SolverSelection::Explicit(Backend::Pounce);

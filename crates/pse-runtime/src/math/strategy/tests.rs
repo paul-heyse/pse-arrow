@@ -12,8 +12,8 @@ fn hash(n: u8) -> ContentHash {
     ContentHash::from_bytes([n; 32])
 }
 
-#[test]
-fn engineering_refinement_original_success_stops_catalog_without_promoting_goal_permission() {
+#[tokio::test]
+async fn engineering_refinement_original_success_stops_catalog_without_promoting_goal_permission() {
     let declaration = strategy();
     let last = AutoObservation {
         awaiting_assessment: false,
@@ -82,6 +82,7 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
         .declaration_id;
     let package = runtime
         .modeling_package(declarations, fixture::physical())
+        .await
         .unwrap();
     let prepared = package
         .prepare_solve(
@@ -252,8 +253,9 @@ fn assessment(use_result: bool, auxiliary: bool, observation: Observation) -> As
         cause: None,
     }
 }
-#[test]
-fn failed_trajectory_can_run_declared_same_backend_profile_and_only_original_permission_finishes() {
+#[tokio::test]
+async fn failed_trajectory_can_run_declared_same_backend_profile_and_only_original_permission_finishes()
+ {
     let mut s = strategy();
     let profile = pse_model::strategy::ProfileRef {
         backend: pse_backend_native::solve::Backend::Kinsol,
@@ -294,8 +296,8 @@ fn failed_trajectory_can_run_declared_same_backend_profile_and_only_original_per
         Some(Transition::Finish)
     );
 }
-#[test]
-fn failed_dispatched_effect_is_charged_once_and_unknown_work_stays_unknown() {
+#[tokio::test]
+async fn failed_dispatched_effect_is_charged_once_and_unknown_work_stays_unknown() {
     let mut declaration = strategy();
     declaration.limits.evaluations = None;
     let result = run::<()>(
@@ -317,8 +319,8 @@ fn failed_dispatched_effect_is_charged_once_and_unknown_work_stays_unknown() {
     ));
 }
 
-#[test]
-fn failed_screening_keeps_actual_partial_callback_count() {
+#[tokio::test]
+async fn failed_screening_keeps_actual_partial_callback_count() {
     let observed = WorkObservation {
         attempts: 1,
         evaluations: Some(2),
@@ -344,8 +346,8 @@ fn failed_screening_keeps_actual_partial_callback_count() {
         observed
     );
 }
-#[test]
-fn declared_accuracy_is_consumed_and_an_estimate_cannot_establish_certification() {
+#[tokio::test]
+async fn declared_accuracy_is_consumed_and_an_estimate_cannot_establish_certification() {
     use pse_model::strategy::{AccuracyClass, AccuracyDemand, AccuracyEvidence};
     let mut declaration = strategy();
     let demand = AccuracyDemand {
@@ -400,8 +402,8 @@ fn declared_accuracy_is_consumed_and_an_estimate_cannot_establish_certification(
         Admission::RequiredRefusal(_)
     ));
 }
-#[test]
-fn optional_capability_refusal_preserves_base_required_contract_failure_does_not_retry() {
+#[tokio::test]
+async fn optional_capability_refusal_preserves_base_required_contract_failure_does_not_retry() {
     let mut s = strategy();
     s.mechanisms[0].position = Position::Preparation;
     s.mechanisms[0].kind = MechanismKind::KktPredictor;
@@ -437,8 +439,8 @@ fn optional_capability_refusal_preserves_base_required_contract_failure_does_not
     assert!(result.terminal.is_some());
     assert_eq!(result.work.attempts, 0);
 }
-#[test]
-fn limited_without_stagnation_does_not_invent_failure_or_recovery() {
+#[tokio::test]
+async fn limited_without_stagnation_does_not_invent_failure_or_recovery() {
     let s = strategy();
     let result = run(
         &s,
@@ -460,8 +462,8 @@ fn limited_without_stagnation_does_not_invent_failure_or_recovery() {
         Some(Transition::Stop)
     );
 }
-#[test]
-fn native_success_and_auxiliary_success_cannot_bypass_original_permission() {
+#[tokio::test]
+async fn native_success_and_auxiliary_success_cannot_bypass_original_permission() {
     let s = strategy();
     for auxiliary in [false, true] {
         let result = run(
@@ -485,8 +487,8 @@ fn native_success_and_auxiliary_success_cannot_bypass_original_permission() {
         );
     }
 }
-#[test]
-fn actual_work_is_charged_once_unknown_is_not_zero_and_task_cap_is_terminal() {
+#[tokio::test]
+async fn actual_work_is_charged_once_unknown_is_not_zero_and_task_cap_is_terminal() {
     let mut ledger = Ledger::new(limits());
     ledger.charge(charge(0)).unwrap();
     assert!(matches!(
@@ -517,8 +519,8 @@ fn actual_work_is_charged_once_unknown_is_not_zero_and_task_cap_is_terminal() {
     assert!(result.terminal.is_some());
 }
 
-#[test]
-fn contained_native_panic_is_terminal_while_original_numerical_cause_is_retained() {
+#[tokio::test]
+async fn contained_native_panic_is_terminal_while_original_numerical_cause_is_retained() {
     use pse_backend_native::solve::{
         Assurance, Backend, Controls, Execution, NativeTermination, SolveReport, Termination,
     };
@@ -548,8 +550,8 @@ fn contained_native_panic_is_terminal_while_original_numerical_cause_is_retained
     assert!(cause_native(&report).is_some());
 }
 
-#[test]
-fn optional_slice_refusal_keeps_base_admitted_and_charges_only_actual_work() {
+#[tokio::test]
+async fn optional_slice_refusal_keeps_base_admitted_and_charges_only_actual_work() {
     let mut s = strategy();
     s.start.recovery.push(StartOrigin::Specification);
     s.mechanisms[0].position = Position::Preparation;
@@ -590,8 +592,8 @@ fn optional_slice_refusal_keeps_base_admitted_and_charges_only_actual_work() {
                 && event.transition == Some(Transition::Continue))
     );
 }
-#[test]
-fn late_indivisible_result_does_not_poison_user_cancel_or_grant_permission() {
+#[tokio::test]
+async fn late_indivisible_result_does_not_poison_user_cancel_or_grant_permission() {
     let cancel = Arc::new(AtomicBool::new(false));
     let enclosing =
         pse_kernels::ExecutionScope::new(cancel.clone(), Some(std::time::Instant::now()));
@@ -605,8 +607,8 @@ fn late_indivisible_result_does_not_poison_user_cancel_or_grant_permission() {
     assert!(result.terminal.is_some());
     assert!(!cancel.load(std::sync::atomic::Ordering::Acquire));
 }
-#[test]
-fn late_native_batch_member_keeps_actual_work_and_cannot_grant_original_permission() {
+#[tokio::test]
+async fn late_native_batch_member_keeps_actual_work_and_cannot_grant_original_permission() {
     let enclosing = pse_kernels::ExecutionScope::new(
         Arc::new(AtomicBool::new(false)),
         Some(std::time::Instant::now()),
@@ -636,8 +638,8 @@ fn late_native_batch_member_keeps_actual_work_and_cannot_grant_original_permissi
     assert_eq!(result.events.last().unwrap().work, Some(charge(0)));
 }
 
-#[test]
-fn indivisible_assessment_cannot_authorize_a_result_after_the_original_deadline() {
+#[tokio::test]
+async fn indivisible_assessment_cannot_authorize_a_result_after_the_original_deadline() {
     let cancel = Arc::new(AtomicBool::new(false));
     let enclosing = pse_kernels::ExecutionScope::new(
         cancel.clone(),
@@ -667,8 +669,8 @@ fn indivisible_assessment_cannot_authorize_a_result_after_the_original_deadline(
     assert!(result.events.iter().all(|event| event.permission.is_none()));
 }
 
-#[test]
-fn preparation_first_uses_entry_then_auxiliary_correction_requires_declared_recovery() {
+#[tokio::test]
+async fn preparation_first_uses_entry_then_auxiliary_correction_requires_declared_recovery() {
     let mut declaration = strategy();
     declaration.start.recovery = vec![StartOrigin::Auxiliary];
     declaration.mechanisms[0].position = Position::Preparation;
@@ -746,8 +748,8 @@ fn preparation_first_uses_entry_then_auxiliary_correction_requires_declared_reco
     assert_eq!(result.work.attempts, 1);
     assert_eq!(result.events.last().unwrap().kind, EventKind::Refused);
 }
-#[test]
-fn optional_preparation_refusal_preserves_specification_entry_for_first_dispatch() {
+#[tokio::test]
+async fn optional_preparation_refusal_preserves_specification_entry_for_first_dispatch() {
     let mut declaration = strategy();
     declaration.start.recovery.clear();
     declaration.mechanisms[0].position = Position::Preparation;
@@ -781,8 +783,8 @@ fn optional_preparation_refusal_preserves_specification_entry_for_first_dispatch
     );
 }
 
-#[test]
-fn compiler_derivative_support_limit_retains_resource_observation_and_stops() {
+#[tokio::test]
+async fn compiler_derivative_support_limit_retains_resource_observation_and_stops() {
     let source = pse_ids::SemanticId::from_bytes([17; 16]);
     let error = crate::math::MathRuntimeError::Compile(
         pse_compiler::workspace::CompileError::from(pse_math::MathError::WorkLimit {
@@ -824,8 +826,8 @@ fn compiler_derivative_support_limit_retains_resource_observation_and_stops() {
     );
 }
 
-#[test]
-fn tagged_native_report_failures_are_terminal_under_declared_recovery() {
+#[tokio::test]
+async fn tagged_native_report_failures_are_terminal_under_declared_recovery() {
     use pse_backend_native::{
         NativeFailureKind, NativeStatus,
         solve::{
@@ -907,8 +909,8 @@ fn tagged_native_report_failures_are_terminal_under_declared_recovery() {
     }
 }
 
-#[test]
-fn native_convergence_retains_original_refusal_and_terminal_assessor_cause() {
+#[tokio::test]
+async fn native_convergence_retains_original_refusal_and_terminal_assessor_cause() {
     let cause = Arc::new(ProblemError::Contract(
         "authored safety check refused the original point".into(),
     ));
@@ -938,8 +940,9 @@ fn native_convergence_retains_original_refusal_and_terminal_assessor_cause() {
     assert!(Arc::ptr_eq(event.cause.as_ref().unwrap(), &cause));
     assert_eq!(result.work.attempts, 1);
 }
-#[test]
-fn strict_unknown_inclusive_work_refuses_before_dispatch_and_keeps_complete_reservation_unknown() {
+#[tokio::test]
+async fn strict_unknown_inclusive_work_refuses_before_dispatch_and_keeps_complete_reservation_unknown()
+ {
     let result = run::<()>(
         &strategy(),
         &scope(),
@@ -972,8 +975,8 @@ fn strict_unknown_inclusive_work_refuses_before_dispatch_and_keeps_complete_rese
     excessive.evaluations = Some(18);
     assert!(ledger.reserve(limits(), Some(excessive)).is_err());
 }
-#[test]
-fn disjoint_scientific_assessment_work_is_charged_after_failed_original_check() {
+#[tokio::test]
+async fn disjoint_scientific_assessment_work_is_charged_after_failed_original_check() {
     let result = run(
         &strategy(),
         &scope(),
@@ -1019,8 +1022,8 @@ fn disjoint_scientific_assessment_work_is_charged_after_failed_original_check() 
         Some(Transition::Stop)
     );
 }
-#[test]
-fn actual_producer_state_consumes_exact_point_source_order_normalization_and_class() {
+#[tokio::test]
+async fn actual_producer_state_consumes_exact_point_source_order_normalization_and_class() {
     use pse_model::strategy::*;
     let source = SemanticProductKey {
         structure: hash(1),
@@ -1094,8 +1097,8 @@ fn actual_producer_state_consumes_exact_point_source_order_normalization_and_cla
     assert!(estimated_state.consume(&contract).is_err());
 }
 
-#[test]
-fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal() {
+#[tokio::test]
+async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal() {
     use pse_model::strategy::{CompositionRequest, MechanismKind, StartPolicy, StartRules};
     let request = CompositionRequest {
         limits: Some(limits()),
@@ -1173,8 +1176,8 @@ fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_refusal()
         AutoDecision::Stop { .. }
     ));
 }
-#[test]
-fn preparation_refusal_does_not_consume_first_actual_execution_allowance() {
+#[tokio::test]
+async fn preparation_refusal_does_not_consume_first_actual_execution_allowance() {
     let mut only = limits();
     only.attempts = 1;
     let ledger = Ledger::new(only);
@@ -1182,8 +1185,8 @@ fn preparation_refusal_does_not_consume_first_actual_execution_allowance() {
     ledger.reserve_attempt().unwrap();
     assert_eq!(ledger.observation().attempts, 0);
 }
-#[test]
-fn automatic_preparation_is_named_and_its_execution_requires_remaining_allowance() {
+#[tokio::test]
+async fn automatic_preparation_is_named_and_its_execution_requires_remaining_allowance() {
     let request = pse_model::strategy::CompositionRequest::default();
     let start = pse_model::strategy::StartRules {
         policy: pse_model::strategy::StartPolicy::NoPriorStart,
@@ -1256,8 +1259,8 @@ fn automatic_preparation_is_named_and_its_execution_requires_remaining_allowance
     ));
 }
 
-#[test]
-fn optional_component_numerical_failure_retains_observation_and_charges_before_direct() {
+#[tokio::test]
+async fn optional_component_numerical_failure_retains_observation_and_charges_before_direct() {
     for observed in [
         Observation::NumericalFailure,
         Observation::Stalled,
@@ -1320,8 +1323,8 @@ fn optional_component_numerical_failure_retains_observation_and_charges_before_d
 }
 
 #[cfg(feature = "solver-kinsol")]
-#[test]
-fn abandoned_block_native_refusal_reaches_direct_through_production_projection() {
+#[tokio::test]
+async fn abandoned_block_native_refusal_reaches_direct_through_production_projection() {
     use pse_backend_native::{self as native, solve::*};
     use pse_ids::SemanticId;
     use pse_model::strategy::{CompositionRequest, StartPolicy};
@@ -1501,8 +1504,8 @@ fn abandoned_block_native_refusal_reaches_direct_through_production_projection()
 }
 
 #[cfg(feature = "solver-kinsol")]
-#[test]
-fn malformed_component_metadata_stops_explicit_direct_despite_native_observation() {
+#[tokio::test]
+async fn malformed_component_metadata_stops_explicit_direct_despite_native_observation() {
     use pse_backend_native::{self as native, solve::*};
     use pse_ids::SemanticId;
 
@@ -1630,8 +1633,8 @@ fn malformed_component_metadata_stops_explicit_direct_despite_native_observation
 }
 
 #[cfg(feature = "solver-kinsol")]
-#[test]
-fn effective_original_failure_controls_commit_auto_and_explicit_terminal_paths() {
+#[tokio::test]
+async fn effective_original_failure_controls_commit_auto_and_explicit_terminal_paths() {
     use pse_backend_native::{self as native, callback::CallbackState, solve::*};
     use pse_ids::SemanticId;
     use pse_model::strategy::CompositionRequest;
@@ -1799,8 +1802,8 @@ fn effective_original_failure_controls_commit_auto_and_explicit_terminal_paths()
     assert!(cause_native(&report).is_none());
 }
 
-#[test]
-fn product_refinement_reuses_capacity_and_exact_dependencies_keep_other_consumers_valid() {
+#[tokio::test]
+async fn product_refinement_reuses_capacity_and_exact_dependencies_keep_other_consumers_valid() {
     use pse_model::strategy::{
         AccuracyClass, AccuracyDemand, AccuracyEvidence, BranchPolicy, OperationContract,
         ProductDemand, ProductEvidence, SemanticProductKey,
@@ -1861,8 +1864,8 @@ fn product_refinement_reuses_capacity_and_exact_dependencies_keep_other_consumer
     assert!(state.consume(&contract).is_err());
 }
 
-#[test]
-fn effective_output_obligations_precede_permission_and_preserve_dispatched_work() {
+#[tokio::test]
+async fn effective_output_obligations_precede_permission_and_preserve_dispatched_work() {
     use pse_model::strategy::{
         AccuracyClass, AccuracyEvidence, BranchPolicy, ProductEvidence, ProductionDemand,
         SemanticProductKey,
@@ -1953,8 +1956,8 @@ fn effective_output_obligations_precede_permission_and_preserve_dispatched_work(
     }
 }
 
-#[test]
-fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_binding_hits_cap() {
+#[tokio::test]
+async fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_binding_hits_cap() {
     use pse_model::strategy::{CompositionRequest, StartPolicy, StartRules};
     let request = CompositionRequest {
         limits: Some(WorkLimits {

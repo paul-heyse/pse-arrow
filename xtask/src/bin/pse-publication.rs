@@ -26,6 +26,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
+#[path = "support/deployment.rs"]
+mod deployment;
 use pse_columnar::CancellationToken;
 use pse_operations::catalog::PublicationId;
 use pse_runtime::workflow::{
@@ -41,6 +43,9 @@ struct Cli {
     /// Connection URL; defaults to `PSE_DATABASE_URL`, then the local Unix socket.
     #[arg(long)]
     url: Option<String>,
+    /// Canonical database on the supervised endpoint; defaults to the profile selection.
+    #[arg(long)]
+    canonical_database: Option<String>,
     /// Identity recorded on leases; defaults to `pse-publication:<host>:<pid>`.
     #[arg(long)]
     name: Option<String>,
@@ -130,7 +135,7 @@ enum Command {
     },
 }
 
-fn runtime(cli: &Cli) -> Result<Runtime, String> {
+async fn runtime(cli: &Cli) -> Result<Runtime, String> {
     let count = |n: usize| NonZeroUsize::new(n.max(1)).unwrap_or(NonZeroUsize::MIN);
     let threads = cli
         .threads
@@ -162,7 +167,12 @@ fn runtime(cli: &Cli) -> Result<Runtime, String> {
             .session_factory(pse_engine::session::native_engine_profile())
             .map_err(|e| format!("session factory: {e}"))?,
     );
-    Ok(Runtime::from_shared(shared, registry, sessions))
+    Ok(Runtime::from_shared(
+        shared,
+        registry,
+        sessions,
+        deployment::open(cli.canonical_database.as_deref()).await?,
+    ))
 }
 
 fn identity(text: &str) -> Result<PublicationId, WorkflowError> {
@@ -368,13 +378,6 @@ async fn run(cli: Cli, runtime: Runtime) -> Result<(), WorkflowError> {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    let runtime = match runtime(&cli) {
-        Ok(runtime) => runtime,
-        Err(error) => {
-            eprintln!("error: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
     let executor = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -382,6 +385,13 @@ fn main() -> ExitCode {
         Ok(executor) => executor,
         Err(error) => {
             eprintln!("error: executor: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let runtime = match executor.block_on(runtime(&cli)) {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("error: {error}");
             return ExitCode::FAILURE;
         }
     };

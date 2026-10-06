@@ -54,6 +54,18 @@ impl std::hash::Hash for FieldContract {
 }
 
 impl FieldContract {
+    /// Declare the native graph endpoint mechanically derived from this reference.
+    #[must_use]
+    pub fn with_graph_endpoint(self, incoming: bool) -> Self {
+        self.facet(
+            super::field_facets::GRAPH_ENDPOINT,
+            if incoming { "in" } else { "out" },
+        )
+    }
+    /// Native graph endpoint name; its target remains the field's reference declaration.
+    pub fn graph_endpoint(&self) -> Option<&str> {
+        self.get(super::field_facets::GRAPH_ENDPOINT)
+    }
     fn dictionary_ordering(&self) -> Vec<bool> {
         let mut ordering = self.0.dict_is_ordered().into_iter().collect::<Vec<_>>();
         for child in self.children() {
@@ -412,7 +424,14 @@ impl FieldContract {
     /// Nested fields remain exact; no second declaration is stored.
     #[must_use]
     pub fn value_type(&self) -> Self {
-        Self(pse_columnar::native_field::logical_storage_type(&self.0))
+        // A native graph endpoint is a physical reference projection, not a value
+        // domain. Strip it here as well as in the generated lower-layer policy so
+        // newly declared projection facets can bootstrap their own generation.
+        let mut field = self.0.clone();
+        field
+            .metadata_mut()
+            .remove(super::field_facets::GRAPH_ENDPOINT);
+        Self(pse_columnar::native_field::logical_storage_type(&field))
     }
     /// Stable native type identity, with semantic extension parameters.
     ///

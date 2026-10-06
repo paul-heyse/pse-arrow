@@ -27,7 +27,9 @@ pub struct QuantityKind {
 }
 
 /// One factor of a kind monomial: a kind and its nonzero rational exponent.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub struct KindFactor {
     /// The factor kind.
     pub kind: QuantityKindId,

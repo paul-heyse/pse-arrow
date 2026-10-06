@@ -20,6 +20,8 @@ workspace = true
 default = []
 # Isolated databases with the generated schema for tests in other crates.
 test-support = []
+# Explicit remote mechanism fixture; ordinary unit selection does not start a server.
+canonical-tests = []
 
 [dependencies]
 petgraph.workspace = true
@@ -49,8 +51,11 @@ miette.workspace = true
 tokio = { workspace = true, features = ["net", "io-util"] }
 clap.workspace = true
 pse-workspace-hack.workspace = true
+surrealdb.workspace = true
 
 [dev-dependencies]
+arrow-schema.workspace = true
+pse-codegen.workspace = true
 # Store tests compare the created schema with the registry's store relations.
 pse-schema.workspace = true
 url.workspace = true

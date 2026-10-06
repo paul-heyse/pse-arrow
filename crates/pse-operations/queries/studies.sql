@@ -71,6 +71,16 @@ SET state = :state, outcome = :outcome, revision = revision + 1, updated_at = no
 WHERE study_id = :study_id::pse_ops.study_id AND point_index = :point_index
   AND revision = :expected_revision;
 
+-- Scientific transitions preserve the exact publication ticket in its native row.
+--! set_point_facts
+UPDATE pse_ops.study_points
+SET state = :state,
+    outcome = jsonb_set(jsonb_set(outcome, '{outcome}', :outcome::jsonb),
+                        '{member_attempt}', :member_attempt::jsonb),
+    revision = revision + 1, updated_at = now()
+WHERE study_id = :study_id::pse_ops.study_id AND point_index = :point_index
+  AND revision = :expected_revision;
+
 --! all_points
 SELECT p FROM pse_ops.study_points AS p
 WHERE p.study_id = :study_id::pse_ops.study_id
@@ -116,6 +126,32 @@ JOIN pse_ops.jobs AS j ON j.job_id = p.job_id
 JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id
 LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt
 WHERE p.study_id = :study_id::pse_ops.study_id AND p.point_index = :point_index;
+
+-- Policy consumes scientific facts and fences, never native publication tickets.
+--! point_policy_status : (last_error?, termination_detail?)
+SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy,
+       p.outcome - 'receipt' AS outcome,
+       j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error,
+       COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries
+FROM pse_ops.study_points AS p
+JOIN pse_ops.jobs AS j ON j.job_id = p.job_id
+JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id
+LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt
+WHERE p.study_id = :study_id::pse_ops.study_id
+ORDER BY p.point_index;
+
+-- Only stopped, unresolved writes need exact receipt-owner reconciliation.
+--! unresolved_point_status : (last_error?, termination_detail?)
+SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy, p.outcome,
+       j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error,
+       COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries
+FROM pse_ops.study_points AS p
+JOIN pse_ops.jobs AS j ON j.job_id = p.job_id
+JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id
+LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt
+WHERE p.study_id = :study_id::pse_ops.study_id
+  AND j.state <> 'running' AND p.outcome #>> '{outcome,effect}' = 'unknown'
+ORDER BY p.point_index;
 
 -- The result members of the completed points, in point and name order.
 --! available_members

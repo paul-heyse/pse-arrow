@@ -66,7 +66,7 @@ impl ModelingPackage {
             .prepare_petsc_blocks(
                 source,
                 crate::math::solves::petsc::PetscCompiler {
-                    workspace: self.workspace.clone(),
+                    workspace: self.numerical_workspace()?,
                     profile: original.compiler,
                 },
                 profile,
@@ -111,7 +111,10 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+        let package = runtime
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
         let mut profile = SolverProfile {
             intent: SolveIntent::Root,
             selection: SolverSelection::Explicit(Backend::Petsc),

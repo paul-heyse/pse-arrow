@@ -16,10 +16,10 @@ mod value;
 
 pub use spans::{DocPath, SpanIndex};
 
-pub use data::UNIT_METADATA;
+pub use data::{UNIT_METADATA, decode_selected_data};
 pub use load::{
-    Batches, BundleData, Content, Document, DocumentBundle, load_package, load_package_documents,
-    package_checksum,
+    Batches, BundleData, Content, Document, DocumentBundle, ModelingRows, SourcePayload,
+    load_package, load_package_documents, package_checksum,
 };
 pub use owned::{
     OwnedDocumentBundle, OwnedDocumentSet, load_package_documents_owned, load_package_sources_owned,

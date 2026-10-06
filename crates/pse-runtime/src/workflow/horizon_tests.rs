@@ -60,7 +60,7 @@ const LOOP: &str = "package p {
 const PERIOD: f64 = 0.25;
 const WINDOW: [&str; 5] = ["0", "0.25", "0.5", "0.75", "1"];
 
-fn package(runtime: Runtime) -> (ModelingPackage, [DeclarationId; 3]) {
+async fn package(runtime: Runtime) -> (ModelingPackage, [DeclarationId; 3]) {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -77,7 +77,7 @@ fn package(runtime: Runtime) -> (ModelingPackage, [DeclarationId; 3]) {
     .unwrap();
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
     let roots = [root("Loop"), root("Plant"), root("Estimator")];
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     (package, roots)
 }
 fn fixed(values: &[(&str, f64)], fixed: &[&str]) -> ModelingCaseBindings {
@@ -220,7 +220,7 @@ fn modeling(result: &RunResult) -> &[crate::workflow::ModelingResult] {
 async fn nmpc_closed_loop_on_antiwindup() {
     const STEPS: usize = 20;
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
-    let (package, [root, whole, _]) = package(runtime.clone());
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
     let setpoints = (0..STEPS)
         .map(|k| if k < 12 { 1. } else { 0.6 })
@@ -306,7 +306,7 @@ async fn horizon_reuses_prepared_view() {
     }
     for (backend, settings) in backends {
         let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
-        let (package, [root, whole, _]) = package(runtime.clone());
+        let (package, [root, whole, _]) = package(runtime.clone()).await;
         let (plant, actuator, x) = plant(&package, whole, 0.2, STEPS).await;
         let mut controller = controller(&package, root, x, vec![1.; STEPS]);
         controller.analysis.solver.selection = SolverSelection::Explicit(backend);
@@ -425,7 +425,7 @@ fn estimation(package: &ModelingPackage, root: DeclarationId, x: SemanticId) -> 
 async fn mhe_recovers_initial_state() {
     const STEPS: usize = 8;
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
-    let (package, [_, whole, estimator]) = package(runtime.clone());
+    let (package, [_, whole, estimator]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0.8, STEPS).await;
     let result = run(
         &runtime,
@@ -505,7 +505,7 @@ async fn horizon_records_one_durable_attempt() {
     .unwrap();
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20)
         .with_durability(Durability::Durable(operations));
-    let (package, [root, whole, _]) = package(runtime.clone());
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0.2, STEPS).await;
     let handle = runtime
         .start_horizon(
@@ -572,7 +572,7 @@ async fn horizon_records_one_durable_attempt() {
 #[tokio::test]
 async fn horizon_refuses_inconsistent_loops() {
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
-    let (package, [root, whole, _]) = package(runtime.clone());
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., 4).await;
     let horizon = |controller: HorizonController, steps: usize, input: SemanticId| Horizon {
         plant: plant.clone(),
@@ -645,7 +645,7 @@ async fn antiwindup_with_start_policy(
     steps: usize,
 ) -> Arc<RunResult> {
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
-    let (package, [root, whole, _]) = package(runtime.clone());
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., steps).await;
     let setpoints = (0..steps)
         .map(|k| if k < 12 { 1. } else { 0.6 })

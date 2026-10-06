@@ -3,7 +3,16 @@
 
 /// Current authored function vocabulary. Source-only forms have no numerical handler.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, strum::EnumString, strum::IntoStaticStr, strum::VariantArray,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    strum::EnumString,
+    strum::IntoStaticStr,
+    strum::VariantArray,
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum Function {

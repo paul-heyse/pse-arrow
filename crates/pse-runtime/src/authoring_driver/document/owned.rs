@@ -21,7 +21,6 @@ struct BundleOwner {
     // Field order is deliberate: all trees/strings are destroyed before the lease.
     bundle: DocumentBundle,
     binding: Arc<RegistryBinding>,
-    _parent: Option<OwnedDocumentBundle>,
     _lease: Arc<AllocationLease>,
 }
 
@@ -92,29 +91,32 @@ impl OwnedDocumentSet {
         Ok(())
     }
 
-    /// Re-admit retained native values in the caller's exact current validation context.
-    /// Registry/declaration equality alone cannot establish native predicate agreement.
+    /// Reuse local admission only with its actual immutable native predicate owner.
+    /// Changed owners re-admit values; registry equality alone is insufficient.
     /// # Errors
     /// Changed declarations, actual native predicate refusal, cancellation or resources.
     pub fn validate_context(
         &self,
         registry: &Registry,
         validation: &pse_relations::validate::ValidationContext,
+        pool: &Arc<dyn MemoryPool>,
         cancel: &CancellationToken,
     ) -> Result<(), DriverError> {
         self.validate_registry(registry)?;
         for bundle in self.bundles() {
+            for document in &bundle.documents {
+                cancel.checkpoint()?;
+                if document.modeling_validation_required(registry, validation)? {
+                    let mut projection = Allocation::new(pool, cancel);
+                    projection.grow(super::allocation::modeling_batch_extent(document)?)?;
+                    document.modeling_batch(registry, validation, cancel)?;
+                }
+            }
             for (id, batch) in &bundle.batches {
                 let spec = registry
                     .relation_by_id(*id)
                     .ok_or_else(|| contract(None, "retained source relation missing"))?;
-                pse_relations::columnar::FieldCheckedBatch::admit(
-                    registry,
-                    spec,
-                    batch.batch().clone(),
-                    validation,
-                    cancel,
-                )?;
+                batch.validate_context(registry, spec, validation, cancel)?;
             }
         }
         Ok(())
@@ -207,6 +209,7 @@ impl OwnedDocumentSet {
                 continue;
             }
             let mut allocation = Allocation::new(pool, cancel);
+            allocation.grow(256)?;
             allocation.grow(crate::authoring_driver::work::sources(
                 std::slice::from_ref(part.bundle()),
             )?)?;
@@ -226,16 +229,48 @@ impl OwnedDocumentSet {
                 validation,
             )?;
             bundle.retain_columns(pool, cancel)?;
-            let lease = allocation.finish();
-            bundle.attach_lease(Arc::clone(&lease));
+            let (lease, _) = finalize_bundle(&mut bundle, allocation, 0)?;
             parts.push(OwnedDocumentBundle(Arc::new(BundleOwner {
                 bundle,
                 binding: Arc::clone(&part.0.binding),
-                _parent: Some(part.clone()),
                 _lease: lease,
             })));
         }
         Self::try_from_bundles(parts, pool, cancel)
+    }
+}
+
+/// Transfer admitted capacity into source-local lifetimes without a release/reacquire gap.
+fn finalize_bundle(
+    bundle: &mut DocumentBundle,
+    mut allocation: Allocation<'_>,
+    registry_bytes: usize,
+) -> Result<(Arc<AllocationLease>, Option<Arc<AllocationLease>>), DriverError> {
+    let metadata = add(
+        super::allocation::bundle_retained(bundle)?,
+        size_of::<BundleOwner>() + 256,
+    )?;
+    let registry_bytes = if registry_bytes == 0 {
+        0
+    } else {
+        add(registry_bytes, 256)?
+    };
+    allocation.retain(0, add(metadata, registry_bytes)?)?;
+    let lease = allocation.finish();
+    if registry_bytes == 0 {
+        Ok((bundle.attach_lease(lease)?, None))
+    } else {
+        let mut owners = lease
+            .partition(&[registry_bytes, metadata])
+            .map_err(|_| contract(None, "registry admission lease must be unique"))?
+            .into_iter();
+        let binding = owners
+            .next()
+            .ok_or_else(|| contract(None, "registry owner absent"))?;
+        let source = owners
+            .next()
+            .ok_or_else(|| contract(None, "source owner absent"))?;
+        Ok((bundle.attach_lease(source)?, Some(binding)))
     }
 }
 
@@ -249,7 +284,10 @@ pub(super) fn retain_bundle(
     let mut allocation = Allocation::new(pool, cancel);
     allocation.grow(add(
         super::allocation::bundle_retained(bundle)?,
-        super::allocation::registry_extent(registry)?,
+        add(
+            super::allocation::registry_extent(registry)?,
+            size_of::<BundleOwner>() + 512,
+        )?,
     )?)?;
     for document in &bundle.documents {
         if super::load::select(registry, &document.path)? != &document.declaration {
@@ -258,32 +296,37 @@ pub(super) fn retain_bundle(
                 "parsed source declaration differs from the registry",
             ));
         }
+        cancel.checkpoint()?;
+        if document.modeling_validation_required(registry, validation)? {
+            let mut projection = Allocation::new(pool, cancel);
+            projection.grow(super::allocation::modeling_batch_extent(document)?)?;
+            document.modeling_batch(registry, validation, cancel)?;
+        }
     }
     for (relation, batch) in &bundle.batches {
         let spec = registry
             .relation_by_id(*relation)
             .ok_or_else(|| contract(None, "retained source relation missing"))?;
-        pse_relations::columnar::FieldCheckedBatch::admit(
-            registry,
-            spec,
-            batch.batch().clone(),
-            validation,
-            cancel,
-        )?;
+        batch.validate_context(registry, spec, validation, cancel)?;
     }
     // DocumentBundle has a private constructor and immutable shared data. This
     // retains the actual parsed value, not an arbitrary caller-created DTO.
     let mut bundle = bundle.clone();
     bundle.retain_columns(pool, cancel)?;
-    let lease = allocation.finish();
-    bundle.attach_lease(Arc::clone(&lease));
+    let mut binding = RegistryBinding {
+        relations: registry.relations().to_vec(),
+        enums: registry.enums().to_vec(),
+        _lease: None,
+    };
+    let (lease, binding_lease) = finalize_bundle(
+        &mut bundle,
+        allocation,
+        super::allocation::registry_extent(registry)?,
+    )?;
+    binding._lease = binding_lease;
     Ok(OwnedDocumentBundle(Arc::new(BundleOwner {
         bundle,
-        binding: Arc::new(RegistryBinding {
-            relations: registry.relations().to_vec(),
-            enums: registry.enums().to_vec(),
-        }),
-        _parent: None,
+        binding: Arc::new(binding),
         _lease: lease,
     })))
 }
@@ -331,31 +374,25 @@ pub fn load_package_sources_owned<'a>(
             return Err(contract(None, "duplicate package-relative source path"));
         }
     }
-    allocation.grow(super::allocation::registry_extent(registry)?)?;
-    let binding = Arc::new(RegistryBinding {
+    allocation.grow(add(super::allocation::registry_extent(registry)?, 256)?)?;
+    let mut binding = RegistryBinding {
         relations: registry.relations().to_vec(),
         enums: registry.enums().to_vec(),
-    });
+        _lease: None,
+    };
     let mut bundle =
         super::load::load_inventory(texts, registry, budget, Some(&mut allocation), validation)?;
     bundle.retain_columns(pool, cancel)?;
     cancel.checkpoint()?;
-    allocation.retain(
-        0,
-        add(
-            super::allocation::bundle_retained(&bundle)?,
-            add(
-                super::allocation::registry_extent(registry)?,
-                size_of::<BundleOwner>() + size_of::<AllocationLease>() + 4 * size_of::<usize>(),
-            )?,
-        )?,
+    let (lease, binding_lease) = finalize_bundle(
+        &mut bundle,
+        allocation,
+        super::allocation::registry_extent(registry)?,
     )?;
-    let lease = allocation.finish();
-    bundle.attach_lease(Arc::clone(&lease));
+    binding._lease = binding_lease;
     Ok(OwnedDocumentBundle(Arc::new(BundleOwner {
         bundle,
-        binding,
-        _parent: None,
+        binding: Arc::new(binding),
         _lease: lease,
     })))
 }
@@ -389,6 +426,7 @@ pub fn load_package_documents_owned(
 struct RegistryBinding {
     relations: Vec<RelationSpec>,
     enums: Vec<EnumSpec>,
+    _lease: Option<Arc<AllocationLease>>,
 }
 impl RegistryBinding {
     fn validate(&self, registry: &Registry) -> Result<(), DriverError> {
@@ -417,11 +455,81 @@ mod tests {
     }
 
     #[test]
+    fn immutable_modeling_rows_reuse_native_owner_and_recheck_new_context()
+    -> Result<(), DriverError> {
+        let registry = pse_schema::registry().map_err(pse_relations::RelationError::from)?;
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let cancel = CancellationToken::new();
+        let validation = fixture_validation(registry);
+        let sources = BTreeMap::from([
+            (
+                "package.toml".to_owned(),
+                include_bytes!("../../../../../tests/fixtures/packages/minimal_named/package.toml")
+                    .to_vec(),
+            ),
+            (
+                "models/one.pse".to_owned(),
+                b"package library {def Root {var x:Scalar;eq residual:x==2;}}".to_vec(),
+            ),
+        ]);
+        let part = load_package_documents_owned(
+            &sources,
+            registry,
+            ParseBudget::default(),
+            &pool,
+            &cancel,
+            &validation,
+        )?;
+        let owned = OwnedDocumentSet::try_from_bundles(vec![part], &pool, &cancel)?;
+        let spec = registry
+            .relation_by_id(pse_relations::generated::authored::modeling_declarations::RELATION_ID)
+            .unwrap();
+        let prepared = validation.relation(registry, spec)?;
+        let count = prepared.evaluation_count();
+        assert!(
+            count > 0,
+            "generated construction actually evaluated native field obligations"
+        );
+        let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        owned.validate_context(registry, &validation, &tiny, &cancel)?;
+        assert_eq!(prepared.evaluation_count(), count);
+        assert_eq!(
+            tiny.reserved(),
+            0,
+            "same-owner reuse creates no temporary modeling columns"
+        );
+        let different = fixture_validation(registry);
+        let different_prepared = different.relation(registry, spec)?;
+        assert!(
+            owned
+                .validate_context(registry, &different, &tiny, &cancel)
+                .is_err()
+        );
+        assert_eq!(
+            different_prepared.evaluation_count(),
+            0,
+            "finite projection reservation precedes new-owner evaluation"
+        );
+        owned.validate_context(registry, &different, &pool, &cancel)?;
+        let new_count = different_prepared.evaluation_count();
+        assert!(new_count > 0);
+        owned.validate_context(registry, &different, &tiny, &cancel)?;
+        assert_eq!(different_prepared.evaluation_count(), new_count);
+        cancel.cancel();
+        assert!(
+            owned
+                .validate_context(registry, &different, &tiny, &cancel)
+                .is_err()
+        );
+        Ok(())
+    }
+    #[test]
     fn registry_binding_compares_fields_even_when_identity_and_fingerprint_match() {
         let registry = pse_schema::registry().unwrap();
         let mut binding = RegistryBinding {
             relations: registry.relations().to_vec(),
             enums: registry.enums().to_vec(),
+            _lease: None,
         };
         binding.validate(registry).unwrap();
         let old_id = binding.relations[0].id;
@@ -432,6 +540,41 @@ mod tests {
         assert_eq!(binding.relations[0].id, old_id);
         assert_eq!(binding.relations[0].fingerprint, old_hash);
         assert!(binding.validate(registry).is_err());
+    }
+    #[test]
+    fn shared_typed_rows_retain_their_source_allocation() -> Result<(), DriverError> {
+        let registry = pse_schema::registry().map_err(pse_relations::RelationError::from)?;
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let cancel = CancellationToken::new();
+        let sources = BTreeMap::from([
+            (
+                "package.toml".to_owned(),
+                include_bytes!("../../../../../tests/fixtures/packages/minimal_named/package.toml")
+                    .to_vec(),
+            ),
+            ("models/one.pse".to_owned(), b"package library {}".to_vec()),
+        ]);
+        let owned = load_package_documents_owned(
+            &sources,
+            registry,
+            ParseBudget::default(),
+            &pool,
+            &cancel,
+            &fixture_validation(registry),
+        )?;
+        let rows = owned
+            .bundle()
+            .documents
+            .iter()
+            .find_map(|document| document.modeling_rows())
+            .unwrap()
+            .clone();
+        drop(owned);
+        assert_eq!(rows.len(), 1);
+        assert!(pool.reserved() > 0);
+        drop(rows);
+        assert_eq!(pool.reserved(), 0);
+        Ok(())
     }
     #[test]
     fn editing_one_document_reuses_other_parser_owners() -> Result<(), DriverError> {
@@ -485,6 +628,15 @@ mod tests {
                 Arc::ptr_eq(&prior.syntax, &next.syntax),
                 prior.path != "materials/quantity-kinds.yaml"
             );
+            if let Some(rows) = prior.modeling_rows() {
+                assert!(Arc::ptr_eq(rows, next.modeling_rows().unwrap()));
+                assert!(!prior.batches.contains_key(
+                    &pse_relations::generated::authored::modeling_declarations::RELATION_ID
+                ));
+                assert!(!next.batches.contains_key(
+                    &pse_relations::generated::authored::modeling_declarations::RELATION_ID
+                ));
+            }
         }
         let rows = pse_relations::generated::reference::quantity_kinds::View::from_checked(
             &edited.bundles()[0].batches
@@ -492,6 +644,176 @@ mod tests {
         )?
         .rows()?;
         assert_eq!(rows[0].name, "changed");
+        assert!(
+            !edited.bundles()[0].batches.contains_key(
+                &pse_relations::generated::authored::modeling_declarations::RELATION_ID
+            )
+        );
+        let retained = budget.reserved();
+        edited.validate_context(registry, &fixture_validation(registry), &budget, &cancel)?;
+        assert_eq!(
+            budget.reserved(),
+            retained,
+            "native projection is temporary"
+        );
+        let refused: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        assert!(
+            edited
+                .validate_context(registry, &fixture_validation(registry), &refused, &cancel)
+                .is_err()
+        );
+        assert_eq!(refused.reserved(), 0);
+        let cancelled = CancellationToken::new();
+        cancelled.cancel();
+        assert!(
+            edited
+                .validate_context(registry, &fixture_validation(registry), &budget, &cancelled)
+                .is_err()
+        );
+        Ok(())
+    }
+    #[test]
+    fn successive_edits_release_ancestors_but_shared_payloads_keep_their_own_charge()
+    -> Result<(), DriverError> {
+        use datafusion::arrow::{
+            array::{Int64Array, RecordBatch},
+            datatypes::{DataType, Field, Schema},
+        };
+        let registry = pse_schema::registry().map_err(pse_relations::RelationError::from)?;
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
+        let cancel = CancellationToken::new();
+        let validation = fixture_validation(registry);
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "value",
+            DataType::Int64,
+            false,
+        )]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int64Array::from(vec![11, 22, 33]))],
+        )
+        .unwrap();
+        let mut parquet = Vec::new();
+        let mut writer = parquet::arrow::ArrowWriter::try_new(&mut parquet, schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+        let model = format!(
+            "// {}\npackage library {{}}",
+            "unchanged source ".repeat(4096)
+        );
+        let sources = BTreeMap::from([
+            ("package.toml".to_owned(), include_bytes!("../../../../../tests/fixtures/packages/minimal_named/package.toml").to_vec()),
+            ("materials/quantity-kinds.yaml".to_owned(), include_bytes!("../../../../../tests/fixtures/packages/minimal_named/materials/quantity-kinds.yaml").to_vec()),
+            ("models/library.pse".to_owned(), model.as_bytes().to_vec()),
+            ("data/bank.parquet".to_owned(), parquet.clone()),
+        ]);
+        let part = load_package_documents_owned(
+            &sources,
+            registry,
+            ParseBudget::default(),
+            &pool,
+            &cancel,
+            &validation,
+        )?;
+        let mut current = OwnedDocumentSet::try_from_bundles(vec![part], &pool, &cancel)?;
+        let doc = current.bundles()[0]
+            .documents
+            .iter()
+            .find(|d| d.path == "models/library.pse")
+            .unwrap();
+        let rows = doc.modeling_rows().unwrap().clone();
+        let text = match &doc.content {
+            super::super::Content::Modeling { text, .. } => Arc::clone(text),
+            _ => panic!("expected modeling text in the library source fixture"),
+        };
+        let syntax = Arc::clone(&doc.syntax);
+        let data = current.bundles()[0]
+            .documents
+            .iter()
+            .find(|d| d.path == "data/bank.parquet")
+            .unwrap();
+        let decoded = data.data().unwrap().clone();
+        let binary = match &data.content {
+            super::super::Content::Data { bytes, .. } => bytes.clone(),
+            _ => panic!("expected Parquet bytes in the data source fixture"),
+        };
+        assert!(decoded.is_owned());
+        let mut plateau = None;
+        for n in 0..12 {
+            let old_owner = Arc::downgrade(&current.0.as_ref().unwrap().parts[0].0);
+            let changed = current.bundles()[0]
+                .documents
+                .iter()
+                .find(|d| d.path == "materials/quantity-kinds.yaml")
+                .unwrap();
+            let before = changed.text().unwrap().to_owned();
+            let old_name = if n == 0 {
+                "name: probe".to_owned()
+            } else {
+                format!("name: edited{:02}", n - 1)
+            };
+            let after = before.replace(&old_name, &format!("name: edited{n:02}"));
+            assert_ne!(before, after);
+            current = current.edit(
+                &[super::super::DocumentEdit {
+                    document_id: changed.id,
+                    path: changed.path.clone(),
+                    before,
+                    after,
+                }],
+                registry,
+                ParseBudget::default(),
+                &pool,
+                &cancel,
+                &validation,
+            )?;
+            assert!(
+                old_owner.upgrade().is_none(),
+                "an edited bundle retained an ancestor"
+            );
+            let shared = current.bundles()[0]
+                .documents
+                .iter()
+                .find(|d| d.path == "models/library.pse")
+                .unwrap();
+            assert!(Arc::ptr_eq(&rows, shared.modeling_rows().unwrap()));
+            assert!(Arc::ptr_eq(&syntax, &shared.syntax));
+            let shared_data = current.bundles()[0]
+                .documents
+                .iter()
+                .find(|d| d.path == "data/bank.parquet")
+                .unwrap();
+            assert!(Arc::ptr_eq(&decoded, shared_data.data().unwrap()));
+            if let Some(retained) = plateau {
+                assert_eq!(pool.reserved(), retained);
+            } else {
+                plateau = Some(pool.reserved());
+            }
+        }
+        let complete = pool.reserved();
+        drop(current);
+        assert!(
+            pool.reserved() > 0 && pool.reserved() < complete,
+            "escaped payloads must retain only their own charge"
+        );
+        assert_eq!(text.as_str(), model.as_str());
+        assert_eq!(rows.len(), 1);
+        assert_eq!(&binary[..], parquet.as_slice());
+        assert_eq!(decoded.rows.rows(), 3);
+        drop(rows);
+        drop(text);
+        drop(syntax);
+        assert!(
+            pool.reserved() > 0,
+            "decoded data and exact bytes still have owners"
+        );
+        drop(decoded);
+        assert!(
+            pool.reserved() > 0,
+            "an escaped byte buffer retains its owner"
+        );
+        drop(binary);
+        assert_eq!(pool.reserved(), 0);
         Ok(())
     }
 }

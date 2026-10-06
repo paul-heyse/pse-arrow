@@ -100,6 +100,24 @@
 | `runtime.cache_entry_statistics` | `unique:pk` | `SELECT s."cache", s."key" FROM "runtime"."cache_entry_statistics" s GROUP BY s."cache", s."key" HAVING COUNT(*) > 1` |
 | `runtime.cache_statistics` | `unique:pk` | `SELECT s."name" FROM "runtime"."cache_statistics" s GROUP BY s."name" HAVING COUNT(*) > 1` |
 | `runtime.candidate_assessments` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."candidate_assessments" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
+| `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_guards` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_guards" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_interpretations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_interpretations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_memberships` | `foreign_key:problem` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."problem" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_problems" t WHERE s."__pse_value" = t."key")` |
+| `runtime.canonical_memberships` | `foreign_key:version` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."version" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_version_manifests" t WHERE s."__pse_value" = t."key")` |
+| `runtime.canonical_memberships` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_memberships" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_payload_blocks` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_payload_blocks" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_problems` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_problems" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_products` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_products" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_protections` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_protections" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_reclaimed_ranges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_reclaimed_ranges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_revisions` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_revisions" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_roots` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_roots" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_staged_edits` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_staged_edits" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_stages` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_stages" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_version_manifests` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_version_manifests" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_version_receipts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_version_receipts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_versions` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_versions" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.change_events` | `unique:pk` | `SELECT s."table_uri", s."commit_version", s."kind", s."row_key" FROM "runtime"."change_events" s GROUP BY s."table_uri", s."commit_version", s."kind", s."row_key" HAVING COUNT(*) > 1` |
 | `runtime.computation_runs` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."computation_runs" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.diagnostics_findings` | `unique:pk` | `SELECT s."finding_id" FROM "runtime"."diagnostics_findings" s GROUP BY s."finding_id" HAVING COUNT(*) > 1` |

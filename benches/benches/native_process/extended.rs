@@ -55,7 +55,10 @@ async fn algebraic(
         .unwrap()
         .declaration_id;
     (
-        runtime(owner).modeling_package(rows, physical).unwrap(),
+        runtime(owner)
+            .modeling_package(rows, physical)
+            .await
+            .unwrap(),
         root,
     )
 }
@@ -110,7 +113,10 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime(owner).modeling_package(rows, physical).unwrap();
+    let package = runtime(owner)
+        .modeling_package(rows, physical)
+        .await
+        .unwrap();
     let cancel = CancelSource::new();
     let analysis = package
         .declared_execution(
@@ -238,8 +244,10 @@ async fn sparse_fit(
         "observations":(0..n).map(|i|json!({"observation_id":id(4000+i as u32),"experiment_id":id(74),"value_attribute":"observed","standard_deviation_attribute":null,"output_path":format!("p{i}"),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>()})).unwrap());
     let package = runtime(owner)
         .modeling_package(rows, physical)
+        .await
         .unwrap()
         .with_fit_declarations(data)
+        .await
         .unwrap();
     let mut solver = profile(Backend::Ipopt, true);
     solver.presolve = native::presolve::Policy::Off;

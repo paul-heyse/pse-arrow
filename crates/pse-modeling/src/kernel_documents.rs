@@ -49,6 +49,7 @@ fn admitted(text: &str, columns: Vec<DocumentColumn>) -> Result<CheckedPackage> 
         scope: &PhysicalScope::default(),
     };
     let document = DataDocument {
+        allocation_owner: None,
         id: pse_ids::named_id(PACKAGE, "data/bank.parquet"),
         path: "data/bank.parquet".into(),
         content_hash: pse_ids::encoding_checksum(b"bank").content_hash(),

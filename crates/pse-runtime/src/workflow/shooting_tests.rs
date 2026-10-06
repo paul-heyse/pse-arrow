@@ -35,6 +35,7 @@ async fn tracking(method: Method) -> crate::workflow::ModelingSimulation {
         .declaration_id;
     let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
         .modeling_package(rows, physical)
+        .await
         .unwrap();
     // IDAS DAE forward sensitivities fail their first error test at t = 0 below 1e-8.
     let rtol = if method == Method::Idas { 1e-8 } else { 1e-10 };
@@ -650,7 +651,10 @@ async fn shooting_fixture_needs_authored_controls() {
         let text = format!(
             "package p {{ {def} test shot fixture {{dof 0; {fixture}}} {{child root:Root=Root();}} }}"
         );
-        let Err(error) = runtime.modeling_package(parse(&text).unwrap(), physical.clone()) else {
+        let Err(error) = runtime
+            .modeling_package(parse(&text).unwrap(), physical.clone())
+            .await
+        else {
             panic!("admitted: {fixture}");
         };
         assert!(error.to_string().contains(refusal), "{fixture}: {error}");
@@ -696,6 +700,7 @@ async fn authored_shooting_fixture_solves() {
     let fixtures = [root("single"), root("multiple")];
     let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
         .modeling_package(rows, physical)
+        .await
         .unwrap();
     let cancel = crate::CancelSource::new();
     let (optimum, value) = analytic();

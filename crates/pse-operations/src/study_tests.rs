@@ -380,6 +380,35 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
     let point = store.studies().point(study.study_id, 4).await.unwrap();
     assert_eq!(point.receipt, Some(receipt.clone()));
     assert_eq!(point.outcome.unwrap().effect, EffectState::Unknown);
+    assert!(
+        store
+            .studies()
+            .unresolved_points(study.study_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let summary = store
+        .studies()
+        .summary_record(study.study_id)
+        .await
+        .unwrap();
+    let full = store.studies().get(study.study_id).await.unwrap();
+    assert_eq!(summary.study.study_id, full.study.study_id);
+    assert_eq!(summary.attempt.attempt_id, full.attempt.attempt_id);
+    assert_eq!(summary.finalization.job_id, full.finalization.job_id);
+    assert_eq!(summary.points[0].revision, full.points[0].revision);
+    assert_eq!(summary.points[0].job_id, full.points[0].job_id);
+    assert_eq!(
+        summary.points[0].member_attempt,
+        full.points[0].member_attempt
+    );
+    assert_eq!(
+        serde_json::to_value(&summary.points[0].outcome).unwrap(),
+        serde_json::to_value(&full.points[0].outcome).unwrap()
+    );
+    assert!(summary.points[0].receipt.is_none());
+    assert_eq!(full.points[0].receipt, Some(receipt.clone()));
     finish(
         store,
         &claim,
@@ -389,6 +418,15 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
     )
     .await;
     let point = store.studies().point(study.study_id, 4).await.unwrap();
+    assert_eq!(point.receipt, Some(receipt.clone()));
+    let unresolved = store
+        .studies()
+        .unresolved_points(study.study_id)
+        .await
+        .unwrap();
+    assert_eq!(unresolved.len(), 1);
+    assert_eq!(unresolved[0].point_index, 4);
+    assert_eq!(unresolved[0].receipt, Some(receipt.clone()));
     // Merely observing absent native receipts never proves a persisted ticket safe to replay.
     assert!(
         store
@@ -401,6 +439,27 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
             )
             .await
             .is_err()
+    );
+    store
+        .studies()
+        .reconcile_effect(
+            study.study_id,
+            OccurrenceKey(4),
+            point.revision,
+            EffectState::Idempotent,
+        )
+        .await
+        .unwrap();
+    let settled = store.studies().point(study.study_id, 4).await.unwrap();
+    assert_eq!(settled.receipt, Some(receipt.clone()));
+    assert_eq!(settled.outcome.unwrap().effect, EffectState::Idempotent);
+    assert!(
+        store
+            .studies()
+            .unresolved_points(study.study_id)
+            .await
+            .unwrap()
+            .is_empty()
     );
     assert!(matches!(
         store
@@ -423,5 +482,117 @@ async fn pre_effect_receipt_requires_dispatch_revision_and_live_owner_and_absenc
             .await,
         Err(OperationsError::LeaseLost { .. })
     ));
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn admitted_retry_retires_old_ticket_before_recording_its_new_dispatch_ticket() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store();
+    let space = space(store).await;
+    let mut requested = policy(4, vec![]);
+    requested.attempt_limit = 2;
+    let mut study = new_study(&space, vec![requested]);
+    study.points[0].job.retry.max_tries = 2;
+    store.studies().create(&study).await.unwrap();
+    let first = store.jobs().claim("worker", LEASE).await.unwrap().unwrap();
+    let point = store.studies().point(study.study_id, 4).await.unwrap();
+    let fence = DispatchFence {
+        study: study.study_id,
+        key: OccurrenceKey(4),
+        job: first.job_id,
+        attempt: first.attempt_id,
+        worker: "worker",
+        expected_revision: point.revision,
+    };
+    assert!(matches!(
+        store.studies().admit_dispatch(fence, None).await.unwrap(),
+        ActionKind::Start(_)
+    ));
+    let point = store.studies().point(study.study_id, 4).await.unwrap();
+    let old_ticket = serde_json::json!({"owner": first.attempt_id, "native":"first ticket"});
+    store
+        .studies()
+        .record_receipt(
+            DispatchFence {
+                expected_revision: point.revision,
+                ..fence
+            },
+            PreEffectReceipt {
+                scientific: ScientificFacts::default(),
+                diagnostic: None,
+                receipt: old_ticket.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let failed = PointAttemptOutcome {
+        attempt_id: Some(first.attempt_id),
+        lifecycle: Some(AttemptState::Failed),
+        diagnostic: None,
+        scientific: ScientificFacts::default(),
+        start: Some(StartProvenance::Fresh),
+        effect: EffectState::Unknown,
+    };
+    store.jobs().finish(first.job_id, "worker", &JobOutcome { state: AttemptState::Failed,
+        note: TransitionNote::by("worker").terminated(Termination { code: TerminationCode::Runtime(RuntimeTermination::Unassessed),
+            detail: Some(serde_json::json!({"version":2,"point":failed,"retry_failure":"transient","effect":"unknown"})) }),
+        retry_as: None, members: vec![] }).await.unwrap();
+    let point = store.studies().point(study.study_id, 4).await.unwrap();
+    assert_eq!(point.receipt, Some(old_ticket.clone()));
+    store
+        .studies()
+        .reconcile_effect(
+            study.study_id,
+            OccurrenceKey(4),
+            point.revision,
+            EffectState::Idempotent,
+        )
+        .await
+        .unwrap();
+    let second = store.jobs().claim("worker", LEASE).await.unwrap().unwrap();
+    assert_eq!(second.job_id, first.job_id);
+    assert_ne!(second.attempt_id, first.attempt_id);
+    let point = store.studies().point(study.study_id, 4).await.unwrap();
+    assert_eq!(point.receipt, Some(old_ticket));
+    let fence = DispatchFence {
+        study: study.study_id,
+        key: OccurrenceKey(4),
+        job: second.job_id,
+        attempt: second.attempt_id,
+        worker: "worker",
+        expected_revision: point.revision,
+    };
+    assert!(matches!(
+        store.studies().admit_dispatch(fence, None).await.unwrap(),
+        ActionKind::Start(_)
+    ));
+    let point = store.studies().point(study.study_id, 4).await.unwrap();
+    assert!(point.receipt.is_none());
+    let new_ticket = serde_json::json!({"owner": second.attempt_id, "native":"second ticket"});
+    store
+        .studies()
+        .record_receipt(
+            DispatchFence {
+                expected_revision: point.revision,
+                ..fence
+            },
+            PreEffectReceipt {
+                scientific: ScientificFacts::default(),
+                diagnostic: None,
+                receipt: new_ticket.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .studies()
+            .point(study.study_id, 4)
+            .await
+            .unwrap()
+            .receipt,
+        Some(new_ticket)
+    );
     database.remove().await.unwrap();
 }

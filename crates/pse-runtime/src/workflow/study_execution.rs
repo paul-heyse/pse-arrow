@@ -55,6 +55,11 @@ impl ModelingPackage {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
+        if definition.modeling_revision != self.canonical_revision().key {
+            return Err(super::contract(
+                "study definition canonical revision differs",
+            ));
+        }
         if maximum_points == 0
             || maximum_points > super::MAXIMUM_STUDY_POINTS
             || definition.points.len() > maximum_points
@@ -729,7 +734,7 @@ mod occurrence_execution_tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, physical()).unwrap();
+        let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let quantity = package
             .quantities
             .quantity_types()
@@ -757,6 +762,15 @@ mod occurrence_execution_tests {
                             pse_backend_native::solve::SolveIntent::Optimize
                         } else {
                             pse_backend_native::solve::SolveIntent::Root
+                        },
+                        // Value comparisons below require 1e-6 accuracy; request tighter budgets.
+                        numerics: pse_model::numerics::NumericalPolicy {
+                            engineering_relative_fraction: 1e-10,
+                            kkt: pse_model::numerics::KktTolerances {
+                                stationarity: 1e-10,
+                                complementarity: 1e-10,
+                            },
+                            ..Default::default()
                         },
                         controls: pse_backend_native::solve::Controls {
                             threads,
@@ -790,7 +804,6 @@ mod occurrence_execution_tests {
         let definition = package
             .admit_study_points(
                 ContentHash::from_bytes([0; 32]),
-                vec![],
                 &points,
                 &crate::CancelSource::new(),
             )
@@ -961,7 +974,10 @@ mod occurrence_execution_tests {
             a.outcomes
                 .iter()
                 .chain(&b.outcomes)
-                .all(|point| point.scientific.usable)
+                .all(|point| point.scientific.usable),
+            "first={:?}; second={:?}",
+            a.outcomes,
+            b.outcomes
         );
         assert_ne!(a.run_id, b.run_id);
         let after = package.runtime.native().preparations();
@@ -1009,8 +1025,25 @@ mod occurrence_execution_tests {
                 0.4,
             );
             let excess = (a + b - 1.).max(0.) / 2.;
-            assert!((point.values.scalars[&member(point, "x")] - (a - excess)).abs() < 1e-6);
-            assert!((point.values.scalars[&member(point, "y")] - (b - excess)).abs() < 1e-6);
+            let (x, y) = (
+                point.values.scalars[&member(point, "x")],
+                point.values.scalars[&member(point, "y")],
+            );
+            assert!(
+                (x - (a - excess)).abs() < 1e-6,
+                "point {index}: x={x}, expected={}, y={y}, a={a}, metrics={:?}",
+                a - excess,
+                (
+                    native.metrics.clone(),
+                    point.prepared.solve.accuracy().clone(),
+                    point.prepared.solve.tolerances().clone()
+                )
+            );
+            assert!(
+                (y - (b - excess)).abs() < 1e-6,
+                "point {index}: y={y}, expected={}",
+                b - excess
+            );
         }
     }
 

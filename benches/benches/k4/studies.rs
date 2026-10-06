@@ -24,6 +24,8 @@ async fn definition(
 ) -> workflow::StudyDefinition {
     let root = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|row| row.name == "Root")
         .unwrap()
@@ -91,11 +93,6 @@ async fn definition(
     let admitted = package
         .admit_study_points(
             pse_runtime::authoring_driver::document::package_checksum(&sources.physical),
-            sources
-                .modeling
-                .iter()
-                .map(pse_runtime::authoring_driver::document::package_checksum)
-                .collect(),
             &points,
             &CancelSource::new(),
         )
@@ -239,7 +236,7 @@ pub(super) fn measure(
                 let before=owner.runtime.math().preparations();
                 let started=Instant::now();
                 let physical=support::physical(&runtime,&owner,&sources).await;
-                let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone()).unwrap();
+                let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone()).await.unwrap();
                 let definition=definition(&package,&sources,&physical).await;
                 let admission=started.elapsed();
                 let admission_counts=support::counts(before,owner.runtime.math().preparations());
@@ -255,7 +252,7 @@ pub(super) fn measure(
                 let (elapsed,submission,submission_counts,worker_counts,result_read_seconds,outcomes,metrics) = if durable_mode {
                     let workspace=runtime.register_workspace("k4",url::Url::from_directory_path(directory.path()).unwrap()).await.unwrap();
                     let start=Instant::now();
-                    let handle=runtime.start_defined_study(&workspace,sources,definition.clone(),RetryPolicy::ONCE,0).await.unwrap();
+                    let handle=runtime.start_defined_study(&workspace,sources.physical,definition.clone(),RetryPolicy::ONCE,0).await.unwrap();
                     let submission=start.elapsed();
                     let submission_counts=support::counts(before,owner.runtime.math().preparations());
                     let worker_before=owner.runtime.math().preparations();

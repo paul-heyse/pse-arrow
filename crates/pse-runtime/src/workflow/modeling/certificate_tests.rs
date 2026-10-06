@@ -16,7 +16,7 @@ use pse_relations::{
     generated::runtime::{infeasibility_certificates, solve_metrics, solve_runs},
 };
 
-fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -30,7 +30,10 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime().modeling_package(rows, physical).unwrap();
+    let package = fixture::runtime()
+        .modeling_package(rows, physical)
+        .await
+        .unwrap();
     (package, root)
 }
 fn analysis(root: DeclarationId, selection: SolverSelection) -> ModelingAnalysis {
@@ -63,7 +66,7 @@ fn covering(cover: &str) -> String {
     )
 }
 async fn run(text: &str, selection: SolverSelection) -> Arc<crate::workflow::RunResult> {
-    let (package, root) = package(text);
+    let (package, root) = package(text).await;
     let prepared = package
         .prepare_analysis(&analysis(root, selection), &crate::CancelSource::new())
         .await

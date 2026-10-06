@@ -227,6 +227,37 @@ pub(crate) struct NativeRuntime {
 }
 #[pymethods]
 impl NativeRuntime {
+    /// Reopen an exact retained canonical source selection without authored document replay.
+    fn modeling_revision(
+        &self,
+        py: Python<'_>,
+        revision: &str,
+        physical: &NativePhysicalContext,
+    ) -> PyResult<NativeModelingPackage> {
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let revision = self
+                    .inner
+                    .canonical_store()
+                    .revision(revision)
+                    .await?
+                    .ok_or_else(|| {
+                        native::WorkflowError::Input("canonical modeling revision absent".into())
+                    })?;
+                self.inner
+                    .modeling_revision(revision, physical.inner.clone(), Default::default())
+                    .await
+            },
+            || {},
+        )?;
+        Ok(NativeModelingPackage::from_revision(
+            self.owner.clone(),
+            inner,
+            physical.documents.clone(),
+        ))
+    }
     fn modeling_from_documents(
         &self,
         py: Python<'_>,
@@ -268,19 +299,55 @@ impl NativeRuntime {
     /// registered in that operational store and may be published; without it runs are
     /// ephemeral and cannot publish (ADR-0114 Outcome 16).
     #[new]
-    #[pyo3(signature = (settings, *, store=None))]
+    #[pyo3(signature = (settings, *, substrate, producer=None, store=None))]
     fn new(
         py: Python<'_>,
         settings: &inspection::EngineSettings,
+        substrate: &str,
+        producer: Option<&str>,
         store: Option<&OperationalStore>,
     ) -> PyResult<Self> {
         let owner = py
             .detach(|| runtime::acquire(settings))
             .map_err(|e| errors::diagnostic(py, &e))?;
+        let attestation = native::OuterAttestation {
+            source: pse_buildinfo::SOURCE_IDENTITY,
+            build: pse_buildinfo::BUILD_IDENTITY,
+        };
+        let options = pse_operations::canonical::CanonicalOptions::from_state(
+            std::path::Path::new(substrate),
+        )
+        .map_err(|e| errors::diagnostic(py, &e))?;
+        let canonical = blocking(
+            py,
+            &owner,
+            async {
+                let store = pse_operations::canonical::CanonicalStore::connect(&options)
+                    .await
+                    .map_err(|e| native::WorkflowError::Input(e.to_string()))?;
+                store
+                    .open()
+                    .await
+                    .map_err(|e| native::WorkflowError::Input(e.to_string()))?;
+                Ok(store)
+            },
+            || {},
+        )?;
+        let producer = producer.map(|path| {
+            let bytes = std::fs::read(path).map_err(|e| invalid(py, e.to_string()))?;
+            // The operator selects the deployment tool's reviewed capture; linked
+            // executable attestation binds it to this actual native extension.
+            #[allow(unsafe_code, reason = "ADR-0164 controlled deployment qualification; no unsafe memory operation")]
+            // SAFETY: this deployment boundary binds the supplied reviewed receipt
+            // to the complete attestation of the actual loaded native extension.
+            unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, attestation.source, attestation.build) }
+                .map_err(|e| errors::diagnostic(py, &e))
+        }).transpose()?.flatten();
         let inner = native::Runtime::from_shared(
             owner.shared.clone(),
             owner.registry.clone(),
             owner.sessions.clone(),
+            native::CanonicalDeployment::new(canonical, attestation, producer),
         );
         let inner = match store {
             None => inner,

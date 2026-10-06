@@ -362,7 +362,6 @@ class NativeModelingInitializationAttempt:
 
 @final
 class NativeModelingKnowledge:
-    def query(self, /, sql: str) -> TableStream: ...
     @property
     def source_revision(self, /) -> str: ...
     def table(self, /) -> TableStream: ...
@@ -391,6 +390,10 @@ class NativeModelingNonlinearExplanation:
 @final
 class NativeModelingPackage:
     def admit_study(self, /, request: bytes) -> bytes: ...
+    @property
+    def canonical_problem(self, /) -> str: ...
+    @property
+    def canonical_revision(self, /) -> str: ...
     def conform(
         self,
         /,
@@ -453,6 +456,7 @@ class NativeModelingPackage:
     def solve_case(
         self, /, case_id: str, settings: bytes, *, preparation: bytes | None = None
     ) -> NativeModelingResult: ...
+    def source_tables(self, /) -> dict[str, TableStream]: ...
     def start_study(
         self,
         /,
@@ -594,7 +598,13 @@ class NativeRunResult:
 @final
 class NativeRuntime:
     def __new__(
-        cls, /, settings: EngineSettings, *, store: OperationalStore | None = None
+        cls,
+        /,
+        settings: EngineSettings,
+        *,
+        substrate: str,
+        producer: str | None = None,
+        store: OperationalStore | None = None,
     ) -> NativeRuntime: ...
     def capabilities(self, /) -> bytes: ...
     def clear_program_cache(self, /) -> None: ...
@@ -612,6 +622,9 @@ class NativeRuntime:
         /,
         documents: Sequence[dict[str, str | bytes]],
         physical: NativePhysicalContext,
+    ) -> NativeModelingPackage: ...
+    def modeling_revision(
+        self, /, revision: str, physical: NativePhysicalContext
     ) -> NativeModelingPackage: ...
     def open(self, /, publication_id: str) -> Publication: ...
     def open_head(self, /, workspace_id: str) -> Publication: ...

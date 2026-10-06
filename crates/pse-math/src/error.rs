@@ -90,6 +90,16 @@ pub enum MathError {
     /// A configured finite admission bound was exceeded.
     #[error("math limit exceeded: {0}")]
     Limit(&'static str),
+    /// A serialized scientific product exceeds its logical byte allowance.
+    #[error("math limit exceeded: {resource}: {required} bytes required, allowance {available}")]
+    ByteLimit {
+        /// Exact product category, independent of transport block size.
+        resource: &'static str,
+        /// Exact encoded extent computed before payload allocation.
+        required: usize,
+        /// Explicit logical byte allowance.
+        available: usize,
+    },
     /// A producer-issued unavailable/exhausted consumed reconstruction product.
     #[error("reconstruction product {product}: {reason:?}")]
     Refinement {
@@ -222,6 +232,7 @@ impl MathError {
             | Self::OutsideRange { .. }
             | Self::Limit(_)
             | Self::Refinement { .. }
+            | Self::ByteLimit { .. }
             | Self::SlotLimit { .. }
             | Self::WorkLimit { .. }
             | Self::Cancelled
@@ -243,14 +254,31 @@ pse_diagnostics::impl_diagnostic! {
             crate::derived::RefinementRefusal::Rounds | crate::derived::RefinementRefusal::ProofCells => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
             crate::derived::RefinementRefusal::Unavailable(_) | crate::derived::RefinementRefusal::Precision => pse_diagnostics::DiagnosticCode::CapabilityBackend,
         }),
-        Self::Limit(_) | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
+        Self::Limit(_) | Self::ByteLimit {..} | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Scope(_) | Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} | Self::Native {..} | Self::Typed {..} => None,
         Self::Contract(_) | Self::DerivativeDemand {..} => Some(pse_diagnostics::DiagnosticCode::MathContract),
         Self::Library(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::CoefficientRange => Some(pse_diagnostics::DiagnosticCode::MathCoefficientRange),
     } },
     forward(this) { match this { Self::Scope(e) => Some(e), Self::Quantity(e) => Some(e), Self::Instance {cause,..} => Some(cause.as_ref()), Self::Provider {cause,..} => Some(cause), Self::Native {cause,..} | Self::Typed {cause,..} => Some(cause.as_ref()), _ => None } },
-    help(_this) { None }, related(_this) { None }, source(_this) { None }
+    help(_this) { None }, related(_this) { None }, source(_this) { None },
+    facts(this) {
+        use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation as O, DiagnosticRule as R};
+        let mut facts = DiagnosticFacts::default();
+        match this {
+            Self::ByteLimit { resource, required, available } => {
+                facts.rule = Some(R::MathLimit);
+                facts.observe("resource", O::Text((*resource).into()));
+                for (key, value) in [("required_bytes", required), ("available_bytes", available)] {
+                    facts.observe(key, i64::try_from(*value).map_or_else(|_| O::Text(value.to_string()), O::Integer));
+                }
+            }
+            Self::Limit(_) | Self::SlotLimit {..} | Self::WorkLimit {..} => facts.rule = Some(R::MathLimit),
+            _ => {}
+        }
+        if facts.rule.is_some() { facts.observe("detail", O::Text(this.to_string())); }
+        facts
+    }
 }
 
 impl pse_model::diagnostic::DiagnosticProjection for MathError {
@@ -302,6 +330,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
             | Self::OutsideRange { .. }
             | Self::Limit(_)
             | Self::Refinement { .. }
+            | Self::ByteLimit { .. }
             | Self::SlotLimit { .. }
             | Self::WorkLimit { .. }
             | Self::Cancelled => {
@@ -484,7 +513,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
                 d.observations
                     .insert("refinement_refusal".into(), O::Text(format!("{reason:?}")));
             }
-            Self::Limit(_) => d.rule = R::MathLimit,
+            Self::Limit(_) | Self::ByteLimit { .. } => d.rule = R::MathLimit,
             Self::Cancelled => d.rule = R::MathCancelled,
             Self::Contract(_) => d.rule = R::MathContract,
             Self::CoefficientRange => d.rule = R::MathCoefficientRange,

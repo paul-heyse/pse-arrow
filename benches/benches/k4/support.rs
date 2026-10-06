@@ -93,6 +93,7 @@ pub(super) async fn package(
     let physical = physical(runtime, owner, sources).await;
     runtime
         .modeling_from_documents(&admitted_documents(owner, &sources.modeling), physical)
+        .await
         .unwrap()
 }
 pub(super) fn counts(

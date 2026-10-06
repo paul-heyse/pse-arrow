@@ -92,6 +92,71 @@ doctor-json:
 fetch-external:
     ./scripts/fetch-external.sh
 
+[group('env')]
+[doc('Set up or control the supervised authenticated RocksDB/gRPC canonical substrate')]
+surreal command *args:
+    "{{ py }}" scripts/surreal_server.py {{ quote(command) }} {{ args }}
+
+[group('env')]
+[doc('Initialize a clean canonical database; ordinary runtime opening never installs schema')]
+canonical-init state:
+    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --features canonical-tools --locked -- canonical-init {{ quote(state) }}
+
+[group('local')]
+[doc('Targeted canonical server supervisor mechanism controls')]
+surreal-test:
+    "{{ py }}" -m unittest scripts.tests.test_surreal_server -v
+
+[group('local')]
+[doc('Disposable acknowledged-write, abrupt restart and offline backup/restore server control')]
+surreal-fixture-test:
+    "{{ py }}" -m scripts.tests.surreal_fixture_check
+
+[group('local')]
+[doc('Released-server native canonical schema, source/product and gated offline recovery control')]
+canonical-recovery-test:
+    bash scripts/native_exec.sh cargo build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools --locked
+    "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery
+
+[group('local')]
+[doc('Native gRPC exact codec and guarded revision controls against a supervised server state')]
+canonical-test state:
+    PSE_SURREAL_STATE={{ quote(state) }} just unit-package pse-operations 'test(canonical_server_unit) | test(canonical_codec_unit)' --features pse-operations/canonical-tests
+
+[group('local')]
+[doc('Forced-validation persisted mathematical reconstruction controls on an isolated gRPC database')]
+canonical-portable-test state:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fixture_receipt="$PWD/target/producer-qualified-fixture.json"
+    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- producer-identity-fixture --output "$fixture_receipt"
+    PSE_PRODUCER_FIXTURE_RECEIPT="$fixture_receipt" PSE_SURREAL_STATE={{ quote(state) }} NEXTEST_TEST_THREADS=8 just unit-native-package pse-runtime 'canonical-tests,pse-relations/force-validate' 'test(canonical_portable_body)'
+
+[group('local')]
+[doc('Derive a relevant production-unit identity; unknown inputs disable persistent reuse')]
+producer-identity *args:
+    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- producer-identity {{ args }}
+
+[group('local')]
+[doc('Focused producer identity tests including irrelevant test edits and consumed-input changes')]
+producer-identity-test:
+    bash scripts/native_exec.sh cargo nextest run -p xtask --bin xtask --no-default-features --locked {{ validate }} -E 'test(producer_)'
+
+[group('local')]
+[doc('Generator identity, unchanged-output and physical fixture controls')]
+codegen-unit-test:
+    bash scripts/native_exec.sh cargo nextest run -p xtask --bin xtask --locked --features package-fixtures {{ validate }} -E 'test(codegen::tests::) | test(codegen::physical::tests::)'
+
+[group('local')]
+[doc('Worker CLI admission budgets against the configured managed process allocation')]
+worker-cli-unit-test:
+    bash scripts/native_exec.sh cargo nextest run -p xtask --bin pse-worker --locked --features native-solvers {{ validate }}
+
+[group('local')]
+[doc('Miri controls for the pure qualified scientific reconstruction authority')]
+scientific-replay-miri:
+    cargo miri test -p pse-ids -p pse-relations --lib --locked {{ validate }} scientific_replay::tests
+
 # ---- operational store (PostgreSQL 18; ADR-0114, docs/dev/operational-store.md) ----
 # The URL is PSE_DATABASE_URL, else the default declared once in pse-operations: database
 # `pse` over the local Unix socket with peer authentication, so no credential exists.
@@ -173,7 +238,8 @@ pse-worker *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
-    cargo run --quiet --locked -p pse-runtime --bin pse-worker --features native-solvers -- --url {{ quote(db_url) }} {{ args }}
+    cargo build --locked -p xtask --bin pse-worker --features native-solvers
+    "{{ py }}" scripts/surreal_server.py worker --worker-command "$PWD/target/debug/pse-worker" --url {{ quote(db_url) }} {{ args }}
 
 [group('local')]
 [doc('Publication catalog maintenance (ADR-0114) against the operational store: export | release | retire | collect | reclaim')]
@@ -181,25 +247,23 @@ pse-publication *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
-    cargo run --quiet --locked -p pse-runtime --bin pse-publication -- --url {{ quote(db_url) }} {{ args }}
+    cargo run --quiet --locked -p xtask --bin pse-publication -- --url {{ quote(db_url) }} {{ args }}
 
 [group('local')]
 [doc('The pse-worker journey: the worker binary runs an authored case in a child process against an isolated store')]
 worker-test *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
+    bash scripts/native_exec.sh cargo build -p xtask --bin pse-worker --locked --features native-solvers
+    PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" bash scripts/native_exec.sh cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
 
 [group('local')]
 [doc('The publication catalog journeys (Plan 22 O8): durable attempts publish, read, export, collect and retire against isolated stores; one test runs two publisher processes')]
 publication-test *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    source scripts/native-math-env.sh
-    PSE_DATABASE_URL={{ quote(db_url) }} cargo nextest {{ nextest_action }} -p pse-runtime --test publication_catalog --locked {{ validate }} {{ args }}
+    bash scripts/native_exec.sh cargo build -p xtask --bin pse-publication --locked
+    PSE_PUBLICATION_BINARY="$PWD/target/debug/pse-publication" PSE_DATABASE_URL={{ quote(db_url) }} bash scripts/native_exec.sh cargo nextest {{ nextest_action }} -p pse-runtime --test publication_catalog --locked {{ validate }} {{ args }}
 
 # ---------------------------------------------------------------- discovery --
 
@@ -969,15 +1033,15 @@ library-catalog:
 [group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated, the store schema and statements, the Ipopt bindings and the cargo-hakari workspace-hack')]
 codegen *args:
-    bash scripts/native_exec.sh cargo xtask codegen {{ args }}
+    bash scripts/native_exec.sh cargo run --quiet -p xtask --features package-fixtures --locked -- codegen {{ args }}
     cargo hakari generate
     cargo hakari manage-deps --yes
 
 [group('mutating')]
 [doc('Generate Rust contracts, rebuild their package loader, then regenerate complete outputs')]
 codegen-bootstrap *args:
-    cargo run -p xtask --no-default-features -- codegen --only rust-contracts
-    cargo xtask codegen {{ args }}
+    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    bash scripts/native_exec.sh cargo run -p xtask --features package-fixtures --locked -- codegen {{ args }}
 
 [group('mutating')]
 [doc('Generate schema contracts and reference docs without executing physical package fixtures')]

@@ -24,6 +24,8 @@ either generated from the registry or checked against it.
 
 ### 4.1 What is declared once
 
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Canonical object versions, membership, products, execution and result envelopes extend this declaration route. Finite scientific f64 storage uses authoritative bit bytes and a derived finite projection; explicitly declared diagnostics may preserve raw nonfinite bits. Full-range unsigned fields lower to native checked decimal integers. Reader, schema, codec and structural-function interpretations are versioned.
+
 > Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — a key column may declare an entity identity, inherited by foreign keys;
 > every decision vocabulary crossing a boundary is a registry enum with one Rust type
 > (Plan 22 B1, B3, B4, implemented). [ADR-0114](../../adr/0114-typed-operational-store.md) — the registry also declares every
@@ -97,6 +99,8 @@ once per owner (`require_generated`). Copied identifiers, names or digests never
 foreign meaning. Registry and relation fingerprints identify content, not admission.
 
 ### 4.2 What is generated from it
+
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Surreal schema/codecs replace persistence-only PostgreSQL/Cornucopia outputs as their callers move. Scientific shapes are not duplicated in hand-authored database DDL. Arrow and typed Python lowerings remain at their consumed boundaries.
 
 > Decision: [ADR-0031](../../adr/0031-generated-sources-committed-and-diff-checked.md),
 > [ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)

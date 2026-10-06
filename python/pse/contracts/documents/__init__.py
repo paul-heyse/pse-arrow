@@ -3869,14 +3869,14 @@ class JacobianDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fie
 
 
 class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 8 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+    """Version 9 of a durable job's payload: the one task a job runs. Unknown fields, tasks
     and versions are refused.
     """
 
-    _pse_required_version: ClassVar[int] = 8
+    _pse_required_version: ClassVar[int] = 9
 
     #: Document version.
-    version: Literal[8] = 8
+    version: Literal[9] = 9
     #: The task.
     task: JobTask
 
@@ -3913,8 +3913,8 @@ class JobTaskModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 
     #: The authored case to solve.
     case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: The source bundles of the modeling package closure, in load order.
-    modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: The exact immutable canonical modeling revision.
+    modeling_revision: str
     #: The source bundle of the physical package.
     physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
     #: Its analysis route.
@@ -3926,7 +3926,7 @@ class JobTaskModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     start: JobStart = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "fresh"}, type=JobStart))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.case), v.sequence_key(v.scalar_key)(self.modeling), v.scalar_key(self.physical), v.scalar_key(self.route), v.record_key(self.settings), v.record_key(self.start),))
+        return (type(self), (v.scalar_key(self.case), v.scalar_key(self.modeling_revision), v.scalar_key(self.physical), v.scalar_key(self.route), v.record_key(self.settings), v.record_key(self.start),))
 
 
 class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_finalization"):
@@ -3944,15 +3944,15 @@ class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_field
 class JobTaskStudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_operation"):
     """Run one admitted occurrence through its existing operation owner."""
 
-    #: Modeling source bundle closure.
-    modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: Exact immutable canonical modeling revision.
+    modeling_revision: str
     #: Physical source bundle.
     physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
     #: The exact admitted occurrence copied mechanically from StudyDefinition.
     point: StudyPointBinding
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.modeling), v.scalar_key(self.physical), v.record_key(self.point),))
+        return (type(self), (v.scalar_key(self.modeling_revision), v.scalar_key(self.physical), v.record_key(self.point),))
 
 
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
@@ -6325,23 +6325,23 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 6 of a study's definition: the store's `definition` document and the content of
+    """Version 7 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 6
+    _pse_required_version: ClassVar[int] = 7
 
     #: Document version.
-    version: Literal[6] = 6
-    #: The source bundles of the modeling package closure, in load order.
-    modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    version: Literal[7] = 7
+    #: The exact immutable canonical modeling revision.
+    modeling_revision: str
     #: The source bundle of the physical package.
     physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
     #: The points, in index order.
     points: tuple[StudyPointDefinition, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.modeling), v.scalar_key(self.physical), v.sequence_key(v.record_key)(self.points),))
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.scalar_key(self.physical), v.sequence_key(v.record_key)(self.points),))
 
 
 class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):

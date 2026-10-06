@@ -15,7 +15,12 @@ import pse
 from pse import codec
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
-from pse.contracts.documents import Profile
+from pse.contracts.documents import (
+    AuthoredNumericalRequirementsRow,
+    KktTolerances,
+    NumericalPolicy,
+    Profile,
+)
 from pse.contracts.enums import (
     AttemptKind,
     AttemptState,
@@ -23,6 +28,8 @@ from pse.contracts.enums import (
     HessianMode,
     NativeBackend,
     NativeSolveIntent,
+    NumericalCoordinates,
+    NumericalTarget,
     PresolvePolicyKind,
 )
 from pse.contracts.identities import DeclarationId, PublicationId, WorkspaceId
@@ -31,9 +38,9 @@ from pse.contracts.values import SemanticId
 
 @pytest.mark.integration
 def test_public_native_process_and_exact_results(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     root = Path(__file__).resolve().parents[3] / "packages/reference"
 
     def documents(path: Path) -> dict[str, str | bytes]:
@@ -110,8 +117,11 @@ def test_public_native_process_and_exact_results(
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
     assert checks
     assert all(row["satisfied"] for row in checks)
-    source = pa.table(result.table("authored.modeling_declarations"))
+    sources = package.source_tables()
+    source = pa.table(sources[SemanticId.from_hex("8023798ccdf06c39d0badbf7250f144b")])
     assert any(SemanticId(row["declaration_id"]) == case for row in source.to_pylist())
+    for stream in sources.values():
+        stream.close()
     arrays = table.column("value").chunks
     del table, result, prepared, package, runtime
     gc.collect()
@@ -123,9 +133,12 @@ def test_public_dynamic_and_transient_fit(
     inspection_settings: pse.EngineSettings,
     operational_store: pse.OperationalStore,
     tmp_path: Path,
+    canonical_substrate: str,
 ) -> None:
     # Only durable runs publish (ADR-0112 Outcome 16); every run is a stored attempt.
-    runtime = pse.Runtime(inspection_settings, store=operational_store)
+    runtime = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -214,7 +227,15 @@ def test_public_dynamic_and_transient_fit(
     assert pa.table(joined.table("runtime.simulation_samples")).to_pylist() == [
         {**row, "run_id": bytes.fromhex(joined.run_id.to_hex())} for row in samples
     ]
-    assert pa.table(joined.table("authored.modeling_declarations")).num_rows > 0
+    sources = package.source_tables()
+    assert (
+        pa.table(
+            sources[SemanticId.from_hex("8023798ccdf06c39d0badbf7250f144b")]
+        ).num_rows
+        > 0
+    )
+    for stream in sources.values():
+        stream.close()
     (listed,) = runtime.runs(run_id=joined.run_id)
     assert joined.attempt_id is not None
     assert listed.attempt_id == joined.attempt_id
@@ -237,7 +258,7 @@ def test_public_dynamic_and_transient_fit(
             SemanticId.from_hex(published.publication_id)
         )
         assert publication.attempt_id == joined.attempt_id
-        assert ("artifact", "authored", "modeling_declarations") in {
+        assert ("artifact", "runtime", "simulation_samples") in {
             (name.catalog, name.schema, name.table) for name in publication.tables()
         }
     converter = codec.converter()
@@ -290,6 +311,41 @@ def test_public_dynamic_and_transient_fit(
                     intent=NativeSolveIntent.OPTIMIZE,
                     presolve=PresolvePolicyKind.OFF,
                     controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY),
+                    # This analytic fit promises a 1e-5 rate, with a standardized
+                    # scalar least-squares objective. Bind its actual coordinates
+                    # and retain independent first-order optimality requirements.
+                    numerics=NumericalPolicy(
+                        kkt=KktTolerances(stationarity=1e-8, complementarity=1e-8),
+                        requirements=tuple(
+                            AuthoredNumericalRequirementsRow(
+                                requirement_id=identity(index).to_hex(),
+                                fit_id=fit.fit_id.to_hex(),
+                                target_id=target,
+                                target_kind=kind,
+                                unit_id=identity(10).to_hex(),
+                                coordinates=NumericalCoordinates.PHYSICAL,
+                                absolute_tolerance=absolute,
+                                relative_tolerance=0.0,
+                                priority=1,
+                                required=True,
+                                provenance="analytic transient fit output accuracy",
+                            )
+                            for index, target, kind, absolute in (
+                                (
+                                    107,
+                                    fit.parameters[0].symbol_id.to_hex(),
+                                    NumericalTarget.VARIABLE,
+                                    1e-7,
+                                ),
+                                (
+                                    108,
+                                    identity(0).to_hex(),
+                                    NumericalTarget.OBJECTIVE,
+                                    1e-10,
+                                ),
+                            )
+                        ),
+                    ),
                 ),
                 simulations={
                     fit.experiments[0].experiment_id.to_hex(): simulation_profile

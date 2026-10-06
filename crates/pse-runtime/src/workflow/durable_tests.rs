@@ -18,7 +18,10 @@ use std::time::Duration;
 pub(super) const LINEAR: &str = "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }";
 
 /// A package over `runtime` and its root analysis, solved by KINSOL.
-pub(super) fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, ModelingAnalysis) {
+pub(super) async fn package_on(
+    runtime: &Runtime,
+    source: &str,
+) -> (ModelingPackage, ModelingAnalysis) {
     let physical = physical();
     let rows = pse_authoring::language::parse(
         source,
@@ -32,7 +35,7 @@ pub(super) fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, M
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let mut solver = profile();
     solver.selection = SolverSelection::Explicit(Backend::Kinsol);
     solver.controls.reuse = ReusePolicy::AllowRebuild;
@@ -88,7 +91,7 @@ fn base() -> (tempfile::TempDir, url::Url) {
 async fn ephemeral_cannot_publish() {
     let runtime = runtime();
     assert!(matches!(runtime.durability(), Durability::Ephemeral));
-    let (package, analysis) = package_on(&runtime, LINEAR);
+    let (package, analysis) = package_on(&runtime, LINEAR).await;
     let cancel = crate::CancelSource::new();
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let handle = prepared.start().unwrap();
@@ -129,7 +132,7 @@ async fn durable_run_listed_after_restart() {
     let database = TestDatabase::create().await.unwrap();
     let (run_id, attempt_id) = {
         let runtime = durable_runtime(&database, "runtime-a").await;
-        let (package, analysis) = package_on(&runtime, LINEAR);
+        let (package, analysis) = package_on(&runtime, LINEAR).await;
         let cancel = crate::CancelSource::new();
         let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
         let handle = prepared.start().unwrap();
@@ -269,7 +272,7 @@ fn optimize(analysis: &mut ModelingAnalysis, history: usize) {
 async fn progress_stream_complete_under_volume() {
     let database = TestDatabase::create().await.unwrap();
     let runtime = durable_runtime(&database, "runtime-a").await;
-    let (package, mut analysis) = package_on(&runtime, ROSENBROCK);
+    let (package, mut analysis) = package_on(&runtime, ROSENBROCK).await;
     // A tiny in-memory cap: the durable stream does not share it.
     optimize(&mut analysis, 4);
     let cancel = crate::CancelSource::new();
@@ -305,7 +308,7 @@ async fn published_metrics_equal_stream_snapshot() {
     use pse_relations::generated::runtime::solve_metrics;
     let database = TestDatabase::create().await.unwrap();
     let runtime = durable_runtime(&database, "runtime-a").await;
-    let (package, mut analysis) = package_on(&runtime, ROSENBROCK);
+    let (package, mut analysis) = package_on(&runtime, ROSENBROCK).await;
     optimize(&mut analysis, 2);
     let cancel = crate::CancelSource::new();
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
@@ -393,7 +396,7 @@ async fn incompatible_seed_refused() {
         panic!()
     };
     let cancel = crate::CancelSource::new();
-    let (package, mut analysis) = package_on(&runtime, ROSENBROCK);
+    let (package, mut analysis) = package_on(&runtime, ROSENBROCK).await;
     optimize(&mut analysis, 8);
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();
@@ -411,7 +414,7 @@ async fn incompatible_seed_refused() {
             solution: solution.as_id()
         }));
     // Different coordinates: the explicit stored seed is refused, and none is found.
-    let (other, mut different) = package_on(&runtime, LINEAR);
+    let (other, mut different) = package_on(&runtime, LINEAR).await;
     optimize(&mut different, 8);
     different.solver.intent = pse_backend_native::solve::SolveIntent::FeasiblePoint;
     let elsewhere = other.prepare_analysis(&different, &cancel).await.unwrap();
@@ -491,7 +494,7 @@ async fn discrete_on(
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let mut solver = profile();
     solver.intent = pse_backend_native::solve::SolveIntent::Optimize;
     solver.selection = SolverSelection::Explicit(backend);

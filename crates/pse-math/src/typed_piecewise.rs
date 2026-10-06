@@ -265,24 +265,135 @@ impl BodyBuilder<'_> {
         if scope.0 > self.stages.len() || arguments.len() > 64 {
             return Err(MathError::Limit("piecewise proof scope or argument extent"));
         }
-        let mut stages = self.stages[scope.0..].to_vec();
-        let arguments = arguments.iter().map(|a| a.atom.clone()).collect::<Vec<_>>();
-        let count = prove(
-            &mut stages,
-            &mut BTreeMap::new(),
-            &arguments,
-            order,
-            self.limits.occurrences,
-        )?;
-        if count == 0 {
+        let mut key = pse_ids::FramedHasher::new(pse_ids::Frame::MathProofReceiptRequestV1);
+        key.str("piecewise-boundary-agreement")
+            .u64(scope.0 as u64)
+            .u64(order as u64)
+            .u64(arguments.len() as u64);
+        for argument in arguments {
+            key.id(&argument.source);
+            argument.quantity.frame(&mut key);
+        }
+        proof_topology(&self.stages[scope.0..], &mut key);
+        let branches = receipts::proof(key.finish_hash(), || {
+            receipts::require_admission()?;
+            let mut stages = self.stages[scope.0..].to_vec();
+            let arguments = arguments.iter().map(|a| a.atom.clone()).collect::<Vec<_>>();
+            let count = prove(
+                &mut stages,
+                &mut BTreeMap::new(),
+                &arguments,
+                order,
+                self.limits.occurrences,
+            )?;
+            if count == 0 {
+                return Err(MathError::Contract(
+                    "piecewise declaration requires an explicit breakpoint".into(),
+                ));
+            }
+            self.stages.truncate(scope.0);
+            self.stages.extend(stages);
+            let mut branches = Vec::new();
+            proof_orders(&self.stages[scope.0..], &mut branches);
+            Ok(branches)
+        })?;
+        let mut branches = branches.as_slice();
+        restore_proof_orders(&mut self.stages[scope.0..], &mut branches)?;
+        if !branches.is_empty() {
             return Err(MathError::Contract(
-                "piecewise declaration requires an explicit breakpoint".into(),
+                "piecewise receipt branch extent differs".into(),
             ));
         }
-        self.stages.truncate(scope.0);
-        self.stages.extend(stages);
         Ok(())
     }
+}
+fn proof_topology(stages: &[Stage], key: &mut pse_ids::FramedHasher) {
+    key.u64(stages.len() as u64);
+    for stage in stages {
+        match stage {
+            Stage::Block { outputs, .. } => {
+                key.str("block").u64(outputs.len() as u64);
+                for v in outputs {
+                    key.u64(*v as u64);
+                }
+            }
+            Stage::Require {
+                argument, source, ..
+            } => {
+                key.str("require").u64(*argument as u64).id(source);
+            }
+            Stage::Domain {
+                argument, token, ..
+            } => {
+                key.str("domain").u64(*argument as u64).u64(*token as u64);
+            }
+            Stage::Applicability { token, .. } => {
+                key.str("applicability").u64(*token as u64);
+            }
+            Stage::Provider { spec, .. } => {
+                key.str("provider").hash(&spec.key().0);
+            }
+            Stage::Branch {
+                comparison,
+                left,
+                right,
+                then,
+                otherwise,
+                ..
+            } => {
+                key.str("branch")
+                    .u64(*comparison as u64)
+                    .u64(*left as u64)
+                    .u64(*right as u64);
+                proof_topology(then, key);
+                proof_topology(otherwise, key);
+            }
+        }
+    }
+}
+fn proof_orders(stages: &[Stage], orders: &mut Vec<u8>) {
+    for stage in stages {
+        if let Stage::Branch {
+            continuity,
+            then,
+            otherwise,
+            ..
+        } = stage
+        {
+            orders.push(*continuity as u8);
+            proof_orders(then, orders);
+            proof_orders(otherwise, orders);
+        }
+    }
+}
+fn restore_proof_orders(stages: &mut [Stage], orders: &mut &[u8]) -> Result<(), MathError> {
+    for stage in stages {
+        if let Stage::Branch {
+            continuity,
+            then,
+            otherwise,
+            ..
+        } = stage
+        {
+            let (order, rest) = orders
+                .split_first()
+                .ok_or_else(|| MathError::Contract("missing piecewise branch receipt".into()))?;
+            *orders = rest;
+            *continuity = match order {
+                0 => DerivativeOrder::Value,
+                1 => DerivativeOrder::First,
+                2 => DerivativeOrder::Second,
+                _ => {
+                    return Err(MathError::Contract(
+                        "invalid piecewise receipt order".into(),
+                    ));
+                }
+            };
+            restore_proof_orders(then, orders)?;
+            restore_proof_orders(otherwise, orders)?;
+        }
+    }
+    Ok(())
 }
 
 /// Expand bounded pure control paths, and ask Symbolica to differentiate each leaf.

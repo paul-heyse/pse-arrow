@@ -28,6 +28,14 @@ pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
+        pse_runtime::workflow::CanonicalDeployment::new(
+            pse_operations::testing::canonical_fixture_store().unwrap(),
+            pse_runtime::workflow::OuterAttestation {
+                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                build: pse_ids::ContentHash::from_bytes([1; 32]),
+            },
+            None,
+        ),
     )
 }
 fn package_documents(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
@@ -205,6 +213,7 @@ pub(crate) async fn seed_package_on(
         .unwrap();
     runtime
         .modeling_from_documents(&documents, physical)
+        .await
         .unwrap()
 }
 pub(crate) fn seed_limits() -> pse_modeling::Limits {

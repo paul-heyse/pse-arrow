@@ -437,6 +437,28 @@ frames! {
         MathArtifactV5 => "pse.math.artifact.v5",
         /// Demanded directional evaluator with runtime seed coordinates.
         MathDirectionalArtifactV1 => "pse.math.directional-artifact.v1",
+        /// Relevant production units and consumed source/native inputs, separate from outer attestation.
+        ProducerV1 => "pse.producer.v1",
+        /// Exact idempotent canonical mutation inputs, independently of operation ID.
+        CanonicalEditV1 => "pse.canonical.edit.v1",
+        /// Registry-generated source object bytes and parser attribution before transport lowering.
+        CanonicalSourceObjectV1 => "pse.canonical.source-object.v1",
+        /// Exact source payload bytes, independent of transport chunking.
+        CanonicalPayloadV1 => "pse.canonical-payload.v1",
+        /// Immutable source identity, metadata, payload and structural references.
+        CanonicalVersionV1 => "pse.canonical-version.v1",
+        /// Portable product content and its complete captured canonical dependency meaning.
+        CanonicalProductV1 => "pse.canonical-product.v1",
+        /// Exact generated native schema and codec interpretation at database opening.
+        CanonicalSchemaV1 => "pse.canonical-schema.v1",
+        /// Exact authenticated subvalues of a qualified portable scientific recipe.
+        MathReplayAuthorityV1 => "pse.math.replay-authority.v1",
+        /// Portable mathematical meaning with its concrete admitted construction receipts.
+        MathAdmittedRecipeV1 => "pse.math.admitted-recipe.v1",
+        /// Actual physical operation inputs matched by a concrete reconstruction receipt.
+        MathConcreteReceiptRequestV1 => "pse.math.concrete-receipt-request.v1",
+        /// Exact admitted scientific proof and piecewise continuity construction request.
+        MathProofReceiptRequestV1 => "pse.math.proof-receipt-request.v1",
         /// Complete retained surrogate task correspondence, fidelity and finite controls.
         MathSurrogateTaskV1 => "pse.math.surrogate-task.v1",
         /// Declared physical least-deviation center, metric, held coordinates and original contract.
@@ -490,6 +512,9 @@ frames! {
         /// Operational job with current automatic composition interpretation.
         DurableJobRequestV4 => "pse.durable.job_request.v4",
         /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        /// Canonical modeling revision inputs for a durable job.
+        DurableJobRequestV6 => "pse.durable.job_request.v6",
+        /// Prior operation-specific job inputs; canonical revisions use V6.
         DurableJobRequestV5 => "pse.durable.job_request.v5",
         /// A durable modeling request.
         DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
@@ -504,6 +529,9 @@ frames! {
         /// Study request with current automatic composition interpretation.
         DurableStudyRequestV3 => "pse.durable.study_request.v3",
         /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
+        /// Canonical modeling revision inputs for an immutable study.
+        DurableStudyRequestV5 => "pse.durable.study_request.v5",
+        /// Prior operation-specific study inputs; canonical revisions use V5.
         DurableStudyRequestV4 => "pse.durable.study_request.v4",
         /// The value bindings of one durable study point (Plan 22 O7).
         DurableStudyPointBindingV1 => "pse.durable.study_point_binding.v1",

@@ -10,12 +10,11 @@ use pse_relations::generated::authored;
 use pse_schema::Registry;
 use std::collections::BTreeMap;
 
-/// Assemble a complete desired source inventory using generated Arrow concatenation.
-/// Empty declared sections remain explicit input bindings.
-/// Complete headers include any immutable physical package supplied by the context owner.
+/// Admit the source context needed by document compilation without materializing
+/// modeling rows as Arrow. Other source facts retain their existing native boundary.
 /// # Errors
-/// Missing dependencies, cycles, reference violations or incompatible generated field contracts.
-pub fn source_batches(
+/// Package closure, actual reference facts or generated concatenation refusal.
+pub fn source_context_batches(
     bundles: &[DocumentBundle],
     registry: &Registry,
     headers: &[authored::packages::Row],
@@ -24,27 +23,12 @@ pub fn source_batches(
     use pse_relations::columnar::FieldCheckedBatch;
     admit_package_closure(bundles, headers, limits)?;
     let mut parts = BTreeMap::<SemanticId, Vec<FieldCheckedBatch>>::new();
-    for document in registry.documents() {
-        for section in &document.sections {
-            let spec = registry
-                .relation(section.relation)
-                .ok_or_else(|| contract("source declaration missing"))?;
-            parts.entry(spec.id).or_default();
-        }
-    }
-    for id in [
-        authored::packages::RELATION_ID,
-        authored::documents::RELATION_ID,
-        authored::entities::RELATION_ID,
-    ] {
-        parts.entry(id).or_default();
-    }
     for bundle in bundles {
         for (id, batch) in &bundle.batches {
             parts.entry(*id).or_default().push(batch.clone());
         }
     }
-    let batches: crate::authoring_driver::document::Batches = parts
+    let batches = parts
         .into_iter()
         .map(|(id, values)| {
             let spec = registry
@@ -55,6 +39,59 @@ pub fn source_batches(
         .collect::<Result<_, DriverError>>()?;
     admit_references(&batches, registry)?;
     Ok(batches)
+}
+
+/// Project the genuinely global physical entity universe at its native boundary.
+/// Routine modeling selection does not request these columns. Only declarations
+/// consumed by the shared physical inventory are lowered here.
+/// # Errors
+/// Generated validation, allocation, cancellation or physical declaration refusal.
+pub fn physical_declaration_batch(
+    bundles: &[DocumentBundle],
+    registry: &Registry,
+    validation: &pse_relations::validate::ValidationContext,
+    pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, DriverError> {
+    use pse_model::generated::enums::ModelingDeclarationKind;
+    use pse_relations::columnar::RelationRow;
+    let selected = || {
+        bundles
+            .iter()
+            .flat_map(|bundle| &bundle.documents)
+            .filter_map(|document| document.modeling_rows())
+            .flat_map(|rows| rows.iter())
+            .filter(|row| {
+                matches!(
+                    row.value.kind,
+                    ModelingDeclarationKind::Entity | ModelingDeclarationKind::EntityKind
+                )
+            })
+    };
+    let count = selected().count();
+    if count == 0 {
+        return Ok(None);
+    }
+    let extent = selected().try_fold(
+        authored::modeling_declarations::Row::builder_allocation_size(),
+        |extent, row| {
+            extent
+                .checked_add(row.allocation_size()?.saturating_mul(8))
+                .ok_or_else(|| contract("physical entity projection extent overflow"))
+        },
+    )?;
+    let scratch =
+        pse_columnar::MemoryConsumer::new("physical:entity-declaration-projection").register(pool);
+    scratch
+        .try_grow(extent)
+        .map_err(pse_columnar::CanonError::from)?;
+    let mut builder =
+        authored::modeling_declarations::Builder::with_registry(registry, count, validation)?;
+    for row in selected() {
+        cancel.checkpoint()?;
+        builder.push(row.clone())?;
+    }
+    Ok(Some(builder.finish()?.retained(pool, cancel)?))
 }
 
 /// Admit the final complete package closure under its retained owner's finite graph bounds.

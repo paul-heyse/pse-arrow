@@ -91,9 +91,9 @@ def _physical_ids(quantity: str, unit: str) -> tuple[str, str]:
 
 @pytest.mark.integration
 def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -144,9 +144,9 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
 
 @pytest.mark.integration
 def test_study_unusable_predecessor_retains_refusal_without_dispatch(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -191,9 +191,9 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
 
 @pytest.mark.component
 def test_study_binding_identity_uses_admitted_member_and_physical_value(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -230,9 +230,9 @@ def test_study_binding_identity_uses_admitted_member_and_physical_value(
 
 @pytest.mark.component
 def test_study_physical_mismatch_preserves_full_boundary_envelope(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -375,9 +375,12 @@ def test_study_controller_moves_preserve_exact_typed_tuple_positions() -> None:
 @pytest.mark.component
 @pytest.mark.parametrize(("operation", "version"), [("admit_study", 2), ("study", 4)])
 def test_native_study_version_precedes_nested_current_decode(
-    inspection_settings: pse.EngineSettings, operation: str, version: int
+    inspection_settings: pse.EngineSettings,
+    operation: str,
+    version: int,
+    canonical_substrate: str,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, _case = _package(runtime)
     # Malformed current fields precede the header at the actual native boundary.
     historical = msgspec.json.encode({"points": "retired shape", "version": version})
@@ -393,9 +396,9 @@ def test_native_study_version_precedes_nested_current_decode(
 
 @pytest.mark.component
 def test_study_request_excludes_owner_seed_capability(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     _package_owner, case = _package(runtime)
     document = codec.encode_json(request(point(case, pse.SolveSettings(), 0)))
     wire = msgspec.json.decode(document, type=dict[str, object])
@@ -414,8 +417,11 @@ def test_durable_study_publishes_once(
     inspection_settings: pse.EngineSettings,
     operational_store: pse.OperationalStore,
     tmp_path: Path,
+    canonical_substrate: str,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, store=operational_store)
+    runtime = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -505,8 +511,11 @@ def test_durable_study_cancel_and_its_refusals(
     inspection_settings: pse.EngineSettings,
     operational_store: pse.OperationalStore,
     tmp_path: Path,
+    canonical_substrate: str,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, store=operational_store)
+    runtime = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
@@ -542,13 +551,15 @@ def test_durable_study_cancel_and_its_refusals(
         assert occurrence.outcome.attempts == ()
         assert not occurrence.outcome.scientific.usable
 
-    # A workspace selects a durable study; a package changed in memory has no authored
-    # sources.
+    # A derived package does not retain the shared physical source prerequisite
+    # required to dispatch a durable study.
     with pytest.raises(ValueError, match="durable study"):
         # pyrefly: ignore[unexpected-keyword] -- the overloads reject this call; its
         # runtime refusal is what is under test
         package.study(definition, workspace=workspace)
-    with pytest.raises(pse.InspectionError, match="immutable source documents"):
+    with pytest.raises(
+        pse.InspectionError, match="shared physical source prerequisite"
+    ):
         package.with_limits(pse.ModelingLimits()).study(
             definition, runtime=runtime, workspace=workspace
         )
@@ -556,10 +567,10 @@ def test_durable_study_cancel_and_its_refusals(
 
 @pytest.mark.integration
 def test_flash_sweep_prepares_structure_once(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
     """A feed-temperature sweep of the BT ideal flash changes values only (CT-S08)."""
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     reference = Path(__file__).resolve().parents[3] / "packages/reference"
 
     def documents(path: Path) -> dict[str, str | bytes]:
@@ -679,9 +690,9 @@ def test_flash_sweep_prepares_structure_once(
 
 @pytest.mark.integration
 def test_fresh_capped_study_preserves_individual_automatic_execution(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     native = pse.PounceSettings()
     settings = pse.SolveSettings(
@@ -743,9 +754,9 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
 
 @pytest.mark.integration
 def test_capped_related_root_study_charges_prediction_and_screening(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     package, case = _package(
         runtime, source=SOURCE.replace("    annotation bounds x(0,10);\n", "")
     )

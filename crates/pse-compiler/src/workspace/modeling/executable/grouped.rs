@@ -57,10 +57,11 @@ fn semantic_body(
 ) -> Result<Arc<AdmittedBody>> {
     checkpoint(db);
     let input = key.input(db);
-    if let Some(body) = db
-        .body_retention()
-        .and_then(|cache| cache.get(input.identity))
-    {
+    let retained = match db.body_retention() {
+        Some(cache) => cache.get(input.identity)?,
+        None => None,
+    };
+    if let Some(body) = retained {
         let _reuse = tracing::info_span!(
             "pse.case.semantic_body_reuse",
             product = "body",
@@ -133,10 +134,7 @@ fn body_heap(value: &Result<Arc<AdmittedBody>>) -> usize {
     value
         .as_ref()
         .map_or_else(CompileError::retained_bytes, |b| {
-            size_of::<AdmittedBody>()
-                + b.math.retained_bytes()
-                + b.quantities.capacity() * size_of::<QuantityTypeId>()
-                + b.occurrences.capacity() * size_of::<Occurrence>()
+            b.descriptor_bytes() + b.math.retained_bytes()
         })
 }
 

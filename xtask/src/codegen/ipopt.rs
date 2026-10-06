@@ -38,7 +38,7 @@ pub(super) fn run(root: &Path, check: bool) -> Result<()> {
             );
         }
         super::untracked_check(root, &[PathBuf::from(super::BINDINGS)])?;
-    } else {
+    } else if !matches!(fs::read_to_string(&output), Ok(previous) if previous == text) {
         fs::write(output, text).context("writing generated Ipopt bindings")?;
     }
     println!(

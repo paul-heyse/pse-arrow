@@ -34,6 +34,7 @@ fn rows(text: &str) -> Vec<Declaration> {
 fn document(path: &str, magnitudes: &[f64]) -> Arc<DataDocument> {
     let bytes = format!("{path}:{magnitudes:?}");
     Arc::new(DataDocument {
+        allocation_owner: None,
         id: pse_ids::named_id(PACKAGE, path),
         path: path.into(),
         content_hash: pse_ids::encoding_checksum(bytes.as_bytes()).content_hash(),
@@ -188,6 +189,7 @@ fn document_rows_are_charged_to_the_workspace_limits() {
     let big = |rows: i64| {
         let mut inventory = inventory(&[1.0], &[1.0]).as_ref().clone();
         let document = Arc::new(DataDocument {
+            allocation_owner: None,
             id: pse_ids::named_id(PACKAGE, "data/big.parquet"),
             path: "data/big.parquet".into(),
             content_hash: pse_ids::encoding_checksum(&rows.to_le_bytes()).content_hash(),

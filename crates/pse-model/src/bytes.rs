@@ -5,7 +5,19 @@
 
 /// Exact bytes, compared, framed and stored byte for byte. A package data document's
 /// content is one; text is never implied.
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(transparent)]
 pub struct Bytes(Vec<u8>);
 
 impl Bytes {

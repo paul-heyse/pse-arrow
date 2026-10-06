@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 127
-date: 2026-10-05
+revision: 129
+date: 2026-10-06
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 129 | 2026-10-06 | ADR-0164 A/B contracts: selected canonical sources, chunked leased activation, protected retention and publication identity, strict compiler-receipt replay authority, actual Cargo producer capture and compact formal layouts. C/D/E remain separately owned target migration; no production eligibility or measured speed claim. | Maintainer-authorized Plan 28a/28b execution; proposed decision status unchanged; `PSE_DESIGN_EDIT=1`. |
+| 128 | 2026-10-05 | ADR-0164 records the maintainer-authorized unified SurrealDB target: canonical revisions, selected admission and portable products, relevant producer identity, durable outcomes, protected retention and native/Arrow boundaries. Existing implementation descriptions remain predecessor evidence during Plan 28 migration; no measured gain or assembled qualification claimed. | Proposed decision under implementation authorization; `PSE_DESIGN_EDIT=1`. |
 | 126 | 2026-10-05 | ADR-0162: §24.4 adopts Core 3.4 / ProcessSimulator 1.5 execution fit as AP-07 through existing G9, with composed physical work, reuse, assurance and recovery criteria. Existing scientific gates, PS-09 solver ownership and bounded discretionary review cadence remain. | Maintainer-authorized principles adoption; Implemented policy, no product qualification or measured performance claim; `PSE_DESIGN_EDIT=1`. |
 | 125 | 2026-10-05 | §16.1 records the shared engineering default and typed physical policy, retained individual slots and explicit overrides; §13.3 removes automatic quadrature tightening. Production numerical tests check implemented premises and declared behavior; process mesh refinement checks sampled decision stability rather than theoretical order ratios. | Maintainer-authorized convergence review implementation within ADR-0106; `PSE_DESIGN_EDIT=1`; qualification remains in Plan 25k. |
 | 124 | 2026-10-05 | Plan 25 closeout redirects completed, committed companion plans to immutable history and removes stale execution ownership in §9.1/§19.2. D6 clarifies library-owned original evaluation and the existing §18.10.1 export-readback operation; no semantic exception. Assembled qualification remains in 25k until its campaign completes. | Maintainer-authorized closure through ADR-0096/0144/0150/0160; `PSE_DESIGN_EDIT=1`; proposed decision acceptance unchanged. |

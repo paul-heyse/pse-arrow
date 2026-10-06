@@ -30,7 +30,10 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .unwrap()
         .declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
     solver.selection = SolverSelection::Explicit(Backend::Kinsol);
@@ -280,7 +283,10 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         .unwrap()
         .declaration_id;
     let runtime = fixture::runtime_with(128 << 20, 1 << 20, 512 << 20);
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
     solver.selection = SolverSelection::Explicit(Backend::Kinsol);
@@ -446,7 +452,8 @@ async fn solve_with_backend(
         .ok_or_else(|| std::io::Error::other("Root declaration absent"))?
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 16 << 20, 1 << 30)
-        .modeling_package(rows, fixture::physical())?;
+        .modeling_package(rows, fixture::physical())
+        .await?;
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
     solver.selection = SolverSelection::Explicit(backend);
@@ -557,6 +564,7 @@ async fn root_response_rank_loss_withholds_sensitivity_and_keeps_feasible_base()
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 16 << 20, 1 << 30)
         .modeling_package(rows, fixture::physical())
+        .await
         .unwrap();
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
@@ -761,7 +769,10 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
     let root = rows.iter().find(|r| r.name == "Qp").unwrap().declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Optimize;
     solver.selection = SolverSelection::Explicit(Backend::Ipopt);
@@ -1004,6 +1015,7 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         .declaration_id;
     let unrelated_package = runtime
         .modeling_package(unrelated_rows, fixture::physical())
+        .await
         .unwrap();
     let mut unrelated_analysis = analysis.clone();
     unrelated_analysis.root = unrelated_root;

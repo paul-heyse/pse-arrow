@@ -7,7 +7,7 @@ use pse_structural::flowsheet::{Decision, Policy};
 
 const SOURCE: &str = include_str!("../../../../../../tests/fixtures/indexed-recycle-closure.pse");
 
-fn package(source: &str) -> ModelingPackage {
+async fn package(source: &str) -> ModelingPackage {
     let declarations = pse_authoring::language::parse(
         source,
         SemanticId::NIL,
@@ -22,15 +22,20 @@ fn package(source: &str) -> ModelingPackage {
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    runtime().modeling_package(declarations, physical).unwrap()
+    runtime()
+        .modeling_package(declarations, physical)
+        .await
+        .unwrap()
 }
 
 #[tokio::test]
 async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_external_closure() {
-    let package = package(SOURCE);
+    let package = package(SOURCE).await;
     let cancel = crate::CancelSource::new();
     let root = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|r| r.name == "Root")
         .unwrap()
@@ -234,9 +239,11 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
             false,
         ),
     ] {
-        let package = package(&source);
+        let package = package(&source).await;
         let root = package
             .declarations()
+            .await
+            .unwrap()
             .iter()
             .find(|r| r.name == "dynamic")
             .unwrap()
@@ -279,9 +286,12 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
     let package = package(&SOURCE.replace(
         "eq initial:reactor[0{s}].inventory==starting_inventory;",
         "",
-    ));
+    ))
+    .await;
     let root = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|r| r.name == "dynamic")
         .unwrap()

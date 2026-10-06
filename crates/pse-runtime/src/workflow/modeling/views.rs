@@ -37,7 +37,7 @@ impl ModelingPackage {
             None => {
                 let view = service
                     .prepare_modeling_view(
-                        self.workspace.clone(),
+                        self.numerical_workspace()?,
                         model.clone(),
                         bound.structure,
                         values.clone(),
@@ -91,7 +91,7 @@ impl ModelingPackage {
             .shared
             .math()
             .prepare_modeling_parametric(
-                self.workspace.clone(),
+                self.numerical_workspace()?,
                 prepared.case.clone(),
                 parameters.to_vec(),
                 order,
@@ -141,7 +141,7 @@ impl ModelingPackage {
             .shared
             .math()
             .prepare_modeling_observations(
-                self.workspace.clone(),
+                self.numerical_workspace()?,
                 model.clone(),
                 rows.clone(),
                 compiler,

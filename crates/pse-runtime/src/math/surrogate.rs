@@ -940,6 +940,7 @@ mod tests {
             .declaration_id;
         let package = runtime
             .modeling_package(rows, workflow_fixture::physical())
+            .await
             .unwrap();
         let cancel = crate::CancelSource::new();
         let profile = SolverProfile {

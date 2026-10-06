@@ -41,7 +41,10 @@ fn mark(phases: &mut BTreeMap<String, f64>, name: &str, started: Instant) {
     *phases.entry(name.into()).or_default() += started.elapsed().as_secs_f64();
 }
 /// Vary instance count by composing the authored unit, without restating its equations.
-fn heater_blocks(package: &ModelingPackage, blocks: usize) -> (ModelingPackage, DeclarationId) {
+async fn heater_blocks(
+    package: &ModelingPackage,
+    blocks: usize,
+) -> (ModelingPackage, DeclarationId) {
     let mut fixture = String::new();
     let mut children = String::from(
         "permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;",
@@ -65,13 +68,13 @@ fn heater_blocks(package: &ModelingPackage, blocks: usize) -> (ModelingPackage, 
         .find(|r| r.name == "workload")
         .unwrap()
         .declaration_id;
-    let mut rows = package.declarations().to_vec();
+    let mut rows = package.declarations().await.unwrap().to_vec();
     rows.extend(
         extra
             .into_iter()
             .filter(|r| r.value.kind.as_str() != "package"),
     );
-    (package.with_declarations(rows).unwrap(), case)
+    (package.with_declarations(rows).await.unwrap(), case)
 }
 fn process(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
@@ -127,7 +130,7 @@ fn process(c: &mut Criterion) {
         let (package, case) = if operation == "flash" {
             (source.clone(), flash)
         } else {
-            heater_blocks(&source, blocks)
+            executor.block_on(heater_blocks(&source, blocks))
         };
         let prepared = executor
             .block_on(seed_prepare(
@@ -170,16 +173,16 @@ fn process(c: &mut Criterion) {
         mark(&mut phases,"runtime_admission",begin);
         let begin=Instant::now();
         let (mut package,case)=if let Some((_,source,package,case))=&retained {
-            if reuse=="structure" {heater_blocks(source,blocks+(iterations as usize%2))} else {(package.clone(),*case)}
+            if reuse=="structure" {executor.block_on(heater_blocks(source,blocks+(iterations as usize%2)))} else {(package.clone(),*case)}
         } else {
             let source=seed(owner);
-            if operation=="flash" {(source,flash)} else {heater_blocks(&source,blocks)}
+            if operation=="flash" {(source,flash)} else {executor.block_on(heater_blocks(&source,blocks))}
         };
         if reuse=="specialization" {
-            let mut rows=package.declarations().to_vec();
+            let mut rows=executor.block_on(package.declarations()).unwrap().to_vec();
             let row=rows.iter_mut().find(|r|r.declaration_id==DeclarationId::from_id(pse_ids::SemanticId::parse_hex("0ed2b62ea07d570bb1db5f48ec53354e").unwrap())).unwrap();
             row.value.contribution.as_mut().unwrap().expression=format!("{}*fraction*recycle",1.0+(iterations+1) as f64*1e-10);
-            package=package.with_declarations(rows).unwrap();
+            package=executor.block_on(package.with_declarations(rows)).unwrap();
         }
         mark(&mut phases,"source_admission",begin);
         let begin=Instant::now();

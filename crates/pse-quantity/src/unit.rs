@@ -20,7 +20,9 @@ use std::hash::{Hash, Hasher};
 
 /// One canonical factor of a unit product: an atomic unit and its nonzero rational
 /// exponent (ADR-0124).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub struct UnitFactor {
     /// The atomic unit, or, in an authored composition, any declared unit.
     pub unit: UnitId,
@@ -549,6 +551,35 @@ impl CanonicalMagnitude {
     /// Admitted physical quantity identity.
     pub const fn quantity(self) -> QuantityTypeId {
         self.quantity
+    }
+}
+/// Untrusted exact canonical magnitude data, separate from an admitted magnitude.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MagnitudeRecord {
+    bits: u64,
+    quantity: QuantityTypeId,
+}
+impl MagnitudeRecord {
+    /// Capture an already admitted canonical value without unit conversion.
+    pub fn capture(v: CanonicalMagnitude) -> Self {
+        Self {
+            bits: v.bits,
+            quantity: v.quantity,
+        }
+    }
+    /// Restore only during strict replay of a qualified selected numerical product.
+    pub fn restore(self) -> Result<CanonicalMagnitude, crate::QuantityError> {
+        crate::resolved::receipts::require_record(&self)?;
+        if !f64::from_bits(self.bits).is_finite() {
+            return Err(crate::QuantityError::InferencePrecondition {
+                rule: "physical.magnitude_receipt",
+                detail: "nonfinite canonical magnitude receipt".into(),
+            });
+        }
+        Ok(CanonicalMagnitude {
+            bits: self.bits,
+            quantity: self.quantity,
+        })
     }
 }
 impl UnitConvertSpec {

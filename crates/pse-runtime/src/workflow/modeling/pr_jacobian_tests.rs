@@ -103,7 +103,12 @@ async fn package(
     })?;
     let registry = pse_schema::shared_registry()?;
     let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
-    let runtime = Runtime::from_shared(shared.clone(), registry.clone(), sessions.clone());
+    let runtime = Runtime::from_shared(
+        shared.clone(),
+        registry.clone(),
+        sessions.clone(),
+        crate::workflow::tests::canonical_deployment(),
+    );
     let token = pse_columnar::CancellationToken::new();
     let pool = shared.pool();
     let validation = sessions.validation_context(&registry)?;
@@ -134,7 +139,10 @@ async fn package(
     let closure = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
         bundles, &pool, &token,
     )?;
-    Ok((runtime.modeling_from_documents(&closure, physical)?, spill))
+    Ok((
+        runtime.modeling_from_documents(&closure, physical).await?,
+        spill,
+    ))
 }
 
 /// The current authored seed closure, shared with focused initialization controls.

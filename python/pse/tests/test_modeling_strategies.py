@@ -27,9 +27,9 @@ PRIMITIVES = (
 
 @pytest.mark.integration
 def test_authored_recycle_uses_declared_ports_and_owned_results(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(

@@ -67,7 +67,7 @@ fn quadratic(build: bool) -> String {
     )
 }
 
-fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -83,6 +83,7 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .declaration_id;
     let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
         .modeling_package(rows, physical)
+        .await
         .unwrap();
     (package, root)
 }
@@ -178,7 +179,7 @@ fn dual(result: &crate::workflow::RunResult, row: SemanticId) -> Option<f64> {
 /// Without either, no commitment is stated and a MIP candidate has no multipliers.
 #[tokio::test]
 async fn duals_conditional_on_assignment() {
-    let (package, root) = package(MILP);
+    let (package, root) = package(MILP).await;
     let paths = ["y", "total", "cap"];
     let priced = BackendSettings::Highs(highs::Settings {
         diagnostics: highs::Request {
@@ -222,13 +223,13 @@ async fn duals_conditional_on_assignment() {
     // The MIQP routes to SCIP; its candidate is the re-solve under build = 0, whose coupling
     // multiplier is the continuous case's.
     let paths = ["build", "coupling"];
-    let (package, root) = self::package(&quadratic(true));
+    let (package, root) = self::package(&quadratic(true)).await;
     let auto = profile(SolverSelection::Auto, BackendSettings::Default);
     let (result, ids) = solve(&package, &analysis(root, auto, &paths[..1]), &paths).await;
     assert_eq!(backend(&result), NativeBackend::Scip);
     assert_eq!(commitment(&result), Some(vec![(ids[0], 0.0)]));
     let conditional = dual(&result, ids[1]).unwrap();
-    let (package, root) = self::package(&quadratic(false));
+    let (package, root) = self::package(&quadratic(false)).await;
     let ipopt = profile(
         SolverSelection::Explicit(Backend::Ipopt),
         BackendSettings::Default,
@@ -258,7 +259,7 @@ async fn sensitivity_conditional_on_assignment() {
     ) {
         let paths = ["a", "b", "x", "build"];
         let paths = if build { &paths[..] } else { &paths[..3] };
-        let (package, root) = package(&quadratic(build));
+        let (package, root) = package(&quadratic(build)).await;
         // The continuous reference runs on the NLP backend the re-solve routes to.
         let selection = if build {
             SolverSelection::Auto

@@ -29,7 +29,7 @@ fn point(operation: OperationRequest) -> StudyPoint {
         },
     }
 }
-fn plant() -> (ModelingPackage, DeclarationId) {
+async fn plant() -> (ModelingPackage, DeclarationId) {
     let text = "package p {
       def Root {
         domain t:Time from 0{s} to 1{s};
@@ -70,6 +70,7 @@ fn plant() -> (ModelingPackage, DeclarationId) {
     (
         super::super::tests::runtime()
             .modeling_package(rows, physical)
+            .await
             .unwrap(),
         root,
     )
@@ -116,6 +117,8 @@ async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOpera
     assert!(simulation.contract().parameters.contains(&parameter));
     let control = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|r| r.name == "Control")
         .unwrap()
@@ -158,11 +161,10 @@ async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOpera
 
 #[tokio::test]
 async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
-    let (package, case) = plant();
+    let (package, case) = plant().await;
     let definition = package
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
-            vec![],
             &[point(OperationRequest::Simulation(SimulationOperation {
                 case,
                 profile: None,
@@ -188,7 +190,7 @@ async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
 async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     use super::super::fitting::regression;
     use pse_backend_native::solve::{Backend, SolveIntent};
-    let package = regression::package(regression::declared(), [1.; 4]);
+    let package = regression::package(regression::declared(), [1.; 4]).await;
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
         settings: FitOperationSettings {
@@ -207,7 +209,6 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     let definition = package
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
-            vec![],
             &[point(request)],
             &CancelSource::new(),
         )
@@ -226,12 +227,11 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
 
 #[tokio::test]
 async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_meaning() {
-    let (package, case) = plant();
+    let (package, case) = plant().await;
     let request = horizon(&package, case).await;
     let definition = package
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
-            vec![],
             &[point(OperationRequest::Horizon(Box::new(request.clone())))],
             &CancelSource::new(),
         )
@@ -253,7 +253,6 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let other = package
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
-            vec![],
             &[point(OperationRequest::Horizon(Box::new(equivalent)))],
             &CancelSource::new(),
         )
@@ -274,7 +273,6 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let error = package
         .admit_study_points(
             ContentHash::from_bytes([0; 32]),
-            vec![],
             &[point(OperationRequest::Horizon(Box::new(wrong)))],
             &CancelSource::new(),
         )
@@ -288,9 +286,11 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
 
 #[tokio::test]
 async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence() {
-    let (package, case) = plant();
+    let (package, case) = plant().await;
     let control = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|r| r.name == "Control")
         .unwrap()

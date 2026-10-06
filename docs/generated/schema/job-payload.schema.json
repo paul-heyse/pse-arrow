@@ -2913,13 +2913,9 @@
               "const": "modeling",
               "type": "string"
             },
-            "modeling": {
-              "description": "The source bundles of the modeling package closure, in load order.",
-              "items": {
-                "pattern": "^blake3:[0-9a-fA-F]{64}$",
-                "type": "string"
-              },
-              "type": "array"
+            "modeling_revision": {
+              "description": "The exact immutable canonical modeling revision.",
+              "type": "string"
             },
             "physical": {
               "description": "The source bundle of the physical package.",
@@ -2945,7 +2941,7 @@
           "required": [
             "kind",
             "physical",
-            "modeling",
+            "modeling_revision",
             "case",
             "route",
             "settings"
@@ -2960,13 +2956,9 @@
               "const": "study_operation",
               "type": "string"
             },
-            "modeling": {
-              "description": "Modeling source bundle closure.",
-              "items": {
-                "pattern": "^blake3:[0-9a-fA-F]{64}$",
-                "type": "string"
-              },
-              "type": "array"
+            "modeling_revision": {
+              "description": "Exact immutable canonical modeling revision.",
+              "type": "string"
             },
             "physical": {
               "description": "Physical source bundle.",
@@ -2981,7 +2973,7 @@
           "required": [
             "kind",
             "physical",
-            "modeling",
+            "modeling_revision",
             "point"
           ],
           "type": "object"
@@ -5117,15 +5109,15 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 8 of a durable job's payload: the one task a job runs. Unknown fields, tasks\nand versions are refused.",
+  "description": "Version 9 of a durable job's payload: the one task a job runs. Unknown fields, tasks\nand versions are refused.",
   "properties": {
     "task": {
       "$ref": "#/$defs/JobTask",
       "description": "The task."
     },
     "version": {
-      "const": 8,
-      "default": 8,
+      "const": 9,
+      "default": 9,
       "description": "Document version.",
       "type": "integer"
     }

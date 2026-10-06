@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -80,7 +81,7 @@ def measure(output: Path, selected: str) -> None:
             max_spill_bytes=1 << 30,
             batch_size=1024,
         )
-        runtime = pse.Runtime(engine)
+        runtime = pse.Runtime(engine, substrate=os.environ["PSE_SURREAL_STATE"])
         package = runtime.modeling_from_documents(
             [
                 documents(base / spec.package),

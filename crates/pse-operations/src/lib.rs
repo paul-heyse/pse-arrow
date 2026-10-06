@@ -20,6 +20,11 @@
 pub mod attempts;
 mod bulk;
 pub mod cancellation;
+pub mod canonical;
+pub mod canonical_codec;
+pub mod canonical_retention;
+pub mod canonical_selection;
+pub mod canonical_staging;
 pub mod catalog;
 mod error;
 mod ids;

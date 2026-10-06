@@ -99,6 +99,21 @@ impl ReportSource for pse_runtime::RuntimeError {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
     }
 }
+impl ReportSource for pse_columnar::CanonError {
+    fn report_boundary(&self) -> BoundaryDiagnostic {
+        pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
+    }
+}
+impl ReportSource for pse_operations::canonical::CanonicalError {
+    fn report_boundary(&self) -> BoundaryDiagnostic {
+        pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
+    }
+}
+impl ReportSource for pse_runtime::math::portable::PortableError {
+    fn report_boundary(&self) -> BoundaryDiagnostic {
+        pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
+    }
+}
 impl ReportSource for pse_engine::EngineError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)

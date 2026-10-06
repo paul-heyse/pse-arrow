@@ -457,7 +457,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let compiler = super::super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let mut solver = super::super::super::super::tests::profile();

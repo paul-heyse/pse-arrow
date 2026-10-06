@@ -117,6 +117,7 @@ impl BodyBuilder<'_> {
         value: &TypedValue,
         witness: &ScientificWitness,
     ) -> Result<bool, MathError> {
+        receipts::require_admission()?;
         let mut bindings = BTreeMap::new();
         witness_bindings(&self.stages, &mut bindings, self.limits.occurrences, 0)?;
         let atom = witness_resolve(&value.atom, &bindings, self.limits.occurrences)?;

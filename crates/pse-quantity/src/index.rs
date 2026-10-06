@@ -27,7 +27,9 @@ use crate::ids::{BoundIndexId, DomainId};
 /// well-formed set holds at most one entry per `bound_index`; [`IndexSet::insert`] reports
 /// a second entry for the same binder rather than overwriting it, because two domains for
 /// one binder is a compiler bug, not a merge.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub struct BoundIndexRef {
     /// The binding occurrence: which `i` this is, not which set it ranges over.
     pub bound_index: BoundIndexId,

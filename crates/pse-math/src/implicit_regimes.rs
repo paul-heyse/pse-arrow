@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded selection among verified implicit roots. Smooth branches do not prove a smooth selector.
-use super::{InnerSolver, Options, Problem};
+use super::{InnerSolver, Options, Problem, selected_inputs};
 use crate::{
     MathError,
     guarded::{CompiledBody, Worker},
@@ -1427,15 +1427,16 @@ impl Regime {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<(f64, f64)>, MathError> {
-        let inputs = point.iter().chain(parameters).copied().collect::<Vec<_>>();
+        let eligibility_inputs = selected_inputs(&self.eligibility, point, parameters)?;
+        let criterion_inputs = selected_inputs(&self.criterion, point, parameters)?;
         let mut providers = self
             .problem
             .providers
             .lock()
             .map_err(|_| MathError::Library("regime provider lock poisoned".into()))?;
-        let eligible = self
-            .eligibility
-            .evaluate(&inputs, order, &mut providers, cancel)?;
+        let eligible =
+            self.eligibility
+                .evaluate(&eligibility_inputs, order, &mut providers, cancel)?;
         match eligible.values.as_slice() {
             [value] if *value == 0. => return Ok(None),
             [value] if *value == 1. => {}
@@ -1445,9 +1446,9 @@ impl Regime {
                 ));
             }
         }
-        let criterion = self
-            .criterion
-            .evaluate(&inputs, order, &mut providers, cancel)?;
+        let criterion =
+            self.criterion
+                .evaluate(&criterion_inputs, order, &mut providers, cancel)?;
         let [score, tolerance] = criterion.values.as_slice() else {
             return Err(MathError::Contract(
                 "regime criterion requires score and tolerance".into(),

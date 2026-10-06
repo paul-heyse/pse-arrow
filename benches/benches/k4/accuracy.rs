@@ -54,7 +54,7 @@ pub(super) fn measure(
                 let runtime = runtime(&owner);
                 let begin = Instant::now();
                 let package = support::package(&runtime, &owner, &sources).await;
-                let root = package.declarations().iter().find(|row| row.name == "Root").unwrap().declaration_id;
+                let root = package.declarations().await.unwrap().iter().find(|row| row.name == "Root").unwrap().declaration_id;
                 let admission = begin.elapsed();
                 let mut solver = profile(Backend::Kinsol, false);
                 solver.intent = pse_backend_native::solve::SolveIntent::Root;

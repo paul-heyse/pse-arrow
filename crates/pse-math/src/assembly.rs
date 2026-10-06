@@ -135,7 +135,7 @@ impl CasePlan {
             let body = &self.bodies[&binding.body];
             let coordinates = (0..binding.slots.len()).collect::<Vec<_>>();
             let established = self.supports.iter().find(|support| {
-                support.body() == body.as_ref()
+                support.matches_body(body.as_ref())
                     && support.order() >= DerivativeOrder::First
                     && outputs
                         .iter()
@@ -1182,7 +1182,7 @@ impl CasePlan {
                 || support.coordinates() != request.coordinates
                 || program.compiled_order() != request.order
                 || program.is_directional() != request.directional
-                || support.body() != self.bodies[&request.body].as_ref()
+                || !support.matches_body(self.bodies[&request.body].as_ref())
             {
                 return Err(MathError::Contract(
                     "artifact does not match selected admitted demand".into(),
@@ -1499,10 +1499,16 @@ impl CaseWorker {
                 checked_members: binding.checked_members.clone(),
                 cause: Box::new(cause),
             };
-            let inputs = binding.values(values).map_err(|cause| {
-                worker.cache = None;
-                context(cause)
-            })?;
+            let request = self.assembly.instances[i].groups[demand]
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("missing compiled demand".into()))?
+                .request;
+            let inputs = binding
+                .values_selected(values, self.workers[request].input_formals())
+                .map_err(|cause| {
+                    worker.cache = None;
+                    context(cause)
+                })?;
             let bits: Vec<_> = inputs.iter().map(|v| v.to_bits()).collect();
             if worker
                 .cache
@@ -1512,10 +1518,6 @@ impl CaseWorker {
                 continue;
             }
             worker.cache = None;
-            let request = self.assembly.instances[i].groups[demand]
-                .as_ref()
-                .ok_or_else(|| MathError::Contract("missing compiled demand".into()))?
-                .request;
             let result = self.workers[request]
                 .evaluate(&inputs, order, &mut self.providers, &self.cancel)
                 .map_err(context)?;
@@ -1735,10 +1737,14 @@ impl CaseWorker {
                 checked_members: binding.checked_members.clone(),
                 cause: Box::new(cause),
             };
-            let inputs = binding.values(values).map_err(context)?;
-            let mut formal_direction = vec![0.0; inputs.len()];
-            for (&formal, &column) in local.coordinates.iter().zip(&local.columns) {
-                formal_direction[formal.get()] =
+            let inputs = binding
+                .values_selected(values, self.workers[group.request].input_formals())
+                .map_err(context)?;
+            let mut formal_direction = vec![0.0; local.coordinates.len()];
+            for (axis, (&formal, &column)) in
+                local.coordinates.iter().zip(&local.columns).enumerate()
+            {
+                formal_direction[axis] =
                     finite(binding.slots[formal.get()].scale() * direction[column.get()])
                         .map_err(context)?;
             }

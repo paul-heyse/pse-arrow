@@ -203,6 +203,17 @@ Derived in: pse-backend-native.
 | `NativeContextSnapshotV1` | `pse.native.context-snapshot.v1` | Immutable adapter build and runtime observations consumed by contextual routing. |
 | `MathArtifactV5` | `pse.math.artifact.v5` | Selected mathematical support and evaluator policy under ADR-0152. |
 | `MathDirectionalArtifactV1` | `pse.math.directional-artifact.v1` | Demanded directional evaluator with runtime seed coordinates. |
+| `ProducerV1` | `pse.producer.v1` | Relevant production units and consumed source/native inputs, separate from outer attestation. |
+| `CanonicalEditV1` | `pse.canonical.edit.v1` | Exact idempotent canonical mutation inputs, independently of operation ID. |
+| `CanonicalSourceObjectV1` | `pse.canonical.source-object.v1` | Registry-generated source object bytes and parser attribution before transport lowering. |
+| `CanonicalPayloadV1` | `pse.canonical-payload.v1` | Exact source payload bytes, independent of transport chunking. |
+| `CanonicalVersionV1` | `pse.canonical-version.v1` | Immutable source identity, metadata, payload and structural references. |
+| `CanonicalProductV1` | `pse.canonical-product.v1` | Portable product content and its complete captured canonical dependency meaning. |
+| `CanonicalSchemaV1` | `pse.canonical-schema.v1` | Exact generated native schema and codec interpretation at database opening. |
+| `MathReplayAuthorityV1` | `pse.math.replay-authority.v1` | Exact authenticated subvalues of a qualified portable scientific recipe. |
+| `MathAdmittedRecipeV1` | `pse.math.admitted-recipe.v1` | Portable mathematical meaning with its concrete admitted construction receipts. |
+| `MathConcreteReceiptRequestV1` | `pse.math.concrete-receipt-request.v1` | Actual physical operation inputs matched by a concrete reconstruction receipt. |
+| `MathProofReceiptRequestV1` | `pse.math.proof-receipt-request.v1` | Exact admitted scientific proof and piecewise continuity construction request. |
 | `MathSurrogateTaskV1` | `pse.math.surrogate-task.v1` | Complete retained surrogate task correspondence, fidelity and finite controls. |
 | `InitializationDeviationV1` | `pse.math.initialization-deviation.v1` | Declared physical least-deviation center, metric, held coordinates and original contract. |
 | `MathCoefficientAssumptionsV2` | `pse.math.coefficient-assumptions.v2` | Original aggregate coefficient assumptions under ADR-0152. |
@@ -234,14 +245,16 @@ Derived in: pse-runtime.
 | `DurableJobRequestV2` | `pse.durable.job_request.v2` | A durable job request. |
 | `DurableJobRequestV3` | `pse.durable.job_request.v3` | Canonical role-typed operational job request, with explicit nonfinite framing. |
 | `DurableJobRequestV4` | `pse.durable.job_request.v4` | Operational job with current automatic composition interpretation. |
-| `DurableJobRequestV5` | `pse.durable.job_request.v5` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. |
+| `DurableJobRequestV6` | `pse.durable.job_request.v6` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. Canonical modeling revision inputs for a durable job. |
+| `DurableJobRequestV5` | `pse.durable.job_request.v5` | Prior operation-specific job inputs; canonical revisions use V6. |
 | `DurableModelingRequestV1` | `pse.durable.modeling_request.v1` | A durable modeling request. |
 | `DurableModelingRequestV2` | `pse.durable.modeling_request.v2` | Modeling request with current automatic composition interpretation. |
 | `DurableModelingRequestV3` | `pse.durable.modeling_request.v3` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. |
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |
 | `DurableStudyRequestV2` | `pse.durable.study_request.v2` | Canonical study request including unrestricted submitted numerical settings. |
 | `DurableStudyRequestV3` | `pse.durable.study_request.v3` | Study request with current automatic composition interpretation. |
-| `DurableStudyRequestV4` | `pse.durable.study_request.v4` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. |
+| `DurableStudyRequestV5` | `pse.durable.study_request.v5` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. Canonical modeling revision inputs for an immutable study. |
+| `DurableStudyRequestV4` | `pse.durable.study_request.v4` | Prior operation-specific study inputs; canonical revisions use V5. |
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |
 | `DynamicProfileV6` | `pse.dynamic.profile.v6` | A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its IDAS settings carry no sign constraints. |
 | `DynamicProfileV7` | `pse.dynamic.profile.v7` | Dynamic profile including explicit endpoint requirement. |

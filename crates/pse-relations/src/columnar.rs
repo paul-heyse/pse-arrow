@@ -49,6 +49,32 @@ pub struct FieldCheckedBatch {
     contract: pse_schema::resolved_contract::RelationContractHandle,
     storage: Arc<CheckedStorage>,
     export_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    admission: Option<LocalFieldAdmission>,
+}
+
+/// Successful local admission tied to the actual immutable native predicate owner.
+/// It carries no arrays, keys, foreign-key closure or persisted validation authority.
+#[derive(Clone, Debug)]
+pub struct LocalFieldAdmission {
+    contract: pse_schema::resolved_contract::RelationContractHandle,
+    prepared: Arc<crate::validate::PreparedLocalContract>,
+}
+impl LocalFieldAdmission {
+    /// Compare the complete declaration and actual native implementation owner.
+    /// # Errors
+    /// A changed declaration or foreign context is refused.
+    pub fn matches(
+        &self,
+        registry: &pse_schema::Registry,
+        spec: &pse_schema::model::RelationSpec,
+        context: &crate::validate::ValidationContext,
+    ) -> Result<bool, RelationError> {
+        self.contract
+            .require_equivalent(&registry.contract(spec)?)?;
+        Ok(self
+            .prepared
+            .same_native_owner(context.relation(registry, spec)?.as_ref()))
+    }
 }
 
 /// Clones share the actual column vectors as well as their native buffers.
@@ -213,7 +239,62 @@ impl FieldCheckedBatch {
                 pool,
             }),
             export_owner: None,
+            admission: None,
         }
+    }
+
+    fn with_admission(mut self, admission: Option<LocalFieldAdmission>) -> Self {
+        self.admission = admission;
+        self
+    }
+    /// Borrow the native owner of this batch's successful local admission.
+    pub fn local_admission(&self) -> Option<&LocalFieldAdmission> {
+        self.admission.as_ref()
+    }
+    /// Recheck local values only when their actual native owner changed.
+    /// Raw admission always evaluates; this operation consumes retained immutable evidence.
+    /// # Errors
+    /// Declaration/context mismatch, native refusal or cancellation.
+    pub fn validate_context(
+        &self,
+        registry: &pse_schema::Registry,
+        spec: &pse_schema::model::RelationSpec,
+        context: &crate::validate::ValidationContext,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<(), RelationError> {
+        self.readmit_context(registry, spec, context, cancel)
+            .map(|_| ())
+    }
+    /// Retain these immutable values with successful admission in the receiving owner.
+    /// # Errors
+    /// Declaration/context mismatch, native refusal or cancellation.
+    pub fn readmit_context(
+        &self,
+        registry: &pse_schema::Registry,
+        spec: &pse_schema::model::RelationSpec,
+        context: &crate::validate::ValidationContext,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<Self, RelationError> {
+        cancel.checkpoint()?;
+        self.check_declaration(registry, spec)?;
+        if self
+            .admission
+            .as_ref()
+            .map(|admission| admission.matches(registry, spec, context))
+            .transpose()?
+            .unwrap_or(false)
+        {
+            return Ok(self.clone());
+        }
+        let prepared = context.relation(registry, spec)?;
+        prepared
+            .evaluate(self.batch(), 256, cancel)?
+            .require_valid()?;
+        cancel.checkpoint()?;
+        Ok(self.clone().with_admission(Some(LocalFieldAdmission {
+            contract: self.contract.clone(),
+            prepared,
+        })))
     }
 
     /// Retain a pre-admitted container's metadata with its checked exports.
@@ -307,14 +388,18 @@ impl FieldCheckedBatch {
         context: &crate::validate::ValidationContext,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
+        cancel.checkpoint()?;
         let contract = registry.contract(spec)?;
         crate::validate::validate_schema(registry, spec, &batch.schema())
             .map_err(|errors| RelationError::Validation { errors })?;
-        context
-            .relation(registry, spec)?
-            .evaluate(&batch, 256, cancel)?
-            .require_valid()?;
-        Ok(Self::from_parts(spec.id, contract, batch, None))
+        let prepared = context.relation(registry, spec)?;
+        prepared.evaluate(&batch, 256, cancel)?.require_valid()?;
+        cancel.checkpoint()?;
+        let admission = LocalFieldAdmission {
+            contract: contract.clone(),
+            prepared,
+        };
+        Ok(Self::from_parts(spec.id, contract, batch, None).with_admission(Some(admission)))
     }
     /// Transfer native allocation ownership while admitting in the exact selected context.
     /// # Errors
@@ -332,7 +417,8 @@ impl FieldCheckedBatch {
             checked.contract,
             batch.batch().clone(),
             Some(batch),
-        ))
+        )
+        .with_admission(checked.admission))
     }
     /// Select ordered, possibly repeated rows with Arrow's bounds-checked take.
     /// Local field evidence survives; uniqueness and completeness do not.
@@ -386,6 +472,7 @@ impl FieldCheckedBatch {
             owned.batch().clone(),
             Some(owned),
         )
+        .with_admission(self.admission.clone())
         .retained(pool, cancel)
     }
     /// Apply an explicitly requested Arrow type conversion, then fully re-admit
@@ -524,6 +611,7 @@ impl FieldCheckedBatch {
             owned.batch().clone(),
             Some(owned),
         )
+        .with_admission(self.admission.clone())
         .retained(pool, cancel)
     }
 
@@ -566,12 +654,22 @@ impl FieldCheckedBatch {
             })
             .map(|(name, _)| format!("check:{name}"))
             .collect::<std::collections::BTreeSet<_>>();
-        if !missing.is_empty() {
-            context
-                .relation(registry, spec)?
+        let prepared = context.relation(registry, spec)?;
+        let same_owner = self
+            .admission
+            .as_ref()
+            .is_some_and(|admission| admission.prepared.same_native_owner(&prepared));
+        if !same_owner {
+            prepared.evaluate(&batch, 256, cancel)?.require_valid()?;
+        } else if !missing.is_empty() {
+            prepared
                 .evaluate_missing_checks(&batch, &missing, cancel)?
                 .require_valid()?;
         }
+        let admission = LocalFieldAdmission {
+            contract: contract.clone(),
+            prepared,
+        };
         let owned = self
             .storage
             .owned
@@ -582,13 +680,10 @@ impl FieldCheckedBatch {
                 })
             })
             .transpose()?;
-        Ok(Self::from_parts_with_metadata(
-            spec.id,
-            contract.clone(),
-            batch,
-            owned,
-            metadata,
-        ))
+        Ok(
+            Self::from_parts_with_metadata(spec.id, contract.clone(), batch, owned, metadata)
+                .with_admission(Some(admission)),
+        )
     }
 
     /// Isolate raw buffers and admit through the selected immutable engine context.
@@ -663,7 +758,18 @@ impl FieldCheckedBatch {
             exact_fields(input.storage.batch.schema().fields(), schema.fields())?;
         }
         let batch = arrow::compute::concat_batches(&schema, inputs.iter().map(Self::batch))?;
-        Ok(Self::from_parts(spec.id, contract, batch, None))
+        let admission = inputs
+            .first()
+            .and_then(|input| input.admission.clone())
+            .filter(|first| {
+                inputs.iter().all(|input| {
+                    input
+                        .admission
+                        .as_ref()
+                        .is_some_and(|other| first.prepared.same_native_owner(&other.prepared))
+                })
+            });
+        Ok(Self::from_parts(spec.id, contract, batch, None).with_admission(admission))
     }
 
     /// Concatenate checked Arrow inputs while retaining the shared allocation claim.
@@ -721,6 +827,7 @@ impl FieldCheckedBatch {
                 scope.import(owned)?;
             }
         }
+        let admission = result.admission.clone();
         let owned = scope.attach_reserved(result.into_batch(), reservation)?;
         Self::from_parts(
             spec.id,
@@ -728,6 +835,7 @@ impl FieldCheckedBatch {
             owned.batch().clone(),
             Some(owned),
         )
+        .with_admission(admission)
         .retained(pool, cancel)
     }
 
@@ -758,7 +866,8 @@ impl FieldCheckedBatch {
             self.storage.batch.slice(offset, length),
             owned,
             metadata,
-        ))
+        )
+        .with_admission(self.admission.clone()))
     }
 
     /// Checks the retained complete declaration against the receiving registry.
@@ -810,6 +919,7 @@ impl FieldCheckedBatch {
                 pool: Some(pool_owner),
             }),
             export_owner: self.export_owner.clone(),
+            admission: self.admission.clone(),
         })
     }
 
@@ -851,6 +961,7 @@ impl FieldCheckedBatch {
                 batch.batch().clone(),
                 Some(batch),
             )
+            .with_admission(self.admission.clone())
             .retained(pool, &pse_columnar::CancellationToken::new())?,
             output,
         ))
@@ -1084,12 +1195,14 @@ impl BatchBuilder {
         self.prepared
             .evaluate(&batch, 256, &pse_columnar::CancellationToken::new())?
             .require_valid()?;
-        Ok(FieldCheckedBatch::from_parts(
-            self.relation_id,
-            self.contract,
-            batch,
-            None,
-        ))
+        let admission = LocalFieldAdmission {
+            contract: self.contract.clone(),
+            prepared: self.prepared,
+        };
+        Ok(
+            FieldCheckedBatch::from_parts(self.relation_id, self.contract, batch, None)
+                .with_admission(Some(admission)),
+        )
     }
 }
 
@@ -1588,5 +1701,141 @@ mod integrated_performance_unit {
             }
             assert_eq!(violations, copies - 1);
         }
+    }
+}
+
+#[cfg(test)]
+mod native_owner_unit {
+    use super::*;
+    use crate::native::execution::context::SessionContext;
+    use crate::native::logical_expr::{ColumnarValue, Volatility, create_udf};
+    use arrow_array::{BooleanArray, Int64Array};
+    use arrow_schema::DataType;
+    use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
+
+    #[test]
+    fn native_owner_reuse_changed_bindings_and_values_are_distinct() {
+        let mut builder = pse_schema::RegistryBuilder::new();
+        builder.declare_relation(
+            RelationDecl::new(
+                Namespace::Authored,
+                "policy",
+                1,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "native owner control",
+            )
+            .pk(&["n"])
+            .columns(vec![FieldContract::payload(
+                "n",
+                FieldContract::native(DataType::Int64),
+                "value",
+            )])
+            .checks(std::collections::BTreeMap::from([(
+                "actual".into(),
+                "actual_policy(n)".into(),
+            )])),
+        );
+        let registry = builder.build().unwrap();
+        let spec = registry.relation("authored.policy").unwrap();
+        let context = |accepted| {
+            let session = SessionContext::new();
+            session.register_udf(create_udf(
+                "actual_policy",
+                vec![DataType::Int64],
+                DataType::Boolean,
+                Volatility::Immutable,
+                Arc::new(move |_| {
+                    Ok(ColumnarValue::Scalar(
+                        crate::native::common::ScalarValue::Boolean(Some(accepted)),
+                    ))
+                }),
+            ));
+            crate::validate::ValidationContext::new(&registry, session.state())
+        };
+        let accepted = context(true);
+        let refused = context(false);
+        let raw = |value| {
+            RecordBatch::try_new(
+                pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+                vec![Arc::new(Int64Array::from(vec![value]))],
+            )
+            .unwrap()
+        };
+        let cancel = pse_columnar::CancellationToken::new();
+        let prepared = accepted.relation(&registry, spec).unwrap();
+        let source = FieldCheckedBatch::admit(&registry, spec, raw(1), &accepted, &cancel).unwrap();
+        let count = prepared.evaluation_count();
+        source
+            .validate_context(&registry, spec, &accepted, &cancel)
+            .unwrap();
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let filtered = source
+            .filter_reserved(&BooleanArray::from(vec![true]), &pool, &cancel)
+            .unwrap();
+        let taken = source
+            .take_reserved(&arrow_array::UInt32Array::from(vec![0, 0]), &pool, &cancel)
+            .unwrap();
+        let projected = source
+            .project_exact(&registry, spec, &[0], &cancel, &accepted)
+            .unwrap();
+        let combined = FieldCheckedBatch::concat_reserved(
+            &registry,
+            spec,
+            &[filtered, taken, projected, source.slice(0, 1).unwrap()],
+            &pool,
+            &cancel,
+        )
+        .unwrap();
+        combined
+            .validate_context(&registry, spec, &accepted, &cancel)
+            .unwrap();
+        assert_eq!(
+            prepared.evaluation_count(),
+            count,
+            "same native owner reuses successful immutable admission"
+        );
+        assert!(
+            source
+                .validate_context(&registry, spec, &refused, &cancel)
+                .is_err()
+        );
+        assert!(
+            source
+                .project_exact(&registry, spec, &[0], &cancel, &refused)
+                .is_err(),
+            "equal schema and SQL cannot reuse another actual UDF implementation"
+        );
+        assert_eq!(
+            refused
+                .relation(&registry, spec)
+                .unwrap()
+                .evaluation_count(),
+            2
+        );
+        FieldCheckedBatch::admit(&registry, spec, raw(2), &accepted, &cancel).unwrap();
+        assert_eq!(
+            prepared.evaluation_count(),
+            count + 1,
+            "raw changed values always evaluate"
+        );
+        let another = context(true);
+        let other = FieldCheckedBatch::admit(&registry, spec, raw(3), &another, &cancel).unwrap();
+        let mixed = FieldCheckedBatch::concat(&registry, spec, &[source.clone(), other]).unwrap();
+        assert!(
+            mixed.local_admission().is_none(),
+            "different owners cannot mint common assurance"
+        );
+        mixed
+            .validate_context(&registry, spec, &accepted, &cancel)
+            .unwrap();
+        assert_eq!(prepared.evaluation_count(), count + 2);
+        cancel.cancel();
+        assert!(
+            source
+                .validate_context(&registry, spec, &accepted, &cancel)
+                .is_err()
+        );
     }
 }

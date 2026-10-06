@@ -11,6 +11,7 @@ fixture runs, and the run reports ``coverage=selected`` rather than package cove
 """
 
 import argparse
+import os
 import re
 import sys
 from collections import Counter
@@ -251,7 +252,7 @@ def run_once(
                 preparation=settings.preparation,
             )
         else:
-            runtime = Runtime(engine)
+            runtime = Runtime(engine, substrate=os.environ["PSE_SURREAL_STATE"])
             modeling = runtime.modeling_from_documents(
                 documents, runtime.physical_from_documents(physical_documents)
             )

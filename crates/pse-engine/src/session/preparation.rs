@@ -1365,8 +1365,11 @@ impl CompletedComputation {
             message: "completed relation admission lock was poisoned".to_owned(),
         })?;
         cancel.checkpoint()?;
+        let services =
+            super::execution::NativeExecutionContext::from_session(&self.state).map_err(engine)?;
+        let validation = services.validation_context();
         if let Some(batch) = checked.as_ref() {
-            batch.check_declaration(registry, spec)?;
+            batch.validate_context(registry, spec, validation, cancel)?;
             return Ok(batch.clone());
         }
         let pieces = self
@@ -1378,10 +1381,7 @@ impl CompletedComputation {
                     registry,
                     spec,
                     batch.clone(),
-                    &pse_relations::validate::ValidationContext::new(
-                        registry,
-                        crate::validation::NativeValidation(self.state.clone()),
-                    ),
+                    validation,
                     cancel,
                 )?)
             })

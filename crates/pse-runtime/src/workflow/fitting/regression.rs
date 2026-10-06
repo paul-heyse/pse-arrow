@@ -42,15 +42,15 @@ pub(in crate::workflow) fn analytic() -> ([f64; 4], [f64; 2]) {
 
 /// The regression package: one steady experiment observing `y₁…y₄`, with `sigma` and
 /// `importance` per observation.
-pub(in crate::workflow) fn package(
+pub(in crate::workflow) async fn package(
     sigma: [Option<f64>; 4],
     importance: [f64; 4],
 ) -> crate::workflow::ModelingPackage {
-    package_with(false, sigma, importance)
+    package_with(false, sigma, importance).await
 }
 /// With `offset`, a third parameter `d` enters every output only through `a + d`, so the
 /// two are not separately identifiable.
-pub(in crate::workflow) fn package_with(
+pub(in crate::workflow) async fn package_with(
     offset: bool,
     sigma: [Option<f64>; 4],
     importance: [f64; 4],
@@ -106,8 +106,10 @@ pub(in crate::workflow) fn package_with(
         "observations":observations})).unwrap());
     runtime()
         .modeling_package(rows, physical)
+        .await
         .unwrap()
         .with_fit_declarations(data)
+        .await
         .unwrap()
 }
 pub(in crate::workflow) fn declared() -> [Option<f64>; 4] {

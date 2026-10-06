@@ -5,8 +5,8 @@ use super::*;
 use crate::math::modeling::ModelingPreparation;
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use pse_compiler::workspace::{ModelingOutput, Profile};
+use pse_model::generated::enums::ModelingAnalysisRoute as Route;
 use pse_model::generated::identities::RunId;
-use pse_model::{HeapUsage, generated::enums::ModelingAnalysisRoute as Route};
 use pse_modeling::Limits;
 use pse_relations::{
     columnar::{FieldCheckedBatch, RelationRow},
@@ -20,9 +20,18 @@ pub struct FitDeclarations {
     /// Declared fits with their parameters, experiments and observation selections.
     pub fits: Vec<fit_cases::Row>,
     #[serde(skip)]
-    owner: Option<Arc<pse_columnar::AllocationLease>>,
+    _owners: Vec<Arc<pse_columnar::AllocationLease>>,
 }
 impl FitDeclarations {
+    pub(crate) fn from_owned_rows(
+        fits: Vec<fit_cases::Row>,
+        owners: Vec<Arc<pse_columnar::AllocationLease>>,
+    ) -> Self {
+        Self {
+            fits,
+            _owners: owners,
+        }
+    }
     pub(crate) fn from_batches(
         batches: &BTreeMap<SemanticId, FieldCheckedBatch>,
     ) -> Result<Self, WorkflowError> {
@@ -33,30 +42,8 @@ impl FitDeclarations {
                 .transpose()
                 .map_err(super::super::relation)?
                 .unwrap_or_default(),
-            owner: None,
+            _owners: Vec::new(),
         })
-    }
-    pub(crate) fn tables(
-        &self,
-        registry: &pse_schema::Registry,
-        validation: &pse_relations::validate::ValidationContext,
-    ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
-        let mut result = BTreeMap::new();
-        macro_rules! relation {
-            ($name:ident, $rows:expr) => {{
-                let mut builder = $name::Builder::with_registry(registry, $rows.len(), validation)
-                    .map_err(super::super::relation)?;
-                for row in $rows {
-                    builder.push(row.clone()).map_err(super::super::relation)?;
-                }
-                result.insert(
-                    $name::RELATION_ID,
-                    builder.finish().map_err(super::super::relation)?,
-                );
-            }};
-        }
-        relation!(fit_cases, &self.fits);
-        Ok(result)
     }
 }
 #[derive(Clone, Debug)]
@@ -88,22 +75,15 @@ fn port(model: &ModelingPreparation, id: SemanticId) -> Result<Port, WorkflowErr
 }
 impl ModelingPackage {
     /// Attach generated fitting declarations to this immutable source revision.
-    pub fn with_fit_declarations(
+    pub async fn with_fit_declarations(
         mut self,
-        mut data: FitDeclarations,
+        data: FitDeclarations,
     ) -> Result<Self, WorkflowError> {
         let unique = |ids: Vec<SemanticId>| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
         if !unique(data.fits.iter().map(|r| r.fit_id.as_id()).collect()) {
             return Err(contract("duplicate fit declaration identity"));
         }
-        let bytes = data.fits.owned_bytes();
-        data.owner = Some(
-            self.runtime
-                .shared
-                .math()
-                .reserve("modeling:fit-data", bytes)?,
-        );
-        self.fit_declarations = Arc::new(data);
+        self.revision = self.replace_fits(&data.fits).await?;
         Ok(self)
     }
     /// Compile authored case paths once; trial parameter values never enter source queries.
@@ -203,13 +183,7 @@ impl ModelingPackage {
         // Charged once the layout bound is known, before the layout is built.
         let reservation = datafusion::execution::memory_pool::MemoryConsumer::new("fit:prepared")
             .register(&self.runtime.shared.pool());
-        let d = self
-            .fit_declarations
-            .fits
-            .iter()
-            .find(|d| d.fit_id == id)
-            .cloned()
-            .ok_or_else(|| contract("unknown fitting declaration"))?;
+        let d = self.fit_declaration(id).await?;
         profile
             .solver
             .controls
@@ -720,7 +694,7 @@ impl ModelingPackage {
                     .shared
                     .math()
                     .prepare_modeling_functions(
-                        self.workspace.clone(),
+                        self.numerical_workspace()?,
                         model.clone(),
                         outputs.into_iter().collect(),
                         coordinates.iter().map(|v| v.0).collect(),
@@ -769,7 +743,7 @@ impl ModelingPackage {
                             .shared
                             .math()
                             .prepare_modeling_functions(
-                                self.workspace.clone(),
+                                self.numerical_workspace()?,
                                 model.clone(),
                                 check_rows.into_iter().collect(),
                                 vec![],
@@ -810,8 +784,10 @@ impl ModelingPackage {
                 })
             };
             for binding in local_observations {
-                let observation = self
-                    .revision
+                let observation_revision = self
+                    .selected_revision_roots(&[e.case_id, binding.observation_id], cancel)
+                    .await?;
+                let observation = observation_revision
                     .checked()
                     .measurement(
                         e.case_id,

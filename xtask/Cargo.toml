@@ -3,6 +3,7 @@
 
 [package]
 name = "xtask"
+default-run = "xtask"
 description = "Workspace driver: codegen, family-check, governance, doc-lint, probe-host, release (plan §3)."
 version.workspace = true
 edition.workspace = true
@@ -19,7 +20,9 @@ publish = false
 workspace = true
 
 [features]
+native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = ["package-fixtures"]
+canonical-tools = ["dep:pse-operations", "dep:pse-model"]
 thermodynamic-oracles = [
   "dep:feos",
   "dep:feos-core",
@@ -32,7 +35,6 @@ thermodynamic-oracles = [
 package-fixtures = [
   "dep:datafusion",
   "dep:pse-authoring",
-  "dep:pse-ids",
   "dep:pse-engine",
   "dep:pse-catalog",
   "dep:pse-relations",
@@ -41,9 +43,11 @@ package-fixtures = [
   "dep:pse-backend-native",
   "dep:pse-buildinfo",
   "dep:pse-model",
+  "dep:pse-operations",
 ]
 
 [dependencies]
+pse-operations = { workspace = true, optional = true }
 pse-buildinfo = { workspace = true, optional = true }
 pse-model = { workspace = true, optional = true }
 feos = { workspace = true, optional = true }
@@ -60,7 +64,7 @@ bindgen.workspace = true
 # The registry and the passes the generators and the inspection-fixture driver run.
 pse-schema.workspace = true
 pse-authoring = { workspace = true, optional = true }
-pse-ids = { workspace = true, optional = true }
+pse-ids.workspace = true
 pse-catalog = { workspace = true, optional = true }
 pse-quantity.workspace = true
 pse-relations = { workspace = true, optional = true }
@@ -77,7 +81,7 @@ serde.workspace = true
 regex.workspace = true
 anyhow.workspace = true
 semver.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["signal"] }
 # `codegen --check` regenerates into a scratch directory and diffs both ways (ADR-0051).
 tempfile.workspace = true
 # python/pse/contracts/GENERATED.sha256 only; identity hashing is blake3 in pse-ids.
@@ -98,3 +102,18 @@ pse-workspace-hack.workspace = true
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }
+
+[[bin]]
+name = "pse-canonical-recovery"
+path = "src/bin/pse-canonical-recovery.rs"
+required-features = ["canonical-tools"]
+
+[[bin]]
+name = "pse-worker"
+path = "src/bin/pse-worker.rs"
+required-features = ["package-fixtures"]
+
+[[bin]]
+name = "pse-publication"
+path = "src/bin/pse-publication.rs"
+required-features = ["package-fixtures"]

@@ -62,6 +62,7 @@ facets! {
     (TRANSFER_CONTEXT, "pse.domain.transfer_context", true, true, true, true, true, Exact),
     (FK_RELATION, "pse.domain.fk.relation", true, true, false, false, true, Ignore),
     (FK_COLUMN, "pse.domain.fk.column", true, true, false, false, true, Ignore),
+    (GRAPH_ENDPOINT, "pse.domain.graph_endpoint", true, false, false, false, false, Ignore),
     (IDENTITY, "pse.domain.identity", true, true, true, false, true, Preserve),
     (IDENTITY_OWNER, "pse.domain.identity.owner", true, true, true, false, true, Ignore),
     (DOCUMENT, "pse.domain.document", true, true, true, true, true, Preserve),

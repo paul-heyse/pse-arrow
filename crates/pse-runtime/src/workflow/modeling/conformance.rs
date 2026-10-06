@@ -1033,7 +1033,8 @@ impl ModelingPackage {
             .derivatives
             .allowance()
             .map_err(MathRuntimeError::from)?;
-        let fixtures = policy.fixtures.tests(self.revision.declarations())?;
+        let source_rows = self.declarations().await?;
+        let fixtures = policy.fixtures.tests(&source_rows)?;
         // Every fixture's declared execution policy is resolved, and refused, before any
         // fixture runs.
         let policies = fixtures
@@ -1085,8 +1086,15 @@ impl ModelingPackage {
             }
             let fixture = row.declaration_id;
 
-            let oracle = self.revision.oracle(fixture);
-            report.note_oracle(oracle, |oracle| self.revision.release_of(oracle));
+            let revision = match self.selected_revision(fixture, cancel).await {
+                Ok(revision) => revision,
+                Err(error) => {
+                    report.failed(fixture, Kind::Preparation, &error, None, None, cap);
+                    continue;
+                }
+            };
+            let oracle = revision.oracle(fixture);
+            report.note_oracle(oracle, |oracle| revision.release_of(oracle));
             let admitted = match self
                 .declared_execution(
                     fixture,
@@ -1127,12 +1135,7 @@ impl ModelingPackage {
             let case = admitted.analysis.case.clone();
             if matches!(&admitted.procedure, DeclaredProcedure::Check) {
                 let checked = self
-                    .runtime
-                    .shared
-                    .math()
-                    .modeling_point(
-                        self.workspace.clone(),
-                        self.revision.clone(),
+                    .canonical_point(
                         fixture,
                         bindings,
                         admitted.analysis.limits,
@@ -1140,12 +1143,7 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await;
-                report.pure_result(
-                    fixture,
-                    model.compiled(),
-                    checked.map_err(WorkflowError::from),
-                    cap,
-                );
+                report.pure_result(fixture, model.compiled(), checked, cap);
                 continue;
             }
             // A shooting fixture solves the shooting problem it declares (ADR-0110 Outcome 5):
@@ -1782,7 +1780,7 @@ impl ModelingPackage {
                 ),
             }
         }
-        report.coverage(self.revision.declarations(), &covered, cap);
+        report.coverage(&source_rows, &covered, cap);
         if cancel.token().is_cancelled() {
             report.complete = false;
         }
@@ -2114,7 +2112,10 @@ mod tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+        let package = runtime
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
         let resolution = package
             .resolve_case(
                 root,
@@ -2337,8 +2338,8 @@ mod tests {
             )))
         ));
     }
-    #[test]
-    fn kernel_conformance_retains_inventory_and_accounts_variable_payloads() {
+    #[tokio::test]
+    async fn kernel_conformance_retains_inventory_and_accounts_variable_payloads() {
         use pse_columnar::MemoryPool;
         use pse_model::{
             HeapUsage,
@@ -2414,8 +2415,8 @@ mod tests {
         drop(inventory);
         assert_eq!(pool.reserved(), 0);
     }
-    #[test]
-    fn kernel_conformance_memory_refusal_cannot_erase_or_pass_a_fixture() {
+    #[tokio::test]
+    async fn kernel_conformance_memory_refusal_cannot_erase_or_pass_a_fixture() {
         use pse_columnar::MemoryPool;
         use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
         let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(32000));
@@ -2458,7 +2459,7 @@ mod tests {
         drop(report);
         assert_eq!(pool.reserved(), 0);
     }
-    fn package(text: &str) -> ModelingPackage {
+    async fn package(text: &str) -> ModelingPackage {
         let runtime = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows = pse_authoring::language::parse(
@@ -2468,7 +2469,7 @@ mod tests {
             pse_authoring::ParseBudget::default(),
         )
         .unwrap();
-        runtime.modeling_package(rows, physical).unwrap()
+        runtime.modeling_package(rows, physical).await.unwrap()
     }
     fn policy() -> ModelingConformancePolicy {
         ModelingConformancePolicy {
@@ -2493,9 +2494,10 @@ mod tests {
     async fn conformance_publishes_oracle_source_id() {
         let p = package(
             "package p { entity kind source provenance { attribute title: Text; } entity kind release extends source { attribute version: Text; } entity release upstream { title = \"Upstream\", version = \"2.13.0\" } fn cube(x:Scalar)->Scalar=x*x*x; test compared oracle upstream { expect cube(2)==8 tolerance 1e-8; } test analytic { expect cube(3)==27 tolerance 1e-8; } }",
-        );
+        ).await;
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|r| r.name == name)
                 .unwrap()
@@ -2527,7 +2529,7 @@ mod tests {
     async fn kernel_conformance_discovers_pure_tests_and_reports_uncovered_definitions() {
         let p = package(
             "package p { fn cube(x:Scalar)->Scalar=x*x*x; test pure { expect cube(2)==8 tolerance 1e-8; } def Missing { var x:Scalar; eq e:x==1; } }",
-        );
+        ).await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -2548,7 +2550,7 @@ mod tests {
         drop(report);
         drop(p);
         assert_eq!(ModelingConformanceCheck::rows(&table).unwrap(), expected);
-        let p = package("package p { test pure { expect 1==1 tolerance 1e-8; } }");
+        let p = package("package p { test pure { expect 1==1 tolerance 1e-8; } }").await;
         let mut limited = policy();
         limited.maximum_checks = 1;
         let result = p
@@ -2565,9 +2567,10 @@ mod tests {
     async fn kernel_conformance_runs_only_selected_fixtures() {
         let p = package(
             "package p { fn cube(x:Scalar)->Scalar=x*x*x; test first { expect cube(2)==8 tolerance 1e-8; } test second { expect cube(3)==27 tolerance 1e-8; } test wrong { expect cube(1)==2 tolerance 1e-8; } def Missing { var x:Scalar; eq e:x==1; } }",
-        );
+        ).await;
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|r| r.name == name)
                 .unwrap()
@@ -2658,8 +2661,20 @@ mod tests {
             "route steady; procedure check; policy { limits foreign_bytes(1048576); }",
             "route steady; procedure solve; policy { limits foreign_bytes(0); }",
         ] {
+            let declarations = rows(metadata);
+            let invalid = declarations
+                .iter()
+                .find(|row| row.name == "invalid")
+                .unwrap()
+                .declaration_id;
+            let package = rt
+                .modeling_package(declarations, physical.clone())
+                .await
+                .unwrap();
             assert!(
-                rt.modeling_package(rows(metadata), physical.clone())
+                package
+                    .selected_revision(invalid, &crate::CancelSource::new())
+                    .await
                     .is_err(),
                 "{metadata}"
             );
@@ -2673,6 +2688,7 @@ mod tests {
         ] {
             let package = rt
                 .modeling_package(rows(metadata), physical.clone())
+                .await
                 .unwrap();
             let error = package
                 .conform(policy(), &crate::CancelSource::new())
@@ -2680,6 +2696,8 @@ mod tests {
                 .unwrap_err();
             let invalid = package
                 .declarations()
+                .await
+                .unwrap()
                 .iter()
                 .find(|r| r.name == "invalid")
                 .unwrap()
@@ -2694,7 +2712,7 @@ mod tests {
     async fn kernel_conformance_uses_initialized_original_results() {
         let p = package(
             "package p { def D { var x:Scalar; } test initialized fixture {dof 0; route steady; procedure initialize; initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(2) seconds(30); fix root.x=2;} {child root:D=D(); expect root.x==2 tolerance 1e-8;} }",
-        );
+        ).await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -2728,7 +2746,7 @@ mod tests {
  test initialized fixture {dof 0; route steady; procedure initialize; stages("warm");}
  {child root:D=D; expect root.x==4 tolerance 1e-8;}
  }"#;
-        let p = package(source);
+        let p = package(source).await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -2743,7 +2761,7 @@ mod tests {
             initialization.attempts[1].step,
             ModelingInitializationStep::Original
         ));
-        let p = package(&source.replace("root.x==4", "root.x==5"));
+        let p = package(&source.replace("root.x==4", "root.x==5")).await;
         let rejected = p
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -2772,8 +2790,9 @@ mod tests {
         ))
         .unwrap();
         let run = |expected: &str, diagnostics: Option<ModelingDiagnosticPolicy>| {
-            let p = package(&source.replace("EXPECTED", expected));
+            let text = source.replace("EXPECTED", expected);
             async move {
+                let p = package(&text).await;
                 p.conform(
                     ModelingConformancePolicy {
                         diagnostics,
@@ -2817,7 +2836,8 @@ mod tests {
  annotation start x(0); annotation start y(0); }
  test over fixture { dof -1; route steady; procedure solve; } { child root:D=D(); }
  }"#,
-        );
+        )
+        .await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -2858,6 +2878,8 @@ mod tests {
         assert!(structure[0].unmatched_columns.is_empty());
         let fixture = p
             .declarations()
+            .await
+            .unwrap()
             .iter()
             .find(|row| row.name == "over")
             .unwrap()
@@ -2927,13 +2949,15 @@ mod tests {
  test closed fixture {dof 0; route steady; procedure solve;} {child root:D=D(net=0{W});}
  test unclosed fixture {dof 0; route steady; procedure solve;} {child root:D=D(net=1{W});}
  }"#,
-        );
+        )
+        .await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
             .unwrap();
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|r| r.name == name)
                 .unwrap()
@@ -2978,7 +3002,8 @@ mod tests {
         let p = package(&source.replace(
             "FAILURE",
             " failure invalid_model members(root.a, root.b, root.c);",
-        ));
+        ))
+        .await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -3008,6 +3033,7 @@ mod tests {
         }));
         // Unexpected, the same refusal fails the fixture.
         let unexpected = package(&source.replace("FAILURE", ""))
+            .await
             .conform(policy(), &crate::CancelSource::new())
             .await
             .unwrap();
@@ -3031,6 +3057,7 @@ mod tests {
                 pse_backend_native::solve::Backend::Ipopt,
             );
             package(&text)
+                .await
                 .conform(execution, &crate::CancelSource::new())
                 .await
                 .unwrap()
@@ -3095,8 +3122,8 @@ mod tests {
         use pse_backend_native::solve::{Backend, SolveIntent as Intent, SolverSelection};
         let p = package(
             "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; route steady; procedure solve; intent certify; policy { backend ipopt; presolve off; options { \"print_level\" = 0; }; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096) foreign_bytes(2147483648); }} {child root:D=D();} test open fixture {dof 0; route steady; procedure solve;} {child root:D=D();} }",
-        );
-        let rows = p.declarations();
+        ).await;
+        let rows = p.declarations().await.unwrap();
         let row = |name: &str| rows.iter().find(|r| r.name == name).unwrap();
         let mut run = policy();
         run.solver.controls.options.insert(
@@ -3187,9 +3214,10 @@ mod tests {
         // A declared allowance applies to its own fixture only.
         let p = package(
             "package p { def D { var x:Scalar; let y:Scalar=x*x; } test large fixture {dof 0; route steady; procedure check; fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} test small fixture {dof 0; route steady; procedure check; policy { limits items(1); } fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} }",
-        );
+        ).await;
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|r| r.name == name)
                 .unwrap()
@@ -3226,9 +3254,11 @@ mod tests {
                 annotation start x(1); expect x==3 tolerance 1e-6;
             }
         }"#,
-        );
+        ).await;
         let fixture = p
             .declarations()
+            .await
+            .unwrap()
             .iter()
             .find(|r| r.name == "optimization")
             .unwrap()
@@ -3258,7 +3288,7 @@ mod tests {
     async fn kernel_conformance_prepares_the_requested_exact_hessian() {
         let p = package(
             "package p {def D {var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);} test bounded fixture {dof 0; route steady; procedure solve;} {child root:D=D(); expect root.x==2 tolerance 1e-6;}}",
-        );
+        ).await;
         let mut policy = policy();
         policy.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Ipopt,
@@ -3284,7 +3314,8 @@ mod tests {
    child root:D=D(); expect root.x==2 tolerance 1e-6;
  }
  }"#,
-        );
+        )
+        .await;
         let mut policy = policy();
         // One coordinate admits Value/First (two Taylor components), while Second
         // would need three. Shared diagnostic sampling must request only First.
@@ -3348,7 +3379,7 @@ mod tests {
             rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
             roundtrip.iter().map(|r| &r.value).collect::<Vec<_>>()
         );
-        let package = runtime.modeling_package(rows, physical).unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let report = package
             .conform(policy(), &crate::CancelSource::new())
             .await
@@ -3391,11 +3422,13 @@ mod tests {
  dataset bank: cp_data provenance(s, role.given) { [a] = [75{J/(mol*K)}, 250{K}, 400{K}]; [b] = [80{J/(mol*K)}, 300{K}, 500{K}]; }
  fn cp(T: Temperature, p: Row<cp_data>) -> MolarCp guards(p.T: T) valid(T > 0{K}) = p.c;
  fn dh(T0: Temperature, T: Temperature, p: Row<cp_data>) -> DeltaH guards(p.T: [T0, T]) = p.c*(T - T0);"#;
-    fn statuses(
+    async fn statuses(
         p: &ModelingPackage,
         report: &ModelingConformanceReport,
     ) -> BTreeMap<String, Status> {
         p.declarations()
+            .await
+            .unwrap()
             .iter()
             .filter(|r| r.value.kind == DeclarationKind::Test)
             .map(|r| (r.name.clone(), report.fixture_statuses[&r.declaration_id]))
@@ -3441,15 +3474,21 @@ mod tests {
             rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
             roundtrip.iter().map(|r| &r.value).collect::<Vec<_>>()
         );
-        let p = package(&source);
+        let p = package(&source).await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
-        assert!(statuses(&p, &report).values().all(|s| *s == Status::Passed));
+        assert!(
+            statuses(&p, &report)
+                .await
+                .values()
+                .all(|s| *s == Status::Passed)
+        );
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|r| r.name == name)
                 .unwrap()
@@ -3560,12 +3599,12 @@ mod tests {
         let source = format!(
             "package p {{ {ENVELOPE_BANK}\n{tests}\n test unobserved fixture {{ dof 0; route steady; procedure check; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }} }}"
         );
-        let p = package(&source);
+        let p = package(&source).await;
         let report = p
             .conform(policy(), &crate::CancelSource::new())
             .await
             .unwrap();
-        let statuses = statuses(&p, &report);
+        let statuses = statuses(&p, &report).await;
         for (name, _, expected) in fixtures {
             assert_eq!(statuses[name], expected, "{name}: {:?}", report.checks);
         }
@@ -3616,9 +3655,10 @@ mod tests {
  test handbook_fixture oracle handbook fixture { dof 0; route steady; procedure check; failure trial_rejected validity(form) form(positive) variable(x); } { expect positive(-1) == 1 tolerance 0.1; }
  test analytic fixture { dof 0; route steady; procedure check; } { expect positive(1) == 1 tolerance 1e-9; }
 }"#,
-        );
+        ).await;
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|r| r.name == name)
                 .unwrap()
@@ -3695,16 +3735,18 @@ mod tests {
             .count();
         assert_eq!(rows.len(), applied);
         // A release is a source.
-        let refused = super::super::super::tests::runtime().modeling_package(
-            pse_authoring::language::parse(
-                "package q { entity kind version release { attribute name: Text; } }",
-                SemanticId::NIL,
-                pse_authoring::language::IdentityPolicy::Named,
-                pse_authoring::ParseBudget::default(),
+        let refused = super::super::super::tests::runtime()
+            .modeling_package(
+                pse_authoring::language::parse(
+                    "package q { entity kind version release { attribute name: Text; } }",
+                    SemanticId::NIL,
+                    pse_authoring::language::IdentityPolicy::Named,
+                    pse_authoring::ParseBudget::default(),
+                )
+                .unwrap(),
+                super::super::super::tests::physical(),
             )
-            .unwrap(),
-            super::super::super::tests::physical(),
-        );
+            .await;
         assert!(
             refused
                 .unwrap_err()
@@ -3752,6 +3794,7 @@ mod tests {
         // Admit the complete imported schema closure alongside its checked projection.
         let package = super::super::super::tests::runtime_with_workspace(64 << 20)
             .modeling_package(rows, physical)
+            .await
             .unwrap();
         let mut policy = policy();
         policy.solver.intent = SolveIntent::Optimize;
@@ -3828,9 +3871,11 @@ mod tests {
    param value:Scalar=2; expect value==2 tolerance 1e-8;
  }
  }"#,
-        );
+        )
+        .await;
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|row| row.name == name)
                 .unwrap()
@@ -3933,9 +3978,11 @@ mod tests {
    param value:Scalar=2; expect value==2 tolerance 1e-8;
  }
  }"#,
-        );
+        )
+        .await;
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|row| row.name == name)
                 .unwrap()
@@ -3985,9 +4032,11 @@ mod tests {
    param value:Scalar=2; expect value==2 tolerance 1e-8;
  }
  }"#,
-        );
+        )
+        .await;
+        let declarations = p.declarations().await.unwrap();
         let id = |name: &str| {
-            p.declarations()
+            declarations
                 .iter()
                 .find(|row| row.name == name)
                 .unwrap()

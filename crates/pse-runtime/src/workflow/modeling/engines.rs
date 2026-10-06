@@ -488,7 +488,7 @@ impl Initializer<'_> {
         } else {
             Obligations::Intermediate
         };
-        let record = self
+        let mut record = self
             .staged
             .step(
                 self.package,
@@ -503,7 +503,16 @@ impl Initializer<'_> {
             .await;
         let stage_sources = match (&step, &record.result) {
             (ModelingInitializationStep::Stage(stage), Ok(result)) => {
-                self.stage_sources(stage, &result.prepared.model.model.compiled().model)
+                match self
+                    .stage_sources(stage, &result.prepared.model.model.compiled().model)
+                    .await
+                {
+                    Ok(sources) => sources,
+                    Err(error) => {
+                        record.result = Err(Arc::new(error));
+                        Vec::new()
+                    }
+                }
             }
             _ => Vec::new(),
         };
@@ -520,13 +529,17 @@ impl Initializer<'_> {
         self.report.attempts.push(attempt);
         Some((accepted, observation))
     }
-    fn stage_sources(
+    async fn stage_sources(
         &self,
         stage: &str,
         selected: &pse_modeling::specialize::SpecializedModel,
-    ) -> Vec<SemanticId> {
+    ) -> Result<Vec<SemanticId>, WorkflowError> {
         use pse_model::generated::enums::ModelingDeclarationKind as Kind;
-        let checked = self.package.revision.checked();
+        let revision = self
+            .package
+            .selected_revision(self.analysis.root, self.cancel)
+            .await?;
+        let checked = revision.checked();
         let mut sources = std::collections::BTreeSet::new();
         for (id, instance) in &selected.instances {
             let Some(original) = self.original.instances.get(id) else {
@@ -570,7 +583,7 @@ impl Initializer<'_> {
                 );
             }
         }
-        sources.into_iter().collect()
+        Ok(sources.into_iter().collect())
     }
     /// `overlay` with the discrete assignment fixed: every stage and homotopy step runs
     /// with it, and the original specification without it.
@@ -760,7 +773,7 @@ mod tests {
         )
     }
     #[cfg(feature = "solver-kinsol")]
-    fn continuation_fixture(
+    async fn continuation_fixture(
         source: &str,
         iterations: u32,
     ) -> (ModelingPackage, ModelingAnalysis, ModelingInitialization) {
@@ -778,7 +791,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let mut solver = super::super::super::tests::profile();
         solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Kinsol,
@@ -813,7 +826,7 @@ mod tests {
         let (package, analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq residual: log(x-t) == 0; annotation start x(1); annotation nominal x(1+log(x-t)*log(x-t)); continue ramp on t from 0 to 1; } }",
             100,
-        );
+        ).await;
         let report = package
             .initialize_model(&analysis, policy.clone(), &crate::CancelSource::new())
             .await
@@ -862,7 +875,7 @@ mod tests {
         let (package, analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 100; var x: Scalar; eq residual: x*x == t; annotation start x(1); continue ramp on t from 1 to 100; } }",
             12,
-        );
+        ).await;
         let report = package
             .initialize_model(&analysis, policy, &crate::CancelSource::new())
             .await
@@ -902,7 +915,7 @@ mod tests {
         let (package, mut analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq residual: log(x-t) == 0; annotation start x(1); continue ramp on t from 0 to 1; } }",
             100,
-        );
+        ).await;
         analysis.solver.controls.history = 0;
         let report = package
             .initialize_model(&analysis, policy, &crate::CancelSource::new())
@@ -940,7 +953,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let analysis = ModelingAnalysis {
             root,
             instance: pse_modeling::specialize::root_instance(root),
@@ -1043,7 +1056,7 @@ mod discrete_tests {
             stage wrong {{ override eq link: y == -1; }} }} }}"
         )
     }
-    fn package(start: &str) -> (ModelingPackage, ModelingAnalysis) {
+    async fn package(start: &str) -> (ModelingPackage, ModelingAnalysis) {
         let physical = fixture::physical();
         let rows = pse_authoring::language::parse(
             &source(start),
@@ -1059,6 +1072,7 @@ mod discrete_tests {
             .declaration_id;
         let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
             .modeling_package(rows, physical)
+            .await
             .unwrap();
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Optimize;
@@ -1115,7 +1129,7 @@ mod discrete_tests {
     /// a step fixed survives it, whether initialization completes or fails (PS-08).
     #[tokio::test]
     async fn initialization_fixes_and_restores_integers() {
-        let (package, analysis) = package("1");
+        let (package, analysis) = package("1").await;
         let cancel = crate::CancelSource::new();
         let before = package.prepare_analysis(&analysis, &cancel).await.unwrap();
         let report = package
@@ -1212,7 +1226,7 @@ mod discrete_tests {
             text("reason")
         };
         let cancel = crate::CancelSource::new();
-        let (package, analysis) = package("1.5");
+        let (package, analysis) = package("1.5").await;
         let error = package
             .initialize_model(
                 &analysis,

@@ -17,18 +17,100 @@ use std::sync::Arc;
 /// Generated Arrow values with local field checks retained by their private owner.
 pub type Batches = BTreeMap<SemanticId, FieldCheckedBatch>;
 
+/// Immutable parser rows carry their source allocation even when shared separately.
+#[derive(Debug)]
+pub struct ModelingRows {
+    rows: Vec<authored::modeling_declarations::Row>,
+    lease: Option<Arc<pse_columnar::AllocationLease>>,
+    admission: std::sync::Mutex<Option<pse_relations::columnar::LocalFieldAdmission>>,
+}
+impl Clone for ModelingRows {
+    fn clone(&self) -> Self {
+        // A private mutable clone can be edited; it cannot inherit assurance for
+        // the original immutable rows. Arc clones preserve the actual owner.
+        Self {
+            rows: self.rows.clone(),
+            lease: self.lease.clone(),
+            admission: Default::default(),
+        }
+    }
+}
+impl std::ops::Deref for ModelingRows {
+    type Target = [authored::modeling_declarations::Row];
+    fn deref(&self) -> &Self::Target {
+        &self.rows
+    }
+}
+impl pse_model::HeapUsage for ModelingRows {
+    fn heap_bytes(&self) -> usize {
+        pse_model::HeapUsage::heap_bytes(&self.rows)
+    }
+}
+
+/// Immutable source payload and its own admitted allocation lifetime.
+#[derive(Debug)]
+pub struct SourcePayload<T> {
+    value: T,
+    lease: Option<Arc<pse_columnar::AllocationLease>>,
+}
+impl<T> SourcePayload<T> {
+    fn new(value: T) -> Self {
+        Self { value, lease: None }
+    }
+}
+impl<T: Clone> SourcePayload<T> {
+    fn attach(target: &mut Arc<Self>, lease: Arc<pse_columnar::AllocationLease>) {
+        if let Some(payload) = Arc::get_mut(target) {
+            payload.lease = Some(lease);
+        } else {
+            // An imported unowned parser snapshot has its own private metadata;
+            // the completed preflight covers this fresh immutable payload copy.
+            *target = Arc::new(Self {
+                value: target.value.clone(),
+                lease: Some(lease),
+            });
+        }
+    }
+}
+impl<T> std::ops::Deref for SourcePayload<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}
+
+#[derive(Debug)]
+struct SourceBytes {
+    bytes: bytes::Bytes,
+    _lease: Arc<pse_columnar::AllocationLease>,
+}
+impl AsRef<[u8]> for SourceBytes {
+    fn as_ref(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
 /// A package document's exact original content: bytes with the kind its path declares
 /// (ADR-0125). Text documents are one kind among them.
 #[derive(Clone, Debug)]
 pub enum Content {
     /// A text document's original UTF-8 source; never reconstructed for source locations.
-    Text(String),
+    Text(Arc<SourcePayload<String>>),
+    /// Exact modeling source and its immutable parser-produced semantic rows.
+    Modeling {
+        /// The exact original UTF-8 source.
+        text: Arc<SourcePayload<String>>,
+        /// Rows admitted by the generated native field contract.
+        rows: Arc<ModelingRows>,
+    },
     /// A data document's original bytes and the row set decoded from them by Arrow type.
     Data {
         /// The exact original bytes.
         bytes: bytes::Bytes,
         /// The decoded document.
         document: Arc<pse_modeling::document::DataDocument>,
+        /// The independent original byte/decoded row allocation owner.
+        owner: Option<Arc<pse_columnar::AllocationLease>>,
     },
 }
 
@@ -48,10 +130,9 @@ pub struct Document {
     pub(super) declaration: DocumentSpec,
     interpretation: InterpretationContext,
     pub(super) value: value::Value,
-    pub(super) syntax: Arc<value::Value>,
+    pub(super) syntax: Arc<SourcePayload<value::Value>>,
     /// Columnar projection of this exact parsed document.
     pub batches: Batches,
-    lease: Option<Arc<pse_columnar::AllocationLease>>,
 }
 
 /// The inputs consumed by identity-bearing parsing and resource admission.
@@ -82,22 +163,161 @@ impl Document {
     /// The source text of a text document; `None` for a data document.
     pub fn text(&self) -> Option<&str> {
         match &self.content {
-            Content::Text(text) => Some(text),
+            Content::Text(text) | Content::Modeling { text, .. } => Some(text),
             Content::Data { .. } => None,
         }
     }
     /// The exact original bytes.
     pub fn bytes(&self) -> &[u8] {
         match &self.content {
-            Content::Text(text) => text.as_bytes(),
+            Content::Text(text) | Content::Modeling { text, .. } => text.as_bytes(),
             Content::Data { bytes, .. } => bytes,
         }
     }
     /// The decoded rows of a data document (ADR-0125); `None` for a text document.
     pub fn data(&self) -> Option<&Arc<pse_modeling::document::DataDocument>> {
         match &self.content {
-            Content::Text(_) => None,
+            Content::Text(_) | Content::Modeling { .. } => None,
             Content::Data { document, .. } => Some(document),
+        }
+    }
+    /// Parser-produced modeling rows; no columnar round trip is needed by the compiler.
+    pub fn modeling_rows(&self) -> Option<&Arc<ModelingRows>> {
+        match &self.content {
+            Content::Modeling { rows, .. } => Some(rows),
+            Content::Text(_) | Content::Data { .. } => None,
+        }
+    }
+
+    /// Whether immutable parser rows require admission in this actual native owner.
+    pub(super) fn modeling_validation_required(
+        &self,
+        registry: &Registry,
+        validation: &pse_relations::validate::ValidationContext,
+    ) -> Result<bool, DriverError> {
+        let Some(rows) = self.modeling_rows() else {
+            return Ok(false);
+        };
+        let spec = registry
+            .relation_by_id(authored::modeling_declarations::RELATION_ID)
+            .ok_or_else(|| contract(None, "modeling row declaration absent"))?;
+        let admission = rows
+            .admission
+            .lock()
+            .map_err(|_| contract(None, "modeling native owner lock poisoned"))?;
+        Ok(!admission
+            .as_ref()
+            .map(|owner| owner.matches(registry, spec, validation))
+            .transpose()?
+            .unwrap_or(false))
+    }
+
+    /// Materialize generated columns only at an explicit native admission/export boundary.
+    /// # Errors
+    /// Actual field/native refusal, a foreign declaration or cancellation.
+    pub fn modeling_batch(
+        &self,
+        registry: &Registry,
+        validation: &pse_relations::validate::ValidationContext,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<Option<FieldCheckedBatch>, DriverError> {
+        let Some(rows) = self.modeling_rows() else {
+            return Ok(None);
+        };
+        cancel.checkpoint()?;
+        let mut builder = authored::modeling_declarations::Builder::with_registry(
+            registry,
+            rows.len(),
+            validation,
+        )?;
+        for row in rows.iter() {
+            cancel.checkpoint()?;
+            builder.push(row.clone())?;
+        }
+        let batch = builder.finish()?;
+        cancel.checkpoint()?;
+        *rows
+            .admission
+            .lock()
+            .map_err(|_| contract(None, "modeling native owner lock poisoned"))? =
+            batch.local_admission().cloned();
+        Ok(Some(batch))
+    }
+}
+
+impl Document {
+    pub(super) fn fresh_payload_extent(&self) -> Result<usize, DriverError> {
+        use pse_model::HeapUsage;
+        // Explicit wrapper/owner allowance accompanies each new independently
+        // published allocation; it is an accounting policy rather than RSS.
+        const OWNER: usize = 256;
+        let mut extent = 0;
+        match &self.content {
+            Content::Text(text) | Content::Modeling { text, .. } => {
+                if text.lease.is_none() {
+                    extent = memory::add(text.capacity(), OWNER)?;
+                }
+            }
+            Content::Data {
+                bytes,
+                document,
+                owner,
+            } => {
+                if owner.is_none() {
+                    extent = memory::add(bytes.len(), OWNER)?;
+                }
+                if !document.is_owned() {
+                    extent = memory::add(extent, memory::add(document.retained_bytes(), OWNER)?)?;
+                }
+            }
+        }
+        if let Content::Modeling { rows, .. } = &self.content
+            && rows.lease.is_none()
+        {
+            extent = memory::add(
+                extent,
+                memory::add(rows.heap_bytes(), size_of::<ModelingRows>() + OWNER)?,
+            )?;
+        }
+        if self.syntax.lease.is_none() {
+            extent = memory::add(
+                extent,
+                memory::add(memory::value_retained(&self.syntax)?, OWNER)?,
+            )?;
+        }
+        Ok(extent)
+    }
+    fn attach_payload_lease(&mut self, lease: Arc<pse_columnar::AllocationLease>) {
+        match &mut self.content {
+            Content::Text(text) | Content::Modeling { text, .. } => {
+                if text.lease.is_none() {
+                    SourcePayload::attach(text, Arc::clone(&lease));
+                }
+            }
+            Content::Data {
+                bytes,
+                document,
+                owner,
+            } => {
+                if owner.is_none() {
+                    *bytes = bytes::Bytes::from_owner(SourceBytes {
+                        bytes: bytes.clone(),
+                        _lease: Arc::clone(&lease),
+                    });
+                    *owner = Some(Arc::clone(&lease));
+                }
+                if !document.is_owned() {
+                    Arc::make_mut(document).attach_owner(lease.clone());
+                }
+            }
+        }
+        if let Content::Modeling { rows, .. } = &mut self.content
+            && rows.lease.is_none()
+        {
+            Arc::make_mut(rows).lease = Some(Arc::clone(&lease));
+        }
+        if self.syntax.lease.is_none() {
+            SourcePayload::attach(&mut self.syntax, lease);
         }
     }
 }
@@ -126,12 +346,40 @@ impl DocumentBundle {
         }
         Ok(())
     }
-    pub(super) fn attach_lease(&mut self, lease: Arc<pse_columnar::AllocationLease>) {
+    /// Freeze fresh payloads independently; reused owners remain attached to their
+    /// original allocations. Only copied bundle/parser metadata retains the remainder.
+    pub(super) fn attach_lease(
+        &mut self,
+        lease: Arc<pse_columnar::AllocationLease>,
+    ) -> Result<Arc<pse_columnar::AllocationLease>, DriverError> {
         let data = Arc::make_mut(&mut self.0);
-        for document in &mut data.documents {
-            document.lease = Some(Arc::clone(&lease));
+        let extents = data
+            .documents
+            .iter()
+            .map(Document::fresh_payload_extent)
+            .collect::<Result<Vec<_>, _>>()?;
+        let total = extents
+            .iter()
+            .try_fold(0, |sum, extent| memory::add(sum, *extent))?;
+        let remainder = lease
+            .size()
+            .checked_sub(total)
+            .ok_or_else(|| contract(None, "source payload partition exceeds admission"))?;
+        let mut sizes = Vec::with_capacity(extents.len() + 1);
+        sizes.push(remainder);
+        sizes.extend(extents);
+        let owners = lease.partition(&sizes).map_err(|_| {
+            contract(
+                None,
+                "source admission lease must be unique before publication",
+            )
+        })?;
+        let metadata = Arc::clone(&owners[0]);
+        for (document, owner) in data.documents.iter_mut().zip(owners.into_iter().skip(1)) {
+            document.attach_payload_lease(owner);
         }
-        data.lease = Some(lease);
+        data.lease = Some(Arc::clone(&metadata));
+        Ok(metadata)
     }
 }
 
@@ -235,14 +483,16 @@ pub(super) fn load_reusing(
                 Content::Data {
                     bytes,
                     document: Arc::new(pse_modeling::document::DataDocument {
+                        allocation_owner: None,
                         id,
                         path: path.clone(),
                         content_hash,
                         rows,
                     }),
+                    owner: None,
                 }
             };
-            let value = Arc::new(value::Value::Map(Vec::new()));
+            let value = Arc::new(SourcePayload::new(value::Value::Map(Vec::new())));
             documents.push(Document {
                 id,
                 path,
@@ -254,24 +504,23 @@ pub(super) fn load_reusing(
                 value: value::Value::Map(Vec::new()),
                 syntax: value,
                 batches: Batches::new(),
-                lease: None,
             });
             continue;
         }
         let text = utf8(&path, bytes)?;
-        let mut source_batches = Batches::new();
+        let mut modeling_rows = None;
         let (value, spans) = if declaration.kind == DocumentKind::PackageHeader {
             header_parts
                 .take()
                 .ok_or_else(|| contract(None, "duplicate package header shape"))?
         } else if let Some(prior) = prior {
             if declaration.kind == DocumentKind::Modeling {
-                source_batches = prior.batches.clone();
+                modeling_rows = prior.modeling_rows().cloned();
             }
-            ((*prior.syntax).clone(), prior.spans.clone())
+            ((**prior.syntax).clone(), prior.spans.clone())
         } else if declaration.kind == DocumentKind::Modeling {
             if let Some(funds) = allocation.as_deref_mut() {
-                funds.grow(memory::parser_extent(&text, &budget, false)?)?;
+                funds.grow(memory::modeling_parser_extent(&text, &budget)?)?;
             }
             let policy = if package.id_policy == pse_relations::generated::enums::IdPolicy::Named {
                 pse_authoring::language::IdentityPolicy::Named
@@ -292,18 +541,11 @@ pub(super) fn load_reusing(
                     SourceSpan::new(id, row.source_start as u32, row.source_end as u32),
                 );
             }
-            let mut builder = authored::modeling_declarations::Builder::with_registry(
-                registry,
-                rows.len(),
-                validation,
-            )?;
-            for row in rows {
-                builder.push(row)?;
-            }
-            source_batches.insert(
-                authored::modeling_declarations::RELATION_ID,
-                builder.finish()?,
-            );
+            modeling_rows = Some(Arc::new(ModelingRows {
+                rows,
+                lease: None,
+                admission: Default::default(),
+            }));
             (value::Value::Map(Vec::new()), spans)
         } else {
             let (value, spans) =
@@ -311,21 +553,29 @@ pub(super) fn load_reusing(
             (value.value, spans)
         };
         let syntax = prior.map_or_else(
-            || Arc::new(value.clone()),
+            || Arc::new(SourcePayload::new(value.clone())),
             |prior| Arc::clone(&prior.syntax),
         );
+        let text = prior
+            .and_then(|prior| match &prior.content {
+                Content::Text(text) | Content::Modeling { text, .. } => Some(Arc::clone(text)),
+                Content::Data { .. } => None,
+            })
+            .unwrap_or_else(|| Arc::new(SourcePayload::new(text)));
         documents.push(Document {
             id,
             path,
             content_hash,
-            content: Content::Text(text),
+            content: match modeling_rows {
+                Some(rows) => Content::Modeling { text, rows },
+                None => Content::Text(text),
+            },
             spans,
             declaration,
             interpretation,
             value,
             syntax,
-            batches: source_batches,
-            lease: None,
+            batches: Batches::new(),
         });
     }
     if let Some(funds) = allocation.as_deref_mut() {
@@ -577,30 +827,21 @@ fn project_documents(
             continue;
         }
         if document.declaration.kind == DocumentKind::Modeling {
-            for (id, batch) in &mut document.batches {
-                let spec = registry
-                    .relation_by_id(*id)
-                    .ok_or_else(|| contract(None, "modeling source relation missing"))?;
-                let cancel = pse_columnar::CancellationToken::new();
-                *batch = if let Some(owned) = batch.owned() {
-                    FieldCheckedBatch::admit_owned(
-                        registry,
-                        spec,
-                        owned.clone(),
-                        validation,
-                        &cancel,
-                    )?
-                } else {
-                    FieldCheckedBatch::admit(
-                        registry,
-                        spec,
-                        batch.batch().clone(),
-                        validation,
-                        &cancel,
-                    )?
-                };
-                parts.entry(*id).or_default().push(batch.clone());
+            let cancel = allocation
+                .as_ref()
+                .map_or_else(pse_columnar::CancellationToken::new, |funds| {
+                    funds.cancel.clone()
+                });
+            cancel.checkpoint()?;
+            if !document.modeling_validation_required(registry, validation)? {
+                continue;
             }
+            if let Some(funds) = allocation.as_deref_mut() {
+                funds.grow(memory::modeling_batch_extent(document)?)?;
+            }
+            // Generated native validation is columnar today. Discard its narrow
+            // projection immediately; the admitted parser rows remain authoritative.
+            document.modeling_batch(registry, validation, &cancel)?;
             continue;
         }
         if let Some(funds) = allocation.as_deref_mut() {
@@ -640,7 +881,7 @@ fn reuse_header(
         })
     });
     let (package, header_value, header_spans) = if let Some(prior) = prior_header {
-        let mut tree = (*prior.syntax).clone();
+        let mut tree = (**prior.syntax).clone();
         let row = tree
             .get_mut("package")
             .ok_or_else(|| contract(None, "missing package header"))?;
@@ -680,7 +921,7 @@ fn append_source_inventory(
             path: document.path.clone(),
             source_text: document.text().map(str::to_owned),
             content: match &document.content {
-                Content::Text(_) => None,
+                Content::Text(_) | Content::Modeling { .. } => None,
                 Content::Data { bytes, .. } => Some(pse_model::Bytes::new(bytes.to_vec())),
             },
         })?;
@@ -734,12 +975,80 @@ mod kernel_document_tests {
         .collect()
     }
     fn modeling_rows(bundle: &DocumentBundle) -> Vec<authored::modeling_declarations::Row> {
-        authored::modeling_declarations::View::from_checked(
-            &bundle.batches[&authored::modeling_declarations::RELATION_ID],
+        bundle
+            .documents
+            .iter()
+            .filter_map(Document::modeling_rows)
+            .flat_map(|rows| rows.iter().cloned())
+            .collect()
+    }
+    #[test]
+    fn typed_modeling_rows_export_only_on_request_and_reuse_runs_native_admission() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let validation = fixture_validation(&registry);
+        let sources = named_sources(b"package q { def D { var x: Scalar; } }");
+        let mut bundle = load_package_documents(
+            sources.clone(),
+            &registry,
+            ParseBudget::default(),
+            &validation,
         )
-        .unwrap()
-        .rows()
-        .unwrap()
+        .unwrap();
+        let rows = modeling_rows(&bundle);
+        assert!(
+            !bundle
+                .batches
+                .contains_key(&authored::modeling_declarations::RELATION_ID)
+        );
+        let document = bundle
+            .documents
+            .iter()
+            .find(|document| document.modeling_rows().is_some())
+            .unwrap();
+        let projected = document
+            .modeling_batch(
+                &registry,
+                &validation,
+                &pse_columnar::CancellationToken::new(),
+            )
+            .unwrap()
+            .unwrap();
+        use pse_relations::columnar::RelationRow;
+        assert_eq!(
+            rows,
+            authored::modeling_declarations::Row::rows(&projected).unwrap()
+        );
+        assert!(
+            !bundle
+                .batches
+                .contains_key(&authored::modeling_declarations::RELATION_ID)
+        );
+        let document = Arc::make_mut(&mut bundle.0)
+            .documents
+            .iter_mut()
+            .find(|document| document.modeling_rows().is_some())
+            .unwrap();
+        let Content::Modeling { rows, .. } = &mut document.content else {
+            panic!("expected retained typed modeling rows for the selected source document")
+        };
+        let original_rows = rows.clone();
+        Arc::make_mut(rows).rows[0].source_start = -1;
+        assert!(!Arc::ptr_eq(rows, &original_rows));
+        assert!(original_rows.rows[0].source_start >= 0);
+        assert!(
+            load_reusing(
+                sources.clone(),
+                Some(&bundle),
+                &registry,
+                ParseBudget::default(),
+                None,
+                &validation
+            )
+            .is_err()
+        );
+        assert!(
+            load_package_documents(sources, &registry, ParseBudget::default(), &validation).is_ok()
+        );
     }
     #[tokio::test]
     async fn source_and_physical_boundaries_refuse_the_same_missing_registration() {
@@ -788,7 +1097,7 @@ mod kernel_document_tests {
             nodes: headers.len(),
             edges: crate::authoring_driver::work::sources(documents.bundles()).unwrap() / 128,
         };
-        let source = crate::authoring_driver::p1::source_batches(
+        let source = crate::authoring_driver::p1::source_context_batches(
             documents.bundles(),
             &registry,
             &headers,
@@ -870,7 +1179,7 @@ mod kernel_document_tests {
                 nodes: headers.len(),
                 edges: crate::authoring_driver::work::sources(documents.bundles()).unwrap() / 128,
             };
-            let source = crate::authoring_driver::p1::source_batches(
+            let source = crate::authoring_driver::p1::source_context_batches(
                 documents.bundles(),
                 &registry,
                 &headers,
@@ -934,16 +1243,16 @@ mod kernel_document_tests {
         let limits = pse_authoring::p0::GraphLimits { nodes: 2, edges: 1 };
         let mut headers = vec![bundle.package.clone(), external];
         assert!(
-            crate::authoring_driver::p1::source_batches(
+            crate::authoring_driver::p1::source_context_batches(
                 std::slice::from_ref(&bundle),
                 &registry,
                 &headers,
-                limits
+                limits,
             )
             .is_ok()
         );
         headers[0].version = "2.0.0".into();
-        let refused = crate::authoring_driver::p1::source_batches(
+        let refused = crate::authoring_driver::p1::source_context_batches(
             std::slice::from_ref(&bundle),
             &registry,
             &headers,
@@ -1188,11 +1497,12 @@ mod kernel_document_tests {
             &fixture_validation(&registry),
         )
         .unwrap();
-        let batch = &bundle.batches[&authored::modeling_declarations::RELATION_ID];
-        let rows = authored::modeling_declarations::View::from_checked(batch)
-            .unwrap()
-            .rows()
-            .unwrap();
+        let rows = modeling_rows(&bundle);
+        assert!(
+            !bundle
+                .batches
+                .contains_key(&authored::modeling_declarations::RELATION_ID)
+        );
         assert_eq!(rows.len(), 4);
         let document = bundle
             .documents
@@ -1216,12 +1526,7 @@ mod kernel_document_tests {
             &fixture_validation(&registry),
         )
         .unwrap();
-        let again = authored::modeling_declarations::View::from_checked(
-            &reparsed.batches[&authored::modeling_declarations::RELATION_ID],
-        )
-        .unwrap()
-        .rows()
-        .unwrap();
+        let again = modeling_rows(&reparsed);
         assert_eq!(rows, again);
     }
 }

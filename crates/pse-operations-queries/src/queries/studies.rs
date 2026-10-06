@@ -79,6 +79,15 @@ pub struct SetPointOutcomeParams<T1: crate::JsonSql> {
     pub point_index: i32,
     pub expected_revision: i64,
 }
+#[derive(Debug)]
+pub struct SetPointFactsParams<T1: crate::JsonSql, T2: crate::JsonSql> {
+    pub state: pse_model::generated::enums::StudyPointState,
+    pub outcome: T1,
+    pub member_attempt: T2,
+    pub study_id: pse_model::generated::identities::StudyId,
+    pub point_index: i32,
+    pub expected_revision: i64,
+}
 #[derive(Clone, Copy, Debug)]
 pub struct OnePointStatusParams {
     pub study_id: pse_model::generated::identities::StudyId,
@@ -203,6 +212,144 @@ impl<'a> From<OnePointStatusBorrowed<'a>> for OnePointStatus {
             termination_detail,
             tries,
         }: OnePointStatusBorrowed<'a>,
+    ) -> Self {
+        Self {
+            point_index,
+            binding_hash: binding_hash.into(),
+            state,
+            job_id,
+            revision,
+            policy: serde_json::from_str(policy.0.get()).unwrap(),
+            outcome: serde_json::from_str(outcome.0.get()).unwrap(),
+            job_state,
+            attempt_id,
+            attempt_state,
+            last_error: last_error.map(|v| v.into()),
+            termination_detail: termination_detail
+                .map(|v| serde_json::from_str(v.0.get()).unwrap()),
+            tries,
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct PointPolicyStatus {
+    pub point_index: i32,
+    pub binding_hash: Vec<u8>,
+    pub state: pse_model::generated::enums::StudyPointState,
+    pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: serde_json::Value,
+    pub outcome: serde_json::Value,
+    pub job_state: pse_model::generated::enums::JobState,
+    pub attempt_id: pse_ids::SemanticId,
+    pub attempt_state: pse_model::generated::enums::AttemptState,
+    pub last_error: Option<String>,
+    pub termination_detail: Option<serde_json::Value>,
+    pub tries: i32,
+}
+pub struct PointPolicyStatusBorrowed<'a> {
+    pub point_index: i32,
+    pub binding_hash: &'a [u8],
+    pub state: pse_model::generated::enums::StudyPointState,
+    pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: postgres_types::Json<&'a serde_json::value::RawValue>,
+    pub outcome: postgres_types::Json<&'a serde_json::value::RawValue>,
+    pub job_state: pse_model::generated::enums::JobState,
+    pub attempt_id: pse_ids::SemanticId,
+    pub attempt_state: pse_model::generated::enums::AttemptState,
+    pub last_error: Option<&'a str>,
+    pub termination_detail: Option<
+        postgres_types::Json<&'a serde_json::value::RawValue>,
+    >,
+    pub tries: i32,
+}
+impl<'a> From<PointPolicyStatusBorrowed<'a>> for PointPolicyStatus {
+    fn from(
+        PointPolicyStatusBorrowed {
+            point_index,
+            binding_hash,
+            state,
+            job_id,
+            revision,
+            policy,
+            outcome,
+            job_state,
+            attempt_id,
+            attempt_state,
+            last_error,
+            termination_detail,
+            tries,
+        }: PointPolicyStatusBorrowed<'a>,
+    ) -> Self {
+        Self {
+            point_index,
+            binding_hash: binding_hash.into(),
+            state,
+            job_id,
+            revision,
+            policy: serde_json::from_str(policy.0.get()).unwrap(),
+            outcome: serde_json::from_str(outcome.0.get()).unwrap(),
+            job_state,
+            attempt_id,
+            attempt_state,
+            last_error: last_error.map(|v| v.into()),
+            termination_detail: termination_detail
+                .map(|v| serde_json::from_str(v.0.get()).unwrap()),
+            tries,
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnresolvedPointStatus {
+    pub point_index: i32,
+    pub binding_hash: Vec<u8>,
+    pub state: pse_model::generated::enums::StudyPointState,
+    pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: serde_json::Value,
+    pub outcome: serde_json::Value,
+    pub job_state: pse_model::generated::enums::JobState,
+    pub attempt_id: pse_ids::SemanticId,
+    pub attempt_state: pse_model::generated::enums::AttemptState,
+    pub last_error: Option<String>,
+    pub termination_detail: Option<serde_json::Value>,
+    pub tries: i32,
+}
+pub struct UnresolvedPointStatusBorrowed<'a> {
+    pub point_index: i32,
+    pub binding_hash: &'a [u8],
+    pub state: pse_model::generated::enums::StudyPointState,
+    pub job_id: pse_ids::SemanticId,
+    pub revision: i64,
+    pub policy: postgres_types::Json<&'a serde_json::value::RawValue>,
+    pub outcome: postgres_types::Json<&'a serde_json::value::RawValue>,
+    pub job_state: pse_model::generated::enums::JobState,
+    pub attempt_id: pse_ids::SemanticId,
+    pub attempt_state: pse_model::generated::enums::AttemptState,
+    pub last_error: Option<&'a str>,
+    pub termination_detail: Option<
+        postgres_types::Json<&'a serde_json::value::RawValue>,
+    >,
+    pub tries: i32,
+}
+impl<'a> From<UnresolvedPointStatusBorrowed<'a>> for UnresolvedPointStatus {
+    fn from(
+        UnresolvedPointStatusBorrowed {
+            point_index,
+            binding_hash,
+            state,
+            job_id,
+            revision,
+            policy,
+            outcome,
+            job_state,
+            attempt_id,
+            attempt_state,
+            last_error,
+            termination_detail,
+            tries,
+        }: UnresolvedPointStatusBorrowed<'a>,
     ) -> Self {
         Self {
             point_index,
@@ -748,6 +895,175 @@ where
         mapper: fn(OnePointStatusBorrowed) -> R,
     ) -> OnePointStatusQuery<'c, 'a, 's, C, R, N> {
         OnePointStatusQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
+pub struct PointPolicyStatusQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(
+        &tokio_postgres::Row,
+    ) -> Result<PointPolicyStatusBorrowed, tokio_postgres::Error>,
+    mapper: fn(PointPolicyStatusBorrowed) -> T,
+}
+impl<'c, 'a, 's, C, T: 'c, const N: usize> PointPolicyStatusQuery<'c, 'a, 's, C, T, N>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(
+        self,
+        mapper: fn(PointPolicyStatusBorrowed) -> R,
+    ) -> PointPolicyStatusQuery<'c, 'a, 's, C, R, N> {
+        PointPolicyStatusQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
+pub struct UnresolvedPointStatusQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(
+        &tokio_postgres::Row,
+    ) -> Result<UnresolvedPointStatusBorrowed, tokio_postgres::Error>,
+    mapper: fn(UnresolvedPointStatusBorrowed) -> T,
+}
+impl<
+    'c,
+    'a,
+    's,
+    C,
+    T: 'c,
+    const N: usize,
+> UnresolvedPointStatusQuery<'c, 'a, 's, C, T, N>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(
+        self,
+        mapper: fn(UnresolvedPointStatusBorrowed) -> R,
+    ) -> UnresolvedPointStatusQuery<'c, 'a, 's, C, R, N> {
+        UnresolvedPointStatusQuery {
             client: self.client,
             params: self.params,
             query: self.query,
@@ -1767,6 +2083,82 @@ impl<
         )
     }
 }
+pub struct SetPointFactsStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn set_point_facts() -> SetPointFactsStmt {
+    SetPointFactsStmt(
+        "UPDATE pse_ops.study_points SET state = $1, outcome = jsonb_set(jsonb_set(outcome, '{outcome}', $2::jsonb), '{member_attempt}', $3::jsonb), revision = revision + 1, updated_at = now() WHERE study_id = $4::pse_ops.study_id AND point_index = $5 AND revision = $6",
+        None,
+    )
+}
+impl SetPointFactsStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    async fn bind<'c, 'a, 's, C: GenericClient, T1: crate::JsonSql, T2: crate::JsonSql>(
+        &'s self,
+        client: &'c C,
+        state: &'a pse_model::generated::enums::StudyPointState,
+        outcome: &'a T1,
+        member_attempt: &'a T2,
+        study_id: &'a pse_model::generated::identities::StudyId,
+        point_index: &'a i32,
+        expected_revision: &'a i64,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client
+            .execute(
+                self.0,
+                &[
+                    state,
+                    outcome,
+                    member_attempt,
+                    study_id,
+                    point_index,
+                    expected_revision,
+                ],
+            )
+            .await
+    }
+}
+impl<
+    'a,
+    C: GenericClient + Send + Sync,
+    T1: crate::JsonSql,
+    T2: crate::JsonSql,
+> crate::client::async_::Params<
+    'a,
+    'a,
+    'a,
+    SetPointFactsParams<T1, T2>,
+    std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    >,
+    C,
+> for SetPointFactsStmt {
+    fn params(
+        &'a self,
+        client: &'a C,
+        params: &'a SetPointFactsParams<T1, T2>,
+    ) -> std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    > {
+        Box::pin(
+            self
+                .bind(
+                    client,
+                    &params.state,
+                    &params.outcome,
+                    &params.member_attempt,
+                    &params.study_id,
+                    &params.point_index,
+                    &params.expected_revision,
+                ),
+        )
+    }
+}
 pub struct AllPointsStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn all_points() -> AllPointsStmt {
     AllPointsStmt(
@@ -2017,6 +2409,102 @@ impl<
         params: &'a OnePointStatusParams,
     ) -> OnePointStatusQuery<'c, 'a, 's, C, OnePointStatus, 2> {
         self.bind(client, &params.study_id, &params.point_index)
+    }
+}
+pub struct PointPolicyStatusStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn point_policy_status() -> PointPolicyStatusStmt {
+    PointPolicyStatusStmt(
+        "SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy, p.outcome - 'receipt' AS outcome, j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error, COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries FROM pse_ops.study_points AS p JOIN pse_ops.jobs AS j ON j.job_id = p.job_id JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt WHERE p.study_id = $1::pse_ops.study_id ORDER BY p.point_index",
+        None,
+    )
+}
+impl PointPolicyStatusStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        study_id: &'a pse_model::generated::identities::StudyId,
+    ) -> PointPolicyStatusQuery<'c, 'a, 's, C, PointPolicyStatus, 1> {
+        PointPolicyStatusQuery {
+            client,
+            params: [study_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |
+                row: &tokio_postgres::Row,
+            | -> Result<PointPolicyStatusBorrowed, tokio_postgres::Error> {
+                Ok(PointPolicyStatusBorrowed {
+                    point_index: row.try_get(0)?,
+                    binding_hash: row.try_get(1)?,
+                    state: row.try_get(2)?,
+                    job_id: row.try_get(3)?,
+                    revision: row.try_get(4)?,
+                    policy: row.try_get(5)?,
+                    outcome: row.try_get(6)?,
+                    job_state: row.try_get(7)?,
+                    attempt_id: row.try_get(8)?,
+                    attempt_state: row.try_get(9)?,
+                    last_error: row.try_get(10)?,
+                    termination_detail: row.try_get(11)?,
+                    tries: row.try_get(12)?,
+                })
+            },
+            mapper: |it| PointPolicyStatus::from(it),
+        }
+    }
+}
+pub struct UnresolvedPointStatusStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn unresolved_point_status() -> UnresolvedPointStatusStmt {
+    UnresolvedPointStatusStmt(
+        "SELECT p.point_index, p.binding_hash, p.state, p.job_id, p.revision, p.policy, p.outcome, j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error, COALESCE(a.termination_detail, parent.termination_detail) AS termination_detail, j.tries FROM pse_ops.study_points AS p JOIN pse_ops.jobs AS j ON j.job_id = p.job_id JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id LEFT JOIN pse_ops.attempts AS parent ON parent.attempt_id = a.parent_attempt WHERE p.study_id = $1::pse_ops.study_id AND j.state <> 'running' AND p.outcome #>> '{outcome,effect}' = 'unknown' ORDER BY p.point_index",
+        None,
+    )
+}
+impl UnresolvedPointStatusStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        study_id: &'a pse_model::generated::identities::StudyId,
+    ) -> UnresolvedPointStatusQuery<'c, 'a, 's, C, UnresolvedPointStatus, 1> {
+        UnresolvedPointStatusQuery {
+            client,
+            params: [study_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |
+                row: &tokio_postgres::Row,
+            | -> Result<UnresolvedPointStatusBorrowed, tokio_postgres::Error> {
+                Ok(UnresolvedPointStatusBorrowed {
+                    point_index: row.try_get(0)?,
+                    binding_hash: row.try_get(1)?,
+                    state: row.try_get(2)?,
+                    job_id: row.try_get(3)?,
+                    revision: row.try_get(4)?,
+                    policy: row.try_get(5)?,
+                    outcome: row.try_get(6)?,
+                    job_state: row.try_get(7)?,
+                    attempt_id: row.try_get(8)?,
+                    attempt_state: row.try_get(9)?,
+                    last_error: row.try_get(10)?,
+                    termination_detail: row.try_get(11)?,
+                    tries: row.try_get(12)?,
+                })
+            },
+            mapper: |it| UnresolvedPointStatus::from(it),
+        }
     }
 }
 pub struct AvailableMembersStmt(&'static str, Option<tokio_postgres::Statement>);

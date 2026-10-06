@@ -4,7 +4,9 @@
 //! Per-occurrence literal resolution (blueprint §8.3).
 use crate::{QuantityError, QuantityRegistry, QuantityTypeId, Unit};
 /// Context belongs to a literal occurrence, never its shared untyped node identity.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord,
+)]
 pub enum LiteralContext {
     /// No expected contract; ambiguity must fail.
     Free,

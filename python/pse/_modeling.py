@@ -527,10 +527,6 @@ class ModelingKnowledge:
         """Generated runtime.modeling_knowledge rows in canonical units."""
         return TableStream(self._handle.table())
 
-    def query(self, sql: str) -> TableStream:
-        """Bounded native SQL over workspace.runtime.modeling_knowledge."""
-        return TableStream(self._handle.query(sql))
-
 
 @attrs.frozen
 class ModelingPackage:
@@ -540,6 +536,16 @@ class ModelingPackage:
     """
 
     _handle: _NativeModelingPackage
+
+    @property
+    def canonical_revision(self) -> str:
+        """Immutable retained source selection, suitable for reopening after restart."""
+        return self._handle.canonical_revision
+
+    @property
+    def canonical_problem(self) -> str:
+        """Canonical problem identity shared by this source's revisions."""
+        return self._handle.canonical_problem
 
     def knowledge(
         self,
@@ -709,6 +715,13 @@ class ModelingPackage:
         return codec.document_rows(
             document.declarations, AuthoredModelingDeclarationsRow
         )
+
+    def source_tables(self) -> dict[SemanticId, TableStream]:
+        """Export the complete immutable source inventory as explicit Arrow tables."""
+        return {
+            SemanticId.from_hex(relation): TableStream(stream)
+            for relation, stream in self._handle.source_tables().items()
+        }
 
     def inspect(
         self, case_id: DeclarationId, settings: SolveSettings

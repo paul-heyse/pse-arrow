@@ -4,7 +4,7 @@
 //! Source-bearing syntax trees. These describe authored syntax, not relation authority.
 
 /// An exact UTF-8 byte range in an expression document.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Span {
     /// Inclusive starting byte.
     pub start: u32,
@@ -13,15 +13,39 @@ pub struct Span {
 }
 
 /// A numeric token and its optional authored unit.
-#[derive(Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct Number {
     /// Finite numeric value. A syntactic minus is represented by `ExprKind::Neg`.
+    #[serde(with = "finite_float_bits")]
     pub value: f64,
     /// Exact integral token outside the consecutive IEEE-754 integer range.
     pub exact_integer: Option<i128>,
     /// The unit as a canonical product of unit symbols with rational exponents, before
     /// the physical registry composes it (ADR-0124). Spellings of one product are equal.
     pub unit: Option<pse_quantity::UnitProduct>,
+}
+
+// Scientific AST literals use exact IEEE-754 bits in portable descriptions.
+// Diagnostic nonfinite values belong to the separate raw diagnostic codec.
+mod finite_float_bits {
+    use serde::{Deserialize, Deserializer, Serializer};
+    pub(super) fn serialize<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+        if !value.is_finite() {
+            return Err(serde::ser::Error::custom(
+                "scientific literal must be finite",
+            ));
+        }
+        serializer.serialize_u64(value.to_bits())
+    }
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+        let value = f64::from_bits(u64::deserialize(deserializer)?);
+        if !value.is_finite() {
+            return Err(serde::de::Error::custom(
+                "scientific literal must be finite",
+            ));
+        }
+        Ok(value)
+    }
 }
 
 impl PartialEq for Number {
@@ -55,7 +79,7 @@ impl std::fmt::Debug for Number {
 }
 
 /// One dotted member and any subscripts attached to it.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct PathSegment {
     /// The authored identifier.
     pub name: String,
@@ -64,7 +88,7 @@ pub struct PathSegment {
 }
 
 /// A member path, retaining indices at their exact member position.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct Path {
     /// Dotted segments in source order.
     pub segments: Vec<PathSegment>,
@@ -99,7 +123,7 @@ impl std::fmt::Display for Path {
 }
 
 /// An arithmetic binary operator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOp {
     /// Ordered addition.
     Add,
@@ -130,7 +154,7 @@ impl BinaryOp {
 pub use pse_quantity::functions::Function;
 
 /// A domain reduction.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReduceKind {
     /// Summation.
     Sum,
@@ -152,7 +176,7 @@ impl ReduceKind {
 }
 
 /// A lexical reduction binder.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct Binder {
     /// The local index name.
     pub var: String,
@@ -163,7 +187,7 @@ pub struct Binder {
 }
 
 /// One source-bearing expression.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct Expr {
     /// The expression form.
     pub kind: ExprKind,
@@ -172,7 +196,7 @@ pub struct Expr {
 }
 
 /// Authored expression forms (blueprint §7.7).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub enum ExprKind {
     /// A finite numeric token.
     Number(Number),
@@ -267,7 +291,7 @@ pub enum ExprKind {
 }
 
 /// A comparison token.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CompareOp {
     /// Equality.
     Eq,
@@ -298,7 +322,7 @@ impl CompareOp {
 }
 
 /// A source-bearing predicate.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct Predicate {
     /// Predicate syntax.
     pub kind: PredicateKind,
@@ -307,7 +331,7 @@ pub struct Predicate {
 }
 
 /// Predicate syntax, before name and domain resolution.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub enum PredicateKind {
     /// Scalar comparison.
     Compare {

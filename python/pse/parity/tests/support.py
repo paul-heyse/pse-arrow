@@ -6,6 +6,7 @@ A runtime, authored packages over the physical primitives or the reference libra
 member identities by path, and typed result rows.
 """
 
+import os
 from pathlib import Path
 
 import pyarrow as pa
@@ -19,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 def runtime(spill: Path) -> pse.Runtime:
-    """The in-memory runtime the comparisons share: a process configures one budget."""
+    """The configured canonical runtime; one process configures one budget."""
     return pse.Runtime(
         pse.EngineSettings(
             # Every live package holds its compiler workspace allowance, and the
@@ -29,7 +30,8 @@ def runtime(spill: Path) -> pse.Runtime:
             spill_dir=str(spill),
             max_spill_bytes=1 << 30,
             batch_size=1024,
-        )
+        ),
+        substrate=os.environ["PSE_SURREAL_STATE"],
     )
 
 

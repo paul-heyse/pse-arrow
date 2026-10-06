@@ -6,6 +6,7 @@ use datafusion::{
     common::TableReference,
     execution::cache::{Cache, CacheKey, CacheValue},
 };
+use pse_compiler::workspace::ModelingBodyRetention;
 use pse_ids::roles::{AdmittedClosureHash, PreparedViewHash, SemanticBodyHash};
 use std::sync::atomic::Ordering;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -173,18 +174,23 @@ pub(super) struct BodyRetention(pub std::sync::Weak<MathService>);
 // Cancellation can unwind admission. Published entries are immutable; lease transfer,
 // cache insertion and ownership tables use their own guarded operations and RAII.
 impl std::panic::RefUnwindSafe for BodyRetention {}
-impl pse_compiler::workspace::ModelingBodyRetention for BodyRetention {
+impl ModelingBodyRetention for BodyRetention {
     fn generation(&self) -> u64 {
         self.0
             .upgrade()
             .map_or(u64::MAX, |service| service.modeling_cache.generation())
     }
-    fn get(&self, key: SemanticBodyHash) -> Option<Arc<pse_compiler::typed_math::AdmittedBody>> {
-        let service = self.0.upgrade()?;
-        match service.modeling_cache.get(&Key::Body(key))? {
-            Product::Body(body) => Some(body),
+    fn get(
+        &self,
+        key: SemanticBodyHash,
+    ) -> Result<Option<Arc<pse_compiler::typed_math::AdmittedBody>>, pse_math::MathError> {
+        let Some(service) = self.0.upgrade() else {
+            return Ok(None);
+        };
+        Ok(match service.modeling_cache.get(&Key::Body(key)) {
+            Some(Product::Body(body)) => Some(body),
             _ => None,
-        }
+        })
     }
     fn retain(
         &self,
@@ -206,5 +212,226 @@ impl pse_compiler::workspace::ModelingBodyRetention for BodyRetention {
             .modeling_cache
             .put(generation, Key::Body(key), Product::Body(owned.clone()));
         Ok(owned)
+    }
+}
+/// Protected selected-demand attachment; immutable math alone enters memory retention.
+#[derive(Debug)]
+pub(super) struct CanonicalBodyRetention {
+    pub(super) memory: BodyRetention,
+    pub(super) store: Arc<pse_operations::canonical::CanonicalStore>,
+    pub(super) read: Arc<Mutex<pse_operations::canonical_selection::SelectedRead>>,
+    pub(super) producer: Option<portable::QualifiedProducer>,
+    pub(super) outer_build: pse_ids::ContentHash,
+    pub(super) inputs: CompilerContext,
+    pub(super) cancelled: Arc<std::sync::atomic::AtomicBool>,
+    pub(super) handle: tokio::runtime::Handle,
+}
+impl std::panic::RefUnwindSafe for CanonicalBodyRetention {}
+fn portable_error(error: portable::PortableError) -> pse_math::MathError {
+    match error {
+        portable::PortableError::Math(error) => error,
+        error => {
+            // Keep the storage owner's exact typed identity and facts in an owned,
+            // accounted envelope rather than classifying its rendered native message.
+            let diagnostic = pse_model::diagnostic::project_typed(
+                &error,
+                pse_diagnostics::DiagnosticStage::ModelingAdmission,
+            );
+            let retained = size_of::<pse_model::diagnostic::BoundaryDiagnostic>()
+                + pse_model::HeapUsage::heap_bytes(&diagnostic);
+            pse_math::MathError::Typed {
+                retained,
+                cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic),
+            }
+        }
+    }
+}
+async fn canonical_request<T>(
+    cancelled: &std::sync::atomic::AtomicBool,
+    timeout: std::time::Duration,
+    operation: impl Future<Output = Result<T, portable::PortableError>>,
+) -> Result<T, pse_math::MathError> {
+    let cancellation = async {
+        loop {
+            if cancelled.load(Ordering::Relaxed) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    };
+    tokio::pin!(operation);
+    tokio::select! {
+        biased;
+        ()=cancellation=>Err(pse_math::MathError::Cancelled),
+        ()=tokio::time::sleep(timeout)=>Err(portable_error(portable::PortableError::Store(pse_operations::canonical::CanonicalError::Timeout))),
+        result=&mut operation=>result.map_err(portable_error),
+    }
+}
+impl ModelingBodyRetention for CanonicalBodyRetention {
+    fn generation(&self) -> u64 {
+        self.memory.generation()
+    }
+    fn get(
+        &self,
+        key: SemanticBodyHash,
+    ) -> Result<Option<Arc<pse_compiler::typed_math::AdmittedBody>>, pse_math::MathError> {
+        if self.cancelled.load(Ordering::Relaxed) {
+            return Err(pse_math::MathError::Cancelled);
+        }
+        if let Some(body) = self.memory.get(key)? {
+            // A memory hit still makes this revision's durable reachability concrete.
+            self.publish(&body)?;
+            return Ok(Some(body));
+        }
+        let Some(producer) = &self.producer else {
+            return Ok(None);
+        };
+        let service = self.memory.0.upgrade().ok_or_else(|| {
+            pse_math::MathError::Contract("canonical replay memory owner is unavailable".into())
+        })?;
+        let mut read = self.read.lock().map_err(|_| {
+            pse_math::MathError::Contract("canonical selection lock poisoned".into())
+        })?;
+        let body = self.handle.block_on(canonical_request(
+            &self.cancelled,
+            pse_operations::canonical::REQUEST_TIMEOUT,
+            portable::reuse_body(
+                &service,
+                &self.store,
+                &mut read,
+                producer,
+                key,
+                &self.inputs,
+                &self.cancelled,
+            ),
+        ))?;
+        drop(read);
+        body.map(|body| self.memory.retain(self.generation(), key, Arc::new(body)))
+            .transpose()
+    }
+    fn retain(
+        &self,
+        generation: u64,
+        key: SemanticBodyHash,
+        body: Arc<pse_compiler::typed_math::AdmittedBody>,
+    ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, pse_math::MathError> {
+        let body = self.memory.retain(generation, key, body)?;
+        self.publish(&body)?;
+        Ok(body)
+    }
+}
+impl CanonicalBodyRetention {
+    fn publish(
+        &self,
+        body: &pse_compiler::typed_math::AdmittedBody,
+    ) -> Result<(), pse_math::MathError> {
+        if self.cancelled.load(Ordering::Relaxed) {
+            return Err(pse_math::MathError::Cancelled);
+        }
+        let service = self.memory.0.upgrade().ok_or_else(|| {
+            pse_math::MathError::Contract(
+                "canonical publication memory owner is unavailable".into(),
+            )
+        })?;
+        let read = self.read.lock().map_err(|_| {
+            pse_math::MathError::Contract("canonical selection lock poisoned".into())
+        })?;
+        self.handle.block_on(canonical_request(
+            &self.cancelled,
+            pse_operations::canonical::REQUEST_TIMEOUT,
+            async {
+                match &self.producer {
+                    Some(producer) => {
+                        portable::publish_body(
+                            &service,
+                            &self.store,
+                            &read,
+                            producer,
+                            body,
+                            &self.inputs,
+                        )
+                        .await
+                    }
+                    None => {
+                        portable::publish_unqualified_body(
+                            &service,
+                            &self.store,
+                            &read,
+                            self.outer_build,
+                            body,
+                            &self.inputs,
+                        )
+                        .await
+                    }
+                }
+            },
+        ))?;
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod canonical_portable_body_callback_tests {
+    use super::*;
+    use std::sync::atomic::AtomicBool;
+    use std::time::Duration;
+    struct DropProbe(Arc<AtomicBool>);
+    impl Drop for DropProbe {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+    #[tokio::test]
+    async fn canonical_portable_body_callback_cancellation_drops_pending_operation() {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let probe = DropProbe(dropped.clone());
+        let operation = async move {
+            let _probe = probe;
+            std::future::pending::<Result<(), portable::PortableError>>().await
+        };
+        let trigger = cancelled.clone();
+        let cancel = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(15)).await;
+            trigger.store(true, Ordering::Relaxed);
+        });
+        assert!(matches!(
+            canonical_request(&cancelled, Duration::from_secs(1), operation).await,
+            Err(pse_math::MathError::Cancelled)
+        ));
+        cancel.await.unwrap();
+        assert!(dropped.load(Ordering::Relaxed));
+    }
+    #[tokio::test]
+    async fn canonical_portable_body_callback_deadline_refuses_and_drops_pending_operation() {
+        use pse_diagnostics::{DiagnosticCode, TypedDiagnostic};
+        let cancelled = AtomicBool::new(false);
+        let dropped = Arc::new(AtomicBool::new(false));
+        let probe = DropProbe(dropped.clone());
+        let operation = async move {
+            let _probe = probe;
+            std::future::pending::<Result<(), portable::PortableError>>().await
+        };
+        let error = canonical_request(&cancelled, Duration::from_millis(15), operation)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.diagnostic_code(),
+            Some(DiagnosticCode::RuntimeInfrastructure)
+        );
+        assert!(dropped.load(Ordering::Relaxed));
+    }
+    #[tokio::test]
+    async fn canonical_portable_body_callback_preexisting_cancellation_prevents_poll() {
+        let cancelled = AtomicBool::new(true);
+        let polled = AtomicBool::new(false);
+        let operation = async {
+            polled.store(true, Ordering::Relaxed);
+            Ok::<(), portable::PortableError>(())
+        };
+        assert!(matches!(
+            canonical_request(&cancelled, Duration::from_secs(1), operation).await,
+            Err(pse_math::MathError::Cancelled)
+        ));
+        assert!(!polled.load(Ordering::Relaxed));
     }
 }

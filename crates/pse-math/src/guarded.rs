@@ -13,7 +13,9 @@ use pse_ids::SemanticId;
 use pse_kernels::{DerivativeOrder, ProviderSpec};
 use symbolica::atom::{Atom, AtomCore, Symbol};
 
-/// Index into evaluation-local scalar storage.
+/// Authored formal slot before selection, or a dense storage offset inside a selected
+/// program. The selected layout preserves authored symbols and exposes its input IDs
+/// through [`CompiledBody::input_formals`]; these two index spaces must not be mixed.
 pub type Slot = usize;
 
 /// Runtime condition retained from syntax before normalization.

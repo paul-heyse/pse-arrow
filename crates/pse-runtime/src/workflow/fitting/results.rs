@@ -23,7 +23,6 @@ impl RunResult {
         let RunRequest::Fit(p) = &self.request else {
             return Err(contract("fit request mismatch"));
         };
-        let source = &p.source;
         let p = &p.problem;
         let report = match &self.report {
             Ok(RunReport::Fit(r)) => Some(r),
@@ -353,7 +352,6 @@ impl RunResult {
                 certificates.finish().map_err(relation)?,
             ),
         ]);
-        batches.extend(source.fit_declarations.tables(registry, &validation)?);
         use pse_relations::generated::runtime::{modeling_checks, modeling_reports};
         let mut checks =
             modeling_checks::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
@@ -414,7 +412,6 @@ impl RunResult {
             products.finish().map_err(relation)?,
         );
         self.retain_sources(&mut batches)?;
-        batches.extend(source.source_tables()?);
         Ok(batches)
     }
 }

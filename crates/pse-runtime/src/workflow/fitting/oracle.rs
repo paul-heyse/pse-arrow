@@ -1161,19 +1161,20 @@ impl FitOracle {
 mod tests {
     use super::*;
     use crate::workflow::tests::{compiler_profile, id, physical, runtime};
-    fn source(fixed: bool) -> crate::workflow::ModelingPackage {
+    async fn source(fixed: bool) -> crate::workflow::ModelingPackage {
         source_body(
             fixed,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 0);",
         )
+        .await
     }
-    fn source_body(fixed: bool, body: &str) -> crate::workflow::ModelingPackage {
-        source_text(fixed, &format!("package p {{ def Root {{ {body} }} }}"))
+    async fn source_body(fixed: bool, body: &str) -> crate::workflow::ModelingPackage {
+        source_text(fixed, &format!("package p {{ def Root {{ {body} }} }}")).await
     }
-    fn source_text(fixed: bool, text: &str) -> crate::workflow::ModelingPackage {
-        source_measured(fixed, text, 3., 2.)
+    async fn source_text(fixed: bool, text: &str) -> crate::workflow::ModelingPackage {
+        source_measured(fixed, text, 3., 2.).await
     }
-    fn source_measured(
+    async fn source_measured(
         fixed: bool,
         text: &str,
         value: f64,
@@ -1208,8 +1209,10 @@ mod tests {
         data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":[{"symbol_id":id(1),"fixed":fixed,"value":2.0,"lower":0.1,"upper":10.0,"scale":2.0}],"experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(1),"path":"p"}]}],"observations":[{"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(31),"experiment_id":id(33),"output_path":"y","time":null,"included":true,"importance":4.0}]})).unwrap());
         runtime()
             .modeling_package(rows, physical)
+            .await
             .unwrap()
             .with_fit_declarations(data)
+            .await
             .unwrap()
     }
     fn profile(_fixed: bool) -> FitProfile {
@@ -1236,7 +1239,7 @@ mod tests {
     #[tokio::test]
     async fn prepared_fit_clones_share_the_original_reservation() {
         // Ownership is independent of native backend availability.
-        let revision = source(true);
+        let revision = source(true).await;
         let prepared = revision
             .prepare_fit(
                 id(32).into(),
@@ -1282,6 +1285,7 @@ mod tests {
     #[tokio::test]
     async fn compiled_weighted_loss_gradient_and_exact_hessian() {
         let p = source(false)
+            .await
             .prepare_fit_problem(
                 id(32).into(),
                 profile(false),
@@ -1358,6 +1362,7 @@ mod tests {
             let mut profile = profile(false);
             profile.solver.controls.hessian = hessian;
             let p = source_body(false, body)
+                .await
                 .prepare_fit_problem(
                     id(32).into(),
                     profile,
@@ -1413,6 +1418,7 @@ mod tests {
     #[tokio::test]
     async fn sparse_fit_admission_tracks_support_and_refills_duplicates() {
         let p = source(false)
+            .await
             .prepare_fit_problem(
                 id(32).into(),
                 profile(false),
@@ -1496,6 +1502,7 @@ mod tests {
     #[tokio::test]
     async fn bounded_rank_diagnostic_does_not_disable_sparse_candidate_evaluation() {
         let mut p = source(false)
+            .await
             .prepare_fit_problem(
                 id(32).into(),
                 profile(false),
@@ -1516,10 +1523,12 @@ mod tests {
         assert!((gradient[0] - 4.0).abs() < 1e-12);
     }
     #[tokio::test]
-    async fn all_fixed_fit_uses_joined_direct_evaluation_and_retained_sources() {
+    async fn all_fixed_fit_uses_joined_direct_evaluation_and_explicit_source_export() {
         let mut requested = profile(true);
         requested.solver.selection = native::solve::SolverSelection::Auto;
-        let p = source(true)
+        let package = source(true).await;
+        let source_tables = package.source_tables().await.unwrap();
+        let p = package
             .prepare_fit(
                 id(32).into(),
                 requested,
@@ -1559,8 +1568,13 @@ mod tests {
         assert_eq!(r.predictions, vec![Some(4.0)]);
         let table = a.table("runtime.fit_observations").unwrap();
         assert_eq!(table.batch().num_rows(), 1);
-        assert_eq!(a.table("authored.fit_cases").unwrap().batch().num_rows(), 1);
-        drop((a, b, handle, p));
+        assert_eq!(
+            source_tables[&pse_relations::generated::authored::fit_cases::RELATION_ID]
+                .batch()
+                .num_rows(),
+            1
+        );
+        drop((a, b, handle, p, package, source_tables));
         assert_eq!(table.batch().num_rows(), 1);
     }
     #[tokio::test]
@@ -1583,6 +1597,7 @@ mod tests {
             }
             requested.solver.composition.limits = Some(limits);
             let prepared = source(true)
+                .await
                 .prepare_fit(
                     id(32).into(),
                     requested,
@@ -1616,7 +1631,7 @@ mod tests {
     }
     #[tokio::test]
     async fn all_fixed_required_presolve_is_refused_and_scales_are_checked() {
-        let revision = source(true);
+        let revision = source(true).await;
         let mut controls = profile(true);
         controls.solver.presolve = native::presolve::Policy::from_native_options(
             &Default::default(),
@@ -1676,6 +1691,7 @@ mod tests {
     #[tokio::test]
     async fn variable_fit_requires_a_linked_adapter() {
         let error = source(false)
+            .await
             .prepare_fit(
                 id(32).into(),
                 profile(false),
@@ -1694,7 +1710,8 @@ mod tests {
             "package p {def Root {param p:Scalar=2;let y:Scalar=p*p;}}",
             3.,
             0.,
-        );
+        )
+        .await;
         let r = b;
         let error = r
             .prepare_fit_problem(
@@ -1709,9 +1726,10 @@ mod tests {
         assert!(
             matches!(error, WorkflowError::Input(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance")
         );
-        let mut b = source(false);
-        Arc::make_mut(&mut b.fit_declarations).fits[0].observations[0].experiment_id =
-            id(99).into();
+        let b = source(false).await;
+        let mut fits = b.fit_declarations().await.unwrap();
+        fits.fits[0].observations[0].experiment_id = id(99).into();
+        let b = b.with_fit_declarations(fits).await.unwrap();
         let r = b;
         let error = r
             .prepare_fit_problem(
@@ -1730,9 +1748,9 @@ mod tests {
     #[tokio::test]
     async fn steady_response_solves_the_compiled_implicit_closure() {
         let body = "param p: Scalar = 2; var state: Scalar; annotation start state(2); eq closure: state == p; let y: Scalar = state*state;";
-        let b = source_body(false, body);
+        let b = source_body(false, body).await;
         let profile = profile(false);
-        let fixed = source_body(true, body);
+        let fixed = source_body(true, body).await;
         let fixed_profile = profile.clone();
         let fixed_problem = fixed
             .prepare_fit_problem(
@@ -1788,6 +1806,7 @@ mod tests {
     async fn fit_refuses_free_integer() {
         let body = "param p: Scalar = 2; var n: Count in integer; annotation start n(1{1}); annotation bounds n(0{1}, 5{1}); eq e: n >= 1{1}; let y: Scalar = p*p;";
         let error = source_body(false, body)
+            .await
             .prepare_fit_problem(
                 id(32).into(),
                 profile(false),
@@ -1809,7 +1828,7 @@ mod tests {
         let package = source_text(
             true,
             "package p { test Root fixture {dof 0; fix x=2;} {param p:Scalar=2; var x:Scalar; let y:Scalar=x+p; annotation bounds x(1,3); annotation check y(y==4);} }",
-        );
+        ).await;
         let result = package
             .prepare_fit(
                 id(32).into(),
@@ -1835,9 +1854,10 @@ mod tests {
     }
     #[tokio::test]
     async fn authored_fit_can_observe_a_parameter_without_an_alias() {
-        let mut package = source(true);
-        Arc::make_mut(&mut package.fit_declarations).fits[0].observations[0].output_path =
-            "p".into();
+        let package = source(true).await;
+        let mut fits = package.fit_declarations().await.unwrap();
+        fits.fits[0].observations[0].output_path = "p".into();
+        let package = package.with_fit_declarations(fits).await.unwrap();
         let result = package
             .prepare_fit(
                 id(32).into(),
@@ -1864,7 +1884,8 @@ mod tests {
         let package = source_body(
             true,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);",
-        );
+        )
+        .await;
         let mut requested = profile(true);
         requested.solver.composition.recovery = vec![pse_model::strategy::StartOrigin::Auxiliary];
         let prepared = package
@@ -1924,7 +1945,7 @@ mod tests {
     }
     #[tokio::test]
     async fn authored_fit_source_profile_and_binding_ownership_are_separate() {
-        let package = source(true);
+        let package = source(true).await;
         let cancel = crate::CancelSource::new();
         let (first, _) = package
             .prepare_fit_problem(
@@ -1956,7 +1977,7 @@ mod tests {
             "package p {def Root {param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 0);}}",
             5.,
             2.,
-        );
+        ).await;
         let (third, _) = edited
             .prepare_fit_problem(
                 id(32).into(),
@@ -1970,10 +1991,12 @@ mod tests {
         assert_ne!(first.source_identity, third.source_identity);
         assert_eq!(
             package
-                .revision
+                .all_revision()
+                .await
+                .unwrap()
                 .checked()
                 .measurement(
-                    package.fit_declarations.fits[0].experiments[0].case_id,
+                    package.fit_declarations().await.unwrap().fits[0].experiments[0].case_id,
                     id(31).into(),
                     "value",
                     Some("sigma")
@@ -1982,9 +2005,9 @@ mod tests {
                 .value,
             Some(3.)
         );
-        let mut data = (*package.fit_declarations).clone();
+        let mut data = package.fit_declarations().await.unwrap();
         data.fits[0].parameters[0].value = 2.5;
-        let changed = package.clone().with_fit_declarations(data).unwrap();
+        let changed = package.clone().with_fit_declarations(data).await.unwrap();
         let (fourth, _) = changed
             .prepare_fit_problem(
                 id(32).into(),
@@ -1999,10 +2022,10 @@ mod tests {
             first.source_identity, fourth.source_identity,
             "fit declaration belongs to source identity"
         );
-        let mut data = (*package.fit_declarations).clone();
+        let mut data = changed.fit_declarations().await.unwrap();
         let binding = data.fits[0].experiments[0].bindings[0].clone();
         data.fits[0].experiments[0].bindings.push(binding);
-        let invalid = package.with_fit_declarations(data).unwrap();
+        let invalid = changed.with_fit_declarations(data).await.unwrap();
         assert!(
             invalid
                 .prepare_fit_problem(
@@ -2042,7 +2065,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime().modeling_package(rows, physical).unwrap();
+        let package = runtime().modeling_package(rows, physical).await.unwrap();
         let ipopt = |intent| SolverProfile {
             presolve: Default::default(),
             numerics: Default::default(),
@@ -2110,6 +2133,7 @@ mod tests {
         let initialize = initialized.attempts[0].result.as_ref().unwrap();
         // A parameter fit.
         let fitted = source(false)
+            .await
             .prepare_fit(
                 id(32).into(),
                 profile(false),

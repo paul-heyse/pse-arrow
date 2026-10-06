@@ -8,6 +8,7 @@ mod functions;
 pub mod initialization;
 mod jobs;
 pub mod modeling;
+pub mod portable;
 pub mod prediction;
 mod products;
 pub(crate) mod retention;
@@ -502,6 +503,47 @@ impl MathService {
         let lease = self.reserve("math:compiler-workspace", self.policy.workspace_bytes)?;
         let mut compiler = CompilerWorkspace::new(inputs, limits)?;
         compiler.attach_body_retention(Arc::new(retention::BodyRetention(Arc::downgrade(self))))?;
+        Ok(Workspace {
+            compiler: Arc::new(Mutex::new(compiler)),
+            lease,
+        })
+    }
+    /// Fresh selected-demand workspace. Durable scientific meaning is looked up before
+    /// admission and published before the caller releases its selection protection.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one selected workspace binds compiler inputs and limits to its canonical store, protected read, qualified producer, outer build and cancellation owner"
+    )]
+    pub fn canonical_workspace(
+        self: &Arc<Self>,
+        inputs: CompilerContext,
+        mut limits: WorkspaceLimits,
+        store: Arc<pse_operations::canonical::CanonicalStore>,
+        read: Arc<Mutex<pse_operations::canonical_selection::SelectedRead>>,
+        producer: Option<portable::QualifiedProducer>,
+        outer_build: pse_ids::ContentHash,
+        cancelled: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Workspace, MathRuntimeError> {
+        limits.input_bytes = limits.input_bytes.min(self.policy.workspace_bytes / 2);
+        limits.retained_bytes = limits.retained_bytes.min(self.policy.workspace_bytes / 2);
+        let lease = self.reserve(
+            "math:canonical-compiler-workspace",
+            self.policy.workspace_bytes,
+        )?;
+        let handle = tokio::runtime::Handle::try_current().map_err(|e| {
+            MathRuntimeError::Infrastructure(format!("canonical workspace requires runtime: {e}"))
+        })?;
+        let mut compiler = CompilerWorkspace::new(inputs.clone(), limits)?;
+        compiler.attach_body_retention(Arc::new(retention::CanonicalBodyRetention {
+            memory: retention::BodyRetention(Arc::downgrade(self)),
+            store,
+            read,
+            producer,
+            outer_build,
+            inputs,
+            cancelled,
+            handle,
+        }))?;
         Ok(Workspace {
             compiler: Arc::new(Mutex::new(compiler)),
             lease,

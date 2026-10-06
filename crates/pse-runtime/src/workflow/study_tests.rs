@@ -25,7 +25,17 @@ fn point(
         operation: OperationRequest::DeclaredCase(CaseOperation {
             case,
             route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
-            settings: ipopt(),
+            // Independent KKT budgets are explicit; root correspondence uses target requirements.
+            settings: crate::math::settings::SolveSettings {
+                numerics: pse_model::numerics::NumericalPolicy {
+                    kkt: pse_model::numerics::KktTolerances {
+                        stationarity: 1e-10,
+                        complementarity: 1e-10,
+                    },
+                    ..Default::default()
+                },
+                ..ipopt()
+            },
         }),
         preparation: PreparationSettings {
             compiler: tests::compiler_profile(),
@@ -58,10 +68,11 @@ async fn admitted(
                 .await
                 .unwrap(),
         )
+        .await
         .unwrap();
+    let declarations = package.declarations().await.unwrap();
     let find = |name: &str| {
-        package
-            .declarations()
+        declarations
             .iter()
             .find(|declaration| declaration.name == name)
             .unwrap()
@@ -71,9 +82,6 @@ async fn admitted(
     let definition = package
         .admit_study_points(
             crate::authoring_driver::document::package_checksum(&physical),
-            vec![crate::authoring_driver::document::package_checksum(
-                &modeling,
-            )],
             &points,
             &cancel,
         )
@@ -126,7 +134,7 @@ fn study_definition_historical_readmission_codec_unit() {
     let definition = StudyDefinition {
         version: pse_model::document::Version,
         physical: hash,
-        modeling: vec![pse_ids::ContentHash::from_bytes([5; 32])],
+        modeling_revision: "fixture-revision".into(),
         points: vec![StudyPointDefinition {
             operation: StudyOperation {
                 version: pse_model::document::Version,
@@ -150,7 +158,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 6);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 7);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -179,7 +187,7 @@ fn study_definition_historical_readmission_codec_unit() {
         pse_diagnostics::DiagnosticRule::WorkflowOperations
     );
     assert_eq!(historical, retained);
-    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":6}"#] {
+    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":7}"#] {
         assert!(matches!(
             StudyDefinition::readmission(malformed),
             Err(WorkflowError::Input(_))
@@ -203,7 +211,7 @@ async fn immutable_definition_equal_bindings_distinct_occurrences_and_usable_dep
         )
         .await
         .unwrap();
-    let (sources, definition) = admitted(&runtime, |root, failed, _| {
+    let (mut sources, definition) = admitted(&runtime, |root, failed, _| {
         vec![
             point(root, 2, vec![], StartPolicy::Fresh),
             point(root, 4, vec![], StartPolicy::Fresh),
@@ -221,10 +229,41 @@ async fn immutable_definition_equal_bindings_distinct_occurrences_and_usable_dep
         definition.points[0].binding_hash,
         definition.points[1].binding_hash
     );
+    // After authored ingress, durable submission and workers need only the canonical handle.
+    sources.modeling.clear();
+    let revision = runtime
+        .canonical
+        .store()
+        .revision(&definition.modeling_revision)
+        .await
+        .unwrap()
+        .unwrap();
     let handle = runtime
-        .start_defined_study(&workspace, sources, definition, RetryPolicy::ONCE, 0)
+        .start_defined_study(
+            &workspace,
+            sources.physical,
+            definition,
+            RetryPolicy::ONCE,
+            0,
+        )
         .await
         .unwrap();
+    runtime
+        .canonical
+        .store()
+        .forget_history(&revision)
+        .await
+        .unwrap();
+    assert_eq!(
+        database
+            .session()
+            .await
+            .unwrap()
+            .count("SELECT COUNT(*) FROM pse_ops.source_bundles")
+            .await
+            .unwrap(),
+        1
+    );
     while !matches!(runtime.work_once().await.unwrap(), Processed::Idle) {}
     let status = handle.status().await.unwrap();
     assert_eq!(status.state, StudyState::Published);
@@ -270,7 +309,13 @@ async fn cancellation_preserves_one_outcome_for_every_unattempted_occurrence() {
     })
     .await;
     let handle = runtime
-        .start_defined_study(&workspace, sources, definition, RetryPolicy::ONCE, 0)
+        .start_defined_study(
+            &workspace,
+            sources.physical,
+            definition,
+            RetryPolicy::ONCE,
+            0,
+        )
         .await
         .unwrap();
     assert!(handle.cancel().await.unwrap().concluded);
@@ -315,10 +360,11 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
                 .await
                 .unwrap(),
         )
+        .await
         .unwrap();
+    let declarations = package.declarations().await.unwrap();
     let find = |name: &str| {
-        package
-            .declarations()
+        declarations
             .iter()
             .find(|r| r.name == name)
             .unwrap()
@@ -364,7 +410,7 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
             StartPolicy::Fresh,
         )
     };
-    let points = vec![
+    let mut points = vec![
         first,
         binding(
             point(
@@ -413,12 +459,55 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
             StartPolicy::Fresh,
         ),
     ];
+    // The root correspondence assertions need an explicit original-coordinate
+    // allowance. A relative engineering fraction cannot tighten canonical fallback.
+    let preliminary = package
+        .admit_study_points(
+            crate::authoring_driver::document::package_checksum(&physical),
+            &points[..1],
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let first = &preliminary.points[0];
+    let PreparedStudyOperation::DeclaredCase(prepared) = package
+        .prepare_bound_operation(&first.operation, &first.binding, &cancel)
+        .await
+        .unwrap()
+    else {
+        panic!("root point must prepare a declared case");
+    };
+    let lineage = prepared.model.model.solved().lineage();
+    let requirements = prepared
+        .solve
+        .numerics()
+        .targets
+        .iter()
+        .map(|target| {
+            let mut requirement = modeling::cases::requirement(
+                lineage,
+                target.id,
+                target.kind,
+                root,
+                pse_model::generated::enums::NumericalSource::Analysis,
+                None,
+                None,
+            )
+            .declaration;
+            requirement.absolute_tolerance = Some(1e-10);
+            requirement.unit_id = Some(target.unit);
+            requirement.provenance = "study root correspondence control".into();
+            requirement
+        })
+        .collect::<Vec<_>>();
+    for point in &mut points {
+        if let OperationRequest::DeclaredCase(case) = &mut point.operation {
+            case.settings.numerics.requirements = requirements.clone();
+        }
+    }
     let definition = package
         .admit_study_points(
             crate::authoring_driver::document::package_checksum(&physical),
-            vec![crate::authoring_driver::document::package_checksum(
-                &modeling,
-            )],
             &points,
             &cancel,
         )
@@ -434,16 +523,7 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
     );
     assert_eq!(definition.points[5].policy.seed_need, SeedNeed::NotNeeded);
     let handle = runtime
-        .start_defined_study(
-            &workspace,
-            PackageSources {
-                physical,
-                modeling: vec![modeling],
-            },
-            definition,
-            RetryPolicy::ONCE,
-            0,
-        )
+        .start_defined_study(&workspace, physical, definition, RetryPolicy::ONCE, 0)
         .await
         .unwrap();
     let Durability::Durable(operations) = runtime.durability() else {
@@ -498,6 +578,7 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
     );
     let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
     let mut native_roots = std::collections::BTreeMap::new();
+    let mut native_accuracy = std::collections::BTreeMap::new();
     let mut native_runs = std::collections::BTreeMap::new();
     let mut native_simulation = false;
     loop {
@@ -521,6 +602,16 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
             native_runs.insert(occurrence, result.run_id);
             match result.report().unwrap() {
                 RunReport::Modeling(results) => {
+                    assert!(
+                        results[0]
+                            .prepared
+                            .solve
+                            .numerics()
+                            .targets
+                            .iter()
+                            .all(|target| target.budget == 1e-10),
+                        "the explicit root correspondence budgets must reach every durable operation"
+                    );
                     let x = results[0]
                         .reports
                         .iter()
@@ -528,6 +619,20 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
                         .unwrap()
                         .value;
                     native_roots.insert(occurrence, x);
+                    native_accuracy.insert(
+                        occurrence,
+                        (
+                            results[0].prepared.solve.accuracy().clone(),
+                            results[0].prepared.solve.tolerances().clone(),
+                            match &results[0].outcome {
+                                crate::math::solves::Outcome::Native(native) => format!(
+                                    "termination={:?}, quality={:?}, observation={:?}",
+                                    native.termination, native.quality, native.observation
+                                ),
+                                outcome => format!("state={:?}", outcome.state()),
+                            },
+                        ),
+                    );
                 }
                 RunReport::Simulation(trajectory) => {
                     assert!(trajectory.accepted());
@@ -558,7 +663,7 @@ async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_
             .unwrap_or_else(|| panic!("occurrence {key} produced no native root: {status:#?}"));
         assert!(
             (*actual - x).abs() < 1e-6,
-            "return path solved the wrong binding"
+            "occurrence {key}: actual={actual}, expected={x}; all roots={native_roots:?}; accuracy/outcomes={native_accuracy:?}"
         );
     }
     assert!(native_simulation);
@@ -676,9 +781,12 @@ async fn related_case_study_uses_secant_then_original_correction() {
                 .await
                 .unwrap(),
         )
+        .await
         .unwrap();
     let root = package
         .declarations()
+        .await
+        .unwrap()
         .iter()
         .find(|r| r.name == "Root")
         .unwrap()
@@ -726,9 +834,6 @@ async fn related_case_study_uses_secant_then_original_correction() {
     let definition = package
         .admit_study_points(
             crate::authoring_driver::document::package_checksum(&physical),
-            vec![crate::authoring_driver::document::package_checksum(
-                &modeling,
-            )],
             &points,
             &cancel,
         )

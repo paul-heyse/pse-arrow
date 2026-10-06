@@ -110,7 +110,7 @@ async fn uncertainty_propagation_linear_exact() {
     // A fit's covariance propagated to its own predictions through its responses.
     let (sigma, _) = fixture::analytic();
     let result = fixture::fit(
-        &fixture::package(fixture::declared(), [1.0; 4]),
+        &fixture::package(fixture::declared(), [1.0; 4]).await,
         fixture::profile(HessianMode::Exact, predictions(0.95)),
     )
     .await;
@@ -174,7 +174,7 @@ async fn propagation_withheld_when_upstream_withheld() {
     // A fit whose covariance is withheld, here for a non-unit importance, withholds the
     // propagation to its predictions.
     let result = fixture::fit(
-        &fixture::package(fixture::declared(), [1.0, 1.0, 2.0, 1.0]),
+        &fixture::package(fixture::declared(), [1.0, 1.0, 2.0, 1.0]).await,
         fixture::profile(HessianMode::Exact, predictions(0.95)),
     )
     .await;

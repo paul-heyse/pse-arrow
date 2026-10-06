@@ -19,7 +19,7 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_execution(
@@ -165,7 +165,7 @@ async fn root_package() -> (
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(

@@ -21,6 +21,7 @@ hex.workspace = true
 pse-diagnostics.workspace = true
 blake3.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 # The JSON Schema of an identity inside a boundary document (ADR-0116 Outcome 7).
 schemars.workspace = true
 thiserror.workspace = true
@@ -34,4 +35,3 @@ postgres = ["dep:postgres-types", "dep:bytes"]
 
 [dev-dependencies]
 proptest.workspace = true
-serde_json.workspace = true

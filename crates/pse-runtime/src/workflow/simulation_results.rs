@@ -9,7 +9,7 @@ impl RunResult {
     pub(super) fn encode_simulation(
         &self,
     ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
-        let RunRequest::Simulation(p) = &self.request else {
+        let RunRequest::Simulation(_) = &self.request else {
             return Err(contract("simulation request mismatch"));
         };
         let mut batches = match &self.report {
@@ -34,7 +34,6 @@ impl RunResult {
                 .map_err(relation)?;
             entry.insert(header.finish().map_err(relation)?);
         }
-        batches.extend(p.source.source_tables()?);
         self.retain_sources(&mut batches)?;
         Ok(batches)
     }
@@ -218,7 +217,6 @@ impl RunResult {
                 .map_err(relation)?;
             entry.insert(header.finish().map_err(relation)?);
         }
-        batches.extend(problem.simulation.source.source_tables()?);
         let trace = report
             .and_then(|r| r.strategy.as_ref())
             .or_else(|| match &self.report {

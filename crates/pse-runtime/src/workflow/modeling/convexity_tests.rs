@@ -15,7 +15,7 @@ use pse_compiler::workspace::ModelingCaseBindings;
 use pse_kernels::DerivativeOrder;
 use pse_math::convexity::{ConvexityAssessment, ConvexityClass, Unrecognized};
 
-fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let runtime = fixture::runtime();
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
@@ -30,7 +30,7 @@ fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     (package, root)
 }
 fn profile(selection: SolverSelection, convexity: ConvexityPolicy) -> SolverProfile {
@@ -145,7 +145,7 @@ const GIBBS: &str = "package p { def Root {
 /// is the analytic minimum `nᵢ ∝ exp(−μᵢ)`.
 #[tokio::test]
 async fn recognized_exp_cone_routes_to_clarabel() {
-    let (package, root) = package(GIBBS);
+    let (package, root) = package(GIBBS).await;
     let prepared = prepare(
         &package,
         root,
@@ -176,7 +176,7 @@ async fn recognized_exp_cone_routes_to_clarabel() {
 /// objective as unrecognized, and no route reaches Clarabel.
 #[tokio::test]
 async fn unrecognized_gibbs_maximization_not_routed_to_clarabel() {
-    let (package, root) = package(&GIBBS.replace("g(minimize)", "g(maximize)"));
+    let (package, root) = package(&GIBBS.replace("g(minimize)", "g(maximize)")).await;
     let explicit = prepare(
         &package,
         root,
@@ -223,7 +223,7 @@ const NEARLY_PSD: &str = "package p { def Root {
 /// changed, and the next request without the policy is refused again.
 #[tokio::test]
 async fn numerical_psd_only_under_explicit_policy() {
-    let (package, root) = package(NEARLY_PSD);
+    let (package, root) = package(NEARLY_PSD).await;
     let highs = SolverSelection::Explicit(Backend::Highs);
     let refused = |result: Result<ModelingSolvePreparation, WorkflowError>| {
         let error = result.unwrap_err();

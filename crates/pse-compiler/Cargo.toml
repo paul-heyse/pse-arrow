@@ -19,12 +19,12 @@ workspace = true
 [dependencies]
 schemars.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 petgraph.workspace = true
 pse-model.workspace = true
 tracing.workspace = true
 salsa.workspace = true
 pse-structural.workspace = true
-pse-buildinfo.workspace = true
 pse-diagnostics.workspace = true
 thiserror.workspace = true
 miette.workspace = true
@@ -37,5 +37,4 @@ pse-quantity.workspace = true
 pse-workspace-hack.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }

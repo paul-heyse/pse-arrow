@@ -190,7 +190,7 @@ impl RunResult {
                         FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                     actual_environment
                         .hash(&environment)
-                        .hash(&pse_buildinfo::BUILD_IDENTITY);
+                        .hash(&self.runtime.canonical.attestation().build);
                     if let Some(native) = native {
                         actual_environment.str(native.backend.as_str());
                         for (name, value) in &native.provenance {
@@ -263,7 +263,7 @@ impl RunResult {
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
-                    .hash(&pse_buildinfo::BUILD_IDENTITY);
+                    .hash(&self.runtime.canonical.attestation().build);
                 #[cfg(feature = "solver-diffsol")]
                 if trajectory.is_some() {
                     actual_environment.str(&pse_backend_native::dynamics::settings_identity(
@@ -360,7 +360,7 @@ impl RunResult {
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
-                    .hash(&pse_buildinfo::BUILD_IDENTITY)
+                    .hash(&self.runtime.canonical.attestation().build)
                     .str(&pse_backend_native::dynamics::settings_identity(
                         p.simulation.profile(),
                     ));
@@ -454,7 +454,7 @@ impl RunResult {
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
-                    .hash(&pse_buildinfo::BUILD_IDENTITY);
+                    .hash(&self.runtime.canonical.attestation().build);
                 if let Some(native) = native {
                     actual_environment.str(native.backend.as_str());
                     for (name, value) in &native.provenance {
@@ -646,6 +646,7 @@ mod tests {
             .declaration_id;
         let package = runtime
             .modeling_package(rows, super::super::tests::physical())
+            .await
             .unwrap();
         let prepared = package
             .prepare_solve(

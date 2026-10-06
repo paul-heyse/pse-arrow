@@ -34,7 +34,10 @@ async fn modeling_original(
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     let mut profile = SolverProfile {
         intent: SolveIntent::Root,
         selection: SolverSelection::Explicit(backend),

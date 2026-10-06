@@ -835,7 +835,7 @@ impl ModelingPackage {
                     .shared
                     .math()
                     .prepare_modeling_functions(
-                        self.workspace.clone(),
+                        self.numerical_workspace()?,
                         model.model.clone(),
                         selected.values().copied().collect(),
                         model.case.compiled().plan.columns().to_vec(),
@@ -2317,9 +2317,10 @@ fn root_math_response_failure(
     match cause {
         MathError::Instance { cause, .. } => root_math_response_failure(cause),
         MathError::Cancelled => None,
-        MathError::Limit(_) | MathError::SlotLimit { .. } | MathError::WorkLimit { .. } => {
-            Some(Withheld::Memory)
-        }
+        MathError::Limit(_)
+        | MathError::ByteLimit { .. }
+        | MathError::SlotLimit { .. }
+        | MathError::WorkLimit { .. } => Some(Withheld::Memory),
         _ => Some(Withheld::Neighborhood(cause.to_string())),
     }
 }
@@ -2347,6 +2348,7 @@ mod tests {
         let runtime = fixture::runtime();
         let package = runtime
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let mut profile = fixture::profile();
         profile.intent = pse_backend_native::solve::SolveIntent::Optimize;
@@ -2415,6 +2417,7 @@ mod tests {
             .declaration_id;
         let package = runtime
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let defaults = SolverProfile::default();
         let solver = SolverProfile {
@@ -2596,6 +2599,7 @@ mod tests {
             .declaration_id;
         let package = runtime
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         for selection in [
             pse_backend_native::solve::SolverSelection::Explicit(
@@ -2716,6 +2720,7 @@ mod tests {
             .declaration_id;
         let package = fixture::runtime()
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let cancel = crate::CancelSource::new();
         let mut solver = fixture::profile();
@@ -2798,6 +2803,7 @@ mod tests {
             );
             let package = runtime
                 .modeling_package(declarations, fixture::physical())
+                .await
                 .unwrap();
             let cancel = crate::CancelSource::new();
             let mut solver = SolverProfile::default();
@@ -2893,6 +2899,7 @@ mod tests {
             .declaration_id;
         let package = runtime
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let cancel = crate::CancelSource::new();
         let mut solver = fixture::profile();
@@ -2998,6 +3005,7 @@ mod tests {
             .declaration_id;
         let package = runtime
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let cancel = crate::CancelSource::new();
         let mut solver = fixture::profile();
@@ -3075,6 +3083,7 @@ mod tests {
             .declaration_id;
         let package = fixture::runtime()
             .modeling_package(declarations, fixture::physical())
+            .await
             .unwrap();
         let result = package
             .prepare_solve(
@@ -3128,7 +3137,7 @@ mod tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(declarations, physical).unwrap();
+        let package = rt.modeling_package(declarations, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let mut solver = fixture::profile();
         solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
@@ -3406,7 +3415,10 @@ mod tests {
             .unwrap()
             .declaration_id;
         let rt = fixture::runtime_with(128 << 20, 16 << 20, 1 << 30);
-        let package = rt.modeling_package(rows, fixture::physical()).unwrap();
+        let package = rt
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
         let mut analysis = ModelingAnalysis {
             root,
             instance: pse_modeling::specialize::root_instance(root),
@@ -3559,7 +3571,7 @@ mod tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(declarations, physical).unwrap();
+        let package = rt.modeling_package(declarations, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
         let mut solver = super::super::super::tests::profile();
         solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
@@ -3812,7 +3824,7 @@ mod tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(declarations, physical).unwrap();
+        let package = rt.modeling_package(declarations, physical).await.unwrap();
         let resolved = package
             .resolve_case(
                 root,
@@ -3863,16 +3875,19 @@ mod tests {
             .unwrap()
             .is_empty()
         );
+        let unrelated = resolved
+            .numerics
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Row)
+            .unwrap();
         assert_eq!(
-            resolved
-                .numerics
-                .targets
-                .iter()
-                .find(|target| target.kind == NumericalTarget::Row)
-                .unwrap()
-                .budget,
-            1e-8
+            unrelated.budget,
+            pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY
         );
+        assert!(unrelated.engineering.as_ref().unwrap().canonical_fallback);
+        assert!(!unrelated.provenance.iter().any(|source| source.selected
+            && source.declaration == Some(state_reconstruction_requirement_id(row))));
     }
     #[tokio::test]
     async fn kernel_starts_numerics_and_constant_solver_share_the_existing_pipeline() {
@@ -3886,7 +3901,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let mut bindings = Bindings::default();
         bindings.demand.push("bad".into());
         let case = ModelingCaseBindings {
@@ -4035,6 +4050,7 @@ mod tests {
             .declaration_id;
         let package = fixture::runtime()
             .modeling_package(rows, fixture::physical())
+            .await
             .unwrap();
         let error = package
             .prepare_solve(
@@ -4107,7 +4123,10 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime().modeling_package(rows, physical).unwrap();
+        let package = fixture::runtime()
+            .modeling_package(rows, physical)
+            .await
+            .unwrap();
         let fixed = ModelingCaseBindings {
             members: BTreeMap::new(),
             values: BTreeMap::new(),
@@ -4205,7 +4224,7 @@ mod native_tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = rt.modeling_package(rows, physical).unwrap();
+        let package = rt.modeling_package(rows, physical).await.unwrap();
         let mut profile = super::super::super::tests::profile();
         profile.selection = pse_backend_native::solve::SolverSelection::Explicit(
             pse_backend_native::solve::Backend::Kinsol,
@@ -4313,7 +4332,8 @@ mod root_unavailable_tests {
             .ok_or_else(|| std::io::Error::other("Root declaration absent"))?
             .declaration_id;
         let package = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30)
-            .modeling_package(rows, fixture::physical())?;
+            .modeling_package(rows, fixture::physical())
+            .await?;
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Root;
         solver.selection = SolverSelection::Explicit(Backend::Kinsol);

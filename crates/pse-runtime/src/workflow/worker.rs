@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! The durable job queue from the runtime's side (ADR-0114 Outcomes 14, 15 and 18; Plan 22
-//! O4): versioned job payloads over content-addressed source bundles, and the worker that
+//! O4): versioned job payloads over immutable canonical modeling revisions, and the worker that
 //! claims jobs, runs them under its lease and ends each try through the job's retry
 //! policy.
 //!
 //! A job payload is a typed, versioned document (ADR-0116 Outcome 6): it names its authored
-//! sources by the §6.1 package content hash, never by a path, plus the case, the typed
+//! modeling revision and physical source bundle, plus the case, the typed
 //! solve settings and a start policy. Its request identity is framed from the typed
 //! document, never from the text of a JSON value (Outcome 9). A worker refuses a payload
 //! version it does not know. The durable `cancel_requested` flag is the cancellation
@@ -34,7 +34,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 /// The payload version this build executes: the store's `payload_version` column and the
 /// document's own `version` ([`JobPayload`]).
-pub const JOB_PAYLOAD_VERSION: i32 = 8;
+pub const JOB_PAYLOAD_VERSION: i32 = 9;
 
 /// Version admission precedes decoding any nested current scientific contract.
 #[derive(serde::Deserialize)]
@@ -69,7 +69,7 @@ pub enum JobStart {
     },
 }
 
-/// Version 8 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+/// Version 9 of a durable job's payload: the one task a job runs. Unknown fields, tasks
 /// and versions are refused.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -118,8 +118,8 @@ pub struct StudyFinalization {
 pub struct ModelingJob {
     /// The source bundle of the physical package.
     pub physical: ContentHash,
-    /// The source bundles of the modeling package closure, in load order.
-    pub modeling: Vec<ContentHash>,
+    /// The exact immutable canonical modeling revision.
+    pub modeling_revision: String,
     /// The authored case to solve.
     pub case: pse_model::generated::identities::DeclarationId,
     /// Its analysis route.
@@ -132,14 +132,14 @@ pub struct ModelingJob {
     pub start: JobStart,
 }
 
-/// One immutable admitted occurrence and its package source bundles.
+/// One immutable admitted occurrence and its exact source handles.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyOperationJob {
     /// Physical source bundle.
     pub physical: ContentHash,
-    /// Modeling source bundle closure.
-    pub modeling: Vec<ContentHash>,
+    /// Exact immutable canonical modeling revision.
+    pub modeling_revision: String,
     /// The exact admitted occurrence copied mechanically from StudyDefinition.
     pub point: StudyPointBinding,
 }
@@ -173,7 +173,7 @@ impl ModelingJob {
         idempotency_key: &str,
     ) -> Result<pse_ids::roles::OperationalJobHash, WorkflowError> {
         pse_ids::document::of(
-            pse_ids::Frame::DurableJobRequestV5,
+            pse_ids::Frame::DurableJobRequestV6,
             &(AttemptKind::Modeling, idempotency_key, self),
         )
         .map(pse_ids::roles::OperationalJobHash::from)
@@ -378,6 +378,13 @@ impl Runtime {
         &self,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
         let operations = operations(self)?;
+        match self.canonical.store().check_write_admission() {
+            Ok(()) => {}
+            Err(pse_operations::canonical::CanonicalError::Quiesced) => {
+                return Ok((Processed::Idle, None));
+            }
+            Err(error) => return Err(error.into()),
+        }
         self.reconcile_study_receipts().await?;
         let Some(claimed) = operations
             .store()
@@ -512,6 +519,11 @@ impl Runtime {
         while !stop.token().is_cancelled()
             && settings.jobs.is_none_or(|limit| processed.len() < limit)
         {
+            match self.canonical.store().check_write_admission() {
+                Ok(()) => {}
+                Err(pse_operations::canonical::CanonicalError::Quiesced) => break,
+                Err(error) => return Err(error.into()),
+            }
             if swept.elapsed() >= settings.recovery {
                 operations.recover().await?;
                 swept = tokio::time::Instant::now();
@@ -552,11 +564,24 @@ impl Runtime {
         let physical = self
             .physical_from_sources(&operations.sources(&job.physical).await?, cancel)
             .await?;
-        let mut modeling = Vec::with_capacity(job.modeling.len());
-        for bundle in &job.modeling {
-            modeling.push(operations.sources(bundle).await?);
-        }
-        let package = self.package_from_sources(&modeling, physical)?;
+        let revision = self
+            .canonical
+            .store()
+            .revision(&job.modeling_revision)
+            .await?
+            .ok_or_else(|| contract("immutable canonical modeling revision is absent"))?;
+        self.canonical
+            .store()
+            .retain_revision(
+                &revision,
+                &pse_operations::canonical_retention::RetentionOwner::Run(
+                    claimed.run_id.to_string(),
+                ),
+            )
+            .await?;
+        let package = self
+            .modeling_revision(revision, physical, BTreeMap::new())
+            .await?;
         let execution = package
             .declared_execution(
                 job.case,
@@ -620,23 +645,27 @@ impl Runtime {
             policy: job.point.policy.clone(),
         };
         let checksum = |point: &super::StudyPointDefinition| {
-            pse_ids::document::of(pse_ids::Frame::DurableJobRequestV5, point)
+            pse_ids::document::of(pse_ids::Frame::DurableJobRequestV6, point)
                 .map_err(|error| contract(error.to_string()))
         };
         if checksum(defined)? != checksum(&replay)?
             || definition.physical != job.physical
-            || definition.modeling != job.modeling
+            || definition.modeling_revision != job.modeling_revision
         {
             return Err(contract("study job differs from the immutable definition"));
         }
         let physical = self
             .physical_from_sources(&operations.sources(&job.physical).await?, cancel)
             .await?;
-        let mut modeling = Vec::with_capacity(job.modeling.len());
-        for bundle in &job.modeling {
-            modeling.push(operations.sources(bundle).await?);
-        }
-        let package = self.package_from_sources(&modeling, physical)?;
+        let revision = self
+            .canonical
+            .store()
+            .revision(&job.modeling_revision)
+            .await?
+            .ok_or_else(|| contract("immutable canonical modeling revision is absent"))?;
+        let package = self
+            .modeling_revision(revision, physical, BTreeMap::new())
+            .await?;
         let prepared = package
             .prepare_bound_operation(&job.point.operation, &job.point.binding, cancel)
             .await?;
@@ -753,7 +782,7 @@ impl Runtime {
         self.physical_from_documents(&documents, &token).await
     }
 
-    pub(super) fn package_from_sources(
+    pub(super) async fn package_from_sources(
         &self,
         bundles: &[BTreeMap<String, Vec<u8>>],
         physical: PhysicalContext,
@@ -803,7 +832,7 @@ impl Runtime {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &token)?;
-        let package = self.modeling_from_documents(&documents, physical)?;
+        let package = self.modeling_from_documents(&documents, physical).await?;
         service
             .modeling_cache
             .retain_package(generation, identity, package.admission()?);

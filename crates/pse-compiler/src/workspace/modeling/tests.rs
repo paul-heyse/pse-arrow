@@ -136,6 +136,7 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
         documents: [(
             document,
             Arc::new(DataDocument {
+                allocation_owner: None,
                 id: document,
                 path: "data/bank.parquet".into(),
                 content_hash: pse_ids::encoding_checksum(b"keys").content_hash(),
@@ -220,6 +221,7 @@ fn keyed_document_republication_matches_clean_admission_and_preserves_old_snapsh
             documents: [(
                 document,
                 Arc::new(DataDocument {
+                    allocation_owner: None,
                     id: document,
                     path: "data/bank.parquet".into(),
                     content_hash: pse_ids::encoding_checksum(value.as_bytes()).content_hash(),

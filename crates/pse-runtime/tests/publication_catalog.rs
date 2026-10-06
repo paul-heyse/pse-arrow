@@ -44,6 +44,9 @@ use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// An ephemeral runtime over its own shared deployment.
 fn ephemeral() -> Runtime {
+    ephemeral_with_canonical(pse_operations::testing::canonical_fixture_store().unwrap())
+}
+fn ephemeral_with_canonical(store: pse_operations::canonical::CanonicalStore) -> Runtime {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(pse_runtime::ResourceBudget {
         memory_limit_bytes: n(1 << 30),
@@ -71,7 +74,19 @@ fn ephemeral() -> Runtime {
             .session_factory(pse_engine::session::native_engine_profile())
             .unwrap(),
     );
-    Runtime::from_shared(shared, registry, sessions)
+    Runtime::from_shared(
+        shared,
+        registry,
+        sessions,
+        pse_runtime::workflow::CanonicalDeployment::new(
+            store,
+            pse_runtime::workflow::OuterAttestation {
+                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                build: pse_ids::ContentHash::from_bytes([1; 32]),
+            },
+            None,
+        ),
+    )
 }
 
 async fn durable(url: &str, worker: &str) -> Runtime {
@@ -294,7 +309,24 @@ struct ChildReport {
 /// One publisher process: prepare against the base and commit; on a conflict re-prepare
 /// the same intent against the head and commit again.
 async fn publisher_child(request: &serde_json::Value) {
-    let runtime = durable(request["url"].as_str().unwrap(), "publisher").await;
+    let state = std::env::var_os("PSE_SURREAL_STATE").unwrap();
+    let mut options =
+        pse_operations::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))
+            .unwrap();
+    options.database = request["canonical_database"].as_str().unwrap().to_owned();
+    let canonical = pse_operations::canonical::CanonicalStore::connect(&options)
+        .await
+        .unwrap();
+    canonical.open().await.unwrap();
+    let runtime = ephemeral_with_canonical(canonical).with_durability(Durability::Durable(
+        Operations::connect(
+            request["url"].as_str().unwrap(),
+            "publisher",
+            LeasePolicy::default(),
+        )
+        .await
+        .unwrap(),
+    ));
     let workspace: Workspace = serde_json::from_value(request["workspace"].clone()).unwrap();
     let base: PublicationId = serde_json::from_value(request["base"].clone()).unwrap();
     let package = request["package"].as_str().unwrap();
@@ -361,6 +393,7 @@ async fn concurrent_publishers_one_winner_no_lost_update() {
                 "workspace": workspace,
                 "base": base.publication_id,
                 "package": package,
+                "canonical_database": runtime.canonical_store().database(),
             });
             std::process::Command::new(std::env::current_exe().unwrap())
                 .args([
@@ -1017,12 +1050,23 @@ async fn maintainer_binary_retires_and_collects() {
     let head = publish(&runtime, &workspace, Some(old.publication_id), "head").await;
     let maintain = |args: Vec<String>| {
         let url = database.url().to_owned();
+        let canonical_database = runtime.canonical_store().database().to_owned();
         tokio::task::spawn_blocking(move || {
-            std::process::Command::new(env!("CARGO_BIN_EXE_pse-publication"))
-                .args(["--url", &url, "--threads", "1"])
-                .args(args)
-                .output()
-                .unwrap()
+            std::process::Command::new(
+                std::env::var("PSE_PUBLICATION_BINARY")
+                    .expect("publication-test supplies the maintainer binary"),
+            )
+            .args([
+                "--url",
+                &url,
+                "--threads",
+                "1",
+                "--canonical-database",
+                &canonical_database,
+            ])
+            .args(args)
+            .output()
+            .unwrap()
         })
     };
     let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();

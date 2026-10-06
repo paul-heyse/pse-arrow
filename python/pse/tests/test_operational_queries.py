@@ -77,8 +77,11 @@ def _settings() -> pse.SolveSettings:
 def test_progress_stream_python(
     inspection_settings: pse.EngineSettings,
     operational_store: pse.OperationalStore,
+    canonical_substrate: str,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, store=operational_store)
+    runtime = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
     package, case = _package(runtime)
     handle = package.prepare_solve(case, _settings()).start()
     attempt = handle.attempt_id
@@ -134,8 +137,11 @@ def test_jobs_and_studies_listed_and_queried(
     inspection_settings: pse.EngineSettings,
     operational_store: pse.OperationalStore,
     tmp_path: Path,
+    canonical_substrate: str,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, store=operational_store)
+    runtime = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
     package, case = _package(runtime)
     workspace = runtime.register_workspace(f"queries-{uuid.uuid4().hex}", tmp_path)
     scalar, one = physical_ids(
@@ -222,9 +228,9 @@ def test_jobs_and_studies_listed_and_queried(
 
 @pytest.mark.integration
 def test_ephemeral_runtime_has_no_operational_tables(
-    inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     with pytest.raises(pse.InspectionError):
         pa.table(runtime.query("SELECT * FROM pse_ops.attempts"))
     with pytest.raises(pse.InspectionError):

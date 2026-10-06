@@ -26,7 +26,7 @@ const PROJECTION: &str = "package p {
 
 /// A study of the projection at eight values of `a`, each point independent.
 async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, ModelingResult)> {
-    let (package, root) = package(PROJECTION);
+    let (package, root) = package(PROJECTION).await;
     let mut base = analysis(root, selection);
     base.solver.controls.threads = threads;
     base.bindings.demand = vec!["x".into(), "y".into()];
@@ -88,7 +88,7 @@ async fn pounce_convex_batched_study() {
 /// sensitivity mechanism exists.
 #[tokio::test]
 async fn qp_sensitivity_through_kkt_analysis() {
-    let (package, root) = package(QUADRATIC);
+    let (package, root) = package(QUADRATIC).await;
     let plain = package
         .prepare_analysis(
             &analysis(root, SolverSelection::Auto),
@@ -140,7 +140,7 @@ async fn sos_bound_labelled_nonrigorous() {
     assert!((minimum + 3.51391).abs() < 1e-4, "{minimum}");
     let cancel = crate::CancelSource::new();
     for (sense, sign, expected) in [("minimize", "", minimum), ("maximize", "-", -minimum)] {
-        let (package, root) = package(&quartic(sense, sign));
+        let (package, root) = package(&quartic(sense, sign)).await;
         let bound = package
             .sos_bound(&analysis(root, SolverSelection::Auto), None, &cancel)
             .await
@@ -166,7 +166,8 @@ async fn sos_bound_labelled_nonrigorous() {
           let cost: Scalar = exp(x) - x;
           annotation objective cost(minimize);
           annotation bounds x(-2, 2); annotation start x(0); } }",
-    );
+    )
+    .await;
     let refused = package
         .sos_bound(&analysis(root, SolverSelection::Auto), None, &cancel)
         .await

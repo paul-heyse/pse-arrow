@@ -73,11 +73,48 @@ pub(super) const fn map_entry<K, V>() -> usize {
 
 use super::{Document, value::Value};
 use crate::authoring_driver::{ParseBudget, SourceSpan, dsl};
+use pse_model::HeapUsage;
+use pse_relations::columnar::RelationRow;
 use pse_schema::{
     Registry,
     model::{DocumentSection, ExtensionUse, FieldContract},
 };
 use serde_saphyr::Spanned;
+
+/// Parser Vec growth includes large inline generated declaration values.
+pub(super) fn modeling_parser_extent(
+    text: &str,
+    budget: &ParseBudget,
+) -> Result<usize, DriverError> {
+    add(
+        parser_extent(text, budget, false)?,
+        mul(
+            lexical_nodes(text)?,
+            2 * size_of::<pse_relations::generated::authored::modeling_declarations::Row>(),
+        )?,
+    )
+}
+
+/// Temporary generated column capacities and one cloned append row coexist.
+pub(super) fn modeling_batch_extent(document: &Document) -> Result<usize, DriverError> {
+    type Row = pse_relations::generated::authored::modeling_declarations::Row;
+    let Some(rows) = document.modeling_rows() else {
+        return Ok(0);
+    };
+    let mut extent = Row::builder_allocation_size();
+    let mut append = 0;
+    for row in rows.iter() {
+        extent = add(
+            extent,
+            mul(
+                8,
+                add(row.allocation_size()?, Row::minimum_row_allocation_size())?,
+            )?,
+        )?;
+        append = append.max(row.owned_bytes());
+    }
+    add(extent, append)
+}
 
 /// Lexical upper bound, including punctuation-created empty/implicit nodes. Each
 /// scalar needs a non-whitespace run or punctuation; every collection, implicit
@@ -437,22 +474,17 @@ pub(super) fn registry_extent(registry: &Registry) -> Result<usize, DriverError>
 /// Retained-capacity accounting can only shrink the completed preflight; it is
 /// never used to grow after construction. Opaque map allowances remain reserved.
 pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, DriverError> {
-    let mut bytes = mul(bundle.documents.capacity(), size_of::<Document>())?;
+    let mut bytes = add(
+        size_of::<super::load::BundleData>() + 2 * size_of::<usize>(),
+        mul(bundle.documents.capacity(), size_of::<Document>())?,
+    )?;
     for document in &bundle.documents {
         bytes = add(
             bytes,
-            add(
-                document.path.capacity(),
-                match &document.content {
-                    super::Content::Text(text) => text.capacity(),
-                    super::Content::Data { bytes, document } => {
-                        add(bytes.len(), document.retained_bytes())?
-                    }
-                },
-            )?,
+            add(document.path.capacity(), document.fresh_payload_extent()?)?,
         )?;
         bytes = add(bytes, value_retained(&document.value)?)?;
-        bytes = add(bytes, value_retained(&document.syntax)?)?;
+
         bytes = add(bytes, document.spans.retained_extent()?)?;
         bytes = add(
             bytes,
@@ -462,9 +494,7 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, D
             )?,
         )?;
     }
-    for batch in bundle.batches.values() {
-        bytes = add(bytes, batch.batch().get_array_memory_size())?;
-    }
+    // Native columns have already acquired their own FieldCheckedBatch owner.
     let package = &bundle.package;
     bytes = add(
         bytes,

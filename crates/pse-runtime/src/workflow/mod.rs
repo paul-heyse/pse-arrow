@@ -137,7 +137,7 @@ pub use modeling::{
     ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
     ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
     ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingTrajectory, StartSource, conform_pure_documents,
+    ModelingTrajectory, OwnedDeclarations, StartSource, conform_pure_documents,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
@@ -170,10 +170,15 @@ pub use reading::{ExportReceipt, LeasedPublication, READER_LEASE, ReaderLeaseGua
 pub use retention::{CollectReport, ReclaimReport, RetireReport};
 pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;
+mod canonical;
+pub use canonical::{CanonicalDeployment, OuterAttestation};
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkflowError {
+    /// Canonical revision, protected selection or portable product failure.
+    #[error(transparent)]
+    Canonical(#[from] pse_operations::canonical::CanonicalError),
     /// Source-attributed selected-model or execution-boundary failure.
     #[error(transparent)]
     Boundary(#[from] Box<BoundaryDiagnostic>),
@@ -276,7 +281,7 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Input(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
-    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
+    forward(this) {match this {Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {
@@ -299,6 +304,7 @@ pub struct Runtime {
     pub(crate) shared: Arc<SharedRuntime>,
     pub(crate) registry: Arc<pse_schema::Registry>,
     pub(crate) sessions: Arc<EngineFactory>,
+    pub(crate) canonical: CanonicalDeployment,
     /// How this runtime's runs are kept; ephemeral unless chosen explicitly.
     pub(crate) durability: Durability,
     orphan_streams: Arc<tokio::sync::Mutex<orphans::DiscoveryStreams>>,
@@ -315,19 +321,25 @@ impl Runtime {
         self.shared.math().clear_program_cache();
     }
     /// Attach to the already configured shared deployment; creates no second executor or budget.
-    /// The runtime is [`Durability::Ephemeral`] until [`Runtime::with_durability`].
+    /// Scientific source revisions and compilation products use the supplied canonical deployment.
     pub fn from_shared(
         shared: Arc<SharedRuntime>,
         registry: Arc<pse_schema::Registry>,
         sessions: Arc<EngineFactory>,
+        canonical: CanonicalDeployment,
     ) -> Self {
         Self {
             shared,
             registry,
             sessions,
+            canonical,
             durability: Durability::Ephemeral,
             orphan_streams: Arc::new(tokio::sync::Mutex::new(orphans::DiscoveryStreams::default())),
         }
+    }
+    /// Configured canonical scientific deployment.
+    pub fn canonical(&self) -> &CanonicalDeployment {
+        &self.canonical
     }
     /// The same deployment under an explicit durability class (ADR-0114 Outcome 16).
     /// Packages and preparations made from the returned runtime run under it.

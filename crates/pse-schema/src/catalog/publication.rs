@@ -386,7 +386,6 @@ pub(super) fn declare_profiles(builder: &mut RegistryBuilder) {
         "run",
         BTreeSet::from([
             "runtime.artifact_descriptors".to_owned(),
-            "authored.modeling_declarations".to_owned(),
             "runtime.run_lineage".to_owned(),
             "runtime.candidate_assessments".to_owned(),
             "runtime.modeling_checks".to_owned(),

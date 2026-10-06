@@ -540,6 +540,30 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Database structural resolution supplies a semantically sufficient immutable selection to the shared admission/inference/specialization kernel. Protection covers source and interpretation inputs through off-transaction preparation, then retained product roots are admitted atomically before protection ends. Portable descriptions retain admitted mathematical specifications; reconstruction does not replay whole-package semantic compilation.
+
+The implemented selected source boundary retains canonical revision receipts and object identities;
+it resolves lexical presence and absence, imports, selected scopes and inverse suppliers before
+shared scientific admission. Complete declaration inventories and source Arrow tables are explicit
+exports. Physical entity/entity-kind declarations remain a genuine global physical obligation and
+are projected separately for physical admission. Temporary generated columns do not become a
+second canonical source representation.
+
+Portable reconstruction consumes the original selected syntax and concrete owning-kernel
+construction receipts. An opaque, non-serializable authority binds the complete compiler-issued
+payload, immutable stored qualification and exact request; every restored record must belong to
+that payload. Missing or incompatible receipts refuse reconstruction without an inference or
+proof fallback. Controlled deployment qualification and scientific publication/replay cross
+explicit audited trust assertions; privileged storage or deployment configuration modification
+requires readmission. Reconstruction reserves decode scratch before parsing.
+
+Evaluators use compact selected formal coordinates, including actual guard/provider and nested
+scope requirements. Public formal identities remain stable; consumers gather through the same
+recorded mapping. Derivative direction axes retain their requested order. Mutable evaluator and
+solver state belongs to the attempt, while shared immutable payloads retain their own allocation
+leases rather than complete source-owner ancestry.
+
+
 > Proposed amendment: [ADR-0155](../../adr/0155-numerical-derived-families.md),
 > [Plan 25n](../../plans/25n-automatic-simulation-solve-pipeline.md).
 
@@ -755,6 +779,8 @@ or measure process RSS.
 `crates/pse-runtime/src/math.rs`.
 
 ### 14.4 Incrementality
+
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Persisted complete dependencies govern reuse across restart; Salsa is an optional local accelerator. Immutable selected layouts and native products retain their live consumers and bounded accelerator owners, without whole ancestral source bundles. Binding edits reuse structure only when those values are not consumed structural literals.
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 

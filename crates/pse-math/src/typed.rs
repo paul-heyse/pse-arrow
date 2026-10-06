@@ -11,6 +11,8 @@ mod external;
 mod partial;
 #[path = "typed_piecewise.rs"]
 mod piecewise;
+#[path = "typed_receipts.rs"]
+pub mod receipts;
 use crate::{
     Function, MathError,
     guarded::{Comparison, CompiledBody, Condition, PreparedBody, Stage},

@@ -60,6 +60,19 @@ def pytest_sessionstart() -> None:
 
 
 @pytest.fixture(scope="session")
+def canonical_substrate() -> str:
+    """Use the explicitly supervised, initialized persistent scientific fixture."""
+    state = os.environ.get("PSE_SURREAL_STATE")
+    if state is None:
+        pytest.fail(
+            "Canonical workflow tests require PSE_SURREAL_STATE "
+            "and just canonical-init.",
+            pytrace=False,
+        )
+    return state
+
+
+@pytest.fixture(scope="session")
 def native_inspection_publication() -> Path:
     """Read the fresh publication produced before workers start by ``just py-test``."""
     configured = os.environ.get("PSE_INSPECTION_PUBLICATION")

@@ -14,6 +14,57 @@ use tokio::task::JoinHandle;
 use crate::error::{Classify, OperationsError, Target};
 use crate::store::{Store, StoreOptions, database_url_from_env};
 
+/// Explicit isolated canonical fixture on the recipe-selected supervised server.
+/// The retained fixture executor keeps the remote connection alive even when a
+/// synchronous test helper is called from a different asynchronous executor.
+pub fn canonical_fixture_store()
+-> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
+    use std::sync::{
+        OnceLock,
+        atomic::{AtomicU64, Ordering},
+    };
+    static EXECUTOR: OnceLock<Result<tokio::runtime::Runtime, std::io::Error>> = OnceLock::new();
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let executor = EXECUTOR
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+        })
+        .as_ref()
+        .map_err(|error| {
+            crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}"))
+        })?;
+    let state = std::env::var_os("PSE_SURREAL_STATE").ok_or_else(|| {
+        crate::canonical::CanonicalError::Configuration(
+            "canonical fixture requires recipe-selected PSE_SURREAL_STATE".into(),
+        )
+    })?;
+    let mut options = crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))?;
+    options.database = format!(
+        "canonical_test_{}_{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    std::thread::scope(|scope| {
+        scope
+            .spawn(|| {
+                executor.block_on(async {
+                    let store = crate::canonical::CanonicalStore::connect(&options).await?;
+                    store.create().await?;
+                    Ok(store)
+                })
+            })
+            .join()
+            .map_err(|_| {
+                crate::canonical::CanonicalError::Configuration(
+                    "canonical fixture executor panicked".into(),
+                )
+            })?
+    })
+}
+
 /// One isolated database whose schema `Store::create` created from the generated DDL.
 #[derive(Debug)]
 pub struct TestDatabase {

@@ -160,10 +160,15 @@ impl RowSet {
     }
 }
 
-/// One package data document: its identity, the hash of its exact bytes and its decoded
-/// rows.
-#[derive(Clone, Debug, PartialEq)]
+/// Allocator-neutral lifetime anchor; excluded from scientific equality.
+pub trait DataOwner: std::fmt::Debug + Send + Sync + 'static {}
+impl<T: std::fmt::Debug + Send + Sync + 'static> DataOwner for T {}
+
+/// Exact data identity and decoded rows, optionally retaining their admission owner.
+#[derive(Clone, Debug)]
 pub struct DataDocument {
+    /// The decoded allocation's original admission lifetime, when resource-owned.
+    pub allocation_owner: Option<Arc<dyn DataOwner>>,
     /// `named_id(package_id, path)`, as every package document.
     pub id: SemanticId,
     /// The path within its package.
@@ -174,7 +179,24 @@ pub struct DataDocument {
     /// The decoded rows.
     pub rows: RowSet,
 }
+impl PartialEq for DataDocument {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.path == other.path
+            && self.content_hash == other.content_hash
+            && self.rows == other.rows
+    }
+}
 impl DataDocument {
+    /// Retain an already admitted allocation without changing scientific values.
+    pub fn attach_owner(&mut self, owner: Arc<dyn DataOwner>) {
+        self.allocation_owner = Some(owner);
+    }
+    /// Whether this decoded allocation already retains its admission owner.
+    pub fn is_owned(&self) -> bool {
+        self.allocation_owner.is_some()
+    }
+
     /// Conservative owned storage.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>() + self.path.capacity() + self.rows.retained_bytes()

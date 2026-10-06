@@ -256,15 +256,11 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
-        let row = self
-            .declarations()
-            .iter()
-            .find(|row| row.declaration_id == root)
-            .ok_or_else(|| contract(format!("missing declared execution root {root}")))?;
-        let choice = pse_modeling::analysis::declared_policy(root, authored_fixture(row))
+        let row = self.declaration(root).await?;
+        let choice = pse_modeling::analysis::declared_policy(root, authored_fixture(&row))
             .map_err(super::super::modeling_error)?;
-        let limits = declared_limits(row, limits)?;
-        let solver = declared_solver(row, &solver)?;
+        let limits = declared_limits(&row, limits)?;
+        let solver = declared_solver(&row, &solver)?;
         let requested_start = solver.controls.start;
         let bindings = Bindings::default().with_analysis(choice.route);
         let instance = pse_modeling::specialize::root_instance(root);
@@ -424,6 +420,7 @@ mod tests {
         let runtime = crate::workflow::tests::runtime();
         let package = runtime
             .modeling_package(rows, crate::workflow::tests::physical())
+            .await
             .unwrap();
         let cancel = crate::CancelSource::new();
         let compiler = crate::workflow::tests::compiler_profile();

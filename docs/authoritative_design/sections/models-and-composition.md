@@ -244,6 +244,17 @@ the manifest depends on the declaring package.
 
 ### 22.2 Revisions and edits
 
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). A problem has a linear head-CAS revision sequence, stable logical objects, immutable versions and changed membership intervals. A short edit transaction updates named head/name/scope guards for all changed premises. Conflicts retry the whole fresh decision. Draft diagnostics do not establish runnable scientific admission; selected shared-kernel admission does.
+
+Source versions are closed manifests with bounded payload blocks. A leased private stage receives
+large bytes outside the activation transaction; closed metadata activates under head/name/scope
+and retention guards. Immutable operation receipts settle uncertain acknowledgments independently
+of later source reclamation. Protected reads use fresh bounded transaction retries and recheck
+protection expiry and reclamation on every page/block. Deliberate history retention is independent
+of in-memory accelerator eviction. Shared unchanged document payloads own local allocation leases;
+new revisions do not retain complete previous source owners.
+
+
 Document ID assignment uses parser ranges and emits reviewable replacements with exact
 before-images. Explicit declaration IDs survive renaming; source byte ranges and content
 hashes are separate facts. Unchanged documents can reuse immutable parser owners only when

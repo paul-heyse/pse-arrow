@@ -28,6 +28,7 @@ struct PreparedCell(Result<Arc<PreparedLocalContract>, Arc<RelationError>>);
 #[derive(Debug)]
 pub struct ValidationContext {
     owner: Arc<()>,
+    native_owner: Arc<()>,
     state: Arc<dyn super::planner::ValidationPlanner>,
     prepared: Mutex<HashMap<SchemaRef, u64>>,
     implementations: pse_schema::ImplementationCache,
@@ -43,6 +44,7 @@ impl ValidationContext {
     ) -> Self {
         Self {
             owner: registry.implementation_owner(),
+            native_owner: Arc::new(()),
             state: Arc::new(state),
             prepared: Mutex::new(HashMap::new()),
             implementations: Default::default(),
@@ -180,6 +182,7 @@ impl ValidationContext {
             predicates.push(self.predicate(&native, format!("check:{name}"), expression)?);
         }
         let contract = Arc::new(PreparedLocalContract {
+            native_owner: self.native_owner.clone(),
             schema,
             predicates,
             nodes,
@@ -224,12 +227,16 @@ struct PreparedPredicate {
 /// Prepared expressions and exact input fields. No planning occurs during evaluation.
 #[derive(Debug)]
 pub struct PreparedLocalContract {
+    native_owner: Arc<()>,
     schema: SchemaRef,
     predicates: Vec<PreparedPredicate>,
     nodes: Vec<super::occurrences::Node>,
     evaluations: std::sync::atomic::AtomicUsize,
 }
 impl PreparedLocalContract {
+    pub(crate) fn same_native_owner(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.native_owner, &other.native_owner)
+    }
     /// Bind this prepared implementation as a visible native logical-plan predicate.
     pub fn predicate(self: &Arc<Self>, arguments: Vec<Expr>) -> Expr {
         predicate::expression(Arc::clone(self), arguments)

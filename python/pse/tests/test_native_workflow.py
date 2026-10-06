@@ -172,9 +172,34 @@ def test_explicit_primal_seed_and_transactional_initialization(
     )
     member = package.inspect(case, settings).members[0]
     x = SemanticId.from_hex(member.id)
+    # This fixture promises a 1e-6 original-coordinate output. Declare tighter
+    # residual and point allowances rather than using the engineering 1e-3 default.
+    settings = msgspec.structs.replace(
+        settings,
+        numerics=documents.NumericalPolicy(
+            engineering_rules=(
+                documents.AuthoredEngineeringDefaultRulesRow(
+                    rule_id=identity(199).to_hex(),
+                    quantity_id=identity(31).to_hex(),
+                    unit_id=identity(10).to_hex(),
+                    physical_allowance=1e-7,
+                    relative_fraction=0.0,
+                    provenance="explicit primal fixture output accuracy",
+                ),
+            ),
+        ),
+    )
     prepared = package.prepare_solve(case, settings)
     assert prepared.eligibility
     explicit = prepared.with_primal_start({x: 1.0}).start().wait()
+    resolved = [
+        row
+        for row in pa.table(explicit.table("runtime.resolved_numerics")).to_pylist()
+        if row["target_kind"] in {"variable", "row"}
+    ]
+    assert len(resolved) == 2
+    assert {row["target_kind"] for row in resolved} == {"variable", "row"}
+    assert all(row["absolute"] == 1e-7 and row["relative"] == 0.0 for row in resolved)
     seed = explicit.available_start()
     assert seed is not None
     snapshot = codec.decode_json(seed.snapshot(), pse.WarmStartSnapshot)
@@ -186,7 +211,9 @@ def test_explicit_primal_seed_and_transactional_initialization(
     result = package.prepare_block_initialization(
         case,
         pse.SolveSettings(
-            intent=NativeSolveIntent.INITIALIZE, backend=NativeBackend.KINSOL
+            intent=NativeSolveIntent.INITIALIZE,
+            backend=NativeBackend.KINSOL,
+            numerics=settings.numerics,
         ),
         [{}],
     ).run()
@@ -212,15 +239,21 @@ def test_explicit_primal_seed_and_transactional_initialization(
 
 
 @pytest.fixture
-def runtime(inspection_settings: pse.EngineSettings) -> pse.Runtime:
-    return pse.Runtime(inspection_settings)
+def runtime(
+    inspection_settings: pse.EngineSettings, canonical_substrate: str
+) -> pse.Runtime:
+    return pse.Runtime(inspection_settings, substrate=canonical_substrate)
 
 
 @pytest.fixture
 def durable_runtime(
-    inspection_settings: pse.EngineSettings, operational_store: pse.OperationalStore
+    inspection_settings: pse.EngineSettings,
+    operational_store: pse.OperationalStore,
+    canonical_substrate: str,
 ) -> pse.Runtime:
-    return pse.Runtime(inspection_settings, store=operational_store)
+    return pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, store=operational_store
+    )
 
 
 @pytest.fixture
@@ -305,7 +338,10 @@ def test_contextual_accuracy_retained_rust_python_arrow_outcomes_match_without_n
         .to_pylist(),
         result_contracts.RuntimeAccuracyGoalAssessmentsRow,
     )
-    assert tuple(rows) == retained == result.completion.accuracy_goals
+    assert tuple(rows) == codec.document_rows(
+        retained, result_contracts.RuntimeAccuracyGoalAssessmentsRow
+    )
+    assert retained == result.completion.accuracy_goals
     assert result.accuracy_goals == retained
     assert codec.encode_json(result.completion) == completion_before
     assert (
@@ -673,8 +709,16 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     assert job.wait().run_id == result.run_id
     assert not result.diagnostics()
     assert result.usable
-    assert "authored.modeling_declarations" in result.tables()
-    assert "authored.computation_models" not in result.tables()
+    sources = package.source_tables()
+    assert (
+        pa.table(
+            sources[SemanticId.from_hex("8023798ccdf06c39d0badbf7250f144b")]
+        ).num_rows
+        > 0
+    )
+    for stream in sources.values():
+        stream.close()
+    assert "runtime.fit_observations" in result.tables()
     checks = (
         pa.RecordBatchReader.from_stream(result.table("runtime.modeling_checks"))
         .read_all()

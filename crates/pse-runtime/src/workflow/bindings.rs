@@ -511,7 +511,7 @@ mod binding_admission_unit {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime().modeling_package(rows, physical).unwrap();
+        let package = runtime().modeling_package(rows, physical).await.unwrap();
         let model = package
             .prepare(
                 root,

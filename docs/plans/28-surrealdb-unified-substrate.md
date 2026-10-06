@@ -1,8 +1,8 @@
 ---
 title: SurrealDB unified simulation substrate
-status: draft
+status: in-progress
 date: 2026-10-05
-adrs: []
+adrs: [ADR-0164]
 review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
@@ -192,13 +192,13 @@ evidence owners; resolve only when correction and relevant acceptance actually e
 | [US04](../design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#us04) | S02/S03/S07 | Scheduled | A2/A3; C1/C3/C4 | Named absent/set premises, whole-decision retry, generations and retention races. |
 | [US05](../design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#us05) | S01/S02/S05/S08 | Scheduled | B1/B2/B3 | Selected sufficient scientific inputs and complete portable dependencies. |
 | [EF01](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef01) | S01/S02/S07 | Scheduled | A3/B1; E3 | Active owner releases complete superseded bundles; deliberate durable history remains. |
-| [EF02](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef02) | S01/S02/S08 | Scheduled | B1/B2 | Actual interpretation/assurance reuse and changed-context/force-validation controls. |
+| [EF02](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef02) | S01/S02/S08 | Resolved | B1/B2 | [B Outcome](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation): actual native-owner retention, same-owner reuse and changed-context/value controls; force-validated relation/engine/document selections passed 22/26/6 controls. |
 | [EF03](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef03) | S03/S07 | Scheduled | C3; E4 | Scoped/batched dispatch and ready-attempt preparation. |
 | [EF04](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef04) | S06/S08 | Scheduled | E2 | Dependency removal, narrowed unification and isolated client closure. |
 | [EF05](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef05) | S01/S02/S06 | Scheduled | B3 | Relevant complete keys and full outer dirty-build attestation. |
 | [EF06](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef06) | S06/S08 | Scheduled | E2/E4 | Target selection before native setup; comparable cache/toolchain measurements. |
 | [EF07](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef07) | S05/S06 | Scheduled | A2/E2 | Obsolete outputs retired; unchanged output mtimes stable; stale outputs deleted. |
-| [EF08](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef08) | S01/S07 | Scheduled investigation | B4 | Decide actual evaluator signature/lawful compact mapping; preserve necessary dense input. |
+| [EF08](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef08) | S01/S07 | Resolved | B4 | [B Outcome](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation): actual evaluator accepts selected compact formals; migrated consumers and 26 native implicit controls preserve guards, providers and ordered derivative axes. No measured speedup is inferred. |
 
 Other preparation work is included in B3/C3: ready-attempt preparation/product sharing,
 bounded Salsa diversity and native lifetimes. General SIMD/JIT/WASM, distributed deployment
@@ -222,28 +222,57 @@ series do not establish those product claims.
 
 ## Current checkpoint
 
-The coordinator and A–E documents are authored from the review and confirmed decisions.
-All functional packages remain scheduled; no new product checks or measurements have run.
-Backend/transport and hard-pivot/query choices are settled. B4 retains a bounded evaluator
-signature question independent of A/C/D. Next production step is R0, then the working A1/A2
-shared contract slice.
+The maintainer authorized all of 28a/28b plus the minimum adjacent C/D/E changes needed
+to deliver them. A/B functional implementation is present; their owning checkpoints and
+Outcomes record mechanisms, focused evidence and remaining scope-end verification.
+ADR-0164 is proposed under implementation authorization and has a recorded architecture
+revision route; formal ADR acceptance remains separate from implementation evidence.
 
-Focused authoring feedback clarified preparation retention, frozen result membership,
-finite-value admission, early numerical reconstruction and local multi-process capacity
-ownership. Native integral decimals provide the full-range unsigned codec; endpoint/index
-boundary qualification remains in A/D. No formal implementation acceptance follows from
-this focused advice or source-backed codec choice.
+Canonical revisions, selected compilation, strict portable reconstruction and compact
+formal preparation are implemented. Managed source/worker and native recovery controls
+have positive focused evidence. Full generation and the final local native-owner controls
+are complete. The actual inspected production producer remains ineligible
+until concrete executable-I/O/configuration/native closure gaps are reviewed; a finite actual
+tool fixture establishes only scoped qualification and persisted replay behavior.
+
+On **2026-10-06** the maintainer requested orderly closeout, documentation, commit and
+cessation of work. Finish the already-running checks and preserve this implementation
+checkpoint. A/B acceptance remains open: the final 84-case selected Python campaign and
+106-case assembled Rust selection must run on the final product/validation-owner code.
+The earlier reference-only Python run passed its process case; its unfinished 1,000-point
+study was interrupted when switching to the final extension and is not a passed control.
+The original workload, numerical assertions and resource settings remain unchanged.
+Resume with A/B's owning checkpoints, then continue the later companion scope only when
+authorized. No new qualification campaign is started during this closeout.
+
+C/D/E's full run/result/query migration, adoption/crate retirement, assembled series campaign
+and quantitative comparisons are not complete. Old execution/result publication consumers
+remain only where those later operations have not moved. Current finding dispositions stay
+in this coordinator; A/B evidence does not resolve a finding's still-unimplemented C/D/E scope.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Pending implementation; use Implemented/Tested/Measured labels with named scope and conditions.
+**Implemented:** A/B's canonical revision, protected source/product storage, selected
+compilation, portable reconstruction, relevant producer identity and compact preparation
+mechanisms, including the authorized minimum adjacent consumers. Their
+[A](28a-canonical-substrate-and-revisions.md#outcome-recorded-after-implementation) and
+[B](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation) Outcomes
+own focused **Tested** evidence and the remaining acceptance. This is an implementation
+checkpoint, not completed Plan 28 qualification. Full C/D/E scope remains pending.
 
 ### A mistake made and corrected
 
-Pending execution.
+The final obligation check exposed discarded native validation ownership despite selected
+source hydration already being implemented. B's local admission and receiving boundaries
+now retain that actual owner and recheck changed contexts. Earlier integration also
+exposed product descriptions larger than a single RPC; A/B now use bounded immutable
+blocks while retaining finite logical and process limits.
 
 ### Deviations from the plan, deliberate
 
-Pending execution; consequential decision changes follow the decision route.
+The maintainer limited this execution to A/B and the adjacent changes needed to run them,
+then requested this closeout before final integrated acceptance. Unsupported production
+producer inputs continue to refuse cross-build reuse; no eligible receipt, measured
+performance improvement or full-series completion is invented.

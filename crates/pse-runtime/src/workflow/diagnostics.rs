@@ -40,6 +40,7 @@ impl DiagnosticProjection for super::WorkflowError {
             Self::Shared(e) => DiagnosticProjection::boundary_diagnostic(e.as_ref(), stage),
             Self::Authoring(e) => e.boundary_diagnostic(stage),
             Self::Engine(e) => pse_model::diagnostic::project_typed(e, stage),
+            Self::Canonical(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::Operations(e) => {
                 let mut diagnostic = pse_model::diagnostic::project_typed(e, stage);
                 diagnostic.rule = DiagnosticRule::WorkflowOperations;
@@ -73,6 +74,7 @@ impl DiagnosticProjection for super::WorkflowError {
                     | Self::Shared(_)
                     | Self::Authoring(_)
                     | Self::Engine(_)
+                    | Self::Canonical(_)
                     | Self::Operations(_) => d.rule,
                 };
                 if matches!(
@@ -385,6 +387,35 @@ mod tests {
             diagnostic.observations["taylor_components"],
             Observation::Integer(6)
         ));
+    }
+    #[test]
+    fn portable_recipe_byte_limit_keeps_facts_through_typed_projection() {
+        use pse_diagnostics::{DiagnosticCode, TypedDiagnostic};
+        let error = crate::math::portable::PortableError::Math(pse_math::MathError::ByteLimit {
+            resource: "portable body payload",
+            required: 67_108_865,
+            available: 67_108_864,
+        });
+        assert_eq!(
+            error.diagnostic_code(),
+            Some(DiagnosticCode::RuntimeResourceLimit)
+        );
+        let projected =
+            pse_model::diagnostic::project_typed(&error, DiagnosticStage::ModelingAdmission);
+        assert_eq!(projected.class, Class::ResourceLimit);
+        assert_eq!(projected.rule, DiagnosticRule::MathLimit);
+        assert!(matches!(
+            projected.observations["required_bytes"],
+            Observation::Integer(67_108_865)
+        ));
+        assert!(matches!(
+            projected.observations["available_bytes"],
+            Observation::Integer(67_108_864)
+        ));
+        let legacy = pse_math::MathError::Limit("portable body payload");
+        let projected =
+            pse_model::diagnostic::project_typed(&legacy, DiagnosticStage::ModelingAdmission);
+        assert_eq!(projected.rule, DiagnosticRule::MathLimit);
     }
     #[test]
     fn body_slot_limit_retains_required_and_available_slots_through_wrappers() {

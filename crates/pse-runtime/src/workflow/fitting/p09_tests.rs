@@ -25,12 +25,12 @@ fn assert_diffsol_exact_hessian_refused(error: WorkflowError) {
         ProblemError::Unsupported(reason) if reason.contains("exact transient Hessians need IDAS")
     )), "{decision:?}");
 }
-fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitProfile) {
-    source_case(mixed, expected, "Dynamic")
+async fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitProfile) {
+    source_case(mixed, expected, "Dynamic").await
 }
 /// The fit over the transient experiment `case`: `Dynamic`, or `DynamicReset`, whose
 /// fixture declares a reset event between two modes (ADR-0119 Outcome 3).
-fn source_case(
+async fn source_case(
     mixed: bool,
     expected: f64,
     case: &str,
@@ -102,15 +102,17 @@ fn source_case(
     (
         runtime
             .modeling_package(rows, physical)
+            .await
             .unwrap()
             .with_fit_declarations(data)
+            .await
             .unwrap(),
         profile,
     )
 }
 #[tokio::test]
 async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
-    let (package, profile) = source(true, 73.);
+    let (package, profile) = source(true, 73.).await;
     let cancel = crate::CancelSource::new();
     let mut exact = profile.clone();
     exact.solver.controls.hessian = HessianMode::Exact;
@@ -167,7 +169,7 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
 /// result records its source (PS-07).
 #[tokio::test]
 async fn gauss_newton_fit_admits_transient() {
-    let (package, mut profile) = source(true, 73.);
+    let (package, mut profile) = source(true, 73.).await;
     let cancel = crate::CancelSource::new();
     profile.solver.controls.hessian = HessianMode::GaussNewton;
     let (problem, _) = package
@@ -237,7 +239,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
     #[cfg(feature = "solver-idas")]
     methods.push(native::dynamics::Method::Idas);
     for (method, scheduled) in methods.into_iter().flat_map(|m| [(m, false), (m, true)]) {
-        let (package, mut profile) = source(true, 73.);
+        let (package, mut profile) = source(true, 73.).await;
         profile
             .simulations
             .get_mut(&InstanceId::from(id(74)))
@@ -349,7 +351,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
     {
         // The complete gradient-only fit reaches the forward fit's estimate, records its
         // derivative source and qualifies its rank from the rerun.
-        let (package, mut profile) = source(true, 73.);
+        let (package, mut profile) = source(true, 73.).await;
         profile.derivatives = FitDerivatives::Gradient;
         let cancel = crate::CancelSource::new();
         let prepared = package
@@ -397,9 +399,9 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             _ => 83.,
         };
         let (package, mut profile) = if mode == 2 {
-            source_case(false, expected, "DynamicReset")
+            source_case(false, expected, "DynamicReset").await
         } else {
-            source(false, expected)
+            source(false, expected).await
         };
         if mode == 1 {
             profile
@@ -495,7 +497,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn authored_integration_controls_bind_to_the_experiment_instance() {
-    let (package, mut profile) = source(false, 74.);
+    let (package, mut profile) = source(false, 74.).await;
     profile.simulations.clear();
     let prepared = package
         .prepare_fit(
@@ -520,7 +522,7 @@ async fn authored_integration_controls_bind_to_the_experiment_instance() {
 
 #[tokio::test]
 async fn transient_fit_deadline_is_time_limit() {
-    let (package, mut profile) = source(false, 74.);
+    let (package, mut profile) = source(false, 74.).await;
     profile
         .simulations
         .get_mut(&InstanceId::from(id(74)))
@@ -601,7 +603,7 @@ async fn gauss_newton_covariance_labelled() {
         },
     };
     for hessian in [HessianMode::LimitedMemory, HessianMode::GaussNewton] {
-        let (package, mut profile) = source(false, 73.);
+        let (package, mut profile) = source(false, 73.).await;
         profile.solver.controls.hessian = hessian;
         let result = package
             .prepare_fit(
@@ -717,7 +719,7 @@ async fn exact_transient_covariance_matches_gauss_newton() {
             runtime::local_validity,
         },
     };
-    let (package, mut profile) = source(false, 73.);
+    let (package, mut profile) = source(false, 73.).await;
     profile.solver.controls.hessian = HessianMode::Exact;
     for simulation in profile.simulations.values_mut() {
         simulation.method = native::dynamics::Method::Idas;
@@ -755,7 +757,7 @@ async fn covariance_withheld_at_bound() {
             runtime::local_validity,
         },
     };
-    let (package, profile) = source(false, 71.);
+    let (package, profile) = source(false, 71.).await;
     let result = transient_fit(&package, profile).await;
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
@@ -782,7 +784,7 @@ async fn covariance_withheld_at_bound() {
 /// `x(0) = a`, observed through x at four times and z at one, with data from `k = 1.3`,
 /// `a = 1.8` (`x = a/(1 + a·k·t)`, t in seconds).
 #[cfg(feature = "solver-idas")]
-fn curved_source(
+async fn curved_source(
     method: native::dynamics::Method,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
     let mut physical = crate::workflow::tests::physical();
@@ -862,8 +864,10 @@ fn curved_source(
     (
         runtime
             .modeling_package(rows, physical)
+            .await
             .unwrap()
             .with_fit_declarations(data)
+            .await
             .unwrap(),
         profile,
     )
@@ -879,7 +883,7 @@ fn curved_source(
 #[tokio::test]
 async fn exact_transient_fit_hessian_matches_finite_difference() {
     let cancel = crate::CancelSource::new();
-    let (package, profile) = curved_source(native::dynamics::Method::Diffsol);
+    let (package, profile) = curved_source(native::dynamics::Method::Diffsol).await;
     let refused = package
         .prepare_fit_problem(
             FitId::from(id(80)),
@@ -891,7 +895,7 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
         .await
         .unwrap_err();
     assert_diffsol_exact_hessian_refused(refused);
-    let (package, profile) = curved_source(native::dynamics::Method::Idas);
+    let (package, profile) = curved_source(native::dynamics::Method::Idas).await;
     let (problem, _) = package
         .prepare_fit_problem(
             FitId::from(id(80)),

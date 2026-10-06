@@ -14,8 +14,8 @@
 //! `unsafe_code = "deny"` is a workspace lint, so the compiler already stops an accidental
 //! `unsafe` block. What the compiler cannot stop is a crate quietly adding a scoped
 //! allow to get past it. This test makes that a governance failure instead, and is the
-//! trigger condition for re-adopting Miri (docs/adr/register.md): today the only `unsafe`
-//! in the workspace is FFI.
+//! trigger condition for Miri: ADR-0164 adds pure scientific reconstruction trust
+//! boundaries, exercised by `just scientific-replay-miri` independently of native FFI.
 
 mod common;
 
@@ -41,13 +41,20 @@ fn allowlist() -> BTreeSet<String> {
     .collect()
 }
 
+fn governed_crates() -> impl Iterator<Item = (String, std::path::PathBuf)> {
+    common::crate_dirs().into_iter().chain(std::iter::once((
+        "xtask".into(),
+        common::workspace_root().join("xtask"),
+    )))
+}
+
 #[test]
 fn unsafe_appears_only_in_allowlisted_crates() {
     let allowed = allowlist();
     let re = Regex::new(r"\bunsafe\b").expect("static regex");
     let mut problems: Vec<String> = Vec::new();
 
-    for (name, dir) in common::crate_dirs() {
+    for (name, dir) in governed_crates() {
         if allowed.contains(&name) {
             continue;
         }
@@ -104,7 +111,7 @@ fn allowlisted_crates_declare_the_allow_with_a_reason() {
     use syn::visit::Visit;
     let allowed = allowlist();
     let mut found = BTreeSet::new();
-    for (name, dir) in common::crate_dirs() {
+    for (name, dir) in governed_crates() {
         let mut allowances = Allowances::default();
         for path in common::rust_sources(&dir.join("src")) {
             allowances.visit_file(&syn::parse_file(&common::read(&path)).unwrap());

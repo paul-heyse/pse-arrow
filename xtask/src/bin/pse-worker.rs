@@ -26,6 +26,9 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[path = "support/deployment.rs"]
+mod deployment;
+
 use clap::Parser;
 use pse_runtime::workflow::{
     Durability, LeasePolicy, Operations, Processed, Runtime, WorkerSettings, WorkflowError,
@@ -39,6 +42,9 @@ struct Cli {
     /// Connection URL; defaults to `PSE_DATABASE_URL`, then the local Unix socket.
     #[arg(long)]
     url: Option<String>,
+    /// Canonical database on the supervised endpoint; defaults to the profile selection.
+    #[arg(long)]
+    canonical_database: Option<String>,
     /// Worker identity recorded on leases; defaults to `pse-worker:<host>:<pid>`.
     #[arg(long)]
     name: Option<String>,
@@ -58,8 +64,8 @@ struct Cli {
     #[arg(long)]
     until_idle: bool,
     /// Process memory budget in MiB.
-    #[arg(long, default_value_t = 8192)]
-    memory_mib: usize,
+    #[arg(long)]
+    memory_mib: Option<usize>,
     /// Engine pool threads; defaults to the available parallelism.
     #[arg(long)]
     threads: Option<usize>,
@@ -96,19 +102,31 @@ fn ensure_openmp_environment() -> Result<(), String> {
     Err(format!("re-execute with the OpenMP environment: {error}"))
 }
 
-fn resource_budget(cli: &Cli) -> ResourceBudget {
+fn resource_budget(cli: &Cli, configured: usize) -> Result<ResourceBudget, String> {
+    let memory = cli
+        .memory_mib
+        .map(|mib| {
+            mib.checked_mul(1 << 20)
+                .ok_or("worker memory extent overflow")
+        })
+        .transpose()?
+        .unwrap_or(configured);
+    if memory == 0 || memory > configured {
+        return Err("worker memory exceeds the supervised native slot".into());
+    }
     let count = |n: usize| NonZeroUsize::new(n.max(1)).unwrap_or(NonZeroUsize::MIN);
-    let threads = cli
-        .threads
-        .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, NonZeroUsize::get));
-    let memory = cli.memory_mib.saturating_mul(1 << 20);
+    let threads = cli.threads.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map_or(1, NonZeroUsize::get)
+            .min(4)
+    });
     let math = pse_runtime::math::MathPolicy {
         workspace_bytes: memory / 8,
-        worker_bytes: memory / 16,
+        worker_bytes: memory / 2,
         artifact_bytes: memory / 8,
         ..Default::default()
     };
-    ResourceBudget {
+    Ok(ResourceBudget {
         memory_limit_bytes: count(memory),
         spill_dir: std::env::temp_dir(),
         max_temp_dir_bytes: 1 << 30,
@@ -121,19 +139,32 @@ fn resource_budget(cli: &Cli) -> ResourceBudget {
         cache: pse_runtime::DeltaCacheBudget::disabled(1024),
         math,
         hashing_may_use_pool: false,
-    }
+    })
 }
 
-fn runtime(cli: &Cli) -> Result<Runtime, String> {
-    let shared =
-        SharedRuntime::build(resource_budget(cli)).map_err(|e| format!("runtime budget: {e}"))?;
+async fn runtime(cli: &Cli) -> Result<Runtime, String> {
+    let state = std::env::var_os("PSE_SURREAL_STATE")
+        .ok_or("PSE_SURREAL_STATE must select a supervised canonical deployment")?;
+    let options =
+        pse_operations::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))
+            .map_err(|e| e.to_string())?;
+    let shared = SharedRuntime::build(resource_budget(
+        cli,
+        options.native.native_worker_memory_bytes,
+    )?)
+    .map_err(|e| format!("runtime budget: {e}"))?;
     let registry = pse_schema::shared_registry().map_err(|e| format!("registry: {e}"))?;
     let sessions = Arc::new(
         shared
             .session_factory(pse_engine::session::native_engine_profile())
             .map_err(|e| format!("session factory: {e}"))?,
     );
-    Ok(Runtime::from_shared(shared, registry, sessions))
+    Ok(Runtime::from_shared(
+        shared,
+        registry,
+        sessions,
+        deployment::open(cli.canonical_database.as_deref()).await?,
+    ))
 }
 
 fn report(error: &WorkflowError) {
@@ -184,20 +215,21 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
     let cli = Cli::parse();
-    let runtime = match runtime(&cli) {
-        Ok(runtime) => runtime,
-        Err(error) => {
-            eprintln!("error: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
     let executor = match tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
         .enable_all()
         .build()
     {
         Ok(executor) => executor,
         Err(error) => {
             eprintln!("error: executor: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let runtime = match executor.block_on(runtime(&cli)) {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("error: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -232,8 +264,8 @@ mod tests {
     #[test]
     fn parsed_default_budget_admits_default_compiler_scratch() {
         let cli = Cli::try_parse_from(["pse-worker"]).unwrap();
-        let budget = resource_budget(&cli);
-        let compiler = pse_compiler::workspace::Profile::default();
+        let budget = resource_budget(&cli, 1 << 30).unwrap();
+        let compiler = pse_runtime::workflow::PreparationSettings::default().compiler;
         assert!(budget.math.worker_bytes >= compiler.evaluation.scratch_bytes);
         let compilation = compiler.evaluation.scratch_bytes
             + budget.math.stack_bytes
@@ -244,13 +276,20 @@ mod tests {
 
     #[test]
     fn explicit_smaller_budget_retains_its_compilation_admission_limit() {
-        let cli = Cli::try_parse_from(["pse-worker", "--memory-mib", "4096"]).unwrap();
-        let budget = resource_budget(&cli);
+        let cli = Cli::try_parse_from(["pse-worker", "--memory-mib", "512"]).unwrap();
+        let budget = resource_budget(&cli, 1 << 30).unwrap();
         assert!(
             budget.math.worker_bytes
-                < pse_compiler::workspace::Profile::default()
+                < pse_runtime::workflow::PreparationSettings::default()
+                    .compiler
                     .evaluation
                     .scratch_bytes
         );
+    }
+
+    #[test]
+    fn explicit_worker_budget_cannot_exceed_the_supervised_slot() {
+        let cli = Cli::try_parse_from(["pse-worker", "--memory-mib", "2048"]).unwrap();
+        assert!(resource_budget(&cli, 1 << 30).is_err());
     }
 }

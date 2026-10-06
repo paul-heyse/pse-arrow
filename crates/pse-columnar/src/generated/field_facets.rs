@@ -47,6 +47,8 @@ pub const TRANSFER_CONTEXT: &str = "pse.domain.transfer_context";
 pub const FK_RELATION: &str = "pse.domain.fk.relation";
 #[doc = concat!("Declared field facet `", "pse.domain.fk.column", "`.")]
 pub const FK_COLUMN: &str = "pse.domain.fk.column";
+#[doc = concat!("Declared field facet `", "pse.domain.graph_endpoint", "`.")]
+pub const GRAPH_ENDPOINT: &str = "pse.domain.graph_endpoint";
 #[doc = concat!("Declared field facet `", "pse.domain.identity", "`.")]
 pub const IDENTITY: &str = "pse.domain.identity";
 #[doc = concat!("Declared field facet `", "pse.domain.identity.owner", "`.")]
@@ -155,6 +157,14 @@ pub const FACETS: &[Facet] = &[
         value: false,
         storage_root: false,
         type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: GRAPH_ENDPOINT,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
         admission: Admission::Ignore,
     },
     Facet {

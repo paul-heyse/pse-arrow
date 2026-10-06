@@ -146,6 +146,18 @@ impl Sources {
                 FieldCheckedBatch::concat_reserved(&registry, spec, &parts, &pool, &cancel)?;
             checked.insert(spec.key, batch);
         }
+        if let Some(entities) = pse_runtime::authoring_driver::p1::physical_declaration_batch(
+            documents.bundles(),
+            &registry,
+            &validation,
+            &pool,
+            &cancel,
+        )? {
+            checked.insert(
+                authored::modeling_declarations::spec(&registry)?.key,
+                entities,
+            );
+        }
         // Registry self-description comes from the registry generator, not authored defaults.
         for (key, batch) in pse_relations::registry_relations::materialize(&registry)? {
             let spec = registry

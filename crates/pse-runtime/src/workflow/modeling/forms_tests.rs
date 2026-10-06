@@ -12,14 +12,14 @@ use pse_compiler::workspace::ModelingCaseBindings;
 use pse_kernels::DerivativeOrder;
 use pse_model::{forms::NativeConstraint, generated::enums::NativeConstraintForm};
 
-fn package(text: &str) -> (ModelingPackage, DeclarationId) {
-    package_on(text, fixture::runtime())
+async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+    package_on(text, fixture::runtime()).await
 }
 /// A package whose native jobs admit a foreign allowance SCIP can take as its memory limit.
-fn scip_package(text: &str) -> (ModelingPackage, DeclarationId) {
-    package_on(text, fixture::runtime_with(16 << 20, 16 << 20, 2 << 30))
+async fn scip_package(text: &str) -> (ModelingPackage, DeclarationId) {
+    package_on(text, fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)).await
 }
-fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, DeclarationId) {
+async fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -33,7 +33,7 @@ fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, DeclarationId) 
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime.modeling_package(rows, physical).unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     (package, root)
 }
 fn profile(selection: SolverSelection) -> crate::math::solves::SolverProfile {
@@ -212,7 +212,7 @@ fn gdp_oracle(demand: f64) -> f64 {
 #[tokio::test]
 async fn gdp_hull_and_bigm_same_optimum() {
     for realization in ["hull", "bigm(derived)", "bigm(500{W})", "hull(0.0001)"] {
-        let (package, root) = package(&GDP.replace("REALIZATION", realization));
+        let (package, root) = package(&GDP.replace("REALIZATION", realization)).await;
         for demand in [40.0, 60.0, 0.0] {
             let cost = optimum(&package, root, case(&[("demand", demand)]), "cost").await;
             assert!(
@@ -225,7 +225,7 @@ async fn gdp_hull_and_bigm_same_optimum() {
 
 #[tokio::test]
 async fn gdp_indicator_matches_hull() {
-    let (package, root) = scip_package(&GDP.replace("REALIZATION", "indicator"));
+    let (package, root) = scip_package(&GDP.replace("REALIZATION", "indicator")).await;
     // Preparation records one native indicator per disjunct row, over its alternative.
     let resolution = package
         .resolve_case(
@@ -271,7 +271,7 @@ async fn gdp_indicator_matches_hull() {
     }
     // Automatic routing selects SCIP, which consumes the indicators natively and reaches
     // the hull reformulation's optimum on HiGHS at every demand.
-    let (hull, hull_root) = self::package(&GDP.replace("REALIZATION", "hull"));
+    let (hull, hull_root) = self::package(&GDP.replace("REALIZATION", "hull")).await;
     for demand in [40.0, 60.0, 0.0] {
         let [cost] = optimal_on(
             &package,
@@ -305,7 +305,8 @@ async fn derived_big_m_follows_value_only_bindings() {
                 "alternative small { eq capacity: output <= 50{W};",
                 "alternative small { eq capacity: output <= limit;",
             ),
-    );
+    )
+    .await;
     let analysis = ModelingAnalysis {
         root,
         instance: pse_modeling::specialize::root_instance(root),
@@ -396,7 +397,7 @@ async fn indicator_linear_lowering_matches_native() {
     // Enumerated oracle: fixing the indicator leaves a linear program per branch. Running
     // the unit is optimal below an 80 W charge and idling above it; the idle charge guards
     // the MIP whose presolve HiGHS 1.14.3 solved as running (net −10 W, zero gap).
-    let (linear, root) = package(&INDICATOR.replace("REALIZE", ""));
+    let (linear, root) = package(&INDICATOR.replace("REALIZE", "")).await;
     let linear_root = root;
     for charge in [20.0, 50.0, 90.0] {
         let mut branches = Vec::new();
@@ -442,7 +443,8 @@ async fn indicator_linear_lowering_matches_native() {
     let (native, root) = scip_package(&INDICATOR.replace(
         "REALIZE",
         "realize r1 on cap using indicator; realize r2 on off using indicator;",
-    ));
+    ))
+    .await;
     let resolution = native
         .resolve_case(
             root,
@@ -533,7 +535,7 @@ fn interpolate(x: f64) -> f64 {
 #[tokio::test]
 async fn piecewise_sos2_matches_incremental() {
     for realize in ["", "realize r on curve using incremental;"] {
-        let (package, root) = package(&PIECEWISE.replace("REALIZE", realize));
+        let (package, root) = package(&PIECEWISE.replace("REALIZE", realize)).await;
         for at in [20.0, 25.0, 7.5] {
             let y = optimum(&package, root, case(&[("at", at)]), "y").await;
             assert!(
@@ -560,10 +562,11 @@ const SOS: &str = "package p { entity kind source provenance { attribute title: 
 #[tokio::test]
 async fn native_only_realization_refused_on_highs() {
     // The linear SOS1 lowering admits one nonzero member: the best is 3 × 4 W.
-    let (linear, root) = package(&SOS.replace("REALIZE", ""));
+    let (linear, root) = package(&SOS.replace("REALIZE", "")).await;
     let value = optimum(&linear, root, case(&[]), "value").await;
     assert!((value - 12.0).abs() < 1e-6, "{value}");
-    let (native, root) = scip_package(&SOS.replace("REALIZE", "realize r on pick using native;"));
+    let (native, root) =
+        scip_package(&SOS.replace("REALIZE", "realize r on pick using native;")).await;
     let error = prepare(
         &native,
         root,
@@ -589,7 +592,8 @@ async fn indicator_realization_requires_native_backend() {
     let (native, root) = scip_package(&INDICATOR.replace(
         "REALIZE",
         "realize r1 on cap using indicator; realize r2 on off using indicator;",
-    ));
+    ))
+    .await;
     let error = prepare(
         &native,
         root,
@@ -635,6 +639,7 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     // declarations during admission; this is larger than the local toy fixtures.
     let package = fixture::runtime_with_workspace(64 << 20)
         .modeling_package(rows, physical)
+        .await
         .unwrap();
     let mut policy = ModelingConformancePolicy {
         compiler: fixture::compiler_profile(),
@@ -694,7 +699,7 @@ async fn smooth_complementarity_product_equals_eps_sq_over_4() {
         complements c: (a >= 0, b >= 0); realize r on c using smooth(smooth_min, eps);
         annotation bounds b(0, 10); annotation start a(0.2); annotation start b(1);
         annotation objective b(minimize); annotation report a(\"a\"); annotation report b(\"b\"); }} }}"
-    ));
+    )).await;
     let mut structures = std::collections::BTreeSet::new();
     for eps in [0.1, 0.02, 0.004] {
         let prepared = package
@@ -747,7 +752,7 @@ async fn disjunctive_complementarity_refused_on_highs() {
         eq total: a + b <= 1; complements c: (a >= 0, b >= 0); realize r on c using disjunctive;
         annotation bounds a(0, 0.6); annotation bounds b(0, 0.7); annotation start a(0); annotation start b(0);
         annotation objective value(maximize); annotation report a(\"a\"); annotation report b(\"b\"); } }";
-    let (native, root) = scip_package(text);
+    let (native, root) = scip_package(text).await;
     let error = prepare(
         &native,
         root,
@@ -785,7 +790,7 @@ async fn authored_l1_realization_selects_route() {
         complements c: (a >= 0, b >= 0); realize r on c using penalty(l1);
         annotation bounds b(0, 10); annotation start a(0.2); annotation start b(1);
         annotation objective b(minimize); annotation report a(\"a\"); annotation report b(\"b\"); } }",
-    );
+    ).await;
     // POUNCE takes second derivatives.
     let cancel = crate::CancelSource::new();
     let second = |profile| {

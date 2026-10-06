@@ -119,6 +119,48 @@ pub enum FactBatch {
     r#RuntimeCacheStatistics(Vec<super::r#runtime::r#cache_statistics::Row>),
     #[doc = stringify!(r#RuntimeCandidateAssessments)]
     r#RuntimeCandidateAssessments(Vec<super::r#runtime::r#candidate_assessments::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalEdges)]
+    r#RuntimeCanonicalEdges(Vec<super::r#runtime::r#canonical_edges::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalGuards)]
+    r#RuntimeCanonicalGuards(Vec<super::r#runtime::r#canonical_guards::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalInterpretations)]
+    r#RuntimeCanonicalInterpretations(
+        Vec<super::r#runtime::r#canonical_interpretations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalMemberships)]
+    r#RuntimeCanonicalMemberships(Vec<super::r#runtime::r#canonical_memberships::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalPayloadBlocks)]
+    r#RuntimeCanonicalPayloadBlocks(
+        Vec<super::r#runtime::r#canonical_payload_blocks::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalProblems)]
+    r#RuntimeCanonicalProblems(Vec<super::r#runtime::r#canonical_problems::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalProducts)]
+    r#RuntimeCanonicalProducts(Vec<super::r#runtime::r#canonical_products::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalProtections)]
+    r#RuntimeCanonicalProtections(Vec<super::r#runtime::r#canonical_protections::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalReclaimedRanges)]
+    r#RuntimeCanonicalReclaimedRanges(
+        Vec<super::r#runtime::r#canonical_reclaimed_ranges::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalRevisions)]
+    r#RuntimeCanonicalRevisions(Vec<super::r#runtime::r#canonical_revisions::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalRoots)]
+    r#RuntimeCanonicalRoots(Vec<super::r#runtime::r#canonical_roots::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalStagedEdits)]
+    r#RuntimeCanonicalStagedEdits(Vec<super::r#runtime::r#canonical_staged_edits::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalStages)]
+    r#RuntimeCanonicalStages(Vec<super::r#runtime::r#canonical_stages::Row>),
+    #[doc = stringify!(r#RuntimeCanonicalVersionManifests)]
+    r#RuntimeCanonicalVersionManifests(
+        Vec<super::r#runtime::r#canonical_version_manifests::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalVersionReceipts)]
+    r#RuntimeCanonicalVersionReceipts(
+        Vec<super::r#runtime::r#canonical_version_receipts::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalVersions)]
+    r#RuntimeCanonicalVersions(Vec<super::r#runtime::r#canonical_versions::Row>),
     #[doc = stringify!(r#RuntimeChangeEvents)]
     r#RuntimeChangeEvents(Vec<super::r#runtime::r#change_events::Row>),
     #[doc = stringify!(r#RuntimeComputationRuns)]
@@ -644,6 +686,102 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     80u8, 155u8, 154u8, 158u8, 146u8, 23u8, 67u8, 159u8, 46u8, 196u8,
                     223u8, 153u8, 229u8, 52u8, 130u8, 193u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalEdges(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    196u8, 137u8, 125u8, 168u8, 96u8, 235u8, 48u8, 16u8, 241u8, 229u8,
+                    144u8, 15u8, 183u8, 204u8, 207u8, 41u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalGuards(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    123u8, 142u8, 134u8, 27u8, 36u8, 94u8, 215u8, 100u8, 85u8, 186u8,
+                    151u8, 114u8, 128u8, 251u8, 204u8, 105u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalInterpretations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    174u8, 21u8, 161u8, 39u8, 0u8, 16u8, 234u8, 79u8, 2u8, 202u8, 26u8,
+                    223u8, 144u8, 122u8, 255u8, 40u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalMemberships(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    51u8, 2u8, 44u8, 249u8, 69u8, 229u8, 139u8, 143u8, 244u8, 56u8,
+                    184u8, 255u8, 159u8, 154u8, 34u8, 221u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalPayloadBlocks(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    233u8, 10u8, 186u8, 151u8, 136u8, 210u8, 15u8, 156u8, 176u8, 187u8,
+                    55u8, 149u8, 186u8, 112u8, 65u8, 45u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalProblems(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    128u8, 143u8, 61u8, 108u8, 79u8, 156u8, 54u8, 27u8, 166u8, 15u8,
+                    175u8, 87u8, 72u8, 150u8, 173u8, 32u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalProducts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    171u8, 156u8, 13u8, 189u8, 113u8, 126u8, 27u8, 143u8, 47u8, 255u8,
+                    45u8, 134u8, 228u8, 84u8, 249u8, 255u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalProtections(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    189u8, 64u8, 32u8, 156u8, 170u8, 16u8, 34u8, 186u8, 235u8, 210u8,
+                    189u8, 32u8, 70u8, 19u8, 107u8, 75u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalReclaimedRanges(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    169u8, 5u8, 160u8, 122u8, 181u8, 59u8, 182u8, 218u8, 7u8, 49u8, 54u8,
+                    131u8, 215u8, 157u8, 88u8, 161u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalRevisions(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    236u8, 71u8, 84u8, 234u8, 27u8, 12u8, 138u8, 152u8, 167u8, 17u8,
+                    13u8, 110u8, 72u8, 19u8, 204u8, 177u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalRoots(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    110u8, 64u8, 171u8, 104u8, 245u8, 29u8, 75u8, 91u8, 48u8, 219u8,
+                    222u8, 39u8, 119u8, 64u8, 75u8, 176u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalStagedEdits(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    114u8, 28u8, 161u8, 203u8, 211u8, 205u8, 8u8, 96u8, 21u8, 37u8,
+                    141u8, 25u8, 251u8, 222u8, 160u8, 70u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalStages(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    244u8, 1u8, 179u8, 211u8, 133u8, 157u8, 152u8, 233u8, 91u8, 160u8,
+                    83u8, 142u8, 37u8, 41u8, 66u8, 185u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalVersionManifests(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    61u8, 141u8, 91u8, 232u8, 228u8, 229u8, 111u8, 236u8, 21u8, 166u8,
+                    251u8, 223u8, 244u8, 147u8, 146u8, 103u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalVersionReceipts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    50u8, 238u8, 16u8, 86u8, 79u8, 174u8, 127u8, 113u8, 123u8, 172u8,
+                    24u8, 110u8, 153u8, 248u8, 33u8, 213u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalVersions(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    45u8, 38u8, 242u8, 55u8, 216u8, 245u8, 195u8, 100u8, 128u8, 29u8,
+                    131u8, 94u8, 101u8, 188u8, 0u8, 240u8,
                 ])
             }
             Self::r#RuntimeChangeEvents(_) => {
@@ -1198,6 +1336,22 @@ impl FactBatch {
             Self::r#RuntimeCacheEntryStatistics(rows) => rows.len(),
             Self::r#RuntimeCacheStatistics(rows) => rows.len(),
             Self::r#RuntimeCandidateAssessments(rows) => rows.len(),
+            Self::r#RuntimeCanonicalEdges(rows) => rows.len(),
+            Self::r#RuntimeCanonicalGuards(rows) => rows.len(),
+            Self::r#RuntimeCanonicalInterpretations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalMemberships(rows) => rows.len(),
+            Self::r#RuntimeCanonicalPayloadBlocks(rows) => rows.len(),
+            Self::r#RuntimeCanonicalProblems(rows) => rows.len(),
+            Self::r#RuntimeCanonicalProducts(rows) => rows.len(),
+            Self::r#RuntimeCanonicalProtections(rows) => rows.len(),
+            Self::r#RuntimeCanonicalReclaimedRanges(rows) => rows.len(),
+            Self::r#RuntimeCanonicalRevisions(rows) => rows.len(),
+            Self::r#RuntimeCanonicalRoots(rows) => rows.len(),
+            Self::r#RuntimeCanonicalStagedEdits(rows) => rows.len(),
+            Self::r#RuntimeCanonicalStages(rows) => rows.len(),
+            Self::r#RuntimeCanonicalVersionManifests(rows) => rows.len(),
+            Self::r#RuntimeCanonicalVersionReceipts(rows) => rows.len(),
+            Self::r#RuntimeCanonicalVersions(rows) => rows.len(),
             Self::r#RuntimeChangeEvents(rows) => rows.len(),
             Self::r#RuntimeComputationRuns(rows) => rows.len(),
             Self::r#RuntimeDiagnosticsFindings(rows) => rows.len(),
@@ -1534,6 +1688,86 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCandidateAssessments(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalEdges(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalGuards(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalInterpretations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalMemberships(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalPayloadBlocks(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalProblems(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalProducts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalProtections(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalReclaimedRanges(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalRevisions(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalRoots(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalStagedEdits(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalStages(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalVersionManifests(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalVersionReceipts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalVersions(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2152,6 +2386,78 @@ impl FactBatch {
             Self::r#RuntimeCandidateAssessments(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCandidateAssessments(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalEdges(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalEdges(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalGuards(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalGuards(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalInterpretations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalInterpretations(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalMemberships(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalMemberships(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalPayloadBlocks(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalPayloadBlocks(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalProblems(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalProblems(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalProducts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalProducts(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalProtections(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalProtections(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalReclaimedRanges(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalReclaimedRanges(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalRevisions(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalRevisions(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalRoots(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalRoots(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalStagedEdits(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalStagedEdits(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalStages(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalStages(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalVersionManifests(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalVersionManifests(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalVersionReceipts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalVersionReceipts(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalVersions(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalVersions(vec![row.clone()]))
             }
             Self::r#RuntimeChangeEvents(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeChangeEvents(vec![row.clone()]))
@@ -3013,6 +3319,182 @@ impl FactBatch {
             (
                 Self::r#RuntimeCandidateAssessments(left),
                 Self::r#RuntimeCandidateAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalEdges(left),
+                Self::r#RuntimeCanonicalEdges(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalGuards(left),
+                Self::r#RuntimeCanonicalGuards(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalInterpretations(left),
+                Self::r#RuntimeCanonicalInterpretations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalMemberships(left),
+                Self::r#RuntimeCanonicalMemberships(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalPayloadBlocks(left),
+                Self::r#RuntimeCanonicalPayloadBlocks(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProblems(left),
+                Self::r#RuntimeCanonicalProblems(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProducts(left),
+                Self::r#RuntimeCanonicalProducts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProtections(left),
+                Self::r#RuntimeCanonicalProtections(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalReclaimedRanges(left),
+                Self::r#RuntimeCanonicalReclaimedRanges(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalRevisions(left),
+                Self::r#RuntimeCanonicalRevisions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalRoots(left),
+                Self::r#RuntimeCanonicalRoots(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalStagedEdits(left),
+                Self::r#RuntimeCanonicalStagedEdits(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalStages(left),
+                Self::r#RuntimeCanonicalStages(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalVersionManifests(left),
+                Self::r#RuntimeCanonicalVersionManifests(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalVersionReceipts(left),
+                Self::r#RuntimeCanonicalVersionReceipts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalVersions(left),
+                Self::r#RuntimeCanonicalVersions(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4244,6 +4726,118 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCandidateAssessments(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalEdges(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalGuards(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalInterpretations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalMemberships(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalPayloadBlocks(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalProblems(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalProducts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalProtections(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalReclaimedRanges(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalRevisions(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalRoots(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalStagedEdits(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalStages(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalVersionManifests(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalVersionReceipts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalVersions(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5486,6 +6080,182 @@ impl FactBatch {
                                 &left.r#step,
                                 &right.r#step,
                             )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalEdges(left),
+                Self::r#RuntimeCanonicalEdges(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalGuards(left),
+                Self::r#RuntimeCanonicalGuards(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalInterpretations(left),
+                Self::r#RuntimeCanonicalInterpretations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalMemberships(left),
+                Self::r#RuntimeCanonicalMemberships(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalPayloadBlocks(left),
+                Self::r#RuntimeCanonicalPayloadBlocks(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProblems(left),
+                Self::r#RuntimeCanonicalProblems(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProducts(left),
+                Self::r#RuntimeCanonicalProducts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalProtections(left),
+                Self::r#RuntimeCanonicalProtections(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalReclaimedRanges(left),
+                Self::r#RuntimeCanonicalReclaimedRanges(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalRevisions(left),
+                Self::r#RuntimeCanonicalRevisions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalRoots(left),
+                Self::r#RuntimeCanonicalRoots(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalStagedEdits(left),
+                Self::r#RuntimeCanonicalStagedEdits(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalStages(left),
+                Self::r#RuntimeCanonicalStages(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalVersionManifests(left),
+                Self::r#RuntimeCanonicalVersionManifests(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalVersionReceipts(left),
+                Self::r#RuntimeCanonicalVersionReceipts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalVersions(left),
+                Self::r#RuntimeCanonicalVersions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
                     }
                     _ => false,
                 }
@@ -7089,6 +7859,70 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
             }
+            Self::r#RuntimeCanonicalEdges(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalGuards(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalInterpretations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalMemberships(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalPayloadBlocks(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalProblems(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalProducts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalProtections(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalReclaimedRanges(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalRevisions(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalRoots(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalStagedEdits(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalStages(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalVersionManifests(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalVersionReceipts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalVersions(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeChangeEvents(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#table_uri, &mut hash);
@@ -7859,6 +8693,118 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalEdges(left),
+                Self::r#RuntimeCanonicalEdges(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalGuards(left),
+                Self::r#RuntimeCanonicalGuards(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalInterpretations(left),
+                Self::r#RuntimeCanonicalInterpretations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalMemberships(left),
+                Self::r#RuntimeCanonicalMemberships(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalPayloadBlocks(left),
+                Self::r#RuntimeCanonicalPayloadBlocks(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalProblems(left),
+                Self::r#RuntimeCanonicalProblems(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalProducts(left),
+                Self::r#RuntimeCanonicalProducts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalProtections(left),
+                Self::r#RuntimeCanonicalProtections(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalReclaimedRanges(left),
+                Self::r#RuntimeCanonicalReclaimedRanges(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalRevisions(left),
+                Self::r#RuntimeCanonicalRevisions(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalRoots(left),
+                Self::r#RuntimeCanonicalRoots(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalStagedEdits(left),
+                Self::r#RuntimeCanonicalStagedEdits(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalStages(left),
+                Self::r#RuntimeCanonicalStages(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalVersionManifests(left),
+                Self::r#RuntimeCanonicalVersionManifests(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalVersionReceipts(left),
+                Self::r#RuntimeCanonicalVersionReceipts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalVersions(left),
+                Self::r#RuntimeCanonicalVersions(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeChangeEvents(left),
                 Self::r#RuntimeChangeEvents(mut right),
             ) => {
@@ -8516,6 +9462,38 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCandidateAssessments(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeCanonicalEdges(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCanonicalGuards(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCanonicalInterpretations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalMemberships(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalPayloadBlocks(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalProblems(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCanonicalProducts(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCanonicalProtections(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalReclaimedRanges(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalRevisions(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCanonicalRoots(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCanonicalStagedEdits(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalStages(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCanonicalVersionManifests(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalVersionReceipts(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalVersions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeChangeEvents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeComputationRuns(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeDiagnosticsFindings(rows) => {

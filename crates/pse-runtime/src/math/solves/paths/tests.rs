@@ -169,7 +169,10 @@ async fn prepared(
         .unwrap()
         .declaration_id;
     let runtime = fixture::runtime_with(6 << 30, 64 << 20, 16 << 30);
-    let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
     let mut solver = SolverProfile {
         intent: SolveIntent::Root,
         ..Default::default()

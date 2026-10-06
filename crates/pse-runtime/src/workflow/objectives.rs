@@ -557,7 +557,7 @@ mod tests {
     use pse_modeling::{Bindings, Limits};
     use pse_relations::columnar::RelationRow;
 
-    fn package(text: &str) -> (ModelingPackage, ModelingAnalysis) {
+    async fn package(text: &str) -> (ModelingPackage, ModelingAnalysis) {
         let physical = fixture::physical();
         let rows = pse_authoring::language::parse(
             text,
@@ -571,7 +571,10 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime().modeling_package(rows, physical).unwrap();
+        let package = fixture::runtime()
+            .modeling_package(rows, physical)
+            .await
+            .unwrap();
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Optimize;
         solver.selection = SolverSelection::Auto;
@@ -649,7 +652,7 @@ mod tests {
             ("0{W}", 1.0, 3.0, [4.0, 1.0]),
             ("1{W}", 0.0, 3.0, [3.0, 0.0]),
         ] {
-            let (package, analysis) = package(&milp(absolute));
+            let (package, analysis) = package(&milp(absolute)).await;
             let report = solve(&package, &analysis).await;
             assert_eq!(report.route, ModelingObjectiveRoute::Native);
             assert_eq!(report.steps.len(), 1);
@@ -698,7 +701,7 @@ mod tests {
     /// effort, x = 4/3 and y = 2/3.
     #[tokio::test]
     async fn lexicographic_nlp_staged_matches_weighted_limit() {
-        let (package, analysis) = package(&nlp(MISS, "1e-6", "0"));
+        let (package, analysis) = package(&nlp(MISS, "1e-6", "0")).await;
         let report = solve(&package, &analysis).await;
         assert_eq!(report.route, ModelingObjectiveRoute::Staged);
         assert_eq!(report.steps.len(), 2);
@@ -715,7 +718,7 @@ mod tests {
             annotation objective blend(minimize);
             annotation bounds x(-10, 10); annotation bounds y(-10, 10);
             annotation start x(0); annotation start y(0); } }";
-        let (blended, mut analysis) = self::package(weighted);
+        let (blended, mut analysis) = self::package(weighted).await;
         analysis.solver.selection = SolverSelection::Explicit(Backend::Ipopt);
         let limit = solve(&blended, &analysis).await;
         let limit = limit.result().unwrap();
@@ -732,7 +735,7 @@ mod tests {
             (MISS, "0.01", "0", 0.0, 0.01),
             (shifted.as_str(), "0.001", "0.05", 1.0, 1.05),
         ] {
-            let (package, analysis) = package(&nlp(first, absolute, relative));
+            let (package, analysis) = package(&nlp(first, absolute, relative)).await;
             let report = solve(&package, &analysis).await;
             assert_eq!(report.route, ModelingObjectiveRoute::Staged);
             let level = &report.levels[0];
@@ -766,7 +769,7 @@ mod tests {
         };
         let cancel = crate::CancelSource::new();
         for (absolute, relative) in [("0", "0"), ("0", "0.1")] {
-            let (package, analysis) = package(&nlp(MISS, absolute, relative));
+            let (package, analysis) = package(&nlp(MISS, absolute, relative)).await;
             refused(
                 package
                     .optimize_levels(&analysis, &cancel)
@@ -785,7 +788,8 @@ mod tests {
             &nlp(MISS, "0.01", "0")
                 .replace("let miss", "param target: Scalar = 2; let miss")
                 .replace("(x + y - 2)", "(x + y - target)"),
-        );
+        )
+        .await;
         analysis.bindings.demand = vec!["target".into()];
         let native = package.runtime.native();
         let before = native.preparations();

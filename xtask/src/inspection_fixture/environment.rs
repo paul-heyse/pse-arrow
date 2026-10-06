@@ -37,26 +37,13 @@ impl Environment {
         bundles: &[pse_runtime::authoring_driver::document::DocumentBundle],
     ) -> Result<ArtifactPlan> {
         let validation = self.sessions.validation_context(&self.registry)?;
-        let headers = bundles
-            .iter()
-            .map(|bundle| bundle.package.clone())
-            .collect::<Vec<_>>();
-        let edges = headers
-            .iter()
-            .try_fold(0usize, |sum, header| {
-                sum.checked_add(header.dependencies.len())
-            })
-            .context("package dependency extent overflow")?;
-        let limits = pse_authoring::p0::GraphLimits {
-            nodes: headers.len(),
-            edges,
-        };
-        let rows = pse_runtime::authoring_driver::p1::source_batches(
-            bundles,
-            &self.registry,
-            &headers,
-            limits,
-        )?;
+        // This publication fixture exports registry reflection from a clean source.
+        // Scientific source export is the canonical package's explicit source_tables API.
+        ensure!(
+            bundles.is_empty(),
+            "inspection fixture requires a clean source"
+        );
+        let rows = BTreeMap::new();
         let mut rows = rows
             .into_iter()
             .map(|(id, batch)| {

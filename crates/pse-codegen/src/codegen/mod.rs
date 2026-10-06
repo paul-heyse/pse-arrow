@@ -26,6 +26,7 @@ mod native;
 pub mod postgres;
 pub mod python;
 pub mod rust;
+mod surreal;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -115,6 +116,28 @@ pub fn generate(reg: &Registry, language: Language) -> Result<GeneratedTree, Sch
         Language::Markdown => markdown::generate(reg),
         Language::Postgres => postgres::generate(reg),
     }
+}
+
+/// Render only the registry-owned canonical native schema, including declared indexes.
+/// Explicit schema fixtures use the same lowering as production installation.
+/// # Errors
+/// An unsupported native field or invalid declared physical access path.
+pub fn canonical_schema(registry: &Registry) -> Result<String, SchemaError> {
+    let mut tree = GeneratedTree::empty(Vec::new());
+    surreal::append(registry, &mut tree)?;
+    let bytes = tree
+        .files
+        .remove(&PathBuf::from(
+            "crates/pse-operations/src/generated/surreal.surql",
+        ))
+        .ok_or_else(|| SchemaError::Codegen {
+            language: "surreal",
+            reason: "native schema output absent".into(),
+        })?;
+    String::from_utf8(bytes).map_err(|error| SchemaError::Codegen {
+        language: "surreal",
+        reason: error.to_string(),
+    })
 }
 
 /// Resolve a declared enum child in either an unbound field or composite extension

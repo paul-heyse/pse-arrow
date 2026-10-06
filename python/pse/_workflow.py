@@ -64,22 +64,46 @@ class Runtime:
     _handle: _NativeRuntime
 
     def __init__(
-        self, settings: EngineSettings, *, store: OperationalStore | None = None
+        self,
+        settings: EngineSettings,
+        *,
+        substrate: str,
+        producer: str | None = None,
+        store: OperationalStore | None = None,
     ) -> None:
         """Attach to the shared deployment under an explicit durability class.
 
         Args:
             settings: The deployment budget shared with publication inspection.
+            substrate: Supervisor state directory for canonical scientific storage.
+            producer: Optional qualified mathematical producer receipt path.
             store: With a store, every run is a durable attempt registered in it
                 and may be published; without one, runs are ephemeral and cannot
                 publish (ADR-0112 Outcome 16).
         """
-        object.__setattr__(self, "_handle", _NativeRuntime(settings, store=store))
+        object.__setattr__(
+            self,
+            "_handle",
+            _NativeRuntime(
+                settings, substrate=substrate, producer=producer, store=store
+            ),
+        )
 
     @property
     def durable(self) -> bool:
         """Whether runs are durable attempts in an operational store."""
         return self._handle.durable
+
+    def modeling_revision(
+        self, revision: str, physical: "PhysicalContext"
+    ) -> ModelingPackage:
+        """Reopen a retained source revision from canonical storage."""
+        return ModelingPackage(
+            self._handle.modeling_revision(
+                revision,
+                physical._handle,  # noqa: SLF001 - same native boundary
+            )
+        )
 
     def resource_usage(self) -> ResourceReport:
         """Observe the shared deployment's accounted pool and process memory."""
